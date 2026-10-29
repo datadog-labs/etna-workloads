@@ -1,0 +1,35 @@
+--- a/ext/fts5/fts5_index.c
++++ b/ext/fts5/fts5_index.c
+@@ -5357,24 +5357,18 @@
+ 
+   iOff = iStart;
+ 
+-  /* If the position-list for the entry being removed flows over past
+-  ** the end of this page, delete the portion of the position-list on the
+-  ** next page and beyond.
+-  **
+-  ** Set variable bLastInDoclist to true if this entry happens 
+-  ** to be the last rowid in the doclist for its term.  */
+-  if( iNextOff>=iPgIdx ){
+-    int pgno = pSeg->iLeafPgno+1;
+-    fts5SecureDeleteOverflow(p, pSeg->pSeg, pgno, &bLastInDoclist);
+-    iNextOff = iPgIdx;
+-  }
+-
++  /* Set variable bLastInDoclist to true if this entry happens to be
++  ** the last rowid in the doclist for its term.  */
+   if( pSeg->bDel==0 ){
+-    if( iNextOff!=iPgIdx ){
++    if( iNextOff>=iPgIdx ){
++      int pgno = pSeg->iLeafPgno+1;
++      fts5SecureDeleteOverflow(p, pSeg->pSeg, pgno, &bLastInDoclist);
++      iNextOff = iPgIdx;
++    }else{
+       /* Loop through the page-footer. If iNextOff (offset of the
+       ** entry following the one we are removing) is equal to the 
+       ** offset of a key on this page, then the entry is the last 
+-      ** in its doclist. */
++      ** in its doclist.  */
+       int iKeyOff = 0;
+       for(iIdx=0; iIdx<nIdx; /* no-op */){
+         u32 iVal = 0;

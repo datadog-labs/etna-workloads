@@ -1,0 +1,21 @@
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -5030,14 +5030,10 @@
+     if( (newType & (MEM_Int|MEM_IntReal))==0 ){
+       int c;
+       if( (newType & MEM_Real)==0 ){
+-        if( (newType & MEM_Null) || oc>=OP_SeekGE ){
+-          VdbeBranchTaken(1,2);
+-          goto jump_to_p2;
+-        }else{
+-          rc = sqlite3BtreeLast(pC->uc.pCursor, &res);
+-          if( rc!=SQLITE_OK ) goto abort_due_to_error;
+-          goto seek_not_found;
+-        }
++        /* If the P3 value cannot be converted into any kind of a number,
++        ** then the seek is not possible, so jump to P2 */
++        VdbeBranchTaken(1,2);
++        goto jump_to_p2;
+       }
+       c = sqlite3IntFloatCompare(iKey, pIn3->u.r);
+ 

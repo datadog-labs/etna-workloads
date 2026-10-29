@@ -1,0 +1,25 @@
+--- a/src/vacuum.c
++++ b/src/vacuum.c
+@@ -166,10 +166,6 @@
+   char zDbVacuum[42];     /* Name of the ATTACH-ed database used for vacuum */
+ 
+ 
+-  if( !db->autoCommit ){
+-    sqlite3SetString(pzErrMsg, db, "cannot VACUUM from within a transaction");
+-    return SQLITE_ERROR; /* IMP: R-12218-18073 */
+-  }
+   if( db->nVdbeActive>1 ){
+     sqlite3SetString(pzErrMsg, db,"cannot VACUUM - SQL statements in progress");
+     return SQLITE_ERROR; /* IMP: R-15610-35227 */
+@@ -204,6 +200,11 @@
+ 
+   zDbMain = db->aDb[iDb].zDbSName;
+   pMain = db->aDb[iDb].pBt;
++  if( !db->autoCommit ){
++    sqlite3SetString(pzErrMsg, db, "cannot VACUUM from within a transaction");
++    rc = SQLITE_ERROR; /* IMP: R-12218-18073 */
++    goto end_of_vacuum;
++  }
+   isMemDb = sqlite3PagerIsMemdb(sqlite3BtreePager(pMain));
+ 
+   /* Attach the temporary database as 'vacuum_XXXXXX'. The synchronous pragma

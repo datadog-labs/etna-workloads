@@ -1,0 +1,2 @@
+Reproducer: repro.sql builds the `sales` table from window1 test 10 and runs the "top two per region" query, which filters a row_number() window subquery on the outer WHERE.
+With the bug, the outer `rank<=2` term is pushed down into the subquery. That changes the window's input, so the buggy shell returns wrong rows. The clean shell doesn't push down terms into window subqueries and returns the correct rows.

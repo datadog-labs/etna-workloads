@@ -1,0 +1,1 @@
+Reproducer: EXPLAIN QUERY PLAN with an equality on rowid as the last index term. Clean prints '(a=? AND b=? AND rowid=?)'; buggy prints a wrong column name for the rowid term (injection removes the XN_ROWID case in explainIndexColumnName).

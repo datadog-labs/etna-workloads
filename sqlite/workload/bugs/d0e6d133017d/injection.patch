@@ -1,0 +1,56 @@
+--- a/src/wal.c
++++ b/src/wal.c
+@@ -2790,34 +2790,27 @@
+         walUnlockShared(pWal, WAL_WRITE_LOCK);
+         rc = SQLITE_READONLY_RECOVERY;
+       }
+-    }else{
+-      int bWriteLock = pWal->writeLock;
+-      if( bWriteLock 
+-       || SQLITE_OK==(rc = walLockExclusive(pWal, WAL_WRITE_LOCK, 1)) 
+-      ){
+-        /* If the write-lock was just obtained, set writeLock to 2 instead of
+-        ** the usual 1. This causes walIndexPage() to behave as if the 
+-        ** write-lock were held (so that it allocates new pages as required),
+-        ** and walHandleException() to unlock the write-lock if a SEH exception
+-        ** is thrown.  */
+-        if( !bWriteLock ) pWal->writeLock = 2;
+-        if( SQLITE_OK==(rc = walIndexPage(pWal, 0, &page0)) ){
+-          badHdr = walIndexTryHdr(pWal, pChanged);
+-          if( badHdr ){
+-            /* If the wal-index header is still malformed even while holding
+-            ** a WRITE lock, it can only mean that the header is corrupted and
+-            ** needs to be reconstructed.  So run recovery to do exactly that.
+-            ** Disable blocking locks first.  */
+-            walDisableBlocking(pWal);
+-            rc = walIndexRecover(pWal);
+-            *pChanged = 1;
+-          }
+-        }
+-        if( bWriteLock==0 ){
+-          pWal->writeLock = 0;
+-          walUnlockExclusive(pWal, WAL_WRITE_LOCK, 1);
++    }else if( SQLITE_OK==(rc = walLockExclusive(pWal, WAL_WRITE_LOCK, 1)) ){
++      /* If the write-lock was just obtained, set writeLock to 2 instead of
++      ** the usual 1. This causes walIndexPage() to behave as if the 
++      ** write-lock were held (so that it allocates new pages as required),
++      ** and walHandleException() to unlock the write-lock if a SEH exception
++      ** is thrown.  */
++      pWal->writeLock = 2;
++      if( SQLITE_OK==(rc = walIndexPage(pWal, 0, &page0)) ){
++        badHdr = walIndexTryHdr(pWal, pChanged);
++        if( badHdr ){
++          /* If the wal-index header is still malformed even while holding
++          ** a WRITE lock, it can only mean that the header is corrupted and
++          ** needs to be reconstructed.  So run recovery to do exactly that.
++          ** Disable blocking locks first.  */
++          walDisableBlocking(pWal);
++          rc = walIndexRecover(pWal);
++          *pChanged = 1;
+         }
+       }
++      pWal->writeLock = 0;
++      walUnlockExclusive(pWal, WAL_WRITE_LOCK, 1);
+     }
+   }
+ 

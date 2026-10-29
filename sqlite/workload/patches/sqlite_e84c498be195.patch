@@ -1,0 +1,27 @@
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -5713,6 +5713,7 @@
+   u32 *aSzDel = 0;                /* Sizes of deleted documents */
+   int nChng = 0;                  /* Net change in number of documents */
+   int bInsertDone = 0;
++  int isRemove = 0;               /* True if an old record was removed */
+ 
+   /* At this point it must be known if the %_stat table exists or not.
+   ** So bHasStat may not be 2.  */
+@@ -5805,6 +5806,7 @@
+   /* If this is a DELETE or UPDATE operation, remove the old record. */
+   if( sqlite3_value_type(apVal[0])!=SQLITE_NULL ){
+     assert( sqlite3_value_type(apVal[0])==SQLITE_INTEGER );
++    isRemove = 1;
+     rc = fts3DeleteByRowid(p, apVal[0], &nChng, aSzDel);
+   }
+   
+@@ -5817,7 +5819,7 @@
+         rc = FTS_CORRUPT_VTAB;
+       }
+     }
+-    if( rc==SQLITE_OK ){
++    if( rc==SQLITE_OK && (!isRemove || *pRowid!=p->iPrevDocid) ){
+       rc = fts3PendingTermsDocid(p, 0, iLangid, *pRowid);
+     }
+     if( rc==SQLITE_OK ){

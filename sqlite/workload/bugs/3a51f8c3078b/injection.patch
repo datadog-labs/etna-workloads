@@ -1,0 +1,30 @@
+--- a/ext/fts5/fts5_index.c
++++ b/ext/fts5/fts5_index.c
+@@ -3313,9 +3313,6 @@
+ */
+ #define TOMBSTONE_KEYSIZE(pPg) (pPg->p[0]==4 ? 4 : 8)
+ 
+-#define TOMBSTONE_NSLOT(pPg)   \
+-  ((pPg->nn > 16) ? ((pPg->nn-8) / TOMBSTONE_KEYSIZE(pPg)) : 1)
+-
+ /*
+ ** Query a single tombstone hash table for rowid iRowid. Return true if
+ ** it is found or false otherwise. The tombstone hash table is one of
+@@ -3327,7 +3324,7 @@
+   u64 iRowid                      /* Rowid to query hash for */
+ ){
+   const int szKey = TOMBSTONE_KEYSIZE(pHash);
+-  const int nSlot = TOMBSTONE_NSLOT(pHash);
++  const int nSlot = (pHash->nn - 8) / szKey;
+   int iSlot = (iRowid / nHashTable) % nSlot;
+   int nCollide = nSlot;
+ 
+@@ -7877,7 +7874,7 @@
+   u64 iRowid
+ ){
+   const int szKey = TOMBSTONE_KEYSIZE(pPg);
+-  const int nSlot = TOMBSTONE_NSLOT(pPg);
++  const int nSlot = (pPg->nn - 8) / szKey;
+   const int nElem = fts5GetU32(&pPg->p[4]);
+   int iSlot = (iRowid / nPg) % nSlot;
+   int nCollide = nSlot;

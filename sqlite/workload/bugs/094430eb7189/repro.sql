@@ -1,0 +1,5 @@
+CREATE TABLE t1(x);
+SELECT null IN t1;
+SELECT null NOT IN t1;
+SELECT null IN (SELECT x FROM t1);
+SELECT null NOT IN (SELECT x FROM t1);

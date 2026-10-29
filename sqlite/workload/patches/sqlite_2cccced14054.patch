@@ -1,0 +1,30 @@
+--- a/ext/fts5/fts5_storage.c
++++ b/ext/fts5/fts5_storage.c
+@@ -508,7 +508,7 @@
+ ){
+   Fts5Config *pConfig = p->pConfig;
+   sqlite3_stmt *pSeek = 0;        /* SELECT to read row iDel from %_data */
+-  int rc = SQLITE_OK;             /* Return code */
++  int rc;                         /* Return code */
+   int rc2;                        /* sqlite3_reset() return code */
+   int iCol;
+   Fts5InsertCtx ctx;
+@@ -533,6 +533,7 @@
+ 
+   ctx.pStorage = p;
+   ctx.iCol = -1;
++  rc = sqlite3Fts5IndexBeginWrite(p->pIndex, 1, iDel);
+   for(iCol=1; rc==SQLITE_OK && iCol<=pConfig->nCol; iCol++){
+     if( pConfig->abUnindexed[iCol-1]==0 ){
+       sqlite3_value *pVal = 0;
+@@ -783,10 +784,6 @@
+ 
+   /* Delete the index records */
+   if( rc==SQLITE_OK ){
+-    rc = sqlite3Fts5IndexBeginWrite(p->pIndex, 1, iDel);
+-  }
+-
+-  if( rc==SQLITE_OK ){
+     if( p->pConfig->bContentlessDelete ){
+       rc = fts5StorageContentlessDelete(p, iDel);
+       if( rc==SQLITE_OK 

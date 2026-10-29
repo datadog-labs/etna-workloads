@@ -1,0 +1,16 @@
+--- a/src/wherecode.c
++++ b/src/wherecode.c
+@@ -975,7 +975,12 @@
+     testcase( pTerm->wtFlags & TERM_VIRTUAL );
+     r1 = codeEqualityTerm(pParse, pTerm, pLevel, j, bRev, regBase+j);
+     if( r1!=regBase+j ){
+-      sqlite3VdbeAddOp2(v, OP_Copy, r1, regBase+j);
++      if( nReg==1 ){
++        sqlite3ReleaseTempReg(pParse, regBase);
++        regBase = r1;
++      }else{
++        sqlite3VdbeAddOp2(v, OP_Copy, r1, regBase+j);
++      }
+     }
+     if( pTerm->eOperator & WO_IN ){
+       if( pTerm->pExpr->flags & EP_xIsSelect ){

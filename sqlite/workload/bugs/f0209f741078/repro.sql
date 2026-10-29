@@ -1,0 +1,5 @@
+CREATE TABLE t1(a,b,c);
+INSERT INTO t1 VALUES(1,2,3);
+CREATE VIEW v AS SELECT rowid, * FROM t1;
+.mode box
+SELECT * FROM v;

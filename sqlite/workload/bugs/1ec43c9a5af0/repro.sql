@@ -1,0 +1,3 @@
+PRAGMA empty_result_callbacks=1;
+ANALYZE;
+SELECT count(*) FROM sqlite_master;

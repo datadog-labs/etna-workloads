@@ -1,0 +1,4 @@
+CREATE TABLE t1(a);
+INSERT INTO t1 VALUES(NULL),(1);
+CREATE INDEX t1x2 ON t1(a+0);
+SELECT '4:', typeof(a), a FROM t1 WHERE a+0<10;

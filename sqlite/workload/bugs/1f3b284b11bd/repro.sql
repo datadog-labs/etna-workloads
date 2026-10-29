@@ -1,0 +1,13 @@
+CREATE TABLE t1(a, b);
+CREATE TABLE t3(e, f);
+CREATE TRIGGER tr1 AFTER INSERT ON t1 BEGIN
+  INSERT INTO t2 VALUES(new.a, new.b);
+END;
+BEGIN;
+ALTER TABLE t3 RENAME TO t4;
+COMMIT;
+SELECT name FROM sqlite_master WHERE type='table';
+BEGIN;
+ALTER TABLE t3 RENAME e TO eee;
+COMMIT;
+SELECT sql FROM sqlite_master WHERE name='t3';

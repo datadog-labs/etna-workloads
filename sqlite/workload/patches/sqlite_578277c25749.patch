@@ -1,0 +1,57 @@
+--- a/src/alter.c
++++ b/src/alter.c
+@@ -2197,6 +2197,7 @@
+ **  argv[0]: An integer - the index of the schema containing the table
+ **  argv[1]: CREATE TABLE statement to modify.
+ **  argv[2]: An integer - the index of the column to remove.
++**  argv[3]: Byte offset of first byte after last column definition in argv[1]
+ **
+ ** The value returned is a string containing the CREATE TABLE statement
+ ** with column argv[2] removed.
+@@ -2210,6 +2211,7 @@
+   int iSchema = sqlite3_value_int(argv[0]);
+   const char *zSql = (const char*)sqlite3_value_text(argv[1]);
+   int iCol = sqlite3_value_int(argv[2]);
++  int iAddColOffset = sqlite3_value_int(argv[3]);
+   const char *zDb = db->aDb[iSchema].zDbSName;
+   int rc;
+   Parse sParse;
+@@ -2227,7 +2229,7 @@
+   rc = renameParseSql(&sParse, zDb, db, zSql, iSchema==1);
+   if( rc!=SQLITE_OK ) goto drop_column_done;
+   pTab = sParse.pNewTable;
+-  if( pTab==0 || pTab->nCol==1 || iCol>=pTab->nCol ){
++  if( pTab==0 || iCol>=pTab->nCol ){
+     /* This can happen if the sqlite_schema table is corrupt */
+     rc = SQLITE_CORRUPT_BKPT;
+     goto drop_column_done;
+@@ -2250,7 +2252,7 @@
+       pCol->t.z += getConstraintToken((const u8*)pCol->t.z, &eTok);
+     }while( eTok!=TK_COMMA );
+     pCol->t.z--;
+-    zEnd = (const char*)&zSql[pTab->u.tab.addColOffset];
++    zEnd = (const char*)&zSql[iAddColOffset];
+   }
+ 
+   zNew = sqlite3MPrintf(db, "%.*s%s", pCol->t.z-zSql, zSql, zEnd);
+@@ -2338,9 +2340,9 @@
+   renameFixQuotes(pParse, zDb, iDb==1);
+   sqlite3NestedParse(pParse,
+       "UPDATE \"%w\"." LEGACY_SCHEMA_TABLE " SET "
+-      "sql = sqlite_drop_column(%d, sql, %d) "
++      "sql = sqlite_drop_column(%d, sql, %d, %d) "
+       "WHERE (type=='table' AND tbl_name=%Q COLLATE nocase)"
+-      , zDb, iDb, iCol, pTab->zName
++      , zDb, iDb, iCol, pTab->u.tab.addColOffset, pTab->zName
+   );
+ 
+   /* Drop and reload the database schema. */
+@@ -3106,7 +3108,7 @@
+     INTERNAL_FUNCTION(sqlite_rename_column,  9, renameColumnFunc),
+     INTERNAL_FUNCTION(sqlite_rename_table,   7, renameTableFunc),
+     INTERNAL_FUNCTION(sqlite_rename_test,    7, renameTableTest),
+-    INTERNAL_FUNCTION(sqlite_drop_column,    3, dropColumnFunc),
++    INTERNAL_FUNCTION(sqlite_drop_column,    4, dropColumnFunc),
+     INTERNAL_FUNCTION(sqlite_rename_quotefix,2, renameQuotefixFunc),
+     INTERNAL_FUNCTION(sqlite_drop_constraint,2, dropConstraintFunc),
+     INTERNAL_FUNCTION(sqlite_fail,           2, failConstraintFunc),

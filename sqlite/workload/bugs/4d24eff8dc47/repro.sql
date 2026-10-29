@@ -1,0 +1,4 @@
+CREATE VIRTUAL TABLE t0 USING fts5(c0, t="trigram");
+INSERT INTO t0 VALUES('assertionfaultproblem');
+SELECT 0 FROM t0(0) WHERE c0 GLOB 0;
+SELECT c0 FROM t0 WHERE c0 GLOB '*f*';

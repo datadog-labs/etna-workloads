@@ -1,0 +1,44 @@
+--- a/src/backup.c
++++ b/src/backup.c
+@@ -234,12 +234,7 @@
+ ** page iSrcPg from the source database. Copy this data into the 
+ ** destination database.
+ */
+-static int backupOnePage(
+-  sqlite3_backup *p,              /* Backup handle */
+-  Pgno iSrcPg,                    /* Source database page to backup */
+-  const u8 *zSrcData,             /* Source database page data */
+-  int bUpdate                     /* True for an update, false otherwise */
+-){
++static int backupOnePage(sqlite3_backup *p, Pgno iSrcPg, const u8 *zSrcData){
+   Pager * const pDestPager = sqlite3BtreePager(p->pDest);
+   const int nSrcPgsz = sqlite3BtreeGetPageSize(p->pSrc);
+   int nDestPgsz = sqlite3BtreeGetPageSize(p->pDest);
+@@ -279,9 +274,6 @@
+       */
+       memcpy(zOut, zIn, nCopy);
+       ((u8 *)sqlite3PagerGetExtra(pDestPg))[0] = 0;
+-      if( iOff==0 && bUpdate==0 ){
+-        sqlite3Put4byte(&zOut[28], sqlite3BtreeLastPage(p->pSrc));
+-      }
+     }
+     sqlite3PagerUnref(pDestPg);
+   }
+@@ -420,7 +412,7 @@
+         DbPage *pSrcPg;                             /* Source page object */
+         rc = sqlite3PagerGet(pSrcPager, iSrcPg, &pSrcPg,PAGER_GET_READONLY);
+         if( rc==SQLITE_OK ){
+-          rc = backupOnePage(p, iSrcPg, sqlite3PagerGetData(pSrcPg), 0);
++          rc = backupOnePage(p, iSrcPg, sqlite3PagerGetData(pSrcPg));
+           sqlite3PagerUnref(pSrcPg);
+         }
+       }
+@@ -703,7 +695,7 @@
+       int rc;
+       assert( p->pDestDb );
+       sqlite3_mutex_enter(p->pDestDb->mutex);
+-      rc = backupOnePage(p, iPage, aData, 1);
++      rc = backupOnePage(p, iPage, aData);
+       sqlite3_mutex_leave(p->pDestDb->mutex);
+       assert( rc!=SQLITE_BUSY && rc!=SQLITE_LOCKED );
+       if( rc!=SQLITE_OK ){

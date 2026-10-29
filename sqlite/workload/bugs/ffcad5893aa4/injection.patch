@@ -1,0 +1,34 @@
+--- a/src/delete.c
++++ b/src/delete.c
+@@ -494,7 +494,7 @@
+ #endif /* SQLITE_OMIT_TRUNCATE_OPTIMIZATION */
+   {
+     u16 wcf = WHERE_ONEPASS_DESIRED|WHERE_DUPLICATES_OK;
+-    if( sNC.ncFlags & NC_Subquery ) bComplex = 1;
++    if( sNC.ncFlags & NC_VarSelect ) bComplex = 1;
+     wcf |= (bComplex ? 0 : WHERE_ONEPASS_MULTIROW);
+     if( HasRowid(pTab) ){
+       /* For a rowid table, initialize the RowSet to an empty set */
+--- a/src/resolve.c
++++ b/src/resolve.c
+@@ -1433,8 +1433,8 @@
+         if( nRef!=pNC->nRef ){
+           ExprSetProperty(pExpr, EP_VarSelect);
+           pExpr->x.pSelect->selFlags |= SF_Correlated;
++          pNC->ncFlags |= NC_VarSelect;
+         }
+-        pNC->ncFlags |= NC_Subquery;
+       }
+       break;
+     }
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -3569,7 +3569,7 @@
+ #define NC_HasAgg    0x000010 /* One or more aggregate functions seen */
+ #define NC_IdxExpr   0x000020 /* True if resolving columns of CREATE INDEX */
+ #define NC_SelfRef   0x00002e /* Combo: PartIdx, isCheck, GenCol, and IdxExpr */
+-#define NC_Subquery  0x000040 /* A subquery has been seen */
++#define NC_VarSelect 0x000040 /* A correlated subquery has been seen */
+ #define NC_UEList    0x000080 /* True if uNC.pEList is used */
+ #define NC_UAggInfo  0x000100 /* True if uNC.pAggInfo is used */
+ #define NC_UUpsert   0x000200 /* True if uNC.pUpsert is used */

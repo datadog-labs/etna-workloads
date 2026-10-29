@@ -1,0 +1,32 @@
+--- a/src/os_unix.c
++++ b/src/os_unix.c
+@@ -4181,7 +4181,12 @@
+       return rc;
+     }
+     case SQLITE_FCNTL_PERSIST_WAL: {
+-      unixModeBit(pFile, UNIXFILE_PERSIST_WAL, (int*)pArg);
++      int bPersist = *(int*)pArg;
++      if( bPersist<0 ){
++        bPersist = (pFile->ctrlFlags & UNIXFILE_PERSIST_WAL)!=0;
++      }else{
++        unixModeBit(pFile, UNIXFILE_PERSIST_WAL, (int*)pArg);
++      }
+       return SQLITE_OK;
+     }
+     case SQLITE_FCNTL_POWERSAFE_OVERWRITE: {
+--- a/src/os_win.c
++++ b/src/os_win.c
+@@ -2668,7 +2668,12 @@
+       return SQLITE_OK;
+     }
+     case SQLITE_FCNTL_PERSIST_WAL: {
+-      winModeBit(pFile, WINFILE_PERSIST_WAL, (int*)pArg);
++      int bPersist = *(int*)pArg;
++      if( bPersist<0 ){
++        bPersist = (pFile->ctrlFlags & WINFILE_PERSIST_WAL)!=0;
++      }else{
++        winModeBit(pFile, WINFILE_PERSIST_WAL, (int*)pArg);
++      }
+       OSTRACE(("FCNTL file=%p, rc=SQLITE_OK\n", pFile->h));
+       return SQLITE_OK;
+     }

@@ -1,0 +1,23 @@
+--- a/src/delete.c
++++ b/src/delete.c
+@@ -151,17 +151,10 @@
+   Select *pSel;
+   SrcList *pFrom;
+   sqlite3 *db = pParse->db;
+-  int iDb = sqlite3SchemaToIndex(db, pView->pSchema);
++  Select *pDup = sqlite3SelectDup(db, pView->u.view.pSelect, 0);
++  Token noAlias = {0, 0};
+   pWhere = sqlite3ExprDup(db, pWhere, 0);
+-  pFrom = sqlite3SrcListAppend(pParse, 0, 0, 0);
+-  if( pFrom ){
+-    assert( pFrom->nSrc==1 );
+-    pFrom->a[0].zName = sqlite3DbStrDup(db, pView->zName);
+-    assert( pFrom->a[0].fg.fixedSchema==0 && pFrom->a[0].fg.isSubquery==0 );
+-    pFrom->a[0].u4.zDatabase = sqlite3DbStrDup(db, db->aDb[iDb].zDbSName);
+-    assert( pFrom->a[0].fg.isUsing==0 );
+-    assert( pFrom->a[0].u3.pOn==0 );
+-  }
++  pFrom = sqlite3SrcListAppendFromTerm(pParse, 0, 0, 0, &noAlias, pDup, 0);
+   pSel = sqlite3SelectNew(pParse, 0, pFrom, pWhere, 0, 0, pOrderBy,
+                           SF_IncludeHidden, pLimit);
+   sqlite3SelectDestInit(&dest, SRT_EphemTab, iCur);

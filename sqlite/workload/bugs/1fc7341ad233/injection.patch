@@ -1,0 +1,53 @@
+--- a/src/attach.c
++++ b/src/attach.c
+@@ -124,15 +124,6 @@
+     ** reopen it as a MemDB */
+     Btree *pNewBt = 0;
+ 
+-    pNew = &db->aDb[db->init.iDb];
+-    assert( pNew->pBt!=0 );
+-    if( sqlite3BtreeTxnState(pNew->pBt)!=SQLITE_TXN_NONE
+-     || sqlite3BtreeIsInBackup(pNew->pBt)
+-    ){
+-      rc = SQLITE_BUSY;
+-      goto attach_error;
+-    }
+-
+     pVfs = sqlite3_vfs_find("memdb");
+     if( pVfs==0 ) return;
+     rc = sqlite3BtreeOpen(pVfs, "x\0", db, &pNewBt, 0, SQLITE_OPEN_MAIN_DB);
+@@ -142,8 +133,9 @@
+         /* Both the Btree and the new Schema were allocated successfully.
+         ** Close the old db and update the aDb[] slot with the new memdb
+         ** values.  */
++        pNew = &db->aDb[db->init.iDb];
+         detachTempTriggers(db, pNew->pSchema);
+-        sqlite3BtreeClose(pNew->pBt);
++        if( ALWAYS(pNew->pBt) ) sqlite3BtreeClose(pNew->pBt);
+         pNew->pBt = pNewBt;
+         pNew->pSchema = pNewSchema;
+         if( db->init.iDb==0 ){
+--- a/src/memdb.c
++++ b/src/memdb.c
+@@ -878,10 +878,10 @@
+   if( rc ) goto end_deserialize;
+   db->init.iDb = (u8)iDb;
+   db->init.reopenMemdb = 1;
+-  sqlite3_step(pStmt);
++  rc = sqlite3_step(pStmt);
+   db->init.reopenMemdb = 0;
+-  rc = sqlite3_finalize(pStmt);
+-  if( rc!=SQLITE_OK ){
++  if( rc!=SQLITE_DONE ){
++    rc = SQLITE_ERROR;
+     goto end_deserialize;
+   }
+   p = memdbFromDbSchema(db, zSchema);
+@@ -902,6 +902,7 @@
+   }
+ 
+ end_deserialize:
++  sqlite3_finalize(pStmt);
+   if( pData && (mFlags & SQLITE_DESERIALIZE_FREEONCLOSE)!=0 ){
+     sqlite3_free(pData);
+   }

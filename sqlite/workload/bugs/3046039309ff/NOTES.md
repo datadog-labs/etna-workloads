@@ -1,0 +1,1 @@
+repro.sql: fts5 secure-delete of a rowid/term pair that follows a legacy delete of the same pair (test fts5secure6-4.3). Clean: integrity-check passes, exit 0. Buggy: 'fts5: checksum mismatch for table "t1"', exit 1.

@@ -1,0 +1,1 @@
+repro.sql: builds an fts5 table (porter unicode61) with a row containing '/', then runs bm25 with MATCH '"/" OR "just"'. The clean shell prints 1|-1e-06; the buggy shell aborts with an assertion failure in sqlite3Fts5ExprClonePhrase (exit -6), because the empty phrase is no longer allocated when cloned.

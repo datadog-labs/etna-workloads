@@ -1,0 +1,40 @@
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -3542,31 +3542,17 @@
+ ** iIndex/iLangid combination.
+ */
+ static int fts3DoOptimize(Fts3Table *p, int bReturnDone){
++  int i;
+   int bSeenDone = 0;
+   int rc;
+-  sqlite3_stmt *pAllLangid = 0;
+ 
+   rc = sqlite3Fts3PendingTermsFlush(p);
+-  if( rc==SQLITE_OK ){
+-    rc = fts3SqlStmt(p, SQL_SELECT_ALL_LANGID, &pAllLangid, 0);
+-  }
+-  if( rc==SQLITE_OK ){
+-    int rc2;
+-    sqlite3_bind_int(pAllLangid, 1, p->iPrevLangid);
+-    sqlite3_bind_int(pAllLangid, 2, p->nIndex);
+-    while( sqlite3_step(pAllLangid)==SQLITE_ROW ){
+-      int i;
+-      int iLangid = sqlite3_column_int(pAllLangid, 0);
+-      for(i=0; rc==SQLITE_OK && i<p->nIndex; i++){
+-        rc = fts3SegmentMerge(p, iLangid, i, FTS3_SEGCURSOR_ALL);
+-        if( rc==SQLITE_DONE ){
+-          bSeenDone = 1;
+-          rc = SQLITE_OK;
+-        }
+-      }
++  for(i=0; rc==SQLITE_OK && i<p->nIndex; i++){
++    rc = fts3SegmentMerge(p, 0, i, FTS3_SEGCURSOR_ALL);
++    if( rc==SQLITE_DONE ){
++      bSeenDone = 1;
++      rc = SQLITE_OK;
+     }
+-    rc2 = sqlite3_reset(pAllLangid);
+-    if( rc==SQLITE_OK ) rc = rc2;
+   }
+ 
+   sqlite3Fts3SegmentsClose(p);

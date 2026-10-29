@@ -1,0 +1,39 @@
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -3978,6 +3978,7 @@
+ #endif
+   Parse *pToplevel;    /* Parse structure for main program (or NULL) */
+   Table *pTriggerTab;  /* Table triggers are being coded for */
++  Parse *pParentParse; /* Parent parser if this parser is nested */
+   TriggerPrg *pTriggerPrg;  /* Linked list of coded triggers */
+   ParseCleanup *pCleanup;   /* List of cleanup operations to run after parse */
+ 
+--- a/src/tokenize.c
++++ b/src/tokenize.c
+@@ -605,7 +605,6 @@
+   int lastTokenParsed = -1;       /* type of the previous token */
+   sqlite3 *db = pParse->db;       /* The database connection */
+   i64 mxSqlLen;                   /* Max length of an SQL string */
+-  Parse *pParentParse = 0;        /* Outer parse context, if any */
+ #ifdef sqlite3Parser_ENGINEALWAYSONSTACK
+   yyParser sEngine;    /* Space to hold the Lemon-generated Parser object */
+ #endif
+@@ -640,7 +639,7 @@
+   assert( pParse->pNewTrigger==0 );
+   assert( pParse->nVar==0 );
+   assert( pParse->pVList==0 );
+-  pParentParse = db->pParse;
++  pParse->pParentParse = db->pParse;
+   db->pParse = pParse;
+   while( 1 ){
+     n = sqlite3GetToken((u8*)zSql, &tokenType);
+@@ -757,7 +756,8 @@
+     sqlite3DeleteTrigger(db, pParse->pNewTrigger);
+   }
+   if( pParse->pVList ) sqlite3DbNNFreeNN(db, pParse->pVList);
+-  db->pParse = pParentParse;
++  db->pParse = pParse->pParentParse;
++  pParse->pParentParse = 0;
+   assert( nErr==0 || pParse->rc!=SQLITE_OK );
+   return nErr;
+ }

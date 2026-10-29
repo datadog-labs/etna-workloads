@@ -1,0 +1,24 @@
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -4722,12 +4722,11 @@
+     ** OP_OpenDup, then erase all existing content so that the table is
+     ** empty again, rather than creating a new table. */
+     assert( pCx->isEphemeral );
+-    pCx->seqCount = 0;
+-    pCx->cacheStatus = CACHE_STALE;
+     rc = sqlite3BtreeClearTable(pCx->ub.pBtx, pCx->pgnoRoot, 0);
+   }else{
+     pCx = allocateCursor(p, pOp->p1, pOp->p2, CURTYPE_BTREE);
+     if( pCx==0 ) goto no_mem;
++    pCx->nullRow = 1;
+     pCx->isEphemeral = 1;
+     rc = sqlite3BtreeOpen(db->pVfs, 0, db, &pCx->ub.pBtx,
+                           BTREE_OMIT_JOURNAL | BTREE_SINGLE | pOp->p5,
+@@ -4771,7 +4770,6 @@
+     }
+   }
+   if( rc ) goto abort_due_to_error;
+-  pCx->nullRow = 1;
+   break;
+ }
+ 

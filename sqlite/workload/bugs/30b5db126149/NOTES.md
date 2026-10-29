@@ -1,0 +1,2 @@
+repro.sql turns off defensive mode, inserts two crafted %_segdir rows (level 0, idx 2 and 3) into an fts3 table, then runs `INSERT INTO f(f) VALUES('merge=107,2')` (translation of fts3corrupt4-42.3).
+Clean shell: completes and prints "done" (exit 0). Buggy shell: the merge command loops forever (the segdir size query uses `idx < ?` instead of `ORDER BY idx LIMIT ?`), so it never finishes and has to be killed by a timeout.

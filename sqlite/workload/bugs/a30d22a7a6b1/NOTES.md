@@ -1,0 +1,1 @@
+repro.sql: printf('%*d', -2147483648, 1) and printf('%*s', ...). Clean shell treats the INT_MIN width as 0 and returns 'abd: 1 1' / the string. Buggy shell fails with 'string or blob too big' (exit status 1), because the negative width overflows when negated and is never clamped.

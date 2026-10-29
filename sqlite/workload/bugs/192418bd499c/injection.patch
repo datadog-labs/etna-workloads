@@ -1,0 +1,21 @@
+--- a/src/wherecode.c
++++ b/src/wherecode.c
+@@ -1990,6 +1990,18 @@
+     }
+     assert( pRangeEnd==0 || (pRangeEnd->wtFlags & TERM_VNULL)==0 );
+ 
++    /* For a min() query, if the ORDER BY is satisfied and the index has
++    ** a column following the nEq equality constraints, skip over NULLs. */
++    if( (pLoop->wsFlags & (WHERE_TOP_LIMIT|WHERE_BTM_LIMIT|WHERE_BIGNULL_SORT))==0
++     && (pWInfo->wctrlFlags&WHERE_ORDERBY_MIN)!=0
++     && pWInfo->nOBSat>0
++     && (pIdx->nKeyCol>nEq)
++    ){
++      assert( pLoop->nSkip==0 );
++      bSeekPastNull = 1;
++      nExtraReg = 1;
++    }
++
+     /* If the WHERE_BIGNULL_SORT flag is set, then index column nEq uses
+     ** a non-default "big-null" sort (either ASC NULLS LAST or DESC NULLS
+     ** FIRST). In both cases separate ordered scans are made of those

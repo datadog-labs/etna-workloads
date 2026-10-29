@@ -1,0 +1,23 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -3947,16 +3947,11 @@
+ 
+         /* Ensure that the expression now has an implicit collation sequence,
+         ** just as it did when it was a column of a view or sub-query. */
+-        {
+-          CollSeq *pNat = sqlite3ExprCollSeq(pSubst->pParse, pNew);
+-          CollSeq *pColl = sqlite3ExprCollSeq(pSubst->pParse,
+-                pSubst->pCList->a[iColumn].pExpr
++        if( pNew->op!=TK_COLUMN && pNew->op!=TK_COLLATE ){
++          CollSeq *pColl = sqlite3ExprCollSeq(pSubst->pParse, pNew);
++          pNew = sqlite3ExprAddCollateString(pSubst->pParse, pNew,
++              (pColl ? pColl->zName : "BINARY")
+           );
+-          if( pNat!=pColl || (pNew->op!=TK_COLUMN && pNew->op!=TK_COLLATE) ){
+-            pNew = sqlite3ExprAddCollateString(pSubst->pParse, pNew,
+-                (pColl ? pColl->zName : "BINARY")
+-            );
+-          }
+         }
+         ExprClearProperty(pNew, EP_Collate);
+         if( ExprHasProperty(pExpr,EP_OuterON|EP_InnerON) ){

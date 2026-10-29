@@ -1,0 +1,3 @@
+CREATE TABLE t1(x);
+CREATE TABLE t2(y);
+EXPLAIN PRAGMA integrity_check;

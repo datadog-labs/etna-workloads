@@ -1,0 +1,15 @@
+--- a/src/dbstat.c
++++ b/src/dbstat.c
+@@ -755,9 +755,9 @@
+     const char *zDbase = (const char*)sqlite3_value_text(argv[iArg++]);
+     pCsr->iDb = sqlite3FindDbName(pTab->db, zDbase);
+     if( pCsr->iDb<0 ){
+-      pCsr->iDb = 0;
+-      pCsr->isEof = 1;
+-      return SQLITE_OK;
++      sqlite3_free(pCursor->pVtab->zErrMsg);
++      pCursor->pVtab->zErrMsg = sqlite3_mprintf("no such schema: %s", zDbase);
++      return pCursor->pVtab->zErrMsg ? SQLITE_ERROR : SQLITE_NOMEM_BKPT;
+     }
+   }else{
+     pCsr->iDb = pTab->iDb;

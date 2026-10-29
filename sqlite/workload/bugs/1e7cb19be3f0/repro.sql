@@ -1,0 +1,7 @@
+CREATE TABLE t1(a, b);
+INSERT INTO t1 VALUES
+  (1, 1), (2, 2), (3, 3), (4, 4), (5, 5),
+  ('a', 6), ('b', 7), ('c', 8), ('d', 9), ('e', 10);
+SELECT a, sum(b) OVER (
+  ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING
+) FROM t1 ORDER BY a ASC;

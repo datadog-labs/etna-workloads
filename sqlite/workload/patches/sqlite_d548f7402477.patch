@@ -1,0 +1,85 @@
+--- a/ext/fts5/fts5_aux.c
++++ b/ext/fts5/fts5_aux.c
+@@ -172,55 +172,30 @@
+     if( p->iRangeStart && iPos==p->iRangeStart ) p->iOff = iStartOff;
+   }
+ 
+-  /* If the parenthesis is open, and this token is not part of the current
+-  ** phrase, and the starting byte offset of this token is past the point
+-  ** that has currently been copied into the output buffer, close the
+-  ** parenthesis. */
+-  if( p->bOpen 
+-   && (iPos<=p->iter.iStart || p->iter.iStart<0)
+-   && iStartOff>p->iOff 
+-  ){
+-    fts5HighlightAppend(&rc, p, p->zClose, -1);
+-    p->bOpen = 0;
+-  }
+-
+-  /* If this is the start of a new phrase, and the highlight is not open:
+-  **
+-  **   * copy text from the input up to the start of the phrase, and
+-  **   * open the highlight.
+-  */
+-  if( iPos==p->iter.iStart && p->bOpen==0 ){
++  if( iPos==p->iter.iStart ){
+     fts5HighlightAppend(&rc, p, &p->zIn[p->iOff], iStartOff - p->iOff);
+     fts5HighlightAppend(&rc, p, p->zOpen, -1);
+     p->iOff = iStartOff;
+-    p->bOpen = 1;
+   }
+ 
+   if( iPos==p->iter.iEnd ){
+-    if( p->bOpen==0 ){
+-      assert( p->iRangeEnd>=0 );
++    if( p->iRangeEnd>=0 && p->iter.iStart<p->iRangeStart ){
+       fts5HighlightAppend(&rc, p, p->zOpen, -1);
+-      p->bOpen = 1;
+     }
+     fts5HighlightAppend(&rc, p, &p->zIn[p->iOff], iEndOff - p->iOff);
++    fts5HighlightAppend(&rc, p, p->zClose, -1);
+     p->iOff = iEndOff;
+-
+     if( rc==SQLITE_OK ){
+       rc = fts5CInstIterNext(&p->iter);
+     }
+   }
+ 
+-  if( iPos==p->iRangeEnd ){
+-    if( p->bOpen ){
+-      if( p->iter.iStart>=0 && iPos>=p->iter.iStart ){
+-        fts5HighlightAppend(&rc, p, &p->zIn[p->iOff], iEndOff - p->iOff);
+-        p->iOff = iEndOff;
+-      }
+-      fts5HighlightAppend(&rc, p, p->zClose, -1);
+-      p->bOpen = 0;
+-    }
++  if( p->iRangeEnd>=0 && iPos==p->iRangeEnd ){
+     fts5HighlightAppend(&rc, p, &p->zIn[p->iOff], iEndOff - p->iOff);
+     p->iOff = iEndOff;
++    if( iPos>=p->iter.iStart && iPos<p->iter.iEnd ){
++      fts5HighlightAppend(&rc, p, p->zClose, -1);
++    }
+   }
+ 
+   return rc;
+@@ -281,9 +256,6 @@
+           pFts, ctx.zIn, ctx.nIn, pLoc, nLoc, (void*)&ctx, fts5HighlightCb
+       );
+     }
+-    if( ctx.bOpen ){
+-      fts5HighlightAppend(&rc, &ctx, ctx.zClose, -1);
+-    }
+     fts5HighlightAppend(&rc, &ctx, &ctx.zIn[ctx.iOff], ctx.nIn - ctx.iOff);
+ 
+     if( rc==SQLITE_OK ){
+@@ -574,9 +546,6 @@
+           pFts, ctx.zIn, ctx.nIn, pLoc, nLoc, (void*)&ctx,fts5HighlightCb
+       );
+     }
+-    if( ctx.bOpen ){
+-      fts5HighlightAppend(&rc, &ctx, ctx.zClose, -1);
+-    }
+     if( ctx.iRangeEnd>=(nColSize-1) ){
+       fts5HighlightAppend(&rc, &ctx, &ctx.zIn[ctx.iOff], ctx.nIn - ctx.iOff);
+     }else{

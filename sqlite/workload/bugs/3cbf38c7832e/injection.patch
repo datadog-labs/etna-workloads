@@ -1,0 +1,40 @@
+--- a/src/delete.c
++++ b/src/delete.c
+@@ -122,9 +122,7 @@
+     return 1;
+   }
+ #ifndef SQLITE_OMIT_VIEW
+-  if( IsView(pTab)
+-   && (pTrigger==0 || (pTrigger->bReturning && pTrigger->pNext==0))
+-  ){
++  if( pTrigger==0 && IsView(pTab) ){
+     sqlite3ErrorMsg(pParse,"cannot modify %s because it is a view",pTab->zName);
+     return 1;
+   }
+--- a/src/trigger.c
++++ b/src/trigger.c
+@@ -1555,9 +1555,6 @@
+   Trigger *p;
+ 
+   assert( isNew==1 || isNew==0 );
+-  if( IsView(pTab) ){
+-    return 0xffffffff;
+-  }
+   for(p=pTrigger; p; p=p->pNext){
+     if( p->op==op
+      && (tr_tm&p->tr_tm)
+--- a/src/where.c
++++ b/src/where.c
+@@ -1080,11 +1080,7 @@
+   ** original table changes and the index and table cannot both be used
+   ** if they go out of sync.
+   */
+-  if( IsView(pTable) ){
+-    extraCols = ALLBITS & ~idxCols;
+-  }else{
+-    extraCols = pSrc->colUsed & (~idxCols | MASKBIT(BMS-1));
+-  }
++  extraCols = pSrc->colUsed & (~idxCols | MASKBIT(BMS-1));
+   if( !HasRowid(pTable) ){
+     /* For WITHOUT ROWID tables, ensure that all PRIMARY KEY columns are
+     ** either in the idxCols mask or in the extraCols mask */

@@ -1,0 +1,4 @@
+CREATE TABLE t0(c0 TEXT UNIQUE, c1);
+INSERT INTO t0(c0) VALUES (-1);
+SELECT * FROM t0 WHERE - x'ce' >= t0.c0;
+SELECT * FROM t0 WHERE - 'ce' >= t0.c0;

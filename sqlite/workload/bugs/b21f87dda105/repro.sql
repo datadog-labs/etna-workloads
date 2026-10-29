@@ -1,0 +1,6 @@
+CREATE TABLE c(id INTEGER PRIMARY KEY, a);
+INSERT INTO c VALUES(1,'x y');
+CREATE VIRTUAL TABLE g USING fts4(a, content=c);
+INSERT INTO g(g) VALUES('rebuild');
+DELETE FROM c;
+SELECT snippet(g) FROM g WHERE g MATCH 'x';

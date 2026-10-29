@@ -1,0 +1,5 @@
+.dbconfig defensive off
+CREATE VIRTUAL TABLE t1 USING fts3();
+INSERT INTO t1 VALUES('one two three');
+UPDATE t1_segdir SET start_block = 1;
+INSERT INTO t1(t1) VALUES('optimize');

@@ -1,0 +1,25 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -5489,9 +5489,6 @@
+   assert( pCur->eState==CURSOR_VALID );
+   assert( pCur->iPage<BTCURSOR_MAX_DEPTH );
+   assert( pCur->iPage>=0 );
+-  if( pCur->iPage>=(BTCURSOR_MAX_DEPTH-1) ){
+-    return SQLITE_CORRUPT_BKPT;
+-  }
+   pCur->info.nSize = 0;
+   pCur->curFlags &= ~(BTCF_ValidNKey|BTCF_ValidOvfl);
+   pCur->aiIdx[pCur->iPage] = pCur->ix;
+@@ -10271,12 +10268,6 @@
+   }
+   rc = getAndInitPage(pBt, pgno, &pPage, 0);
+   if( rc ) return rc;
+-  if( (pBt->openFlags & BTREE_SINGLE)==0
+-   && sqlite3PagerPageRefcount(pPage->pDbPage) != (1 + (pgno==1))
+-  ){
+-    rc = SQLITE_CORRUPT_PAGE(pPage);
+-    goto cleardatabasepage_out;
+-  }
+   hdr = pPage->hdrOffset;
+   for(i=0; i<pPage->nCell; i++){
+     pCell = findCell(pPage, i);

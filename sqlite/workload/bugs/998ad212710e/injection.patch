@@ -1,0 +1,16 @@
+--- a/src/wal.c
++++ b/src/wal.c
+@@ -840,9 +840,12 @@
+   volatile u32 **ppPage    /* Write the page pointer here */
+ ){
+   SEH_INJECT_FAULT;
+-  if( pWal->nWiData<=iPage || (*ppPage = pWal->apWiData[iPage])==0 ){
++  if( pWal->nWiData==0 || pWal->apWiData[0]==0
++   || (iPage==0 && (*ppPage = pWal->apWiData[0])==0)
++  ){
+     return walIndexPageRealloc(pWal, iPage, ppPage);
+   }
++  *ppPage = (pWal->nWiData>iPage) ? pWal->apWiData[iPage] : 0;
+   return SQLITE_OK;
+ }
+ 

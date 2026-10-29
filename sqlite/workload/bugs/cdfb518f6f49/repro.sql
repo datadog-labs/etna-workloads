@@ -1,0 +1,10 @@
+CREATE TABLE t1(x TEXT, y INT, z TEXT);
+INSERT INTO t1(rowid,x,y,z) VALUES(12,'aa','bb','aa');
+CREATE INDEX i1x ON t1(1 IS true,z);
+CREATE TABLE t0(x TEXT);
+INSERT INTO t0(rowid,x) VALUES(4,'aa');
+ANALYZE sqlite_schema;
+INSERT INTO sqlite_stat1 VALUES('t0',NULL,'20');
+INSERT INTO sqlite_stat1 VALUES('t1','i1x','18 18 2');
+ANALYZE sqlite_schema;
+SELECT * FROM t0 NATURAL JOIN t1 WHERE z=t1.x;

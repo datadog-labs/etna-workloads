@@ -1,0 +1,1 @@
+Creates fts4 tables with `tokenize=simple""` and `tokenize=unicode61""`. The tokenizer name has an unterminated-looking quote pair, so sqlite3Fts3Dequote() runs past the end of the string. The buggy shell has an ALWAYS(z[iIn]) assert there and fails an assertion; the clean shell succeeds on the first statement and reports "unknown tokenizer" on the second.

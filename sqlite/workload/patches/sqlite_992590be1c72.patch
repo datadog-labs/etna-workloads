@@ -1,0 +1,24 @@
+--- a/src/insert.c
++++ b/src/insert.c
+@@ -1141,8 +1141,8 @@
+       rc = sqlite3Select(pParse, pSelect, &dest);
+       regFromSelect = dest.iSdst;
+       assert( db->pParse==pParse );
+-      if( rc || pParse->nErr ) goto insert_cleanup;
+-      assert( db->mallocFailed==0 );
++      assert( pParse->nErr==0 || rc );
++      if( rc || db->mallocFailed ) goto insert_cleanup;
+       sqlite3VdbeEndCoroutine(v, regYield);
+       sqlite3VdbeJumpHere(v, addrTop - 1);                       /* label B: */
+       assert( pSelect->pEList );
+--- a/src/select.c
++++ b/src/select.c
+@@ -3818,7 +3818,7 @@
+   /*** TBD:  Insert subroutine calls to close cursors on incomplete
+   **** subqueries ****/
+   ExplainQueryPlanPop(pParse);
+-  return pParse->nErr!=0;
++  return 0;
+ }
+ #endif
+ 

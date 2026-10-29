@@ -1,0 +1,57 @@
+--- a/src/pager.c
++++ b/src/pager.c
+@@ -2904,7 +2904,7 @@
+     goto end_playback;
+   }
+   pPager->journalOff = 0;
+-  needPagerReset = isHot;
++  needPagerReset = 0;
+ 
+   /* This loop terminates either when a readJournalHdr() or
+   ** pager_playback_one_page() call returns SQLITE_DONE or an IO error
+@@ -4356,45 +4356,11 @@
+       assert( isOpen(pPager->jfd) );
+ 
+       if( 0==(iDc&SQLITE_IOCAP_SAFE_APPEND) ){
+-        /* This block deals with an obscure problem. If the last connection
+-        ** that wrote to this database was operating in persistent-journal
+-        ** mode, then the journal file may at this point actually be larger
+-        ** than Pager.journalOff bytes. If the next thing in the journal
+-        ** file happens to be a journal-header (written as part of the
+-        ** previous connection's transaction), and a crash or power-failure
+-        ** occurs after nRec is updated but before this connection writes
+-        ** anything else to the journal file (or commits/rolls back its
+-        ** transaction), then SQLite may become confused when doing the
+-        ** hot-journal rollback following recovery. It may roll back all
+-        ** of this connections data, then proceed to rolling back the old,
+-        ** out-of-date data that follows it. Database corruption.
+-        **
+-        ** To work around this, if the journal file does appear to contain
+-        ** a valid header following Pager.journalOff, then write a 0x00
+-        ** byte to the start of it to prevent it from being recognized.
+-        **
+-        ** Variable iNextHdrOffset is set to the offset at which this
+-        ** problematic header will occur, if it exists. aMagic is used
+-        ** as a temporary buffer to inspect the first couple of bytes of
+-        ** the potential journal header.
+-        */
+-        i64 iNextHdrOffset;
+-        u8 aMagic[8];
+         u8 zHeader[sizeof(aJournalMagic)+4];
+ 
+         memcpy(zHeader, aJournalMagic, sizeof(aJournalMagic));
+         put32bits(&zHeader[sizeof(aJournalMagic)], pPager->nRec);
+ 
+-        iNextHdrOffset = journalHdrOffset(pPager);
+-        rc = sqlite3OsRead(pPager->jfd, aMagic, 8, iNextHdrOffset);
+-        if( rc==SQLITE_OK && 0==memcmp(aMagic, aJournalMagic, 8) ){
+-          static const u8 zerobyte = 0;
+-          rc = sqlite3OsWrite(pPager->jfd, &zerobyte, 1, iNextHdrOffset);
+-        }
+-        if( rc!=SQLITE_OK && rc!=SQLITE_IOERR_SHORT_READ ){
+-          return rc;
+-        }
+-
+         /* Write the nRec value into the journal file header. If in
+         ** full-synchronous mode, sync the journal first. This ensures that
+         ** all data has really hit the disk before nRec is updated to mark

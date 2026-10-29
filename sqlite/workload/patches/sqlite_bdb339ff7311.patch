@@ -1,0 +1,36 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -2176,7 +2176,7 @@
+ ** table.  Memory to hold the text of the statement is obtained
+ ** from sqliteMalloc() and must be freed by the calling function.
+ */
+-static char *createTableStmt(sqlite3 *db, Table *p){
++static char *createTableStmt(sqlite3 *db, Table *p, int isTemp){
+   int i, k, len;
+   i64 n;
+   char *zStmt;
+@@ -2203,8 +2203,13 @@
+     return 0;
+   }
+   assert( n>14 && n<=0x7fffffff );
+-  memcpy(zStmt, "CREATE TABLE ", 13);
+-  k = 13;
++  if( !OMIT_TEMPDB && isTemp ){
++    memcpy(zStmt, "CREATE TEMP TABLE ", 18);
++    k = 18;
++  }else{
++    memcpy(zStmt, "CREATE TABLE ", 13);
++    k = 13;
++  }
+   identPut(zStmt, &k, p->zName);
+   zStmt[k++] = '(';
+   for(pCol=p->aCol, i=0; i<p->nCol; i++, pCol++){
+@@ -2965,7 +2970,7 @@
+ 
+     /* Compute the complete text of the CREATE statement */
+     if( pSelect ){
+-      zStmt = createTableStmt(db, p);
++      zStmt = createTableStmt(db, p, p->pSchema==db->aDb[1].pSchema);
+     }else{
+       Token *pEnd2 = tabOpts ? &pParse->sLastToken : pEnd;
+       n = (int)(pEnd2->z - pParse->sNameToken.z);

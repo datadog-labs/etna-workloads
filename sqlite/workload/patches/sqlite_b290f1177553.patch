@@ -1,0 +1,33 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -6492,6 +6492,19 @@
+ ** The calling function can detect the problem by looking at pParse->nErr
+ ** and/or pParse->db->mallocFailed.
+ */
++#ifndef SQLITE_OMIT_CTE
++static int selectExpanderWith(Walker *pWalker, Select *p){
++  Parse *pParse = pWalker->pParse;
++  int res = selectExpander(pWalker, p);
++  if( p->pWith && pParse->pWith==p->pWith ){
++    pParse->pWith = p->pWith->pOuter;
++  }
++  return res;
++}
++#else
++#define selectExpanderWith selectExpander
++#endif
++
+ static void sqlite3SelectExpand(Parse *pParse, Select *pSelect){
+   Walker w;
+   w.xExprCallback = sqlite3ExprWalkNoop;
+@@ -6501,8 +6514,8 @@
+     w.xSelectCallback2 = 0;
+     sqlite3WalkSelect(&w, pSelect);
+   }
+-  w.xSelectCallback = selectExpander;
+-  w.xSelectCallback2 = sqlite3SelectPopWith;
++  w.xSelectCallback = selectExpanderWith;
++  w.xSelectCallback2 = 0;
+   w.eCode = 0;
+   sqlite3WalkSelect(&w, pSelect);
+ }

@@ -1,0 +1,1 @@
+repro.sql runs `SELECT char(), length(char()), typeof(char());`. Clean shell prints `|0|text` (exit 0). Buggy shell reports "out of memory" (exit 1), since char() with no args calls malloc(0), which returns NULL, and that is treated as NOMEM.

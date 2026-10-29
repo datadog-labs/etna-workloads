@@ -1,0 +1,22 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -4645,16 +4645,9 @@
+ ** This is used by the (built-in) sqlite_dbpage virtual table.
+ */
+ void sqlite3VtabUsesAllSchemas(Parse *pParse){
+-  int nDb = pParse->db->nDb;
+-  int i;
+-  for(i=0; i<nDb; i++){
+-    sqlite3CodeVerifySchema(pParse, i);
+-  }
+-  if( DbMaskNonZero(pParse->writeMask) ){
+-    for(i=0; i<nDb; i++){
+-      sqlite3BeginWriteOperation(pParse, 0, i);
+-    }
+-  }
++  Parse *pTopLevel = sqlite3ParseToplevel(pParse);
++  pTopLevel->cookieMask =
++    pTopLevel->writeMask = (((u64)1) << pParse->db->nDb) - 1;
+ }
+ 
+ /*

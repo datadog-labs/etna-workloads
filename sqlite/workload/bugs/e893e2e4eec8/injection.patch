@@ -1,0 +1,39 @@
+--- a/ext/misc/csv.c
++++ b/ext/misc/csv.c
+@@ -209,8 +209,7 @@
+ **   +  Store the character that terminates the field in p->cTerm.  Store
+ **      EOF on end-of-file.
+ **
+-** Return 0 at EOF or on OOM.  On EOF, the p->cTerm character will have
+-** been set to EOF.
++** Return "" at EOF.  Return 0 on an OOM error.
+ */
+ static char *csv_read_one_field(CsvReader *p){
+   int c;
+@@ -218,7 +217,7 @@
+   c = csv_getc(p);
+   if( c==EOF ){
+     p->cTerm = EOF;
+-    return 0;
++    return "";
+   }
+   if( c=='"' ){
+     int pc, ppc;
+@@ -613,7 +612,8 @@
+     if( CSV_SCHEMA==0 ) goto csvtab_connect_oom;
+   }else if( nCol<0 ){
+     do{
+-      csv_read_one_field(&sRdr);
++      const char *z = csv_read_one_field(&sRdr);
++      if( z==0 ) goto csvtab_connect_oom;
+       pNew->nCol++;
+     }while( sRdr.cTerm==',' );
+   }else{
+@@ -742,6 +742,7 @@
+   do{
+     z = csv_read_one_field(&pCur->rdr);
+     if( z==0 ){
++      csv_xfer_error(pTab, &pCur->rdr);
+       break;
+     }
+     if( i<pTab->nCol ){

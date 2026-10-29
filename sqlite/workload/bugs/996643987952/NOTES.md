@@ -1,0 +1,1 @@
+repro.sql runs the in4-10.0 case (WITHOUT ROWID table, fake sqlite_stat1, reverse_unordered_selects, IN on b). Clean prints 10; buggy aborts with an assertion failure in sqlite3WhereCodeOneLoopStart (ALWAYS(op==OP_SeekGE) is false for the reversed scan).

@@ -1,0 +1,48 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -493,6 +493,18 @@
+ }
+ 
+ /*
++** Create a "tab.col" expression that refers to column iCol of the table
++** pItem by its name or alias, rather than by its position in the FROM list.
++*/
++static Expr *joinColumnByName(Parse *pParse, SrcItem *pItem, int iCol){
++  sqlite3 *db = pParse->db;
++  const char *zTab = pItem->zAlias ? pItem->zAlias : pItem->pSTab->zName;
++  Expr *pCol = sqlite3Expr(db, TK_ID, pItem->pSTab->aCol[iCol].zCnName);
++  Expr *pTab = sqlite3Expr(db, TK_ID, zTab);
++  return sqlite3PExpr(pParse, TK_DOT, pTab, pCol);
++}
++
++/*
+ ** This routine processes the join information for a SELECT statement.
+ **
+ **   *  A NATURAL join is converted into a USING join.  After that, we
+@@ -592,7 +604,7 @@
+             "not present in both tables", zName);
+           return 1;
+         }
+-        pE1 = sqlite3CreateColumnExpr(db, pSrc, iLeft, iLeftCol);
++        pE1 = joinColumnByName(pParse, &pSrc->a[iLeft], iLeftCol);
+         sqlite3SrcItemColumnUsed(&pSrc->a[iLeft], iLeftCol);
+         if( (pSrc->a[0].fg.jointype & JT_LTORJ)!=0 && pParse->nErr==0 ){
+           /* This branch runs if the query contains one or more RIGHT or FULL
+@@ -636,7 +648,7 @@
+           assert( pE1!=0 );
+           ExprSetProperty(pE1, EP_CanBeNull);
+         }
+-        pE2 = sqlite3CreateColumnExpr(db, pSrc, i+1, iRightCol);
++        pE2 = joinColumnByName(pParse, pRight, iRightCol);
+         sqlite3SrcItemColumnUsed(pRight, iRightCol);
+         pEq = sqlite3PExpr(pParse, TK_EQ, pE1, pE2);
+         assert( pE2!=0 || pEq==0 );
+@@ -644,7 +656,7 @@
+           ExprSetProperty(pEq, joinType);
+           assert( !ExprHasProperty(pEq, EP_TokenOnly|EP_Reduced) );
+           ExprSetVVAProperty(pEq, EP_NoReduce);
+-          pEq->w.iJoin = pE2->iTable;
++          pEq->w.iJoin = pRight->iCursor;
+         }
+         p->pWhere = sqlite3ExprAnd(pParse, p->pWhere, pEq);
+       }

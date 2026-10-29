@@ -1,0 +1,1 @@
+SELECT 'x' LIKE '%' ESCAPE '_';

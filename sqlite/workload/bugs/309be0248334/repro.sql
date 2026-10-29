@@ -1,0 +1,5 @@
+CREATE TABLE t1(x);
+INSERT INTO t1 VALUES(1),(2),(3),(20);
+CREATE INDEX t1i ON t1(x DESC);
+SELECT min(x) FROM t1;
+SELECT max(x) FROM t1;

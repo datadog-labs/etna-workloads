@@ -1,0 +1,4 @@
+CREATE TABLE t1(a, b);
+CREATE TABLE t2(c, d);
+SELECT j1.b FROM (t1 INNER JOIN t2 ON a=c) AS j1;
+SELECT a FROM (t1) AS t ON b;

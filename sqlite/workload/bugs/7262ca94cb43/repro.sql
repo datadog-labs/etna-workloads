@@ -1,0 +1,3 @@
+CREATE TABLE t(a);
+INSERT INTO t VALUES(1),(2);
+SELECT sha3_agg(a) OVER (ORDER BY a) FROM t;

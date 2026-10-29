@@ -1,0 +1,5 @@
+CREATE TABLE t1(a BLOB, b INTEGER, c COLLATE nocase);
+INSERT INTO t1 VALUES(1, 2, 'abc');
+INSERT INTO t1 VALUES(3, 4, 'ABC');
+SELECT c=='Abc', rank() OVER (ORDER BY b) FROM t1;
+SELECT b=='2', rank() OVER (ORDER BY a) FROM t1;

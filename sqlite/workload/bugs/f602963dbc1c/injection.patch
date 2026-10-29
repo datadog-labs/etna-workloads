@@ -1,0 +1,45 @@
+--- a/src/vacuum.c
++++ b/src/vacuum.c
+@@ -261,15 +261,6 @@
+   sqlite3BtreeSetSpillSize(pTemp, sqlite3BtreeSetSpillSize(pMain,0));
+   sqlite3BtreeSetPagerFlags(pTemp, pgflags|PAGER_CACHESPILL);
+ 
+-  /* Begin a transaction and take an exclusive lock on the main database
+-  ** file. This is done before the sqlite3BtreeGetPageSize(pMain) call below,
+-  ** to ensure that we do not try to change the page-size on a WAL database.
+-  */
+-  rc = execSql(db, pzErrMsg, "BEGIN");
+-  if( rc!=SQLITE_OK ) goto end_of_vacuum;
+-  rc = sqlite3BtreeBeginTrans(pMain, pOut==0 ? 2 : 0, 0);
+-  if( rc!=SQLITE_OK ) goto end_of_vacuum;
+-
+   /* Do not attempt to change the page size for a WAL database */
+   if( sqlite3PagerGetJournalMode(sqlite3BtreePager(pMain))
+                                                ==PAGER_JOURNALMODE_WAL
+@@ -291,6 +282,13 @@
+                                            sqlite3BtreeGetAutoVacuum(pMain));
+ #endif
+ 
++  /* Begin a transaction */
++  rc = execSql(db, pzErrMsg, "BEGIN");
++  if( rc!=SQLITE_OK ) goto end_of_vacuum;
++  rc = sqlite3BtreeBeginTrans(pMain, pOut==0 ? 2 : 0, 0);
++  if( rc!=SQLITE_OK ) goto end_of_vacuum;
++
++
+   /* Query the schema of the main database. Create a mirror schema
+   ** in the temporary database.
+   */
+--- a/src/wal.c
++++ b/src/wal.c
+@@ -3747,10 +3747,6 @@
+   i64 iOffset;
+   sz = pWal->hdr.szPage;
+   sz = (sz&0xfe00) + ((sz&0x0001)<<16);
+-  if( nOut>sz ){
+-    memset(pOut+sz, 0, nOut-sz);
+-    nOut = sz;
+-  }
+   testcase( sz<=32768 );
+   testcase( sz>=65536 );
+   iOffset = walFrameOffset(iRead, sz) + WAL_FRAME_HDRSIZE;

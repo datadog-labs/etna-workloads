@@ -1,0 +1,6 @@
+CREATE TABLE t2(a TEXT);
+INSERT INTO t2 VALUES('alice'),('bob'),('cindy'),('david');
+CREATE INDEX t2x ON t2 (+a COLLATE NOCASE);
+SELECT count(+a COLLATE NOCASE IN (SELECT 1)) AS x
+  FROM t2
+ GROUP BY SUBSTR(0,0);

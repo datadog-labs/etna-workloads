@@ -1,0 +1,25 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -2152,7 +2152,7 @@
+   nFree = data[hdr+7] + top;  /* Init nFree to non-freeblock free space */
+   if( pc>0 ){
+     u32 next, size;
+-    if( pc<top ){
++    if( pc<iCellFirst ){
+       /* EVIDENCE-OF: R-55530-52930 In a well-formed b-tree page, there will
+       ** always be at least one cell before the first freeblock.
+       */
+@@ -2165,13 +2165,6 @@
+       }
+       next = get2byte(&data[pc]);
+       size = get2byte(&data[pc+2]);
+-      if( size<4 && sqlite3FaultSim(422)==SQLITE_OK ){
+-        /* Minimum freeblock size is 4.  Enable fault-sim 422 to disable this
+-        ** check to reach interesting error states.  However, disabling this
+-        ** check can cause assertion faults due to min-heap overflow.  All
+-        ** fault-sims are for testing use only, but this one especially so. */
+-        return SQLITE_CORRUPT_PAGE(pPage);
+-      }
+       nFree = nFree + size;
+       if( next<pc+size+4 ) break;
+       pc = next;

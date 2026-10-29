@@ -1,0 +1,1 @@
+repro.sql: INSERT INTO t(value,_rowid_) SELECT 22,999 uses an explicit rowid in the column list with INSERT...SELECT. Clean shell prints 11 and 22; buggy shell aborts with an assertion failure in sqlite3VdbeExec (exit -6), because bIdListInOrder isn't cleared for the rowid column.

@@ -1,0 +1,5 @@
+CREATE VIRTUAL TABLE t0 USING fts3(c0);
+CREATE VIRTUAL TABLE t1 USING fts4aux(t0);
+INSERT INTO t0(c0) VALUES ('abc'), ('ABC');
+SELECT count(*) FROM t1, t0
+WHERE (t0.c0 = t1.term) AND (t1.term COLLATE NOCASE = 'ABC');

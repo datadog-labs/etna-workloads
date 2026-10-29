@@ -1,0 +1,32 @@
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -7747,9 +7747,6 @@
+   pFrame->lastRowid = db->lastRowid;
+   pFrame->nChange = p->nChange;
+   pFrame->nDbChange = p->db->nChange;
+-  assert( pFrame->pAuxData==0 );
+-  pFrame->pAuxData = p->pAuxData;
+-  p->pAuxData = 0;
+   p->nChange = 0;
+   p->pFrame = pFrame;
+   p->aMem = aMem = VdbeFrameMem(pFrame);
+--- a/src/vdbeaux.c
++++ b/src/vdbeaux.c
+@@ -2395,7 +2395,6 @@
+     if( apCsr[i] ) sqlite3VdbeFreeCursorNN(p->v, apCsr[i]);
+   }
+   releaseMemArray(aMem, p->nChildMem);
+-  sqlite3VdbeDeleteAuxData(p->v->db, &p->pAuxData, -1, 0);
+   sqlite3DbFree(p->v->db, p);
+ }
+ 
+@@ -2836,9 +2835,6 @@
+   v->db->lastRowid = pFrame->lastRowid;
+   v->nChange = pFrame->nChange;
+   v->db->nChange = pFrame->nDbChange;
+-  sqlite3VdbeDeleteAuxData(v->db, &v->pAuxData, -1, 0);
+-  v->pAuxData = pFrame->pAuxData;
+-  pFrame->pAuxData = 0;
+   return pFrame->pc;
+ }
+ 

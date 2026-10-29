@@ -1,0 +1,56 @@
+--- a/ext/fts5/fts5_storage.c
++++ b/ext/fts5/fts5_storage.c
+@@ -1198,23 +1198,8 @@
+     pCtx->szCol++;
+   }
+ 
+-  switch( pCtx->pConfig->eDetail ){
+-    case FTS5_DETAIL_FULL:
+-      iPos = pCtx->szCol-1;
+-      iCol = pCtx->iCol;
+-      break;
+-
+-    case FTS5_DETAIL_COLUMNS:
+-      iPos = pCtx->iCol;
+-      iCol = 0;
+-      break;
+-
+-    default:
+-      assert( pCtx->pConfig->eDetail==FTS5_DETAIL_NONE );
+-      iPos = 0;
+-      iCol = 0;
+-      break;
+-  }
++  iPos = pTermset ? pCtx->iCol : pCtx->szCol-1;
++  iCol = pTermset ? 0 : pCtx->iCol;
+ 
+   rc = sqlite3Fts5TermsetAdd(pTermset, 0, pToken, nToken, &bPresent);
+   if( rc==SQLITE_OK && bPresent==0 ){
+@@ -1277,9 +1262,6 @@
+         if( pConfig->bColumnsize ){
+           rc = sqlite3Fts5StorageDocsize(p, ctx.iRowid, aColSize);
+         }
+-        if( rc==SQLITE_OK && pConfig->eDetail==FTS5_DETAIL_NONE ){
+-          rc = sqlite3Fts5TermsetNew(&ctx.pTermset);
+-        }
+         for(i=0; rc==SQLITE_OK && i<pConfig->nCol; i++){
+           if( pConfig->abUnindexed[i]==0 ){
+             const char *pText = 0;
+@@ -1307,7 +1289,7 @@
+             ctx.iCol = i;
+             ctx.szCol = 0;
+ 
+-            if( rc==SQLITE_OK && pConfig->eDetail==FTS5_DETAIL_COLUMNS ){
++            if( rc==SQLITE_OK && pConfig->eDetail!=FTS5_DETAIL_FULL ){
+               rc = sqlite3Fts5TermsetNew(&ctx.pTermset);
+             }
+ 
+@@ -1332,7 +1314,7 @@
+               rc = FTS5_CORRUPT;
+             }
+             aTotalSize[i] += ctx.szCol;
+-            if( pConfig->eDetail==FTS5_DETAIL_COLUMNS ){
++            if( pConfig->eDetail!=FTS5_DETAIL_FULL ){
+               sqlite3Fts5TermsetFree(ctx.pTermset);
+               ctx.pTermset = 0;
+             }

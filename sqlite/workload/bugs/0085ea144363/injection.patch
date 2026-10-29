@@ -1,0 +1,52 @@
+--- a/ext/fts3/fts3_aux.c
++++ b/ext/fts3/fts3_aux.c
+@@ -144,14 +144,6 @@
+ #define FTS4AUX_LE_CONSTRAINT 4
+ 
+ /*
+-** Return true if constraint iCons of pInfo uses the "binary" collation
+-** sequence. Or false it it uses anything else.
+-*/
+-static int fts3auxIsBinary(sqlite3_index_info *pInfo, int iCons){
+-  return 0==sqlite3_stricmp("binary", sqlite3_vtab_collation(pInfo, iCons));
+-}
+-
+-/*
+ ** xBestIndex - Analyze a WHERE and ORDER BY clause.
+ */
+ static int fts3auxBestIndexMethod(
+@@ -178,7 +170,7 @@
+   /* Search for equality and range constraints on the "term" column. 
+   ** And equality constraints on the hidden "languageid" column. */
+   for(i=0; i<pInfo->nConstraint; i++){
+-    if( pInfo->aConstraint[i].usable && fts3auxIsBinary(pInfo, i) ){
++    if( pInfo->aConstraint[i].usable ){
+       int op = pInfo->aConstraint[i].op;
+       int iCol = pInfo->aConstraint[i].iColumn;
+ 
+--- a/ext/fts5/fts5_vocab.c
++++ b/ext/fts5/fts5_vocab.c
+@@ -252,14 +252,6 @@
+   return fts5VocabInitVtab(db, pAux, argc, argv, ppVtab, pzErr);
+ }
+ 
+-/*
+-** Return true if constraint iCons of pInfo uses the "binary" collation
+-** sequence. Or false it it uses anything else.
+-*/
+-static int fts5VocabIsBinary(sqlite3_index_info *pInfo, int iCons){
+-  return 0==sqlite3_stricmp("binary", sqlite3_vtab_collation(pInfo, iCons));
+-}
+-
+ /* 
+ ** Implementation of the xBestIndex method.
+ **
+@@ -290,7 +282,7 @@
+   for(i=0; i<pInfo->nConstraint; i++){
+     struct sqlite3_index_constraint *p = &pInfo->aConstraint[i];
+     if( p->usable==0 ) continue;
+-    if( p->iColumn==0 && fts5VocabIsBinary(pInfo, i) ){    /* term column */
++    if( p->iColumn==0 ){          /* term column */
+       if( p->op==SQLITE_INDEX_CONSTRAINT_EQ ) iTermEq = i;
+       if( p->op==SQLITE_INDEX_CONSTRAINT_LE ) iTermLe = i;
+       if( p->op==SQLITE_INDEX_CONSTRAINT_LT ) iTermLe = i;

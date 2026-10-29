@@ -1,0 +1,5 @@
+CREATE TABLE t1(x, a INT AS (x) VIRTUAL, b BLOB AS (x) VIRTUAL);
+CREATE INDEX x2 ON t1(a);
+INSERT INTO t1(x) VALUES(NULL),('1'),(2),(3.5),('xyz');
+SELECT typeof(b) FROM t1 ORDER BY rowid;
+SELECT typeof(b) FROM t1 INDEXED BY x2;

@@ -1,0 +1,31 @@
+--- a/src/resolve.c
++++ b/src/resolve.c
+@@ -1297,6 +1297,12 @@
+           sqlite3ErrorMsg(pParse, "misuse of %s function %#T()",zType,pExpr);
+           pNC->nNcErr++;
+           is_agg = 0;
++        }else if( is_agg==0 && ExprHasProperty(pExpr, EP_WinFunc) ){
++          sqlite3ErrorMsg(pParse,
++              "FILTER may not be used with non-aggregate %#T()",
++              pExpr
++          );
++          pNC->nNcErr++;
+         }
+ #else
+         if( (is_agg && (pNC->ncFlags & NC_AllowAgg)==0) ){
+@@ -1324,15 +1330,6 @@
+                pExpr);
+           pNC->nNcErr++;
+         }
+-#ifndef SQLITE_OMIT_WINDOWFUNC
+-        else if( is_agg==0 && ExprHasProperty(pExpr, EP_WinFunc) ){
+-          sqlite3ErrorMsg(pParse,
+-              "FILTER may not be used with non-aggregate %#T()",
+-              pExpr
+-          );
+-          pNC->nNcErr++;
+-        }
+-#endif
+         else if( is_agg==0 && pExpr->pLeft ){
+           sqlite3ExprOrderByAggregateError(pParse, pExpr);
+           pNC->nNcErr++;

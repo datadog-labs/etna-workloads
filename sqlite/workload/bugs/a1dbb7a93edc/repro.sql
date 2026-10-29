@@ -1,0 +1,1 @@
+EXPLAIN QUERY PLAN SELECT DISTINCT value FROM generate_series(1,5);

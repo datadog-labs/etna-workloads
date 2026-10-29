@@ -1,0 +1,36 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -7551,6 +7551,7 @@
+ #ifndef SQLITE_DISABLE_SKIPAHEAD_DISTINCT
+   int addrSeek = 0;
+ #endif
++  int bContResolved;
+ 
+   /* Generate loop termination code.
+   */
+@@ -7573,6 +7574,7 @@
+       nRJ++;
+     }
+     pLoop = pLevel->pWLoop;
++    bContResolved = 0;
+     if( pLevel->op!=OP_Noop ){
+ #ifndef SQLITE_DISABLE_SKIPAHEAD_DISTINCT
+       Index *pIdx;
+@@ -7587,6 +7589,8 @@
+         int r1 = pParse->nMem+1;
+         int j, op;
+         int addrIfNull = 0; /* Init to avoid false-positive compiler warning */
++        sqlite3VdbeResolveLabel(v, pLevel->addrCont);
++        bContResolved = 1;
+         if( pLevel->iLeftJoin ){
+           addrIfNull = sqlite3VdbeAddOp2(v, OP_IfNullRow, pLevel->iIdxCur, r1);
+         }
+@@ -7611,7 +7615,7 @@
+       sqlite3VdbeAddOp2(v, OP_Goto, 0, pLevel->addrBrk);
+       VdbeComment((v, "EXISTS break %d", i));
+     }
+-    sqlite3VdbeResolveLabel(v, pLevel->addrCont);
++    if( !bContResolved ) sqlite3VdbeResolveLabel(v, pLevel->addrCont);
+     if( pLevel->op!=OP_Noop ){
+       sqlite3VdbeAddOp3(v, pLevel->op, pLevel->p1, pLevel->p2, pLevel->p3);
+       sqlite3VdbeChangeP5(v, pLevel->p5);

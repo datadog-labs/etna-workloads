@@ -1,0 +1,1 @@
+Reproducer: INSERT INTO t1 WITH x(a,b) AS (SELECT 1,2) SELECT * FROM x. The buggy shell's xfer optimization ignores pSelect->pWith and fails with 'no such table: x' (exit 1); the clean shell inserts the row and prints 1|2.

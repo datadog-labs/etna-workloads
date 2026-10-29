@@ -1,0 +1,1 @@
+repro.sql runs the test rowvalue-10.0 query: two row-value IN(subquery) terms over an index on t3(b,c,d,e,f). The buggy shell aborts with an assertion failure (sqlite3VdbeGetOp, exit -6, the pIn pointer advances past the allocated array in codeEqualityTerm). The clean shell prints nothing and exits 0.

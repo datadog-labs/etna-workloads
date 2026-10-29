@@ -1,0 +1,1 @@
+repro.sql: creates a trigger calling an unknown aggregate-ORDER-BY function with a subquery over a FROM-subquery, then renames the table. Clean shell succeeds and lists e/r1/t1; buggy shell aborts with assertion failure in selectAddSubqueryTypeInfo (SF_Resolved), exit -6. (alter-21.3/21.4)

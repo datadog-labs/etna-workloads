@@ -1,0 +1,3 @@
+CREATE TABLE t1(x);
+CREATE VIEW v1(y) AS SELECT x FROM t1;
+PRAGMA integrity_check;

@@ -1,0 +1,7 @@
+CREATE TEMP TABLE t1(a,b);
+CREATE TEMP TABLE log(op,x,y);
+CREATE TEMP TRIGGER r1 AFTER INSERT ON t1 BEGIN
+  INSERT INTO log VALUES('I1',new.a,new.b);
+END;
+INSERT INTO t1(a,b) VALUES(1,2),('happy','glad') RETURNING a, b, '|';
+SELECT * FROM log;

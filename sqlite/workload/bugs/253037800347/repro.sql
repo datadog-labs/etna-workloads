@@ -1,0 +1,8 @@
+CREATE TABLE t1(x, y);
+CREATE TABLE log(b);
+CREATE TRIGGER r2 BEFORE UPDATE ON t1 BEGIN
+  INSERT INTO log VALUES(new.y);
+END;
+INSERT INTO t1 VALUES(1, 0);
+UPDATE t1 SET y=random();
+SELECT count(*) FROM t1, log WHERE t1.y = log.b;

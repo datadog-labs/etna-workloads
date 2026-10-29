@@ -1,0 +1,23 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -8735,7 +8735,19 @@
+         for(i=0; i<pAggInfo->nColumn; i++){
+           struct AggInfo_col *pCol = &pAggInfo->aCol[i];
+           if( pCol->iSorterColumn>=j ){
+-            sqlite3ExprCode(pParse, pCol->pCExpr, j + regBase);
++            Table *pTab = pCol->pTab;
++            if( pTab && HasRowid(pTab) && !IsVirtual(pTab)
++             && pCol->iColumn>=0 && pCol->iColumn!=pTab->iPKey
++             && (pTab->aCol[pCol->iColumn].colFlags & COLFLAG_VIRTUAL)==0
++            ){
++              /* Read the raw column value, without default expansion or
++              ** REAL affinity conversion */
++              sqlite3VdbeAddOp3(v, OP_Column, pCol->iTable,
++                  sqlite3TableColumnToStorage(pTab, pCol->iColumn),
++                  j + regBase);
++            }else{
++              sqlite3ExprCode(pParse, pCol->pCExpr, j + regBase);
++            }
+             j++;
+           }
+         }

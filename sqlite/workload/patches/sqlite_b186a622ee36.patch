@@ -1,0 +1,23 @@
+--- a/ext/fts5/fts5_config.c
++++ b/ext/fts5/fts5_config.c
+@@ -930,7 +930,7 @@
+     if( SQLITE_INTEGER==sqlite3_value_numeric_type(pVal) ){
+       pgsz = sqlite3_value_int(pVal);
+     }
+-    if( pgsz<32 || pgsz>FTS5_MAX_PAGE_SIZE ){
++    if( pgsz<=0 || pgsz>FTS5_MAX_PAGE_SIZE ){
+       *pbBadkey = 1;
+     }else{
+       pConfig->pgsz = pgsz;
+--- a/ext/fts5/fts5_index.c
++++ b/ext/fts5/fts5_index.c
+@@ -8515,8 +8515,7 @@
+   if( pSeg->pgnoFirst==0 ) return;
+ 
+   fts5IndexPrepareStmt(p, &pStmt, sqlite3_mprintf(
+-      "SELECT segid, term, (pgno>>1), (pgno&1) FROM %Q.'%q_idx' WHERE segid=%d "
+-      "ORDER BY 1, 2",
++      "SELECT segid, term, (pgno>>1), (pgno&1) FROM %Q.'%q_idx' WHERE segid=%d",
+       pConfig->zDb, pConfig->zName, pSeg->iSegid
+   ));
+ 

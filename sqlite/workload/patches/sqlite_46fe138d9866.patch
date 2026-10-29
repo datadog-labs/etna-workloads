@@ -1,0 +1,35 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -210,7 +210,7 @@
+ */
+ Expr *sqlite3ExprSkipCollate(Expr *pExpr){
+   while( pExpr && ExprHasProperty(pExpr, EP_Skip) ){
+-    assert( pExpr->op==TK_COLLATE );
++    assert( pExpr->op==TK_COLLATE || pExpr->op==TK_IF_NULL_ROW );
+     pExpr = pExpr->pLeft;
+   }  
+   return pExpr;
+@@ -228,10 +228,9 @@
+       assert( pExpr->x.pList->nExpr>0 );
+       assert( pExpr->op==TK_FUNCTION );
+       pExpr = pExpr->x.pList->a[0].pExpr;
+-    }else if( pExpr->op==TK_COLLATE ){
+-      pExpr = pExpr->pLeft;
+     }else{
+-      break;
++      assert( pExpr->op==TK_COLLATE || pExpr->op==TK_IF_NULL_ROW );
++      pExpr = pExpr->pLeft;
+     }
+   }  
+   return pExpr;
+--- a/src/select.c
++++ b/src/select.c
+@@ -3927,7 +3927,7 @@
+           ifNullRow.pLeft = pCopy;
+           ifNullRow.iTable = pSubst->iNewTable;
+           ifNullRow.iColumn = -99;
+-          ifNullRow.flags = EP_IfNullRow;
++          ifNullRow.flags = EP_Skip;
+           pCopy = &ifNullRow;
+         }
+         testcase( ExprHasProperty(pCopy, EP_Subquery) );

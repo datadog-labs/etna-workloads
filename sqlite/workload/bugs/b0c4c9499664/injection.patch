@@ -1,0 +1,25 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -883,7 +883,7 @@
+     pIdxKey = sqlite3VdbeAllocUnpackedRecord(pKeyInfo);
+     if( pIdxKey==0 ) return SQLITE_NOMEM_BKPT;
+     sqlite3VdbeRecordUnpack((int)nKey, pKey, pIdxKey);
+-    if( pIdxKey->nField==0 || pIdxKey->nField>pKeyInfo->nAllField ){
++    if( pIdxKey->nField==0 ){
+       rc = SQLITE_CORRUPT_BKPT;
+     }else{
+       rc = sqlite3BtreeIndexMoveto(pCur, pIdxKey, pRes);
+--- a/src/vdbeaux.c
++++ b/src/vdbeaux.c
+@@ -4906,10 +4906,7 @@
+     d1 += sqlite3VdbeSerialTypeLen(serial_type);
+     if( d1>(unsigned)nKey1 ) break;
+     idx1 += sqlite3VarintLen(serial_type);
+-    if( idx1>=(unsigned)szHdr1 ){
+-      pPKey2->errCode = (u8)SQLITE_CORRUPT_BKPT;
+-      return 0;  /* Corrupt index */
+-    }
++    if( idx1>=(unsigned)szHdr1 ) break;
+   }
+ 
+   /* No memory allocation is ever used on mem1.  Prove this using

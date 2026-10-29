@@ -1,0 +1,3 @@
+CREATE TABLE t1(a); INSERT INTO t1 VALUES ('x');
+CREATE VIEW t2(b) AS SELECT json(TRUE);
+SELECT * FROM t2, t1 WHERE NOT json_quote(b);

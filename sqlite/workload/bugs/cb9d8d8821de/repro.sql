@@ -1,0 +1,4 @@
+CREATE TABLE t(a,b);
+CREATE INDEX i ON t(a);
+SELECT * FROM t WHERE a=3;
+DROP TABLE t;

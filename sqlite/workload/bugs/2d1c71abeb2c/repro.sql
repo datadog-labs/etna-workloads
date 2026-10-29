@@ -1,0 +1,1 @@
+SELECT * FROM (SELECT 1.0 AS abc) WHERE abc=1 AND abc LIKE '1.0';
