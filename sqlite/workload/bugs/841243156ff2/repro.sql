@@ -1,0 +1,7 @@
+CREATE VIRTUAL TABLE t1 USING fts5(a, detail=none);
+BEGIN;
+INSERT INTO t1 VALUES('a1 b1 c1');
+INSERT INTO t1 VALUES('a2 b2 c2');
+INSERT INTO t1 VALUES('a1 b1 c1');
+COMMIT;
+SELECT rowid FROM t1('b*');

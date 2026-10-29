@@ -1,0 +1,2 @@
+.selftest --init
+SELECT changes();

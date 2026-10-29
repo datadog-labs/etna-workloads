@@ -1,0 +1,2 @@
+DROP TABLE dbstat;
+SELECT 1;

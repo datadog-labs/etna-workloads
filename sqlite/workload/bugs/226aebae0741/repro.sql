@@ -1,0 +1,11 @@
+CREATE VIRTUAL TABLE ft USING fts5(x);
+INSERT INTO ft(ft, rank) VALUES('pgsz', 64);
+INSERT INTO ft(rowid, x) VALUES(100, 'hello world');
+INSERT INTO ft(rowid, x) VALUES(200, 'one day');
+BEGIN;
+INSERT INTO ft(rowid, x) VALUES(45, 'one two three');
+UPDATE ft SET x = (WITH RECURSIVE c(i,s) AS (SELECT 0,'' UNION ALL SELECT i+1,s||'hello world ' FROM c WHERE i<500) SELECT s FROM c WHERE i=500) WHERE rowid=100;
+COMMIT;
+INSERT INTO ft(ft, rank) VALUES('secure-delete', 1);
+DELETE FROM ft WHERE rowid=100;
+PRAGMA integrity_check;

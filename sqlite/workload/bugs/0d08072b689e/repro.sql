@@ -1,0 +1,3 @@
+CREATE TABLE t2(a AS (1+1), b);
+INSERT INTO t2(b) VALUES('abc');
+UPDATE t2 SET b='123' WHERE b='abc' RETURNING b;

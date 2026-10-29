@@ -1,0 +1,3 @@
+CREATE VIRTUAL TABLE t3 USING fts4;
+INSERT INTO t3 VALUES('[one two three]');
+SELECT snippet(t3) FROM t3 WHERE t3 MATCH 'one';

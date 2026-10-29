@@ -1,0 +1,3 @@
+CREATE TABLE t1(a,b);
+CREATE INDEX t1ba ON t1(b,a);
+SELECT * FROM t1 WHERE b >= (SELECT b FROM t1 ORDER BY lead(b) OVER () AND sum(a));

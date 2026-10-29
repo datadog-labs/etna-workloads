@@ -1,0 +1,28 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -274,9 +274,7 @@
+       p = p->pLeft;
+       continue;
+     }
+-    if( op==TK_VECTOR
+-     || (op==TK_FUNCTION && p->affExpr==SQLITE_AFF_DEFER)
+-    ){
++    if( op==TK_FUNCTION && p->affExpr==SQLITE_AFF_DEFER ){
+       assert( ExprUseXList(p) );
+       p = p->x.pList->a[0].pExpr;
+       continue;
+--- a/src/parse.y
++++ b/src/parse.y
+@@ -1340,12 +1340,7 @@
+   ExprList *pList = sqlite3ExprListAppend(pParse, X, Y);
+   A = sqlite3PExpr(pParse, TK_VECTOR, 0, 0);
+   if( A ){
+-    int i;
+     A->x.pList = pList;
+-    for(i=0; i<pList->nExpr; i++){
+-      assert( pList->a[i].pExpr!=0 );
+-      A->flags |= pList->a[i].pExpr->flags & EP_Propagate;
+-    }
+   }else{
+     sqlite3ExprListDelete(pParse->db, pList);
+   }

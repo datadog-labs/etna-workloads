@@ -1,0 +1,32 @@
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -2668,8 +2668,18 @@
+   int v1;    /* Left operand:  0==FALSE, 1==TRUE, 2==UNKNOWN or NULL */
+   int v2;    /* Right operand: 0==FALSE, 1==TRUE, 2==UNKNOWN or NULL */
+ 
+-  v1 = sqlite3VdbeBooleanValue(&aMem[pOp->p1], 2);
+-  v2 = sqlite3VdbeBooleanValue(&aMem[pOp->p2], 2);
++  pIn1 = &aMem[pOp->p1];
++  if( pIn1->flags & MEM_Null ){
++    v1 = 2;
++  }else{
++    v1 = sqlite3VdbeIntValue(pIn1)!=0;
++  }
++  pIn2 = &aMem[pOp->p2];
++  if( pIn2->flags & MEM_Null ){
++    v2 = 2;
++  }else{
++    v2 = sqlite3VdbeIntValue(pIn2)!=0;
++  }
+   if( pOp->opcode==OP_And ){
+     static const unsigned char and_logic[] = { 0, 0, 0, 0, 1, 2, 0, 2, 2 };
+     v1 = and_logic[v1*3+v2];
+@@ -2727,7 +2737,7 @@
+   pIn1 = &aMem[pOp->p1];
+   pOut = &aMem[pOp->p2];
+   if( (pIn1->flags & MEM_Null)==0 ){
+-    sqlite3VdbeMemSetInt64(pOut, !sqlite3VdbeBooleanValue(pIn1,0));
++    sqlite3VdbeMemSetInt64(pOut, !sqlite3VdbeIntValue(pIn1));
+   }else{
+     sqlite3VdbeMemSetNull(pOut);
+   }

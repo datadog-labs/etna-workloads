@@ -1,0 +1,1 @@
+Queries `dbstat` with `WHERE schema = NULL`. Clean shell returns no rows; the buggy shell fails with the error "no such schema: " (statFilter errors on an unknown/NULL schema instead of returning EOF).

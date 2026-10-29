@@ -1,0 +1,37 @@
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -3059,6 +3059,7 @@
+   u64 offset64;      /* 64-bit offset */
+   u32 t;             /* A type code from the record header */
+   Mem *pReg;         /* PseudoTable input register */
++  u16 eSubtype = 0;  /* Subtype flag left over in the output register */
+ 
+   assert( pOp->p1>=0 && pOp->p1<p->nCursor );
+   assert( pOp->p3>0 && pOp->p3<=(p->nMem+1 - p->nCursor) );
+@@ -3260,6 +3261,7 @@
+   if( VdbeMemDynamic(pDest) ){
+     sqlite3VdbeMemSetNull(pDest);
+   }
++  eSubtype = pDest->flags & MEM_Subtype;
+   assert( t==pC->aType[p2] );
+   if( pC->szRow>=aOffset[p2+1] ){
+     /* This is the common case where the desired content fits on the original
+@@ -3386,6 +3388,7 @@
+   }
+ 
+ op_column_out:
++  pDest->flags |= eSubtype;
+   UPDATE_MAX_BLOBSIZE(pDest);
+   REGISTER_TRACE(pOp->p3, pDest);
+   break;
+--- a/src/vdbeInt.h
++++ b/src/vdbeInt.h
+@@ -323,7 +323,7 @@
+ #define MEM_Term      0x0200   /* String in Mem.z is zero terminated */
+ #define MEM_Zero      0x0400   /* Mem.i contains count of 0s appended to blob */
+ #define MEM_Subtype   0x0800   /* Mem.eSubtype is valid */
+-#define MEM_TypeMask  0x0dbf   /* Mask of type bits */
++#define MEM_TypeMask  0x05bf   /* Mask of type bits */
+ 
+ /* Bits that determine the storage for Mem.z for a string or blob or
+ ** aggregate accumulator.

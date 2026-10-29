@@ -1,0 +1,4 @@
+CREATE TABLE t7(a,b);
+INSERT INTO t7(rowid, a, b) VALUES (1,1,3),(2,10,4),(3,100,2);
+SELECT rowid, sum(a) OVER w1 FROM t7
+WINDOW w1 AS (PARTITION BY b IN (SELECT rowid FROM t7));

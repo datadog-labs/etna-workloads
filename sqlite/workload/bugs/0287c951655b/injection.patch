@@ -1,0 +1,21 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -7151,12 +7151,14 @@
+   Walker w;
+   p = sqlite3ExprSkipCollateAndLikely(p);
+   if( p==0 ) return 0;
+-  if( p->op==TK_NOTNULL ){
+-    p = p->pLeft;
+-  }else{
+-    while( p->op==TK_AND ){
++  while( p ){
++    if( p->op==TK_NOTNULL ){
++      p = p->pLeft;
++    }else if( p->op==TK_AND ){
+       if( sqlite3ExprImpliesNonNullRow(p->pLeft, iTab, isRJ) ) return 1;
+       p = p->pRight;
++    }else{
++      break;
+     }
+   }
+   w.xExprCallback = impliesNotNullRow;

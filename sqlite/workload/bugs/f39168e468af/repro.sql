@@ -1,0 +1,6 @@
+CREATE TABLE t1(a, b);
+CREATE TABLE t2(x, y);
+INSERT INTO t1 VALUES('a', 'b');
+SELECT min(b), (
+  SELECT x FROM t2 WHERE a=2 GROUP BY y HAVING 0
+) FROM t1;

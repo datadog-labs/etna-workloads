@@ -1,0 +1,4 @@
+CREATE TABLE t1(a, b, c);
+INSERT INTO t1 VALUES(4, NULL, 6);
+ALTER TABLE t1 ADD CONSTRAINT c1 CHECK (b!=5);
+SELECT sql FROM sqlite_schema WHERE name='t1';

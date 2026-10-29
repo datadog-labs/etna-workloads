@@ -1,0 +1,3 @@
+CREATE TABLE t5(a, b);
+.auth ON
+ALTER TABLE t5 DROP COLUMN b;

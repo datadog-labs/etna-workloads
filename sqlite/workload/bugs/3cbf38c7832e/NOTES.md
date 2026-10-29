@@ -1,0 +1,1 @@
+UPDATE ... RETURNING on a view with no INSTEAD OF trigger. Clean shell: "cannot modify t2 because it is a view" error. Buggy shell: the RETURNING pseudo-trigger makes the check think a trigger exists, so the statement is accepted (it returns rows or misbehaves) instead of erroring.

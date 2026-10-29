@@ -1,0 +1,1 @@
+repro.sql runs `SELECT hex(zeroblob(2) || x'61')`. Clean prints 000061. The buggy shell omits the ExpandBlob call in OP_Concat, so the zeroblob is not expanded and the result differs (see check.sh output).

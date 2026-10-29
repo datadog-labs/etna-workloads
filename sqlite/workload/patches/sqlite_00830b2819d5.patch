@@ -1,0 +1,43 @@
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -5272,10 +5272,9 @@
+     char *pEnd = &pCsr[csr.nDoclist];
+ 
+     i64 iDocid = 0;
+-    int iCol = 0;
++    i64 iCol = 0;
+     u64 iPos = 0;
+ 
+-    rc = SQLITE_OK;
+     pCsr += sqlite3Fts3GetVarint(pCsr, &iDocid);
+     while( pCsr<pEnd ){
+       u64 iVal = 0;
+@@ -5285,7 +5284,7 @@
+           iCol = 0;
+           iPos = 0;
+           if( iVal ){
+-            pCsr += fts3GetVarint32(pCsr, &iCol);
++            pCsr += sqlite3Fts3GetVarint(pCsr, &iCol);
+           }else{
+             pCsr += sqlite3Fts3GetVarintU(pCsr, &iVal);
+             if( p->bDescIdx ){
+@@ -5296,15 +5295,10 @@
+           }
+         }else{
+           iPos += (iVal - 2);
+-          if( iPos>0x7FFFFFFF ){
+-            rc = SQLITE_CORRUPT_VTAB;
+-            break;
+-          }else{
+-            cksum = cksum ^ fts3ChecksumEntry(
+-                csr.zTerm, csr.nTerm, iLangid, iIndex, iDocid,
+-                iCol, (int)iPos
+-            );
+-          }
++          cksum = cksum ^ fts3ChecksumEntry(
++              csr.zTerm, csr.nTerm, iLangid, iIndex, iDocid,
++              (int)iCol, (int)iPos
++          );
+         }
+       }
+     }

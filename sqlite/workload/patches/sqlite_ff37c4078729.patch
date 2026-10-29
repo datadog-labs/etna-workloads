@@ -1,0 +1,17 @@
+--- a/src/update.c
++++ b/src/update.c
+@@ -913,9 +913,12 @@
+     oldmask |= sqlite3TriggerColmask(pParse,
+         pTrigger, pChanges, 0, TRIGGER_BEFORE|TRIGGER_AFTER, pTab, onError
+     );
+-    for(i=0; i<pTab->nCol; i++){
++    for(i=0, k=regOld; i<pTab->nCol; i++, k++){
+       u32 colFlags = pTab->aCol[i].colFlags;
+-      k = sqlite3TableColumnToStorage(pTab, i) + regOld;
++      if( colFlags & COLFLAG_VIRTUAL ){
++        k--;
++        continue;
++      }
+       if( oldmask==0xffffffff
+        || (i<32 && (oldmask & MASKBIT32(i))!=0)
+        || (colFlags & COLFLAG_PRIMKEY)!=0

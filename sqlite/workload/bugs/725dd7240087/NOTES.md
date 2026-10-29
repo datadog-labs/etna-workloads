@@ -1,0 +1,1 @@
+repro.sql: sets sqlite_stat1 sz=0 for a table's index, reloads stats via ANALYZE sqlite_master, then runs an IN query. Buggy shell hits assertion in whereLoopAddBtreeIndex (szTabRow>0; division by zero risk) and aborts; clean shell clamps sz to >=2 and prints 'done'.

@@ -1,0 +1,45 @@
+--- a/ext/fts5/fts5_storage.c
++++ b/ext/fts5/fts5_storage.c
+@@ -690,9 +690,6 @@
+        || p->pConfig->eContent==FTS5_CONTENT_UNINDEXED
+   );
+ 
+-  rc = fts5StorageLoadTotals(p, 1);
+-  if( rc!=SQLITE_OK ) return rc;
+-
+   /* Look up the origin of the document in the %_docsize table. Store
+   ** this in stack variable iOrigin.  */
+   rc = fts5StorageGetStmt(p, FTS5_STMT_LOOKUP_DOCSIZE, &pLookup, 0);
+@@ -700,23 +697,7 @@
+     int rc2;
+     sqlite3_bind_int64(pLookup, 1, iDel);
+     if( SQLITE_ROW==sqlite3_step(pLookup) ){
+-      int *aCol = (int*)sqlite3_malloc64(p->pConfig->nCol * sizeof(int));
+-      if( aCol==0 ){
+-        rc = SQLITE_NOMEM;
+-      }else{
+-        const u8 *aBlob = sqlite3_column_blob(pLookup, 0);
+-        int nBlob = sqlite3_column_bytes(pLookup, 0);
+-        int ii;
+-        if( fts5StorageDecodeSizeArray(aCol, p->pConfig->nCol, aBlob, nBlob) ){
+-          rc = SQLITE_CORRUPT_VTAB;
+-        }else{
+-          for(ii=0; ii<p->pConfig->nCol; ii++){
+-            p->aTotalSize[ii] -= aCol[ii];
+-          }
+-        }
+-        sqlite3_free(aCol);
+-      }
+-      iOrigin = sqlite3_column_int(pLookup, 1);
++      iOrigin = sqlite3_column_int64(pLookup, 1);
+     }
+     rc2 = sqlite3_reset(pLookup);
+     if( rc==SQLITE_OK ) rc = rc2;
+@@ -724,7 +705,6 @@
+ 
+   if( rc==SQLITE_OK && iOrigin!=0 ){
+     rc = sqlite3Fts5IndexContentlessDelete(p->pIndex, iOrigin, iDel);
+-    p->nTotalRow--;
+   }
+ 
+   return rc;

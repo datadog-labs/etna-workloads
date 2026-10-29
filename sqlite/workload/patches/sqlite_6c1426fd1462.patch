@@ -1,0 +1,16 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -1894,8 +1894,12 @@
+ #ifndef SQLITE_OMIT_SUBQUERY
+     case SRT_Set: {
+       assert( nColumn==sqlite3Strlen30(pDest->zAffSdst) );
++      char *zAff = sqlite3DbStrDup(pParse->db, pDest->zAffSdst);
++      if( zAff ){
++        memset(zAff, SQLITE_AFF_NUMERIC, nColumn);
++      }
+       sqlite3VdbeAddOp4(v, OP_MakeRecord, regRow, nColumn, regRowid,
+-                        pDest->zAffSdst, nColumn);
++                        zAff, P4_DYNAMIC);
+       sqlite3VdbeAddOp4Int(v, OP_IdxInsert, iParm, regRowid, regRow, nColumn);
+       break;
+     }

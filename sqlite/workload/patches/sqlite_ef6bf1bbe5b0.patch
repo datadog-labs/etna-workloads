@@ -1,0 +1,84 @@
+--- a/ext/fts3/fts3.c
++++ b/ext/fts3/fts3.c
+@@ -3909,8 +3909,6 @@
+     rc = sqlite3Fts3PendingTermsFlush(p);
+   }
+ 
+-  p->bIgnoreSavepoint = 1;
+-
+   if( p->zContentTbl==0 ){
+     fts3DbExec(&rc, db,
+       "ALTER TABLE %Q.'%q_content'  RENAME TO '%q_content';",
+@@ -3938,8 +3936,6 @@
+     "ALTER TABLE %Q.'%q_segdir'   RENAME TO '%q_segdir';",
+     p->zDb, p->zName, zName
+   );
+-
+-  p->bIgnoreSavepoint = 0;
+   return rc;
+ }
+ 
+@@ -3956,22 +3952,7 @@
+   TESTONLY( pTab->mxSavepoint = iSavepoint );
+ 
+   if( pTab->bIgnoreSavepoint==0 ){
+-    if( fts3HashCount(&pTab->aIndex[0].hPending)>0 ){
+-      char *zSql = sqlite3_mprintf("INSERT INTO %Q.%Q(%Q) VALUES('flush')",
+-          pTab->zDb, pTab->zName, pTab->zName
+-          );
+-      if( zSql ){
+-        pTab->bIgnoreSavepoint = 1;
+-        rc = sqlite3_exec(pTab->db, zSql, 0, 0, 0);
+-        pTab->bIgnoreSavepoint = 0;
+-        sqlite3_free(zSql);
+-      }else{
+-        rc = SQLITE_NOMEM;
+-      }
+-    }
+-    if( rc==SQLITE_OK ){
+-      pTab->iSavepoint = iSavepoint+1;
+-    }
++    rc = fts3SyncMethod(pVtab);
+   }
+   return rc;
+ }
+@@ -3986,7 +3967,6 @@
+   assert( pTab->inTransaction );
+   assert( pTab->mxSavepoint >= iSavepoint );
+   TESTONLY( pTab->mxSavepoint = iSavepoint-1 );
+-  pTab->iSavepoint = iSavepoint;
+   return SQLITE_OK;
+ }
+ 
+@@ -4000,9 +3980,7 @@
+   UNUSED_PARAMETER(iSavepoint);
+   assert( pTab->inTransaction );
+   TESTONLY( pTab->mxSavepoint = iSavepoint );
+-  if( (iSavepoint+1)<=pTab->iSavepoint ){
+-    sqlite3Fts3PendingTermsClear(pTab);
+-  }
++  sqlite3Fts3PendingTermsClear(pTab);
+   return SQLITE_OK;
+ }
+ 
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -3351,6 +3351,7 @@
+     rc = fts3SegmentMerge(p, p->iPrevLangid, i, FTS3_SEGCURSOR_PENDING);
+     if( rc==SQLITE_DONE ) rc = SQLITE_OK;
+   }
++  sqlite3Fts3PendingTermsClear(p);
+ 
+   /* Determine the auto-incr-merge setting if unknown.  If enabled,
+   ** estimate the number of leaf blocks of content to be written
+@@ -3372,10 +3373,6 @@
+       rc = sqlite3_reset(pStmt);
+     }
+   }
+-
+-  if( rc==SQLITE_OK ){
+-    sqlite3Fts3PendingTermsClear(p);
+-  }
+   return rc;
+ }
+ 

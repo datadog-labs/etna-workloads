@@ -1,0 +1,43 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -4444,15 +4444,7 @@
+ #ifdef SQLITE_OMIT_FLOATING_POINT
+       sqlite3ErrorMsg(pParse, "oversized integer: %s%#T", negFlag?"-":"",pExpr);
+ #else
+-#ifndef SQLITE_OMIT_HEX_INTEGER
+-      if( sqlite3_strnicmp(z,"0x",2)==0 ){
+-        sqlite3ErrorMsg(pParse, "hex literal too big: %s%#T",
+-                        negFlag?"-":"",pExpr);
+-      }else
+-#endif
+-      {
+-        codeReal(v, z, negFlag, iMem);
+-      }
++      codeReal(v, z, negFlag, iMem);
+ #endif
+     }else{
+       if( negFlag ){ value = c==3 ? SMALLEST_INT64 : -value; }
+--- a/src/util.c
++++ b/src/util.c
+@@ -1200,6 +1200,21 @@
+     }else if( *zNum=='+' ){
+       zNum+=incr;
+     }
++#ifndef SQLITE_OMIT_HEX_INTEGER
++    else if( *zNum=='0'
++          &&  &zNum[incr*2]<zEnd
++          && (zNum[incr]=='x' || zNum[incr]=='X')
++          && sqlite3Isxdigit(zNum[incr*2])
++    ){
++      zNum += incr*2;
++      while( zNum<zEnd && zNum[0]=='0' ) zNum += incr;
++      for(i=0; &zNum[i]<zEnd && sqlite3Isxdigit(zNum[i]); i+=incr){
++        u = u*16 + sqlite3HexToInt(zNum[i]);
++      }
++      memcpy(pNum, &u, 8);
++      return &zNum[i]<zEnd || i>16*incr || nonNum;
++    }
++#endif
+   }
+   zStart = zNum;
+   while( zNum<zEnd && zNum[0]=='0' ){ zNum+=incr; } /* Skip leading zeros. */

@@ -1,0 +1,23 @@
+--- a/src/func.c
++++ b/src/func.c
+@@ -1990,16 +1990,11 @@
+     assert( p->cnt>0 );
+     p->cnt--;
+     if( !p->approx ){
+-      i64 x = p->iSum;
+-      if( sqlite3SubInt64(&x, sqlite3_value_int64(argv[0]))==0 ){
+-        p->iSum = x;
+-        return;
++      if( sqlite3SubInt64(&p->iSum, sqlite3_value_int64(argv[0])) ){
++        p->ovrfl = 1;
++        p->approx = 1;
+       }
+-      p->ovrfl = 1;
+-      p->approx = 1;
+-      kahanBabuskaNeumaierInit(p, p->iSum);
+-    }
+-    if( type==SQLITE_INTEGER ){
++    }else if( type==SQLITE_INTEGER ){
+       i64 iVal = sqlite3_value_int64(argv[0]);
+       if( iVal!=SMALLEST_INT64 ){
+         kahanBabuskaNeumaierStepInt64(p, -iVal);

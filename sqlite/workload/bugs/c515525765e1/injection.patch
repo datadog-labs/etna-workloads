@@ -1,0 +1,67 @@
+--- a/src/prepare.c
++++ b/src/prepare.c
+@@ -927,8 +927,7 @@
+   }else{
+     assert( pNew!=0 );
+   }
+-  sqlite3VdbeSwap((Vdbe*)pNew, p);
+-  sqlite3TransferBindings(pNew, (sqlite3_stmt*)p);
++  sqlite3VdbeSwapOps((Vdbe*)pNew, p);
+   sqlite3VdbeResetStepResult((Vdbe*)pNew);
+   sqlite3VdbeFinalize((Vdbe*)pNew);
+   return SQLITE_OK;
+--- a/src/vdbe.h
++++ b/src/vdbe.h
+@@ -303,7 +303,7 @@
+ void sqlite3VdbeAddDblquoteStr(sqlite3*,Vdbe*,const char*);
+ int sqlite3VdbeUsesDoubleQuotedString(Vdbe*,const char*);
+ #endif
+-void sqlite3VdbeSwap(Vdbe*,Vdbe*);
++void sqlite3VdbeSwapOps(Vdbe*,Vdbe*);
+ VdbeOp *sqlite3VdbeTakeOpArray(Vdbe*, int*, int*);
+ sqlite3_value *sqlite3VdbeGetBoundValue(Vdbe*, int, u8);
+ void sqlite3VdbeReprepareOnBind(Vdbe*, int, int);
+--- a/src/vdbeaux.c
++++ b/src/vdbeaux.c
+@@ -125,32 +125,15 @@
+ ** moved back to pA so that it will be cleaned up when pA is
+ ** finalized.
+ */
+-void sqlite3VdbeSwap(Vdbe *pA, Vdbe *pB){
+-  Vdbe tmp, *pTmp, **ppTmp;
+-  char *zTmp;
+-  assert( pA->db==pB->db );
+-  tmp = *pA;
+-  *pA = *pB;
+-  *pB = tmp;
+-  pTmp = pA->pVNext;
+-  pA->pVNext = pB->pVNext;
+-  pB->pVNext = pTmp;
+-  ppTmp = pA->ppVPrev;
+-  pA->ppVPrev = pB->ppVPrev;
+-  pB->ppVPrev = ppTmp;
+-  zTmp = pA->zSql;
+-  pA->zSql = pB->zSql;
+-  pB->zSql = zTmp;
+-#ifdef SQLITE_ENABLE_NORMALIZE
+-  zTmp = pA->zNormSql;
+-  pA->zNormSql = pB->zNormSql;
+-  pB->zNormSql = zTmp;
+-#endif
+-  pB->expmask |= pA->expmask;
+-  pB->smimask |= pA->smimask;
+-  pB->prepFlags = pA->prepFlags;
+-  memcpy(pB->aCounter, pA->aCounter, sizeof(pB->aCounter));
+-  pB->aCounter[SQLITE_STMTSTATUS_REPREPARE]++;
++void sqlite3VdbeSwapOps(Vdbe *pA, Vdbe *pB){
++  VdbeOp *aOp;
++  int nOp;
++  aOp = pA->aOp;
++  nOp = pA->nOp;
++  pA->aOp = pB->aOp;
++  pA->nOp = pB->nOp;
++  pB->aOp = aOp;
++  pB->nOp = nOp;
+ }
+ 
+ /*

@@ -1,0 +1,1 @@
+repro.sql: in a UTF-16 database, an fts5 row holding a blob x'46f0' (invalid text) is inserted, then integrity-check is run. Clean: no output, exit 0. Buggy: 'fts5: checksum mismatch for table "vt0"', exit 1 (sqlite3_value_bytes() called before sqlite3_value_text() in the integrity check, so the byte count is for the untranslated value).

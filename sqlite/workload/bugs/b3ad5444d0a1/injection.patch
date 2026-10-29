@@ -1,0 +1,30 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -7542,14 +7542,7 @@
+       }
+       if( pIEpr==0 ) break;
+       if( NEVER(!ExprUseYTab(pExpr)) ) break;
+-      for(i=0; i<pSrcList->nSrc; i++){
+-         if( pSrcList->a[i].iCursor==pIEpr->iDataCur ){
+-           testcase( i>0 );
+-           break;
+-         }
+-      }
+-      if( i>=pSrcList->nSrc ) break;
+-      if( NEVER(pExpr->pAggInfo!=0) ) break; /* Resolved by outer context */
++      if( pExpr->pAggInfo!=0 ) break; /* Already resolved */
+       if( pParse->nErr ){ return WRC_Abort; }
+ 
+       /* If we reach this point, it means that expression pExpr can be
+--- a/src/select.c
++++ b/src/select.c
+@@ -6723,8 +6723,7 @@
+   if( pExpr->op==TK_AGG_FUNCTION ) return WRC_Continue;
+   if( pExpr->op==TK_IF_NULL_ROW ) return WRC_Continue;
+   pAggInfo = pExpr->pAggInfo;
+-  if( NEVER(pExpr->iAgg>=pAggInfo->nColumn) ) return WRC_Continue;
+-  assert( pExpr->iAgg>=0 );
++  assert( pExpr->iAgg>=0 && pExpr->iAgg<pAggInfo->nColumn );
+   pCol = &pAggInfo->aCol[pExpr->iAgg];
+   pExpr->op = TK_AGG_COLUMN;
+   pExpr->iTable = pCol->iTable;

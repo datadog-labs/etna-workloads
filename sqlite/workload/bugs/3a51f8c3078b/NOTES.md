@@ -1,0 +1,2 @@
+repro.sql builds a contentless_delete FTS5 table with 9 rows, deletes one (creating a tombstone hash page), then overwrites the last ft_data block with an 8-byte tombstone page (`04000000 00000000`, zero slots), queries, and deletes a row.
+Clean shell: prints `2`, exit 0. Buggy shell: divide-by-zero in the tombstone nSlot computation kills the shell with SIGFPE (exit status -8); the buffered `2` is never printed.

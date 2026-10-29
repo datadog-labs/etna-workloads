@@ -1,0 +1,4 @@
+CREATE TABLE t(id INTEGER PRIMARY KEY, j TEXT);
+INSERT INTO t VALUES(1,'{"a":1}'),(2,'{"b":2}'),(3,'{"c":3}'),(4,'{"d":4}');
+SELECT json_group_array(json(j)) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM t;
+SELECT json_group_array(json(j)) OVER (ORDER BY id ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING) FROM t;

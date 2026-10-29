@@ -1,0 +1,37 @@
+--- a/ext/misc/decimal.c
++++ b/ext/misc/decimal.c
+@@ -167,10 +167,6 @@
+       p->nFrac += iExp;
+     }
+   }
+-  if( p->sign ){
+-    for(i=0; i<p->nDigit && p->a[i]==0; i++){}
+-    if( i>=p->nDigit ) p->sign = 0;
+-  }
+   if( p->nDigit>SQLITE_DECIMAL_MAX_DIGIT ) goto new_from_text_failed;
+   return p;
+ 
+@@ -410,21 +406,13 @@
+ **    pB!=0
+ **    pB->isNull==0
+ */
+-static int decimal_cmp(Decimal *pA, Decimal *pB){
++static int decimal_cmp(const Decimal *pA, const Decimal *pB){
+   int nASig, nBSig, rc, n;
+-  while( pA->nFrac>0 && pA->a[pA->nDigit-1]==0 ){
+-    pA->nDigit--;
+-    pA->nFrac--;
+-  }
+-  while( pB->nFrac>0 && pB->a[pB->nDigit-1]==0 ){
+-    pB->nDigit--;
+-    pB->nFrac--;
+-  }
+   if( pA->sign!=pB->sign ){
+     return pA->sign ? -1 : +1;
+   }
+   if( pA->sign ){
+-    Decimal *pTemp = pA;
++    const Decimal *pTemp = pA;
+     pA = pB;
+     pB = pTemp;
+   }

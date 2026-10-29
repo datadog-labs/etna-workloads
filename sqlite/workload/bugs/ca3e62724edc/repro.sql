@@ -1,0 +1,10 @@
+CREATE VIRTUAL TABLE t1 USING fts5(c, detail='none');
+INSERT INTO t1(t1, rank) VALUES('secure-delete', 1);
+INSERT INTO t1(rowid, c) VALUES(1, 'a');
+BEGIN;
+DELETE FROM t1 WHERE rowid = 1;
+INSERT INTO t1(rowid, c) VALUES(1, 'a');
+INSERT INTO t1(rowid, c) VALUES(2, 'a');
+COMMIT;
+SELECT rowid FROM t1 WHERE t1 MATCH 'a' ORDER BY rowid;
+INSERT INTO t1(t1) VALUES('integrity-check');

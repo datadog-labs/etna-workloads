@@ -1,0 +1,1 @@
+Reproducer: a RANGE window with a REAL offset (0.3 PRECEDING) over two huge INTEGER values (~3e18), where float rounding makes the peer value + offset compare wrong. Clean shell prints the two totals; the buggy shell aborts with assertion `p->cnt>0' in sumInverse (xInverse called before xStep).

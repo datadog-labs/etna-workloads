@@ -1,0 +1,1 @@
+Reproducer: repro.sql runs format('%!.0e',-1e100). The buffer-size estimate in printf is 2 bytes too small. Clean shell prints -1.0e+100. Buggy shell aborts with assertion 'length <= szBufNeeded' in sqlite3_str_vappendf (exit -6); in a non-debug build it would overflow the buffer.

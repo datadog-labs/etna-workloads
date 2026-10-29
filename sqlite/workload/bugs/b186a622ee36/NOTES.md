@@ -1,0 +1,1 @@
+repro.sql replays fts5misc-3.x: with reverse_unordered_selects on and pgsz=38, integrity-check queries the %_idx table without ORDER BY and so reports corruption on the buggy shell ("fts5: corruption found reading blob ..." at line 6). The clean shell passes it. Only the clean shell reaches the last statement (pgsz=16, rejected as a bad key, "SQL logic error").

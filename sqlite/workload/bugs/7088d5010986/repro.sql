@@ -1,0 +1,2 @@
+CREATE TABLE t5(a);
+CREATE INDEX t5a ON t5(a) WHERE a=#1;

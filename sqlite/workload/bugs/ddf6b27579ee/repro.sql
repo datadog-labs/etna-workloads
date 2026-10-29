@@ -1,0 +1,4 @@
+CREATE TABLE t1(x INT);
+CREATE INDEX t1x ON t1(likely(x));
+INSERT INTO t1 VALUES(1),(2),(4),(8);
+SELECT max(~likely(x)) FILTER (WHERE true) FROM t1 INDEXED BY t1x GROUP BY x;

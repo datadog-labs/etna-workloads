@@ -1,0 +1,5 @@
+.testctrl internal_functions 1
+CREATE TABLE t1(a,b,c);
+CREATE TABLE dual(dummy);
+INSERT INTO dual VALUES('X');
+SELECT implies_nonnull_row( (b=1 AND a=2)>(b=3 AND a=4),a) FROM dual LEFT JOIN t1;

@@ -1,0 +1,1 @@
+repro.sql runs json_remove('[0,1,2,3,4]','$[2]') and json_array_length() of a json_remove() result. Clean prints [0,1,3,4] and 3. Buggy skips jsonAfterEditSizeAdjust for array edits and fails both with 'malformed JSON' (exit 1).

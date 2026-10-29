@@ -1,0 +1,21 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -6400,10 +6400,8 @@
+   }else{
+     for(pIdx=pTab->pIndex; pIdx; pIdx=pIdx->pNext){
+       int opMask;
+-      assert( pLoop->aLTermSpace==pLoop->aLTerm );
+       if( !IsUniqueIndex(pIdx)
+        || pIdx->pPartIdxWhere!=0
+-       || pIdx->nKeyCol>ArraySize(pLoop->aLTermSpace)
+       ) continue;
+       opMask = pIdx->uniqNotNull ? (WO_EQ|WO_IS) : WO_EQ;
+       for(j=0; j<pIdx->nKeyCol; j++){
+@@ -6411,6 +6409,7 @@
+         while( pTerm && pTerm->prereqRight ) pTerm = whereScanNext(&scan);
+         if( pTerm==0 ) break;
+         testcase( pTerm->eOperator & WO_IS );
++        whereLoopResize(pWInfo->pParse->db, pLoop, j);
+         pLoop->aLTerm[j] = pTerm;
+       }
+       if( j!=pIdx->nKeyCol ) continue;

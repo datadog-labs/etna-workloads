@@ -1,0 +1,3 @@
+CREATE TABLE t(a COLLATE NOCASE, b);
+.expert
+SELECT * FROM t WHERE a='x';

@@ -1,0 +1,3 @@
+CREATE TABLE t5(x);
+INSERT INTO t5 VALUES(NULL);
+SELECT sum(x), total(x) FROM t5;

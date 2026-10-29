@@ -1,0 +1,1 @@
+repro.sql runs the tkt-99378-300 query (table t1(a INT), index i1 ON t1(a,a=a), nested aggregate subqueries with NATURAL RIGHT JOIN). Clean shell prints rows 1 and 2; the buggy shell aborts with assertion 'pExpr->pAggInfo==0' in analyzeAggregate (exit -6).

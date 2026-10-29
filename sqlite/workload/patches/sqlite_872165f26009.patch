@@ -1,0 +1,21 @@
+--- a/src/alter.c
++++ b/src/alter.c
+@@ -641,8 +641,6 @@
+   pTab = sqlite3LocateTableItem(pParse, 0, &pSrc->a[0]);
+   if( !pTab ) goto exit_rename_column;
+ 
+-  /* Cannot alter a system table */
+-  if( SQLITE_OK!=isAlterableTable(pParse, pTab) ) goto exit_rename_column;
+   if( SQLITE_OK!=isRealTable(pParse, pTab, 0) ) goto exit_rename_column;
+ 
+   /* Which schema holds the table to be altered */ 
+@@ -685,8 +683,7 @@
+   sqlite3NestedParse(pParse,
+       "UPDATE \"%w\"." LEGACY_SCHEMA_TABLE " SET "
+       "sql = sqlite_rename_column(sql, type, name, %Q, %Q, %d, %Q, %d, %d) "
+-      "WHERE name NOT LIKE 'sqliteX_%%' ESCAPE 'X' "
+-      " AND (type != 'index' OR tbl_name = %Q)",
++      "WHERE type != 'index' OR tbl_name = %Q",
+       zDb,
+       zDb, pTab->zName, iCol, zNew, bQuote, iSchema==1,
+       pTab->zName

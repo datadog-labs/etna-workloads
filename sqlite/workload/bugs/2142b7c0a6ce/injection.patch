@@ -1,0 +1,36 @@
+--- a/src/fkey.c
++++ b/src/fkey.c
+@@ -1326,24 +1326,24 @@
+     nFrom = sqlite3Strlen30(zFrom);
+ 
+     if( action==OE_Restrict ){
+-      SrcList *pSrc;
++      int iDb = sqlite3SchemaToIndex(db, pTab->pSchema);
++      Token tFrom;
++      Token tDb;
+       Expr *pRaise; 
+ 
++      tFrom.z = zFrom;
++      tFrom.n = nFrom;
++      tDb.z = db->aDb[iDb].zDbSName;
++      tDb.n = sqlite3Strlen30(tDb.z);
++
+       pRaise = sqlite3Expr(db, TK_STRING, "FOREIGN KEY constraint failed"),
+       pRaise = sqlite3PExpr(pParse, TK_RAISE, pRaise, 0);
+       if( pRaise ){
+         pRaise->affExpr = OE_Abort;
+       }
+-      pSrc = sqlite3SrcListAppend(pParse, 0, 0, 0);
+-      if( pSrc ){
+-        SrcItem *pItem = &pSrc->a[0];
+-        pItem->zName = sqlite3DbStrDup(db, zFrom);
+-        pItem->fg.fixedSchema = 1;
+-        pItem->u4.pSchema = pTab->pSchema;
+-      }
+       pSelect = sqlite3SelectNew(pParse, 
+           sqlite3ExprListAppend(pParse, 0, pRaise),
+-          pSrc,
++          sqlite3SrcListAppend(pParse, 0, &tDb, &tFrom),
+           pWhere,
+           0, 0, 0, 0, 0
+       );

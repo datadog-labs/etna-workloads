@@ -1,0 +1,18 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -2815,8 +2815,13 @@
+     return 0;  /* rule (3) */
+   }
+   if( pSrc->fg.jointype & JT_LEFT ){
+-    if( !ExprHasProperty(pExpr, EP_OuterON) ) return 0;   /* rule (4a) */
+-    if( pExpr->w.iJoin!=pSrc->iCursor ) return 0;         /* rule (4b) */
++    if( bAllowSubq==0 ){
++      if( !ExprHasProperty(pExpr, EP_OuterON) ) return 0;   /* rule (4a) */
++      if( pExpr->w.iJoin!=pSrc->iCursor ) return 0;         /* rule (4b) */
++    }else if( ExprHasProperty(pExpr, EP_OuterON)
++           && pExpr->w.iJoin!=pSrc->iCursor ){
++      return 0;
++    }
+   }else{
+     if( ExprHasProperty(pExpr, EP_OuterON) ) return 0;    /* rule (5) */
+   }

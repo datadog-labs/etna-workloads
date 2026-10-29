@@ -1,0 +1,28 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -480,7 +480,6 @@
+ 
+   assert( sqlite3BtreeHoldsMutex(p) );
+   assert( p->sharable || 0==*ppIter );
+-  assert( p->inTrans>0 );
+ 
+   SHARED_LOCK_TRACE(pBt, "clearAllLocks", 0, 0);
+ 
+@@ -4071,7 +4070,6 @@
+ 
+   assert( sqlite3_mutex_held(pBt->mutex) );
+   assert( iLastPg>nFin );
+-
+   if( !PTRMAP_ISPAGE(pBt, iLastPg) && iLastPg!=PENDING_BYTE_PAGE(pBt) ){
+     u8 eType;
+     Pgno iPtrPage;
+@@ -4386,8 +4384,8 @@
+     ** transaction count of the shared btree. If the transaction count
+     ** reaches 0, set the shared state to TRANS_NONE. The unlockBtreeIfUnused()
+     ** call below will unlock the pager.  */
++    clearAllSharedCacheTableLocks(p);
+     if( p->inTrans!=TRANS_NONE ){
+-      clearAllSharedCacheTableLocks(p);
+       pBt->nTransaction--;
+       if( 0==pBt->nTransaction ){
+         pBt->inTransaction = TRANS_NONE;

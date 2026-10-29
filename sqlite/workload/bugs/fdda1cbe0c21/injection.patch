@@ -1,0 +1,60 @@
+--- a/ext/fts5/fts5_expr.c
++++ b/ext/fts5/fts5_expr.c
+@@ -1909,7 +1909,7 @@
+   Fts5ExprPhrase *pOrig = 0;      /* The phrase extracted from pExpr */
+   Fts5Expr *pNew = 0;             /* Expression to return via *ppNew */
+   TokenCtx sCtx = {0,0,0};        /* Context object for fts5ParseTokenize */
+-  if( !pExpr || iPhrase<0 || iPhrase>=pExpr->nPhrase ){
++  if( iPhrase<0 || iPhrase>=pExpr->nPhrase ){
+     rc = SQLITE_RANGE;
+   }else{
+     pOrig = pExpr->apExprPhrase[iPhrase];
+--- a/ext/fts5/fts5_main.c
++++ b/ext/fts5/fts5_main.c
+@@ -1041,7 +1041,6 @@
+           }
+         }else{
+           rc = SQLITE_OK;
+-          CsrFlagSet(pCsr, FTS5CSR_REQUIRE_DOCSIZE);
+         }
+         break;
+       }
+@@ -1665,13 +1664,9 @@
+   assert( pCsr->ePlan==FTS5_PLAN_MATCH 
+        || pCsr->ePlan==FTS5_PLAN_SORTED_MATCH 
+        || pCsr->ePlan==FTS5_PLAN_SOURCE 
+-       || pCsr->ePlan==FTS5_PLAN_SCAN 
+-       || pCsr->ePlan==FTS5_PLAN_ROWID 
+   );
+   if( pCsr->pSorter ){
+     return pCsr->pSorter->iRowid;
+-  }else if( pCsr->ePlan>=FTS5_PLAN_SCAN ){
+-    return sqlite3_column_int64(pCsr->pStmt, 0);
+   }else{
+     return sqlite3Fts5ExprRowid(pCsr->pExpr);
+   }
+@@ -1688,10 +1683,20 @@
+   int ePlan = pCsr->ePlan;
+   
+   assert( CsrFlagTest(pCsr, FTS5CSR_EOF)==0 );
+-  if( ePlan==FTS5_PLAN_SPECIAL ){
+-    *pRowid = 0;
+-  }else{
+-    *pRowid = fts5CursorRowid(pCsr);
++  switch( ePlan ){
++    case FTS5_PLAN_SPECIAL:
++      *pRowid = 0;
++      break;
++
++    case FTS5_PLAN_SOURCE:
++    case FTS5_PLAN_MATCH:
++    case FTS5_PLAN_SORTED_MATCH:
++      *pRowid = fts5CursorRowid(pCsr);
++      break;
++
++    default:
++      *pRowid = sqlite3_column_int64(pCsr->pStmt, 0);
++      break;
+   }
+ 
+   return SQLITE_OK;

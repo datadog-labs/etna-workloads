@@ -1,0 +1,30 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -3526,7 +3526,6 @@
+   */
+   if( IsVirtual(pTab) ){
+     sqlite3VdbeAddOp4(v, OP_VDestroy, iDb, 0, 0, pTab->zName, 0);
+-    sqlite3MayAbort(pParse);
+   }
+   sqlite3VdbeAddOp4(v, OP_DropTable, iDb, 0, 0, pTab->zName, 0);
+   sqlite3ChangeCookie(pParse, iDb);
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -8518,7 +8518,6 @@
+   db->nVDestroy++;
+   rc = sqlite3VtabCallDestroy(db, pOp->p1, pOp->p4.z);
+   db->nVDestroy--;
+-  assert( p->errorAction==OE_Abort && p->usesStmtJournal );
+   if( rc ) goto abort_due_to_error;
+   break;
+ }
+--- a/src/vdbeaux.c
++++ b/src/vdbeaux.c
+@@ -790,7 +790,6 @@
+   while( (pOp = opIterNext(&sIter))!=0 ){
+     int opcode = pOp->opcode;
+     if( opcode==OP_Destroy || opcode==OP_VUpdate || opcode==OP_VRename
+-     || opcode==OP_VDestroy
+      || opcode==OP_VCreate
+      || opcode==OP_ParseSchema
+      || opcode==OP_Function || opcode==OP_PureFunc

@@ -1,0 +1,2 @@
+repro.sh builds a 1024-byte-page db, extends it (sparse) to 4GB and zeroes the header's db-size field (offset 28), so new pages, including the overflow pages of a 30000-byte row, are appended past 4GB. A fresh connection then reads the row back.
+Clean: prints `3|30000|1`. Buggy: `database disk image is malformed`, exit 1. The cause is a 32-bit overflow in the direct overflow-page read offset (pageSize*(nextPage-1)).

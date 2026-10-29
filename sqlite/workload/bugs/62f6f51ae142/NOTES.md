@@ -1,0 +1,1 @@
+repro.sql: with an index on substr(x,2) (BINARY collation), ORDER BY substr(x,2) COLLATE nocase must not use the index. The buggy shell uses it and returns binary order (.ABC .DEF .abcd .defg); the clean shell returns nocase order (.ABC .abcd .DEF .defg).

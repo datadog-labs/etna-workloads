@@ -1,0 +1,3 @@
+CREATE TABLE t1(aaa,b,c,UNIQUE(aaA),PRIMARY KEY(aAa),UNIQUE(aAA));
+ALTER TABLE t1 RENAME aaa TO bbb;
+SELECT sql FROM sqlite_master WHERE name='t1';

@@ -1,0 +1,1 @@
+repro.sql: OR-clause query on an indexed column where the first OR term is constant-false (`(1=2 AND a=3) OR a=4`). The buggy shell skips an OP_ReopenIdx it considers redundant, so the index cursor is never opened: the shell aborts with assertion `pC!=0` in sqlite3VdbeExec (exit -6). The clean shell prints `4|5`.

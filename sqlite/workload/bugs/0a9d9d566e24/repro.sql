@@ -1,0 +1,3 @@
+CREATE TABLE t3(a, b);
+INSERT INTO t3 VALUES(1,1),(1,2),(1,3),(2,4),(2,5),(2,6),(3,7),(3,8),(3,9);
+SELECT count(*) FROM t3 WHERE b IN (SELECT DISTINCT a FROM t3 LIMIT 5);

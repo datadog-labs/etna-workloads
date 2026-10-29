@@ -1,0 +1,89 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -2395,7 +2395,7 @@
+ ** The colNotIdxed mask is AND-ed with the SrcList.a[].colUsed mask
+ ** to determine if the index is covering index.
+ */
+-static void recomputeColumnsNotIndexed(Index *pIdx){
++static void recomputeColumnsNotIndexed(Parse *pParse, Index *pIdx){
+   Bitmask m = 0;
+   int j;
+   Table *pTab = pIdx->pTable;
+@@ -2408,6 +2408,10 @@
+     }
+   }
+   pIdx->colNotIdxed = ~m;
++  if( pIdx->pPartIdxWhere ){
++    sqlite3WherePartIdxExpr(pParse, pIdx, pIdx->pPartIdxWhere,
++                            &pIdx->colNotIdxed, 0, 0);
++  }
+   assert( (pIdx->colNotIdxed>>63)==1 );  /* See note-20221022-a */
+ }
+ 
+@@ -2587,7 +2591,7 @@
+   }
+   assert( pPk->nColumn==j );
+   assert( pTab->nNVCol<=j );
+-  recomputeColumnsNotIndexed(pPk);
++  recomputeColumnsNotIndexed(pParse, pPk);
+ }
+ 
+ 
+@@ -4382,7 +4386,8 @@
+   ** it as a covering index */
+   assert( HasRowid(pTab)
+       || pTab->iPKey<0 || sqlite3TableColumnToIndex(pIndex, pTab->iPKey)>=0 );
+-  recomputeColumnsNotIndexed(pIndex);
++  recomputeColumnsNotIndexed(pParse, pIndex);
++  if( pParse->nErr ) goto exit_create_index;
+   if( pTblName!=0 && pIndex->nColumn>=pTab->nCol ){
+     pIndex->isCovering = 1;
+     for(j=0; j<pTab->nCol; j++){
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -5222,6 +5222,7 @@
+ #define ONEPASS_SINGLE   1        /* ONEPASS valid for a single row update */
+ #define ONEPASS_MULTI    2        /* ONEPASS is valid for multiple rows */
+ int sqlite3WhereUsesDeferredSeek(WhereInfo*);
++void sqlite3WherePartIdxExpr(Parse*, Index*, Expr*, Bitmask*, int, SrcItem*);
+ void sqlite3ExprCodeLoadIndexColumn(Parse*, Index*, int, int, int);
+ int sqlite3ExprCodeGetColumn(Parse*, Table*, int, int, int, u8);
+ void sqlite3ExprCodeGetColumnOfTable(Vdbe*, Table*, int, int, int);
+--- a/src/where.c
++++ b/src/where.c
+@@ -3915,7 +3915,7 @@
+ ** to the Parse.pIdxPartExpr list for each column that can be replaced
+ ** by a constant.
+ */
+-static void wherePartIdxExpr(
++void sqlite3WherePartIdxExpr(
+   Parse *pParse,                  /* Parse context */
+   Index *pIdx,                    /* Partial index being processed */
+   Expr *pPart,                    /* WHERE clause being processed */
+@@ -3927,7 +3927,7 @@
+   assert( (pItem==0 || pMask==0) && (pMask!=0 || pItem!=0) );
+ 
+   if( pPart->op==TK_AND ){
+-    wherePartIdxExpr(pParse, pIdx, pPart->pRight, pMask, iIdxCur, pItem);
++    sqlite3WherePartIdxExpr(pParse, pIdx, pPart->pRight, pMask, iIdxCur, pItem);
+     pPart = pPart->pLeft;
+   }
+ 
+@@ -4196,7 +4196,7 @@
+       }else{
+         m = pSrc->colUsed & pProbe->colNotIdxed;
+         if( pProbe->pPartIdxWhere ){
+-          wherePartIdxExpr(
++          sqlite3WherePartIdxExpr(
+               pWInfo->pParse, pProbe, pProbe->pPartIdxWhere, &m, 0, 0
+           );
+         }
+@@ -7359,7 +7359,7 @@
+           whereAddIndexedExpr(pParse, pIx, iIndexCur, pTabItem);
+         }
+         if( pIx->pPartIdxWhere && (pTabItem->fg.jointype & JT_RIGHT)==0 ){
+-          wherePartIdxExpr(
++          sqlite3WherePartIdxExpr(
+               pParse, pIx, pIx->pPartIdxWhere, 0, iIndexCur, pTabItem
+           );
+         }

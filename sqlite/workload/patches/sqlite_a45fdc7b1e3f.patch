@@ -1,0 +1,21 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -7353,6 +7353,18 @@
+       }else if( iAuxArg && (wctrlFlags & WHERE_OR_SUBCLAUSE)!=0 ){
+         iIndexCur = iAuxArg;
+         op = OP_ReopenIdx;
++        {
++          /* Try to reuse a prior OP_ReopenIdx on the same cursor. */
++          int iOp = sqlite3VdbeCurrentAddr(v)-1;
++          while( iOp>=0 ){
++            VdbeOp *pOp = sqlite3VdbeGetOp(v, iOp);
++            if( pOp->opcode==OP_ReopenIdx && pOp->p1==iIndexCur ){
++              if( pOp->p2==(int)pIx->tnum ) op = 0;
++              break;
++            }
++            iOp--;
++          }
++        }
+       }else{
+         iIndexCur = pParse->nTab++;
+         if( pIx->bHasExpr && OptimizationEnabled(db, SQLITE_IndexedExpr) ){

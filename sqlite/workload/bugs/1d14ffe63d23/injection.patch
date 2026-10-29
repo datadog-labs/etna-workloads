@@ -1,0 +1,35 @@
+--- a/src/alter.c
++++ b/src/alter.c
+@@ -1265,11 +1265,15 @@
+     ** ALTER TABLE statement was quoted (bQuote==1), then set zNew to
+     ** point to zQuot so that all substitutions are made using the
+     ** quoted version of the new column name.  */
+-    zQuot = sqlite3MPrintf(db, "\"%w\" ", zNew);
++    zQuot = sqlite3MPrintf(db, "\"%w\"", zNew);
+     if( zQuot==0 ){
+       return SQLITE_NOMEM;
+     }else{
+-      nQuot = sqlite3Strlen30(zQuot)-1;
++      nQuot = sqlite3Strlen30(zQuot);
++    }
++    if( bQuote ){
++      zNew = zQuot;
++      nNew = nQuot;
+     }
+ 
+     assert( nQuot>=nNew && nSql>=0 && nNew>=0 );
+@@ -1298,13 +1302,12 @@
+       RenameToken *pBest = renameColumnTokenNext(pRename);
+ 
+       if( zNew ){
+-        if( bQuote==0 && sqlite3IsIdChar(*(u8*)pBest->t.z) ){
++        if( sqlite3IsIdChar(*(u8*)pBest->t.z) ){
+           nReplace = nNew;
+           zReplace = zNew;
+         }else{
+           nReplace = nQuot;
+           zReplace = zQuot;
+-          if( pBest->t.z[pBest->t.n]=='"' ) nReplace++;
+         }
+       }else{
+         /* Dequote the double-quoted token. Then requote it again, this time

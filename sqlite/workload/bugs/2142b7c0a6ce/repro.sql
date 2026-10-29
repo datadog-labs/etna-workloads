@@ -1,0 +1,5 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE """1"("""2", """3" PRIMARY KEY);
+CREATE TABLE """4"("""5" REFERENCES """1" ON DELETE RESTRICT);
+DELETE FROM """1";
+SELECT 'done';

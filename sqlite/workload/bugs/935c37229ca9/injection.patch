@@ -1,0 +1,36 @@
+--- a/src/insert.c
++++ b/src/insert.c
+@@ -1022,8 +1022,6 @@
+   ** This is the 2nd template.
+   */
+   if( pColumn==0
+-   && pSelect!=0
+-   && pTrigger==0
+    && xferOptimization(pParse, pTab, pSelect, onError, iDb)
+   ){
+     assert( !pTrigger );
+@@ -3089,13 +3087,23 @@
+   int destHasUniqueIdx = 0;        /* True if pDest has a UNIQUE index */
+   int regData, regRowid;           /* Registers holding data and rowid */
+ 
+-  assert( pSelect!=0 );
++  if( pSelect==0 ){
++    return 0;   /* Must be of the form  INSERT INTO ... SELECT ... */
++  }
+   if( pParse->pWith || pSelect->pWith ){
+     /* Do not attempt to process this query if there are an WITH clauses
+     ** attached to it. Proceeding may generate a false "no such table: xxx"
+     ** error if pSelect reads from a CTE named "xxx".  */
+     return 0;
+   }
++  {
++    Trigger *pTrig;
++    for(pTrig=sqlite3TriggerList(pParse, pDest); pTrig; pTrig=pTrig->pNext){
++      if( !pTrig->bReturning ){
++        return 0;   /* tab1 must not have triggers */
++      }
++    }
++  }
+ #ifndef SQLITE_OMIT_VIRTUALTABLE
+   if( IsVirtual(pDest) ){
+     return 0;   /* tab1 must not be a virtual table */

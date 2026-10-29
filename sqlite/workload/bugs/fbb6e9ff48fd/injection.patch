@@ -1,0 +1,54 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -6788,11 +6788,10 @@
+   if( pA==0 || pB==0 ) return 1;
+   if( pA->nExpr!=pB->nExpr ) return 1;
+   for(i=0; i<pA->nExpr; i++){
+-    int res;
+     Expr *pExprA = pA->a[i].pExpr;
+     Expr *pExprB = pB->a[i].pExpr;
+     if( pA->a[i].fg.sortFlags!=pB->a[i].fg.sortFlags ) return 1;
+-    if( (res = sqlite3ExprCompare(0, pExprA, pExprB, iTab)) ) return res;
++    if( sqlite3ExprCompare(0, pExprA, pExprB, iTab) ) return 1;
+   }
+   return 0;
+ }
+--- a/src/window.c
++++ b/src/window.c
+@@ -1363,7 +1363,6 @@
+   const Window *p2,
+   int bFilter
+ ){
+-  int res;
+   if( NEVER(p1==0) || NEVER(p2==0) ) return 1;
+   if( p1->eFrmType!=p2->eFrmType ) return 1;
+   if( p1->eStart!=p2->eStart ) return 1;
+@@ -1371,16 +1370,10 @@
+   if( p1->eExclude!=p2->eExclude ) return 1;
+   if( sqlite3ExprCompare(pParse, p1->pStart, p2->pStart, -1) ) return 1;
+   if( sqlite3ExprCompare(pParse, p1->pEnd, p2->pEnd, -1) ) return 1;
+-  if( (res = sqlite3ExprListCompare(p1->pPartition, p2->pPartition, -1)) ){
+-    return res;
+-  }
+-  if( (res = sqlite3ExprListCompare(p1->pOrderBy, p2->pOrderBy, -1)) ){
+-    return res;
+-  }
++  if( sqlite3ExprListCompare(p1->pPartition, p2->pPartition, -1) ) return 1;
++  if( sqlite3ExprListCompare(p1->pOrderBy, p2->pOrderBy, -1) ) return 1;
+   if( bFilter ){
+-    if( (res = sqlite3ExprCompare(pParse, p1->pFilter, p2->pFilter, -1)) ){
+-      return res;
+-    }
++    if( sqlite3ExprCompare(pParse, p1->pFilter, p2->pFilter, -1) ) return 1;
+   }
+   return 0;
+ }
+@@ -1680,7 +1673,7 @@
+ 
+     /* All OVER clauses in the same window function aggregate step must
+     ** be the same. */
+-    assert( pWin==pMWin || sqlite3WindowCompare(pParse,pWin,pMWin,0)!=1 );
++    assert( pWin==pMWin || sqlite3WindowCompare(pParse,pWin,pMWin,0)==0 );
+ 
+     for(i=0; i<nArg; i++){
+       if( i!=1 || pFunc->zName!=nth_valueName ){

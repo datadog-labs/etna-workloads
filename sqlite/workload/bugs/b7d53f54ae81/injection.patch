@@ -1,0 +1,19 @@
+--- a/src/wal.c
++++ b/src/wal.c
+@@ -2613,9 +2613,13 @@
+       if( pWal->exclusiveMode==WAL_NORMAL_MODE ){
+         pWal->exclusiveMode = WAL_EXCLUSIVE_MODE;
+       }
+-      rc = sqlite3WalCheckpoint(pWal, db,
+-          SQLITE_CHECKPOINT_PASSIVE, 0, 0, sync_flags, nBuf, zBuf, 0, 0
+-      );
++      pWal->ckptLock = 1;
++      SEH_TRY {
++        rc = walCheckpoint(pWal, db, SQLITE_CHECKPOINT_PASSIVE, 0, 0,
++                           sync_flags, zBuf);
++      }
++      SEH_EXCEPT( rc = walHandleException(pWal); )
++      pWal->ckptLock = 0;
+       if( rc==SQLITE_OK ){
+         int bPersist = -1;
+         sqlite3OsFileControlHint(

@@ -1,0 +1,26 @@
+--- a/ext/fts5/fts5_aux.c
++++ b/ext/fts5/fts5_aux.c
+@@ -658,7 +658,6 @@
+ 
+     /* Calculate the average document length for this FTS5 table */
+     if( rc==SQLITE_OK ) rc = pApi->xRowCount(pFts, &nRow);
+-    assert( rc!=SQLITE_OK || nRow>0 );
+     if( rc==SQLITE_OK ) rc = pApi->xColumnTotalSize(pFts, -1, &nToken);
+     if( rc==SQLITE_OK ) p->avgdl = (double)nToken  / (double)nRow;
+ 
+--- a/ext/fts5/fts5_storage.c
++++ b/ext/fts5/fts5_storage.c
+@@ -1484,13 +1484,7 @@
+ int sqlite3Fts5StorageRowCount(Fts5Storage *p, i64 *pnRow){
+   int rc = fts5StorageLoadTotals(p, 0);
+   if( rc==SQLITE_OK ){
+-    /* nTotalRow being zero does not necessarily indicate a corrupt 
+-    ** database - it might be that the FTS5 table really does contain zero
+-    ** rows. However this function is only called from the xRowCount() API,
+-    ** and there is no way for that API to be invoked if the table contains
+-    ** no rows. Hence the FTS5_CORRUPT return.  */
+     *pnRow = p->nTotalRow;
+-    if( p->nTotalRow<=0 ) rc = FTS5_CORRUPT;
+   }
+   return rc;
+ }

@@ -1,0 +1,39 @@
+--- a/ext/fts3/fts3.c
++++ b/ext/fts3/fts3.c
+@@ -3898,17 +3898,6 @@
+   ** So bHasStat may not be 2.  */
+   rc = fts3SetHasStat(p);
+   
+-  /* As it happens, the pending terms table is always empty here. This is
+-  ** because an "ALTER TABLE RENAME TABLE" statement inside a transaction 
+-  ** always opens a savepoint transaction. And the xSavepoint() method 
+-  ** flushes the pending terms table. But leave the (no-op) call to
+-  ** PendingTermsFlush() in in case that changes.
+-  */
+-  assert( p->nPendingData==0 );
+-  if( rc==SQLITE_OK ){
+-    rc = sqlite3Fts3PendingTermsFlush(p);
+-  }
+-
+   p->bIgnoreSavepoint = 1;
+ 
+   if( p->zContentTbl==0 ){
+@@ -3956,7 +3945,7 @@
+   TESTONLY( pTab->mxSavepoint = iSavepoint );
+ 
+   if( pTab->bIgnoreSavepoint==0 ){
+-    if( fts3HashCount(&pTab->aIndex[0].hPending)>0 ){
++    if( 0 && fts3HashCount(&pTab->aIndex[0].hPending)>0 ){
+       char *zSql = sqlite3_mprintf("INSERT INTO %Q.%Q(%Q) VALUES('flush')",
+           pTab->zDb, pTab->zName, pTab->zName
+           );
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -8849,7 +8849,6 @@
+   rc = pVtab->pModule->xRename(pVtab, pName->z);
+   if( isLegacy==0 ) db->flags &= ~(u64)SQLITE_LegacyAlter;
+   sqlite3VtabImportErrmsg(p, pVtab);
+-  p->expired = 0;
+   if( rc ) goto abort_due_to_error;
+   break;
+ }

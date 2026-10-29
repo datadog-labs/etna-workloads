@@ -1,0 +1,64 @@
+--- a/src/insert.c
++++ b/src/insert.c
+@@ -2207,7 +2207,7 @@
+   ** used to link together these tests which are separated from each other
+   ** in the generate bytecode.
+   */
+-  if( (db->flags & (SQLITE_RecTriggers|SQLITE_ForeignKeys))==0 ){
++  if( 1 || (db->flags & (SQLITE_RecTriggers|SQLITE_ForeignKeys))==0 ){
+     /* There are not DELETE triggers nor FK constraints.  No constraint
+     ** rechecks are needed. */
+     pTrigger = 0;
+--- a/src/update.c
++++ b/src/update.c
+@@ -1038,30 +1038,28 @@
+   }
+ 
+   if( !isView ){
++    int addr1 = 0;        /* Address of jump instruction */
++
+     /* Do constraint checks. */
+     assert( regOldRowid>0 );
+     sqlite3GenerateConstraintChecks(pParse, pTab, aRegIdx, iDataCur, iIdxCur,
+         regNewRowid, regOldRowid, chngKey, onError, labelContinue, &bReplace,
+         aXRef, 0);
+ 
+-    /* If REPLACE conflict handling may have been used, or if the PK of the
+-    ** row is changing, then the GenerateConstraintChecks() above may have
+-    ** moved cursor iDataCur. Reseek it. */
+-    if( bReplace || chngKey ){
+-      if( pPk ){
+-        sqlite3VdbeAddOp4Int(v, OP_NotFound,iDataCur,labelContinue,regKey,nKey);
+-      }else{
+-        sqlite3VdbeAddOp3(v, OP_NotExists, iDataCur, labelContinue,regOldRowid);
+-      }
+-      VdbeCoverage(v);
+-    }
+-
+     /* Do FK constraint checks. */
+     if( hasFK ){
+       sqlite3FkCheck(pParse, pTab, regOldRowid, 0, aXRef, chngKey);
+     }
+ 
+     /* Delete the index entries associated with the current record.  */
++    if( bReplace || chngKey ){
++      if( pPk ){
++        addr1 = sqlite3VdbeAddOp4Int(v, OP_NotFound, iDataCur, 0, regKey, nKey);
++      }else{
++        addr1 = sqlite3VdbeAddOp3(v, OP_NotExists, iDataCur, 0, regOldRowid);
++      }
++      VdbeCoverageNeverTaken(v);
++    }
+     sqlite3GenerateRowIndexDelete(pParse, pTab, iDataCur, iIdxCur, aRegIdx, -1);
+ 
+     /* We must run the OP_FinishSeek opcode to resolve a prior
+@@ -1100,6 +1098,9 @@
+       sqlite3VdbeAddOp2(v, OP_Delete, iDataCur, 0);
+     }
+ #endif
++    if( bReplace || chngKey ){
++      sqlite3VdbeJumpHere(v, addr1);
++    }
+ 
+     if( hasFK ){
+       sqlite3FkCheck(pParse, pTab, 0, regNewRowid, aXRef, chngKey);

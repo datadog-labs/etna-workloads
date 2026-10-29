@@ -1,0 +1,3 @@
+CREATE TABLE t1(a,b);
+INSERT INTO t1 VALUES(1, 1);
+SELECT b, max(a) FILTER (WHERE b='x') FROM t1;

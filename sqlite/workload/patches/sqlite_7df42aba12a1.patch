@@ -1,0 +1,45 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -2490,7 +2490,6 @@
+   if( rc==SQLITE_OK ){
+     if( sqlite3PagerPageRefcount((*ppPage)->pDbPage)>1 ){
+       releasePage(*ppPage);
+-      *ppPage = 0;
+       return SQLITE_CORRUPT_BKPT;
+     }
+     (*ppPage)->isInit = 0;
+@@ -5623,25 +5622,19 @@
+     }
+     pCur->iPage = 0;
+     pCur->curIntKey = pCur->pPage->intKey;
++
++    /* If pCur->pKeyInfo is not NULL, then the caller that opened this cursor
++    ** expected to open it on an index b-tree. Otherwise, if pKeyInfo is
++    ** NULL, the caller expects a table b-tree. If this is not the case,
++    ** return an SQLITE_CORRUPT error.  */
++    assert( pCur->pPage->intKey==1 || pCur->pPage->intKey==0 );
++    if( (pCur->pKeyInfo==0)!=pCur->pPage->intKey ){
++      return SQLITE_CORRUPT_PAGE(pCur->pPage);
++    }
+   }
+   pRoot = pCur->pPage;
+   assert( pRoot->pgno==pCur->pgnoRoot || CORRUPT_DB );
+ 
+-  /* If pCur->pKeyInfo is not NULL, then the caller that opened this cursor
+-  ** expected to open it on an index b-tree. Otherwise, if pKeyInfo is
+-  ** NULL, the caller expects a table b-tree. If this is not the case,
+-  ** return an SQLITE_CORRUPT error.
+-  **
+-  ** Earlier versions of SQLite assumed that this test could not fail
+-  ** if the root page was already loaded when this function was called (i.e.
+-  ** if pCur->iPage>=0). But this is not so if the database is corrupted
+-  ** in such a way that page pRoot is linked into a second b-tree table
+-  ** (or the freelist).  */
+-  assert( pRoot->intKey==1 || pRoot->intKey==0 );
+-  if( pRoot->isInit==0 || (pCur->pKeyInfo==0)!=pRoot->intKey ){
+-    return SQLITE_CORRUPT_PAGE(pCur->pPage);
+-  }
+-
+ skip_init: 
+   pCur->ix = 0;
+   pCur->info.nSize = 0;

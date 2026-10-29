@@ -1,0 +1,1 @@
+repro.sql loads the corrupt FTS5 database from test fts5corrupt3-73.0 via .open --hexdb, then runs the 73.1 snippet/MATCH query. Clean shell: 'fts5: corruption in table ttt', exit 1. Buggy shell: assertion failure in fts5SegIterNext (iLeafOffset<=pLeaf->nn), abort.

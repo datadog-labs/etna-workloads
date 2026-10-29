@@ -1,0 +1,7 @@
+CREATE TABLE t5(a, b, c);
+CREATE INDEX t5a ON t5(a);
+INSERT INTO t5 VALUES(1, 2, 3), (4, 5, 6);
+ANALYZE;
+ALTER TABLE t5 RENAME b TO big;
+SELECT big FROM t5;
+ALTER TABLE sqlite_stat1 RENAME tbl TO thetable;

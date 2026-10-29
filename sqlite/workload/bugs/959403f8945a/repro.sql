@@ -1,0 +1,4 @@
+CREATE TABLE t1(a);
+INSERT INTO t1(rowid,a) VALUES(4,4),(5,5);
+SELECT a FROM t1 WHERE rowid >= 4.5 ORDER BY rowid;
+SELECT a FROM t1 WHERE rowid < 4.5 ORDER BY rowid DESC;

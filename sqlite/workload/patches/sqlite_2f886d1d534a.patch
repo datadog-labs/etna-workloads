@@ -1,0 +1,29 @@
+--- a/src/trigger.c
++++ b/src/trigger.c
+@@ -61,7 +61,7 @@
+     if( pTrig->pTabSchema==pTab->pSchema
+      && pTrig->table
+      && 0==sqlite3StrICmp(pTrig->table, pTab->zName)
+-     && (pTrig->pTabSchema!=pTmpSchema || pTrig->bReturning)
++     && pTrig->bReturning
+     ){
+       pTrig->pNext = pList;
+       pList = pTrig;
+@@ -413,7 +413,7 @@
+     pTrig = sqlite3HashInsert(pHash, zName, pTrig);
+     if( pTrig ){
+       sqlite3OomFault(db);
+-    }else if( pLink->pSchema==pLink->pTabSchema ){
++    }else{
+       Table *pTab;
+       pTab = sqlite3HashFind(&pLink->pTabSchema->tblHash, pLink->table);
+       assert( pTab!=0 );
+@@ -758,7 +758,7 @@
+   pHash = &(db->aDb[iDb].pSchema->trigHash);
+   pTrigger = sqlite3HashInsert(pHash, zName, 0);
+   if( ALWAYS(pTrigger) ){
+-    if( pTrigger->pSchema==pTrigger->pTabSchema ){
++    {
+       Table *pTab = tableOfTrigger(pTrigger);
+       if( pTab ){
+         Trigger **pp;

@@ -1,0 +1,1 @@
+repro.sql: skip-scan on t9a(a,b) with "b IN (SELECT ...)" and stat1 forcing skip-scan. Clean prints the query plan (SEARCH ... ANY(a) AND b=?), exit 0; buggy shell segfaults (exit 139) in whereLoopAddBtreeIndex (NULL aLTerm[i] deref, missing check from fix.patch).

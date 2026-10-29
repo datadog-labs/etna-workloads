@@ -1,0 +1,1 @@
+repro.sql builds an fts5 detail=none table with rowids 1..55 plus rowid -2^63, then runs a prefix query t1('a*'). That merges prefix rowid lists; the buggy shell's buffer is too small for the 10-byte varint delta. Clean prints 56; buggy aborts on assertion nSpace>=n in fts5MergeRowidLists (exit -6).

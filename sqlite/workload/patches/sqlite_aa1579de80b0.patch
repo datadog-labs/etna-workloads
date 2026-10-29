@@ -1,0 +1,52 @@
+--- a/src/whereexpr.c
++++ b/src/whereexpr.c
+@@ -921,44 +921,21 @@
+       Expr *pDup;            /* A transient duplicate expression */
+       ExprList *pList = 0;   /* The RHS of the IN operator */
+       Expr *pLeft = 0;       /* The LHS of the IN operator */
+-      CollSeq *pCollSeq = 0; /* Collating sequence to use */
+       Expr *pNew;            /* The complete IN operator */
+ 
+       for(i=pOrWc->nTerm-1, pOrTerm=pOrWc->a; i>=0; i--, pOrTerm++){
+-        Expr *pThis;
+         if( (pOrTerm->wtFlags & TERM_OK)==0 ) continue;
+         assert( pOrTerm->eOperator & WO_EQ );
+         assert( (pOrTerm->eOperator & (WO_OR|WO_AND))==0 );
+         assert( pOrTerm->leftCursor==iCursor );
+         assert( pOrTerm->u.x.leftColumn==iColumn );
+-        pThis = pOrTerm->pExpr;
+-        pDup = sqlite3ExprDup(db, pThis->pRight, 0);
++        pDup = sqlite3ExprDup(db, pOrTerm->pExpr->pRight, 0);
+         pList = sqlite3ExprListAppend(pWInfo->pParse, pList, pDup);
+-        if( pLeft==0 ){
+-          pLeft = pThis->pLeft;
+-          pCollSeq = sqlite3ExprCompareCollSeq(pParse, pThis);
+-        }else{
+-          assert( 0==sqlite3ExprCompare(pParse, 
+-                        sqlite3ExprSkipCollate(pThis->pLeft),
+-                        sqlite3ExprSkipCollate(pLeft), -1) );
+-          if( pCollSeq!=sqlite3ExprCompareCollSeq(pParse, pThis) ){
+-            pLeft = 0;  /* Collating sequence mismatch */
+-            break;
+-          }
+-        }
+-      }
+-      if( pLeft==0 ){
+-        pNew = 0;  /* Collating sequence mismatch */
+-      }else{
+-        pDup = sqlite3ExprDup(db, pLeft, 0);
+-        if( sqlite3ExprCollSeq(pParse, pDup)!=pCollSeq
+-         && ALWAYS(pCollSeq!=0)
+-        ){
+-          assert( pCollSeq->zName!=0 );
+-          pDup = sqlite3ExprAddCollateString(pParse, pDup, pCollSeq->zName);
+-        }
+-        pNew = sqlite3PExpr(pParse, TK_IN, pDup, 0);
++        pLeft = pOrTerm->pExpr->pLeft;
+       }
++      assert( pLeft!=0 );
++      pDup = sqlite3ExprDup(db, pLeft, 0);
++      pNew = sqlite3PExpr(pParse, TK_IN, pDup, 0);
+       if( pNew ){
+         int idxNew;
+         transferJoinMarkings(pNew, pExpr);

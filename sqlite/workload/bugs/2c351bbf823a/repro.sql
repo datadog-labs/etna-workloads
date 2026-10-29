@@ -1,0 +1,7 @@
+PRAGMA automatic_index = 0;
+CREATE TABLE t1(x);
+CREATE TABLE t2(y);
+INSERT INTO t1 VALUES('ABC');
+INSERT INTO t2 VALUES('abc');
+SELECT * FROM t1 CROSS JOIN t2
+ WHERE (t1.x COLLATE nocase) = (t2.y COLLATE nocase) AND (t2.y = 'ABC');

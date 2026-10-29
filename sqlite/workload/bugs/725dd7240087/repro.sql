@@ -1,0 +1,6 @@
+CREATE TABLE t44(a PRIMARY KEY);
+ANALYZE;
+INSERT INTO sqlite_stat1 VALUES('t44',null,'sz=0');
+ANALYZE sqlite_master;
+SELECT 0 FROM t44 WHERE a IN(1,2,3);
+SELECT 'done';

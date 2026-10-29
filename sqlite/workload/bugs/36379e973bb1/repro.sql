@@ -1,0 +1,3 @@
+CREATE TABLE t(a,b);
+INSERT INTO t VALUES(1,2);
+SELECT min(a) AS m FROM t GROUP BY a HAVING max(m+5)<10;
