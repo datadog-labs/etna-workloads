@@ -31,6 +31,9 @@ with the injection, and passes on clean 3.54.1.
     bin/check-repro.sh <id> ./sqlite3               # 1 = bug observed
     bin/check-test.sh  <id> ./testfixture <tree>    # 1 = an oracle case fails
 
+Two reproducers (bbbb0e8053a8, e3602be8fd57) compile a loadable extension:
+set SQLITE_INC to the built tree's src/ directory for them.
+
 The expected outputs come from that build (a debug build, so assert()s
 fire); other build options can change error texts and plans.
 

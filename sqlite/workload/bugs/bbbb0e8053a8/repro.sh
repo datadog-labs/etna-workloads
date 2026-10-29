@@ -1,6 +1,6 @@
-# Needs gcc and sqlite3ext.h (path via SQLITE_INC, default ../tree/src relative to this script's dir parent).
+# Needs gcc and the SQLite headers: SQLITE_INC=<built 3.54.1 tree>/src
 set -e
-INC=${SQLITE_INC:-/home/bits/sqlite-etna-work/repro/bbbb0e8053a8/tree/src}
+INC=${SQLITE_INC:?set SQLITE_INC to a built SQLite 3.54.1 tree's src/ directory}
 cat > hook.c <<'EOC'
 #include "sqlite3ext.h"
 SQLITE_EXTENSION_INIT1
@@ -14,7 +14,7 @@ int sqlite3_hook_init(sqlite3 *db, char **err, const sqlite3_api_routines *api){
   return SQLITE_OK;
 }
 EOC
-gcc -shared -fPIC -I"$INC" -o hook.so hook.c
+gcc -shared -fPIC -I"$INC" -I"$INC/.." -o hook.so hook.c
 "$SQLITE3" -batch -init /dev/null :memory: <<'EOS' 2>&1
 .load ./hook sqlite3_hook_init
 CREATE TABLE t1w(a INT PRIMARY KEY, b) WITHOUT ROWID;
