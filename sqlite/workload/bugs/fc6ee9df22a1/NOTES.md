@@ -1,0 +1,1 @@
+Reproducer: `printf('%c', ...)` with a text argument. Clean shell uses the first UTF-8 character of the text ('a'; and the full character for char(1492)); the buggy shell treats the argument as an integer (text -> 0 -> NUL char, so the result is empty/wrong).

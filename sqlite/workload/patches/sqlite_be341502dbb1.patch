@@ -1,0 +1,35 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -1332,7 +1332,10 @@
+     for(pTerm=pWInfo->sWC.a; pTerm<pWCEnd; pTerm++){
+       Expr *pExpr = pTerm->pExpr;
+       if( (pTerm->wtFlags & TERM_VIRTUAL)==0
+-       && sqlite3ExprIsSingleTableConstraint(pExpr, pTabList, iSrc, 0)
++       && ( sqlite3ExprIsSingleTableConstraint(pExpr, pTabList, iSrc, 0)
++         || ( (pItem->fg.jointype & (JT_LEFT|JT_LTORJ))==JT_LEFT
++           && !ExprHasProperty(pExpr, EP_OuterON)
++           && sqlite3ExprIsTableConstant(pExpr, pItem->iCursor, 0)))
+       ){
+         sqlite3ExprIfFalse(pParse, pTerm->pExpr, addrCont, SQLITE_JUMPIFNULL);
+       }
+@@ -3064,18 +3067,8 @@
+         /* If there are extra terms in the WHERE clause not used by an index
+         ** that depend only on the table being scanned, and that will tend to
+         ** cause many rows to be omitted, then mark that table as
+-        ** "self-culling".
+-        **
+-        ** 2022-03-24:  Self-culling only applies if either the extra terms
+-        ** are straight comparison operators that are non-true with NULL
+-        ** operand, or if the loop is not an OUTER JOIN.
+-        */
+-        if( (pTerm->eOperator & 0x3f)!=0
+-         || (pWC->pWInfo->pTabList->a[pLoop->iTab].fg.jointype
+-                  & (JT_LEFT|JT_LTORJ))==0
+-        ){
+-          pLoop->wsFlags |= WHERE_SELFCULL;
+-        }
++        ** "self-culling". */
++        pLoop->wsFlags |= WHERE_SELFCULL;
+       }
+       if( pTerm->truthProb<=0 ){
+         /* If a truth probability is specified using the likelihood() hints,

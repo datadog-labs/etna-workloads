@@ -1,0 +1,3 @@
+CREATE TABLE t1(a TEXT);  INSERT INTO t1 VALUES('aaa'),('bbb');
+CREATE TABLE t3(d TEXT);  INSERT INTO t3 VALUES('/'),('-');
+SELECT (SELECT group_concat(a,'#' ORDER BY d) FROM t3) FROM t1;

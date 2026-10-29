@@ -1,0 +1,1 @@
+`SELECT printf('|%110.100c|','*')` uses a %c precision >70. The buggy build copies the character into a fixed-size stack buffer (memcpy past `buf`), so it overflows or gives a wrong result. The clean build repeats the character 100 times, padded to width 110.

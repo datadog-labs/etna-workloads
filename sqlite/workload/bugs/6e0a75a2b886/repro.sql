@@ -1,0 +1,3 @@
+CREATE VIRTUAL TABLE t1 USING fts5(x);
+CREATE VIRTUAL TABLE v USING fts5vocab(t1, 'row');
+SELECT term FROM v WHERE term <= 1;

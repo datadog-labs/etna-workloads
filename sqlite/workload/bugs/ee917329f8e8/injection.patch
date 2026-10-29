@@ -1,0 +1,46 @@
+--- a/ext/misc/amatch.c
++++ b/ext/misc/amatch.c
+@@ -558,17 +558,6 @@
+ }
+ 
+ /*
+-** Truncate an integer so that it fits in 32 bits.
+-*/
+-static int amatchTruncateInt(sqlite3_int64 i){
+-  if( i>=-2147483647 && i<=2147483646 ){
+-    return (int)i;
+-  }else{
+-    return i<0 ? (-1)-2147483647 : 2147483647;
+-  }
+-}
+-
+-/*
+ ** Statement pStmt currently points to a row in the amatch data table. This
+ ** function allocates and populates a amatch_rule structure according to
+ ** the content of the row.
+@@ -586,8 +575,7 @@
+   sqlite3_int64 iLang = sqlite3_column_int64(pStmt, 0);
+   const char *zFrom = (const char *)sqlite3_column_text(pStmt, 1);
+   const char *zTo = (const char *)sqlite3_column_text(pStmt, 2);
+-  sqlite3_int64 iCost = sqlite3_column_int64(pStmt, 3);
+-  amatch_cost rCost = amatchTruncateInt(iCost);
++  amatch_cost rCost = sqlite3_column_int(pStmt, 3);
+ 
+   int rc = SQLITE_OK;             /* Return code */
+   int nFrom;                      /* Size of string zFrom, in bytes */
+@@ -1281,13 +1269,11 @@
+     idx++;
+   }
+   if( idxNum & 2 ){
+-    sqlite3_int64 ii = sqlite3_value_int64(argv[idx]);
+-    pCur->rLimit = (amatch_cost)amatchTruncateInt(ii);
++    pCur->rLimit = (amatch_cost)sqlite3_value_int(argv[idx]);
+     idx++;
+   }
+   if( idxNum & 4 ){
+-    sqlite3_int64 ii = sqlite3_value_int64(argv[idx]);
+-    pCur->iLang = (amatch_cost)amatchTruncateInt(ii);
++    pCur->iLang = (amatch_cost)sqlite3_value_int(argv[idx]);
+     idx++;
+   }
+   pCur->zInput = sqlite3_mprintf("%s", zWord);

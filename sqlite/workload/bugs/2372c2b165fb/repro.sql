@@ -1,0 +1,7 @@
+ATTACH ':memory:' AS aux;
+CREATE TABLE aux.t2(x, y);
+INSERT INTO t2 VALUES(5, 6);
+BEGIN;
+SELECT * FROM t2;
+DETACH aux;
+COMMIT;

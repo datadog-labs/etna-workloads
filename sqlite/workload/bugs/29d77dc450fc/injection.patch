@@ -1,0 +1,76 @@
+--- a/ext/fts3/fts3.c
++++ b/ext/fts3/fts3.c
+@@ -1899,7 +1899,7 @@
+   const char *zCsr = zNode;       /* Cursor to iterate through node */
+   const char *zEnd = &zCsr[nNode];/* End of interior node buffer */
+   char *zBuffer = 0;              /* Buffer to load terms into */
+-  i64 nAlloc = 0;                 /* Size of allocated buffer */
++  int nAlloc = 0;                 /* Size of allocated buffer */
+   int isFirstTerm = 1;            /* True when processing first term on page */
+   u64 iChild;                     /* Block id of child node to descend to */
+   int nBuffer = 0;                /* Total term size */
+@@ -1941,14 +1941,14 @@
+     zCsr += fts3GetVarint32(zCsr, &nSuffix);
+     
+     assert( nPrefix>=0 && nSuffix>=0 );
+-    if( nPrefix>zCsr-zNode || nSuffix>zEnd-zCsr || nSuffix==0 ){
++    if( &zCsr[nSuffix]>zEnd || nSuffix==0 ){
+       rc = FTS_CORRUPT_VTAB;
+       goto finish_scan;
+     }
+-    if( (i64)nPrefix+nSuffix>nAlloc ){
++    if( nPrefix+nSuffix>nAlloc ){
+       char *zNew;
+-      nAlloc = ((i64)nPrefix+nSuffix) * 2;
+-      zNew = (char *)sqlite3_realloc64(zBuffer, nAlloc);
++      nAlloc = (nPrefix+nSuffix) * 2;
++      zNew = (char *)sqlite3_realloc(zBuffer, nAlloc);
+       if( !zNew ){
+         rc = SQLITE_NOMEM;
+         goto finish_scan;
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -1414,18 +1414,15 @@
+   pNext += fts3GetVarint32(pNext, &nPrefix);
+   pNext += fts3GetVarint32(pNext, &nSuffix);
+   if( nSuffix<=0 
+-   || (&pReader->aNode[pReader->nNode] - pNext)<nSuffix
+-   || nPrefix>pReader->nTerm
++   || &pNext[nSuffix]>&pReader->aNode[pReader->nNode]
++   || nPrefix<0
+   ){
+     return FTS_CORRUPT_VTAB;
+   }
+ 
+-  /* Both nPrefix and nSuffix were read by fts3GetVarint32() and so are
+-  ** between 0 and 0x7FFFFFFF. But the sum of the two may cause integer
+-  ** overflow - hence the (i64) casts.  */
+-  if( (i64)nPrefix+nSuffix>(i64)pReader->nTermAlloc ){
+-    i64 nNew = ((i64)nPrefix+nSuffix)*2;
+-    char *zNew = sqlite3_realloc64(pReader->zTerm, nNew);
++  if( nPrefix+nSuffix>pReader->nTermAlloc ){
++    int nNew = (nPrefix+nSuffix)*2;
++    char *zNew = sqlite3_realloc(pReader->zTerm, nNew);
+     if( !zNew ){
+       return SQLITE_NOMEM;
+     }
+@@ -3820,9 +3817,6 @@
+     }
+     p->iOff += fts3GetVarint32(&p->aNode[p->iOff], &nSuffix);
+ 
+-    if( nPrefix>p->term.n || nSuffix>p->nNode-p->iOff || nSuffix==0 ){
+-      return FTS_CORRUPT_VTAB;
+-    }
+     blobGrowBuffer(&p->term, nPrefix+nSuffix, &rc);
+     if( rc==SQLITE_OK && ALWAYS(p->term.a!=0) ){
+       memcpy(&p->term.a[nPrefix], &p->aNode[p->iOff], nSuffix);
+@@ -3830,9 +3824,6 @@
+       p->iOff += nSuffix;
+       if( p->iChild==0 ){
+         p->iOff += fts3GetVarint32(&p->aNode[p->iOff], &p->nDoclist);
+-        if( (p->nNode-p->iOff)<p->nDoclist ){
+-          return FTS_CORRUPT_VTAB;
+-        }
+         p->aDoclist = &p->aNode[p->iOff];
+         p->iOff += p->nDoclist;
+       }

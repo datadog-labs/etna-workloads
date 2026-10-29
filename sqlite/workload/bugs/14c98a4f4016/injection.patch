@@ -1,0 +1,42 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -7644,20 +7644,9 @@
+             int bEarlyOut =
+                 (pLoop->wsFlags & WHERE_VIRTUALTABLE)==0
+                  && (pLoop->wsFlags & WHERE_IN_EARLYOUT)!=0;
+-            if( pLevel->iLeftJoin ){
+-              /* For LEFT JOIN queries, cursor pIn->iCur might have been
+-              ** disabled by OP_NullRow.  This occurs for WHERE clauses such
+-              ** as "a = ? AND b IN (...)", where the index is on (a, b).
+-              ** When the OP_IfNullRow jump is taken, the pIn->iBase register
+-              ** is NULLed out as a side effect.  But as that register is not
+-              ** used when the jump is taken, the side-effect is harmless. */
+-              sqlite3VdbeAddOp3(v, OP_IfNullRow, pIn->iCur,
+-                  sqlite3VdbeCurrentAddr(v) + 2 + bEarlyOut, pIn->iBase);
+-              VdbeCoverage(v);
+-            }
+             if( bEarlyOut ){
+               sqlite3VdbeAddOp4Int(v, OP_IfNoHope, pLevel->iIdxCur,
+-                  sqlite3VdbeCurrentAddr(v)+2,
++                  sqlite3VdbeCurrentAddr(v)+2+(pLevel->iLeftJoin!=0),
+                   pIn->iBase, pIn->nPrefix);
+               VdbeCoverage(v);
+               /* Retarget the OP_IsNull against the left operand of IN so
+@@ -7666,6 +7655,17 @@
+               ** required by OP_IfNoHope. */
+               sqlite3VdbeJumpHere(v, pIn->addrInTop+1);
+             }
++            if( pLevel->iLeftJoin ){
++              /* For LEFT JOIN queries, cursor pIn->iCur might have been
++              ** disabled by OP_NullRow.  This occurs for WHERE clauses such
++              ** as "a = ? AND b IN (...)", where the index is on (a, b).
++              ** When the OP_IfNullRow jump is taken, the pIn->iBase register
++              ** is NULLed out as a side effect.  But as that register is not
++              ** used when the jump is taken, the side-effect is harmless. */
++              sqlite3VdbeAddOp3(v, OP_IfNullRow, pIn->iCur,
++                  sqlite3VdbeCurrentAddr(v) + 2, pIn->iBase);
++              VdbeCoverage(v);
++            }
+           }
+           sqlite3VdbeAddOp2(v, pIn->eEndLoopOp, pIn->iCur, pIn->addrInTop);
+           VdbeCoverage(v);

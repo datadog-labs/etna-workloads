@@ -1,0 +1,22 @@
+--- a/ext/fts5/fts5_index.c
++++ b/ext/fts5/fts5_index.c
+@@ -2210,14 +2210,15 @@
+     u64 iDelta;
+ 
+     pIter->iRowidOffset--;
+-    pIter->iLeafOffset = pIter->aRowidOffset[pIter->iRowidOffset];
+-    fts5SegIterLoadNPos(p, pIter);
+-    iOff = pIter->iLeafOffset;
++    pIter->iLeafOffset = iOff = pIter->aRowidOffset[pIter->iRowidOffset];
+     if( p->pConfig->eDetail!=FTS5_DETAIL_NONE ){
+-      iOff += pIter->nPos;
++      int nPos, bDummy;
++      iOff += fts5GetPoslistSize(&a[iOff], &nPos, &bDummy);
++      iOff += nPos;
+     }
+     fts5GetVarint(&a[iOff], &iDelta);
+     pIter->iRowid -= iDelta;
++    fts5SegIterLoadNPos(p, pIter);
+   }else{
+     fts5SegIterReverseNewPage(p, pIter);
+   }

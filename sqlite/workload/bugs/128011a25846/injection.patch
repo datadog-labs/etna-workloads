@@ -1,0 +1,24 @@
+--- a/ext/misc/zipfile.c
++++ b/ext/misc/zipfile.c
+@@ -1475,7 +1475,7 @@
+   const char *z = (const char*)sqlite3_value_text(pVal);
+   u32 mode = 0;
+   if( z==0 ){
+-    mode = (bIsDir ? (S_IFDIR + 0755) : (S_IFREG + 0644));
++    mode = S_IFREG + 0644;                 /* -rw-r--r-- */
+   }else if( z[0]>='0' && z[0]<='9' ){
+     mode = (unsigned int)sqlite3_value_int(pVal);
+   }else{
+@@ -1493,12 +1493,6 @@
+       else if( z[i]!='-' ) goto parse_error;
+     }
+   }
+-  if( ((mode & S_IFDIR)==0)==bIsDir ){
+-    /* The "mode" attribute is a directory, but data has been specified.
+-    ** Or vice-versa - no data but "mode" is a file or symlink.  */
+-    *pzErr = sqlite3_mprintf("zipfile: mode does not match data");
+-    return SQLITE_CONSTRAINT;
+-  }
+   *pMode = mode;
+   return SQLITE_OK;
+ 

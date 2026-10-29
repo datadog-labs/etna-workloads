@@ -1,0 +1,26 @@
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -586,13 +586,10 @@
+   int iIndex,                     /* Index in p->aIndex[] */
+   int iLevel                      /* Level of segments */
+ ){
+-  sqlite3_int64 iBase;            /* First absolute level for iLangid/iIndex */
+   assert_fts3_nc( iLangid>=0 );
+   assert( p->nIndex>0 );
+   assert( iIndex>=0 && iIndex<p->nIndex );
+-
+-  iBase = ((sqlite3_int64)iLangid * p->nIndex + iIndex) * FTS3_SEGDIR_MAXLEVEL;
+-  return iBase + iLevel;
++  return (iLangid * p->nIndex + iIndex) * FTS3_SEGDIR_MAXLEVEL + iLevel;
+ }
+ 
+ /*
+@@ -1999,7 +1996,7 @@
+   sqlite3_stmt *pStmt;
+   int rc = fts3SqlStmt(p, SQL_INSERT_SEGDIR, &pStmt, 0);
+   if( rc==SQLITE_OK ){
+-    sqlite3_bind_int64(pStmt, 1, iLevel);
++    sqlite3_bind_int(pStmt, 1, iLevel);
+     sqlite3_bind_int(pStmt, 2, iIdx);
+     sqlite3_bind_int64(pStmt, 3, iStartBlock);
+     sqlite3_bind_int64(pStmt, 4, iLeafEndBlock);

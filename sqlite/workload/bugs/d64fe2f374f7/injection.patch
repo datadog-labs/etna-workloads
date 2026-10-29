@@ -1,0 +1,31 @@
+--- a/src/whereexpr.c
++++ b/src/whereexpr.c
+@@ -1418,7 +1418,6 @@
+     Expr *pNewExpr2;
+     int idxNew1;
+     int idxNew2;
+-    const char *zCollSeqName;     /* Name of collating sequence */
+     const u16 wtFlags = TERM_LIKEOPT | TERM_VIRTUAL | TERM_DYNAMIC;
+ 
+     assert( ExprUseXList(pExpr) );
+@@ -1464,18 +1463,13 @@
+       assert( *pC!=0xFF );        /* isLikeOrGlob() guarantees this */
+       (*pC)++;
+     }
+-    zCollSeqName = noCase ? "NOCASE" : sqlite3StrBINARY;
+     pNewExpr1 = sqlite3ExprDup(db, pLeft, 0);
+-    pNewExpr1 = sqlite3PExpr(pParse, TK_GE,
+-           sqlite3ExprAddCollateString(pParse,pNewExpr1,zCollSeqName),
+-           pStr1);
++    pNewExpr1 = sqlite3PExpr(pParse, TK_GE, pNewExpr1, pStr1);
+     transferJoinMarkings(pNewExpr1, pExpr);
+     idxNew1 = whereClauseInsert(pWC, pNewExpr1, wtFlags);
+     testcase( idxNew1==0 );
+     pNewExpr2 = sqlite3ExprDup(db, pLeft, 0);
+-    pNewExpr2 = sqlite3PExpr(pParse, TK_LT,
+-           sqlite3ExprAddCollateString(pParse,pNewExpr2,zCollSeqName),
+-           pStr2);
++    pNewExpr2 = sqlite3PExpr(pParse, TK_LT, pNewExpr2, pStr2);
+     transferJoinMarkings(pNewExpr2, pExpr);
+     idxNew2 = whereClauseInsert(pWC, pNewExpr2, wtFlags);
+     testcase( idxNew2==0 );

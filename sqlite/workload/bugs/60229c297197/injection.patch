@@ -1,0 +1,35 @@
+--- a/src/json.c
++++ b/src/json.c
+@@ -3282,15 +3282,13 @@
+       return rc;
+     }
+   }else if( zPath[0]=='[' ){
+-    u64 kk = 0;
++    u32 kk = 0;
+     x = pParse->aBlob[iRoot] & 0x0f;
+     if( x!=JSONB_ARRAY )  return JSON_LOOKUP_NOTFOUND;
+     n = jsonbPayloadSize(pParse, iRoot, &sz);
+     i = 1;
+     while( sqlite3Isdigit(zPath[i]) ){
+-      if( kk<0xffffffff ) kk = kk*10 + zPath[i] - '0';
+-      /*     ^^^^^^^^^^--- Allow kk to be bigger than any JSON array so that
+-      ** we get NOTFOUND instead of PATHERROR, without overflowing kk. */
++      kk = kk*10 + zPath[i] - '0';
+       i++;
+     }
+     if( i<2 || zPath[i]!=']' ){
+@@ -3298,12 +3296,10 @@
+         kk = jsonbArrayCount(pParse, iRoot);
+         i = 2;
+         if( zPath[2]=='-' && sqlite3Isdigit(zPath[3]) ){
+-          u64 nn = 0;
++          unsigned int nn = 0;
+           i = 3;
+           do{
+-            if( nn<0xffffffff ) nn = nn*10 + zPath[i] - '0';
+-            /*     ^^^^^^^^^^--- Allow nn to be bigger than any JSON array to
+-            ** get NOTFOUND instead of PATHERROR, without overflowing nn. */
++            nn = nn*10 + zPath[i] - '0';
+             i++;
+           }while( sqlite3Isdigit(zPath[i]) );
+           if( nn>kk ) return JSON_LOOKUP_NOTFOUND;

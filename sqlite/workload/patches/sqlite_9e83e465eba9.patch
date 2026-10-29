@@ -1,0 +1,31 @@
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -3153,9 +3153,9 @@
+   rc = fts3SqlStmt(p, SQL_SELECT_LEVEL_RANGE2, &pRange, 0);
+ 
+   if( rc==SQLITE_OK ){
+-    int bOk = 0;
++    int bOk = 1;
+     i64 iLast = (iAbsLevel/FTS3_SEGDIR_MAXLEVEL + 1) * FTS3_SEGDIR_MAXLEVEL - 1;
+-    i64 nLimit = (nByte*3)/2;
++    i64 nLimit = nByte;
+ 
+     /* Loop through all entries in the %_segdir table corresponding to 
+     ** segments in this index on levels greater than iAbsLevel. If there is
+@@ -3167,7 +3167,7 @@
+     while( SQLITE_ROW==sqlite3_step(pRange) ){
+       i64 nSize = 0, dummy;
+       fts3ReadEndBlockField(pRange, 2, &dummy, &nSize);
+-      if( nSize<=0 || nSize>nLimit ){
++      if( nSize>nLimit ){
+         /* If nSize==0, then the %_segdir.end_block field does not not 
+         ** contain a size value. This happens if it was written by an
+         ** old version of FTS. In this case it is not possible to determine
+@@ -3176,7 +3176,6 @@
+         bOk = 0;
+         break;
+       }
+-      bOk = 1;
+     }
+     rc = sqlite3_reset(pRange);
+ 

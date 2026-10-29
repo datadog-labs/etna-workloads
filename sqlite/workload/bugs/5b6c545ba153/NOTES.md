@@ -1,0 +1,2 @@
+The reproducer caches an R-Tree internal prepared statement (A), then runs CREATE TABLE to invalidate the schema cookie. It then runs a compound SELECT (B) whose first half re-enters R-Tree on each row, so A hits the stale cookie while B is running.
+Clean: B completes and prints 4 5 6 7 1 2. Buggy: A expires every statement, including B. B prints 4 5 6 7, then fails with "abort due to ROLLBACK" before the second SELECT, and the shell exits with rc=1.

@@ -1,0 +1,9 @@
+CREATE VIRTUAL TABLE t12 USING fts5(x);
+INSERT INTO t12 VALUES('aaaa');
+BEGIN;
+  DELETE FROM t12 WHERE rowid=1;
+  SELECT * FROM t12('aaaa');
+  INSERT INTO t12 VALUES('aaaa');
+END;
+INSERT INTO t12(t12) VALUES('integrity-check');
+SELECT * FROM t12('aaaa');

@@ -1,0 +1,34 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -1279,12 +1279,9 @@
+   Vdbe *v = pParse->pVdbe;             /* VDBE under construction */
+   WhereLoop *pLoop = pLevel->pWLoop;   /* The loop being coded */
+   int iCur;                            /* Cursor for table getting the filter */
+-  IndexedExpr *saved_pIdxEpr;          /* saved copy of Parse.pIdxEpr */
+   IndexedExpr *saved_pIdxPartExpr;     /* saved copy of Parse.pIdxPartExpr */
+ 
+-  saved_pIdxEpr = pParse->pIdxEpr;
+   saved_pIdxPartExpr = pParse->pIdxPartExpr;
+-  pParse->pIdxEpr = 0;
+   pParse->pIdxPartExpr = 0;
+ 
+   assert( pLoop!=0 );
+@@ -1349,8 +1346,9 @@
+       int jj;
+       assert( pIdx!=0 );
+       for(jj=0; jj<n; jj++){
++        int iCol = pIdx->aiColumn[jj];
+         assert( pIdx->pTable==pItem->pSTab );
+-        sqlite3ExprCodeLoadIndexColumn(pParse, pIdx, iCur, jj, r1+jj);
++        sqlite3ExprCodeGetColumnOfTable(v, pIdx->pTable, iCur, iCol,r1+jj);
+       }
+       sqlite3VdbeAddOp4Int(v, OP_FilterAdd, pLevel->regFilter, 0, r1, n);
+       sqlite3ReleaseTempRange(pParse, r1, n);
+@@ -1380,7 +1378,6 @@
+     }
+   }while( iLevel < pWInfo->nLevel );
+   sqlite3VdbeJumpHere(v, addrOnce);
+-  pParse->pIdxEpr = saved_pIdxEpr;
+   pParse->pIdxPartExpr = saved_pIdxPartExpr;
+ }
+ 

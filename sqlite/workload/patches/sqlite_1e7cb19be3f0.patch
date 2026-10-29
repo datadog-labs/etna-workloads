@@ -1,0 +1,27 @@
+--- a/src/window.c
++++ b/src/window.c
+@@ -2117,9 +2117,7 @@
+   ExprList *pOrderBy = p->pMWin->pOrderBy;  /* ORDER BY clause for window */
+   int reg1 = sqlite3GetTempReg(pParse);     /* Reg. for csr1.peerVal+regVal */
+   int reg2 = sqlite3GetTempReg(pParse);     /* Reg. for csr2.peerVal */
+-  int regString = ++pParse->nMem;           /* Reg. for constant value '' */
+   int arith = OP_Add;                       /* OP_Add or OP_Subtract */
+-  int addrGe;                               /* Jump destination */
+   int addrDone = sqlite3VdbeMakeLabel(pParse);   /* Address past OP_Ge */
+   CollSeq *pColl;
+ 
+@@ -2201,14 +2199,10 @@
+   ** the add/subtract is skipped for these, as required. If reg1 is a NULL,
+   ** then the arithmetic is performed, but since adding or subtracting from
+   ** NULL is always NULL anyway, this case is handled as required too.  */
+-  sqlite3VdbeAddOp4(v, OP_String8, 0, regString, 0, "", P4_STATIC);
+-  addrGe = sqlite3VdbeAddOp3(v, OP_Ge, regString, 0, reg1);
+-  VdbeCoverage(v);
+   if( (op==OP_Ge && arith==OP_Add) || (op==OP_Le && arith==OP_Subtract) ){
+     sqlite3VdbeAddOp3(v, op, reg2, lbl, reg1); VdbeCoverage(v);
+   }
+   sqlite3VdbeAddOp3(v, arith, regVal, reg1, reg1);
+-  sqlite3VdbeJumpHere(v, addrGe);
+ 
+   /* Compare registers reg2 and reg1, taking the jump if required. Note that
+   ** control skips over this test if the BIGNULL flag is set and either

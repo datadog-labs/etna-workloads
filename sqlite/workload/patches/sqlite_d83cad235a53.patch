@@ -1,0 +1,46 @@
+--- a/src/rowset.c
++++ b/src/rowset.c
+@@ -113,8 +113,8 @@
+   struct RowSetEntry *pFresh;    /* Source of new entry objects */
+   struct RowSetEntry *pForest;   /* List of binary trees of entries */
+   u16 nFresh;                    /* Number of objects on pFresh */
+-  u16 rsFlags;                   /* Various flags */
+-  int iBatch;                    /* Current insert batch */
++  u8 rsFlags;                    /* Various flags */
++  u8 iBatch;                     /* Current insert batch */
+ };
+ 
+ /*
+@@ -439,7 +439,7 @@
+ ** on pRowSet->pEntry, then sort those entries into the forest at
+ ** pRowSet->pForest so that they can be tested.
+ */
+-int sqlite3RowSetTest(RowSet *pRowSet, int iBatch, sqlite3_int64 iRowid){
++int sqlite3RowSetTest(RowSet *pRowSet, u8 iBatch, sqlite3_int64 iRowid){
+   struct RowSetEntry *p, *pTree;
+ 
+   /* This routine is never called after sqlite3RowSetNext() */
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -5136,7 +5136,7 @@
+ void sqlite3RowSetDelete(void*);
+ void sqlite3RowSetClear(void*);
+ void sqlite3RowSetInsert(RowSet*, i64);
+-int sqlite3RowSetTest(RowSet*, int iBatch, i64);
++int sqlite3RowSetTest(RowSet*, u8 iBatch, i64);
+ int sqlite3RowSetNext(RowSet*, i64*);
+ 
+ void sqlite3CreateView(Parse*,Token*,Token*,Token*,ExprList*,Select*,int,int);
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -7619,7 +7619,9 @@
+   assert( pOp->p4type==P4_INT32 );
+   assert( iSet==-1 || iSet>=0 );
+   if( iSet ){
+-    exists = sqlite3RowSetTest((RowSet*)pIn1->z, iSet, pIn3->u.i);
++    exists = sqlite3RowSetTest((RowSet*)pIn1->z,
++                               (u8)(iSet>=0 ? iSet & 0xf : 0xff),
++                               pIn3->u.i);
+     VdbeBranchTaken(exists!=0,2);
+     if( exists ) goto jump_to_p2;
+   }

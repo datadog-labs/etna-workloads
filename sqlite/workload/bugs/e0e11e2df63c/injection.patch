@@ -1,0 +1,28 @@
+--- a/src/legacy.c
++++ b/src/legacy.c
+@@ -39,6 +39,7 @@
+   sqlite3_stmt *pStmt = 0;    /* The current SQL statement */
+   char **azCols = 0;          /* Names of result columns */
+   int callbackIsInit;         /* True if callback data is initialized */
++  int nChange = 0;            /* Changes made by the previous statement */
+ 
+   if( !sqlite3SafetyCheckOk(db) ) return SQLITE_MISUSE_BKPT;
+   if( zSql==0 ) zSql = "";
+@@ -60,6 +61,7 @@
+       zSql = zLeftover;
+       continue;
+     }
++    db->nChange += nChange;
+     callbackIsInit = 0;
+ 
+     while( 1 ){
+@@ -110,6 +112,9 @@
+       if( rc!=SQLITE_ROW ){
+         rc = sqlite3VdbeFinalize((Vdbe *)pStmt);
+         pStmt = 0;
++        if( db->nVdbeActive==0 ){
++          nChange = (int)db->nChange;
++        }
+         zSql = zLeftover;
+         while( sqlite3Isspace(zSql[0]) ) zSql++;
+         break;

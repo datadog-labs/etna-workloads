@@ -1,0 +1,18 @@
+--- a/src/wherecode.c
++++ b/src/wherecode.c
+@@ -2022,6 +2022,15 @@
+       SWAP(u8, nBtm, nTop);
+     }
+ 
++    /* A min() query that is not a reverse scan has no business stopping
++    ** at NULLs. */
++    if( (pWInfo->wctrlFlags & WHERE_ORDERBY_MIN)!=0 && pRangeEnd==0
++     && pRangeStart!=0 && nEq<pIdx->nColumn
++     && pIdx->aiColumn[nEq]>=0 && pIdx->pTable->aCol[pIdx->aiColumn[nEq]].notNull==0
++    ){
++      bStopAtNull = 1;
++    }
++
+     if( iLevel>0 && (pLoop->wsFlags & WHERE_IN_SEEKSCAN)!=0 ){
+       /* In case OP_SeekScan is used, ensure that the index cursor does not
+       ** point to a valid row for the first iteration of this loop. */

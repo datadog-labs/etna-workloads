@@ -1,0 +1,68 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -9913,6 +9913,32 @@
+     return SQLITE_CORRUPT_PAGE(pPage);
+   }
+ 
++  /* If the page containing the entry to delete is not a leaf page, move
++  ** the cursor to the largest entry in the tree that is smaller than
++  ** the entry being deleted. This cell will replace the cell being deleted
++  ** from the internal node. The 'previous' entry is used for this instead
++  ** of the 'next' entry, as the previous entry is always a part of the
++  ** sub-tree headed by the child page of the cell being deleted. This makes
++  ** balancing the tree following the delete operation easier.  */
++  if( !pPage->leaf ){
++    rc = sqlite3BtreePrevious(pCur, 0);
++    assert( rc!=SQLITE_DONE );
++    if( rc ) return rc;
++  }
++
++  /* Save the positions of any other cursors open on this table before
++  ** making any modifications.  */
++  if( pCur->curFlags & BTCF_Multiple ){
++    rc = saveAllCursors(pBt, pCur->pgnoRoot, pCur);
++    if( rc ) return rc;
++  }
++
++  /* If this is a delete operation to remove a row from a table b-tree,
++  ** invalidate any incrblob cursors open on the row being deleted.  */
++  if( pCur->pKeyInfo==0 && p->hasIncrblobCur ){
++    invalidateIncrblobCursors(p, pCur->pgnoRoot, pCur->info.nKey, 0);
++  }
++
+   /* If the BTREE_SAVEPOSITION bit is on, then the cursor position must
+   ** be preserved following this delete operation. If the current delete
+   ** will cause a b-tree rebalance, then this is done by saving the cursor
+@@ -9945,32 +9971,6 @@
+     }
+   }
+ 
+-  /* If the page containing the entry to delete is not a leaf page, move
+-  ** the cursor to the largest entry in the tree that is smaller than
+-  ** the entry being deleted. This cell will replace the cell being deleted
+-  ** from the internal node. The 'previous' entry is used for this instead
+-  ** of the 'next' entry, as the previous entry is always a part of the
+-  ** sub-tree headed by the child page of the cell being deleted. This makes
+-  ** balancing the tree following the delete operation easier.  */
+-  if( !pPage->leaf ){
+-    rc = sqlite3BtreePrevious(pCur, 0);
+-    assert( rc!=SQLITE_DONE );
+-    if( rc ) return rc;
+-  }
+-
+-  /* Save the positions of any other cursors open on this table before
+-  ** making any modifications.  */
+-  if( pCur->curFlags & BTCF_Multiple ){
+-    rc = saveAllCursors(pBt, pCur->pgnoRoot, pCur);
+-    if( rc ) return rc;
+-  }
+-
+-  /* If this is a delete operation to remove a row from a table b-tree,
+-  ** invalidate any incrblob cursors open on the row being deleted.  */
+-  if( pCur->pKeyInfo==0 && p->hasIncrblobCur ){
+-    invalidateIncrblobCursors(p, pCur->pgnoRoot, pCur->info.nKey, 0);
+-  }
+-
+   /* Make the page containing the entry to be deleted writable. Then free any
+   ** overflow pages associated with the entry and finally remove the cell
+   ** itself from within the page.  */

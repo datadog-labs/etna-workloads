@@ -1,0 +1,5 @@
+CREATE TABLE t1(x INT, y INT);
+INSERT INTO t1(x) VALUES(1),(2),(3),(4),(5);
+UPDATE t1 SET x=x+100, y=x<=(SELECT min(x) FROM t1)
+ WHERE x<3 OR (1 BETWEEN 0 AND x<=(SELECT min(x)+2 FROM t1));
+SELECT x FROM t1 WHERE x<100 ORDER BY x;

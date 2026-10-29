@@ -1,0 +1,23 @@
+--- a/src/delete.c
++++ b/src/delete.c
+@@ -530,9 +530,6 @@
+     assert( IsVirtual(pTab) || bComplex || eOnePass!=ONEPASS_OFF
+             || OptimizationDisabled(db, SQLITE_OnePass) );
+     if( eOnePass!=ONEPASS_SINGLE ) sqlite3MultiWrite(pParse);
+-    if( sqlite3WhereUsesDeferredSeek(pWInfo) ){
+-      sqlite3VdbeAddOp1(v, OP_FinishSeek, iTabCur);
+-    }
+  
+     /* Keep track of the number of rows to be deleted */
+     if( memCnt ){
+--- a/src/where.c
++++ b/src/where.c
+@@ -503,7 +503,7 @@
+   if( pIdx ){
+     int j = iColumn;
+     iColumn = pIdx->aiColumn[j];
+-    if( iColumn==pIdx->pTable->iPKey ){
++    if( iColumn==pIdx->pTable->iPKey && j>0 ){
+       iColumn = XN_ROWID;
+     }else if( iColumn>=0 ){
+       pScan->idxaff = pIdx->pTable->aCol[iColumn].affinity;

@@ -1,0 +1,55 @@
+--- a/src/vdbe.h
++++ b/src/vdbe.h
+@@ -289,6 +289,7 @@
+ int sqlite3VdbeCurrentAddr(Vdbe*);
+ #ifdef SQLITE_DEBUG
+   int sqlite3VdbeAssertMayAbort(Vdbe *, int);
++  int sqlite3VdbeAssertAggContext(sqlite3_context*);
+ #endif
+ void sqlite3VdbeResetStepResult(Vdbe*);
+ void sqlite3VdbeRewind(Vdbe*);
+--- a/src/vdbeapi.c
++++ b/src/vdbeapi.c
+@@ -1224,6 +1224,18 @@
+ }
+ 
+ /*
++** This function is only used within assert() statements to check that the
++** aggregate context has already been allocated. i.e.:
++**
++**   assert( sqlite3VdbeAssertAggContext(p) );
++*/
++#ifdef SQLITE_DEBUG
++int sqlite3VdbeAssertAggContext(sqlite3_context *p){
++  return ((p->pMem->flags & MEM_Agg)!=0);
++}
++#endif /* SQLITE_DEBUG */
++
++/*
+ ** Return the auxiliary data pointer, if any, for the iArg'th argument to
+ ** the user-function defined by pCtx.
+ **
+--- a/src/window.c
++++ b/src/window.c
+@@ -333,8 +333,9 @@
+   struct CallCount *p;
+   UNUSED_PARAMETER(nArg); assert( nArg==0 );
+   UNUSED_PARAMETER(apArg);
++  assert( sqlite3VdbeAssertAggContext(pCtx) );
+   p = (struct CallCount*)sqlite3_aggregate_context(pCtx, sizeof(*p));
+-  if( p ){
++  if( ALWAYS(p) ){
+     p->nTotal++;
+   }
+ }
+@@ -379,8 +380,9 @@
+   struct CallCount *p;
+   UNUSED_PARAMETER(nArg); assert( nArg==0 );
+   UNUSED_PARAMETER(apArg);
++  assert( sqlite3VdbeAssertAggContext(pCtx) );
+   p = (struct CallCount*)sqlite3_aggregate_context(pCtx, sizeof(*p));
+-  if( p ){
++  if( ALWAYS(p) ){
+     p->nTotal++;
+   }
+ }

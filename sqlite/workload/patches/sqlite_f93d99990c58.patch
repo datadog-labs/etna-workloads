@@ -1,0 +1,95 @@
+--- a/src/delete.c
++++ b/src/delete.c
+@@ -145,10 +145,12 @@
+   Expr *pWhere,        /* Optional WHERE clause to be added */
+   ExprList *pOrderBy,  /* Optional ORDER BY clause */
+   Expr *pLimit,        /* Optional LIMIT clause */
++  u32 colMask,         /* Render only the columns in this mask. */
+   int iCur             /* Cursor number for ephemeral table */
+ ){
+   SelectDest dest;
+   Select *pSel;
++  ExprList *pEList = 0;
+   SrcList *pFrom;
+   sqlite3 *db = pParse->db;
+   int iDb = sqlite3SchemaToIndex(db, pView->pSchema);
+@@ -162,7 +164,20 @@
+     assert( pFrom->a[0].fg.isUsing==0 );
+     assert( pFrom->a[0].u3.pOn==0 );
+   }
+-  pSel = sqlite3SelectNew(pParse, 0, pFrom, pWhere, 0, 0, pOrderBy,
++  if( colMask!=0xffffffff ){
++    /* Columns outside of colMask are replaced by NULL. */
++    int i;
++    for(i=0; i<pView->nCol; i++){
++      Expr *pX;
++      if( i>=32 || (colMask & MASKBIT32(i))!=0 ){
++        pX = sqlite3Expr(db, TK_ID, pView->aCol[i].zCnName);
++      }else{
++        pX = sqlite3Expr(db, TK_NULL, 0);
++      }
++      pEList = sqlite3ExprListAppend(pParse, pEList, pX);
++    }
++  }
++  pSel = sqlite3SelectNew(pParse, pEList, pFrom, pWhere, 0, 0, pOrderBy,
+                           SF_IncludeHidden, pLimit);
+   sqlite3SelectDestInit(&dest, SRT_EphemTab, iCur);
+   sqlite3Select(pParse, pSel, &dest);
+@@ -427,7 +442,10 @@
+ #if !defined(SQLITE_OMIT_VIEW) && !defined(SQLITE_OMIT_TRIGGER)
+   if( isView ){
+     sqlite3MaterializeView(pParse, pTab,
+-        pWhere, pOrderBy, pLimit, iTabCur
++        pWhere, pOrderBy, pLimit,
++        sqlite3TriggerColmask(pParse, pTrigger, 0, 0,
++            TRIGGER_BEFORE|TRIGGER_AFTER|TRIGGER_INSTEAD, pTab, OE_Default),
++        iTabCur
+     );
+     iDataCur = iIdxCur = iTabCur;
+     pOrderBy = 0;
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -4168,6 +4168,7 @@
+ */
+ #define TRIGGER_BEFORE  1
+ #define TRIGGER_AFTER   2
++#define TRIGGER_INSTEAD 4  /* sqlite3TriggerColmask() only: honor views */
+ 
+ /*
+ ** An instance of struct TriggerStep is used to store a single SQL statement
+@@ -5345,7 +5346,7 @@
+ #endif
+ 
+ #if !defined(SQLITE_OMIT_VIEW) && !defined(SQLITE_OMIT_TRIGGER)
+-void sqlite3MaterializeView(Parse*, Table*, Expr*, ExprList*,Expr*,int);
++void sqlite3MaterializeView(Parse*, Table*, Expr*, ExprList*,Expr*,u32,int);
+ #endif
+ 
+ #ifndef SQLITE_OMIT_TRIGGER
+--- a/src/trigger.c
++++ b/src/trigger.c
+@@ -1555,7 +1555,7 @@
+   Trigger *p;
+ 
+   assert( isNew==1 || isNew==0 );
+-  if( IsView(pTab) ){
++  if( IsView(pTab) && (tr_tm & TRIGGER_INSTEAD)==0 ){
+     return 0xffffffff;
+   }
+   for(p=pTrigger; p; p=p->pNext){
+--- a/src/update.c
++++ b/src/update.c
+@@ -640,7 +640,12 @@
+ #if !defined(SQLITE_OMIT_VIEW) && !defined(SQLITE_OMIT_TRIGGER)
+   if( nChangeFrom==0 && isView ){
+     sqlite3MaterializeView(pParse, pTab,
+-        pWhere, pOrderBy, pLimit, iDataCur
++        pWhere, pOrderBy, pLimit,
++        sqlite3TriggerColmask(pParse, pTrigger, pChanges, 0,
++            TRIGGER_BEFORE|TRIGGER_AFTER|TRIGGER_INSTEAD, pTab, onError)
++        | sqlite3TriggerColmask(pParse, pTrigger, pChanges, 1,
++            TRIGGER_BEFORE|TRIGGER_AFTER|TRIGGER_INSTEAD, pTab, onError),
++        iDataCur
+     );
+     pOrderBy = 0;
+     pLimit = 0;

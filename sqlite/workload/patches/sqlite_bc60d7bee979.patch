@@ -1,0 +1,33 @@
+--- a/src/parse.y
++++ b/src/parse.y
+@@ -519,11 +519,7 @@
+ //
+ cmd ::= select(X).  {
+   SelectDest dest = {SRT_Output, 0, 0, 0, 0, 0, 0};
+-  if( (pParse->db->mDbFlags & DBFLAG_EncodingFixed)!=0
+-   || sqlite3ReadSchema(pParse)==SQLITE_OK
+-  ){
+-    sqlite3Select(pParse, X, &dest);
+-  }
++  sqlite3Select(pParse, X, &dest);
+   sqlite3SelectDelete(pParse->db, X);
+ }
+ 
+--- a/src/prepare.c
++++ b/src/prepare.c
+@@ -327,7 +327,14 @@
+ #else
+       encoding = SQLITE_UTF8;
+ #endif
+-      sqlite3SetTextEncoding(db, encoding);
++      if( db->nVdbeActive>0 && encoding!=ENC(db)
++       && (db->mDbFlags & DBFLAG_Vacuum)==0
++      ){
++        rc = SQLITE_LOCKED;
++        goto initone_error_out;
++      }else{
++        sqlite3SetTextEncoding(db, encoding);
++      }
+     }else{
+       /* If opening an attached database, the encoding much match ENC(db) */
+       if( (meta[BTREE_TEXT_ENCODING-1] & 3)!=ENC(db) ){

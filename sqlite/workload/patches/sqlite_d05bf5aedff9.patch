@@ -1,0 +1,40 @@
+--- a/ext/misc/zipfile.c
++++ b/ext/misc/zipfile.c
+@@ -853,7 +853,7 @@
+   }else{
+     if( (iOff+ZIPFILE_CDS_FIXED_SZ)>nBlob ){
+       /* Not enough data for the CDS structure. Corruption. */
+-      return zipfileCorrupt(pzErr);
++      return SQLITE_CORRUPT;
+     }
+     aRead = (u8*)&aBlob[iOff];
+   }
+@@ -885,9 +885,6 @@
+         );
+       }else{
+         aRead = (u8*)&aBlob[iOff + ZIPFILE_CDS_FIXED_SZ];
+-        if( (iOff + ZIPFILE_CDS_FIXED_SZ + nFile + nExtra)>nBlob ){
+-          rc = zipfileCorrupt(pzErr);
+-        }
+       }
+     }
+ 
+@@ -916,9 +913,6 @@
+         rc = zipfileReadData(pFile, aRead, szFix, pNew->cds.iOffset, pzErr);
+       }else{
+         aRead = (u8*)&aBlob[pNew->cds.iOffset];
+-        if( ((i64)pNew->cds.iOffset + ZIPFILE_LFH_FIXED_SZ)>nBlob ){
+-          rc = zipfileCorrupt(pzErr);
+-        }
+       }
+ 
+       memset(&lfh, 0, sizeof(lfh));
+@@ -928,7 +922,7 @@
+         pNew->iDataOff += lfh.nFile + lfh.nExtra;
+         if( aBlob && pNew->cds.szCompressed ){
+           if( pNew->iDataOff + pNew->cds.szCompressed > nBlob ){
+-            rc = zipfileCorrupt(pzErr);
++            rc = SQLITE_CORRUPT;
+           }else{
+             pNew->aData = &pNew->aExtra[nExtra];
+             memcpy(pNew->aData, &aBlob[pNew->iDataOff], pNew->cds.szCompressed);

@@ -1,0 +1,25 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -5157,12 +5157,6 @@
+ ){
+   SrcItem *pItem;
+   sqlite3 *db = pParse->db;
+-  if( !p && pOnUsing!=0 && (pOnUsing->pOn || pOnUsing->pUsing) ){
+-    sqlite3ErrorMsg(pParse, "a JOIN clause is required before %s",
+-      (pOnUsing->pOn ? "ON" : "USING")
+-    );
+-    goto append_from_error;
+-  }
+   p = sqlite3SrcListAppend(pParse, p, pTable, pDatabase);
+   if( p==0 ){
+     goto append_from_error;
+@@ -5189,7 +5183,8 @@
+   }
+   assert( pOnUsing==0 || pOnUsing->pOn==0 || pOnUsing->pUsing==0 );
+   assert( pItem->fg.isUsing==0 );
+-  if( pOnUsing==0 ){
++  if( pOnUsing==0 || p->nSrc<=1 ){
++    sqlite3ClearOnOrUsing(db, pOnUsing);
+     pItem->u3.pOn = 0;
+   }else if( pOnUsing->pUsing ){
+     pItem->fg.isUsing = 1;

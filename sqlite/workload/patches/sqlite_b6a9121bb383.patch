@@ -1,0 +1,36 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -7030,6 +7030,7 @@
+   }
+   switch( pExpr->op ){
+     case TK_ISNOT:
++    case TK_NOT:
+     case TK_ISNULL:
+     case TK_NOTNULL:
+     case TK_IS:
+@@ -7038,6 +7039,7 @@
+     case TK_TRUTH:
+     case TK_CASE:
+       testcase( pExpr->op==TK_ISNOT );
++      testcase( pExpr->op==TK_NOT );
+       testcase( pExpr->op==TK_ISNULL );
+       testcase( pExpr->op==TK_NOTNULL );
+       testcase( pExpr->op==TK_IS );
+@@ -7055,16 +7057,7 @@
+       return WRC_Prune;
+ 
+     case TK_OR:
+-    case TK_AND:
+-      /* Both sides of an AND or OR must separately imply non-null-row.
+-      ** Consider these cases:
+-      **    1.  NOT (x AND y)
+-      **    2.  x OR y
+-      ** If only one of x or y is non-null-row, then the overall expression
+-      ** can be true if the other arm is false (case 1) or true (case 2).
+-      */
+-      testcase( pExpr->op==TK_OR );
+-      testcase( pExpr->op==TK_AND );
++      /* Both sides of an OR must separately imply non-null-row. */
+       bothImplyNotNullRow(pWalker, pExpr->pLeft, pExpr->pRight);
+       return WRC_Prune;
+        

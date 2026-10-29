@@ -1,0 +1,5 @@
+CREATE TABLE t2(x TEXT COLLATE NOCASE);
+INSERT INTO t2 VALUES('abc'),('ABC'),('abcd'),('ABCD');
+CREATE INDEX i2 ON t2(x COLLATE NOCASE);
+PRAGMA case_sensitive_like=on;
+SELECT x FROM t2 WHERE x LIKE 'abc%' ORDER BY 1;

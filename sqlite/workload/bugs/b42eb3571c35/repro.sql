@@ -1,0 +1,11 @@
+CREATE TABLE x(a);
+INSERT INTO x VALUES(1);
+INSERT INTO x VALUES(2);
+WITH y AS (
+  SELECT Row_Number() OVER (win) FROM x WINDOW win AS (PARTITION BY a)
+)
+SELECT * FROM y;
+WITH y AS (
+  SELECT Row_Number() OVER (win) FROM x WINDOW win AS (PARTITION BY fake_column)
+)
+SELECT * FROM y;

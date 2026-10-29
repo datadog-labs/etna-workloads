@@ -1,0 +1,43 @@
+--- a/src/pager.c
++++ b/src/pager.c
+@@ -5246,38 +5246,9 @@
+           sqlite3EndBenignMalloc();
+         }else{
+           /* The journal file exists and no other connection has a reserved
+-          ** or greater lock on the database file. Now check that there is
+-          ** at least one non-zero bytes at the start of the journal file.
+-          ** If there is, then we consider this journal to be hot. If not,
+-          ** it can be ignored.
++          ** or greater lock on the database file. Consider it hot.
+           */
+-          if( !jrnlOpen ){
+-            int f = SQLITE_OPEN_READONLY|SQLITE_OPEN_MAIN_JOURNAL;
+-            rc = sqlite3OsOpen(pVfs, pPager->zJournal, pPager->jfd, f, &f);
+-          }
+-          if( rc==SQLITE_OK ){
+-            u8 first = 0;
+-            rc = sqlite3OsRead(pPager->jfd, (void *)&first, 1, 0);
+-            if( rc==SQLITE_IOERR_SHORT_READ ){
+-              rc = SQLITE_OK;
+-            }
+-            if( !jrnlOpen ){
+-              sqlite3OsClose(pPager->jfd);
+-            }
+-            *pExists = (first!=0);
+-          }else if( rc==SQLITE_CANTOPEN ){
+-            /* If we cannot open the rollback journal file in order to see if
+-            ** it has a zero header, that might be due to an I/O error, or
+-            ** it might be due to the race condition described above and in
+-            ** ticket #3883.  Either way, assume that the journal is hot.
+-            ** This might be a false positive.  But if it is, then the
+-            ** automatic journal playback and recovery mechanism will deal
+-            ** with it under an EXCLUSIVE lock where we do not need to
+-            ** worry so much with race conditions.
+-            */
+-            *pExists = 1;
+-            rc = SQLITE_OK;
+-          }
++          *pExists = 1;
+         }
+       }
+     }

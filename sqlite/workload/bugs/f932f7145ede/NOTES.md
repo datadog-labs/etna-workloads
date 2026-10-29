@@ -1,0 +1,1 @@
+repro.sql runs the with1-14.1 query (a CTE plus a compound SELECT with ORDER BY ... COLLATE). The buggy shell leaves a stale Select.pWith pointer and aborts with assertion `pParse->pWith!=pWith` in sqlite3WithPush (rc=134). The clean shell prints nothing and exits 0.

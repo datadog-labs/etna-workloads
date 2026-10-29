@@ -1,0 +1,5 @@
+.dbconfig defensive off
+CREATE VIRTUAL TABLE f USING fts3(a,b);
+INSERT INTO f_segdir VALUES (28,0,0,0,'0 0',x'00');
+INSERT INTO f_segdir VALUES (0,241,0,0,'0 0',x'0001000030310000f1');
+INSERT INTO f VALUES (0,x'00');

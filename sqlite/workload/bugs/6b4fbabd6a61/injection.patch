@@ -1,0 +1,37 @@
+--- a/ext/fts5/fts5_index.c
++++ b/ext/fts5/fts5_index.c
+@@ -4801,7 +4801,6 @@
+   int bOldest;                    /* True if the output segment is the oldest */
+   int eDetail = p->pConfig->eDetail;
+   const int flags = FTS5INDEX_QUERY_NOOUTPUT;
+-  int bTermWritten = 0;           /* True if current term already output */
+ 
+   assert( iLvl<pStruct->nLevel );
+   assert( pLvl->nMerge<=pLvl->nSeg );
+@@ -4861,22 +4860,18 @@
+     int nTerm;
+     const u8 *pTerm;
+ 
++    /* Check for key annihilation. */
++    if( pSegIter->nPos==0 && (bOldest || pSegIter->bDel==0) ) continue;
++
+     pTerm = fts5MultiIterTerm(pIter, &nTerm);
+     if( nTerm!=term.n || fts5Memcmp(pTerm, term.p, nTerm) ){
+       if( pnRem && writer.nLeafWritten>nRem ){
+         break;
+       }
+-      fts5BufferSet(&p->rc, &term, nTerm, pTerm);
+-      bTermWritten =0;
+-    }
+ 
+-    /* Check for key annihilation. */
+-    if( pSegIter->nPos==0 && (bOldest || pSegIter->bDel==0) ) continue;
+-
+-    if( p->rc==SQLITE_OK && bTermWritten==0 ){
+       /* This is a new term. Append a term to the output segment. */
+       fts5WriteAppendTerm(p, &writer, nTerm, pTerm);
+-      bTermWritten = 1;
++      fts5BufferSet(&p->rc, &term, nTerm, pTerm);
+     }
+ 
+     /* Append the rowid to the output */

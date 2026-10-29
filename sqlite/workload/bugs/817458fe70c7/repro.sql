@@ -1,0 +1,7 @@
+CREATE TABLE t(a);
+WITH RECURSIVE c(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT c.x + 1 FROM t LEFT JOIN c ON t.a = 5 WHERE c.x < 3
+)
+SELECT * FROM c;

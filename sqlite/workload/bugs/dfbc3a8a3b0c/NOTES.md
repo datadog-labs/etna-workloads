@@ -1,0 +1,1 @@
+Runs coalesce() with 0 and 1 args. Clean: "wrong number of arguments to function coalesce()"; buggy: a different error (e.g. no such function) because matchQuality counts the unimplemented placeholder FuncDef as a match.

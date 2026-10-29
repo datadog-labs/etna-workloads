@@ -1,0 +1,4 @@
+CREATE TABLE t0(c0 REAL AS(1) UNIQUE, c1 INT);
+INSERT INTO t0 VALUES('');
+SELECT quote(c0), quote(c1) from t0;
+SELECT *, (1 BETWEEN CAST(t0.c0 AS TEXT) AND t0.c0) FROM t0;

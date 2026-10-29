@@ -1,0 +1,9 @@
+PRAGMA page_size=1024;
+CREATE TABLE t10(a, b);
+WITH s(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM s WHERE i<99999)
+INSERT INTO t10 SELECT i/10, i%10 FROM s;
+PRAGMA cache_size = 5;
+CREATE TEMP TABLE r1 AS SELECT a, b FROM t10 ORDER BY a;
+SELECT count(*) FROM (SELECT rowid AS n, a, b FROM r1) x
+ JOIN (SELECT row_number() OVER (ORDER BY a, b) AS n, a, b FROM t10) y
+ USING(n) WHERE x.b IS NOT y.b;

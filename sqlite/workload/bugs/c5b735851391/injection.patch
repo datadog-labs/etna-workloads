@@ -1,0 +1,77 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -1953,8 +1953,11 @@
+        "INTEGER PRIMARY KEY");
+ #endif
+   }else{
++    Vdbe *v = pParse->pVdbe;
++    if( v ) pParse->u1.cr.addrSkipPK = sqlite3VdbeAddOp0(v, OP_Noop);
+     sqlite3CreateIndex(pParse, 0, 0, 0, pList, onError, 0,
+                            0, sortOrder, 0, SQLITE_IDXTYPE_PRIMARYKEY);
++    if( v ) sqlite3VdbeJumpHere(v, pParse->u1.cr.addrSkipPK);
+     pList = 0;
+   }
+ 
+@@ -2466,6 +2469,14 @@
+     sqlite3VdbeChangeP3(v, pParse->u1.cr.addrCrTab, BTREE_BLOBKEY);
+   }
+ 
++  /* Bypass the creation of the PRIMARY KEY btree and the sqlite_schema
++  ** table entry.
++  */
++  if( pParse->u1.cr.addrSkipPK ){
++    assert( v );
++    sqlite3VdbeChangeOpcode(v, pParse->u1.cr.addrSkipPK, OP_Goto);
++  }
++
+   /* Locate the PRIMARY KEY index.  Or, if this table was originally
+   ** an INTEGER PRIMARY KEY table, create a new PRIMARY KEY index.
+   */
+@@ -2520,14 +2531,6 @@
+   if( !db->init.imposterTable ) pPk->uniqNotNull = 1;
+   nPk = pPk->nColumn = pPk->nKeyCol;
+ 
+-  /* Bypass the creation of the PRIMARY KEY btree and the sqlite_schema
+-  ** table entry. This is only required if currently generating VDBE
+-  ** code for a CREATE TABLE (not when parsing one as part of reading
+-  ** a database schema).  */
+-  if( v && pPk->tnum>0 ){
+-    assert( db->init.busy==0 );
+-    sqlite3VdbeChangeOpcode(v, (int)pPk->tnum, OP_Goto);
+-  }
+ 
+   /* The root page of the PRIMARY KEY is the table root page */
+   pPk->tnum = pTab->tnum;
+@@ -4511,13 +4514,6 @@
+ 
+       sqlite3BeginWriteOperation(pParse, 1, iDb);
+ 
+-      /* Create the rootpage for the index using CreateIndex. But before
+-      ** doing so, code a Noop instruction and store its address in
+-      ** Index.tnum. This is required in case this index is actually a
+-      ** PRIMARY KEY and the table is actually a WITHOUT ROWID table. In
+-      ** that case the convertToWithoutRowidTable() routine will replace
+-      ** the Noop with a Goto to jump over the VDBE code generated below. */
+-      pIndex->tnum = (Pgno)sqlite3VdbeAddOp0(v, OP_Noop);
+       sqlite3VdbeAddOp3(v, OP_CreateBtree, iDb, iMem, BTREE_BLOBKEY);
+ 
+       /* Gather the complete text of the CREATE INDEX statement into
+@@ -4558,8 +4554,6 @@
+             sqlite3MPrintf(db, "name='%q' AND type='index'", pIndex->zName), 0);
+         sqlite3VdbeAddOp2(v, OP_Expire, 0, 1);
+       }
+-
+-      sqlite3VdbeJumpHere(v, (int)pIndex->tnum);
+     }
+   }
+   if( db->init.busy || pTblName==0 ){
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -3996,6 +3996,7 @@
+   union {
+     struct {  /* These fields available when isCreate is true */
+       int addrCrTab;        /* Address of OP_CreateBtree on CREATE TABLE */
++      int addrSkipPK;       /* Address of instruction to skip PRIMARY KEY index */
+       int regRowid;         /* Register holding rowid of CREATE TABLE entry */
+       int regRoot;          /* Register holding root page for new objects */
+       Token constraintName; /* Name of the constraint currently being parsed */

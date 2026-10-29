@@ -1,0 +1,34 @@
+--- a/src/malloc.c
++++ b/src/malloc.c
+@@ -803,10 +803,17 @@
+ }
+ 
+ /*
+-** Free any prior content in *pz and replace it with a copy of zNew.
++** Create a string from the zFormat argument and the va_list that follows.
++** Store the string in memory obtained from sqliteMalloc() and make *pz
++** point to that string.
+ */
+-void sqlite3SetString(char **pz, sqlite3 *db, const char *zNew){
+-  char *z = sqlite3DbStrDup(db, zNew);
++void sqlite3SetString(char **pz, sqlite3 *db, const char *zFormat, ...){
++  va_list ap;
++  char *z;
++
++  va_start(ap, zFormat);
++  z = sqlite3VMPrintf(db, zFormat, ap);
++  va_end(ap);
+   sqlite3DbFree(db, *pz);
+   *pz = z;
+ }
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -5012,7 +5012,7 @@
+   void sqlite3ShowBitvec(Bitvec*);
+ #endif
+ 
+-void sqlite3SetString(char **, sqlite3*, const char*);
++void sqlite3SetString(char **, sqlite3*, const char*, ...);
+ void sqlite3ProgressCheck(Parse*);
+ void sqlite3ErrorMsg(Parse*, const char*, ...);
+ int sqlite3ErrorToParser(sqlite3*,int);

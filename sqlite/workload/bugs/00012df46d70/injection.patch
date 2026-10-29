@@ -1,0 +1,22 @@
+--- a/src/insert.c
++++ b/src/insert.c
+@@ -2474,7 +2474,7 @@
+     ** of a WITHOUT ROWID table and there has been no change the
+     ** primary key, then no collision is possible.  The collision detection
+     ** logic below can all be skipped. */
+-    if( isUpdate && pPk==pIdx && pkChng==0 ){
++    if( isUpdate && pPk && pkChng==0 ){
+       sqlite3VdbeResolveLabel(v, addrUniqueOk);
+       continue;
+     }
+--- a/src/update.c
++++ b/src/update.c
+@@ -918,7 +918,7 @@
+       k = sqlite3TableColumnToStorage(pTab, i) + regOld;
+       if( oldmask==0xffffffff
+        || (i<32 && (oldmask & MASKBIT32(i))!=0)
+-       || (colFlags & COLFLAG_PRIMKEY)!=0
++       || (chngPk && (colFlags & COLFLAG_PRIMKEY)!=0)
+       ){
+         testcase(  oldmask!=0xffffffff && i==31 );
+         sqlite3ExprCodeGetColumnOfTable(v, pTab, iDataCur, i, k);

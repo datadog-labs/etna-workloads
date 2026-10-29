@@ -1,0 +1,25 @@
+--- a/ext/fts3/fts3.c
++++ b/ext/fts3/fts3.c
+@@ -3952,7 +3952,7 @@
+   int rc = SQLITE_OK;
+   Fts3Table *pTab = (Fts3Table*)pVtab;
+   assert( pTab->inTransaction );
+-  assert( pTab->mxSavepoint<=iSavepoint );
++  assert( pTab->mxSavepoint<iSavepoint );
+   TESTONLY( pTab->mxSavepoint = iSavepoint );
+ 
+   if( pTab->bIgnoreSavepoint==0 ){
+--- a/src/vtab.c
++++ b/src/vtab.c
+@@ -1078,10 +1078,7 @@
+       if( rc==SQLITE_OK ){
+         int iSvpt = db->nStatement + db->nSavepoint;
+         addToVTrans(db, pVTab);
+-        if( iSvpt && pModule->xSavepoint ){
+-          pVTab->iSavepoint = iSvpt;
+-          rc = pModule->xSavepoint(pVTab->pVtab, iSvpt-1);
+-        }
++        if( iSvpt ) rc = sqlite3VtabSavepoint(db, SAVEPOINT_BEGIN, iSvpt-1);
+       }
+     }
+   }

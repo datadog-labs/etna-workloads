@@ -1,0 +1,20 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -3722,7 +3722,6 @@
+     if( (!ExprHasProperty(pExpr, EP_OuterON) || pExpr->w.iJoin==iTab)
+      && ((jointype & JT_OUTER)==0 || ExprHasProperty(pExpr, EP_OuterON))
+      && sqlite3ExprImpliesExpr(pParse, pExpr, pWhere, iTab)
+-     && !sqlite3ExprImpliesExpr(pParse, pExpr, pWhere, -1)
+      && (pTerm->wtFlags & TERM_VNULL)==0
+     ){
+       return 1;
+--- a/src/wherecode.c
++++ b/src/wherecode.c
+@@ -2235,6 +2235,7 @@
+       /* pIdx is a covering index.  No need to access the main table. */
+     }else if( HasRowid(pIdx->pTable) ){
+       codeDeferredSeek(pWInfo, pIdx, iCur, iIdxCur);
++      if( pLoop->nLTerm==0 ) pWInfo->bDeferredSeek = 0;
+     }else if( iCur!=iIdxCur ){
+       Index *pPk = sqlite3PrimaryKeyIndex(pIdx->pTable);
+       iRowidReg = sqlite3GetTempRange(pParse, pPk->nKeyCol);

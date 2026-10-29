@@ -1,0 +1,38 @@
+--- a/src/resolve.c
++++ b/src/resolve.c
+@@ -2121,14 +2121,6 @@
+       return WRC_Abort;
+     }
+ 
+-    /* If the SELECT statement contains ON clauses that were moved into
+-    ** the WHERE clause, go through and verify that none of the terms
+-    ** in the ON clauses reference tables to the right of the ON clause. */
+-    if( (p->selFlags & SF_OnToWhere) ){
+-      sqlite3SelectCheckOnClauses(pParse, p);
+-      if( pParse->nErr ) return WRC_Abort;
+-    }
+-
+     /* Advance to the next term of the compound
+     */
+     p = p->pPrior;
+--- a/src/select.c
++++ b/src/select.c
+@@ -7816,6 +7816,18 @@
+   }
+ #endif
+ 
++  /* If the SELECT statement contains ON clauses that were moved into
++  ** the WHERE clause, go through and verify that none of the terms
++  ** in the ON clauses reference tables to the right of the ON clause.
++  ** Do this now, after name resolution, but before query flattening
++  */
++  if( p->selFlags & SF_OnToWhere ){
++    sqlite3SelectCheckOnClauses(pParse, p);
++    if( pParse->nErr ){
++      goto select_end;
++    }
++  }
++
+   /* If the SF_UFSrcCheck flag is set, then this function is being called
+   ** as part of populating the temp table for an UPDATE...FROM statement.
+   ** In this case, it is an error if the target object (pSrc->a[0]) name

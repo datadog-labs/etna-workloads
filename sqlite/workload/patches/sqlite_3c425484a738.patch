@@ -1,0 +1,51 @@
+--- a/src/pragma.c
++++ b/src/pragma.c
+@@ -1216,7 +1216,7 @@
+   */
+   case PragTyp_TABLE_INFO: if( zRight ){
+     Table *pTab;
+-    sqlite3CodeVerifyNamedSchema(pParse, zDb);
++    sqlite3CodeVerifySchema(pParse, iDb);
+     pTab = sqlite3LocateTable(pParse, LOCATE_NOERR, zRight, zDb);
+     if( pTab ){
+       int i, k;
+@@ -1386,7 +1386,6 @@
+       }
+     }
+     if( pIdx ){
+-      int iIdxDb = sqlite3SchemaToIndex(db, pIdx->pSchema);
+       int i;
+       int mx;
+       if( pPragma->iArg ){
+@@ -1399,7 +1398,7 @@
+         pParse->nMem = 3;
+       }
+       pTab = pIdx->pTable;
+-      sqlite3CodeVerifySchema(pParse, iIdxDb);
++      sqlite3CodeVerifySchema(pParse, iDb);
+       assert( pParse->nMem<=pPragma->nPragCName );
+       for(i=0; i<mx; i++){
+         i16 cnum = pIdx->aiColumn[i];
+@@ -1423,9 +1422,8 @@
+     int i;
+     pTab = sqlite3FindTable(db, zRight, zDb);
+     if( pTab ){
+-      int iTabDb = sqlite3SchemaToIndex(db, pTab->pSchema);
+       pParse->nMem = 5;
+-      sqlite3CodeVerifySchema(pParse, iTabDb);
++      sqlite3CodeVerifySchema(pParse, iDb);
+       for(pIdx=pTab->pIndex, i=0; pIdx; pIdx=pIdx->pNext, i++){
+         const char *azOrigin[] = { "c", "u", "pk" };
+         sqlite3VdbeMultiLoad(v, 1, "isisi",
+@@ -1516,10 +1514,9 @@
+     if( pTab && IsOrdinaryTable(pTab) ){
+       pFK = pTab->u.tab.pFKey;
+       if( pFK ){
+-        int iTabDb = sqlite3SchemaToIndex(db, pTab->pSchema);
+         int i = 0;
+         pParse->nMem = 8;
+-        sqlite3CodeVerifySchema(pParse, iTabDb);
++        sqlite3CodeVerifySchema(pParse, iDb);
+         while(pFK){
+           int j;
+           for(j=0; j<pFK->nCol; j++){

@@ -1,0 +1,1 @@
+repro.sql runs the window4-8.2 query (many window functions sharing one window, including nth_value). The injected bug makes nth_value read its argument column from the wrong ephemeral cursor. The clean shell prints 3 correct rows. The buggy shell aborts with an OP_Column assertion failure (exit -6).

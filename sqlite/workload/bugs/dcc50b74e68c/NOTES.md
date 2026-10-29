@@ -1,0 +1,2 @@
+repro.sh builds a db with an index, then (defensive off, writable_schema) rewrites its schema SQL to `CREATE INDEX main.t1i1 ...` (a two-part name, as corruptC-2.12 produces via a corrupted byte). Reopening and querying parses the schema with init.busy set.
+Clean: error "malformed database schema (t1i1) - corrupt database", exit 1. Buggy: assertion `!db->init.busy` fails in sqlite3TwoPartName, abort (exit 134).

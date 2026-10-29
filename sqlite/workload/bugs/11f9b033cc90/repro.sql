@@ -1,0 +1,5 @@
+CREATE TABLE t1(a, b, c, PRIMARY KEY(a,b)) WITHOUT rowid;
+INSERT INTO t1 VALUES(1,2,3);
+SELECT rowid, * FROM t1;
+SELECT _rowid_, * FROM t1;
+SELECT oid, * FROM t1;

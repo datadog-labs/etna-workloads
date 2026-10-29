@@ -1,0 +1,53 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -5439,7 +5439,7 @@
+ static void sqlite3CodeVerifySchemaAtToplevel(Parse *pToplevel, int iDb){
+   assert( iDb>=0 && iDb<pToplevel->db->nDb );
+   assert( pToplevel->db->aDb[iDb].pBt!=0 || iDb==1 );
+-  assert( iDb<SQLITE_MAX_DB );
++  assert( iDb<SQLITE_MAX_ATTACHED+2 );
+   assert( sqlite3SchemaMutexHeld(pToplevel->db, iDb, 0) );
+   if( DbMaskTest(pToplevel->cookieMask, iDb)==0 ){
+     DbMaskSet(pToplevel->cookieMask, iDb);
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -3344,7 +3344,7 @@
+ 
+     /* Code an OP_Transaction and OP_TableLock for <table>. */
+     iDb = sqlite3SchemaToIndex(db, pTab->pSchema);
+-    assert( iDb>=0 && iDb<SQLITE_MAX_DB );
++    assert( iDb>=0 && iDb<SQLITE_MAX_ATTACHED );
+     sqlite3CodeVerifySchema(pParse, iDb);
+     sqlite3TableLock(pParse, iDb, pTab->tnum, 0, pTab->zName);
+ 
+--- a/src/main.c
++++ b/src/main.c
+@@ -2620,7 +2620,7 @@
+   if( zDb && zDb[0] ){
+     iDb = sqlite3FindDbName(db, zDb);
+   }else{
+-    iDb = SQLITE_MAX_DB;   /* This means process all schemas */
++    iDb = SQLITE_MAX_ATTACHED;   /* This means process all schemas */
+   }
+   if( iDb<0 ){
+     rc = SQLITE_ERROR;
+@@ -2688,7 +2688,7 @@
+   testcase( iDb==SQLITE_MAX_DB );
+ 
+   for(i=0; i<db->nDb && rc==SQLITE_OK; i++){
+-    if( i==iDb || iDb==SQLITE_MAX_DB ){
++    if( i==iDb || iDb==SQLITE_MAX_ATTACHED ){
+       rc = sqlite3BtreeCheckpoint(db->aDb[i].pBt, eMode, pnLog, pnCkpt);
+       pnLog = 0;
+       pnCkpt = 0;
+--- a/src/pragma.c
++++ b/src/pragma.c
+@@ -2396,7 +2396,7 @@
+   ** Checkpoint the database.
+   */
+   case PragTyp_WAL_CHECKPOINT: {
+-    int iBt = (pId2->z?iDb:SQLITE_MAX_DB);
++    int iBt = (pId2->z?iDb:SQLITE_MAX_ATTACHED);
+     int eMode = SQLITE_CHECKPOINT_PASSIVE;
+     if( zRight ){
+       if( sqlite3StrICmp(zRight, "full")==0 ){

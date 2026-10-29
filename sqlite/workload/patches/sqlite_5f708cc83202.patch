@@ -1,0 +1,39 @@
+--- a/ext/fts5/fts5_aux.c
++++ b/ext/fts5/fts5_aux.c
+@@ -167,7 +167,7 @@
+   if( tflags & FTS5_TOKEN_COLOCATED ) return SQLITE_OK;
+   iPos = p->iPos++;
+ 
+-  if( p->iRangeEnd>=0 ){
++  if( p->iRangeEnd>0 ){
+     if( iPos<p->iRangeStart || iPos>p->iRangeEnd ) return SQLITE_OK;
+     if( p->iRangeStart && iPos==p->iRangeStart ) p->iOff = iStartOff;
+   }
+@@ -210,7 +210,7 @@
+     }
+   }
+ 
+-  if( iPos==p->iRangeEnd ){
++  if( p->iRangeEnd>0 && iPos==p->iRangeEnd ){
+     if( p->bOpen ){
+       if( p->iter.iStart>=0 && iPos>=p->iter.iStart ){
+         fts5HighlightAppend(&rc, p, &p->zIn[p->iOff], iEndOff - p->iOff);
+@@ -261,7 +261,6 @@
+   memset(&ctx, 0, sizeof(HighlightContext));
+   ctx.zOpen = (const char*)sqlite3_value_text(apVal[1]);
+   ctx.zClose = (const char*)sqlite3_value_text(apVal[2]);
+-  ctx.iRangeEnd = -1;
+   rc = pApi->xColumnText(pFts, iCol, &ctx.zIn, &ctx.nIn);
+   if( rc==SQLITE_RANGE ){
+     sqlite3_result_text(pCtx, "", -1, SQLITE_STATIC);
+@@ -458,9 +457,8 @@
+   memset(&ctx, 0, sizeof(HighlightContext));
+   iCol = fts5ValueClampedInt(apVal[0]);
+   ctx.zOpen = fts5ValueToText(apVal[1]);
+-  ctx.zClose = fts5ValueToText(apVal[2]);
+-  ctx.iRangeEnd = -1;
+   zEllips = fts5ValueToText(apVal[3]);
++  ctx.zClose = fts5ValueToText(apVal[2]);
+   nToken = (int)(MIN( MAX(sqlite3_value_int64(apVal[4]), 0), 64));
+ 
+   iBestCol = (iCol>=0 ? iCol : 0);

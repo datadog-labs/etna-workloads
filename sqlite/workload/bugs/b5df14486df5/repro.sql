@@ -1,0 +1,7 @@
+CREATE VIRTUAL TABLE t USING rtree(id,x0,x1);
+INSERT INTO t VALUES(1,2,3);
+SELECT changes();
+UPDATE t SET x0=0;
+SELECT changes();
+DELETE FROM t;
+SELECT changes();

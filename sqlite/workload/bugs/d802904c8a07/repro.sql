@@ -1,0 +1,3 @@
+CREATE TABLE abc(a, b NOT NULL AS (a+1));
+ALTER TABLE abc ALTER b DROP NOT NULL;
+SELECT sql FROM sqlite_schema;

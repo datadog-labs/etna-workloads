@@ -1,0 +1,1 @@
+Reproducer for distinct2-1020 (skip-ahead DISTINCT on a join). t1 has 100 rows (1,'no') plus (1,'yes'); after ANALYZE, `SELECT DISTINCT a FROM t1, t2 WHERE x=b` returns `1` on the clean shell. The buggy shell aborts with an assertion failure in sqlite3VdbeResolveLabel (`p->aLabel[j]==(-1)`), because skip-ahead is applied to a non-innermost loop.

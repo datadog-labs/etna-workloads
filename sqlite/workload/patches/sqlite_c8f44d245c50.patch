@@ -1,0 +1,42 @@
+--- a/ext/fts5/fts5_aux.c
++++ b/ext/fts5/fts5_aux.c
+@@ -140,7 +140,7 @@
+   HighlightContext *p, 
+   const char *z, int n
+ ){
+-  if( *pRc==SQLITE_OK && z ){
++  if( *pRc==SQLITE_OK ){
+     if( n<0 ) n = (int)strlen(z);
+     p->zOut = sqlite3_mprintf("%z%.*s", p->zOut, n, z);
+     if( p->zOut==0 ) *pRc = SQLITE_NOMEM;
+@@ -413,16 +413,6 @@
+ }
+ 
+ /*
+-** Return the value in pVal interpreted as utf-8 text. Except, if pVal 
+-** contains a NULL value, return a pointer to a static string zero
+-** bytes in length instead of a NULL pointer.
+-*/
+-static const char *fts5ValueToText(sqlite3_value *pVal){
+-  const char *zRet = (const char*)sqlite3_value_text(pVal);
+-  return zRet ? zRet : "";
+-}
+-
+-/*
+ ** Implementation of snippet() function.
+ */
+ static void fts5SnippetFunction(
+@@ -457,10 +447,10 @@
+   nCol = pApi->xColumnCount(pFts);
+   memset(&ctx, 0, sizeof(HighlightContext));
+   iCol = fts5ValueClampedInt(apVal[0]);
+-  ctx.zOpen = fts5ValueToText(apVal[1]);
+-  ctx.zClose = fts5ValueToText(apVal[2]);
++  ctx.zOpen = (const char*)sqlite3_value_text(apVal[1]);
++  ctx.zClose = (const char*)sqlite3_value_text(apVal[2]);
+   ctx.iRangeEnd = -1;
+-  zEllips = fts5ValueToText(apVal[3]);
++  zEllips = (const char*)sqlite3_value_text(apVal[3]);
+   nToken = (int)(MIN( MAX(sqlite3_value_int64(apVal[4]), 0), 64));
+ 
+   iBestCol = (iCol>=0 ? iCol : 0);

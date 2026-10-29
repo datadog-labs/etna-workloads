@@ -1,0 +1,1 @@
+repro.sql: CAST('0x1234' AS INTEGER) should be 0 and an oversized hex literal (0x10000000000000000) should error 'hex literal too big'. The buggy shell lets the string cast parse hex and accepts/wraps the oversized literal; the clean shell returns 0 and the error.

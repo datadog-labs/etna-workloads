@@ -1,0 +1,33 @@
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -3279,7 +3279,7 @@
+     ** segment. The level of the new segment is equal to the numerically
+     ** greatest segment level currently present in the database for this
+     ** index. The idx of the new segment is always 0.  */
+-    if( csr.nSegment==1 && 0==fts3SegReaderIsPending(csr.apSegment[0]) ){
++    if( csr.nSegment==1 ){
+       rc = SQLITE_DONE;
+       goto finished;
+     }
+@@ -3546,10 +3546,7 @@
+   int rc;
+   sqlite3_stmt *pAllLangid = 0;
+ 
+-  rc = sqlite3Fts3PendingTermsFlush(p);
+-  if( rc==SQLITE_OK ){
+-    rc = fts3SqlStmt(p, SQL_SELECT_ALL_LANGID, &pAllLangid, 0);
+-  }
++  rc = fts3SqlStmt(p, SQL_SELECT_ALL_LANGID, &pAllLangid, 0);
+   if( rc==SQLITE_OK ){
+     int rc2;
+     sqlite3_bind_int(pAllLangid, 1, p->iPrevLangid);
+@@ -3569,6 +3566,9 @@
+     if( rc==SQLITE_OK ) rc = rc2;
+   }
+ 
++  if( rc==SQLITE_OK ){
++    sqlite3Fts3PendingTermsClear(p);
++  }
+   sqlite3Fts3SegmentsClose(p);
+ 
+   return (rc==SQLITE_OK && bReturnDone && bSeenDone) ? SQLITE_DONE : rc;

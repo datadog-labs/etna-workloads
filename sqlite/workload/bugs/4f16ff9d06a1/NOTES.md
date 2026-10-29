@@ -1,0 +1,1 @@
+repro.sql: creates a table with a generated column and an 8-column foreign key (more columns than the table) referencing a missing parent, then runs PRAGMA foreign_key_check. Clean shell exits 0 with no output; buggy shell aborts with assertion 'target>0 && target<=pParse->nMem' in sqlite3ExprCode (registers reserved too late).

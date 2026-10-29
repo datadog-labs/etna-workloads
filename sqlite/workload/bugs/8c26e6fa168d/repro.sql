@@ -1,0 +1,8 @@
+CREATE TABLE t0(a,b);
+CREATE VIEW t1 AS SELECT * FROM t0;
+CREATE TABLE log(op, r, a, b);
+CREATE TRIGGER tr1 INSTEAD OF INSERT ON t1 BEGIN
+  INSERT INTO log VALUES('insert', new.rowid, new.a, new.b);
+END;
+INSERT INTO t1(a, b) VALUES(1234, 5678) RETURNING rowid;
+SELECT * FROM log;

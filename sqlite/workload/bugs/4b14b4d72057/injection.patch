@@ -1,0 +1,21 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -4436,7 +4436,7 @@
+   if( pSub->pLimit && (pSrc->nSrc>1 || isAgg) ){
+      return 0;         /* Restrictions (8)(9) */
+   }
+-  if( p->pOrderBy && pSub->pOrderBy ){
++  if( p->pOrderBy && pSub->pOrderBy && (p->selFlags & SF_Compound)==0 ){
+      return 0;                                           /* Restriction (11) */
+   }
+   if( isAgg && pSub->pOrderBy ) return 0;                /* Restriction (16) */
+@@ -7986,7 +7986,8 @@
+     ** Also retain the ORDER BY if the OmitOrderBy optimization is disabled.
+     */
+     if( pSub->pOrderBy!=0
+-     && (p->pOrderBy!=0 || pTabList->nSrc>1)      /* Condition (5) */
++     && ((p->pOrderBy!=0 && (p->selFlags & SF_Compound)==0)
++         || pTabList->nSrc>1)                     /* Condition (5) */
+      && pSub->pLimit==0                           /* Condition (1) */
+      && (pSub->selFlags & (SF_OrderByReqd|SF_Recursive))==0  /* (2) and (6) */
+      && (p->selFlags & SF_OrderByReqd)==0         /* Condition (3) and (4) */

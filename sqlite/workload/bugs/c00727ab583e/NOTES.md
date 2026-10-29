@@ -1,0 +1,2 @@
+`repro.sql` mirrors memjournal.test 1.0-1.3: with an in-memory journal, one open transaction, it repeats 500 times a savepoint that rewrites a row, followed by a nested savepoint that modifies zero pages and is released.
+Releasing the empty sub-savepoint truncates the memory journal. The buggy shell aborts with an assertion failure in memjrnlTruncate (exit -6). The clean shell finishes normally and prints `memory` and `1`.

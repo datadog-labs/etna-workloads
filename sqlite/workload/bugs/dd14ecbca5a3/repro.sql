@@ -1,0 +1,7 @@
+PRAGMA page_size=1024;
+BEGIN;
+SELECT * FROM sqlite_master;
+PRAGMA page_size=2048;
+PRAGMA main.page_size;
+CREATE TABLE t1(x);
+COMMIT;

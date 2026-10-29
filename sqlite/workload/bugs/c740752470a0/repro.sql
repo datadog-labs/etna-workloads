@@ -1,0 +1,3 @@
+CREATE TABLE t19 AS SELECT 1, 2 AS '', 3;
+SELECT * FROM t19;
+SELECT sql FROM sqlite_schema;

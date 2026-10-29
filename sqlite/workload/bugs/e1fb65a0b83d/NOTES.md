@@ -1,0 +1,2 @@
+repro.sh: creates t1(a) with an index i1, then keeps one shell connection open while a second connection drops i1. The first connection then runs `SELECT 2 IN (SELECT a FROM t1)`. This is select1-15.1 to 15.3 (ticket #3771).
+Clean: prints 1 and 1. Buggy: the statement has no OP_Transaction/VerifyCookie/TableLock for the IN-subquery table, so the schema change is not noticed and the run aborts with `Assertion 'p->bIsReader' failed` in sqlite3VdbeExec.

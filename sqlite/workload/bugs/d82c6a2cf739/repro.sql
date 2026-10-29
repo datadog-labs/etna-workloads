@@ -1,0 +1,4 @@
+CREATE TABLE t1(x);
+SELECT max(x) AND 0 FROM t1;
+SELECT max(x) IN () FROM t1;
+SELECT max(x) NOT IN () FROM t1;

@@ -1,0 +1,21 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -1707,6 +1707,7 @@
+     /* Set the EP_Reduced, EP_TokenOnly, and EP_Static flags appropriately. */
+     pNew->flags &= ~(EP_Reduced|EP_TokenOnly|EP_Static);
+     pNew->flags |= nStructSize & (EP_Reduced|EP_TokenOnly);
++    if( nStructSize & EP_TokenOnly ) pNew->flags &= ~EP_Leaf;
+     pNew->flags |= staticFlag;
+     ExprClearVVAProperties(pNew);
+     if( dupFlags ){
+--- a/src/walker.c
++++ b/src/walker.c
+@@ -68,7 +68,7 @@
+   while(1){
+     rc = pWalker->xExprCallback(pWalker, pExpr);
+     if( rc ) return rc & WRC_Abort;
+-    if( !ExprHasProperty(pExpr,(EP_TokenOnly|EP_Leaf)) ){
++    if( !ExprHasProperty(pExpr,EP_Leaf) ){
+       assert( pExpr->x.pList==0 || pExpr->pRight==0 );
+       if( pExpr->pLeft && sqlite3WalkExprNN(pWalker, pExpr->pLeft) ){
+         return WRC_Abort;

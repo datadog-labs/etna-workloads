@@ -1,0 +1,28 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -274,8 +274,7 @@
+       p = p->pLeft;
+       continue;
+     }
+-    if( op==TK_VECTOR
+-     || (op==TK_FUNCTION && p->affExpr==SQLITE_AFF_DEFER)
++    if( (op==TK_FUNCTION && p->affExpr==SQLITE_AFF_DEFER)
+     ){
+       assert( ExprUseXList(p) );
+       p = p->x.pList->a[0].pExpr;
+--- a/src/whereexpr.c
++++ b/src/whereexpr.c
+@@ -114,11 +114,8 @@
+ ** are converted into "Y op X".
+ */
+ static u16 exprCommute(Parse *pParse, Expr *pExpr){
+-  if( pExpr->pLeft->op==TK_VECTOR
+-   || pExpr->pRight->op==TK_VECTOR
+-   || sqlite3BinaryCompareCollSeq(pParse, pExpr->pLeft, pExpr->pRight) !=
+-      sqlite3BinaryCompareCollSeq(pParse, pExpr->pRight, pExpr->pLeft)
+-  ){
++  if( sqlite3BinaryCompareCollSeq(pParse, pExpr->pLeft, pExpr->pRight) !=
++      sqlite3BinaryCompareCollSeq(pParse, pExpr->pRight, pExpr->pLeft) ){
+     pExpr->flags ^= EP_Commuted;
+   }
+   SWAP(Expr*,pExpr->pRight,pExpr->pLeft);

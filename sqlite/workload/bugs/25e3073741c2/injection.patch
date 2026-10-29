@@ -1,0 +1,26 @@
+--- a/ext/fts5/fts5_index.c
++++ b/ext/fts5/fts5_index.c
+@@ -658,6 +658,7 @@
+   Fts5TokenDataIter *pTokenDataIter;
+ 
+   Fts5Index *pIndex;              /* Index that owns this iterator */
++  Fts5Structure *pStruct;         /* Database structure for this iterator */
+   Fts5Buffer poslist;             /* Buffer containing current poslist */
+   Fts5Colset *pColset;            /* Restrict matches to these columns */
+ 
+@@ -3225,6 +3226,7 @@
+     for(i=0; i<pIter->nSeg; i++){
+       fts5SegIterClear(&pIter->aSeg[i]);
+     }
++    fts5StructureRelease(pIter->pStruct);
+     fts5BufferFree(&pIter->poslist);
+     sqlite3_free(pIter);
+   }
+@@ -3992,6 +3994,7 @@
+   }
+   pNew->bRev = (0!=(flags & FTS5INDEX_QUERY_DESC));
+   pNew->bSkipEmpty = (0!=(flags & FTS5INDEX_QUERY_SKIPEMPTY));
++  pNew->pStruct = pStruct;
+   pNew->pColset = pColset;
+   if( (flags & FTS5INDEX_QUERY_NOOUTPUT)==0 ){
+     fts5IterSetOutputCb(&p->rc, pNew);

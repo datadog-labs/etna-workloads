@@ -1,0 +1,7 @@
+CREATE VIRTUAL TABLE t1 USING fts5(x, detail=none);
+WITH RECURSIVE c(x) AS (
+  VALUES(1) UNION ALL SELECT x+1 FROM c WHERE x<55
+)
+INSERT INTO t1(rowid, x) SELECT x,'ab' FROM c;
+INSERT INTO t1(rowid, x) VALUES(-9223372036854775808,'abc');
+SELECT count(*) FROM t1('a*');

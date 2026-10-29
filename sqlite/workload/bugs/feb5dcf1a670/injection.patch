@@ -1,0 +1,43 @@
+--- a/ext/fts3/fts3_snippet.c
++++ b/ext/fts3/fts3_snippet.c
+@@ -1065,14 +1065,9 @@
+ 
+   n = sqlite3_column_bytes(pStmt, 0);
+   a = sqlite3_column_blob(pStmt, 0);
+-  if( a==0 ){
+-    return FTS_CORRUPT_VTAB;
+-  }
+   pEnd = a + n;
+-  a += sqlite3Fts3GetVarintBounded(a, pEnd, &nDoc);
+-  if( nDoc<=0 || a>pEnd ){
+-    return FTS_CORRUPT_VTAB;
+-  }
++  a += sqlite3Fts3GetVarint(a, &nDoc);
++  if( nDoc<=0 ) return FTS_CORRUPT_VTAB;
+   *pnDoc = nDoc;
+ 
+   if( paLen ) *paLen = a;
+@@ -1276,10 +1271,6 @@
+               u32 iVal;
+               sqlite3_int64 nToken;
+               a += sqlite3Fts3GetVarint(a, &nToken);
+-              if( a>pEnd ){
+-                rc = SQLITE_CORRUPT_VTAB;
+-                break;
+-              }
+               iVal = (u32)(((u32)(nToken&0xffffffff)+nDoc/2)/nDoc);
+               pInfo->aMatchinfo[iCol] = iVal;
+             }
+@@ -1296,11 +1287,7 @@
+           const char *pEnd = a + sqlite3_column_bytes(pSelectDocsize, 0);
+           for(iCol=0; iCol<pInfo->nCol; iCol++){
+             sqlite3_int64 nToken;
+-            a += sqlite3Fts3GetVarintBounded(a, pEnd, &nToken);
+-            if( a>pEnd ){
+-              rc = SQLITE_CORRUPT_VTAB;
+-              break;
+-            }
++            a += sqlite3Fts3GetVarint(a, &nToken);
+             pInfo->aMatchinfo[iCol] = (u32)nToken;
+           }
+         }

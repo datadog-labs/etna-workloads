@@ -1,0 +1,1 @@
+repro.sql: a natural join between an ordinary table with a column named `rank` and an FTS5 table (which has hidden `rank` and `ft` columns). The clean shell ignores hidden columns when computing NATURAL join columns, so the join is only on `a`. The buggy shell also joins on the hidden `rank` column, so the results differ (rows lost or an error).
