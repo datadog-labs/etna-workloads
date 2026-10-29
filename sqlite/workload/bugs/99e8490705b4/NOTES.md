@@ -1,0 +1,1 @@
+Reproducer: generate_series with a value=NNN constraint where the end (73) is not an even multiple of the step from the start (60). Clean returns 66 and 67; buggy returns nothing or a wrong result because iTerm is adjusted by a step-multiple computation instead of being clamped to iMax/iMin.

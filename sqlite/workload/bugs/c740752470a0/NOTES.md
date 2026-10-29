@@ -1,0 +1,1 @@
+repro.sql: CREATE TABLE AS with an empty-string column alias. Clean shell stores the name quoted ("") and the table works (1|2|3). Buggy identPut() leaves the empty name unquoted, producing invalid schema SQL, so it errors with 'malformed database schema (t19)' and the table is unusable.

@@ -1,0 +1,277 @@
+--- a/ext/fts3/fts3_unicode.c
++++ b/ext/fts3/fts3_unicode.c
+@@ -26,11 +26,13 @@
+ #include "fts3_tokenizer.h"
+ 
+ /*
+-** The following two macros - FTS3_READ_UTF8 and FTS3_WRITE_UTF8 - have 
+-** been copied from the sqlite3 source file utf.c. 
++** The following two macros - READ_UTF8 and WRITE_UTF8 - have been copied
++** from the sqlite3 source file utf.c. If this file is compiled as part
++** of the amalgamation, they are not required.
+ */
++#ifndef SQLITE_AMALGAMATION
+ 
+-static const unsigned char fts3Utf8Trans1[] = {
++static const unsigned char sqlite3Utf8Trans1[] = {
+   0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+   0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+   0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+@@ -41,10 +43,10 @@
+   0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x00, 0x00,
+ };
+ 
+-#define FTS3_READ_UTF8(zIn, zTerm, c)                      \
++#define READ_UTF8(zIn, zTerm, c)                           \
+   c = *(zIn++);                                            \
+   if( c>=0xc0 ){                                           \
+-    c = fts3Utf8Trans1[c-0xc0];                            \
++    c = sqlite3Utf8Trans1[c-0xc0];                         \
+     while( zIn!=zTerm && (*zIn & 0xc0)==0x80 ){            \
+       c = (c<<6) + (0x3f & *(zIn++));                      \
+     }                                                      \
+@@ -53,26 +55,28 @@
+         || (c&0xFFFFFFFE)==0xFFFE ){  c = 0xFFFD; }        \
+   }
+ 
+-#define FTS3_WRITE_UTF8(zOut, c) {                         \
+-  if( c<0x00080 ){                                         \
+-    *zOut++ = (u8)(c&0xFF);                                \
+-  }                                                        \
+-  else if( c<0x00800 ){                                    \
+-    *zOut++ = 0xC0 + (u8)((c>>6)&0x1F);                    \
+-    *zOut++ = 0x80 + (u8)(c & 0x3F);                       \
+-  }                                                        \
+-  else if( c<0x10000 ){                                    \
+-    *zOut++ = 0xE0 + (u8)((c>>12)&0x0F);                   \
+-    *zOut++ = 0x80 + (u8)((c>>6) & 0x3F);                  \
+-    *zOut++ = 0x80 + (u8)(c & 0x3F);                       \
+-  }else{                                                   \
+-    *zOut++ = 0xF0 + (u8)((c>>18) & 0x07);                 \
+-    *zOut++ = 0x80 + (u8)((c>>12) & 0x3F);                 \
+-    *zOut++ = 0x80 + (u8)((c>>6) & 0x3F);                  \
+-    *zOut++ = 0x80 + (u8)(c & 0x3F);                       \
+-  }                                                        \
++#define WRITE_UTF8(zOut, c) {                          \
++  if( c<0x00080 ){                                     \
++    *zOut++ = (u8)(c&0xFF);                            \
++  }                                                    \
++  else if( c<0x00800 ){                                \
++    *zOut++ = 0xC0 + (u8)((c>>6)&0x1F);                \
++    *zOut++ = 0x80 + (u8)(c & 0x3F);                   \
++  }                                                    \
++  else if( c<0x10000 ){                                \
++    *zOut++ = 0xE0 + (u8)((c>>12)&0x0F);               \
++    *zOut++ = 0x80 + (u8)((c>>6) & 0x3F);              \
++    *zOut++ = 0x80 + (u8)(c & 0x3F);                   \
++  }else{                                               \
++    *zOut++ = 0xF0 + (u8)((c>>18) & 0x07);             \
++    *zOut++ = 0x80 + (u8)((c>>12) & 0x3F);             \
++    *zOut++ = 0x80 + (u8)((c>>6) & 0x3F);              \
++    *zOut++ = 0x80 + (u8)(c & 0x3F);                   \
++  }                                                    \
+ }
+ 
++#endif /* ifndef SQLITE_AMALGAMATION */
++
+ typedef struct unicode_tokenizer unicode_tokenizer;
+ typedef struct unicode_cursor unicode_cursor;
+ 
+@@ -138,7 +142,7 @@
+   assert( bAlnum==0 || bAlnum==1 );
+ 
+   while( z<zTerm ){
+-    FTS3_READ_UTF8(z, zTerm, iCode);
++    READ_UTF8(z, zTerm, iCode);
+     assert( (sqlite3FtsUnicodeIsalnum((int)iCode) & 0xFFFFFFFE)==0 );
+     if( sqlite3FtsUnicodeIsalnum((int)iCode)!=bAlnum 
+      && sqlite3FtsUnicodeIsdiacritic((int)iCode)==0 
+@@ -157,7 +161,7 @@
+ 
+     z = (const unsigned char *)zIn;
+     while( z<zTerm ){
+-      FTS3_READ_UTF8(z, zTerm, iCode);
++      READ_UTF8(z, zTerm, iCode);
+       if( sqlite3FtsUnicodeIsalnum((int)iCode)!=bAlnum 
+        && sqlite3FtsUnicodeIsdiacritic((int)iCode)==0
+       ){
+@@ -329,7 +333,7 @@
+   ** Return SQLITE_DONE early if this takes us all the way to the end of 
+   ** the input.  */
+   while( z<zTerm ){
+-    FTS3_READ_UTF8(z, zTerm, iCode);
++    READ_UTF8(z, zTerm, iCode);
+     if( unicodeIsAlnum(p, (int)iCode) ) break;
+     zStart = z;
+   }
+@@ -352,12 +356,12 @@
+     zEnd = z;
+     iOut = sqlite3FtsUnicodeFold((int)iCode, p->eRemoveDiacritic);
+     if( iOut ){
+-      FTS3_WRITE_UTF8(zOut, iOut);
++      WRITE_UTF8(zOut, iOut);
+     }
+ 
+     /* If the cursor is not at EOF, read the next character */
+     if( z>=zTerm ) break;
+-    FTS3_READ_UTF8(z, zTerm, iCode);
++    READ_UTF8(z, zTerm, iCode);
+   }while( unicodeIsAlnum(p, (int)iCode) 
+        || sqlite3FtsUnicodeIsdiacritic((int)iCode)
+   );
+--- a/ext/fts5/fts5_tokenize.c
++++ b/ext/fts5/fts5_tokenize.c
+@@ -177,10 +177,13 @@
+ 
+ 
+ /*
+-** The following two macros - FTS5_READ_UTF8 and FTS5_WRITE_UTF8 - have 
+-** been copied from the sqlite3 source file utf.c. 
++** The following two macros - READ_UTF8 and WRITE_UTF8 - have been copied
++** from the sqlite3 source file utf.c. If this file is compiled as part
++** of the amalgamation, they are not required.
+ */
+-static const unsigned char fts5Utf8Trans1[] = {
++#ifndef SQLITE_AMALGAMATION
++
++static const unsigned char sqlite3Utf8Trans1[] = {
+   0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+   0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+   0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+@@ -191,43 +194,45 @@
+   0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x00, 0x00,
+ };
+ 
+-#define FTS5_READ_UTF8(zIn, zTerm, c)                      \
++#define READ_UTF8(zIn, zTerm, c)                           \
+   c = *(zIn++);                                            \
+   if( c>=0xc0 ){                                           \
+-    c = fts5Utf8Trans1[c-0xc0];                            \
++    c = sqlite3Utf8Trans1[c-0xc0];                         \
+     while( zIn<zTerm && (*zIn & 0xc0)==0x80 ){             \
+       c = (c<<6) + (0x3f & *(zIn++));                      \
+     }                                                      \
+     if( c<0x80                                             \
+-     || (c&0xFFFFF800)==0xD800                             \
+-     || (c&0xFFFFFFFE)==0xFFFE ){  c = 0xFFFD; }           \
++        || (c&0xFFFFF800)==0xD800                          \
++        || (c&0xFFFFFFFE)==0xFFFE ){  c = 0xFFFD; }        \
+   }
+ 
+ 
+-#define FTS5_WRITE_UTF8(zOut, c) {                         \
+-  if( c<0x00080 ){                                         \
+-    *zOut++ = (unsigned char)(c&0xFF);                     \
+-  }                                                        \
+-  else if( c<0x00800 ){                                    \
+-    *zOut++ = 0xC0 + (unsigned char)((c>>6)&0x1F);         \
+-    *zOut++ = 0x80 + (unsigned char)(c & 0x3F);            \
+-  }                                                        \
+-  else if( c<0x10000 ){                                    \
+-    *zOut++ = 0xE0 + (unsigned char)((c>>12)&0x0F);        \
+-    *zOut++ = 0x80 + (unsigned char)((c>>6) & 0x3F);       \
+-    *zOut++ = 0x80 + (unsigned char)(c & 0x3F);            \
+-  }else{                                                   \
+-    *zOut++ = 0xF0 + (unsigned char)((c>>18) & 0x07);      \
+-    *zOut++ = 0x80 + (unsigned char)((c>>12) & 0x3F);      \
+-    *zOut++ = 0x80 + (unsigned char)((c>>6) & 0x3F);       \
+-    *zOut++ = 0x80 + (unsigned char)(c & 0x3F);            \
+-  }                                                        \
+-}
+-
+-#define FTS5_SKIP_UTF8(zIn) {                              \
+-  if( ((unsigned char)(*(zIn++)))>=0xc0 ){                 \
+-    while( (((unsigned char)*zIn) & 0xc0)==0x80 ){zIn++;}  \
+-  }                                                        \
++#define WRITE_UTF8(zOut, c) {                          \
++  if( c<0x00080 ){                                     \
++    *zOut++ = (unsigned char)(c&0xFF);                 \
++  }                                                    \
++  else if( c<0x00800 ){                                \
++    *zOut++ = 0xC0 + (unsigned char)((c>>6)&0x1F);     \
++    *zOut++ = 0x80 + (unsigned char)(c & 0x3F);        \
++  }                                                    \
++  else if( c<0x10000 ){                                \
++    *zOut++ = 0xE0 + (unsigned char)((c>>12)&0x0F);    \
++    *zOut++ = 0x80 + (unsigned char)((c>>6) & 0x3F);   \
++    *zOut++ = 0x80 + (unsigned char)(c & 0x3F);        \
++  }else{                                               \
++    *zOut++ = 0xF0 + (unsigned char)((c>>18) & 0x07);  \
++    *zOut++ = 0x80 + (unsigned char)((c>>12) & 0x3F);  \
++    *zOut++ = 0x80 + (unsigned char)((c>>6) & 0x3F);   \
++    *zOut++ = 0x80 + (unsigned char)(c & 0x3F);        \
++  }                                                    \
++}
++
++#endif /* ifndef SQLITE_AMALGAMATION */
++
++#define FTS5_SKIP_UTF8(zIn) {                               \
++  if( ((unsigned char)(*(zIn++)))>=0xc0 ){                              \
++    while( (((unsigned char)*zIn) & 0xc0)==0x80 ){ zIn++; }             \
++  }                                                    \
+ }
+ 
+ typedef struct Unicode61Tokenizer Unicode61Tokenizer;
+@@ -266,7 +271,7 @@
+       while( zCsr<zTerm ){
+         u32 iCode;
+         int bToken;
+-        FTS5_READ_UTF8(zCsr, zTerm, iCode);
++        READ_UTF8(zCsr, zTerm, iCode);
+         if( iCode<128 ){
+           p->aTokenChar[iCode] = (unsigned char)bTokenChars;
+         }else{
+@@ -470,7 +475,7 @@
+         /* A character outside of the ascii range. Skip past it if it is
+         ** a separator character. Or break out of the loop if it is not. */
+         is = zCsr - (unsigned char*)pText;
+-        FTS5_READ_UTF8(zCsr, zTerm, iCode);
++        READ_UTF8(zCsr, zTerm, iCode);
+         if( fts5UnicodeIsAlnum(p, iCode) ){
+           goto non_ascii_tokenchar;
+         }
+@@ -506,11 +511,11 @@
+       if( *zCsr & 0x80 ){
+         /* An non-ascii-range character. Fold it into the output buffer if
+         ** it is a token character, or break out of the loop if it is not. */
+-        FTS5_READ_UTF8(zCsr, zTerm, iCode);
++        READ_UTF8(zCsr, zTerm, iCode);
+         if( fts5UnicodeIsAlnum(p,iCode)||sqlite3Fts5UnicodeIsdiacritic(iCode) ){
+  non_ascii_tokenchar:
+           iCode = sqlite3Fts5UnicodeFold(iCode, p->eRemoveDiacritic);
+-          if( iCode ) FTS5_WRITE_UTF8(zOut, iCode);
++          if( iCode ) WRITE_UTF8(zOut, iCode);
+         }else{
+           break;
+         }
+@@ -1365,10 +1370,10 @@
+     do {
+       aStart[ii] = zIn - (const unsigned char*)pText;
+       if( zIn>=zEof ) return SQLITE_OK;
+-      FTS5_READ_UTF8(zIn, zEof, iCode);
++      READ_UTF8(zIn, zEof, iCode);
+       if( p->bFold ) iCode = sqlite3Fts5UnicodeFold(iCode, p->iFoldParam);
+     }while( iCode==0 );
+-    FTS5_WRITE_UTF8(zOut, iCode);
++    WRITE_UTF8(zOut, iCode);
+   }
+ 
+   /* At the start of each iteration of this loop:
+@@ -1390,7 +1395,7 @@
+         iCode = 0;
+         break;
+       }
+-      FTS5_READ_UTF8(zIn, zEof, iCode);
++      READ_UTF8(zIn, zEof, iCode);
+       if( p->bFold ) iCode = sqlite3Fts5UnicodeFold(iCode, p->iFoldParam);
+     }while( iCode==0 );
+ 
+@@ -1404,7 +1409,7 @@
+     FTS5_SKIP_UTF8(z1);
+     memmove(aBuf, z1, zOut - z1);
+     zOut -= (z1 - aBuf);
+-    FTS5_WRITE_UTF8(zOut, iCode);
++    WRITE_UTF8(zOut, iCode);
+ 
+     /* Update the aStart[] array */
+     aStart[0] = aStart[1];

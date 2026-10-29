@@ -1,0 +1,29 @@
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -8292,6 +8292,8 @@
+         rc = sqlite3PagerCloseWal(pPager, db);
+         if( rc==SQLITE_OK ){
+           sqlite3PagerSetJournalMode(pPager, eNew);
++        }else if( rc==SQLITE_BUSY && pOp->p5==0 ){
++          goto abort_due_to_error;
+         }
+       }else if( eOld==PAGER_JOURNALMODE_MEMORY ){
+         /* Cannot transition directly from MEMORY to WAL.  Use mode OFF
+@@ -8305,12 +8307,16 @@
+       assert( sqlite3BtreeTxnState(pBt)!=SQLITE_TXN_WRITE );
+       if( rc==SQLITE_OK ){
+         rc = sqlite3BtreeSetVersion(pBt, (eNew==PAGER_JOURNALMODE_WAL ? 2 : 1));
++        if( rc==SQLITE_BUSY && pOp->p5==0 ) goto abort_due_to_error;
++      }
++      if( rc==SQLITE_BUSY ){
++        eNew = eOld;
++        rc = SQLITE_OK;
+       }
+     }
+   }
+ #endif /* ifndef SQLITE_OMIT_WAL */
+ 
+-  if( rc ) eNew = eOld;
+   eNew = sqlite3PagerSetJournalMode(pPager, eNew);
+ 
+   pOut->flags = MEM_Str|MEM_Static|MEM_Term;

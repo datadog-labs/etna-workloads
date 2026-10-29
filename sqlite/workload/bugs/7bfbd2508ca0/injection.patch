@@ -1,0 +1,34 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -4948,7 +4948,6 @@
+   SrcItem *pEnd = &pTabList->a[pWInfo->nLevel];
+   sqlite3 *db = pWInfo->pParse->db;
+   int rc = SQLITE_OK;
+-  int bFirstPastRJ = 0;
+   int hasRightCrossJoin = 0;
+   WhereLoop *pNew;
+ 
+@@ -4968,13 +4967,9 @@
+     pNew->iTab = iTab;
+     pBuilder->iPlanLimit += SQLITE_QUERY_PLANNER_LIMIT_INCR;
+     pNew->maskSelf = sqlite3WhereGetMask(&pWInfo->sMaskSet, pItem->iCursor);
+-    if( bFirstPastRJ
+-     || (pItem->fg.jointype & (JT_OUTER|JT_CROSS|JT_LTORJ))!=0
+-    ){
++    if( (pItem->fg.jointype & (JT_OUTER|JT_CROSS|JT_LTORJ))!=0 ){
+       /* Add prerequisites to prevent reordering of FROM clause terms
+-      ** across CROSS joins and outer joins.  The bFirstPastRJ boolean
+-      ** prevents the right operand of a RIGHT JOIN from being swapped with
+-      ** other elements even further to the right.
++      ** across CROSS joins and outer joins.
+       **
+       ** The hasRightCrossJoin flag prevent FROM-clause terms from moving
+       ** from the right side of a LEFT JOIN or CROSS JOIN over to the
+@@ -4991,7 +4986,6 @@
+         hasRightCrossJoin = 1;
+       }
+       mPrereq |= mPrior;
+-      bFirstPastRJ = (pItem->fg.jointype & JT_RIGHT)!=0;
+     }else if( pItem->fg.fromExists ){
+       /* joins that result from the EXISTS-to-JOIN optimization should not
+       ** be moved to the left of any of their dependencies */

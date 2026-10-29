@@ -1,0 +1,43 @@
+--- a/src/where.c
++++ b/src/where.c
+@@ -3720,7 +3720,6 @@
+     Expr *pExpr;
+     pExpr = pTerm->pExpr;
+     if( (!ExprHasProperty(pExpr, EP_OuterON) || pExpr->w.iJoin==iTab)
+-     && ((jointype & JT_OUTER)==0 || ExprHasProperty(pExpr, EP_OuterON))
+      && sqlite3ExprImpliesExpr(pParse, pExpr, pWhere, iTab)
+      && !sqlite3ExprImpliesExpr(pParse, pExpr, pWhere, -1)
+      && (pTerm->wtFlags & TERM_VNULL)==0
+--- a/src/wherecode.c
++++ b/src/wherecode.c
+@@ -2246,24 +2246,12 @@
+                            iRowidReg, pPk->nKeyCol); VdbeCoverage(v);
+     }
+ 
+-    if( pLevel->iLeftJoin==0 ){
+-      /* If a partial index is driving the loop, try to eliminate WHERE clause
+-      ** terms from the query that must be true due to the WHERE clause of
+-      ** the partial index.  This optimization does not work on an outer join,
+-      ** as shown by:
+-      **
+-      ** 2019-11-02 ticket 623eff57e76d45f6      (LEFT JOIN)
+-      ** 2025-05-29 forum post 7dee41d32506c4ae  (RIGHT JOIN)
+-      */
+-      if( pIdx->pPartIdxWhere && pLevel->pRJ==0 ){
+-        whereApplyPartialIndexConstraints(pIdx->pPartIdxWhere, iCur, pWC);
+-      }
+-    }else{
+-      testcase( pIdx->pPartIdxWhere );
+-      /* The following assert() is not a requirement, merely an observation:
+-      ** The OR-optimization doesn't work for the right hand table of
+-      ** a LEFT JOIN: */
+-      assert( (pWInfo->wctrlFlags & (WHERE_OR_SUBCLAUSE|WHERE_RIGHT_JOIN))==0 );
++    /* If a partial index is driving the loop, try to eliminate WHERE clause
++    ** terms from the query that must be true due to the WHERE clause of
++    ** the partial index.
++    */
++    if( pIdx->pPartIdxWhere && pLevel->pRJ==0 ){
++      whereApplyPartialIndexConstraints(pIdx->pPartIdxWhere, iCur, pWC);
+     }
+ 
+     /* Record the instruction used to terminate the loop. */

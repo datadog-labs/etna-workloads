@@ -1,0 +1,39 @@
+--- a/src/resolve.c
++++ b/src/resolve.c
+@@ -2114,13 +2114,6 @@
+       }
+     }
+ 
+-    /* If this is part of a compound SELECT, check that it has the right
+-    ** number of expressions in the select list. */
+-    if( p->pNext && p->pEList->nExpr!=p->pNext->pEList->nExpr ){
+-      sqlite3SelectWrongNumTermsError(pParse, p->pNext);
+-      return WRC_Abort;
+-    }
+-
+     /* If the SELECT statement contains ON clauses that were moved into
+     ** the WHERE clause, go through and verify that none of the terms
+     ** in the ON clauses reference tables to the right of the ON clause. */
+--- a/src/select.c
++++ b/src/select.c
+@@ -3068,7 +3068,11 @@
+   ** in their result sets.
+   */
+   assert( p->pEList && pPrior->pEList );
+-  assert( p->pEList->nExpr==pPrior->pEList->nExpr );
++  if( p->pEList->nExpr!=pPrior->pEList->nExpr ){
++    sqlite3SelectWrongNumTermsError(pParse, p);
++    rc = 1;
++    goto multi_select_end;
++  }
+ 
+ #ifndef SQLITE_OMIT_CTE
+   if( (p->selFlags & SF_Recursive)!=0 && hasAnchor(p) ){
+@@ -4500,7 +4504,6 @@
+       testcase( (pSub1->selFlags & (SF_Distinct|SF_Aggregate))==SF_Aggregate );
+       assert( pSub->pSrc!=0 );
+       assert( (pSub->selFlags & SF_Recursive)==0 );
+-      assert( pSub->pEList->nExpr==pSub1->pEList->nExpr );
+       if( (pSub1->selFlags & (SF_Distinct|SF_Aggregate))!=0    /* (17b) */
+        || (pSub1->pPrior && pSub1->op!=TK_ALL)                 /* (17a) */
+        || pSub1->pSrc->nSrc<1                                  /* (17c) */

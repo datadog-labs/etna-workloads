@@ -1,0 +1,34 @@
+--- a/src/printf.c
++++ b/src/printf.c
+@@ -811,27 +811,10 @@
+           unsigned int ch = va_arg(ap,unsigned int);
+           length = sqlite3AppendOneUtf8Character(buf, ch);
+         }
+-        if( precision>1 ){
+-          i64 nPrior = 1;
+-          width -= precision-1;
+-          if( width>1 && !flag_leftjustify ){
+-            sqlite3StrAppendchar64(pAccum, width-1, ' ');
+-            width = 0;
+-          }
+-          sqlite3StrAppend64(pAccum, buf, length);
+-          precision--;
+-          while( precision > 1 ){
+-            i64 nCopyBytes;
+-            if( nPrior > precision-1 ) nPrior = precision - 1;
+-            nCopyBytes = length*nPrior;
+-            if( sqlite3StrAccumEnlargeIfNeeded(pAccum, nCopyBytes) ){
+-              break;
+-            }
+-            sqlite3_str_append(pAccum,
+-                 &pAccum->zText[pAccum->nChar-nCopyBytes], nCopyBytes);
+-            precision -= nPrior;
+-            nPrior *= 2;
+-          }
++        if( precision>=0 ){
++          int idx;
++          for(idx=1; idx<precision; idx++) buf[idx] = buf[0];
++          length = precision;
+         }
+         bufpt = buf;
+         flag_altform2 = 1;

@@ -1,0 +1,1 @@
+repro.sql: creates a trigger using `SELECT t1.*, t1.x`, renames a column, then renames the table. The clean shell rewrites the trigger to use "t2". The buggy shell fails on the table rename with "error in trigger Trigger1 after rename: no such table: t1" (exit status 1), because the `t1.*` expansion in rename mode isn't remapped to the original token.

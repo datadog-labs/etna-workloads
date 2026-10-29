@@ -1,0 +1,1 @@
+repro.sql: SELECT DISTINCT max(name) inside a compound subquery with ORDER BY 1 reaches sqlite3ExprCompare with a TK_AGG_COLUMN. Clean shell prints 'jjj' (exit 0); buggy shell hits assertion 0 in sqlite3ExprCompare (abort, exit 134). Corresponds to distinct-6.1.

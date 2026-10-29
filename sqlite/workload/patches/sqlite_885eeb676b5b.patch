@@ -1,0 +1,43 @@
+--- a/src/alter.c
++++ b/src/alter.c
+@@ -1516,15 +1516,11 @@
+ */
+ static void renameParseCleanup(Parse *pParse){
+   sqlite3 *db = pParse->db;
+-  Index *pIdx;
+   if( pParse->pVdbe ){
+     sqlite3VdbeFinalize(pParse->pVdbe);
+   }
+   sqlite3DeleteTable(db, pParse->pNewTable);
+-  while( (pIdx = pParse->pNewIndex)!=0 ){
+-    pParse->pNewIndex = pIdx->pNext;
+-    sqlite3FreeIndex(db, pIdx);
+-  }
++  if( pParse->pNewIndex ) sqlite3FreeIndex(db, pParse->pNewIndex);
+   sqlite3DeleteTrigger(db, pParse->pNewTrigger);
+   sqlite3DbFree(db, pParse->zErrMsg);
+   renameTokenFree(db, pParse->pRename);
+@@ -1638,9 +1634,6 @@
+         for(pIdx=sParse.pNewTable->pIndex; pIdx; pIdx=pIdx->pNext){
+           sqlite3WalkExprList(&sWalker, pIdx->aColExpr);
+         }
+-        for(pIdx=sParse.pNewIndex; pIdx; pIdx=pIdx->pNext){
+-          sqlite3WalkExprList(&sWalker, pIdx->aColExpr);
+-        }
+ #ifndef SQLITE_OMIT_GENERATED_COLUMNS
+         for(i=0; i<sParse.pNewTable->nCol; i++){
+           Expr *pExpr = sqlite3ColumnExpr(sParse.pNewTable,
+--- a/src/build.c
++++ b/src/build.c
+@@ -4450,11 +4450,6 @@
+           }
+         }
+         if( idxType==SQLITE_IDXTYPE_PRIMARYKEY ) pIdx->idxType = idxType;
+-        if( IN_RENAME_OBJECT ){
+-          pIndex->pNext = pParse->pNewIndex;
+-          pParse->pNewIndex = pIndex;
+-          pIndex = 0;
+-        }
+         goto exit_create_index;
+       }
+     }

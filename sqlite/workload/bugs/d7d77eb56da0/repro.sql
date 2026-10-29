@@ -1,0 +1,3 @@
+CREATE TABLE t1(c1 TEXT, c2 INTEGER, PRIMARY KEY(c1, c2));
+INSERT INTO t1(c1, c2) VALUES ('a', 1);
+SELECT (1, 'a') IN (SELECT c2, c1 from t1);

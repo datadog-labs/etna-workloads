@@ -1,0 +1,1 @@
+Reproducer: `SELECT 123 LIMIT 1 OFFSET 1;` (OFFSET on a FROM-less query). Clean prints nothing and exits 0. Buggy skips the OFFSET code because iContinue is 0, so it hits an assertion failure (resolveP2Values) and aborts.

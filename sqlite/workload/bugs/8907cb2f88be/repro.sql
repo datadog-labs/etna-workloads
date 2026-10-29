@@ -1,0 +1,9 @@
+CREATE TABLE t4(a TEXT, b INT);
+INSERT INTO t4(a,b) VALUES('abc',0),('ABC',1),('def',2);
+CREATE INDEX t4x ON t4(a, +a COLLATE NOCASE);
+CREATE VIEW t5 AS
+  SELECT 1 AS b
+   WHERE (SELECT count(0=NOT+a COLLATE NOCASE IN (SELECT 0))
+            FROM t4
+           GROUP BY a);
+SELECT * FROM t5;

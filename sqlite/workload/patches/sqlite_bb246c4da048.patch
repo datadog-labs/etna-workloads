@@ -1,0 +1,59 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -5521,8 +5521,6 @@
+ ** the page.
+ */
+ static void assertParentIndex(MemPage *pParent, int iIdx, Pgno iChild){
+-  if( CORRUPT_DB ) return;  /* The conditions tested below might not be true
+-                            ** in a corrupt database */
+   assert( iIdx<=pParent->nCell );
+   if( iIdx==pParent->nCell ){
+     assert( get4byte(&pParent->aData[pParent->hdrOffset+8])==iChild );
+@@ -6386,6 +6384,7 @@
+   if( !pPage->isInit ){
+     return SQLITE_CORRUPT_BKPT;
+   }
++  assert( idx<=pPage->nCell );
+ 
+   if( idx>=pPage->nCell ){
+     if( !pPage->leaf ){
+@@ -9126,30 +9125,6 @@
+ }
+ 
+ /*
+-** Return SQLITE_CORRUPT if any cursor other than pCur is currently valid
+-** on the same B-tree as pCur.
+-**
+-** This can occur if a database is corrupt with two or more SQL tables
+-** pointing to the same b-tree.  If an insert occurs on one SQL table
+-** and causes a BEFORE TRIGGER to do a secondary insert on the other SQL
+-** table linked to the same b-tree.  If the secondary insert causes a
+-** rebalance, that can change content out from under the cursor on the
+-** first SQL table, violating invariants on the first insert.
+-*/
+-static int anotherValidCursor(BtCursor *pCur){
+-  BtCursor *pOther;
+-  for(pOther=pCur->pBt->pCursor; pOther; pOther=pOther->pNext){
+-    if( pOther!=pCur
+-     && pOther->eState==CURSOR_VALID
+-     && pOther->pPage==pCur->pPage
+-    ){
+-      return SQLITE_CORRUPT_PAGE(pCur->pPage);
+-    }
+-  }
+-  return SQLITE_OK;
+-}
+-
+-/*
+ ** The page that pCur currently points to has just been modified in
+ ** some way. This function figures out if this modification means the
+ ** tree needs to be balanced, and if so calls the appropriate balancing
+@@ -9179,7 +9154,7 @@
+       **       the total usable space on the page. */
+       break;
+     }else if( (iPage = pCur->iPage)==0 ){
+-      if( pPage->nOverflow && (rc = anotherValidCursor(pCur))==SQLITE_OK ){
++      if( pPage->nOverflow ){
+         /* The root page of the b-tree is overfull. In this case call the
+         ** balance_deeper() function to create a new child for the root-page
+         ** and copy the current contents of the root-page to it. The

@@ -1,0 +1,8 @@
+.dbconfig defensive off
+PRAGMA writable_schema=ON;
+CREATE TABLE sqlite_sequence (name PRIMARY KEY) WITHOUT ROWID;
+PRAGMA writable_schema=OFF;
+CREATE TABLE c1(x);
+INSERT INTO sqlite_sequence(name) VALUES('c0'),('c1'),('c2');
+ALTER TABLE c1 RENAME TO a;
+SELECT name FROM sqlite_sequence ORDER BY +name;

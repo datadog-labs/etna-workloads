@@ -1,0 +1,4 @@
+CREATE TABLE t1(x, y);
+INSERT INTO t1 VALUES(10, 1),(20, 2),(3, 3),(2, 4),(1, 5);
+SELECT avg(x) OVER (ORDER BY y) z FROM t1 ORDER BY (y IS z);
+SELECT avg(x) OVER (ORDER BY y) z FROM t1 ORDER BY z + 0.0;

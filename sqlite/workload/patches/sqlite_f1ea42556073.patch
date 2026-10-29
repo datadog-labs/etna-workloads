@@ -1,0 +1,19 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -7785,10 +7785,12 @@
+   assert( p->pOrderBy==0 || pDest->eDest!=SRT_Fifo );
+   assert( p->pOrderBy==0 || pDest->eDest!=SRT_DistQueue );
+   assert( p->pOrderBy==0 || pDest->eDest!=SRT_Queue );
+-  if( IgnorableDistinct(pDest) ){
+-    assert(pDest->eDest==SRT_Exists     || pDest->eDest==SRT_Discard ||
+-           pDest->eDest==SRT_DistQueue  || pDest->eDest==SRT_DistFifo );
+-    /* All of these destinations are also able to ignore the ORDER BY clause */
++  if( IgnorableOrderby(pDest) ){
++    assert(pDest->eDest==SRT_Exists || pDest->eDest==SRT_Discard ||
++           pDest->eDest==SRT_Queue  || pDest->eDest==SRT_DistFifo ||
++           pDest->eDest==SRT_DistQueue || pDest->eDest==SRT_Fifo);
++    /* If ORDER BY makes no difference in the output then neither does
++    ** DISTINCT so it can be removed too. */
+     if( p->pOrderBy ){
+ #if TREETRACE_ENABLED
+       TREETRACE(0x800,pParse,p, ("dropping superfluous ORDER BY:\n"));

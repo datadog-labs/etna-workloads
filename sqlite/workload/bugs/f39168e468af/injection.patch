@@ -1,0 +1,32 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -1172,8 +1172,8 @@
+     if( (f&(EP_OuterON|EP_InnerON|EP_IsFalse|EP_HasFunc))==EP_IsFalse
+      && !IN_RENAME_OBJECT
+     ){
+-      sqlite3ExprDeferredDelete(pParse, pLeft);
+-      sqlite3ExprDeferredDelete(pParse, pRight);
++      sqlite3ExprDelete(db, pLeft);
++      sqlite3ExprDelete(db, pRight);
+       return sqlite3ExprInt32(db, 0);
+     }else{
+       return sqlite3PExpr(pParse, TK_AND, pLeft, pRight);
+--- a/src/select.c
++++ b/src/select.c
+@@ -7120,16 +7120,7 @@
+ static int havingToWhereExprCb(Walker *pWalker, Expr *pExpr){
+   if( pExpr->op!=TK_AND ){
+     Select *pS = pWalker->u.pSelect;
+-    /* This routine is called before the HAVING clause of the current
+-    ** SELECT is analyzed for aggregates. So if pExpr->pAggInfo is set
+-    ** here, it indicates that the expression is a correlated reference to a
+-    ** column from an outer aggregate query, or an aggregate function that
+-    ** belongs to an outer query. Do not move the expression to the WHERE
+-    ** clause in this obscure case, as doing so may corrupt the outer Select
+-    ** statements AggInfo structure.  */
+     if( sqlite3ExprIsConstantOrGroupBy(pWalker->pParse, pExpr, pS->pGroupBy)
+-     && ExprAlwaysFalse(pExpr)==0
+-     && pExpr->pAggInfo==0
+     ){
+       sqlite3 *db = pWalker->pParse->db;
+       Expr *pNew = sqlite3ExprInt32(db, 1);

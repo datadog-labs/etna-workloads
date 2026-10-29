@@ -1,0 +1,36 @@
+--- a/src/vdbe.c
++++ b/src/vdbe.c
+@@ -5633,7 +5633,7 @@
+   VdbeCursor *pC;
+   BtCursor *pCrsr;
+   int res;
+-  i64 iKey;
++  u64 iKey;
+ 
+   pIn3 = &aMem[pOp->p3];
+   testcase( pIn3->flags & MEM_Int );
+@@ -5647,21 +5647,9 @@
+     ** changing the datatype of pIn3, however, as it is used by other
+     ** parts of the prepared statement. */
+     Mem x = pIn3[0];
+-    if( x.flags & MEM_Str ){
+-      applyNumericAffinity(&x, 1);
+-    }
+-    if( x.flags & MEM_Int ){
+-      iKey = x.u.i;
+-    }else
+-    if( (x.flags & MEM_Real)==0
+-     || x.u.r < -9223372036854775808.0
+-     || x.u.r > 9223372036854774784.0
+-           /*   ^^^^^^^^^^^^^^^^^^^^^-- same value as every other double
+-           **   between 9223372036854774263.0 and 923372036854775295.0 */
+-     || (double)(iKey = sqlite3RealToI64(x.u.r))!=x.u.r
+-    ){
+-      goto jump_to_p2;
+-    }
++    applyAffinity(&x, SQLITE_AFF_NUMERIC, encoding);
++    if( (x.flags & MEM_Int)==0 ) goto jump_to_p2;
++    iKey = x.u.i;
+     goto notExistsWithKey;
+   }
+   /* Fall through into OP_NotExists */

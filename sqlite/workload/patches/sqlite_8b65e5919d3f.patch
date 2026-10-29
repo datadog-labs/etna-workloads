@@ -1,0 +1,145 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -1517,6 +1517,16 @@
+ }
+ 
+ /*
++** Copy the complete content of an Expr node, taking care not to read
++** past the end of the structure for a reduced-size version of the source
++** Expr.
++*/
++static void exprNodeCopy(Expr *pDest, const Expr *pSrc){
++  memset(pDest, 0, sizeof(Expr));
++  memcpy(pDest, pSrc, exprStructSize(pSrc));
++}
++
++/*
+ ** The dupedExpr*Size() routines each return the number of bytes required
+ ** to store a copy of an expression or expression tree.  They differ in
+ ** how much of the tree is measured.
+@@ -5809,8 +5819,7 @@
+       Expr opCompare;                   /* The X==Ei expression */
+       Expr *pX;                         /* The X expression */
+       Expr *pTest = 0;                  /* X==Ei (form A) or just Ei (form B) */
+-      Expr *pDel = 0;
+-      sqlite3 *db = pParse->db;
++      Expr tempX;                       /* Shallow copy of X */
+ 
+       assert( ExprUseXList(pExpr) && pExpr->x.pList!=0 );
+       assert(pExpr->x.pList->nExpr > 0);
+@@ -5819,17 +5828,13 @@
+       nExpr = pEList->nExpr;
+       endLabel = sqlite3VdbeMakeLabel(pParse);
+       if( (pX = pExpr->pLeft)!=0 ){
+-        pDel = sqlite3ExprDup(db, pX, 0);
+-        if( db->mallocFailed ){
+-          sqlite3ExprDelete(db, pDel);
+-          break;
+-        }
++        exprNodeCopy(&tempX, pX);
+         testcase( pX->op==TK_COLUMN );
+-        sqlite3ExprToRegister(pDel, exprCodeVector(pParse, pDel, &regFree1));
++        sqlite3ExprToRegister(&tempX, exprCodeVector(pParse, &tempX, &regFree1));
+         testcase( regFree1==0 );
+         memset(&opCompare, 0, sizeof(opCompare));
+         opCompare.op = TK_EQ;
+-        opCompare.pLeft = pDel;
++        opCompare.pLeft = &tempX;
+         pTest = &opCompare;
+         /* Ticket b351d95f9cd5ef17e9d9dbae18f5ca8611190001:
+         ** The value in regFree1 might get SCopy-ed into the file result.
+@@ -5857,7 +5862,6 @@
+       }else{
+         sqlite3VdbeAddOp2(v, OP_Null, 0, target);
+       }
+-      sqlite3ExprDelete(db, pDel);
+       setDoNotMergeFlagOnCopy(v);
+       sqlite3VdbeResolveLabel(v, endLabel);
+       break;
+@@ -6175,40 +6179,36 @@
+   Expr compLeft;    /* The  x>=y  term */
+   Expr compRight;   /* The  x<=z  term */
+   int regFree1 = 0; /* Temporary use register */
+-  Expr *pDel = 0;
+-  sqlite3 *db = pParse->db;
++  Expr exprX;       /* The  x  subexpression */
+ 
+   memset(&compLeft, 0, sizeof(Expr));
+   memset(&compRight, 0, sizeof(Expr));
+   memset(&exprAnd, 0, sizeof(Expr));
+ 
+   assert( ExprUseXList(pExpr) );
+-  pDel = sqlite3ExprDup(db, pExpr->pLeft, 0);
+-  if( db->mallocFailed==0 ){
+-    exprAnd.op = TK_AND;
+-    exprAnd.pLeft = &compLeft;
+-    exprAnd.pRight = &compRight;
+-    compLeft.op = TK_GE;
+-    compLeft.pLeft = pDel;
+-    compLeft.pRight = pExpr->x.pList->a[0].pExpr;
+-    compRight.op = TK_LE;
+-    compRight.pLeft = pDel;
+-    compRight.pRight = pExpr->x.pList->a[1].pExpr;
+-    sqlite3ExprToRegister(pDel, exprCodeVector(pParse, pDel, &regFree1));
+-    if( xJump ){
+-      xJump(pParse, &exprAnd, dest, jumpIfNull);
+-    }else{
+-      /* Mark the expression is being from the ON or USING clause of a join
+-      ** so that the sqlite3ExprCodeTarget() routine will not attempt to move
+-      ** it into the Parse.pConstExpr list.  We should use a new bit for this,
+-      ** for clarity, but we are out of bits in the Expr.flags field so we
+-      ** have to reuse the EP_OuterON bit.  Bummer. */
+-      pDel->flags |= EP_OuterON;
+-      sqlite3ExprCodeTarget(pParse, &exprAnd, dest);
+-    }
+-    sqlite3ReleaseTempReg(pParse, regFree1);
++  exprNodeCopy(&exprX, pExpr->pLeft);
++  exprAnd.op = TK_AND;
++  exprAnd.pLeft = &compLeft;
++  exprAnd.pRight = &compRight;
++  compLeft.op = TK_GE;
++  compLeft.pLeft = &exprX;
++  compLeft.pRight = pExpr->x.pList->a[0].pExpr;
++  compRight.op = TK_LE;
++  compRight.pLeft = &exprX;
++  compRight.pRight = pExpr->x.pList->a[1].pExpr;
++  sqlite3ExprToRegister(&exprX, exprCodeVector(pParse, &exprX, &regFree1));
++  if( xJump ){
++    xJump(pParse, &exprAnd, dest, jumpIfNull);
++  }else{
++    /* Mark the expression is being from the ON or USING clause of a join
++    ** so that the sqlite3ExprCodeTarget() routine will not attempt to move
++    ** it into the Parse.pConstExpr list.  We should use a new bit for this,
++    ** for clarity, but we are out of bits in the Expr.flags field so we
++    ** have to reuse the EP_OuterON bit.  Bummer. */
++    exprX.flags |= EP_OuterON;
++    sqlite3ExprCodeTarget(pParse, &exprAnd, dest);
+   }
+-  sqlite3ExprDelete(db, pDel);
++  sqlite3ReleaseTempReg(pParse, regFree1);
+ 
+   /* Ensure adequate test coverage */
+   testcase( xJump==sqlite3ExprIfTrue  && jumpIfNull==0 && regFree1==0 );
+--- a/src/insert.c
++++ b/src/insert.c
+@@ -2063,7 +2063,6 @@
+     onError = overrideError!=OE_Default ? overrideError : OE_Abort;
+     for(i=0; i<pCheck->nExpr; i++){
+       int allOk;
+-      Expr *pCopy;
+       Expr *pExpr = pCheck->a[i].pExpr;
+       if( aiChng
+        && !sqlite3ExprReferencesUpdatedColumn(pExpr, aiChng, pkChng)
+@@ -2078,11 +2077,7 @@
+       }
+       allOk = sqlite3VdbeMakeLabel(pParse);
+       sqlite3VdbeVerifyAbortable(v, onError);
+-      pCopy = sqlite3ExprDup(db, pExpr, 0);
+-      if( !db->mallocFailed ){
+-        sqlite3ExprIfTrue(pParse, pCopy, allOk, SQLITE_JUMPIFNULL);
+-      }
+-      sqlite3ExprDelete(db, pCopy);
++      sqlite3ExprIfTrue(pParse, pExpr, allOk, SQLITE_JUMPIFNULL);
+       if( onError==OE_Ignore ){
+         sqlite3VdbeGoto(v, ignoreDest);
+       }else{

@@ -1,0 +1,34 @@
+--- a/src/insert.c
++++ b/src/insert.c
+@@ -2261,6 +2261,15 @@
+       onError = OE_Abort;
+     }
+ 
++    if( isUpdate ){
++      /* pkChng!=0 does not mean that the rowid has changed, only that
++      ** it might have changed.  Skip the conflict logic below if the rowid
++      ** is unchanged. */
++      sqlite3VdbeAddOp3(v, OP_Eq, regNewData, addrRowidOk, regOldData);
++      sqlite3VdbeChangeP5(v, SQLITE_NOTNULL);
++      VdbeCoverage(v);
++    }
++
+     /* figure out whether or not upsert applies in this case */
+     if( pUpsert ){
+       pUpsertClause = sqlite3UpsertOfIndex(pUpsert,0);
+@@ -2297,15 +2306,6 @@
+       VdbeComment((v, "defer IPK REPLACE until last"));
+     }
+ 
+-    if( isUpdate ){
+-      /* pkChng!=0 does not mean that the rowid has changed, only that
+-      ** it might have changed.  Skip the conflict logic below if the rowid
+-      ** is unchanged. */
+-      sqlite3VdbeAddOp3(v, OP_Eq, regNewData, addrRowidOk, regOldData);
+-      sqlite3VdbeChangeP5(v, SQLITE_NOTNULL);
+-      VdbeCoverage(v);
+-    }
+-
+     /* Check to see if the new rowid already exists in the table.  Skip
+     ** the following conflict logic if it does not. */
+     VdbeNoopComment((v, "uniqueness check for ROWID"));

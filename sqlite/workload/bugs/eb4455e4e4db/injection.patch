@@ -1,0 +1,40 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -2820,19 +2820,6 @@
+   }else{
+     if( ExprHasProperty(pExpr, EP_OuterON) ) return 0;    /* rule (5) */
+   }
+-  if( ExprHasProperty(pExpr, EP_OuterON|EP_InnerON)  /* (6a) */
+-   && (pSrcList->a[0].fg.jointype & JT_LTORJ)!=0     /* Fast pre-test of (6b) */
+-  ){
+-    int jj;
+-    for(jj=0; jj<iSrc; jj++){
+-      if( pExpr->w.iJoin==pSrcList->a[jj].iCursor ){
+-        if( (pSrcList->a[jj].fg.jointype & JT_LTORJ)!=0 ){
+-          return 0;  /* restriction (6) */
+-        }
+-        break;
+-      }
+-    }
+-  }
+   /* Rules (1), (2a), and (2b) handled by the following: */
+   return sqlite3ExprIsTableConstant(pExpr, pSrc->iCursor, bAllowSubq);
+ }
+--- a/src/select.c
++++ b/src/select.c
+@@ -5308,7 +5308,6 @@
+     pWhere = pWhere->pLeft;
+   }
+ 
+-#if 0 /* These checks now done by sqlite3ExprIsSingleTableConstraint() */
+   if( ExprHasProperty(pWhere, EP_OuterON|EP_InnerON) /* (9a) */
+    && (pSrcList->a[0].fg.jointype & JT_LTORJ)!=0     /* Fast pre-test of (9c) */
+   ){
+@@ -5326,6 +5325,7 @@
+       }
+     }
+   }
++#if 0 /* These checks now done by sqlite3ExprIsSingleTableConstraint() */
+   if( isLeftJoin
+    && (ExprHasProperty(pWhere,EP_OuterON)==0
+          || pWhere->w.iJoin!=iCursor)

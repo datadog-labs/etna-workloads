@@ -1,0 +1,1 @@
+Reproducer (repro.sql): `SELECT CAST('-0.0' AS numeric)` should yield integer 0 (the fix special-cases zero in sqlite3RealSameAsInt). The buggy shell returns the real 0.0 (typeof real); the clean shell returns 0 (integer).

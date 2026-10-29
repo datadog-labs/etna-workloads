@@ -1,0 +1,38 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -4482,6 +4482,35 @@
+   /* Condition (28) is blocked by the caller */
+   assert( !pSubitem->fg.isCte || pSubitem->u2.pCteUse->eM10d!=M10d_Yes );
+ 
++  /* Restriction (29):
++  **
++  ** We do not want two constraints on the same term of the flattened
++  ** query where one constraint has EP_InnerON and the other is EP_OuterON.
++  ** To prevent this, one or the other of the following conditions must be
++  ** false:
++  **
++  **   (29a)  The right-most entry in the FROM clause of the subquery
++  **          must not be part of an outer join.
++  **
++  **   (29b)  The subquery itself must not be the right operand of a
++  **          NATURAL join or a join that as an ON or USING clause.
++  **
++  ** These conditions are sufficient to keep an EP_OuterON from being
++  ** flattened into an EP_InnerON.  Restrictions (3a) and (27a) prevent
++  ** an EP_InnerON from being flattened into an EP_OuterON.
++  */
++  if( pSubSrc->nSrc>=2
++   && (pSubSrc->a[pSubSrc->nSrc-1].fg.jointype & JT_OUTER)!=0
++  ){
++    if( (pSubitem->fg.jointype & JT_NATURAL)!=0
++     || pSubitem->fg.isUsing
++     || NEVER(pSubitem->u3.pOn!=0) /* ON clause already shifted into WHERE */
++     || pSubitem->fg.isOn
++    ){
++      return 0;
++    }
++  }
++
+   /* Restriction (17): If the sub-query is a compound SELECT, then it must
+   ** use only the UNION ALL operator. And none of the simple select queries
+   ** that make up the compound SELECT are allowed to be aggregate or distinct

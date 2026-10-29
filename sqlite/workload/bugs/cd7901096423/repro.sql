@@ -1,0 +1,4 @@
+CREATE VIRTUAL TABLE vt0 USING fts3(c0);
+INSERT INTO vt0 VALUES (x'00');
+INSERT INTO vt0(vt0) VALUES('integrity-check');
+SELECT 'ok';

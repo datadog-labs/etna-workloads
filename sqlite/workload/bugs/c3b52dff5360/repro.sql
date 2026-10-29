@@ -1,0 +1,3 @@
+CREATE TABLE t1(a, b CONSTRAINT "a""b" CHECK (b IS NOT NULL));
+ALTER TABLE t1 DROP CONSTRAINT "a""b";
+SELECT sql FROM sqlite_schema;

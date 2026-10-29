@@ -1,0 +1,16 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -3976,6 +3976,13 @@
+     }
+     pExpr->pLeft = substExpr(pSubst, pExpr->pLeft);
+     pExpr->pRight = substExpr(pSubst, pExpr->pRight);
++    if( pExpr->op==TK_COLLATE && pExpr->pLeft ){
++      /* Discard the explicit COLLATE operator of the parent query */
++      Expr *pLeft = pExpr->pLeft;
++      pExpr->pLeft = 0;
++      sqlite3ExprDelete(pSubst->pParse->db, pExpr);
++      return pLeft;
++    }
+     if( ExprUseXSelect(pExpr) ){
+       substSelect(pSubst, pExpr->x.pSelect, 1);
+     }else{

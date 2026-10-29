@@ -1,0 +1,40 @@
+--- a/src/os_unix.c
++++ b/src/os_unix.c
+@@ -1857,7 +1857,7 @@
+ **    UNLOCKED -> SHARED
+ **    SHARED -> RESERVED
+ **    SHARED -> EXCLUSIVE
+-**    RESERVED -> (PENDING) -> EXCLUSIVE
++**    RESERVED -> EXCLUSIVE
+ **    PENDING -> EXCLUSIVE
+ **
+ ** This routine will only increase a lock.  Use the sqlite3OsUnlock()
+@@ -1973,7 +1973,7 @@
+   lock.l_len = 1L;
+   lock.l_whence = SEEK_SET;
+   if( eFileLock==SHARED_LOCK
+-   || (eFileLock==EXCLUSIVE_LOCK && pFile->eFileLock==RESERVED_LOCK)
++      || (eFileLock==EXCLUSIVE_LOCK && pFile->eFileLock<PENDING_LOCK)
+   ){
+     lock.l_type = (eFileLock==SHARED_LOCK?F_RDLCK:F_WRLCK);
+     lock.l_start = PENDING_BYTE;
+@@ -1984,9 +1984,6 @@
+         storeLastErrno(pFile, tErrno);
+       }
+       goto end_lock;
+-    }else if( eFileLock==EXCLUSIVE_LOCK ){
+-      pFile->eFileLock = PENDING_LOCK;
+-      pInode->eFileLock = PENDING_LOCK;
+     }
+   }
+ 
+@@ -2085,6 +2082,9 @@
+   if( rc==SQLITE_OK ){
+     pFile->eFileLock = eFileLock;
+     pInode->eFileLock = eFileLock;
++  }else if( eFileLock==EXCLUSIVE_LOCK ){
++    pFile->eFileLock = PENDING_LOCK;
++    pInode->eFileLock = PENDING_LOCK;
+   }
+ 
+ end_lock:

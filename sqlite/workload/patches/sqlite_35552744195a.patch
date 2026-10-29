@@ -1,0 +1,37 @@
+--- a/ext/fts3/fts3.c
++++ b/ext/fts3/fts3.c
+@@ -5813,9 +5813,8 @@
+   if( pExpr->bEof==0 ){
+     i64 iDocid = pExpr->iDocid;
+     fts3EvalRestart(pCsr, pExpr, &rc);
+-    while( rc==SQLITE_OK && pExpr->iDocid!=iDocid ){
++    while( rc==SQLITE_OK && pExpr->iDocid!=iDocid && pExpr->bEof==0 ){
+       fts3EvalNextRow(pCsr, pExpr, &rc);
+-      if( pExpr->bEof ) rc = FTS_CORRUPT_VTAB;
+     }
+   }
+   return rc;
+@@ -6103,9 +6102,6 @@
+         if( bEofSave==0 && pRun->iDocid==iDocid ) break;
+       }
+       assert( rc!=SQLITE_OK || pPhrase->bIncr==0 );
+-      if( rc==SQLITE_OK && pRun->bEof!=bEofSave ){
+-        rc = FTS_CORRUPT_VTAB;
+-      }
+     }
+     if( bTreeEof ){
+       while( rc==SQLITE_OK && !pRun->bEof ){
+--- a/ext/fts3/fts3_snippet.c
++++ b/ext/fts3/fts3_snippet.c
+@@ -1664,10 +1664,9 @@
+     */
+     sCtx.iCol = iCol;
+     sCtx.iTerm = 0;
+-    rc = sqlite3Fts3ExprIterate(
++    (void)sqlite3Fts3ExprIterate(
+         pCsr->pExpr, fts3ExprTermOffsetInit, (void*)&sCtx
+     );
+-    if( rc!=SQLITE_OK ) goto offsets_out;
+ 
+     /* Retreive the text stored in column iCol. If an SQL NULL is stored 
+     ** in column iCol, jump immediately to the next iteration of the loop.

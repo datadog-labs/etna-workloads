@@ -1,0 +1,56 @@
+--- a/src/pager.c
++++ b/src/pager.c
+@@ -1144,7 +1144,6 @@
+     }
+     IOTRACE(("UNLOCK %p %d\n", pPager, eLock))
+   }
+-  pPager->changeCountDone = pPager->tempFile; /* ticket fb3b3024ea238d5c */
+   return rc;
+ }
+ 
+@@ -7489,29 +7488,24 @@
+       ** while it is in use by some other client.
+       */
+       sqlite3OsClose(pPager->jfd);
+-      if( pPager->eLock>=RESERVED_LOCK ){
++      int rc = SQLITE_OK;
++      int state = pPager->eState;
++      if( state==PAGER_OPEN ){
++        rc = sqlite3PagerSharedLock(pPager);
++      }
++      if( pPager->eState==PAGER_READER ){
++        assert( rc==SQLITE_OK );
++        rc = pagerLockDb(pPager, RESERVED_LOCK);
++      }
++      if( rc==SQLITE_OK ){
+         sqlite3OsDelete(pPager->pVfs, pPager->zJournal, 0);
+-      }else{
+-        int rc = SQLITE_OK;
+-        int state = pPager->eState;
+-        assert( state==PAGER_OPEN || state==PAGER_READER );
+-        if( state==PAGER_OPEN ){
+-          rc = sqlite3PagerSharedLock(pPager);
+-        }
+-        if( pPager->eState==PAGER_READER ){
+-          assert( rc==SQLITE_OK );
+-          rc = pagerLockDb(pPager, RESERVED_LOCK);
+-        }
+-        if( rc==SQLITE_OK ){
+-          sqlite3OsDelete(pPager->pVfs, pPager->zJournal, 0);
+-        }
+-        if( rc==SQLITE_OK && state==PAGER_READER ){
+-          pagerUnlockDb(pPager, SHARED_LOCK);
+-        }else if( state==PAGER_OPEN ){
+-          pager_unlock(pPager);
+-        }
+-        assert( state==pPager->eState );
+       }
++      if( rc==SQLITE_OK && state==PAGER_READER ){
++        pagerUnlockDb(pPager, SHARED_LOCK);
++      }else if( state==PAGER_OPEN ){
++        pager_unlock(pPager);
++      }
++      assert( state==pPager->eState );
+     }else if( eMode==PAGER_JOURNALMODE_OFF || eMode==PAGER_JOURNALMODE_MEMORY ){
+       sqlite3OsClose(pPager->jfd);
+     }

@@ -1,0 +1,33 @@
+--- a/src/json.c
++++ b/src/json.c
+@@ -4528,25 +4528,11 @@
+     }else if( x>0 ){  /* Algorithm line 13 */
+       /* No match and patch value is not NULL */
+       u32 szNew = szPLabel+nPLabel;
+-      if( (pPatch->aBlob[iPValue] & 0x0f)!=JSONB_OBJECT ){  /* Line 14 */
+-        jsonBlobEdit(pTarget, iTEnd, 0, 0, szPValue+nPValue+szNew);
+-        if( pTarget->oom ) return JSON_MERGE_OOM;
+-        memcpy(&pTarget->aBlob[iTEnd], &pPatch->aBlob[iPLabel], szNew);
+-        memcpy(&pTarget->aBlob[iTEnd+szNew], 
+-               &pPatch->aBlob[iPValue], szPValue+nPValue);
+-      }else{
+-        int rc, savedDelta;
+-        jsonBlobEdit(pTarget, iTEnd, 0, 0, szNew+1);
+-        if( pTarget->oom ) return JSON_MERGE_OOM;
+-        memcpy(&pTarget->aBlob[iTEnd], &pPatch->aBlob[iPLabel], szNew);
+-        pTarget->aBlob[iTEnd+szNew] = 0x00;
+-        savedDelta = pTarget->delta;
+-        pTarget->delta = 0;
+-        if( iDepth>=JSON_MAX_DEPTH ) return JSON_MERGE_TOODEEP;
+-        rc = jsonMergePatch(pTarget, iTEnd+szNew,pPatch,iPValue,iDepth+1);
+-        if( rc ) return rc;
+-        pTarget->delta += savedDelta;
+-      }
++      jsonBlobEdit(pTarget, iTEnd, 0, 0, szPValue+nPValue+szNew);
++      if( pTarget->oom ) return JSON_MERGE_OOM;
++      memcpy(&pTarget->aBlob[iTEnd], &pPatch->aBlob[iPLabel], szNew);
++      memcpy(&pTarget->aBlob[iTEnd+szNew], 
++             &pPatch->aBlob[iPValue], szPValue+nPValue);
+     }
+   }
+   if( pTarget->delta ) jsonAfterEditSizeAdjust(pTarget, iTarget);

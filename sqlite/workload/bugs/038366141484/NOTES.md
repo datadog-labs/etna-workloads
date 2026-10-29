@@ -1,0 +1,1 @@
+repro.sql: creates a view over a table plus an INSTEAD OF INSERT trigger, then inserts into the view. Clean shell prints 11|||14; buggy shell hits assertion nNVCol>0 in sqlite3Insert (view nNVCol not set when column names are resolved lazily) and aborts.

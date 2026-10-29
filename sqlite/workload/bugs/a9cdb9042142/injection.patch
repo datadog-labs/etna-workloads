@@ -1,0 +1,34 @@
+--- a/src/expr.c
++++ b/src/expr.c
+@@ -2742,7 +2742,7 @@
+ ** Consider uncorrelated subqueries to be constants if the bAllowSubq
+ ** parameter is true.
+ */
+-static int sqlite3ExprIsTableConstant(Expr *p, int iCur, int bAllowSubq){
++int sqlite3ExprIsTableConstant(Expr *p, int iCur, int bAllowSubq){
+   Walker w;
+   w.eCode = 3;
+   w.pParse = 0;
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -5287,6 +5287,7 @@
+ int sqlite3ExprIsConstantOrFunction(Expr*, u8);
+ int sqlite3ExprIsConstantOrGroupBy(Parse*, Expr*, ExprList*);
+ int sqlite3ExprIsSingleTableConstraint(Expr*,const SrcList*,int,int);
++int sqlite3ExprIsTableConstant(Expr*,int,int);
+ int sqlite3ExprListIsConstant(Parse *pParse, ExprList *pList, int bNoIs);
+ #ifdef SQLITE_ENABLE_CURSOR_HINTS
+ int sqlite3ExprContainsSubquery(Expr*);
+--- a/src/where.c
++++ b/src/where.c
+@@ -1039,7 +1039,9 @@
+     ** WHERE clause (or the ON clause of a LEFT join) that constrain which
+     ** rows of the target table (pSrc) that can be used. */
+     if( (pTerm->wtFlags & TERM_VIRTUAL)==0
+-     && sqlite3ExprIsSingleTableConstraint(pExpr, pTabList, pLevel->iFrom, 0)
++     && ((pSrc->fg.jointype&(JT_LEFT|JT_LTORJ))==0
++               || ExprHasProperty(pExpr,EP_OuterON))
++     && sqlite3ExprIsTableConstant(pExpr, pSrc->iCursor, 0)
+     ){
+       pPartial = sqlite3ExprAnd(pParse, pPartial,
+                                 sqlite3ExprDup(pParse->db, pExpr, 0));

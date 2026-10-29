@@ -1,0 +1,69 @@
+--- a/ext/fts3/fts3.c
++++ b/ext/fts3/fts3.c
+@@ -3377,7 +3377,7 @@
+ 
+     assert( p->base.zErrMsg==0 );
+     rc = sqlite3Fts3ExprParse(p->pTokenizer, pCsr->iLangid,
+-        p->azColumn, p->bFts4, p->nColumn, iCol, zQuery, -1, &pCsr->pExpr, 
++        p->azColumn, p->bHasStat, p->nColumn, iCol, zQuery, -1, &pCsr->pExpr, 
+         &p->base.zErrMsg
+     );
+     if( rc!=SQLITE_OK ){
+@@ -5215,7 +5215,7 @@
+ 
+   /* Determine which, if any, tokens in the expression should be deferred. */
+ #ifndef SQLITE_DISABLE_FTS4_DEFERRED
+-  if( rc==SQLITE_OK && nToken>1 && pTab->bFts4 ){
++  if( rc==SQLITE_OK && nToken>1 && pTab->bHasStat ){
+     Fts3TokenAndCost *aTC;
+     aTC = (Fts3TokenAndCost *)sqlite3_malloc64(
+         sizeof(Fts3TokenAndCost) * nToken
+--- a/ext/fts3/fts3_snippet.c
++++ b/ext/fts3/fts3_snippet.c
+@@ -995,8 +995,8 @@
+ ){
+   if( (cArg==FTS3_MATCHINFO_NPHRASE)
+    || (cArg==FTS3_MATCHINFO_NCOL)
+-   || (cArg==FTS3_MATCHINFO_NDOC && pTab->bFts4)
+-   || (cArg==FTS3_MATCHINFO_AVGLENGTH && pTab->bFts4)
++   || (cArg==FTS3_MATCHINFO_NDOC && pTab->bHasStat)
++   || (cArg==FTS3_MATCHINFO_AVGLENGTH && pTab->bHasStat)
+    || (cArg==FTS3_MATCHINFO_LENGTH && pTab->bHasDocsize)
+    || (cArg==FTS3_MATCHINFO_LCS)
+    || (cArg==FTS3_MATCHINFO_HITS)
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -3641,7 +3641,7 @@
+         }
+       }
+     }
+-    if( p->bFts4 ){
++    if( p->bHasStat ){
+       fts3UpdateDocTotals(&rc, p, aSzIns, aSzDel, nEntry);
+     }
+     sqlite3_free(aSz);
+@@ -5165,7 +5165,6 @@
+   }else{
+     rc = SQLITE_OK;
+     if( !p->bHasStat ){
+-      assert( p->bFts4==0 );
+       sqlite3Fts3CreateStatTable(&rc, p);
+     }
+     if( rc==SQLITE_OK ){
+@@ -5195,7 +5194,6 @@
+     p->nAutoincrmerge = 8;
+   }
+   if( !p->bHasStat ){
+-    assert( p->bFts4==0 );
+     sqlite3Fts3CreateStatTable(&rc, p);
+     if( rc ) return rc;
+   }
+@@ -5830,7 +5828,7 @@
+     nChng++;
+   }
+ 
+-  if( p->bFts4 ){
++  if( p->bHasStat ){
+     fts3UpdateDocTotals(&rc, p, aSzIns, aSzDel, nChng);
+   }
+ 

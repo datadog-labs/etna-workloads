@@ -1,0 +1,6 @@
+CREATE TABLE t1(a, b COLLATE nocase);
+CREATE TABLE t2(c, d);
+INSERT INTO t2 VALUES(1, 'bbb');
+SELECT * FROM (
+    SELECT a, b FROM t1 UNION ALL SELECT c, d FROM t2
+) WHERE b='BbB';

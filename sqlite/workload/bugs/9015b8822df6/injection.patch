@@ -1,0 +1,54 @@
+--- a/ext/fts5/fts5_main.c
++++ b/ext/fts5/fts5_main.c
+@@ -3664,31 +3664,29 @@
+   zText = (const char*)sqlite3_value_text(apArg[1]);
+   nText = sqlite3_value_bytes(apArg[1]);
+ 
+-  if( zLocale==0 || zLocale[0]=='\0' ){
+-    sqlite3_result_text(pCtx, zText, nText, SQLITE_TRANSIENT);
+-  }else{
+-    Fts5Global *p = (Fts5Global*)sqlite3_user_data(pCtx);
+-    u8 *pBlob = 0;
+-    u8 *pCsr = 0;
+-    i64 nBlob = 0;
++  {
++  Fts5Global *p = (Fts5Global*)sqlite3_user_data(pCtx);
++  u8 *pBlob = 0;
++  u8 *pCsr = 0;
++  i64 nBlob = 0;
+ 
+-    nBlob = FTS5_LOCALE_HDR_SIZE + nLocale + 1 + nText;
+-    pBlob = (u8*)sqlite3_malloc64(nBlob);
+-    if( pBlob==0 ){
+-      sqlite3_result_error_nomem(pCtx);
+-      return;
+-    }
++  nBlob = FTS5_LOCALE_HDR_SIZE + nLocale + 1 + nText;
++  pBlob = (u8*)sqlite3_malloc64(nBlob);
++  if( pBlob==0 ){
++    sqlite3_result_error_nomem(pCtx);
++    return;
++  }
+ 
+-    pCsr = pBlob;
+-    memcpy(pCsr, (const u8*)p->aLocaleHdr, FTS5_LOCALE_HDR_SIZE);
+-    pCsr += FTS5_LOCALE_HDR_SIZE;
+-    memcpy(pCsr, zLocale, nLocale);
+-    pCsr += nLocale;
+-    (*pCsr++) = 0x00;
+-    if( zText ) memcpy(pCsr, zText, nText);
+-    assert( &pCsr[nText]==&pBlob[nBlob] );
++  pCsr = pBlob;
++  memcpy(pCsr, (const u8*)p->aLocaleHdr, FTS5_LOCALE_HDR_SIZE);
++  pCsr += FTS5_LOCALE_HDR_SIZE;
++  if( zLocale ) memcpy(pCsr, zLocale, nLocale);
++  pCsr += nLocale;
++  (*pCsr++) = 0x00;
++  if( zText ) memcpy(pCsr, zText, nText);
++  assert( &pCsr[nText]==&pBlob[nBlob] );
+ 
+-    sqlite3_result_blob(pCtx, pBlob, nBlob, sqlite3_free);
++  sqlite3_result_blob(pCtx, pBlob, nBlob, sqlite3_free);
+   }
+ }
+ 

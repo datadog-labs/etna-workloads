@@ -1,0 +1,14 @@
+--- a/src/trigger.c
++++ b/src/trigger.c
+@@ -203,7 +203,10 @@
+   }
+   assert( sqlite3SchemaMutexHeld(db, iDb, 0) );
+   if( !IN_RENAME_OBJECT ){
+-    if( sqlite3HashFind(&(db->aDb[iDb].pSchema->trigHash),zName) ){
++    char *zRaw = sqlite3DbStrNDup(db, (const char*)pName->z, pName->n);
++    Trigger *pExist = zRaw ? sqlite3HashFind(&(db->aDb[iDb].pSchema->trigHash),zRaw) : 0;
++    sqlite3DbFree(db, zRaw);
++    if( pExist ){
+       if( !noErr ){
+         sqlite3ErrorMsg(pParse, "trigger %T already exists", pName);
+       }else if( db->init.busy ){

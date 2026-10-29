@@ -1,0 +1,30 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -2896,7 +2896,6 @@
+   sqlite3VdbeResolveLabel(v, addrBreak);
+ 
+ end_of_recursive_query:
+-  sqlite3ExprListDelete(pParse->db, p->pOrderBy);
+   p->pOrderBy = pOrderBy;
+   p->pLimit = pLimit;
+   return;
+@@ -7990,7 +7989,7 @@
+      && pSub->pLimit==0                           /* Condition (1) */
+      && (pSub->selFlags & (SF_OrderByReqd|SF_Recursive))==0  /* (2) and (6) */
+      && (p->selFlags & SF_OrderByReqd)==0         /* Condition (3) and (4) */
+-     && OptimizationEnabled(db, SQLITE_OmitOrderBy)
++     && OptimizationEnabled(db, SQLITE_OmitOrderBy) && pDest->eDest!=SRT_Fifo && pDest->eDest!=SRT_DistFifo
+     ){
+       TREETRACE(0x800,pParse,p,
+                 ("omit superfluous ORDER BY on %r FROM-clause subquery\n",i+1));
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -3776,7 +3776,7 @@
+ #define SRT_Fifo         6  /* Store result as data with an automatic rowid */
+ 
+ /* The ORDER BY clause is ignored for all of the above */
+-#define IgnorableOrderby(X) ((X->eDest)<=SRT_Fifo)
++#define IgnorableOrderby(X) ((X->eDest)<=SRT_Discard)
+ 
+ #define SRT_Output       7  /* Output each row of result */
+ #define SRT_Mem          8  /* Store result in a memory cell */

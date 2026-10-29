@@ -1,0 +1,39 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -4234,8 +4234,10 @@
+     Expr *pExpr = pList->a[i].pExpr;
+     assert( pExpr!=0 );
+     if( pExpr->op==TK_COLLATE ){
+-      assert( !ExprHasProperty(pExpr, EP_IntValue) );
+-      nExtra += (1 + sqlite3Strlen30(pExpr->u.zToken));
++      CollSeq *pColl = sqlite3ExprCollSeq(pParse, pExpr);
++      if( pColl ){
++        nExtra += (1 + sqlite3Strlen30(pColl->zName));
++      }
+     }
+   }
+ 
+@@ -4294,6 +4296,7 @@
+     Expr *pCExpr;                  /* The i-th index expression */
+     int requestedSortOrder;        /* ASC or DESC on the i-th expression */
+     const char *zColl;             /* Collation sequence name */
++    CollSeq *pColl;                /* Collating sequence */
+ 
+     sqlite3StringToId(pListItem->pExpr);
+     sqlite3ResolveSelfReference(pParse, pTab, NC_IdxExpr, pListItem->pExpr, 0);
+@@ -4330,10 +4333,12 @@
+       pIndex->aiColumn[i] = (i16)j;
+     }
+     zColl = 0;
+-    if( pListItem->pExpr->op==TK_COLLATE ){
++    pColl = 0;
++    if( pListItem->pExpr->op==TK_COLLATE
++     && (pColl = sqlite3ExprCollSeq(pParse, pListItem->pExpr))!=0
++    ){
+       int nColl;
+-      assert( !ExprHasProperty(pListItem->pExpr, EP_IntValue) );
+-      zColl = pListItem->pExpr->u.zToken;
++      zColl = pColl->zName;
+       nColl = sqlite3Strlen30(zColl) + 1;
+       assert( nExtra>=nColl );
+       memcpy(zExtra, zColl, nColl);

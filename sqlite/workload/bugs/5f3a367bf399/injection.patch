@@ -1,0 +1,38 @@
+--- a/src/main.c
++++ b/src/main.c
+@@ -1081,6 +1081,14 @@
+ ** This is the collating function named "RTRIM" which is always
+ ** available.  Ignore trailing spaces.
+ */
++/*
++** Return true if the buffer z[0..n-1] contains all spaces.
++*/
++static int allSpaces(const char *z, int n){
++  while( n>0 && z[--n]==' ' ){}
++  return n==0;
++}
++
+ static int rtrimCollFunc(
+   void *pUser,
+   int nKey1, const void *pKey1,
+@@ -1088,9 +1096,17 @@
+ ){
+   const u8 *pK1 = (const u8*)pKey1;
+   const u8 *pK2 = (const u8*)pKey2;
+-  while( nKey1 && pK1[nKey1-1]==' ' ) nKey1--;
+-  while( nKey2 && pK2[nKey2-1]==' ' ) nKey2--;
+-  return sqlite3BinaryCompare(pUser, nKey1, pKey1, nKey2, pKey2);
++  int rc, n;
++  n = nKey1<nKey2 ? nKey1 : nKey2;
++  rc = memcmp(pK1, pK2, n);
++  if( rc==0 ){
++    if( nKey1>n ){
++      rc = allSpaces((const char*)&pK1[n], nKey1-n) ? 0 : 1;
++    }else if( nKey2>n ){
++      rc = allSpaces((const char*)&pK2[n], nKey2-n) ? 0 : -1;
++    }
++  }
++  return rc;
+ }
+ 
+ /*

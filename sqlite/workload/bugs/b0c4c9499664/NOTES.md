@@ -1,0 +1,2 @@
+repro.sh builds corruptL test 3.1: t2 has a 3-column index t2a, whose schema SQL is rewritten (writable_schema, defensive off) to a 1-column index. After reopening, `INSERT INTO t1 SELECT * FROM t2` reads index records with more fields than the KeyInfo allows.
+Clean shell: "database disk image is malformed", exit 1. Buggy shell: the check in btreeMoveto (nField>nAllField) is missing, so the statement succeeds silently with exit 0.

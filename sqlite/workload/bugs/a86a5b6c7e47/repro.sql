@@ -1,0 +1,5 @@
+CREATE TABLE a(x,y);
+CREATE TABLE b(x,y);
+INSERT INTO a VALUES(5,4),(453,2),('hello',4);
+INSERT INTO b VALUES(10,2),(20,1),('hi',2);
+SELECT 'a:', x, y FROM a UNION ALL SELECT 'b:', x, y FROM b ORDER BY x;

@@ -1,0 +1,28 @@
+--- a/ext/fts3/fts3_write.c
++++ b/ext/fts3/fts3_write.c
+@@ -5329,7 +5329,6 @@
+   u64 cksum1 = 0;                 /* Checksum based on FTS index contents */
+   u64 cksum2 = 0;                 /* Checksum based on %_content contents */
+   sqlite3_stmt *pAllLangid = 0;   /* Statement to return all language-ids */
+-  int bContentless = (p->zContentTbl && p->zContentTbl[0]=='\0');
+ 
+   /* This block calculates the checksum according to the FTS index. */
+   rc = fts3SqlStmt(p, SQL_SELECT_ALL_LANGID, &pAllLangid, 0);
+@@ -5349,7 +5348,7 @@
+   }
+ 
+   /* This block calculates the checksum according to the %_content table */
+-  if( rc==SQLITE_OK && !bContentless ){
++  if( rc==SQLITE_OK ){
+     sqlite3_tokenizer_module const *pModule = p->pTokenizer->pModule;
+     sqlite3_stmt *pStmt = 0;
+     char *zSql;
+@@ -5407,7 +5406,7 @@
+     rc = SQLITE_OK;
+     *pbOk = 0;
+   }else{
+-    *pbOk = (rc==SQLITE_OK && (bContentless || cksum1==cksum2));
++    *pbOk = (rc==SQLITE_OK && cksum1==cksum2);
+   }
+   return rc;
+ }

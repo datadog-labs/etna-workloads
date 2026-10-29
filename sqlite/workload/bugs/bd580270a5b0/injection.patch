@@ -1,0 +1,26 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -2578,10 +2578,9 @@
+     if( !hasColumn(pPk->aiColumn, j, i)
+      && (pTab->aCol[i].colFlags & COLFLAG_VIRTUAL)==0
+     ){
+-      const char *zColl = sqlite3ColumnColl(&pTab->aCol[i]);
+       assert( j<pPk->nColumn );
+       pPk->aiColumn[j] = i;
+-      pPk->azColl[j] = zColl ? zColl : sqlite3StrBINARY;
++      pPk->azColl[j] = sqlite3StrBINARY;
+       j++;
+     }
+   }
+--- a/src/where.c
++++ b/src/where.c
+@@ -3193,7 +3193,8 @@
+     if( ExprHasProperty(pTerm->pExpr, EP_Commuted) ) SWAP(Expr*, pRhs, pLhs);
+     pColl = sqlite3BinaryCompareCollSeq(pParse, pLhs, pRhs);
+     if( pColl==0 ) break;
+-    if( sqlite3StrICmp(pColl->zName, pIdx->azColl[i+nEq]) ) break;
++    if( i+nEq<pIdx->nKeyCol
++     && sqlite3StrICmp(pColl->zName, pIdx->azColl[i+nEq]) ) break;
+   }
+   return i;
+ }

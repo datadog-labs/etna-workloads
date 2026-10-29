@@ -1,0 +1,3 @@
+CREATE TABLE s(a, b, c);
+CREATE INDEX k ON s( (WITH s AS( SELECT * ) VALUES(2) ) IN () );
+ALTER TABLE s RENAME a TO a2;

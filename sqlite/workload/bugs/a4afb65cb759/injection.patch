@@ -1,0 +1,22 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -3633,6 +3633,8 @@
+   BtShared *pBt = p->pBt;
+   Pager *pPager = pBt->pPager;
+   int rc = SQLITE_OK;
++  int busy = 0;
++  BusyHandler *pH;
+ 
+   sqlite3BtreeEnter(p);
+   btreeIntegrity(p);
+@@ -3768,7 +3770,9 @@
+     }
+ #endif
+   }while( (rc&0xFF)==SQLITE_BUSY && pBt->inTransaction==TRANS_NONE &&
+-          btreeInvokeBusyHandler(pBt) );
++      (pH = &p->db->busyHandler)->xBusyHandler &&
++      pH->xBusyHandler(pH->pBusyArg, busy++)
++  );
+   sqlite3PagerWalDb(pPager, 0);
+ #ifdef SQLITE_ENABLE_SETLK_TIMEOUT
+   if( rc==SQLITE_BUSY_TIMEOUT ) rc = SQLITE_BUSY;

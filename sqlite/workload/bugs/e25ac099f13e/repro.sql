@@ -1,0 +1,11 @@
+.dbconfig defensive off
+CREATE VIRTUAL TABLE t USING fts4;
+BEGIN;
+INSERT INTO t VALUES('aa1 aa5');
+INSERT INTO t VALUES('aa2');
+INSERT INTO t VALUES('aa3');
+INSERT INTO t VALUES('aa4');
+INSERT INTO t VALUES('aa6');
+COMMIT;
+UPDATE t_segdir SET root=unhex(replace(hex(root),'02013503010300','02013503010100'));
+SELECT count(*) FROM t WHERE t MATCH 'aa*';

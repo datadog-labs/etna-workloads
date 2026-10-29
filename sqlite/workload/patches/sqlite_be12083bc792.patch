@@ -1,0 +1,54 @@
+--- a/src/resolve.c
++++ b/src/resolve.c
+@@ -2046,19 +2046,6 @@
+       }
+     }
+ 
+-#ifndef SQLITE_OMIT_WINDOWFUNC
+-    if( IN_RENAME_OBJECT ){
+-      Window *pWin;
+-      for(pWin=p->pWinDefn; pWin; pWin=pWin->pNextWin){
+-        if( sqlite3ResolveExprListNames(&sNC, pWin->pOrderBy)
+-         || sqlite3ResolveExprListNames(&sNC, pWin->pPartition)
+-        ){
+-          return WRC_Abort;
+-        }
+-      }
+-    }
+-#endif
+-
+     sNC.ncFlags |= NC_AllowAgg|NC_AllowWin;
+ 
+     /* If this is a converted compound query, move the ORDER BY clause from
+@@ -2114,6 +2101,19 @@
+       }
+     }
+ 
++#ifndef SQLITE_OMIT_WINDOWFUNC
++    if( IN_RENAME_OBJECT ){
++      Window *pWin;
++      for(pWin=p->pWinDefn; pWin; pWin=pWin->pNextWin){
++        if( sqlite3ResolveExprListNames(&sNC, pWin->pOrderBy)
++         || sqlite3ResolveExprListNames(&sNC, pWin->pPartition)
++        ){
++          return WRC_Abort;
++        }
++      }
++    }
++#endif
++
+     /* If this is part of a compound SELECT, check that it has the right
+     ** number of expressions in the select list. */
+     if( p->pNext && p->pEList->nExpr!=p->pNext->pEList->nExpr ){
+--- a/src/walker.c
++++ b/src/walker.c
+@@ -142,9 +142,6 @@
+     Parse *pParse;
+     if( pWalker->xSelectCallback2==sqlite3WalkWinDefnDummyCallback
+      || ((pParse = pWalker->pParse)!=0 && IN_RENAME_OBJECT)
+-#ifndef SQLITE_OMIT_CTE
+-     || pWalker->xSelectCallback2==sqlite3SelectPopWith
+-#endif
+     ){
+       /* The following may return WRC_Abort if there are unresolvable
+       ** symbols (e.g. a table that does not exist) in a window definition. */

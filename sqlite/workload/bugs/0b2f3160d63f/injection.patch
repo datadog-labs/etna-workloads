@@ -1,0 +1,42 @@
+--- a/src/vdbeaux.c
++++ b/src/vdbeaux.c
+@@ -4370,6 +4370,7 @@
+   ** all the fields up to that point were equal. Return the default_rc
+   ** value.  */
+   rc = pPKey2->default_rc;
++  if( i<pKeyInfo->nKeyField && pKeyInfo->aSortFlags[i] ) rc = -rc;
+ 
+ debugCompareEnd:
+   if( desiredResult==0 && rc==0 ) return 1;
+@@ -4925,6 +4926,10 @@
+        || pPKey2->pKeyInfo->db->mallocFailed
+   );
+   pPKey2->eqSeen = 1;
++  if( i<pPKey2->pKeyInfo->nKeyField
++   && pPKey2->pKeyInfo->aSortFlags[i] ){
++    return -pPKey2->default_rc;
++  }
+   return pPKey2->default_rc;
+ }
+ int sqlite3VdbeRecordCompare(
+@@ -5004,6 +5009,9 @@
+     ** fields. Return pPKey2->default_rc in this case. */
+     res = pPKey2->default_rc;
+     pPKey2->eqSeen = 1;
++    if( pPKey2->pKeyInfo->nKeyField>1 && pPKey2->pKeyInfo->aSortFlags[1] ){
++      res = -res;
++    }
+   }
+ 
+   assert( vdbeRecordCompareDebug(nKey1, pKey1, pPKey2, res) );
+@@ -5065,6 +5073,10 @@
+         }else{
+           res = pPKey2->default_rc;
+           pPKey2->eqSeen = 1;
++          if( pPKey2->pKeyInfo->nKeyField>1
++           && pPKey2->pKeyInfo->aSortFlags[1] ){
++            res = -res;
++          }
+         }
+       }else if( res>0 ){
+         res = pPKey2->r2;

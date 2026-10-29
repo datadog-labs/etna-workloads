@@ -1,0 +1,2 @@
+repro.sql attaches 10 in-memory databases (the default SQLITE_MAX_ATTACHED), creates t1/t2 in the last one (a9, schema index 11), then runs `SELECT a FROM t1 WHERE b IN (SELECT a FROM t2)`.
+Clean shell: exit 0, no output. Buggy shell: aborts with `Assertion 'iDb>=0 && iDb<SQLITE_MAX_ATTACHED' failed` in sqlite3FindInIndex (exit -6), because the injection checks against the attached-database count instead of the schema count.

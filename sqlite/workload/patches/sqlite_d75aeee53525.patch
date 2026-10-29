@@ -1,0 +1,24 @@
+--- a/src/resolve.c
++++ b/src/resolve.c
+@@ -416,7 +416,7 @@
+           if( hit || zTab==0 ) continue;
+         }
+         assert( zDb==0 || zTab!=0 );
+-        if( zTab ){
++        if( zTab && !(pParse->bReturning && pNC->pNext==0) ){
+           if( zDb ){
+             if( pTab->pSchema!=pSchema ) continue;
+             if( pSchema==0 && strcmp(zDb,"*")!=0 ) continue;
+@@ -526,11 +526,7 @@
+         int op = pParse->eTriggerOp;
+         assert( op==TK_DELETE || op==TK_UPDATE || op==TK_INSERT );
+         if( pParse->bReturning ){
+-          if( (pNC->ncFlags & NC_UBaseReg)!=0
+-           && ALWAYS(zTab==0
+-                     || sqlite3StrICmp(zTab,pParse->pTriggerTab->zName)==0
+-                     || isValidSchemaTableName(zTab, pParse->pTriggerTab, 0))
+-          ){
++          if( (pNC->ncFlags & NC_UBaseReg)!=0 ){
+             pExpr->iTable = op!=TK_DELETE;
+             pTab = pParse->pTriggerTab;
+           }

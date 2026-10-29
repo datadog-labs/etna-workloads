@@ -1,0 +1,5 @@
+.null NULL
+CREATE TABLE t1(a TEXT, b TEXT);
+CREATE INDEX t1_ab ON t1(a COLLATE NOCASE, b COLLATE NOCASE);
+INSERT INTO t1 VALUES('a',null),('b', 'ABCD');
+SELECT * FROM t1 WHERE ('B' COLLATE nocase,'abc')>(a,b) ORDER BY +a;

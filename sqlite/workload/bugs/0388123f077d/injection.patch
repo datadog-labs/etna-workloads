@@ -1,0 +1,33 @@
+--- a/src/alter.c
++++ b/src/alter.c
+@@ -357,7 +357,7 @@
+   assert( sqlite3BtreeHoldsAllMutexes(db) );
+   iDb = sqlite3SchemaToIndex(db, pNew->pSchema);
+   zDb = db->aDb[iDb].zDbSName;
+-  zTab = &pNew->zName[16];  /* Skip the "sqlite_altertab_" prefix on the name */
++  zTab = pNew->zName;
+   pCol = &pNew->aCol[pNew->nCol-1];
+   pDflt = sqlite3ColumnExpr(pNew, pCol);
+   pTab = sqlite3FindTable(db, zTab, zDb);
+@@ -543,11 +543,7 @@
+   iDb = sqlite3SchemaToIndex(db, pTab->pSchema);
+ 
+   /* Put a copy of the Table struct in Parse.pNewTable for the
+-  ** sqlite3AddColumn() function and friends to modify.  But modify
+-  ** the name by adding an "sqlite_altertab_" prefix.  By adding this
+-  ** prefix, we insure that the name will not collide with an existing
+-  ** table because user table are not allowed to have the "sqlite_"
+-  ** prefix on their name.
++  ** sqlite3AddColumn() function and friends to modify.
+   */
+   pNew = (Table*)sqlite3DbMallocZero(db, sizeof(Table));
+   if( !pNew ) goto exit_begin_add_column;
+@@ -558,7 +554,7 @@
+   nAlloc = (((pNew->nCol-1)/8)*8)+8;
+   assert( nAlloc>=pNew->nCol && nAlloc%8==0 && nAlloc-pNew->nCol<8 );
+   pNew->aCol = (Column*)sqlite3DbMallocZero(db, sizeof(Column)*(u32)nAlloc);
+-  pNew->zName = sqlite3MPrintf(db, "sqlite_altertab_%s", pTab->zName);
++  pNew->zName = sqlite3DbStrDup(db, pTab->zName);
+   if( !pNew->aCol || !pNew->zName ){
+     assert( db->mallocFailed );
+     goto exit_begin_add_column;

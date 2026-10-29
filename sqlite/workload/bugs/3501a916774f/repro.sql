@@ -1,0 +1,12 @@
+PRAGMA page_size=1024;
+CREATE VIRTUAL TABLE t1 USING fts4;
+BEGIN;
+INSERT INTO t1 VALUES(printf('%.900c','a'));
+INSERT INTO t1 VALUES(printf('%.900c','b'));
+COMMIT;
+BEGIN;
+INSERT INTO t1 VALUES(printf('%.900c','c'));
+INSERT INTO t1 VALUES(printf('%.900c','d'));
+COMMIT;
+INSERT INTO t1(t1) VALUES('merge=1,2');
+INSERT INTO t1(t1) VALUES('merge=1,2');

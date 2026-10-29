@@ -1,0 +1,2 @@
+SELECT CAST('  +000009223372036854775808' AS integer);
+SELECT CAST(' 12' AS integer), CAST(' 1.5' AS real);

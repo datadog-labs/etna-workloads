@@ -1,0 +1,18 @@
+--- a/src/os_unix.c
++++ b/src/os_unix.c
+@@ -6973,7 +6973,14 @@
+       if( zLnk[0]=='/' ){
+         pPath->nUsed = 0;
+       }else{
+-        pPath->nUsed -= nName + 1;
++        /* Relative link: resolved against the cwd, not the link's directory */
++        char zPwd[SQLITE_MAX_PATHLEN+2];
++        pPath->nUsed = 0;
++        if( osGetcwd(zPwd, sizeof(zPwd)-2)==0 ){
++          pPath->rc = unixLogError(SQLITE_CANTOPEN_BKPT, "getcwd", zIn);
++          return;
++        }
++        appendAllPathElements(pPath, zPwd);
+       }
+       appendAllPathElements(pPath, zLnk);
+     }

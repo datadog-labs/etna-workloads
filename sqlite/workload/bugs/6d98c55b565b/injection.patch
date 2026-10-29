@@ -1,0 +1,71 @@
+--- a/ext/fts5/fts5_index.c
++++ b/ext/fts5/fts5_index.c
+@@ -5578,24 +5578,6 @@
+   const int f = FTS5INDEX_QUERY_SKIPHASH;
+   Fts5Iter *pIter = 0;            /* Used to find term instance */
+ 
+-  /* If the version number has not been set to SECUREDELETE, do so now. */
+-  if( p->pConfig->iVersion!=FTS5_CURRENT_VERSION_SECUREDELETE ){
+-    Fts5Config *pConfig = p->pConfig;
+-    sqlite3_stmt *pStmt = 0;
+-    fts5IndexPrepareStmt(p, &pStmt, sqlite3_mprintf(
+-          "REPLACE INTO %Q.'%q_config' VALUES ('version', %d)",
+-          pConfig->zDb, pConfig->zName, FTS5_CURRENT_VERSION_SECUREDELETE
+-    ));
+-    if( p->rc==SQLITE_OK ){
+-      int rc;
+-      sqlite3_step(pStmt);
+-      rc = sqlite3_finalize(pStmt);
+-      if( p->rc==SQLITE_OK ) p->rc = rc;
+-      pConfig->iCookie++;
+-      pConfig->iVersion = FTS5_CURRENT_VERSION_SECUREDELETE;
+-    }
+-  }
+-
+   fts5MultiIterNew(p, pStruct, f, 0, (const u8*)zTerm, nTerm, -1, 0, &pIter);
+   if( fts5MultiIterEof(p, pIter)==0 ){
+     i64 iThis = fts5MultiIterRowid(pIter);
+--- a/ext/fts5/fts5_main.c
++++ b/ext/fts5/fts5_main.c
+@@ -1948,6 +1948,7 @@
+   Fts5Config *pConfig = pTab->p.pConfig;
+   int eType0;                     /* value_type() of apVal[0] */
+   int rc = SQLITE_OK;             /* Return code */
++  int bUpdateOrDelete = 0;
+ 
+   /* A transaction must be open when this is called. */
+   assert( pTab->ts.eState==1 || pTab->ts.eState==2 );
+@@ -2010,6 +2011,7 @@
+ 
+     /* DELETE */
+     if( nArg==1 ){
++      bUpdateOrDelete = 1;
+       /* It is only possible to DELETE from a contentless table if the
+       ** contentless_delete=1 flag is set. */
+       if( fts5IsContentless(pTab, 1) && pConfig->bContentlessDelete==0 ){
+@@ -2058,6 +2060,8 @@
+         i64 iNew = sqlite3_value_int64(apVal[1]);  /* New rowid */
+         int bContent = 0;         /* Content only update */
+ 
++        bUpdateOrDelete = 1;
++
+         /* If this is a contentless table (including contentless_unindexed=1
+         ** tables), check if the UPDATE may proceed.  */
+         if( fts5IsContentless(pTab, 1) ){
+@@ -2106,6 +2110,16 @@
+   }
+ 
+  update_out:
++  if( rc==SQLITE_OK && bUpdateOrDelete && pConfig->bSecureDelete
++   && pConfig->iVersion!=FTS5_CURRENT_VERSION_SECUREDELETE
++  ){
++    rc = sqlite3Fts5StorageConfigValue(
++        pTab->pStorage, "version", 0, FTS5_CURRENT_VERSION_SECUREDELETE
++    );
++    if( rc==SQLITE_OK ){
++      pConfig->iVersion = FTS5_CURRENT_VERSION_SECUREDELETE;
++    }
++  }
+   sqlite3Fts5IndexCloseReader(pTab->p.pIndex);
+   pTab->p.pConfig->pzErrmsg = 0;
+   return rc;

@@ -1,0 +1,1 @@
+Reproducer: two windows with literal frame offsets in one SELECT (ORDER BY forces the window expressions to be duplicated). The buggy sqlite3WindowDup copies pStart/pEnd from the empty new object instead of the source, so the frame offsets are lost. Clean shell returns rows; buggy shell fails with 'frame starting offset must be a non-negative integer' (exit 1).

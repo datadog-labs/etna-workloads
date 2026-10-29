@@ -1,0 +1,33 @@
+--- a/src/backup.c
++++ b/src/backup.c
+@@ -187,12 +187,8 @@
+ 
+   /* If the allocation succeeded, populate the new object. */
+   if( p ){
+-    /* Do not store the pointer to the destination b-tree at this point.
+-    ** This is because there is nothing preventing it from being detached
+-    ** or otherwise freed before the first call to sqlite3_backup_step()
+-    ** on this object. The source b-tree does not have this problem, as
+-    ** incrementing Btree.nBackup (see below) effectively locks the object. */
+     Btree *pDest = findBtree(pDestDb, pDestDb, zDestDb);
++    p->pDest = pDest;
+     p->pSrc = findBtree(pDestDb, pSrcDb, zSrcDb);
+     p->pDestDb = pDestDb;
+     p->pSrcDb = pSrcDb;
+@@ -366,14 +362,8 @@
+     }
+ 
+     /* Locate the destination btree and pager. */
+-    if( (pDest = p->pDest)==0 ){
+-      pDest = findBtree(p->pDestDb, p->pDestDb, p->zDestDb);
+-    }
+-    if( pDest==0 ){
+-      rc = SQLITE_ERROR;
+-    }else{
+-      pDestPager = sqlite3BtreePager(pDest);
+-    }
++    pDest = p->pDest;
++    pDestPager = sqlite3BtreePager(pDest);
+ 
+     /* If the destination database has not yet been locked (i.e. if this
+     ** is the first call to backup_step() for the current backup operation),

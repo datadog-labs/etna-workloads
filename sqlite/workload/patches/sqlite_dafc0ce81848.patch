@@ -1,0 +1,54 @@
+--- a/src/whereexpr.c
++++ b/src/whereexpr.c
+@@ -1158,7 +1158,6 @@
+   Expr *pExpr;                     /* The expression to be analyzed */
+   Bitmask prereqLeft;              /* Prerequisites of the pExpr->pLeft */
+   Bitmask prereqAll;               /* Prerequisites of pExpr */
+-  Bitmask extraRight = 0;          /* Extra dependencies on LEFT JOIN */
+   Expr *pStr1 = 0;                 /* RHS of LIKE/GLOB operator */
+   int isComplete = 0;              /* RHS of LIKE/GLOB ends with wildcard */
+   int noCase = 0;                  /* uppercase equivalent to lowercase */
+@@ -1218,8 +1217,8 @@
+     Bitmask x = sqlite3WhereGetMask(pMaskSet, pExpr->w.iJoin);
+     if( ExprHasProperty(pExpr, EP_OuterON) ){
+       prereqAll |= x;
+-      extraRight = x-1;  /* ON clause terms may not be used with an index
+-                         ** on left table of a LEFT JOIN.  Ticket #3015 */
++      pTerm->prereqRight |= x-1; /* ON clause terms may not be used with an index
++                                 ** on left table of a LEFT JOIN.  Ticket #3015 */
+     }else if( (prereqAll>>1)>=x ){
+       ExprClearProperty(pExpr, EP_InnerON);
+     }
+@@ -1283,8 +1282,7 @@
+       pNew->leftCursor = aiCurCol[0];
+       assert( (pTerm->eOperator & (WO_OR|WO_AND))==0 );
+       pNew->u.x.leftColumn = aiCurCol[1];
+-      testcase( (prereqLeft | extraRight) != prereqLeft );
+-      pNew->prereqRight = prereqLeft | extraRight;
++      pNew->prereqRight = prereqLeft;
+       pNew->prereqAll = prereqAll;
+       pNew->eOperator = (operatorMask(pDup->op) + eExtraOp) & opMask;
+     }else
+@@ -1587,7 +1585,7 @@
+         idxNew = whereClauseInsert(pWC, pNewExpr, TERM_VIRTUAL|TERM_DYNAMIC);
+         testcase( idxNew==0 );
+         pNewTerm = &pWC->a[idxNew];
+-        pNewTerm->prereqRight = prereqExpr | extraRight;
++        pNewTerm->prereqRight = prereqExpr;
+         pNewTerm->leftCursor = pLeft->iTable;
+         pNewTerm->u.x.leftColumn = pLeft->iColumn;
+         pNewTerm->eOperator = WO_AUX;
+@@ -1601,13 +1599,6 @@
+     }
+   }
+ #endif /* SQLITE_OMIT_VIRTUALTABLE */
+-
+-  /* Prevent ON clause terms of a LEFT JOIN from being used to drive
+-  ** an index for tables to the left of the join.
+-  */
+-  testcase( pTerm!=&pWC->a[idxTerm] );
+-  pTerm = &pWC->a[idxTerm];
+-  pTerm->prereqRight |= extraRight;
+ }
+ 
+ /***************************************************************************

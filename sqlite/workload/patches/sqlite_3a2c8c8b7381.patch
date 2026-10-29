@@ -1,0 +1,24 @@
+--- a/src/prepare.c
++++ b/src/prepare.c
+@@ -785,7 +785,7 @@
+   if( db->pDisconnect ) sqlite3VtabUnlockList(db);
+ #endif
+ 
+-  if( nBytes>=0 && (nBytes==0 || zSql[nBytes-1]!=0) ){
++  if( nBytes>=0 && zSql[nBytes]!=0 ){
+     char *zSqlCopy;
+     int mxLen = db->aLimit[SQLITE_LIMIT_SQL_LENGTH];
+     testcase( nBytes==mxLen );
+@@ -798,11 +798,9 @@
+     zSqlCopy = sqlite3DbStrNDup(db, zSql, nBytes);
+     if( zSqlCopy ){
+       sqlite3RunParser(&sParse, zSqlCopy);
+-      sParse.zTail = &zSql[sParse.zTail-zSqlCopy];
+       sqlite3DbFree(db, zSqlCopy);
+-    }else{
+-      sParse.zTail = &zSql[nBytes];
+     }
++    sParse.zTail = &zSql[nBytes];
+   }else{
+     sqlite3RunParser(&sParse, zSql);
+   }

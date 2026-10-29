@@ -1,0 +1,42 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -1666,9 +1666,9 @@
+   pInfo = sqlite3KeyInfoAlloc(db, nExpr-iStart, nExtra+1);
+   if( pInfo ){
+     assert( sqlite3KeyInfoIsWriteable(pInfo) );
+-    for(i=iStart, pItem=pList->a+iStart; i<nExpr; i++, pItem++){
+-      pInfo->aColl[i-iStart] = sqlite3ExprNNCollSeq(pParse, pItem->pExpr);
+-      pInfo->aSortFlags[i-iStart] = pItem->fg.sortFlags;
++    for(i=iStart, pItem=pList->a; i<nExpr; i++, pItem++){
++      pInfo->aColl[i] = sqlite3ExprNNCollSeq(pParse, pItem->pExpr);
++      pInfo->aSortFlags[i] = pItem->fg.sortFlags;
+     }
+   }
+   return pInfo;
+--- a/src/where.c
++++ b/src/where.c
+@@ -5569,10 +5569,6 @@
+   /* TUNING: sorting cost proportional to the number of output columns: */
+   nCol = sqlite3LogEst((pWInfo->pSelect->pEList->nExpr+59)/30);
+   rSortCost = nRow + nCol;
+-  if( nSorted>0 ){
+-    /* Scale the result by (Y/X) */
+-    rSortCost += sqlite3LogEst((nOrderBy-nSorted)*100/nOrderBy) - 66;
+-  }
+ 
+   /* Multiple by log(M) where M is the number of output rows.
+   ** Use the LIMIT for M if it is smaller.  Or if this sort is for
+@@ -5592,7 +5588,12 @@
+     ** reduces the number of output rows by a factor of 2 */
+     if( nRow>10 ){ nRow -= 10;  assert( 10==sqlite3LogEst(2) ); }
+   }
+-  rSortCost += estLog(nRow);
++  rSortCost += 30;
++  if( nSorted>0 ){
++    rSortCost += estLog(nRow)*(nOrderBy-nSorted)/nOrderBy;
++  }else{
++    rSortCost += estLog(nRow);
++  }
+   return rSortCost;
+ }
+ 

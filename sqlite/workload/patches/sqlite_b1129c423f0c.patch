@@ -1,0 +1,27 @@
+--- a/src/insert.c
++++ b/src/insert.c
+@@ -1983,15 +1983,13 @@
+           onError = OE_Abort;
+         }
+         if( onError==OE_Replace ){
+-          if( b2ndPass        /* REPLACE becomes ABORT on the 2nd pass */
++          if( (b2ndPass && !isGenerated) /* REPLACE becomes ABORT on 2nd pass */
+            || pCol->iDflt==0  /* REPLACE is ABORT if no DEFAULT value */
+           ){
+             testcase( pCol->colFlags & COLFLAG_VIRTUAL );
+             testcase( pCol->colFlags & COLFLAG_STORED );
+             testcase( pCol->colFlags & COLFLAG_GENERATED );
+             onError = OE_Abort;
+-          }else{
+-            assert( !isGenerated );
+           }
+         }else if( b2ndPass && !isGenerated ){
+           continue;
+@@ -2004,7 +2002,6 @@
+           case OE_Replace: {
+             int addr1 = sqlite3VdbeAddOp1(v, OP_NotNull, iReg);
+             VdbeCoverage(v);
+-            assert( (pCol->colFlags & COLFLAG_GENERATED)==0 );
+             nSeenReplace++;
+             sqlite3ExprCodeCopy(pParse,
+                sqlite3ColumnExprAuth(pTab, pCol, pParse), iReg);

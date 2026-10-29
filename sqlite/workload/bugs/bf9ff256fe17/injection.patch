@@ -1,0 +1,41 @@
+--- a/src/build.c
++++ b/src/build.c
+@@ -2555,10 +2555,6 @@
+         testcase( hasColumn(pIdx->aiColumn, pIdx->nKeyCol, pPk->aiColumn[i]) );
+         pIdx->aiColumn[j] = pPk->aiColumn[i];
+         pIdx->azColl[j] = pPk->azColl[i];
+-        if( pPk->aSortOrder[i] ){
+-          /* See ticket https://sqlite.org/src/info/bba7b69f9849b5bf */
+-          pIdx->bAscKeyBug = 1;
+-        }
+         j++;
+       }
+     }
+@@ -3927,16 +3923,7 @@
+     addr2 = sqlite3VdbeCurrentAddr(v);
+   }
+   sqlite3VdbeAddOp3(v, OP_SorterData, iSorter, regRecord, iIdx);
+-  if( !pIndex->bAscKeyBug ){
+-    /* This OP_SeekEnd opcode makes index insert for a REINDEX go much
+-    ** faster by avoiding unnecessary seeks.  But the optimization does
+-    ** not work for UNIQUE constraint indexes on WITHOUT ROWID tables
+-    ** with DESC primary keys, since those indexes have there keys in
+-    ** a different order from the main table.
+-    ** See ticket: https://sqlite.org/src/info/bba7b69f9849b5bf
+-    */
+-    sqlite3VdbeAddOp1(v, OP_SeekEnd, iIdx);
+-  }
++  sqlite3VdbeAddOp1(v, OP_SeekEnd, iIdx);
+   sqlite3VdbeAddOp2(v, OP_IdxInsert, iIdx, regRecord);
+   sqlite3VdbeChangeP5(v, OPFLAG_USESEEKRESULT);
+   sqlite3ReleaseTempReg(pParse, regRecord);
+--- a/src/sqliteInt.h
++++ b/src/sqliteInt.h
+@@ -2851,7 +2851,6 @@
+   unsigned noSkipScan:1;   /* Do not try to use skip-scan if true */
+   unsigned hasStat1:1;     /* aiRowLogEst values come from sqlite_stat1 */
+   unsigned bNoQuery:1;     /* Do not use this index to optimize queries */
+-  unsigned bAscKeyBug:1;   /* True if the bba7b69f9849b5bf bug applies */
+   unsigned bHasVCol:1;     /* Index references one or more VIRTUAL columns */
+   unsigned bHasExpr:1;     /* Index contains an expression, either a literal
+                            ** expression, or a reference to a VIRTUAL column */

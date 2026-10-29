@@ -1,0 +1,27 @@
+--- a/src/window.c
++++ b/src/window.c
+@@ -2120,6 +2120,7 @@
+   int regString = ++pParse->nMem;           /* Reg. for constant value '' */
+   int arith = OP_Add;                       /* OP_Add or OP_Subtract */
+   int addrGe;                               /* Jump destination */
++  int addrSkip = 0;                         /* Goto over IsNull(reg2) */
+   int addrDone = sqlite3VdbeMakeLabel(pParse);   /* Address past OP_Ge */
+   CollSeq *pColl;
+ 
+@@ -2179,7 +2180,7 @@
+         break;
+       default: assert( op==OP_Lt ); /* no-op */ break;
+     }
+-    sqlite3VdbeAddOp2(v, OP_Goto, 0, addrDone);
++    addrSkip = sqlite3VdbeAddOp2(v, OP_Goto, 0, 0);
+ 
+     /* This block runs if reg1 is not NULL, but reg2 is. */
+     sqlite3VdbeJumpHere(v, addr);
+@@ -2213,6 +2214,7 @@
+   /* Compare registers reg2 and reg1, taking the jump if required. Note that
+   ** control skips over this test if the BIGNULL flag is set and either
+   ** reg1 or reg2 contain a NULL value.  */
++  if( addrSkip ) sqlite3VdbeJumpHere(v, addrSkip);
+   sqlite3VdbeAddOp3(v, op, reg2, lbl, reg1); VdbeCoverage(v);
+   pColl = sqlite3ExprNNCollSeq(pParse, pOrderBy->a[0].pExpr);
+   sqlite3VdbeAppendP4(v, (void*)pColl, P4_COLLSEQ);

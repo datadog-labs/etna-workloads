@@ -1,0 +1,1 @@
+Reproducer: json_tree(obj.x) LEFT JOIN obj (and variants), the cases from json108-2.2/2.4/2.7. Clean rejects the first two with 'table-function argument references tables to its right' and runs the third; buggy accepts the first two (returning rows) and wrongly errors on the third (one LEFT JOIN json_tree(obj.x), obj).

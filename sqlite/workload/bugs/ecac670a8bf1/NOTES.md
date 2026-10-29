@@ -1,0 +1,2 @@
+repro.sh creates an auto_vacuum db with one table, saves header bytes 28..31 (db size) and 92..99 (change counter / version-valid-for), drops the table (file shrinks), then writes the old header values back (same as tester.tcl's sql36231). The header size now exceeds the file size, but the two change counters differ, so the size must be ignored.
+Clean: `ok`, exit 0. Buggy: "database disk image is malformed (11)", exit 1 (bug checks the header size unconditionally).

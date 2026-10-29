@@ -1,0 +1,25 @@
+--- a/src/json.c
++++ b/src/json.c
+@@ -4214,6 +4214,13 @@
+   jsonParseFree(p);
+ }
+ 
++/* True if the string is all digits */
++static int jsonAllDigits(const char *z, int n){
++  int i;
++  for(i=0; i<n && sqlite3Isdigit(z[i]); i++){}
++  return i==n;
++}
++
+ /* True if the string is all alphanumerics and underscores */
+ static int jsonAllAlphanum(const char *z, int n){
+   int i;
+@@ -4283,7 +4290,7 @@
+       **     NUMBER   ==>  $[#NUMBER]    // PG compatible
+       */
+       jsonStringInit(&jx, ctx);
+-      if( sqlite3_value_type(argv[i])==SQLITE_INTEGER ){
++      if( jsonAllDigits(zPath, nPath) ){
+         jsonAppendRawNZ(&jx, "[", 1);
+         if( zPath[0]=='-' ) jsonAppendRawNZ(&jx,"#",1);
+         jsonAppendRaw(&jx, zPath, nPath);

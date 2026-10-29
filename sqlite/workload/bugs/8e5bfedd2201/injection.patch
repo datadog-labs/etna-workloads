@@ -1,0 +1,28 @@
+--- a/src/select.c
++++ b/src/select.c
+@@ -4852,7 +4852,6 @@
+   Expr *pValue,        /* The VALUE part of the constraint */
+   Expr *pExpr          /* Overall expression: COLUMN=VALUE or VALUE=COLUMN */
+ ){
+-  int i;
+   assert( pColumn->op==TK_COLUMN );
+   assert( sqlite3ExprIsConstant(pConst->pParse, pValue) );
+   if( ExprHasProperty(pColumn, EP_FixedCol) ) return;
+@@ -4862,17 +4861,6 @@
+   }
+   if( sqlite3ExprCanReturnSubtype(pConst->pParse, pValue) ) return;
+ 
+-  /* 2018-10-25 ticket [cf5ed20f]
+-  ** Make sure the same pColumn is not inserted more than once */
+-  for(i=0; i<pConst->nConst; i++){
+-    const Expr *pE2 = pConst->apExpr[i*2];
+-    assert( pE2->op==TK_COLUMN );
+-    if( pE2->iTable==pColumn->iTable
+-     && pE2->iColumn==pColumn->iColumn
+-    ){
+-      return;  /* Already present.  Return without doing anything. */
+-    }
+-  }
+   assert( SQLITE_AFF_NONE<SQLITE_AFF_BLOB );
+   if( sqlite3ExprAffinity(pColumn)<=SQLITE_AFF_BLOB ){
+     pConst->bHasAffBlob = 1;

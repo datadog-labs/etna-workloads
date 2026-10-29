@@ -1,0 +1,3 @@
+CREATE TABLE t1(a);
+CREATE VIRTUAL TABLE st USING dbstat;
+SELECT count(*) FROM st WHERE name = NULL;

@@ -1,0 +1,4 @@
+CREATE TABLE t1(aaa INT);
+INSERT INTO t1 VALUES(123);
+CREATE TABLE t2 AS SELECT BBb FROM (SELECT aaa AS Bbb FROM t1);
+SELECT name FROM pragma_table_info('t2');

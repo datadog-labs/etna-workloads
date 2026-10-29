@@ -1,0 +1,23 @@
+--- a/src/btree.c
++++ b/src/btree.c
+@@ -9654,18 +9654,12 @@
+     BTREE_CLEAR_CELL(rc, pPage, oldCell, info);
+     testcase( pCur->curFlags & BTCF_ValidOvfl );
+     invalidateOverflowCache(pCur);
+-    if( info.nSize==szNew && info.nLocal==info.nPayload
+-     && (!ISAUTOVACUUM(p->pBt) || szNew<pPage->minLocal)
+-    ){
++    if( info.nSize==szNew && info.nLocal==info.nPayload ){
+       /* Overwrite the old cell with the new if they are the same size.
+       ** We could also try to do this if the old cell is smaller, then add
+       ** the leftover space to the free list.  But experiments show that
+       ** doing that is no faster then skipping this optimization and just
+-      ** calling dropCell() and insertCell().
+-      **
+-      ** This optimization cannot be used on an autovacuum database if the
+-      ** new entry uses overflow pages, as the insertCell() call below is
+-      ** necessary to add the PTRMAP_OVERFLOW1 pointer-map entry.  */
++      ** calling dropCell() and insertCell(). */
+       assert( rc==SQLITE_OK ); /* clearCell never fails when nLocal==nPayload */
+       if( oldCell < pPage->aData+pPage->hdrOffset+10 ){
+         return SQLITE_CORRUPT_PAGE(pPage);

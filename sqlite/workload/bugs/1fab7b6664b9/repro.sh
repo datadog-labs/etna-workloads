@@ -1,0 +1,18 @@
+"$SQLITE3" -batch -init /dev/null test.db <<'E'
+PRAGMA page_size=1024;
+PRAGMA auto_vacuum=1;
+CREATE TABLE t1(a, b);
+CREATE TABLE t2(x, y);
+INSERT INTO t2 VALUES(1, 2);
+BEGIN;
+INSERT INTO t2 VALUES(5, 6);
+SAVEPOINT one;
+INSERT INTO t2 VALUES(3, 4);
+SAVEPOINT two;
+DROP TABLE t1;
+ROLLBACK TO two;
+SELECT * FROM t2;
+COMMIT;
+SELECT * FROM t2;
+PRAGMA integrity_check;
+E

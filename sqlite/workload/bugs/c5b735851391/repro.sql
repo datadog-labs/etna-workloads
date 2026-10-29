@@ -1,0 +1,6 @@
+CREATE TABLE t47(a, b UNIQUE PRIMARY KEY) WITHOUT ROWID;
+CREATE INDEX i47 ON t47(a);
+INSERT INTO t47 VALUES(1, 2);
+VACUUM;
+PRAGMA integrity_check;
+SELECT name FROM sqlite_master WHERE tbl_name = 't47';

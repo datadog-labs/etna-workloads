@@ -1,0 +1,24 @@
+--- a/src/func.c
++++ b/src/func.c
+@@ -2269,7 +2269,7 @@
+ #endif
+     zVal = (char*)sqlite3_value_text(argv[0]);
+     nVal = sqlite3_value_bytes(argv[0]);
+-    if( zVal ) sqlite3_str_append(&pGCC->str, zVal, nVal);
++    if( nVal ) sqlite3_str_append(&pGCC->str, zVal, nVal);
+   }
+ }
+ 
+@@ -2324,7 +2324,11 @@
+   GroupConcatCtx *pGCC
+     = (GroupConcatCtx*)sqlite3_aggregate_context(context, 0);
+   if( pGCC ){
+-    sqlite3_result_str(context, &pGCC->str, SQLITE_XFER);
++    /* Nothing was ever appended (all terms were empty strings), so no
++    ** buffer exists and the result is NULL. */
++    if( pGCC->str.zText ){
++      sqlite3_result_str(context, &pGCC->str, SQLITE_XFER);
++    }
+ #ifndef SQLITE_OMIT_WINDOWFUNC
+     sqlite3_free(pGCC->pnSepLengths);
+ #endif

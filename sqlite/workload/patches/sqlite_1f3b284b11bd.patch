@@ -1,0 +1,53 @@
+--- a/src/alter.c
++++ b/src/alter.c
+@@ -198,14 +198,11 @@
+ #endif
+ 
+   /* Begin a transaction for database iDb. Then modify the schema cookie
+-  ** (since the ALTER TABLE modifies the schema). Call sqlite3MayAbort(),
+-  ** as the scalar functions (e.g. sqlite_rename_table()) invoked by the
+-  ** nested SQL may raise an exception.  */
++  ** (since the ALTER TABLE modifies the schema). */
+   v = sqlite3GetVdbe(pParse);
+   if( v==0 ){
+     goto exit_rename_table;
+   }
+-  sqlite3MayAbort(pParse);
+ 
+   /* figure out how many UTF-8 characters are in zName */
+   zTabName = pTab->zName;
+@@ -675,7 +672,6 @@
+   ** uses the sqlite_rename_column() SQL function to compute the new
+   ** CREATE statement text for the sqlite_schema table.
+   */
+-  sqlite3MayAbort(pParse);
+   zNew = sqlite3NameFromToken(db, pNew);
+   if( !zNew ) goto exit_rename_column;
+   if( isRowidAlias(pParse, pTab, zOld, "rename from") ) goto exit_rename_column;
+--- a/src/vdbeaux.c
++++ b/src/vdbeaux.c
+@@ -479,7 +479,7 @@
+   addr = sqlite3VdbeAddOp4(v, eCallCtx ? OP_PureFunc : OP_Function,
+                            p1, p2, p3, (char*)pCtx, P4_FUNCCTX);
+   sqlite3VdbeChangeP5(v, eCallCtx & NC_SelfRef);
+-  sqlite3MayAbort(pParse);
++  if( pParse->nested==0 ) sqlite3MayAbort(pParse);
+   return addr;
+ }
+ 
+@@ -572,7 +572,6 @@
+   sqlite3VdbeAddOp4(p, OP_ParseSchema, iDb, 0, 0, zWhere, P4_DYNAMIC);
+   sqlite3VdbeChangeP5(p, p5);
+   for(j=0; j<p->db->nDb; j++) sqlite3VdbeUsesBtree(p, j);
+-  sqlite3MayAbort(p->pParse);
+ }
+ 
+ /* Insert the end of a co-routine
+@@ -792,7 +791,6 @@
+     if( opcode==OP_Destroy || opcode==OP_VUpdate || opcode==OP_VRename
+      || opcode==OP_VDestroy
+      || opcode==OP_VCreate
+-     || opcode==OP_ParseSchema
+      || opcode==OP_Function || opcode==OP_PureFunc
+      || ((opcode==OP_Halt || opcode==OP_HaltIfNull)
+       && ((pOp->p1)!=SQLITE_OK && pOp->p2==OE_Abort))

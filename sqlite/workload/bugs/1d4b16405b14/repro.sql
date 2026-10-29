@@ -1,0 +1,10 @@
+PRAGMA foreign_keys=ON;
+CREATE VIRTUAL TABLE rt USING rtree(id, x1, x2);
+INSERT INTO rt VALUES(1, 2, 3);
+CREATE TABLE child(a REFERENCES rt_rowid(rowid));
+INSERT INTO child VALUES(1);
+BEGIN;
+DROP TABLE rt;
+SELECT name FROM sqlite_master ORDER BY 1;
+SELECT * FROM rt;
+COMMIT;

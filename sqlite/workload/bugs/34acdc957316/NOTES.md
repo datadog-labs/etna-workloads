@@ -1,0 +1,1 @@
+repro.sql sets a trigger whose UPDATE reads NEW.x in its WHERE clause, enables the shell's authorizer trace (.auth ON), and fires the trigger. Clean shell logs the SQLITE_READ t5 x callback for NEW.x; the buggy shell omits it (sqlite3AuthRead resolves TK_TRIGGER using pTriggerTab only when pTabList==0, so the READ is lost/wrong).

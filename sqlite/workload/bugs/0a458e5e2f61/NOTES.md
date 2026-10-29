@@ -1,0 +1,1 @@
+Flattening a subquery must keep an explicit COLLATE from the outer query. `ORDER BY name COLLATE nocase` over a flattened subquery should give a, B, C. The buggy shell drops the collation and sorts in binary order, giving B, C, a.
