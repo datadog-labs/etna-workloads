@@ -31,6 +31,21 @@ Add one directory per target, with a README that names the pinned release, the
 build used for the expected outputs, and how bugs were found and verified.
 List it in the table in the top-level README.
 
+Licensing: the patches and reproducers are derived from the upstream project,
+so they keep its license (see the top-level README). A new workload needs:
+
+- `LICENSE`: which files are derived from the upstream and under what
+  terms (include the upstream's license text), and that the rest is Apache-2.0;
+- `NOTICE` with the upstream's copyright notice, and `LICENSE-3rdparty.csv`;
+- a line for the upstream in the root `LICENSE-3rdparty.csv`, and its
+  license in the README table.
+
+Upstreams under permissive licenses (MIT, BSD, Apache-2.0, PostgreSQL, public
+domain) need nothing more. Copyleft or source-available upstreams (GPL, LGPL,
+AGPL, SSPL, RSAL) need sign-off before they are added; prefer a permissively
+licensed release or fork where one exists. Never add a workload built from
+code that is not public.
+
 ## Pull requests
 
 Keep each pull request to one workload, describe how the change was verified,
