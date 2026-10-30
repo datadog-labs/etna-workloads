@@ -1,0 +1,51 @@
+--- a/src/expire.c
++++ b/src/expire.c
+@@ -766,20 +766,7 @@
+ 
+     if (getLongLongFromObjectOrReply(c, param, &when, NULL) != C_OK) return;
+ 
+-    /* EXPIRE allows negative numbers, but we can at least detect an
+-     * overflow by either unit conversion or basetime addition. */
+-    if (unit == UNIT_SECONDS) {
+-        if (when > LLONG_MAX / 1000 || when < LLONG_MIN / 1000) {
+-            addReplyErrorExpireTime(c);
+-            return;
+-        }
+-        when *= 1000;
+-    }
+-
+-    if (when > LLONG_MAX - basetime) {
+-        addReplyErrorExpireTime(c);
+-        return;
+-    }
++    if (unit == UNIT_SECONDS) when *= 1000;
+     when += basetime;
+     /* A negative expiration time should cause a key to expire and be deleted immediately.
+      * However, in some cases (such as import-mode), we might need to pause expiration,
+--- a/src/t_string.c
++++ b/src/t_string.c
+@@ -204,8 +204,7 @@
+         return ret;
+     }
+ 
+-    if (*milliseconds <= 0 || (unit == UNIT_SECONDS && *milliseconds > LLONG_MAX / 1000)) {
+-        /* Negative value provided or multiplication is gonna overflow. */
++    if (*milliseconds <= 0) {
+         addReplyErrorExpireTime(c);
+         return C_ERR;
+     }
+@@ -213,14 +212,7 @@
+     if (unit == UNIT_SECONDS) *milliseconds *= 1000;
+ 
+     if ((flags & ARGS_PX) || (flags & ARGS_EX)) {
+-        /* Relative expire: check for overflow *before* adding the base time.
+-         * Signed overflow is undefined behavior in C, so we can't rely on the
+-         * wrapped result coming out negative. */
+         mstime_t basetime = commandTimeSnapshot();
+-        if (*milliseconds > LLONG_MAX - basetime) {
+-            addReplyErrorExpireTime(c);
+-            return C_ERR;
+-        }
+         *milliseconds += basetime;
+     }
+ 

@@ -1,0 +1,30 @@
+--- a/src/rdb.c
++++ b/src/rdb.c
+@@ -1997,13 +1997,6 @@
+             if (o->encoding == OBJ_ENCODING_LISTPACK) {
+                 if (setTypeSize(o) < server.set_max_listpack_entries && elelen <= server.set_max_listpack_value &&
+                     lpSafeToAdd(o->ptr, elelen)) {
+-                    unsigned char *p = lpFirst(o->ptr);
+-                    if (p && lpFind(o->ptr, p, (unsigned char *)sdsele, elelen, 0)) {
+-                        rdbReportCorruptRDB("Duplicate set members detected");
+-                        decrRefCount(o);
+-                        sdsfree(sdsele);
+-                        return NULL;
+-                    }
+                     o->ptr = lpAppend(o->ptr, (unsigned char *)sdsele, elelen);
+                 } else if (setTypeConvertAndExpand(o, OBJ_ENCODING_HASHTABLE, len, 0) != C_OK) {
+                     rdbReportCorruptRDB("OOM in hashtableTryExpand %llu", (unsigned long long)len);
+@@ -2016,12 +2009,7 @@
+             /* This will also be called when the set was just converted
+              * to a regular hash table encoded set. */
+             if (o->encoding == OBJ_ENCODING_HASHTABLE) {
+-                if (!hashtableAdd((hashtable *)o->ptr, sdsele)) {
+-                    rdbReportCorruptRDB("Duplicate set members detected");
+-                    decrRefCount(o);
+-                    sdsfree(sdsele);
+-                    return NULL;
+-                }
++                hashtableAdd((hashtable *)o->ptr, sdsele);
+             } else {
+                 sdsfree(sdsele);
+             }

@@ -1,0 +1,45 @@
+--- a/src/t_string.c
++++ b/src/t_string.c
+@@ -259,24 +259,30 @@
+     setGenericCommand(c, ARGS_PX | ARGS_ARGV3, c->argv[1], c->argv[3], c->argv[2], UNIT_MILLISECONDS, NULL, NULL, NULL);
+ }
+ 
+-/* DELIFEQ key value */
+ void delifeqCommand(client *c) {
+-    robj *o;
+-    if ((o = lookupKeyWriteOrReply(c, c->argv[1], shared.czero)) == NULL || checkType(c, o, OBJ_STRING)) return;
++    robj *existing_value = lookupKeyWrite(c->db, c->argv[1]);
+ 
+-    if (compareStringObjects(o, c->argv[2]) != 0) {
+-        addReply(c, shared.czero);
++    if (existing_value == NULL) {
++        addReplyLongLong(c, 0);
+         return;
+     }
+ 
+-    serverAssert(dbSyncDelete(c->db, c->argv[1]));
++    if (checkType(c, existing_value, OBJ_STRING)) {
++        /* Error reply already sent */
++        return;
++    }
++
++    if (compareStringObjects(existing_value, c->argv[2]) != 0) {
++        addReplyLongLong(c, 0);
++        return;
++    }
++
++    if (!dbSyncDelete(c->db, c->argv[1])) {
++        addReplyLongLong(c, 0);
++        return;
++    }
+ 
+-    /* Propagate as DEL command */
+-    rewriteClientCommandVector(c, 2, shared.del, c->argv[1]);
+-    signalModifiedKey(c, c->db, c->argv[1]);
+-    notifyKeyspaceEvent(NOTIFY_GENERIC, "del", c->argv[1], c->db->id);
+-    server.dirty++;
+-    addReply(c, shared.cone);
++    addReplyLongLong(c, 1);
+ }
+ 
+ int getGenericCommand(client *c) {

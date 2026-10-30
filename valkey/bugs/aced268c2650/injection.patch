@@ -1,0 +1,36 @@
+--- a/src/config.c
++++ b/src/config.c
+@@ -549,10 +549,9 @@
+ 
+             /* Otherwise we re-add the command under a different name. */
+             if (sdslen(argv[2]) != 0) {
+-                if (cmd->current_name != cmd->fullname) {
+-                    sdsfree(cmd->current_name);
+-                }
+-                cmd->current_name = sdsdup(argv[2]);
++                sdsfree(cmd->fullname);
++                cmd->fullname = sdsdup(argv[2]);
++                cmd->current_name = cmd->fullname;
+                 if (!hashtableAdd(server.commands, cmd)) {
+                     err = "Target command name already exists";
+                     goto loaderr;
+--- a/src/server.c
++++ b/src/server.c
+@@ -512,7 +512,7 @@
+ 
+ const void *hashtableCommandGetCurrentName(const void *element) {
+     struct serverCommand *command = (struct serverCommand *)element;
+-    return command->current_name;
++    return command->fullname;
+ }
+ 
+ const void *hashtableCommandGetOriginalName(const void *element) {
+@@ -2349,7 +2349,7 @@
+      * initial configuration, since command names may be changed via
+      * valkey.conf using the rename-command directive. */
+     server.commands = hashtableCreate(&commandSetType);
+-    server.orig_commands = hashtableCreate(&originalCommandSetType);
++    server.orig_commands = hashtableCreate(&commandSetType);
+     populateCommandTable();
+ 
+     /* Debugging */

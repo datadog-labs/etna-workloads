@@ -1,0 +1,1 @@
+repro.sh sends BLPOP on an empty list with timeout 9223372036854775807 (and the 0x... form). Clean replies 'ERR timeout is out of range'; buggy lets now+timeout overflow and replies 'ERR timeout is negative'.

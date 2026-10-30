@@ -59,10 +59,10 @@ def slot(cid):
 RETRY = {"apply_fails", "oracle_passes", "build_fails", "not_restorable"}
 
 TASK = """\
-# Task: reintroduce a historical SQLite bug into SQLite {target}
+# Task: reintroduce a historical {name} bug into {name} {target}
 
 You are building a benchmark of *realistic* bugs for evaluating testing
-tools. Each benchmark entry is a historical SQLite bug, re-injected into the
+tools. Each benchmark entry is a historical {name} bug, re-injected into the
 current release so that tools can be evaluated on it.
 
 `fix.patch` is the upstream commit that fixed the bug ({date}). Its
@@ -70,8 +70,8 @@ implementation hunks cannot simply be reversed on {target}: either they no
 longer apply (the code has moved or been rewritten since), or reversing them
 no longer brings the bug back (other code now also covers the case).
 
-`tree/` is the source of SQLite {target}. Change implementation files in
-`tree/` (src/ and ext/, not tests) so that the bug the fix corrected is
+`tree/` is the source of {name} {target}. Change implementation files in
+`tree/` ({impl}, not tests) so that the bug the fix corrected is
 present again, **as the fix's author would recognise it**:
 
 1. First understand the bug: read the commit message, the implementation
@@ -82,7 +82,7 @@ present again, **as the fix's author would recognise it**:
    wrong condition, a missing call, the old computation). Every changed
    line must trace to a hunk of the fix.
 3. Do NOT invent a different bug, add unrelated faults, change tests, test
-   harness code, build files, or anything outside src/ and ext/ (excluding
+   harness code, build files, or anything outside {impl} (excluding
    test-only C files). Do not make the change conditional on test names,
    data, or anything that would only trigger in the oracle.
 4. If later code covers the same case from another path (the bug was fixed
@@ -114,7 +114,10 @@ SETTINGS = {
                 "filesystem": {"allowWrite": ["{work}", "{scratch}", "/tmp"],
                                "denyRead": ["~/.ssh", "~/.aws", "~/.dd-auth", "~/.vault-token", "~/dd",
                                             "~/.config", "~/.gitconfig", "~/.git-credentials"]},
-                "network": {"allowedDomains": [], "strictAllowlist": True}},
+                # Local sockets only: test harnesses (Valkey's) start servers on
+                # Unix sockets and localhost ports; no outbound network.
+                "network": {"allowedDomains": [], "strictAllowlist": True,
+                            "allowAllUnixSockets": True, "allowLocalBinding": True}},
     "permissions": {"allow": ["Bash", "Read", "Edit", "Write", "Glob", "Grep"],
                     "deny": ["WebFetch", "WebSearch"]},
 }
@@ -132,7 +135,7 @@ def prepare(c, oracle):
     base_src, _ = E.base_paths()
     shutil.copytree(base_src, w / "tree", symlinks=True)
     tgt = E.target_commit()
-    (w / "TASK.md").write_text(TASK.format(target=E.TARGET, date=c["date"][:10]))
+    (w / "TASK.md").write_text(TASK.format(target=E.TARGET, date=c["date"][:10], name=E.NAME, impl=E.IMPL_DESC))
     (w / "fix.patch").write_text(E.git("show", "--format=fuller", c["id"]).stdout)
     (w / "oracle.json").write_text(json.dumps(oracle, indent=2) + "\n")
     (w / "check.sh").write_text(CHECK.format(tool=Path(__file__).resolve().parent))
@@ -244,6 +247,10 @@ def cmd_run(a):
         ids = a.ids.split(",")
     else:
         ids = [i for i, r in v.items() if r.get("result") in RETRY and i not in done]
+        if a.bugs_only:
+            tri = E.latest("triage")
+            ids = [i for i in ids if tri.get(i, {}).get("kind") == "bug"
+                   and tri.get(i, {}).get("confidence") != "low"]
         ids.sort(key=lambda i: cands[i]["date"], reverse=True)
     if a.limit:
         ids = ids[:a.limit]
@@ -251,7 +258,7 @@ def cmd_run(a):
     base_runs = E.latest("base-runs", key="file")
     with ThreadPoolExecutor(a.j) as ex:
         futs = {ex.submit(adapt_one, cands[i], E.oracle_of(cands[i], base_runs), a.model): i for i in ids}
-        counts = {}
+        counts, cost = {}, 0.0
         for n, fu in enumerate(as_completed(futs), 1):
             i = futs[fu]
             try:
@@ -260,7 +267,13 @@ def cmd_run(a):
                 rec = {"id": i, "result": "error", "error": str(e)[-1500:]}
             E.append(stage(), rec)
             counts[rec["result"]] = counts.get(rec["result"], 0) + 1
-            print(f"  {n}/{len(ids)} {counts}", flush=True)
+            cost += (rec.get("agent") or {}).get("total_cost_usd") or 0
+            print(f"  {n}/{len(ids)} {counts} ${cost:.2f}", flush=True)
+            if a.budget and cost >= a.budget:
+                # Running agents finish; queued ones are cancelled (a rerun resumes).
+                print(f"budget ${a.budget:.0f} reached; stopping", flush=True)
+                for f in futs:
+                    f.cancel()
 
 
 # --------------------------------------------------------------- anchor
@@ -326,6 +339,8 @@ def main():
     p.add_argument("--ids", default="")
     p.add_argument("--model", default="claude-opus-5-5")
     p.add_argument("--tag", default="")
+    p.add_argument("--bugs-only", action="store_true", help="only candidates triaged as bug fixes (medium/high)")
+    p.add_argument("--budget", type=float, default=0, help="stop queuing agents once this many USD are spent")
     p = sub.add_parser("anchor")
     p.add_argument("-j", type=int, default=8)
     p.add_argument("--tag", default="")

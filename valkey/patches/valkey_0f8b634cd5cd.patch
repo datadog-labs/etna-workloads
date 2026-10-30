@@ -1,0 +1,39 @@
+--- a/src/lua/debug_lua.c
++++ b/src/lua/debug_lua.c
+@@ -772,17 +772,6 @@
+ void ldbServer(lua_State *lua, sds *argv, int argc) {
+     int j;
+ 
+-    if (!lua_checkstack(lua, argc + 1)) {
+-        /* Increase the Lua stack if needed to make sure there is enough room
+-         * to push 'argc + 1' elements to the stack. On failure, return error.
+-         * Notice that we need, in worst case, 'argc + 1' elements because we push all the arguments
+-         * given by the user (without the first argument) and we also push the 'server' global table and
+-         * 'server.call' function so:
+-         * (1 (server table)) + (1 (server.call function)) + (argc - 1 (all arguments without the first)) = argc + 1*/
+-        ldbLogRespReply("max lua stack reached");
+-        return;
+-    }
+-
+     lua_getglobal(lua, "server");
+     lua_pushstring(lua, "call");
+     lua_gettable(lua, -2); /* Stack: server, server.call */
+--- a/src/lua/script_lua.c
++++ b/src/lua/script_lua.c
+@@ -615,16 +615,6 @@
+ static void luaReplyToServerReply(client *c, client *script_client, lua_State *lua) {
+     int t = lua_type(lua, -1);
+ 
+-    if (!lua_checkstack(lua, 4)) {
+-        /* Increase the Lua stack if needed to make sure there is enough room
+-         * to push 4 elements to the stack. On failure, return error.
+-         * Notice that we need, in the worst case, 4 elements because returning a map might
+-         * require push 4 elements to the Lua stack.*/
+-        addReplyError(c, "reached lua stack limit");
+-        lua_pop(lua, 1); /* pop the element from the stack */
+-        return;
+-    }
+-
+     switch (t) {
+     case LUA_TSTRING: addReplyBulkCBuffer(c, (char *)lua_tostring(lua, -1), lua_strlen(lua, -1)); break;
+     case LUA_TBOOLEAN:

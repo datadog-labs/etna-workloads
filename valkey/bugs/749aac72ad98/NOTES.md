@@ -1,0 +1,1 @@
+Sets a 6-byte string and runs `BITCOUNT foo 0 4294967296`. The injected `(unsigned)end` cast truncates the end index to 32 bits, so the clamp to the string length is skipped and the server reads out of bounds. The buggy build segfaults and the connection drops; the clean build replies 26 for every call.

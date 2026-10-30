@@ -1,0 +1,32 @@
+--- a/src/cluster_legacy.c
++++ b/src/cluster_legacy.c
+@@ -7173,9 +7173,6 @@
+ unsigned int delKeysInSlot(unsigned int hashslot, int lazy, bool propagate_del, bool send_del_event) {
+     if (!countKeysInSlot(hashslot)) return 0;
+ 
+-    /* We may lose a slot during the pause. We need to track this
+-     * state so that we don't assert in propagateNow(). */
+-    server.server_del_keys_in_slot = 1;
+     unsigned int j = 0;
+     int before_execution_nesting = server.execution_nesting;
+ 
+@@ -7216,7 +7213,6 @@
+         kvstoreReleaseHashtableIterator(kvs_di);
+     }
+ 
+-    server.server_del_keys_in_slot = 0;
+     serverAssert(server.execution_nesting == before_execution_nesting);
+     return j;
+ }
+--- a/src/server.c
++++ b/src/server.c
+@@ -3570,8 +3570,7 @@
+      *    In this case, primary lost a slot during the pausing.
+      * 3) The primary was paused by CLIENT PAUSE, and lost a slot during the
+      *    pausing. */
+-    serverAssert(!isPausedActions(PAUSE_ACTION_REPLICA) || server.client_pause_in_transaction ||
+-                 server.server_del_keys_in_slot);
++    serverAssert(!isPausedActions(PAUSE_ACTION_REPLICA) || server.client_pause_in_transaction);
+ 
+     int propagate_to_aof = server.aof_state != AOF_OFF && target & PROPAGATE_AOF;
+ 

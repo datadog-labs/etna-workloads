@@ -1,0 +1,1 @@
+repro.sh: pushes a list at key k, runs SET k v GET (should fail with WRONGTYPE and leave the list intact), then TYPE/GET k. Clean: type stays list. Buggy: the error is returned but the SET still happens, so k becomes string 'v'.

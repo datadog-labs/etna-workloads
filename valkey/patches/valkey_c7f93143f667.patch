@@ -1,0 +1,29 @@
+--- a/src/db.c
++++ b/src/db.c
+@@ -231,7 +231,7 @@
+     dbTrackKeyWithVolatileItems(db, val);
+     initObjectLRUOrLFU(val);
+     kvstoreHashtableAdd(db->keys, dict_index, val);
+-    signalKeyAsReady(db, key, val->type);
++    if (val->type != OBJ_LIST) signalKeyAsReady(db, key, val->type);
+     notifyKeyspaceEvent(NOTIFY_NEW, "new", key, db->id);
+     *valref = val;
+ }
+--- a/src/t_list.c
++++ b/src/t_list.c
+@@ -472,6 +472,7 @@
+ 
+         lobj = createListListpackObject();
+         dbAdd(c->db, c->argv[1], &lobj);
++        signalKeyAsReady(c->db, c->argv[1], OBJ_LIST);
+     }
+ 
+     listTypeTryConversionAppend(lobj, c->argv, 2, c->argc - 1, NULL, NULL);
+@@ -1072,6 +1073,7 @@
+     if (!dstobj) {
+         dstobj = createListListpackObject();
+         dbAdd(c->db, dstkey, &dstobj);
++        signalKeyAsReady(c->db, dstkey, OBJ_LIST);
+     }
+     listTypeTryConversionAppend(dstobj, &value, 0, 0, NULL, NULL);
+     listTypePush(dstobj, value, where);

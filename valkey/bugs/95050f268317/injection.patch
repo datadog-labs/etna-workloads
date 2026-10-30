@@ -1,0 +1,28 @@
+--- a/src/rdb.c
++++ b/src/rdb.c
+@@ -2657,25 +2657,6 @@
+             return NULL;
+         }
+ 
+-        if (s->length && !raxSize(s->rax)) {
+-            rdbReportCorruptRDB("Stream length inconsistent with rax entries");
+-            decrRefCount(o);
+-            return NULL;
+-        }
+-
+-        /* Validate that the loaded length matches the number of non-deleted
+-         * entries actually present in the listpacks. 's->length' comes straight
+-         * from the payload; a crafted payload can claim a positive length while
+-         * every listpack entry is a tombstone, which later makes
+-         * streamLastValidID() panic ("length is N, but no max id") when a
+-         * command such as XSETID, XADD or XREADGROUP looks up the last valid
+-         * ID. valid_entries was accumulated during listpack validation above. */
+-        if (s->length != valid_entries) {
+-            rdbReportCorruptRDB("Stream length inconsistent with the number of valid entries");
+-            decrRefCount(o);
+-            return NULL;
+-        }
+-
+         /* Consumer groups loading */
+         uint64_t cgroups_count = rdbLoadLen(rdb, NULL);
+         if (cgroups_count == RDB_LENERR) {

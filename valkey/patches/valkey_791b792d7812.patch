@@ -1,0 +1,28 @@
+--- a/src/functions.c
++++ b/src/functions.c
+@@ -165,24 +165,11 @@
+     lib_ctx->cache_memory = 0;
+ }
+ 
+-static void resetEngineOrCollectResetCallbacks(scriptingEngine *engine, void *context) {
+-    int async = context != NULL;
+-    callableLazyEnvReset *callback = scriptingEngineCallResetEnvFunc(engine, VMSE_FUNCTION, async);
+-
+-    if (async) {
+-        list *callbacks = context;
+-        listAddNodeTail(callbacks, callback);
+-    }
+-}
+-
+ void functionsLibCtxReleaseCurrent(int async, void(callback)(dict *)) {
+     if (async) {
+-        list *engine_callbacks = listCreate();
+-        scriptingEngineManagerForEachEngine(resetEngineOrCollectResetCallbacks, engine_callbacks);
+-        freeFunctionsAsync(curr_functions_lib_ctx, engine_callbacks);
++        freeFunctionsAsync(curr_functions_lib_ctx, NULL);
+     } else {
+         functionsLibCtxFree(curr_functions_lib_ctx, callback, NULL);
+-        scriptingEngineManagerForEachEngine(resetEngineOrCollectResetCallbacks, NULL);
+     }
+ }
+ 

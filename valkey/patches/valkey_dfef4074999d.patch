@@ -1,0 +1,37 @@
+--- a/src/t_stream.c
++++ b/src/t_stream.c
+@@ -2820,22 +2820,12 @@
+         return;
+     }
+ 
+-    /* Start parsing the IDs, so that we abort ASAP if there is a syntax
+-     * error: the return value of this command cannot be an error in case
+-     * the client successfully acknowledged some messages, so it should be
+-     * executed in a "all or nothing" fashion. */
+-    streamID static_ids[STREAMID_STATIC_VECTOR_LEN];
+-    streamID *ids = static_ids;
+-    int id_count = c->argc - 3;
+-    if (id_count > STREAMID_STATIC_VECTOR_LEN) ids = zmalloc(sizeof(streamID) * id_count);
+-    for (int j = 3; j < c->argc; j++) {
+-        if (streamParseStrictIDOrReply(c, c->argv[j], &ids[j - 3], 0, NULL) != C_OK) goto cleanup;
+-    }
+-
+     int acknowledged = 0;
+     for (int j = 3; j < c->argc; j++) {
++        streamID id;
+         unsigned char buf[sizeof(streamID)];
+-        streamEncodeID(buf, &ids[j - 3]);
++        if (streamParseStrictIDOrReply(c, c->argv[j], &id, 0, NULL) != C_OK) return;
++        streamEncodeID(buf, &id);
+ 
+         /* Lookup the ID in the group PEL: it will have a reference to the
+          * NACK structure that will have a reference to the consumer, so that
+@@ -2852,8 +2842,6 @@
+     }
+     if (acknowledged) signalModifiedKey(c, c->db, c->argv[1]);
+     addReplyLongLong(c, acknowledged);
+-cleanup:
+-    if (ids != static_ids) zfree(ids);
+ }
+ 
+ /* XPENDING <key> <group> [[IDLE <idle>] <start> <stop> <count> [<consumer>]]

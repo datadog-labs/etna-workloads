@@ -1,0 +1,1 @@
+repro.sh opens one RESP3 connection (HELLO 3, SUBSCRIBE, PUBLISH of a 128-byte payload to itself) with copy-avoid thresholds set to 1, and prints the raw reply stream (truncated). Clean: ':1' (PUBLISH reply) comes first, then the intact '>3 message wiretest payload' push. Buggy: the bare bulk payload is emitted first, then ':1', then a torn push header.

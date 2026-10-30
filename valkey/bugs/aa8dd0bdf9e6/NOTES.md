@@ -1,0 +1,1 @@
+repro.sh sends HTTL/HPTTL/HEXPIRETIME/HPEXPIRETIME/HPERSIST with a missing FIELDS keyword (e.g. 'HTTL myhash a 1 c'). Clean build replies 'ERR syntax error'; buggy build skips the keyword check and returns -2 or a result array instead.

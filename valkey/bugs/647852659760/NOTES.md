@@ -1,0 +1,1 @@
+repro.sh starts an AOF server with aof-use-rdb-preamble no, begins a slow bgrewriteaof, flips aof-use-rdb-preamble to yes mid-rewrite, then prints the AOF manifest. Clean: base file is appendonly.aof.2.base.aof (suffix cached at rewrite start). Buggy: appendonly.aof.2.base.rdb (suffix taken from the current config at completion).

@@ -1,0 +1,1 @@
+repro.sh: creates a group, delivers one entry, then XACK with a valid ID plus an invalid ID (error expected, nothing acked), then XACK with the valid ID. Clean returns 1; buggy returns 0 because the valid ID was already acked before the parse error (not all-or-nothing).

@@ -1,0 +1,53 @@
+--- a/src/sort.c
++++ b/src/sort.c
+@@ -316,7 +316,7 @@
+      * The other types (list, sorted set) will retain their native order
+      * even if no sort order is requested, so they remain stable across
+      * scripting and replication. */
+-    if (dontsort && sortval->type == OBJ_SET && (storekey || c->flag.script)) {
++    if (dontsort && (sortval->type == OBJ_SET || sortval->type == OBJ_LIST) && (storekey || c->flag.script)) {
+         /* Force ALPHA sorting */
+         dontsort = 0;
+         alpha = 1;
+@@ -355,7 +355,7 @@
+      * the number of elements to fetch, we also optimize to just load the
+      * range we are interested in and allocating a vector that is big enough
+      * for the selected range length. */
+-    if ((sortval->type == OBJ_ZSET || sortval->type == OBJ_LIST) && dontsort && (start != 0 || end != vectorlen - 1)) {
++    if (sortval->type == OBJ_ZSET && dontsort && (start != 0 || end != vectorlen - 1)) {
+         vectorlen = end - start + 1;
+     }
+ 
+@@ -363,31 +363,7 @@
+     vector = zmalloc(sizeof(serverSortObject) * vectorlen);
+     j = 0;
+ 
+-    if (sortval->type == OBJ_LIST && dontsort) {
+-        /* Special handling for a list, if 'dontsort' is true.
+-         * This makes sure we return elements in the list original
+-         * ordering, accordingly to DESC / ASC options.
+-         *
+-         * Note that in this case we also handle LIMIT here in a direct
+-         * way, just getting the required range, as an optimization. */
+-        if (end >= start) {
+-            listTypeIterator *li;
+-            listTypeEntry entry;
+-            li = listTypeInitIterator(sortval, desc ? (long)(listTypeLength(sortval) - start - 1) : start,
+-                                      desc ? LIST_HEAD : LIST_TAIL);
+-
+-            while (j < vectorlen && listTypeNext(li, &entry)) {
+-                vector[j].obj = listTypeGet(&entry);
+-                vector[j].u.score = 0;
+-                vector[j].u.cmpobj = NULL;
+-                j++;
+-            }
+-            listTypeReleaseIterator(li);
+-            /* Fix start/end: output code is not aware of this optimization. */
+-            end -= start;
+-            start = 0;
+-        }
+-    } else if (sortval->type == OBJ_LIST) {
++    if (sortval->type == OBJ_LIST) {
+         listTypeIterator *li = listTypeInitIterator(sortval, 0, LIST_TAIL);
+         listTypeEntry entry;
+         while (listTypeNext(li, &entry)) {
