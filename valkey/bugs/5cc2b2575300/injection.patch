@@ -1,0 +1,44 @@
+--- a/src/cluster_legacy.c
++++ b/src/cluster_legacy.c
+@@ -1190,7 +1190,6 @@
+     if (!myself) return;
+     deriveAnnouncedPorts(&myself->tcp_port, &myself->tls_port, &myself->cport,
+                          &myself->announce_client_tcp_port, &myself->announce_client_tls_port);
+-    clusterDoBeforeSleep(CLUSTER_TODO_SAVE_CONFIG);
+ }
+ 
+ /* We want to take myself->ip in sync with the cluster-announce-ip option.
+@@ -1221,7 +1220,6 @@
+         } else {
+             myself->ip[0] = '\0'; /* Force autodetection. */
+         }
+-        clusterDoBeforeSleep(CLUSTER_TODO_SAVE_CONFIG);
+     }
+ }
+ 
+--- a/src/config.c
++++ b/src/config.c
+@@ -2524,7 +2524,6 @@
+     listener->bindaddr_count = server.bindaddr_count;
+     listener->port = server.port;
+     listener->ct = connectionByType(CONN_TYPE_SOCKET);
+-    clusterUpdateMyselfAnnouncedPorts();
+     if (changeListener(listener) == C_ERR) {
+         *err = "Unable to listen on this port. Check server logs.";
+         return 0;
+@@ -2721,6 +2720,7 @@
+ static int updateClusterAnnouncedPort(const char **err) {
+     UNUSED(err);
+     clusterUpdateMyselfAnnouncedPorts();
++    clearCachedClusterSlotsResponse();
+     return 1;
+ }
+ 
+@@ -2779,7 +2779,6 @@
+     listener->bindaddr_count = server.bindaddr_count;
+     listener->port = server.tls_port;
+     listener->ct = connectionByType(CONN_TYPE_TLS);
+-    clusterUpdateMyselfAnnouncedPorts();
+     if (changeListener(listener) == C_ERR) {
+         *err = "Unable to listen on this port. Check server logs.";
+         return 0;

@@ -1,0 +1,1 @@
+Reproducer: single-node cluster, sets DEBUG CLUSTER-PUBLISH-MESSAGE-LIMIT 32 and publishes/spublishes a 32-byte message. Clean rejects with 'Publish message is too large for the cluster bus'; buggy lacks the debug command (unknown subcommand) and accepts the publish (returns 0).

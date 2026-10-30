@@ -1,0 +1,1 @@
+Reproducer: SINTER/SINTERSTORE/SINTERCARD with a missing key before a wrong-type key. Clean returns WRONGTYPE; buggy returns an empty reply early because it returns on the first missing key without type-checking the rest.

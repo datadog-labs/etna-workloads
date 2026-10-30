@@ -1,0 +1,24 @@
+--- a/src/cluster_legacy.c
++++ b/src/cluster_legacy.c
+@@ -5835,21 +5835,6 @@
+         clusterDelNode(node);
+         return 1;
+     }
+-    if (nodeInNormalState(node) && node->link != NULL && node->inbound_link == NULL &&
+-        now - node->inbound_link_freed_time > getHandshakeTimeout() &&
+-        now - node->meet_sent > getHandshakeTimeout() &&
+-        nodeSupportsMultiMeet(node)) {
+-        /* Node has an outbound link, but no inbound link for more than the handshake timeout.
+-         * This probably means this node does not know us yet, whereas we know it.
+-         * So we send it a MEET packet to do a handshake with it and correct the inconsistent cluster view.
+-         * We make sure to not re-send a MEET packet more than once every handshake timeout period, so as to
+-         * leave the other node time to complete the handshake. */
+-        node->flags |= CLUSTER_NODE_MEET;
+-        serverLog(LL_NOTICE, "Sending MEET packet to node %.40s (%s) because there is no inbound link for it",
+-                  node->name, node->human_nodename);
+-        clusterSendPing(node->link, CLUSTERMSG_TYPE_MEET);
+-    }
+-
+     if (node->link == NULL) {
+         mstime_t reconnect_interval = server.cluster_node_timeout / 2;
+         /* Skip this outbound connection attempt when all these conditions are true:

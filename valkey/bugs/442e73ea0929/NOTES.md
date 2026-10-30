@@ -1,0 +1,1 @@
+repro.sh loads library test1 (2 functions), then loads it again without REPLACE (fails with 'already exists'), then runs FUNCTION STATS. Clean: libraries_count 1, functions_count 2. Buggy: 2 and 4, because the failure path no longer clears old_li and the error cleanup double-counts the old library's stats.

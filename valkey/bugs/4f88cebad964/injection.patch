@@ -1,0 +1,76 @@
+--- a/src/t_hash.c
++++ b/src/t_hash.c
+@@ -947,35 +947,6 @@
+     notifyKeyspaceEvent(NOTIFY_HASH, "hincrby", c->argv[1], c->db->id);
+     server.dirty++;
+     addReplyLongLong(c, value);
+-
+-    /* Always replicate HINCRBY as an HSET or HSETEX command with the final value
+-     * when hash has volatile item, since we do not know what will the field state be when the command reach the replica.
+-     * HSET is used to override the resulting value and HSETEX is used in order to maintain the expiration time on the target. */
+-    if (has_volatile_fields) {
+-        char buf[MAX_LONG_DOUBLE_CHARS];
+-        int len = ld2string(buf, sizeof(buf), value, LD_STR_HUMAN);
+-        robj *newobj = createRawStringObject(buf, len);
+-        if (expiry == EXPIRY_NONE) {
+-            rewriteClientCommandArgument(c, 0, shared.hset);
+-            rewriteClientCommandArgument(c, 3, newobj);
+-            decrRefCount(newobj);
+-        } else {
+-            int new_argc = 8; /* HSETEX(1) + key(2) + PXAT(3) + unix-time-milliseconds(4) + FIELDS(5) + numfields(6) + field(7) + value(8) */
+-            robj **new_argv = zmalloc(sizeof(robj *) * (8));
+-            robj *milliseconds_obj = createStringObjectFromLongLong(expiry);
+-            new_argv[0] = shared.hsetex;
+-            new_argv[1] = c->argv[1];
+-            incrRefCount(c->argv[1]);
+-            new_argv[2] = shared.pxat;
+-            new_argv[3] = milliseconds_obj;
+-            new_argv[4] = shared.fields;
+-            new_argv[5] = shared.integers[1];
+-            new_argv[6] = c->argv[2];
+-            incrRefCount(c->argv[2]);
+-            new_argv[7] = newobj;
+-            replaceClientCommandVector(c, new_argc, new_argv);
+-        }
+-    }
+ }
+ 
+ void hincrbyfloatCommand(client *c) {
+@@ -1032,32 +1003,14 @@
+     server.dirty++;
+     addReplyBulkCBuffer(c, buf, len);
+ 
+-    /* Always replicate HINCRBYFLOAT as an HSET or HSETEX command with the final value
++    /* Always replicate HINCRBYFLOAT as an HSET command with the final value
+      * in order to make sure that differences in float precision or formatting
+-     * will not create differences in replicas or after an AOF restart.
+-     * HSETEX is used in order to maintain the expiration time on the target. */
++     * will not create differences in replicas or after an AOF restart. */
+     robj *newobj;
+     newobj = createRawStringObject(buf, len);
+-    if (expiry == EXPIRY_NONE) {
+-        rewriteClientCommandArgument(c, 0, shared.hset);
+-        rewriteClientCommandArgument(c, 3, newobj);
+-        decrRefCount(newobj);
+-    } else {
+-        int new_argc = 8; /* HSETEX(1) + key(2) + PXAT(3) + unix-time-milliseconds(4) + FIELDS(5) + numfields(6) + field(7) + value(8) */
+-        robj **new_argv = zmalloc(sizeof(robj *) * (8));
+-        robj *milliseconds_obj = createStringObjectFromLongLong(expiry);
+-        new_argv[0] = shared.hsetex;
+-        new_argv[1] = c->argv[1];
+-        incrRefCount(c->argv[1]);
+-        new_argv[2] = shared.pxat;
+-        new_argv[3] = milliseconds_obj;
+-        new_argv[4] = shared.fields;
+-        new_argv[5] = shared.integers[1];
+-        new_argv[6] = c->argv[2];
+-        incrRefCount(c->argv[2]);
+-        new_argv[7] = newobj;
+-        replaceClientCommandVector(c, new_argc, new_argv);
+-    }
++    rewriteClientCommandArgument(c, 0, shared.hset);
++    rewriteClientCommandArgument(c, 3, newobj);
++    decrRefCount(newobj);
+ }
+ 
+ static void addHashFieldToReply(client *c, robj *o, sds field) {

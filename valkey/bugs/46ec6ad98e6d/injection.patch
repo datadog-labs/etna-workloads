@@ -1,0 +1,73 @@
+--- a/src/aof.c
++++ b/src/aof.c
+@@ -780,15 +780,11 @@
+     /* Only open new INCR AOF when AOF enabled. */
+     if (server.aof_state == AOF_OFF) return C_OK;
+ 
++    /* Dup a temp aof_manifest to modify. */
++    temp_am = aofManifestDup(server.aof_manifest);
++
+     /* Open new AOF. */
+-    if (server.aof_state == AOF_WAIT_REWRITE) {
+-        /* Use a temporary INCR AOF file to accumulate data during AOF_WAIT_REWRITE. */
+-        new_aof_name = getTempIncrAofName();
+-    } else {
+-        /* Dup a temp aof_manifest to modify. */
+-        temp_am = aofManifestDup(server.aof_manifest);
+-        new_aof_name = sdsdup(getNewIncrAofName(temp_am));
+-    }
++    new_aof_name = sdsdup(getNewIncrAofName(temp_am));
+     sds new_aof_filepath = makePath(server.aof_dirname, new_aof_name);
+     newfd = open(new_aof_filepath, O_WRONLY | O_TRUNC | O_CREAT, 0666);
+     sdsfree(new_aof_filepath);
+@@ -2686,37 +2682,6 @@
+         latencyTraceIfNeeded(aof, aof_rename, latency);
+         serverLog(LL_NOTICE, "Successfully renamed the temporary AOF base file %s into %s", tmpfile, new_base_filename);
+ 
+-        /* Rename the temporary incr aof file to 'new_incr_filename'. */
+-        if (server.aof_state == AOF_WAIT_REWRITE) {
+-            /* Get temporary incr aof name. */
+-            sds temp_incr_aof_name = getTempIncrAofName();
+-            sds temp_incr_filepath = makePath(server.aof_dirname, temp_incr_aof_name);
+-            /* Get next new incr aof name. */
+-            sds new_incr_filename = getNewIncrAofName(temp_am);
+-            new_incr_filepath = makePath(server.aof_dirname, new_incr_filename);
+-            latencyStartMonitor(latency);
+-            if (rename(temp_incr_filepath, new_incr_filepath) == -1) {
+-                serverLog(LL_WARNING, "Error trying to rename the temporary AOF incr file %s into %s: %s",
+-                          temp_incr_filepath, new_incr_filepath, strerror(errno));
+-                bg_unlink(new_base_filepath);
+-                sdsfree(new_base_filepath);
+-                aofManifestFree(temp_am);
+-                sdsfree(temp_incr_filepath);
+-                sdsfree(new_incr_filepath);
+-                sdsfree(temp_incr_aof_name);
+-                server.aof_lastbgrewrite_status = C_ERR;
+-                server.stat_aofrw_consecutive_failures++;
+-                goto cleanup;
+-            }
+-            latencyEndMonitor(latency);
+-            latencyAddSampleIfNeeded("aof-rename", latency);
+-            latencyTraceIfNeeded(aof, aof_rename, latency);
+-            serverLog(LL_NOTICE, "Successfully renamed the temporary AOF incr file %s into %s", temp_incr_aof_name,
+-                      new_incr_filename);
+-            sdsfree(temp_incr_filepath);
+-            sdsfree(temp_incr_aof_name);
+-        }
+-
+         /* Change the AOF file type in 'incr_aof_list' from AOF_FILE_TYPE_INCR
+          * to AOF_FILE_TYPE_HIST, and move them to the 'history_aof_list'. */
+         markRewrittenIncrAofAsHistory(temp_am);
+@@ -2785,12 +2750,6 @@
+ 
+ cleanup:
+     aofRemoveTempFile(server.child_pid, 0);
+-    /* Clear AOF buffer and delete temp incr aof for next rewrite. */
+-    if (server.aof_state == AOF_WAIT_REWRITE) {
+-        sdsfree(server.aof_buf);
+-        server.aof_buf = sdsempty();
+-        aofDelTempIncrAofFile();
+-    }
+     server.aof_rewrite_time_last = time(NULL) - server.aof_rewrite_time_start;
+     server.aof_rewrite_time_start = -1;
+     /* Schedule a new rewrite if we are waiting for it to switch the AOF ON. */

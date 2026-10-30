@@ -1,0 +1,46 @@
+--- a/src/replication.c
++++ b/src/replication.c
+@@ -5038,9 +5038,7 @@
+  * that can be unblocked since we received enough ACKs from replicas. */
+ void processClientsWaitingReplicas(void) {
+     long long last_offset = 0;
+-    long long last_aof_offset = 0;
+     int last_numreplicas = 0;
+-    int last_aof_numreplicas = 0;
+ 
+     listIter li;
+     listNode *ln;
+@@ -5064,12 +5062,12 @@
+          * may be unblocked without calling replicationCountAcksByOffset()
+          * or calling replicationCountAOFAcksByOffset()
+          * if the requested offset / replicas were equal or less. */
+-        if (!is_wait_aof && last_offset && last_offset >= c->bstate->reploffset &&
++        if (last_offset && last_offset >= c->bstate->reploffset &&
+             last_numreplicas >= c->bstate->numreplicas) {
+-            numreplicas = last_numreplicas;
+-        } else if (is_wait_aof && last_aof_offset && last_aof_offset >= c->bstate->reploffset &&
+-                   last_aof_numreplicas >= c->bstate->numreplicas) {
+-            numreplicas = last_aof_numreplicas;
++            /* Reply before unblocking, because unblock client calls reqresAppendResponse */
++            addReplyLongLong(c, last_numreplicas);
++            unblockClient(c, 1);
++            continue;
+         } else {
+             numreplicas = is_wait_aof ? replicationCountAOFAcksByOffset(c->bstate->reploffset)
+                                       : replicationCountAcksByOffset(c->bstate->reploffset);
+@@ -5077,13 +5075,8 @@
+             /* Check if the number of replicas is satisfied. */
+             if (numreplicas < c->bstate->numreplicas) continue;
+ 
+-            if (is_wait_aof) {
+-                last_aof_offset = c->bstate->reploffset;
+-                last_aof_numreplicas = numreplicas;
+-            } else {
+-                last_offset = c->bstate->reploffset;
+-                last_numreplicas = numreplicas;
+-            }
++            last_offset = c->bstate->reploffset;
++            last_numreplicas = numreplicas;
+         }
+ 
+         /* Check if the local constraint of WAITAOF is served */

@@ -1,0 +1,25 @@
+--- a/src/tracking.c
++++ b/src/tracking.c
+@@ -404,15 +404,13 @@
+             continue;
+         }
+ 
+-        /* If target is current client and it's executing a command, we need schedule key invalidation.
+-         * As the invalidation messages may be interleaved with command
+-         * response and should after command response. */
+-        if (target == server.current_client && (server.current_client->flag.executing_command)) {
+-            incrRefCount(keyobj);
+-            listAddNodeTail(server.tracking_pending_keys, keyobj);
+-        } else {
+-            sendTrackingMessage(target, (char *)keyobj->ptr, sdslen(keyobj->ptr), 0);
+-        }
++        /* Send the invalidation right away, bypassing the push message
++         * deferral, as there is no pending keys scheduling for the
++         * current client. */
++        client *executing_client = server.executing_client;
++        server.executing_client = NULL;
++        sendTrackingMessage(target, (char *)keyobj->ptr, sdslen(keyobj->ptr), 0);
++        server.executing_client = executing_client;
+     }
+     raxStop(&ri);
+ 

@@ -1,0 +1,25 @@
+--- a/src/t_stream.c
++++ b/src/t_stream.c
+@@ -452,7 +452,7 @@
+      * or return an error. Automatically generated IDs might
+      * overflow (and wrap-around) when incrementing the sequence
+        part. */
+-    if (streamCompareID(&id, &s->last_id) <= 0) {
++    if (use_id && streamCompareID(&id, &s->last_id) <= 0) {
+         errno = EDOM;
+         return C_ERR;
+     }
+@@ -2007,13 +2007,6 @@
+     if ((o = streamTypeLookupWriteOrCreate(c, c->argv[1], parsed_args.no_mkstream)) == NULL) return;
+     s = o->ptr;
+ 
+-    /* Return ASAP if the stream has reached the last possible ID */
+-    if (s->last_id.ms == UINT64_MAX && s->last_id.seq == UINT64_MAX) {
+-        addReplyError(c, "The stream has exhausted the last possible ID, "
+-                         "unable to add more items");
+-        return;
+-    }
+-
+     /* Append using the low level function and return the ID. */
+     errno = 0;
+     streamID id;

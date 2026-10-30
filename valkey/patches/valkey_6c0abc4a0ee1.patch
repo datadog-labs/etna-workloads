@@ -1,0 +1,24 @@
+--- a/src/sort.c
++++ b/src/sort.c
+@@ -310,13 +310,15 @@
+     else
+         sortval = createQuicklistObject(server.list_max_listpack_size, server.list_compress_depth);
+ 
+-    /* When sorting a set with no sort specified, we must sort the output
+-     * so the result is consistent across scripting and replication.
++    /* For the STORE option, or when SORT is called from a Lua script,
++     * we want to force a specific ordering even when no explicit ordering
++     * was asked (SORT BY nosort). This guarantees that replication / AOF
++     * is deterministic.
+      *
+-     * The other types (list, sorted set) will retain their native order
+-     * even if no sort order is requested, so they remain stable across
+-     * scripting and replication. */
+-    if (dontsort && sortval->type == OBJ_SET && (storekey || c->flag.script)) {
++     * However in the case 'dontsort' is true, but the type to sort is a
++     * sorted set, we don't need to do anything as ordering is guaranteed
++     * in this special case. */
++    if (dontsort && sortval->type != OBJ_ZSET && (storekey || c->flag.script)) {
+         /* Force ALPHA sorting */
+         dontsort = 0;
+         alpha = 1;

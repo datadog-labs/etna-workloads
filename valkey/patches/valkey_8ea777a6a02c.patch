@@ -1,0 +1,64 @@
+--- a/src/rdb.c
++++ b/src/rdb.c
+@@ -1915,7 +1915,6 @@
+     } else if (rdbtype == RDB_TYPE_LIST) {
+         /* Read list value */
+         if ((len = rdbLoadLen(rdb, NULL)) == RDB_LENERR) return NULL;
+-        if (len == 0) goto emptykey;
+ 
+         o = createQuicklistObject(server.list_max_listpack_size, server.list_compress_depth);
+ 
+@@ -1935,7 +1934,6 @@
+     } else if (rdbtype == RDB_TYPE_SET) {
+         /* Read Set value */
+         if ((len = rdbLoadLen(rdb, NULL)) == RDB_LENERR) return NULL;
+-        if (len == 0) goto emptykey;
+ 
+         /* Use a regular set when there are too many entries. */
+         size_t max_entries = server.set_max_intset_entries;
+@@ -2033,7 +2031,6 @@
+         zset *zs;
+ 
+         if ((zsetlen = rdbLoadLen(rdb, NULL)) == RDB_LENERR) return NULL;
+-        if (zsetlen == 0) goto emptykey;
+ 
+         o = createZsetObject();
+         zs = o->ptr;
+@@ -2101,7 +2098,6 @@
+ 
+         len = rdbLoadLen(rdb, NULL);
+         if (len == RDB_LENERR) return NULL;
+-        if (len == 0) goto emptykey;
+ 
+         o = createHashObject();
+ 
+@@ -2232,7 +2228,6 @@
+         serverAssert(len == 0);
+     } else if (rdbtype == RDB_TYPE_LIST_QUICKLIST || rdbtype == RDB_TYPE_LIST_QUICKLIST_2) {
+         if ((len = rdbLoadLen(rdb, NULL)) == RDB_LENERR) return NULL;
+-        if (len == 0) goto emptykey;
+ 
+         o = createQuicklistObject(server.list_max_listpack_size, server.list_compress_depth);
+         uint64_t container = QUICKLIST_NODE_CONTAINER_PACKED;
+@@ -2458,10 +2453,6 @@
+             o->type = OBJ_ZSET;
+             o->ptr = lp;
+             o->encoding = OBJ_ENCODING_LISTPACK;
+-            if (zsetLength(o) == 0) {
+-                decrRefCount(o);
+-                goto emptykey;
+-            }
+ 
+             if (zsetLength(o) > server.zset_max_listpack_entries)
+                 zsetConvert(o, OBJ_ENCODING_SKIPLIST);
+@@ -2513,10 +2504,6 @@
+             o->ptr = lp;
+             o->type = OBJ_HASH;
+             o->encoding = OBJ_ENCODING_LISTPACK;
+-            if (hashTypeLength(o) == 0) {
+-                decrRefCount(o);
+-                goto emptykey;
+-            }
+ 
+             if (hashTypeLength(o) > server.hash_max_listpack_entries)
+                 hashTypeConvert(o, OBJ_ENCODING_HASHTABLE);

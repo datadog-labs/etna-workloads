@@ -1,0 +1,18 @@
+--- a/src/t_zset.c
++++ b/src/t_zset.c
+@@ -3955,7 +3955,14 @@
+     }
+ 
+     long count = -1; /* -1 for plain single pop. */
+-    if (c->argc == 3 && getPositiveLongFromObjectOrReply(c, c->argv[2], &count, NULL) != C_OK) return;
++    if (c->argc == 3) {
++        if (getLongFromObjectOrReply(c, c->argv[2], &count, NULL) != C_OK) return;
++
++        if (count <= 0) {
++            addReply(c, shared.emptyarray);
++            return;
++        }
++    }
+ 
+     /* Respond with a single (flat) array in RESP2 or if count is -1
+      * (returning a single element). In RESP3, when count > 0 use nested array. */

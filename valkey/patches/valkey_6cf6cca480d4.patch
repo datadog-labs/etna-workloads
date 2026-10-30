@@ -1,0 +1,64 @@
+--- a/src/cluster.c
++++ b/src/cluster.c
+@@ -245,9 +245,6 @@
+     } else if (ttl < 0) {
+         addReplyError(c, "Invalid TTL value, must be >= 0");
+         return;
+-    } else if (!absttl && ttl > LLONG_MAX - commandTimeSnapshot()) {
+-        addReplyErrorExpireTime(c);
+-        return;
+     }
+ 
+     /* Verify RDB version and data checksum. */
+--- a/src/module.c
++++ b/src/module.c
+@@ -4350,9 +4350,7 @@
+     if (!(key->mode & VALKEYMODULE_WRITE) || key->value == NULL || (expire < 0 && expire != VALKEYMODULE_NO_EXPIRE))
+         return VALKEYMODULE_ERR;
+     if (expire != VALKEYMODULE_NO_EXPIRE) {
+-        mstime_t basetime = commandTimeSnapshot();
+-        if (expire > LLONG_MAX - basetime) return VALKEYMODULE_ERR;
+-        expire += basetime;
++        expire += commandTimeSnapshot();
+         key->value = setExpire(key->ctx->client, key->db, key->key, expire);
+     } else {
+         removeExpire(key->db, key->key);
+--- a/src/rdb.c
++++ b/src/rdb.c
+@@ -3461,10 +3461,7 @@
+                 sdsfree(key);
+                 goto eoferr;
+             }
+-        } else if (expiretime < -1 ||
+-                   (iAmPrimary() && !(rdbflags & RDBFLAGS_AOF_PREAMBLE) && expiretime != -1 && expiretime < now)) {
+-            /* A negative expire is dropped on every node, not just a primary,
+-             * since active expire asserts that expire times are non-negative. */
++        } else if (iAmPrimary() && !(rdbflags & RDBFLAGS_AOF_PREAMBLE) && expiretime != -1 && expiretime < now) {
+             if (rdbflags & RDBFLAGS_FEED_REPL) {
+                 /* Caller should have created replication backlog,
+                  * and now this path only works when rebooting,
+--- a/src/t_string.c
++++ b/src/t_string.c
+@@ -213,15 +213,13 @@
+     if (unit == UNIT_SECONDS) *milliseconds *= 1000;
+ 
+     if ((flags & ARGS_PX) || (flags & ARGS_EX)) {
+-        /* Relative expire: check for overflow *before* adding the base time.
+-         * Signed overflow is undefined behavior in C, so we can't rely on the
+-         * wrapped result coming out negative. */
+-        mstime_t basetime = commandTimeSnapshot();
+-        if (*milliseconds > LLONG_MAX - basetime) {
+-            addReplyErrorExpireTime(c);
+-            return C_ERR;
+-        }
+-        *milliseconds += basetime;
++        *milliseconds += commandTimeSnapshot();
++    }
++
++    if (*milliseconds <= 0) {
++        /* Overflow detected. */
++        addReplyErrorExpireTime(c);
++        return C_ERR;
+     }
+ 
+     return C_OK;

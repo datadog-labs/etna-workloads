@@ -1,0 +1,27 @@
+--- a/src/cluster_migrateslots.c
++++ b/src/cluster_migrateslots.c
+@@ -877,6 +877,9 @@
+     /* 4) Pong all the other nodes so that they can update the state accordingly
+      *    and detect that we have taken over the slots. */
+     clusterDoBeforeSleep(CLUSTER_TODO_BROADCAST_ALL);
++
++    /* 5) Mark all slots as stable in the kvstore (for SCAN/KEYS/RANDOMKEY) */
++    setSlotImportingStateInAllDbs(job->slot_ranges, 0);
+ }
+ 
+ bool clusterIsAnySlotImporting(void) {
+--- a/src/kvstore.c
++++ b/src/kvstore.c
+@@ -949,10 +949,10 @@
+         return;
+     }
+ 
++    hashtableDelete(kvs->importing, (void *)(intptr_t)didx);
+     /* Once we mark a hashtable as not importing, we need to begin tracking in
+      * the kvstore metadata */
+-    if (hashtableDelete(kvs->importing, (void *)(intptr_t)didx) && ht && hashtableSize(ht) != 0) {
++    if (ht && hashtableSize(ht) != 0) {
+         cumulativeKeyCountAdd(kvs, didx, hashtableSize(ht));
+-        kvs->importing_key_count -= hashtableSize(ht);
+     }
+ }
