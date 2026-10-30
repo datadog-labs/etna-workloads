@@ -1,0 +1,56 @@
+--- a/src/aof.c
++++ b/src/aof.c
+@@ -121,16 +121,14 @@
+  *
+  * When update this format, make sure to update valkey-check-aof as well. */
+ sds aofInfoFormat(sds buf, aofInfo *ai) {
+-    sds filename_repr = NULL;
+-
+-    if (sdsneedsrepr(ai->file_name)) filename_repr = sdscatrepr(sdsempty(), ai->file_name, sdslen(ai->file_name));
+-
+-    sds ret = sdscatprintf(buf, "%s %s %s %lld %s %c\n", AOF_MANIFEST_KEY_FILE_NAME,
+-                           filename_repr ? filename_repr : ai->file_name, AOF_MANIFEST_KEY_FILE_SEQ, ai->file_seq,
+-                           AOF_MANIFEST_KEY_FILE_TYPE, ai->file_type);
+-    sdsfree(filename_repr);
+-
+-    return ret;
++    if (includeSpace(ai->file_name)) {
++        /* If file_name contains spaces we wrap it in quotes. */
++        return sdscatprintf(buf, "%s \"%s\" %s %lld %s %c\n", AOF_MANIFEST_KEY_FILE_NAME, ai->file_name,
++                            AOF_MANIFEST_KEY_FILE_SEQ, ai->file_seq, AOF_MANIFEST_KEY_FILE_TYPE, ai->file_type);
++    } else {
++        return sdscatprintf(buf, "%s %s %s %lld %s %c\n", AOF_MANIFEST_KEY_FILE_NAME, ai->file_name,
++                            AOF_MANIFEST_KEY_FILE_SEQ, ai->file_seq, AOF_MANIFEST_KEY_FILE_TYPE, ai->file_type);
++    }
+ }
+ 
+ /* Method to free AOF list elements. */
+--- a/src/util.c
++++ b/src/util.c
+@@ -1321,6 +1321,16 @@
+     return sdscatfmt(sdsempty(), "%s/%s", path, filename);
+ }
+ 
++int includeSpace(char *s) {
++    if (s == NULL) return 0;
++    for (size_t i = 0; i < strlen(s); i++) {
++        if (isspace(s[i])) {
++            return 1;
++        }
++    }
++    return 0;
++}
++
+ /* Given the filename, sync the corresponding directory.
+  *
+  * Usually a portable and safe pattern to overwrite existing files would be like:
+--- a/src/util.h
++++ b/src/util.h
+@@ -102,6 +102,7 @@
+ int dirRemove(char *dname);
+ int fileExist(char *filename);
+ sds makePath(char *path, char *filename);
++int includeSpace(char *s);
+ int fsyncFileDir(const char *filename);
+ int reclaimFilePageCache(int fd, size_t offset, size_t length);
+ char *fgets_async_signal_safe(char *dest, int buff_size, int fd);

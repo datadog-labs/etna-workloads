@@ -1,0 +1,2 @@
+Reproducer: primary + replica; one client runs `BLPOP key 0.1` (times out), then the replica is SIGSTOPped, a write is made on the primary, and the same client sends `SHUTDOWN`, which blocks waiting for the replica. The replica is then resumed.
+Clean: the primary stays blocked (blocked_clients:1) and shuts down cleanly. Buggy: the stale BLPOP timeout is reused for the shutdown block, so the primary panics (BUG REPORT in log, process aborts); output differs by blocked_clients line and CRASH.

@@ -1,0 +1,153 @@
+--- a/src/cluster_migrateslots.c
++++ b/src/cluster_migrateslots.c
+@@ -844,7 +844,6 @@
+         job->client->qb_pos = sdslen(job->client->querybuf);
+     }
+     job->client->repl_data->read_reploff = sdslen(job->client->querybuf);
+-    job->client->repl_data->repl_applied_dbid = job->client->db->id;
+ 
+     return job;
+ }
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -3965,15 +3965,7 @@
+     if (isReplicatedClient(c)) {
+         long long applied = c->repl_data->reploff - prev_offset;
+         if (applied) {
+-            char *stream = c->querybuf + c->repl_data->repl_applied;
+-            if (c->slot_migration_job) {
+-                /* What was applied ends with a command (or EXEC), so the db
+-                 * of the client is the one the proxied stream ends in. */
+-                replicationFeedStreamFromSlotImport(c->repl_data->repl_applied_dbid, c->db->id, stream, applied);
+-                c->repl_data->repl_applied_dbid = c->db->id;
+-            } else {
+-                replicationFeedStreamFromPrimaryStream(stream, applied);
+-            }
++            replicationFeedStreamFromPrimaryStream(c->querybuf + c->repl_data->repl_applied, applied);
+             c->repl_data->repl_applied += applied;
+         }
+     }
+--- a/src/replication.c
++++ b/src/replication.c
+@@ -526,24 +526,6 @@
+     }
+ }
+ 
+-/* Send a SELECT command to every replica, unless they already have this db
+- * selected. */
+-static void replicationFeedSelectDb(int dictid) {
+-    if (server.replicas_eldb == dictid) return;
+-
+-    robj *selectcmd = generateSelectCommand(dictid);
+-    feedReplicationBufferWithObject(selectcmd);
+-
+-    /* Although the SELECT command is not associated with any slot,
+-     * its per-slot network-bytes-out accumulation is made by the above function call.
+-     * To cancel-out this accumulation, below adjustment is made. */
+-    clusterSlotStatsDecrNetworkBytesOutForReplication(sdslen(selectcmd->ptr));
+-
+-    decrRefCount(selectcmd);
+-
+-    server.replicas_eldb = dictid;
+-}
+-
+ /* Propagate write commands to replication stream.
+  *
+  * This function is used if the instance is a primary: we use the commands
+@@ -582,7 +564,19 @@
+     prepareReplicasToWrite();
+ 
+     /* Send SELECT command to every replica if needed. */
+-    if (dictid != -1) replicationFeedSelectDb(dictid);
++    if (dictid != -1 && server.replicas_eldb != dictid) {
++        robj *selectcmd = generateSelectCommand(dictid);
++        feedReplicationBufferWithObject(selectcmd);
++
++        /* Although the SELECT command is not associated with any slot,
++         * its per-slot network-bytes-out accumulation is made by the above function call.
++         * To cancel-out this accumulation, below adjustment is made. */
++        clusterSlotStatsDecrNetworkBytesOutForReplication(sdslen(selectcmd->ptr));
++
++        decrRefCount(selectcmd);
++
++        server.replicas_eldb = dictid;
++    }
+ 
+     /* Write the command to the replication buffer if any. */
+     char aux[LONG_STR_SIZE + 3];
+@@ -672,29 +666,6 @@
+     }
+ }
+ 
+-/* Proxy what a slot import client applied to our replicas. The proxied
+- * stream assumes the replicas are in 'start_dbid' (the db the import client
+- * was in before applying it), and leaves them in 'end_dbid'. As a primary we
+- * also feed our replicas with our own commands (e.g. our clients' writes and
+- * our evictions), so make sure the replicas are in the db the proxied stream
+- * expects, and keep track of the db it leaves them in. */
+-void replicationFeedStreamFromSlotImport(int start_dbid, int end_dbid, char *buf, size_t buflen) {
+-    /* Only primaries import slots: when we are demoted, the import client is
+-     * unlinked from its job (see clusterUpdateSlotImportsOnOwnershipChange()). */
+-    serverAssert(server.primary_host == NULL);
+-
+-    /* There must be replication backlog if having attached replicas. */
+-    if (listLength(server.replicas)) serverAssert(server.repl_backlog != NULL);
+-    if (server.repl_backlog) {
+-        /* Must install write handler for all replicas first before feeding
+-         * replication stream. */
+-        prepareReplicasToWrite();
+-        replicationFeedSelectDb(start_dbid);
+-        feedReplicationBuffer(buf, buflen);
+-        server.replicas_eldb = end_dbid;
+-    }
+-}
+-
+ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv, int argc) {
+     /* Fast path to return if the monitors list is empty or the server is in loading. */
+     if (monitors == NULL || listLength(monitors) == 0 || server.loading) return;
+--- a/src/server.c
++++ b/src/server.c
+@@ -3606,22 +3606,12 @@
+ 
+     if (!shouldPropagate(target)) return;
+ 
+-    /* Don't propagate what executing a command of a slot import client produces,
+-     * the stream of that client will be proxied in commandProcessed().
+-     *
+-     * Only suppress it while a command is executing: call() sets executing_client
+-     * for the whole call tree. Anything propagated while the import client is the
+-     * current client but no command is executing (e.g. the evictions done by
+-     * performEvictions() in processCommand()) is a decision of this node that is
+-     * not part of the proxied stream, so it must reach our replicas like any other
+-     * eviction. Note that c->flag.executing_command can't be used instead, it is
+-     * cleared before call() propagates the command.
++    /* Don't propagate commands on slot migration clients, these will be proxied
++     * in replicationFeedStreamFromPrimaryStream().
+      *
+      * However, if we need to propagate to AOF, we should still do that. */
+     bool propagate_aof = (target & PROPAGATE_AOF) && server.aof_state != AOF_OFF;
+-    client *cc = server.current_client;
+-    if (cc != NULL && cc->slot_migration_job && isImportSlotMigrationJob(cc->slot_migration_job) &&
+-        server.executing_client != NULL) {
++    if (server.current_client != NULL && server.current_client->slot_migration_job) {
+         if (!propagate_aof) return;
+         /* Disable propagation to replication (just do the AOF) */
+         target &= ~PROPAGATE_REPL;
+--- a/src/server.h
++++ b/src/server.h
+@@ -1185,7 +1185,6 @@
+     long long read_reploff;              /* Read replication offset if this is a primary. */
+     long long reploff;                   /* Applied replication offset if this is a primary. */
+     long long repl_applied;              /* Applied replication data count in querybuf, if this is a replica. */
+-    int repl_applied_dbid;               /* DB selected at repl_applied in the stream, if this is a slot import. */
+     long long repl_ack_off;              /* Replication ack offset, if this is a replica. */
+     long long repl_aof_off;              /* Replication AOF fsync ack offset, if this is a replica. */
+     long long repl_ack_time;             /* Replication ack time, if this is a replica. */
+@@ -3087,7 +3086,6 @@
+ int prepareReplicasToWrite(void);
+ void replicationFeedReplicas(int dictid, robj **argv, int argc);
+ void replicationFeedStreamFromPrimaryStream(char *buf, size_t buflen);
+-void replicationFeedStreamFromSlotImport(int start_dbid, int end_dbid, char *buf, size_t buflen);
+ void resetReplicationBuffer(void);
+ void feedReplicationBuffer(char *buf, size_t len);
+ void freeReplicaReferencedReplBuffer(client *replica);

@@ -1,0 +1,1 @@
+repro.sh starts a server with rename-command flushdb badger, runs CONFIG REWRITE, restarts, and calls flushdb. Clean: still 'unknown command'. Buggy: rewrite turns the rename-command line into a comment, so flushdb works (OK).

@@ -1,0 +1,56 @@
+--- a/src/aof.c
++++ b/src/aof.c
+@@ -424,7 +424,7 @@
+  *  appendonly.aof.1.base.aof  (server.aof_use_rdb_preamble is no)
+  *  appendonly.aof.1.base.rdb  (server.aof_use_rdb_preamble is yes)
+  */
+-sds getNewBaseFileNameAndMarkPreAsHistory(aofManifest *am, int aof_use_rdb_preamble) {
++sds getNewBaseFileNameAndMarkPreAsHistory(aofManifest *am) {
+     serverAssert(am != NULL);
+     if (am->base_aof_info) {
+         serverAssert(am->base_aof_info->file_type == AOF_FILE_TYPE_BASE);
+@@ -432,7 +432,7 @@
+         listAddNodeHead(am->history_aof_list, am->base_aof_info);
+     }
+ 
+-    char *format_suffix = aof_use_rdb_preamble ? RDB_FORMAT_SUFFIX : AOF_FORMAT_SUFFIX;
++    char *format_suffix = server.aof_use_rdb_preamble ? RDB_FORMAT_SUFFIX : AOF_FORMAT_SUFFIX;
+ 
+     aofInfo *ai = aofInfoCreate();
+     ai->file_name = sdscatprintf(sdsempty(), "%s.%lld%s%s", server.aof_filename, ++am->curr_base_file_seq,
+@@ -713,7 +713,7 @@
+     /* If we start with an empty dataset, we will force create a BASE file. */
+     size_t incr_aof_len = listLength(server.aof_manifest->incr_aof_list);
+     if (!server.aof_manifest->base_aof_info && !incr_aof_len) {
+-        sds base_name = getNewBaseFileNameAndMarkPreAsHistory(server.aof_manifest, server.aof_use_rdb_preamble);
++        sds base_name = getNewBaseFileNameAndMarkPreAsHistory(server.aof_manifest);
+         sds base_filepath = makePath(server.aof_dirname, base_name);
+         if (rewriteAppendOnlyFile(base_filepath) != C_OK) {
+             exit(1);
+@@ -2529,7 +2529,6 @@
+         serverLog(LL_NOTICE, "Background append only file rewriting started by pid %ld", (long)childpid);
+         server.aof_rewrite_scheduled = 0;
+         server.aof_rewrite_time_start = time(NULL);
+-        server.aof_rewrite_use_rdb_preamble = server.aof_use_rdb_preamble;
+         return C_OK;
+     }
+     return C_OK; /* unreached */
+@@ -2666,7 +2665,7 @@
+ 
+         /* Get a new BASE file name and mark the previous (if we have)
+          * as the HISTORY type. */
+-        sds new_base_filename = getNewBaseFileNameAndMarkPreAsHistory(temp_am, server.aof_rewrite_use_rdb_preamble);
++        sds new_base_filename = getNewBaseFileNameAndMarkPreAsHistory(temp_am);
+         serverAssert(new_base_filename != NULL);
+         new_base_filepath = makePath(server.aof_dirname, new_base_filename);
+ 
+--- a/src/server.h
++++ b/src/server.h
+@@ -1959,7 +1959,6 @@
+     int aof_last_write_errno;           /* Valid if aof write/fsync status is ERR */
+     int aof_load_truncated;             /* Don't stop on unexpected AOF EOF. */
+     int aof_use_rdb_preamble;           /* Specify base AOF to use RDB encoding on AOF rewrites. */
+-    int aof_rewrite_use_rdb_preamble;   /* Base AOF to use RDB encoding on AOF rewrites start. */
+     _Atomic int aof_bio_fsync_status;   /* Status of AOF fsync in bio job. */
+     _Atomic int aof_bio_fsync_errno;    /* Errno of AOF fsync in bio job. */
+     aofManifest *aof_manifest;          /* Used to track AOFs. */

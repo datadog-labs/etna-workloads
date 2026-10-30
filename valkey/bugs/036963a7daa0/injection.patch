@@ -1,0 +1,26 @@
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -3989,7 +3989,6 @@
+  * of processing the command, otherwise C_OK is returned. */
+ int processCommandAndResetClient(client *c) {
+     int deadclient = 0;
+-    client *old_client = server.current_client;
+     server.current_client = c;
+     if (processCommand(c) == C_OK) {
+         commandProcessed(c);
+@@ -3999,14 +3998,7 @@
+     }
+ 
+     if (server.current_client == NULL) deadclient = 1;
+-    /*
+-     * Restore the old client, this is needed because when a script
+-     * times out, we will get into this code from processEventsWhileBlocked.
+-     * Which will cause to set the server.current_client. If not restored
+-     * we will return 1 to our caller which will falsely indicate the client
+-     * is dead and will stop reading from its buffer.
+-     */
+-    server.current_client = old_client;
++    server.current_client = NULL;
+     /* performEvictions may flush replica output buffers. This may
+      * result in a replica, that may be the active client, to be
+      * freed. */

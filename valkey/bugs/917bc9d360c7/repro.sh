@@ -1,0 +1,9 @@
+#!/bin/bash
+"$VALKEY_SERVER" --port "$PORT" --save "" --appendonly no --dir . --logfile s.log &
+for i in $(seq 100); do "$VALKEY_CLI" -p "$PORT" ping >/dev/null 2>&1 && break; sleep 0.1; done
+printf '\x00\x81\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xF0\x08\x00\x53\x71\x85\x40\x12\x82\x45\x85' | "$VALKEY_CLI" -p "$PORT" -x restore key 0
+"$VALKEY_CLI" -p "$PORT" ping
+"$VALKEY_CLI" -p "$PORT" shutdown nosave >/dev/null 2>&1
+wait
+grep -q "ASSERTION FAILED" s.log && echo ASSERTION
+exit 0

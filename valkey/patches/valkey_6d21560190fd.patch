@@ -1,0 +1,33 @@
+--- a/src/t_stream.c
++++ b/src/t_stream.c
+@@ -3354,8 +3354,7 @@
+         int moreargs = (c->argc - 1) - j; /* Number of additional arguments. */
+         char *opt = c->argv[j]->ptr;
+         if (!strcasecmp(opt, "COUNT") && moreargs) {
+-            long max_count = LONG_MAX / (max(sizeof(streamID), attempts_factor));
+-            if (getRangeLongFromObjectOrReply(c, c->argv[j + 1], 1, max_count, &count, "COUNT must be > 0") != C_OK)
++            if (getRangeLongFromObjectOrReply(c, c->argv[j + 1], 1, LONG_MAX, &count, "COUNT must be > 0") != C_OK)
+                 return;
+             j++;
+         } else if (!strcasecmp(opt, "JUSTID")) {
+@@ -3380,12 +3379,6 @@
+         return;
+     }
+ 
+-    streamID *deleted_ids = ztrymalloc(count * sizeof(streamID));
+-    if (!deleted_ids) {
+-        addReplyError(c, "Insufficient memory, failed allocating transient memory, COUNT too high.");
+-        return;
+-    }
+-
+     /* Do the actual claiming. */
+     streamConsumer *consumer = streamLookupConsumer(group, c->argv[3]->ptr);
+     if (consumer == NULL) {
+@@ -3407,6 +3400,7 @@
+     raxSeek(&ri, ">=", startkey, sizeof(startkey));
+     size_t arraylen = 0;
+     mstime_t now = commandTimeSnapshot();
++    streamID *deleted_ids = zmalloc(count * sizeof(streamID));
+     int deleted_id_num = 0;
+     while (attempts-- && count && raxNext(&ri)) {
+         streamNACK *nack = ri.data;

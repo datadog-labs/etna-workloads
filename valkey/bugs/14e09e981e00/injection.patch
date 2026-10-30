@@ -1,0 +1,62 @@
+--- a/src/replication.c
++++ b/src/replication.c
+@@ -4901,18 +4901,6 @@
+     server.get_ack_from_replicas = 1;
+ }
+ 
+-/* This function return client woff. If the script is currently running,
+- * returns the actual client woff */
+-long long getClientWriteOffset(client *c) {
+-    if (scriptIsRunning()) {
+-        /* If a script is currently running, the client passed in is a fake
+-         * client, and its woff is always 0. */
+-        serverAssert(scriptGetClient() == c);
+-        c = scriptGetCaller();
+-    }
+-    return c->woff;
+-}
+-
+ /* Return the number of replicas that already acknowledged the specified
+  * replication offset. */
+ int replicationCountAcksByOffset(long long offset) {
+@@ -4952,7 +4940,7 @@
+ void waitCommand(client *c) {
+     mstime_t timeout;
+     long numreplicas, ackreplicas;
+-    long long offset = getClientWriteOffset(c);
++    long long offset = c->woff;
+ 
+     if (server.primary_host) {
+         addReplyError(
+@@ -4966,7 +4954,7 @@
+     if (getTimeoutFromObjectOrReply(c, c->argv[2], &timeout, UNIT_MILLISECONDS) != C_OK) return;
+ 
+     /* First try without blocking at all. */
+-    ackreplicas = replicationCountAcksByOffset(offset);
++    ackreplicas = replicationCountAcksByOffset(c->woff);
+     if (ackreplicas >= numreplicas || c->flag.deny_blocking) {
+         addReplyLongLong(c, ackreplicas);
+         return;
+@@ -5002,11 +4990,9 @@
+         return;
+     }
+ 
+-    long long offset = getClientWriteOffset(c);
+-
+     /* First try without blocking at all. */
+-    ackreplicas = replicationCountAOFAcksByOffset(offset);
+-    acklocal = server.fsynced_reploff >= offset;
++    ackreplicas = replicationCountAOFAcksByOffset(c->woff);
++    acklocal = server.fsynced_reploff >= c->woff;
+     if ((ackreplicas >= numreplicas && acklocal >= numlocal) || c->flag.deny_blocking) {
+         addReplyArrayLen(c, 2);
+         addReplyLongLong(c, acklocal);
+@@ -5016,7 +5002,7 @@
+ 
+     /* Otherwise block the client and put it into our list of clients
+      * waiting for ack from replicas. */
+-    blockClientForReplicaAck(c, timeout, offset, numreplicas, numlocal);
++    blockClientForReplicaAck(c, timeout, c->woff, numreplicas, numlocal);
+ 
+     /* Make sure that the server will send an ACK request to all the replicas
+      * before returning to the event loop. */

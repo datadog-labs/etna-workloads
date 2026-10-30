@@ -1,0 +1,18 @@
+--- a/src/t_stream.c
++++ b/src/t_stream.c
+@@ -1689,11 +1689,10 @@
+                 group->entries_read = streamEstimateDistanceFromFirstEverEntry(s, &id);
+             }
+             group->last_id = id;
+-            /* In the past, we would only set it when NOACK was specified. And in
+-             * #9127, XCLAIM did not propagate entries_read in ACK, which would
+-             * cause entries_read to be inconsistent between primary and replicas,
+-             * so here we call streamPropagateGroupID unconditionally. */
+-            propagate_last_id = 1;
++            /* Group last ID should be propagated only if NOACK was
++             * specified, otherwise the last id will be included
++             * in the propagation of XCLAIM itself. */
++            if (noack) propagate_last_id = 1;
+         }
+ 
+         /* Emit a two elements array for each item. The first is

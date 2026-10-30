@@ -1,0 +1,5 @@
+"$VALKEY_SERVER" --port "$PORT" --save "" --appendonly no --dir . --logfile s.log &
+for i in $(seq 100); do "$VALKEY_CLI" -p "$PORT" ping >/dev/null 2>&1 && break; sleep 0.1; done
+"$VALKEY_CLI" -p "$PORT" command getkeys sort_ro abc
+"$VALKEY_CLI" -p "$PORT" shutdown nosave >/dev/null 2>&1
+wait

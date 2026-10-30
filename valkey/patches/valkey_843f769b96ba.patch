@@ -1,0 +1,54 @@
+--- a/src/t_zset.c
++++ b/src/t_zset.c
+@@ -1454,18 +1454,16 @@
+                     *out_flags |= ZADD_OUT_NAN;
+                     return 0;
+                 }
++                if (newscore) *newscore = score;
+             }
+ 
+-            /* GT/LT? Only update if score is greater/less than current. */
+-            if ((lt && score >= curscore) || (gt && score <= curscore)) {
+-                *out_flags |= ZADD_OUT_NOP;
+-                return 1;
+-            }
+-
+-            if (newscore) *newscore = score;
+-
+             /* Remove and re-insert when score changed. */
+-            if (score != curscore) {
++            if (score != curscore &&
++                /* LT? Only update if score is less than current. */
++                (!lt || score < curscore) &&
++                /* GT? Only update if score is greater than current. */
++                (!gt || score > curscore))
++            {
+                 zobj->ptr = zzlDelete(zobj->ptr, eptr);
+                 zobj->ptr = zzlInsert(zobj->ptr, ele, score);
+                 *out_flags |= ZADD_OUT_UPDATED;
+@@ -1512,18 +1510,16 @@
+                     *out_flags |= ZADD_OUT_NAN;
+                     return 0;
+                 }
++                if (newscore) *newscore = score;
+             }
+ 
+-            /* GT/LT? Only update if score is greater/less than current. */
+-            if ((lt && score >= curscore) || (gt && score <= curscore)) {
+-                *out_flags |= ZADD_OUT_NOP;
+-                return 1;
+-            }
+-
+-            if (newscore) *newscore = score;
+-
+             /* Remove and re-insert when score changes. */
+-            if (score != curscore) {
++            if (score != curscore &&
++                /* LT? Only update if score is less than current. */
++                (!lt || score < curscore) &&
++                /* GT? Only update if score is greater than current. */
++                (!gt || score > curscore))
++            {
+                 zskiplistNode *new_node = zslUpdateScore(zs->zsl, old_node, score);
+                 /* Note that this assignment updates the node pointer stored in
+                  * the hashtable */

@@ -1,0 +1,97 @@
+--- a/src/bitops.c
++++ b/src/bitops.c
+@@ -967,9 +967,9 @@
+             if (getLongLongFromObjectOrReply(c, c->argv[3], &end, NULL) != C_OK) return;
+         }
+ 
+-        /* Lookup, check for type. */
+-        o = lookupKeyRead(c->db, c->argv[1]);
+-        if (checkType(c, o, OBJ_STRING)) return;
++        /* Lookup, check for type, and return 0 for non existing keys. */
++        if ((o = lookupKeyReadOrReply(c, c->argv[1], shared.czero)) == NULL ||
++            checkType(c, o, OBJ_STRING)) return;
+         p = getObjectReadOnlyString(o, &strlen, llbuf);
+         long long totlen = strlen;
+ 
+@@ -998,9 +998,9 @@
+             end >>= 3;
+         }
+     } else if (c->argc == 2) {
+-        /* Lookup, check for type. */
+-        o = lookupKeyRead(c->db, c->argv[1]);
+-        if (checkType(c, o, OBJ_STRING)) return;
++        /* Lookup, check for type, and return 0 for non existing keys. */
++        if ((o = lookupKeyReadOrReply(c, c->argv[1], shared.czero)) == NULL ||
++            checkType(c, o, OBJ_STRING)) return;
+         p = getObjectReadOnlyString(o, &strlen, llbuf);
+         /* The whole string. */
+         start = 0;
+@@ -1011,12 +1011,6 @@
+         return;
+     }
+ 
+-    /* Return 0 for non existing keys. */
+-    if (o == NULL) {
+-        addReply(c, shared.czero);
+-        return;
+-    }
+-
+     /* Precondition: end >= 0 && end < strlen, so the only condition where
+      * zero can be returned is: start > end. */
+     if (start > end) {
+@@ -1055,6 +1049,16 @@
+         return;
+     }
+ 
++    /* If the key does not exist, from our point of view it is an infinite
++     * array of 0 bits. If the user is looking for the first clear bit return 0,
++     * If the user is looking for the first set bit, return -1. */
++    if ((o = lookupKeyRead(c->db, c->argv[1])) == NULL) {
++        addReplyLongLong(c, bit ? -1 : 0);
++        return;
++    }
++    if (checkType(c, o, OBJ_STRING)) return;
++    p = getObjectReadOnlyString(o, &strlen, llbuf);
++
+     /* Parse start/end range if any. */
+     if (c->argc == 4 || c->argc == 5 || c->argc == 6) {
+         if (getLongLongFromObjectOrReply(c, c->argv[3], &start, NULL) != C_OK) return;
+@@ -1073,11 +1077,6 @@
+             end_given = 1;
+         }
+ 
+-        /* Lookup, check for type. */
+-        o = lookupKeyRead(c->db, c->argv[1]);
+-        if (checkType(c, o, OBJ_STRING)) return;
+-        p = getObjectReadOnlyString(o, &strlen, llbuf);
+-
+         /* Make sure we will not overflow */
+         long long totlen = strlen;
+         serverAssert(totlen <= LLONG_MAX >> 3);
+@@ -1100,11 +1099,6 @@
+             end >>= 3;
+         }
+     } else if (c->argc == 3) {
+-        /* Lookup, check for type. */
+-        o = lookupKeyRead(c->db, c->argv[1]);
+-        if (checkType(c, o, OBJ_STRING)) return;
+-        p = getObjectReadOnlyString(o, &strlen, llbuf);
+-
+         /* The whole string. */
+         start = 0;
+         end = strlen - 1;
+@@ -1114,14 +1108,6 @@
+         return;
+     }
+ 
+-    /* If the key does not exist, from our point of view it is an infinite
+-     * array of 0 bits. If the user is looking for the first clear bit return 0,
+-     * If the user is looking for the first set bit, return -1. */
+-    if (o == NULL) {
+-        addReplyLongLong(c, bit ? -1 : 0);
+-        return;
+-    }
+-
+     /* For empty ranges (start > end) we return -1 as an empty range does
+      * not contain a 0 nor a 1. */
+     if (start > end) {

@@ -1,0 +1,44 @@
+--- a/src/lua/script_lua.c
++++ b/src/lua/script_lua.c
+@@ -1858,7 +1858,7 @@
+                 final_msg =
+                     sdscatfmt(final_msg, " script: %s, on %s:%s.", run_ctx->funcname, err_info.source, err_info.line);
+             }
+-            addReplyErrorSdsExSafe(c, final_msg, err_info.ignore_err_stats_update ? ERR_REPLY_FLAG_NO_STATS_UPDATE : 0);
++            addReplyErrorSdsEx(c, final_msg, err_info.ignore_err_stats_update ? ERR_REPLY_FLAG_NO_STATS_UPDATE : 0);
+             luaErrorInformationDiscard(&err_info);
+         }
+         lua_pop(lua, 1); /* Consume the Lua error */
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -987,20 +987,6 @@
+ 
+ /* Add error reply to the given client.
+  * Supported flags:
+- * ERR_REPLY_FLAG_NO_STATS_UPDATE - indicate not to perform any error stats updates
+- * As a side effect the SDS string is freed. */
+-void addReplyErrorSdsExSafe(client *c, sds err, int flags) {
+-    /* Trim any newlines at the end (ones will be added by addReplyErrorLength) */
+-    err = sdstrim(err, "\r\n");
+-    /* Make sure there are no newlines in the middle of the string, otherwise
+-     * invalid protocol is emitted. */
+-    err = sdsmapchars(err, "\r\n", "  ", 2);
+-    addReplyErrorSdsEx(c, err, flags);
+-}
+-
+-/* Add error reply to the given client.
+- * See addReplyErrorLength for expectations from the input string.
+- * Supported flags:
+  * * ERR_REPLY_FLAG_NO_STATS_UPDATE - indicate not to perform any error stats updates */
+ void addReplyErrorSdsEx(client *c, sds err, int flags) {
+     addReplyErrorLength(c, err, sdslen(err));
+--- a/src/server.h
++++ b/src/server.h
+@@ -2847,7 +2847,6 @@
+ void afterErrorReply(client *c, const char *s, size_t len, int flags);
+ void addReplyErrorFormatInternal(client *c, int flags, const char *fmt, va_list ap);
+ void addReplyErrorSdsEx(client *c, sds err, int flags);
+-void addReplyErrorSdsExSafe(client *c, sds err, int flags);
+ void addReplyErrorSds(client *c, sds err);
+ void addReplyErrorSdsSafe(client *c, sds err);
+ void addReplyError(client *c, const char *err);

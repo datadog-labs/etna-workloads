@@ -1,0 +1,38 @@
+--- a/src/aof.c
++++ b/src/aof.c
+@@ -1543,12 +1543,10 @@
+         }
+ 
+         /* Command lookup */
+-        sds err = NULL;
+-        fakeClient->cmd = fakeClient->lastcmd = cmd = lookupCommand(argv, argc);
+-        if ((!cmd && !commandCheckExistence(fakeClient, &err)) || (cmd && !commandCheckArity(cmd, argc, &err))) {
+-            serverLog(LL_WARNING, "Error reading the append only file %s, error: %s", filename,
+-                      (server.hide_user_data_from_log && !cmd) ? "*redacted*" : err);
+-            sdsfree(err);
++        cmd = lookupCommand(argv, argc);
++        if (!cmd) {
++            serverLog(LL_WARNING, "Unknown command '%s' reading the append only file %s",
++                      server.hide_user_data_from_log ? "*redacted*" : (char *)argv[0]->ptr, filename);
+             freeClientArgv(fakeClient);
+             ret = AOF_FAILED;
+             goto cleanup;
+@@ -1557,6 +1555,7 @@
+         if (cmd->proc == multiCommand) valid_before_multi = valid_up_to;
+ 
+         /* Run the command in the context of a fake client */
++        fakeClient->cmd = fakeClient->lastcmd = cmd;
+         if (fakeClient->flag.multi && fakeClient->cmd->proc != execCommand) {
+             /* Note: we don't have to attempt calling evalGetCommandFlags,
+              * since this is AOF, the checks in processCommand are not made
+--- a/src/server.c
++++ b/src/server.c
+@@ -4086,7 +4086,7 @@
+ int commandCheckExistence(client *c, sds *err) {
+     if (c->cmd) return 1;
+     if (!err) return 0;
+-    if (isContainerCommandBySds(c->argv[0]->ptr) && c->argc >= 2) {
++    if (isContainerCommandBySds(c->argv[0]->ptr)) {
+         /* If we can't find the command but argv[0] by itself is a command
+          * it means we're dealing with an invalid subcommand. Print Help. */
+         sds cmd = sdsnew((char *)c->argv[0]->ptr);
