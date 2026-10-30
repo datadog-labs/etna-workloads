@@ -1,0 +1,29 @@
+--- a/src/networking.c
++++ b/src/networking.c
+@@ -2358,16 +2358,6 @@
+     } else {
+         trimClientQueryBuffer(c);
+     }
+-    /* Handle async frees */
+-    /* Note: this doesn't make the server.clients_to_close list redundant because of
+-     * cases where we want an async free of a client other than myself. For example
+-     * in ACL modifications we disconnect clients authenticated to non-existent
+-     * users (see ACL LOAD). */
+-    if (c->flag.close_asap) {
+-        freeClient(c);
+-        return;
+-    }
+-
+     updateClientMemUsageAndBucket(c);
+     /* If IO threads are enabled try to write immediately the reply instead of waiting to beforeSleep,
+      * unless aof_fsync is set to always in which case we need to wait for beforeSleep after writing the aof buffer. */
+--- a/src/server.c
++++ b/src/server.c
+@@ -1817,7 +1817,6 @@
+             last_processed = processIOThreadsReadDone() + processIOThreadsWriteDone();
+             processed += last_processed;
+         } while (last_processed != 0);
+-        processed += freeClientsInAsyncFreeQueue();
+         server.events_processed_while_blocked += processed;
+         return;
+     }

@@ -42,7 +42,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(os.environ.get("ETNA_ROOT", Path(__file__).resolve().parent.parent))
-SRC = Path(os.environ.get("SQLITE_SRC", ROOT / "sqlite-src"))
+SRC = Path(os.environ.get("ETNA_SRC", os.environ.get("SQLITE_SRC", ROOT / "sqlite-src")))
 TARGET = os.environ.get("ETNA_TARGET", "version-3.54.1")
 STATE = ROOT / "state"
 DATASET = ROOT / "dataset"
@@ -76,6 +76,15 @@ FIXWORD = re.compile(r"ticket|\bbugs?\b|forum|\bfix|crash|assert|incorrect|wrong
                      r"corrupt|problem|error|fault|leak|uninitiali", re.I)
 # do_test, do_execsql_test, do_catchsql_test, do_eqp_test, do_faultsim_test ...
 TESTCASE = re.compile(r"^\+\s*(do_[a-z0-9_]*test[a-z0-9_]*)\s+([^\s{}\[\]$\\\"]+)\s")
+NAME = "SQLite"
+IMPL_DESC = "src/ and ext/"
+MINE_MERGES = False   # also mine first-parent merge commits (targets whose PRs split code and tests)
+
+
+def testcase_name(m):
+    return m.group(2)
+
+
 REPORT = re.compile(r"(\[[0-9a-f]{10,}\]|bugs:/?info/[0-9TZ:.-]+|forum:/?(?:info|forumpost)/[0-9a-zA-Z:.-]+|"
                     r"ticket\s+\[?[0-9a-f]{10,})")
 
@@ -135,6 +144,16 @@ def cmd_mine(a):
             commits.append(cur)
         elif line:
             cur["files"].append(line)
+    if MINE_MERGES:
+        mlog = git("log", "--merges", "--first-parent", "--diff-merges=first-parent",
+                   "--format=@@%H%x09%cI%x09%s", "--name-only", tgt).stdout
+        for line in mlog.splitlines():
+            if line.startswith("@@"):
+                h, d, s = line[2:].split("\t", 2)
+                cur = {"id": h, "date": d, "subject": s, "files": [], "merge": True}
+                commits.append(cur)
+            elif line:
+                cur["files"].append(line)
     # Test files present in the target, and their text, for the name check.
     present = set(git("ls-tree", "-r", "--name-only", tgt).stdout.split())
     textcache = {}
@@ -152,9 +171,16 @@ def cmd_mine(a):
         for c in commits:
             impl = [f for f in c["files"] if IMPL.match(f) and not NOT_IMPL.search(f)]
             tests = [f for f in c["files"] if TESTFILE.match(f)]
-            if not impl or not tests or not FIXWORD.search(c["subject"]):
+            if not impl or not tests:
                 continue
             body = git("log", "-1", "--format=%B", c["id"]).stdout
+            if c.get("merge"):
+                # "Merge pull request #123 from ...": the PR title is the next line.
+                rest = [l.strip() for l in body.splitlines()[1:] if l.strip()]
+                if rest:
+                    c["subject"] = rest[0]
+            if not FIXWORD.search(c["subject"] if not c.get("merge") else body):
+                continue
             diff = git("diff", "-U0", f"{c['id']}^1", c["id"], "--", *tests).stdout
             added, curfile = {}, None
             for line in diff.splitlines():
@@ -163,16 +189,16 @@ def cmd_mine(a):
                     continue
                 m = TESTCASE.match(line)
                 if m and curfile:
-                    added.setdefault(curfile, []).append(m.group(2))
+                    added.setdefault(curfile, []).append(testcase_name(m))
             oracle = {}
             for f, names in added.items():
                 t = target_text(f)
                 if t is None:
                     continue
-                keep = sorted({nm for nm in names if re.search(r"(^|\s)" + re.escape(nm) + r"\s", t)})
+                keep = sorted({nm for nm in names if nm in t})
                 if keep:
                     oracle[f] = keep
-            rec = {"id": c["id"], "date": c["date"], "subject": c["subject"],
+            rec = {"id": c["id"], "date": c["date"], "subject": c["subject"], "merge": bool(c.get("merge")),
                    "fossil": (re.search(r"FossilOrigin-Name: (\w+)", body) or [None, None])[1],
                    "reports": sorted(set(REPORT.findall(body))),
                    "impl_files": impl, "test_files": tests,
@@ -274,7 +300,7 @@ def cmd_base(a):
     if not tf.exists():
         print(f"exporting and building {TARGET} {tgt[:12]}", flush=True)
         export_tree(tgt, src)
-        built, secs, log = build_testfixture(src, tf.parent, jobs=os.cpu_count() or 8)
+        built, secs, log = build_testfixture(src, WORK / "base-build", jobs=os.cpu_count() or 8)
         if not built:
             sys.exit(f"base build failed:\n{log}")
         print(f"base testfixture in {secs:.0f}s", flush=True)
@@ -474,6 +500,14 @@ def main():
     a = ap.parse_args()
     WORK.mkdir(parents=True, exist_ok=True)
     {"mine": cmd_mine, "base": cmd_base, "verbatim": cmd_verbatim, "report": cmd_report}[a.cmd](a)
+
+
+# A target other than SQLite replaces the target-specific names above.
+if os.environ.get("ETNA_KIND", "sqlite") != "sqlite":
+    from importlib import import_module as _imp
+    _t = _imp("target_" + os.environ["ETNA_KIND"])
+    globals().update({k: v for k, v in vars(_t).items() if not k.startswith("_") and k not in
+                      ("os", "re", "time", "shutil", "subprocess", "fcntl", "Path")})
 
 
 if __name__ == "__main__":

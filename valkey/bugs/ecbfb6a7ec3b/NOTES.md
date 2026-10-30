@@ -1,0 +1,2 @@
+Reproducer: 3-node cluster (A owns slots 1-16383, B owns slot 0 with replica C; B has replica migration enabled, A hangs in BGSAVE). Slot 0 is moved from B to A, so B becomes a replica of A and C becomes a sub-replica that gets reconfigured as a replica of A ("I'm a sub-replica!").
+Difference: clean (fix) computes areInSameShard before updateShardId, so C requires a full sync and logs no partial-resync attempt (prints NO_PSYNC). Buggy updates C's shard_id first, so it wrongly thinks it is in the same shard and tries a PSYNC with its stale history (prints TRIED_PSYNC).

@@ -1,0 +1,19 @@
+--- a/src/object.c
++++ b/src/object.c
+@@ -1135,12 +1135,14 @@
+ #define OBJ_COMPUTE_SIZE_DEF_SAMPLES 5 /* Default sample size. */
+ size_t objectComputeSize(robj *key, robj *o, size_t sample_size, int dbid) {
+     size_t elesize = 0, samples = 0;
+-    size_t asize = zmalloc_size((void *)o);
++    size_t asize = sizeof(*o);
+ 
+     if (o->type == OBJ_STRING) {
+         if (o->encoding == OBJ_ENCODING_RAW) {
+             asize += sdsAllocSize(o->ptr);
+-        } else if (o->encoding != OBJ_ENCODING_INT && o->encoding != OBJ_ENCODING_EMBSTR) {
++        } else if (o->encoding == OBJ_ENCODING_EMBSTR) {
++            asize = zmalloc_size((void *)o);
++        } else if (o->encoding != OBJ_ENCODING_INT) {
+             serverPanic("Unknown string encoding");
+         }
+     } else if (o->type == OBJ_LIST) {

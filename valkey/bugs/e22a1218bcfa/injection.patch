@@ -1,0 +1,21 @@
+--- a/src/evict.c
++++ b/src/evict.c
+@@ -338,18 +338,6 @@
+      * loop, we don't count the delayed freed replication backlog into used
+      * memory even if there are no replicas, i.e. we still regard this memory
+      * as replicas'. */
+-    if ((long long)server.repl_buffer_mem > server.repl_backlog_size) {
+-        /* We use list structure to manage replication buffer blocks, so backlog
+-         * also occupies some extra memory, we can't know exact blocks numbers,
+-         * we only get approximate size according to per block size. */
+-        size_t extra_approx_size =
+-            (server.repl_backlog_size / PROTO_REPLY_CHUNK_BYTES + 1) * (sizeof(replBufBlock) + sizeof(listNode));
+-        size_t counted_mem = server.repl_backlog_size + extra_approx_size;
+-        if (server.repl_buffer_mem > counted_mem) {
+-            overhead += (server.repl_buffer_mem - counted_mem);
+-        }
+-    }
+-
+     if (server.aof_state != AOF_OFF) {
+         overhead += sdsAllocSize(server.aof_buf);
+     }

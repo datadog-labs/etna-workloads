@@ -1,0 +1,14 @@
+--- a/src/t_hash.c
++++ b/src/t_hash.c
+@@ -467,6 +467,11 @@
+     if ((entry_ref = hashtableFindRef(ht, field))) {
+         entry *current_entry = *entry_ref;
+         long long current_expire = entryGetExpiry(current_entry);
++        /* A time in the past deletes the entry regardless of the conditions. */
++        if (time_is_expired) {
++            serverAssert(hashTypeDelete(o, field));
++            return EXPIRATION_MODIFICATION_EXPIRE_ASAP;
++        }
+         if (flag) {
+             /* NX option is set, check no current expiry */
+             if (flag & EXPIRE_NX) {

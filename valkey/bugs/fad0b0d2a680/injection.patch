@@ -1,0 +1,28 @@
+--- a/src/blocked.c
++++ b/src/blocked.c
+@@ -819,7 +819,7 @@
+  * If err_str is provided it will be used to reply to the blocked client */
+ void unblockClientOnError(client *c, const char *err_str) {
+     if (err_str) addReplyError(c, err_str);
+-    updateStatsOnUnblock(c, 0, 0, ERROR_COMMAND_REJECTED);
++    updateStatsOnUnblock(c, 0, 0, 0);
+     if (c->flag.pending_command) c->flag.pending_command = 0;
+     unblockClient(c, 1);
+ }
+--- a/src/server.c
++++ b/src/server.c
+@@ -3879,13 +3879,7 @@
+ 
+     /* Update failed command calls if required. */
+ 
+-    if (!incrCommandStatsOnError(real_cmd, ERROR_COMMAND_FAILED) && c->deferred_reply_errors) {
+-        /* When call is used from a module client, error stats, and total_error_replies
+-         * isn't updated since these errors, if handled by the module, are internal,
+-         * and not reflected to users. however, the commandstats does show these calls
+-         * (made by RM_Call), so it should log if they failed or succeeded. */
+-        real_cmd->failed_calls++;
+-    }
++    incrCommandStatsOnError(real_cmd, ERROR_COMMAND_FAILED);
+ 
+     /* After executing command, we will close the client after writing entire
+      * reply if it is set 'CLIENT_CLOSE_AFTER_COMMAND' flag. */

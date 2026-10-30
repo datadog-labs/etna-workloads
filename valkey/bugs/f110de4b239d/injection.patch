@@ -1,0 +1,16 @@
+--- a/src/t_hash.c
++++ b/src/t_hash.c
+@@ -331,12 +331,8 @@
+ int hashTypeSet(robj *o, sds field, sds value, long long expiry, int flags, bool *expired_overwritten) {
+     int update = 0;
+     bool is_expired = false;
+-    /* Check if the field is too long for listpack, and convert before adding the item.
+-     * This is needed for HINCRBY* case since in other commands this is handled early by
+-     * hashTypeTryConversion, so this check will be a NOP. */
+     if (o->encoding == OBJ_ENCODING_LISTPACK) {
+-        if (expiry != EXPIRY_NONE || sdslen(field) > server.hash_max_listpack_value || sdslen(value) > server.hash_max_listpack_value)
+-            hashTypeConvert(o, OBJ_ENCODING_HASHTABLE);
++        if (expiry != EXPIRY_NONE) hashTypeConvert(o, OBJ_ENCODING_HASHTABLE);
+     }
+ 
+     if (o->encoding == OBJ_ENCODING_LISTPACK) {

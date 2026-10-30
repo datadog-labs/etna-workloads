@@ -1,0 +1,148 @@
+--- a/src/cluster.h
++++ b/src/cluster.h
+@@ -68,8 +68,6 @@
+ void clusterUpdateMyselfAnnouncedPorts(void);
+ void clusterUpdateMyselfHumanNodename(void);
+ 
+-int clusterPublishMessageLengthValid(robj *channel, robj *message);
+-void clusterSetPublishMessageLengthLimitForTesting(size_t limit);
+ void clusterPropagatePublish(robj *channel, robj *message, int sharded);
+ void clusterBroadcastPong(int target);
+ 
+--- a/src/cluster_legacy.c
++++ b/src/cluster_legacy.c
+@@ -4832,26 +4832,7 @@
+     dictReleaseIterator(di);
+ }
+ 
+-static size_t cluster_publish_message_length_limit = 0;
+-
+-void clusterSetPublishMessageLengthLimitForTesting(size_t limit) {
+-    cluster_publish_message_length_limit = limit;
+-}
+-
+-int clusterPublishMessageLengthValid(robj *channel, robj *message) {
+-    size_t channel_len = stringObjectLen(channel);
+-    size_t message_len = stringObjectLen(message);
+-    size_t max_payload_len = (size_t)UINT32_MAX - offsetof(clusterMsgSendBlock, data) - CLUSTERMSG_MIN_LEN -
+-                             offsetof(clusterMsgDataPublish, bulk_data);
+-
+-    if (cluster_publish_message_length_limit && cluster_publish_message_length_limit < max_payload_len)
+-        max_payload_len = cluster_publish_message_length_limit;
+-
+-    return channel_len <= max_payload_len && message_len <= max_payload_len - channel_len;
+-}
+-
+-/* Create a PUBLISH message block, or return NULL if it exceeds the supported
+- * cluster bus publish size.
++/* Create a PUBLISH message block.
+  *
+  * Sanitizer suppression: In clusterMsgDataPublish, sizeof(bulk_data) is 8.
+  * As all the struct is used as a buffer, when more than 8 bytes are copied into
+@@ -4859,14 +4840,13 @@
+  * positive in this context. */
+ VALKEY_NO_SANITIZE("bounds")
+ clusterMsgSendBlock *clusterCreatePublishMsgBlock(robj *channel, robj *message, int is_light, int is_sharded) {
++    uint32_t channel_len, message_len;
+     uint16_t type = is_sharded ? CLUSTERMSG_TYPE_PUBLISHSHARD : CLUSTERMSG_TYPE_PUBLISH;
+ 
+-    if (!clusterPublishMessageLengthValid(channel, message)) return NULL;
+-
+     channel = getDecodedObject(channel);
+     message = getDecodedObject(message);
+-    size_t channel_len = sdslen(channel->ptr);
+-    size_t message_len = sdslen(message->ptr);
++    channel_len = sdslen(channel->ptr);
++    message_len = sdslen(message->ptr);
+     size_t msglen;
+ 
+     if (is_light) {
+@@ -4887,10 +4867,10 @@
+         clusterMsg *hdr = getMessageFromSendBlock(msgblock);
+         hdr_data_msg = &hdr->data.publish.msg;
+     }
+-    hdr_data_msg->channel_len = htonl((uint32_t)channel_len);
+-    hdr_data_msg->message_len = htonl((uint32_t)message_len);
+-    memcpy(hdr_data_msg->bulk_data, channel->ptr, channel_len);
+-    memcpy(hdr_data_msg->bulk_data + channel_len, message->ptr, message_len);
++    hdr_data_msg->channel_len = htonl(channel_len);
++    hdr_data_msg->message_len = htonl(message_len);
++    memcpy(hdr_data_msg->bulk_data, channel->ptr, sdslen(channel->ptr));
++    memcpy(hdr_data_msg->bulk_data + sdslen(channel->ptr), message->ptr, sdslen(message->ptr));
+ 
+     decrRefCount(channel);
+     decrRefCount(message);
+@@ -5049,7 +5029,6 @@
+ void clusterPropagatePublish(robj *channel, robj *message, int sharded) {
+     clusterMsgSendBlock *msgblock, *msgblock_light;
+     msgblock_light = clusterCreatePublishMsgBlock(channel, message, 1, sharded);
+-    if (msgblock_light == NULL) return;
+     /* We will only create msgblock with normal hdr if there are any nodes that do not support light hdr */
+     msgblock = NULL;
+     ClusterNodeIterator iter;
+--- a/src/debug.c
++++ b/src/debug.c
+@@ -481,9 +481,6 @@
+             "QUICKLIST-PACKED-THRESHOLD <size>",
+             "    Sets the threshold for elements to be inserted as plain vs packed nodes",
+             "    Default value is 1GB, allows values up to 4GB. Setting to 0 restores to default.",
+-            "CLUSTER-PUBLISH-MESSAGE-LIMIT <size>",
+-            "    Sets a lower cluster publish payload limit for testing.",
+-            "    Setting to 0 restores the default.",
+             "SET-SKIP-CHECKSUM-VALIDATION <0|1>",
+             "    Enables or disables checksum checks for RDB files and RESTORE's payload.",
+             "SLEEP <seconds>",
+@@ -897,15 +894,6 @@
+         } else {
+             addReply(c, shared.ok);
+         }
+-    } else if (!strcasecmp(c->argv[1]->ptr, "cluster-publish-message-limit") && c->argc == 3) {
+-        int memerr;
+-        unsigned long long sz = memtoull((const char *)c->argv[2]->ptr, &memerr);
+-        if (memerr || sz > SIZE_MAX) {
+-            addReplyError(c, "argument must be a valid memory value");
+-        } else {
+-            clusterSetPublishMessageLengthLimitForTesting((size_t)sz);
+-            addReply(c, shared.ok);
+-        }
+     } else if (!strcasecmp(c->argv[1]->ptr, "set-skip-checksum-validation") && c->argc == 3) {
+         server.skip_checksum_validation = atoi(c->argv[2]->ptr);
+         addReply(c, shared.ok);
+--- a/src/pubsub.c
++++ b/src/pubsub.c
+@@ -639,12 +639,8 @@
+ }
+ 
+ /* This function wraps pubsubPublishMessage and also propagates the message to cluster.
+- * Used by the commands PUBLISH/SPUBLISH and their respective module APIs.
+- * Returns zero without publishing if the message exceeds the supported cluster
+- * bus publish size. */
++ * Used by the commands PUBLISH/SPUBLISH and their respective module APIs.*/
+ int pubsubPublishMessageAndPropagateToCluster(robj *channel, robj *message, int sharded) {
+-    if (server.cluster_enabled && !clusterPublishMessageLengthValid(channel, message)) return 0;
+-
+     int receivers = pubsubPublishMessage(channel, message, sharded);
+     if (server.cluster_enabled) clusterPropagatePublish(channel, message, sharded);
+     return receivers;
+@@ -657,10 +653,6 @@
+         return;
+     }
+ 
+-    if (server.cluster_enabled && !clusterPublishMessageLengthValid(c->argv[1], c->argv[2])) {
+-        addReplyError(c, "Publish message is too large for the cluster bus");
+-        return;
+-    }
+     int receivers = pubsubPublishMessageAndPropagateToCluster(c->argv[1], c->argv[2], 0);
+     if (!server.cluster_enabled) forceCommandPropagation(c, PROPAGATE_REPL);
+     addReplyLongLong(c, receivers);
+@@ -751,10 +743,6 @@
+ 
+ /* SPUBLISH <shardchannel> <message> */
+ void spublishCommand(client *c) {
+-    if (server.cluster_enabled && !clusterPublishMessageLengthValid(c->argv[1], c->argv[2])) {
+-        addReplyError(c, "Publish message is too large for the cluster bus");
+-        return;
+-    }
+     int receivers = pubsubPublishMessageAndPropagateToCluster(c->argv[1], c->argv[2], 1);
+     if (!server.cluster_enabled) forceCommandPropagation(c, PROPAGATE_REPL);
+     addReplyLongLong(c, receivers);

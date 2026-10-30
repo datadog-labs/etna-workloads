@@ -33,7 +33,7 @@ import sqlite_etna as E  # noqa: E402
 DIFF_LINES = 160
 
 PROMPT = """\
-You are labelling commits from SQLite's history for a benchmark of real bugs.
+You are labelling commits from {name}'s history for a benchmark of real bugs.
 For each commit below (message and implementation diff, possibly truncated),
 decide:
 
@@ -69,7 +69,7 @@ def describe(c):
 
 
 def classify(batch, model):
-    prompt = PROMPT.format(commits="\n".join(describe(c) for c in batch))
+    prompt = PROMPT.format(name=E.NAME, commits="\n".join(describe(c) for c in batch))
     r = subprocess.run(
         [os.environ.get("CLAUDE_BIN", os.path.expanduser("~/.local/bin/claude")), "-p",
          "--model", model, "--output-format", "json", "--max-turns", "1"],

@@ -1,0 +1,178 @@
+--- a/src/server.c
++++ b/src/server.c
+@@ -3370,39 +3370,72 @@
+ 
+ /* ========================== OP Array API ============================ */
+ 
++/* Used to update a placeholder previously created using `serverOpArrayAppendPlaceholder`.
++ * We assume the updated placeholder has no target set yet (otherwise its not a placeholder). */
++void serverOpArraySet(serverOpArray *oa, int dbid, robj **argv, int argc, int target, int slot, int index) {
++    serverOp *op = oa->ops + index;
++    serverAssert(!op->target);
++    op->dbid = dbid;
++    op->argv = argv;
++    op->argc = argc;
++    op->target = target;
++    op->slot = slot;
++    oa->numops++;
++}
++
++/* Append an operation to the given serverOpArray. Special case is when used
++ * with target 0, in this case the operation is a placeholder that is expected
++ * to be filled later on using serverOpArraySet. */
+ int serverOpArrayAppend(serverOpArray *oa, int dbid, robj **argv, int argc, int target, int slot) {
+     serverOp *op;
+     int prev_capacity = oa->capacity;
+ 
+-    if (oa->numops == 0) {
++    if (oa->used == 0) {
+         oa->capacity = 16;
+-    } else if (oa->numops >= oa->capacity) {
++    } else if (oa->used >= oa->capacity) {
+         oa->capacity *= 2;
+     }
+ 
+     if (prev_capacity != oa->capacity) oa->ops = zrealloc(oa->ops, sizeof(serverOp) * oa->capacity);
+-    op = oa->ops + oa->numops;
++    int idx = oa->used;
++    op = oa->ops + idx;
+     op->dbid = dbid;
+     op->argv = argv;
+     op->argc = argc;
+     op->target = target;
+     op->slot = slot;
+-    oa->numops++;
+-    return oa->numops;
++    oa->used++;
++    /* A placeholder (target 0) is not counted in numops until it is filled. */
++    if (op->target) oa->numops++;
++    return idx;
++}
++
++void serverOpArrayTrim(serverOpArray *oa) {
++    if (!oa->used) return;
++    serverOp *last_op = oa->ops + (oa->used - 1);
++    /* last op is an unused placeholder, we can remove it */
++    if (!last_op->target) --oa->used;
++}
++
++int serverOpArrayAppendPlaceholder(serverOpArray *oa) {
++    return serverOpArrayAppend(oa, 0, NULL, 0, 0, -1);
+ }
+ 
+ void serverOpArrayFree(serverOpArray *oa) {
+-    while (oa->numops) {
++    while (oa->used) {
+         int j;
+         serverOp *op;
+ 
++        oa->used--;
++        op = oa->ops + oa->used;
++        if (!op->target) continue;
+         oa->numops--;
+-        op = oa->ops + oa->numops;
+         for (j = 0; j < op->argc; j++) decrRefCount(op->argv[j]);
+         zfree(op->argv);
+     }
+     /* no need to free the actual op array, we reuse the memory for future commands */
+     serverAssert(!oa->numops);
++    serverAssert(!oa->used);
+ }
+ 
+ /* ====================== Commands lookup and execution ===================== */
+@@ -3600,7 +3633,7 @@
+  * so it is up to the caller to release the passed argv (but it is usually
+  * stack allocated).  The function automatically increments ref count of
+  * passed objects, so the caller does not need to. */
+-void alsoPropagate(int dbid, robj **argv, int argc, int target, int slot) {
++void alsoPropagateRaw(int dbid, robj **argv, int argc, int target, int slot, int index) {
+     robj **argvcopy;
+     int j;
+ 
+@@ -3632,7 +3665,16 @@
+         argvcopy[j] = argv[j];
+         incrRefCount(argv[j]);
+     }
+-    serverOpArrayAppend(&server.also_propagate, dbid, argvcopy, argc, target, slot);
++    if (index == -1) {
++        /* -1 means append to the end */
++        serverOpArrayAppend(&server.also_propagate, dbid, argvcopy, argc, target, slot);
++    } else {
++        serverOpArraySet(&server.also_propagate, dbid, argvcopy, argc, target, slot, index);
++    }
++}
++
++void alsoPropagate(int dbid, robj **argv, int argc, int target, int slot) {
++    alsoPropagateRaw(dbid, argv, argc, target, slot, -1);
+ }
+ 
+ /* It is possible to call the function forceCommandPropagation() inside a
+@@ -3677,7 +3719,10 @@
+  * multiple separated commands. Note that alsoPropagate() is not affected
+  * by CLIENT_PREVENT_PROP flag. */
+ static void propagatePendingCommands(void) {
+-    if (server.also_propagate.numops == 0) return;
++    if (server.also_propagate.numops == 0) {
++        serverOpArrayFree(&server.also_propagate);
++        return;
++    }
+ 
+     int j;
+     serverOp *rop;
+@@ -3701,9 +3746,9 @@
+         propagateNow(-1, &shared.multi, 1, PROPAGATE_AOF | PROPAGATE_REPL, -1);
+     }
+ 
+-    for (j = 0; j < server.also_propagate.numops; j++) {
++    for (j = 0; j < server.also_propagate.used; j++) {
+         rop = &server.also_propagate.ops[j];
+-        serverAssert(rop->target);
++        if (!rop->target) continue;
+         propagateNow(rop->dbid, rop->argv, rop->argc, rop->target, rop->slot);
+     }
+ 
+@@ -3856,6 +3901,13 @@
+     monotime monotonic_start = 0;
+     if (monotonicGetType() == MONOTONIC_CLOCK_HW) monotonic_start = getMonotonicUs();
+ 
++    int cmd_prop_index = -1;
++    if (c->cmd->flags & (CMD_WRITE | CMD_MAY_REPLICATE)) {
++        /* Save placeholder for replication: the location where the command should be placed
++         * in the replication stream if it will be replicated. */
++        cmd_prop_index = serverOpArrayAppendPlaceholder(&server.also_propagate);
++    }
++
+     c->cmd->proc(c);
+ 
+     exitExecutionUnit();
+@@ -3969,9 +4021,13 @@
+ 
+         /* Call alsoPropagate() only if at least one of AOF / replication
+          * propagation is needed. */
+-        if (propagate_flags != PROPAGATE_NONE) alsoPropagate(c->db->id, c->argv, c->argc, propagate_flags, c->slot);
++        if (propagate_flags != PROPAGATE_NONE)
++            alsoPropagateRaw(c->db->id, c->argv, c->argc, propagate_flags, c->slot, cmd_prop_index);
+     }
+ 
++    /* Try to trim the last element if it is not used (if it's still a placeholder). */
++    serverOpArrayTrim(&server.also_propagate);
++
+     /* Restore the old replication flags, since call() can be executed
+      * recursively. */
+     c->flag.force_aof = client_old_flags.force_aof;
+--- a/src/server.h
++++ b/src/server.h
+@@ -1481,10 +1481,12 @@
+  *
+  * int serverOpArrayAppend(serverOpArray *oa, int dbid, robj **argv, int argc, int target);
+  * void serverOpArrayFree(serverOpArray *oa);
++void alsoPropagateRaw(int dbid, robj **argv, int argc, int target, int slot, int index);
+  */
+ typedef struct serverOpArray {
+     serverOp *ops;
+-    int numops;
++    int numops; /* The actual number of operations in the array */
++    int used;   /* Used spots, including unfilled placeholders */
+     int capacity;
+ } serverOpArray;
+ 
