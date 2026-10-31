@@ -1,0 +1,41 @@
+--- a/Lib/pickletools.py
++++ b/Lib/pickletools.py
+@@ -314,7 +314,7 @@
+             doc="Eight-byte unsigned integer, little-endian.")
+ 
+ 
+-def read_stringnl(f, decode=True, stripquotes=True, *, encoding='latin-1'):
++def read_stringnl(f, decode=True, stripquotes=True):
+     r"""
+     >>> import io
+     >>> read_stringnl(io.BytesIO(b"'abcd'\nefg\n"))
+@@ -358,7 +358,7 @@
+             raise ValueError("no string quotes around %r" % data)
+ 
+     if decode:
+-        data = codecs.escape_decode(data)[0].decode(encoding)
++        data = codecs.escape_decode(data)[0].decode("ascii")
+     return data
+ 
+ stringnl = ArgumentDescriptor(
+@@ -372,7 +372,7 @@
+                    """)
+ 
+ def read_stringnl_noescape(f):
+-    return read_stringnl(f, stripquotes=False, encoding='utf-8')
++    return read_stringnl(f, stripquotes=False)
+ 
+ stringnl_noescape = ArgumentDescriptor(
+                         name='stringnl_noescape',
+@@ -2543,10 +2543,7 @@
+             # make a mild effort to align arguments
+             line += ' ' * (10 - len(opcode.name))
+             if arg is not None:
+-                if opcode.name in ("STRING", "BINSTRING", "SHORT_BINSTRING"):
+-                    arg_text = ascii(arg)
+-                else:
+-                    arg_text = repr(arg)
++                arg_text = repr(arg)
+                 arg_color = (
+                     t.arg_number
+                     if isinstance(arg, (int, float))

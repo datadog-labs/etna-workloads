@@ -1,0 +1,1 @@
+repro.py: getclosurevars on a function that uses both C._global_ref (attribute) and a global _global_ref. Clean: _global_ref is in globals and unbound; buggy: names from co_names are treated as globals/unbound inconsistently (attribute name is wrongly resolved/omitted).

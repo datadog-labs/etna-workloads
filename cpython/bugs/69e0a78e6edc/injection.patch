@@ -1,0 +1,31 @@
+--- a/Objects/memoryobject.c
++++ b/Objects/memoryobject.c
+@@ -1693,10 +1693,6 @@
+     return -1;
+ }
+ 
+-// UNPACK_TO_BOOL: Return 0 if PTR represents "false", and 1 otherwise.
+-static const _Bool bool_false = 0;
+-#define UNPACK_TO_BOOL(PTR) (memcmp((PTR), &bool_false, sizeof(_Bool)) != 0)
+-
+ /* Accept integer objects or objects with an __index__() method. */
+ static long
+ pylong_as_ld(PyObject *item)
+@@ -1832,7 +1828,7 @@
+     case 'l': UNPACK_SINGLE(ld, ptr, long); goto convert_ld;
+ 
+     /* boolean */
+-    case '?': ld = UNPACK_TO_BOOL(ptr); goto convert_bool;
++    case '?': UNPACK_SINGLE(ld, ptr, _Bool); goto convert_bool;
+ 
+     /* unsigned integers */
+     case 'H': UNPACK_SINGLE(lu, ptr, unsigned short); goto convert_lu;
+@@ -3066,7 +3062,7 @@
+     case 'l': CMP_SINGLE(p, q, long); return equal;
+ 
+     /* boolean */
+-    case '?': return UNPACK_TO_BOOL(p) == UNPACK_TO_BOOL(q);
++    case '?': CMP_SINGLE(p, q, _Bool); return equal;
+ 
+     /* unsigned integers */
+     case 'H': CMP_SINGLE(p, q, unsigned short); return equal;

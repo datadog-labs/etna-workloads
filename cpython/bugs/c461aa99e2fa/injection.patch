@@ -1,0 +1,35 @@
+--- a/Lib/_pyio.py
++++ b/Lib/_pyio.py
+@@ -956,21 +956,20 @@
+         if isinstance(b, str):
+             raise TypeError("can't write str to binary stream")
+         with memoryview(b) as view:
++            n = view.nbytes  # Size of any bytes-like object
+             if self.closed:
+                 raise ValueError("write to closed file")
++        if n == 0:
++            return 0
+ 
+-            n = view.nbytes  # Size of any bytes-like object
+-            if n == 0:
+-                return 0
+-
+-            with self._lock:
+-                pos = self._pos
+-                if pos > len(self._buffer):
+-                    # Pad buffer to pos with null bytes.
+-                    self._buffer.resize(pos)
+-                self._buffer[pos:pos + n] = view
+-                self._pos += n
+-            return n
++        with self._lock:
++            pos = self._pos
++            if pos > len(self._buffer):
++                # Pad buffer to pos with null bytes.
++                self._buffer.resize(pos)
++            self._buffer[pos:pos + n] = b
++            self._pos += n
++        return n
+ 
+     def seek(self, pos, whence=0):
+         if self.closed:

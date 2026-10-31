@@ -1,0 +1,63 @@
+--- a/Lib/_pylong.py
++++ b/Lib/_pylong.py
+@@ -14,10 +14,6 @@
+ 
+ import re
+ import decimal
+-try:
+-    import _decimal
+-except ImportError:
+-    _decimal = None
+ 
+ # A number of functions have this form, where `w` is a desired number of
+ # digits in base `base`:
+@@ -177,48 +173,7 @@
+ 
+ def int_to_decimal_string(n):
+     """Asymptotically fast conversion of an 'int' to a decimal string."""
+-    w = n.bit_length()
+-    if w > 450_000 and _decimal is not None:
+-        # It is only usable with the C decimal implementation.
+-        # _pydecimal.py calls str() on very large integers, which in its
+-        # turn calls int_to_decimal_string(), causing very deep recursion.
+-        return str(int_to_decimal(n))
+-
+-    # Fallback algorithm for the case when the C decimal module isn't
+-    # available.  This algorithm is asymptotically worse than the algorithm
+-    # using the decimal module, but better than the quadratic time
+-    # implementation in longobject.c.
+-
+-    DIGLIM = 1000
+-    def inner(n, w):
+-        if w <= DIGLIM:
+-            return str(n)
+-        w2 = w >> 1
+-        hi, lo = divmod(n, pow10[w2])
+-        return inner(hi, w - w2) + inner(lo, w2).zfill(w2)
+-
+-    # The estimation of the number of decimal digits.
+-    # There is no harm in small error.  If we guess too large, there may
+-    # be leading 0's that need to be stripped.  If we guess too small, we
+-    # may need to call str() recursively for the remaining highest digits,
+-    # which can still potentially be a large integer. This is manifested
+-    # only if the number has way more than 10**15 digits, that exceeds
+-    # the 52-bit physical address limit in both Intel64 and AMD64.
+-    w = int(w * 0.3010299956639812 + 1)  # log10(2)
+-    pow10 = compute_powers(w, 5, DIGLIM)
+-    for k, v in pow10.items():
+-        pow10[k] = v << k # 5**k << k == 5**k * 2**k == 10**k
+-    if n < 0:
+-        n = -n
+-        sign = '-'
+-    else:
+-        sign = ''
+-    s = inner(n, w)
+-    if s[0] == '0' and n:
+-        # If our guess of w is too large, there may be leading 0's that
+-        # need to be stripped.
+-        s = s.lstrip('0')
+-    return sign + s
++    return str(int_to_decimal(n))
+ 
+ def _str_to_int_inner(s):
+     """Asymptotically fast conversion of a 'str' to an 'int'."""

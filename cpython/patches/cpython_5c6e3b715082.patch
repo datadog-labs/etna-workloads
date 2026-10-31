@@ -1,0 +1,31 @@
+--- a/Lib/dataclasses.py
++++ b/Lib/dataclasses.py
+@@ -1386,28 +1386,6 @@
+         if '__setstate__' not in cls_dict:
+             newcls.__setstate__ = _dataclass_setstate
+ 
+-    # Fix up any closures which reference __class__.  This is used to
+-    # fix zero argument super so that it points to the correct class
+-    # (the newly created one, which we're returning) and not the
+-    # original class.  We can break out of this loop as soon as we
+-    # make an update, since all closures for a class will share a
+-    # given cell.
+-    for member in newcls.__dict__.values():
+-
+-        # If this is a wrapped function, unwrap it.
+-        if not isinstance(member, type) and hasattr(member, '__wrapped__'):
+-            import inspect
+-            member = inspect.unwrap(member)
+-
+-        if isinstance(member, types.FunctionType):
+-            if _update_func_cell_for__class__(member, cls, newcls):
+-                break
+-        elif isinstance(member, property):
+-            if (_update_func_cell_for__class__(member.fget, cls, newcls)
+-                or _update_func_cell_for__class__(member.fset, cls, newcls)
+-                or _update_func_cell_for__class__(member.fdel, cls, newcls)):
+-                break
+-
+     # Get new annotations to remove references to the original class
+     # in forward references
+     newcls_ann = annotationlib.get_annotations(

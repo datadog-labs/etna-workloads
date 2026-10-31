@@ -1,0 +1,1 @@
+Forces the pure-Python socket.socketpair fallback, then connects a rogue socket to the listener before the real client. Clean: ConnectionError 'Unexpected peer connection'. Buggy: socketpair succeeds with the impostor connection (no authentication).

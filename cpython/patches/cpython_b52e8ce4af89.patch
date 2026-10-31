@@ -1,0 +1,29 @@
+--- a/Lib/traceback.py
++++ b/Lib/traceback.py
+@@ -1576,11 +1576,10 @@
+                 # Convert 1-based column offset to 0-based index into stripped text
+                 colno = offset - 1 - spaces
+                 end_colno = end_offset - 1 - spaces
++                caretspace = ' '
+                 if colno >= 0:
+-                    # Calculate display width to account for wide characters
+-                    dp_colno = _display_width(ltext, colno)
+-                    highlighted = ltext[colno:end_colno]
+-                    caret_count = _display_width(highlighted) if highlighted else (end_colno - colno)
++                    # non-space whitespace (likes tabs) must be kept for alignment
++                    caretspace = ((c if c.isspace() else ' ') for c in ltext[:colno])
+                     start_color = end_color = ""
+                     if colorize:
+                         # colorize from colno to end_colno
+@@ -1593,9 +1592,9 @@
+                         end_color = theme.reset
+                     yield '    {}\n'.format(ltext)
+                     yield '    {}{}{}{}\n'.format(
+-                        ' ' * dp_colno,
++                        "".join(caretspace),
+                         start_color,
+-                        '^' * caret_count,
++                        ('^' * (end_colno - colno)),
+                         end_color,
+                     )
+                 else:

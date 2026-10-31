@@ -1,0 +1,1 @@
+Calls PyObject_SetAttr/SetAttrString via _testcapi with NULL value and an exception set. Clean: raises SystemError (context=the ValueError), attr kept. Buggy: attribute is deleted silently / no SystemError.

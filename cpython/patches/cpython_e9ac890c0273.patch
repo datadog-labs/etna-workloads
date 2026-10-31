@@ -1,0 +1,168 @@
+--- a/Modules/_sre/sre.c
++++ b/Modules/_sre/sre.c
+@@ -1809,7 +1809,7 @@
+ #endif
+ 
+ /* Report failure */
+-#define FAIL do { VTRACE(("FAIL: %d\n", __LINE__)); return -1; } while (0)
++#define FAIL do { VTRACE(("FAIL: %d\n", __LINE__)); return 0; } while (0)
+ 
+ /* Extract opcode, argument, or skip count from code array */
+ #define GET_OP                                          \
+@@ -1833,7 +1833,7 @@
+         skip = *code;                                   \
+         VTRACE(("%lu (skip to %p)\n",                   \
+                (unsigned long)skip, code+skip));        \
+-        if (skip-adj > (uintptr_t)(end - code))         \
++        if (skip-adj > (uintptr_t)(end - code))      \
+             FAIL;                                       \
+         code++;                                         \
+     } while (0)
+@@ -1922,10 +1922,9 @@
+         }
+     }
+ 
+-    return 0;
++    return 1;
+ }
+ 
+-/* Returns 0 on success, -1 on failure, and 1 if the last op is JUMP. */
+ static int
+ _validate_inner(SRE_CODE *code, SRE_CODE *end, Py_ssize_t groups)
+ {
+@@ -2003,7 +2002,7 @@
+         case SRE_OP_IN_LOC_IGNORE:
+             GET_SKIP;
+             /* Stop 1 before the end; we check the FAILURE below */
+-            if (_validate_charset(code, code+skip-2))
++            if (!_validate_charset(code, code+skip-2))
+                 FAIL;
+             if (code[skip-2] != SRE_OP_FAILURE)
+                 FAIL;
+@@ -2057,7 +2056,7 @@
+                 }
+                 /* Validate the charset */
+                 if (flags & SRE_INFO_CHARSET) {
+-                    if (_validate_charset(code, newcode-1))
++                    if (!_validate_charset(code, newcode-1))
+                         FAIL;
+                     if (newcode[-1] != SRE_OP_FAILURE)
+                         FAIL;
+@@ -2078,7 +2077,7 @@
+                     if (skip == 0)
+                         break;
+                     /* Stop 2 before the end; we check the JUMP below */
+-                    if (_validate_inner(code, code+skip-3, groups))
++                    if (!_validate_inner(code, code+skip-3, groups))
+                         FAIL;
+                     code += skip-3;
+                     /* Check that it ends with a JUMP, and that each JUMP
+@@ -2092,8 +2091,6 @@
+                     else if (code+skip-1 != target)
+                         FAIL;
+                 }
+-                if (code != target)
+-                    FAIL;
+             }
+             break;
+ 
+@@ -2109,7 +2106,7 @@
+                     FAIL;
+                 if (max > SRE_MAXREPEAT)
+                     FAIL;
+-                if (_validate_inner(code, code+skip-4, groups))
++                if (!_validate_inner(code, code+skip-4, groups))
+                     FAIL;
+                 code += skip-4;
+                 GET_OP;
+@@ -2129,7 +2126,7 @@
+                     FAIL;
+                 if (max > SRE_MAXREPEAT)
+                     FAIL;
+-                if (_validate_inner(code, code+skip-3, groups))
++                if (!_validate_inner(code, code+skip-3, groups))
+                     FAIL;
+                 code += skip-3;
+                 GET_OP;
+@@ -2147,7 +2144,7 @@
+         case SRE_OP_ATOMIC_GROUP:
+             {
+                 GET_SKIP;
+-                if (_validate_inner(code, code+skip-2, groups))
++                if (!_validate_inner(code, code+skip-2, groups))
+                     FAIL;
+                 code += skip-2;
+                 GET_OP;
+@@ -2199,17 +2196,24 @@
+                to allow arbitrary jumps anywhere in the code; so we just look
+                for a JUMP opcode preceding our skip target.
+             */
+-            VTRACE(("then part:\n"));
+-            int rc = _validate_inner(code+1, code+skip-1, groups);
+-            if (rc == 1) {
+-                VTRACE(("else part:\n"));
++            if (skip >= 3 && skip-3 < (uintptr_t)(end - code) &&
++                code[skip-3] == SRE_OP_JUMP)
++            {
++                VTRACE(("both then and else parts present\n"));
++                if (!_validate_inner(code+1, code+skip-3, groups))
++                    FAIL;
+                 code += skip-2; /* Position after JUMP, at <skipno> */
+                 GET_SKIP;
+-                rc = _validate_inner(code, code+skip-1, groups);
++                if (!_validate_inner(code, code+skip-1, groups))
++                    FAIL;
++                code += skip-1;
++            }
++            else {
++                VTRACE(("only a then part present\n"));
++                if (!_validate_inner(code+1, code+skip-1, groups))
++                    FAIL;
++                code += skip-1;
+             }
+-            if (rc)
+-                FAIL;
+-            code += skip-1;
+             break;
+ 
+         case SRE_OP_ASSERT:
+@@ -2218,7 +2222,7 @@
+             GET_ARG; /* 0 for lookahead, width for lookbehind */
+             code--; /* Back up over arg to simplify math below */
+             /* Stop 1 before the end; we check the SUCCESS below */
+-            if (_validate_inner(code+1, code+skip-2, groups))
++            if (!_validate_inner(code+1, code+skip-2, groups))
+                 FAIL;
+             code += skip-2;
+             GET_OP;
+@@ -2226,12 +2230,6 @@
+                 FAIL;
+             break;
+ 
+-        case SRE_OP_JUMP:
+-            if (code + 1 != end)
+-                FAIL;
+-            VTRACE(("JUMP: %d\n", __LINE__));
+-            return 1;
+-
+         default:
+             FAIL;
+ 
+@@ -2239,7 +2237,7 @@
+     }
+ 
+     VTRACE(("okay\n"));
+-    return 0;
++    return 1;
+ }
+ 
+ static int
+@@ -2254,7 +2252,7 @@
+ static int
+ _validate(PatternObject *self)
+ {
+-    if (_validate_outer(self->code, self->code+self->codesize, self->groups))
++    if (!_validate_outer(self->code, self->code+self->codesize, self->groups))
+     {
+         PyErr_SetString(PyExc_RuntimeError, "invalid SRE code");
+         return 0;

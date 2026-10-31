@@ -1,0 +1,1 @@
+repro.py: calls communicate(input, timeout=0) then communicate(timeout=10) on a child that echoes stdin. Clean: completes (returncode 0, len 200000). Buggy: second call doesn't register stdin, never closes it, so it times out ('hung').

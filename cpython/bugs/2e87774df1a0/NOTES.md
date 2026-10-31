@@ -1,0 +1,1 @@
+Reproducer checks that dir(list[int]) is a superset of dir(list) and has __origin__/__args__/__parameters__. Clean prints True for the superset check; buggy prints False (GenericAlias __dir__ does not include the origin attributes).

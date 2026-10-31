@@ -190,6 +190,7 @@ def repro_one(cid, bug, model, cands):
             "permissions": {"allow": ["Bash", "Read", "Edit", "Write", "Glob", "Grep"],
                             "deny": ["WebFetch", "WebSearch"]}}
         (w / "settings.json").write_text(json.dumps(settings))
+        E.wait_for_auth()
         t0 = time.time()
         try:
             r = subprocess.run(

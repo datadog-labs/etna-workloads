@@ -1,0 +1,1 @@
+repro.py compiles a function whose except/except* handler declares 'global a' and whose else block uses a. Clean: compiles fine. Buggy: SyntaxError (name 'a' is used prior to global declaration) because symtable visits else before handlers.

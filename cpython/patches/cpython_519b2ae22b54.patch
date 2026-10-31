@@ -1,0 +1,46 @@
+--- a/Include/Python.h
++++ b/Include/Python.h
+@@ -86,7 +86,6 @@
+ #include "bytearrayobject.h"
+ #include "bytesobject.h"
+ #include "unicodeobject.h"
+-#include "pyerrors.h"
+ #include "longobject.h"
+ #include "cpython/longintrepr.h"
+ #include "boolobject.h"
+@@ -125,6 +124,7 @@
+ #include "cpython/picklebufobject.h"
+ #include "cpython/pytime.h"
+ #include "codecs.h"
++#include "pyerrors.h"
+ #include "pythread.h"
+ #include "cpython/context.h"
+ #include "modsupport.h"
+--- a/Include/longobject.h
++++ b/Include/longobject.h
+@@ -104,24 +104,7 @@
+ #if !defined(SIZEOF_PID_T) || SIZEOF_PID_T == SIZEOF_INT
+ #define _Py_PARSE_PID "i"
+ #define PyLong_FromPid PyLong_FromLong
+-# if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x030d0000
+-#   define PyLong_AsPid PyLong_AsInt
+-# elif SIZEOF_INT == SIZEOF_LONG
+-#   define PyLong_AsPid PyLong_AsLong
+-# else
+-static inline int
+-PyLong_AsPid(PyObject *obj)
+-{
+-    int overflow;
+-    long result = PyLong_AsLongAndOverflow(obj, &overflow);
+-    if (overflow || result > INT_MAX || result < INT_MIN) {
+-        PyErr_SetString(PyExc_OverflowError,
+-                        "Python int too large to convert to C int");
+-        return -1;
+-    }
+-    return (int)result;
+-}
+-# endif
++#define PyLong_AsPid PyLong_AsLong
+ #elif SIZEOF_PID_T == SIZEOF_LONG
+ #define _Py_PARSE_PID "l"
+ #define PyLong_FromPid PyLong_FromLong

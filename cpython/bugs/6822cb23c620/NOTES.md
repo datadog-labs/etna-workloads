@@ -1,0 +1,1 @@
+repro.py feeds 'def f(x, x): ...' to the basic REPL (python -i, stdin piped) and prints the last stderr lines. Clean shows the source line and caret under the SyntaxError; buggy omits them (SyntaxError text attribute not fixed up in PyRun_InteractiveOneObjectEx).

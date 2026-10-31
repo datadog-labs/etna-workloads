@@ -1,0 +1,1 @@
+repro.py runs a script under `python -m pdb` with PYTHONSAFEPATH=1 and prints whether sys.path[0] was rewritten to the script's dir. Clean: False (safe_path respected); buggy: True (pdb overwrites sys.path[0]).

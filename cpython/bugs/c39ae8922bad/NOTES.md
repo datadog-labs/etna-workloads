@@ -1,0 +1,1 @@
+Naked exception wrapped by except* should get the except* frame in the wrapper group's traceback (gh-128799); buggy build omits the 'in exc' frame, so the traceback has 1 entry instead of 2 and the printed report lacks the exc frame.

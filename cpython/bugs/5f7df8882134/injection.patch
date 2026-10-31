@@ -1,0 +1,24 @@
+--- a/Lib/argparse.py
++++ b/Lib/argparse.py
+@@ -449,7 +449,6 @@
+         This preserves mutually exclusive group formatting across the
+         optionals/positionals boundary (gh-75949).
+         """
+-        actions = [action for action in actions if action.help is not SUPPRESS]
+         # group actions by mutually exclusive groups
+         action_groups = dict.fromkeys(actions)
+         for group in groups:
+@@ -494,8 +493,12 @@
+             start = len(parts)
+             if i == len(optionals):
+                 pos_start = start
+-            in_group = len(group) > 1
++            exposed_actions_count = sum(
++                action.help is not SUPPRESS for action in group)
++            in_group = len(group) > 1 and exposed_actions_count != 1
+             for action in group:
++                if action.help is SUPPRESS:
++                    continue
+                 # produce all arg strings
+                 if not action.option_strings:
+                     default = self._get_default_metavar_for_positional(action)

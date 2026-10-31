@@ -1,0 +1,1 @@
+Runs a script file containing a NUL byte inside a (f-)triple-quoted string via subprocess and prints the last two stderr lines. Clean: 'SyntaxError: source code cannot contain null bytes' after the source line; buggy: that error is missing/different (tokenizer doesn't return ERRORTOKEN on E_ERROR in multiline strings).

@@ -1,0 +1,1 @@
+repro.py: eval/exec with a MappingProxyType __builtins__ (list_iterator.__reduce__ and an import statement). The clean build returns the results; the buggy build raises SystemError because it does a dict lookup on a non-dict __builtins__.

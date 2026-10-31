@@ -1,0 +1,57 @@
+--- a/Lib/profiling/sampling/live_collector/collector.py
++++ b/Lib/profiling/sampling/live_collector/collector.py
+@@ -401,9 +401,11 @@
+         if has_gc_frame:
+             self.gc_frame_samples += 1
+ 
+-        # Count as successful - the sample worked even if no frames matched the filter
+-        # (e.g., in --mode exception when no thread has an active exception)
+-        self.successful_samples += 1
++        # Only count as successful if we actually processed frames
++        # This is important for modes like --mode exception where most samples
++        # may be filtered out at the C level
++        if frames_processed:
++            self.successful_samples += 1
+         self.total_samples += 1
+ 
+         # Handle input on every sample for instant responsiveness
+--- a/Lib/profiling/sampling/live_collector/widgets.py
++++ b/Lib/profiling/sampling/live_collector/widgets.py
+@@ -309,21 +309,31 @@
+ 
+     def draw_efficiency_bar(self, line, width):
+         """Draw sample efficiency bar showing success/failure rates."""
+-        # total_samples = successful_samples + failed_samples, so percentages add to 100%
+-        total = max(1, self.collector.total_samples)
+-        success_pct = (self.collector.successful_samples / total) * 100
+-        failed_pct = (self.collector.failed_samples / total) * 100
++        success_pct = (
++            self.collector.successful_samples
++            / max(1, self.collector.total_samples)
++        ) * 100
++        failed_pct = (
++            self.collector.failed_samples
++            / max(1, self.collector.total_samples)
++        ) * 100
+ 
+         col = 0
+         self.add_str(line, col, "Efficiency:", curses.A_BOLD)
+         col += 11
+ 
+-        label = f" {success_pct:>5.2f}% good, {failed_pct:>5.2f}% failed"
++        label = f" {success_pct:>5.2f}% good, {failed_pct:>4.2f}% failed"
+         available_width = width - col - len(label) - 3
+ 
+         if available_width >= MIN_BAR_WIDTH:
+             bar_width = min(MAX_EFFICIENCY_BAR_WIDTH, available_width)
+-            success_fill = int((self.collector.successful_samples / total) * bar_width)
++            success_fill = int(
++                (
++                    self.collector.successful_samples
++                    / max(1, self.collector.total_samples)
++                )
++                * bar_width
++            )
+             failed_fill = bar_width - success_fill
+ 
+             self.add_str(line, col, "[", curses.A_NORMAL)

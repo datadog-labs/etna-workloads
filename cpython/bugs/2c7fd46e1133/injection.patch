@@ -1,0 +1,60 @@
+--- a/Objects/unicodeobject.c
++++ b/Objects/unicodeobject.c
+@@ -4443,10 +4443,7 @@
+     Py_ssize_t insize;
+     Py_ssize_t newpos;
+     Py_ssize_t replen;
+-    Py_ssize_t remain;
+     PyObject *inputobj = NULL;
+-    int need_to_grow = 0;
+-    const char *new_inptr;
+ 
+     if (*errorHandler == NULL) {
+         *errorHandler = PyCodec_LookupError(errors);
+@@ -4477,7 +4474,6 @@
+     inputobj = PyUnicodeDecodeError_GetObject(*exceptionObject);
+     if (!inputobj)
+         goto onError;
+-    remain = *inend - *input - *endinpos;
+     *input = PyBytes_AS_STRING(inputobj);
+     insize = PyBytes_GET_SIZE(inputobj);
+     *inend = *input + insize;
+@@ -4495,19 +4491,6 @@
+     replen = PyUnicode_GET_LENGTH(repunicode);
+     if (replen > 1) {
+         writer->min_length += replen - 1;
+-        need_to_grow = 1;
+-    }
+-    new_inptr = *input + newpos;
+-    if (*inend - new_inptr > remain) {
+-        /* We don't know the decoding algorithm here so we make the worst
+-           assumption that one byte decodes to one unicode character.
+-           If unfortunately one byte could decode to more unicode characters,
+-           the decoder may write out-of-bound then.  Is it possible for the
+-           algorithms using this function? */
+-        writer->min_length += *inend - new_inptr - remain;
+-        need_to_grow = 1;
+-    }
+-    if (need_to_grow) {
+         writer->overallocate = 1;
+         if (_PyUnicodeWriter_Prepare(writer, writer->min_length - writer->pos,
+                             PyUnicode_MAX_CHAR_VALUE(repunicode)) == -1)
+@@ -4517,7 +4500,7 @@
+         goto onError;
+ 
+     *endinpos = newpos;
+-    *inptr = new_inptr;
++    *inptr = *input + newpos;
+ 
+     /* we made it! */
+     Py_DECREF(restuple);
+@@ -6230,8 +6213,7 @@
+ #endif
+ 
+     /* Note: size will always be longer than the resulting Unicode
+-       character count normally.  Error handler will take care of
+-       resizing when needed. */
++       character count */
+     _PyUnicodeWriter_Init(&writer);
+     writer.min_length = (e - q + 1) / 2;
+     if (_PyUnicodeWriter_Prepare(&writer, writer.min_length, 127) == -1)

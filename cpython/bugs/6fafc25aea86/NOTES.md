@@ -1,0 +1,1 @@
+repro.py formats argparse help for an argument whose help is blank ('    ') or expands to empty ('%(choices)s' with choices=[]). Clean prints the help text; buggy raises IndexError (help_lines[0] on empty list) for both.

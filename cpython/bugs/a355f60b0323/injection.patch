@@ -1,0 +1,24 @@
+--- a/Lib/asyncio/streams.py
++++ b/Lib/asyncio/streams.py
+@@ -201,6 +201,7 @@
+             # is established.
+             self._strong_reader = stream_reader
+         self._reject_connection = False
++        self._stream_writer = None
+         self._task = None
+         self._transport = None
+         self._client_connected_cb = client_connected_cb
+@@ -238,9 +239,11 @@
+             reader.set_transport(transport)
+         self._over_ssl = transport.get_extra_info('sslcontext') is not None
+         if self._client_connected_cb is not None:
+-            writer = StreamWriter(transport, self, reader, self._loop)
++            self._stream_writer = StreamWriter(transport, self, reader,
++                                               self._loop)
+             try:
+-                res = self._client_connected_cb(reader, writer)
++                res = self._client_connected_cb(reader,
++                                                self._stream_writer)
+             except Exception as exc:
+                 self._loop.call_exception_handler({
+                     'message': 'Unhandled exception in client_connected_cb',

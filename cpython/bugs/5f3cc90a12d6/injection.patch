@@ -1,0 +1,45 @@
+--- a/Modules/_ctypes/_ctypes.c
++++ b/Modules/_ctypes/_ctypes.c
+@@ -4888,10 +4888,10 @@
+         return index;
+     }
+ 
+-    for (i = index;
+-         i < info->length && i < PyTuple_GET_SIZE(args);
++    for (i = 0;
++         i < info->length && (i+index) < PyTuple_GET_SIZE(args);
+          ++i) {
+-        PyObject *pair = PySequence_GetItem(fields, i - index);
++        PyObject *pair = PySequence_GetItem(fields, i);
+         PyObject *name, *val;
+         int res;
+         if (!pair)
+@@ -4901,7 +4901,7 @@
+             Py_DECREF(pair);
+             return -1;
+         }
+-        val = PyTuple_GET_ITEM(args, i);
++        val = PyTuple_GET_ITEM(args, i + index);
+         if (kwds) {
+             res = PyDict_Contains(kwds, name);
+             if (res != 0) {
+@@ -4922,7 +4922,7 @@
+         if (res == -1)
+             return -1;
+     }
+-    return info->length;
++    return index + info->length;
+ }
+ 
+ static int
+--- a/Modules/_ctypes/stgdict.c
++++ b/Modules/_ctypes/stgdict.c
+@@ -444,7 +444,7 @@
+ 
+     stginfo->size = total_size;
+     stginfo->align = total_align;
+-    stginfo->length = ffi_ofs + len;
++    stginfo->length = len;      /* ADD ffi_ofs? */
+ 
+ /*
+  * The value of MAX_STRUCT_SIZE depends on the platform Python is running on.

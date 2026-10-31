@@ -1,0 +1,28 @@
+--- a/Python/compile.c
++++ b/Python/compile.c
+@@ -1212,20 +1212,11 @@
+         return ERROR;
+     }
+     Py_DECREF(ptr);
+-    PyObject *index;
+-    if (c->u->u_scope_type == COMPILE_SCOPE_MODULE || c->u->u_in_conditional_block) {
+-        index = PyLong_FromLong(c->u->u_next_conditional_annotation_index);
+-        if (index == NULL) {
+-            return ERROR;
+-        }
+-        *conditional_annotation_index = Py_NewRef(index);
+-        c->u->u_next_conditional_annotation_index++;
+-    }
+-    else {
+-        index = PyLong_FromLong(-1);
+-        if (index == NULL) {
+-            return ERROR;
+-        }
++    /* Every annotation is recorded as unconditional, regardless of whether
++       it sits in a conditional block. */
++    PyObject *index = PyLong_FromLong(-1);
++    if (index == NULL) {
++        return ERROR;
+     }
+     int rc = PyList_Append(c->u->u_conditional_annotation_indices, index);
+     Py_DECREF(index);

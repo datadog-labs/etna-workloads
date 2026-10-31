@@ -1,0 +1,1 @@
+Calls `bytearray.__buffer__(BufferFlags.READ/WRITE)`. Clean: raises SystemError (PyBuffer_FillInfo failure is propagated). Buggy: the failure is ignored, so the call returns inconsistently (stale/NULL buffer state, ob_exports incremented) and the SystemError is missing / a debug assertion or crash occurs.

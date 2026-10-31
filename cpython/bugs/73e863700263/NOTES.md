@@ -1,0 +1,1 @@
+repro.py sends an empty UDP datagram via asyncio's datagram transport to a loopback socket. Clean: receiver gets b''. Buggy: sendto() returns early on empty data, so nothing is received (prints 'nothing received').

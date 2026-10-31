@@ -1,0 +1,1 @@
+Reproducer writes a binary profile with 2 threads, patches the header thread_count (offset 36) to 1, and replays it. Clean raises ValueError 'Invalid thread count...'; buggy lacks the validation and replays without error (prints the sample count).

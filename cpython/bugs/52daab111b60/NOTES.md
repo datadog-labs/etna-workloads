@@ -1,0 +1,1 @@
+repro.py feeds LiveStatsCollector.collect() a sample whose only thread has no frames (e.g. filtered mode). Clean counts it as successful (prints '1 1 0'); buggy skips successful_samples (prints '1 0 0'), so total != successful + failed.

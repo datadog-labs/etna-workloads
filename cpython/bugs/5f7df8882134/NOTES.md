@@ -1,0 +1,1 @@
+Reproducer: a mutually exclusive group whose members all have help=SUPPRESS, then format_usage(). Clean prints 'usage: PROG [-h] [--baz BAZ]'; buggy raises IndexError in _format_actions_usage (the group is not filtered out, so parts[start] is out of range).

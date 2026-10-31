@@ -1,0 +1,1 @@
+repro.py defines a non-Enum class with metaclass EnumMeta, then an Enum subclassing it, and prints repr(E.A). Clean prints <E.A: 1>. Buggy raises AttributeError (type object 'int' has no attribute '_value_repr_') because the injected issubclass(base, Enum) check skips the EnumType base in the _value_repr_ lookup.

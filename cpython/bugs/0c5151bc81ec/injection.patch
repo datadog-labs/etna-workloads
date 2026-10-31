@@ -1,0 +1,37 @@
+--- a/Lib/_pyrepl/base_eventqueue.py
++++ b/Lib/_pyrepl/base_eventqueue.py
+@@ -69,14 +69,18 @@
+         trace('added event {event}', event=event)
+         self.events.append(event)
+ 
+-    def push(self, char: int | bytes) -> None:
++    def push(self, char: int | bytes | str) -> None:
+         """
+         Processes a character by updating the buffer and handling special key mappings.
+         """
+-        assert isinstance(char, (int, bytes))
+         ord_char = char if isinstance(char, int) else ord(char)
+-        char = ord_char.to_bytes()
+-        self.buf.append(ord_char)
++        if ord_char > 255:
++            assert isinstance(char, str)
++            char = bytes(char.encode(self.encoding, "replace"))
++            self.buf.extend(char)
++        else:
++            char = bytes(bytearray((ord_char,)))
++            self.buf.append(ord_char)
+ 
+         if char in self.keymap:
+             if self.keymap is self.compiled_keymap:
+--- a/Lib/_pyrepl/windows_console.py
++++ b/Lib/_pyrepl/windows_console.py
+@@ -611,8 +611,7 @@
+                 return None
+             elif self.__vt_support:
+                 # If virtual terminal is enabled, scanning VT sequences
+-                for char in raw_key.encode(self.event_queue.encoding, "replace"):
+-                    self.event_queue.push(char)
++                self.event_queue.push(rec.Event.KeyEvent.uChar.UnicodeChar)
+                 continue
+ 
+             if key_event.dwControlKeyState & ALT_ACTIVE:

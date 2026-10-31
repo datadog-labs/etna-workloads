@@ -1,0 +1,33 @@
+--- a/Lib/asyncio/__main__.py
++++ b/Lib/asyncio/__main__.py
+@@ -3,7 +3,6 @@
+ import asyncio
+ import asyncio.tools
+ import concurrent.futures
+-import contextvars
+ import inspect
+ import os
+ import site
+@@ -28,7 +27,6 @@
+         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+ 
+         self.loop = loop
+-        self.context = contextvars.copy_context()
+ 
+     def runcode(self, code):
+         global return_code
+@@ -62,12 +60,12 @@
+                 return
+ 
+             try:
+-                repl_future = self.loop.create_task(coro, context=self.context)
++                repl_future = self.loop.create_task(coro)
+                 futures._chain_future(repl_future, future)
+             except BaseException as exc:
+                 future.set_exception(exc)
+ 
+-        self.loop.call_soon_threadsafe(callback, context=self.context)
++        self.loop.call_soon_threadsafe(callback)
+ 
+         try:
+             return future.result()

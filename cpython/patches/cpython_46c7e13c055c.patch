@@ -1,0 +1,49 @@
+--- a/Python/tracemalloc.c
++++ b/Python/tracemalloc.c
+@@ -1340,20 +1340,9 @@
+ PyTraceMalloc_Track(unsigned int domain, uintptr_t ptr,
+                     size_t size)
+ {
+-    if (_Py_atomic_load_int_relaxed(&tracemalloc_config.tracing) == 0) {
+-        /* tracemalloc is not tracing: do nothing */
+-        return -2;
+-    }
+     TABLES_LOCK();
+ 
+-    int result;
+-    if (tracemalloc_config.tracing) {
+-        result = tracemalloc_add_trace_unlocked(domain, ptr, size);
+-    }
+-    else {
+-        /* tracemalloc is not tracing: do nothing */
+-        result = -2;
+-    }
++    int result = tracemalloc_add_trace_unlocked(domain, ptr, size);
+ 
+     TABLES_UNLOCK();
+     return result;
+@@ -1363,22 +1352,10 @@
+ int
+ PyTraceMalloc_Untrack(unsigned int domain, uintptr_t ptr)
+ {
+-    if (_Py_atomic_load_int_relaxed(&tracemalloc_config.tracing) == 0) {
+-        /* tracemalloc is not tracing: do nothing */
+-        return -2;
+-    }
+-
+     TABLES_LOCK();
+ 
+-    int result;
+-    if (tracemalloc_config.tracing) {
+-        tracemalloc_remove_trace_unlocked(domain, ptr);
+-        result = 0;
+-    }
+-    else {
+-        /* tracemalloc is not tracing: do nothing */
+-        result = -2;
+-    }
++    tracemalloc_remove_trace_unlocked(domain, ptr);
++    int result = 0;
+ 
+     TABLES_UNLOCK();
+     return result;

@@ -1,0 +1,21 @@
+--- a/Python/pythonrun.c
++++ b/Python/pythonrun.c
+@@ -1134,7 +1134,6 @@
+ void
+ _PyErr_Display(PyObject *file, PyObject *unused, PyObject *value, PyObject *tb)
+ {
+-    assert(value != NULL);
+     assert(file != NULL && file != Py_None);
+     if (PyExceptionInstance_Check(value)
+         && tb != NULL && PyTraceBack_Check(tb)) {
+@@ -1149,6 +1148,10 @@
+         }
+     }
+ 
++    if (!value || PyErr_GivenExceptionMatches(value, PyExc_MemoryError)) {
++        goto fallback;
++    }
++
+     // Try first with the stdlib traceback module
+     PyObject *print_exception_fn = PyImport_ImportModuleAttrString(
+         "traceback",

@@ -1,0 +1,1 @@
+Copies/pickles a codecs.StreamWriter. Clean: TypeError "can't serialize StreamWriter" for copy, deepcopy and pickle. Buggy: the __reduce_ex__ guard is missing, so these hit RecursionError or succeed instead.

@@ -1,0 +1,25 @@
+--- a/Lib/asyncio/timeouts.py
++++ b/Lib/asyncio/timeouts.py
+@@ -89,7 +89,6 @@
+             raise RuntimeError("Timeout should be used inside a task")
+         self._state = _State.ENTERED
+         self._task = task
+-        self._cancelling = self._task.cancelling()
+         self.reschedule(self._when)
+         return self
+ 
+@@ -108,11 +107,11 @@
+         if self._state is _State.EXPIRING:
+             self._state = _State.EXPIRED
+ 
+-            if self._task.uncancel() <= self._cancelling and exc_type is not None:
+-                # Since there are no new cancel requests, we're
++            if self._task.uncancel() == 0 and exc_type is not None:
++                # Since there are no outstanding cancel requests, we're
+                 # handling this.
+                 if issubclass(exc_type, exceptions.CancelledError):
+-                    raise TimeoutError from exc_val
++                    raise TimeoutError
+                 elif exc_val is not None:
+                     self._insert_timeout_error(exc_val)
+                     if isinstance(exc_val, ExceptionGroup):

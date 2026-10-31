@@ -1,0 +1,1 @@
+repro.py runs InteractiveColoredConsole().runsource() on 'def f(x, x): ...' and prints stderr. Clean shows the source line and caret under the SyntaxError; buggy drops them because showsyntaxerror ignores the source kwarg (Lib/code.py).

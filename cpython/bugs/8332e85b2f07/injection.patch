@@ -1,0 +1,151 @@
+--- a/Python/bytecodes.c
++++ b/Python/bytecodes.c
+@@ -5643,7 +5643,9 @@
+             EVAL_CALL_STAT_INC_IF_FUNCTION(EVAL_CALL_FUNCTION_EX, func);
+             PyObject *result_o;
+             assert(!_PyErr_Occurred(tstate));
+-            if (opcode == INSTRUMENTED_CALL_FUNCTION_EX) {
++            if (opcode == INSTRUMENTED_CALL_FUNCTION_EX &&
++                !PyFunction_Check(func) && !PyMethod_Check(func)
++            ) {
+                 PyObject *callargs = PyStackRef_AsPyObjectBorrow(callargs_st);
+                 PyObject *kwargs = PyStackRef_AsPyObjectBorrow(kwargs_st);
+                 assert(kwargs == NULL || PyDict_CheckExact(kwargs));
+@@ -5657,20 +5659,17 @@
+                     ERROR_NO_POP();
+                 }
+                 result_o = PyObject_Call(func, callargs, kwargs);
+-
+-                if (!PyFunction_Check(func) && !PyMethod_Check(func)) {
+-                    if (result_o == NULL) {
+-                        _Py_call_instrumentation_exc2(
+-                            tstate, PY_MONITORING_EVENT_C_RAISE,
+-                            frame, this_instr, func, arg);
+-                    }
+-                    else {
+-                        int err = _Py_call_instrumentation_2args(
+-                            tstate, PY_MONITORING_EVENT_C_RETURN,
+-                            frame, this_instr, func, arg);
+-                        if (err < 0) {
+-                            Py_CLEAR(result_o);
+-                        }
++                if (result_o == NULL) {
++                    _Py_call_instrumentation_exc2(
++                        tstate, PY_MONITORING_EVENT_C_RAISE,
++                        frame, this_instr, func, arg);
++                }
++                else {
++                    int err = _Py_call_instrumentation_2args(
++                        tstate, PY_MONITORING_EVENT_C_RETURN,
++                        frame, this_instr, func, arg);
++                    if (err < 0) {
++                        Py_CLEAR(result_o);
+                     }
+                 }
+             }
+--- a/Python/generated_cases.c.h
++++ b/Python/generated_cases.c.h
+@@ -2953,7 +2953,9 @@
+                 EVAL_CALL_STAT_INC_IF_FUNCTION(EVAL_CALL_FUNCTION_EX, func);
+                 PyObject *result_o;
+                 assert(!_PyErr_Occurred(tstate));
+-                if (opcode == INSTRUMENTED_CALL_FUNCTION_EX) {
++                if (opcode == INSTRUMENTED_CALL_FUNCTION_EX &&
++                    !PyFunction_Check(func) && !PyMethod_Check(func)
++                ) {
+                     PyObject *callargs = PyStackRef_AsPyObjectBorrow(callargs_st);
+                     PyObject *kwargs = PyStackRef_AsPyObjectBorrow(kwargs_st);
+                     assert(kwargs == NULL || PyDict_CheckExact(kwargs));
+@@ -2972,25 +2974,23 @@
+                     _PyFrame_SetStackPointer(frame, stack_pointer);
+                     result_o = PyObject_Call(func, callargs, kwargs);
+                     stack_pointer = _PyFrame_GetStackPointer(frame);
+-                    if (!PyFunction_Check(func) && !PyMethod_Check(func)) {
+-                        if (result_o == NULL) {
+-                            _PyFrame_SetStackPointer(frame, stack_pointer);
+-                            _Py_call_instrumentation_exc2(
+-                                tstate, PY_MONITORING_EVENT_C_RAISE,
+-                                frame, this_instr, func, arg);
+-                            stack_pointer = _PyFrame_GetStackPointer(frame);
+-                        }
+-                        else {
++                    if (result_o == NULL) {
++                        _PyFrame_SetStackPointer(frame, stack_pointer);
++                        _Py_call_instrumentation_exc2(
++                            tstate, PY_MONITORING_EVENT_C_RAISE,
++                            frame, this_instr, func, arg);
++                        stack_pointer = _PyFrame_GetStackPointer(frame);
++                    }
++                    else {
++                        _PyFrame_SetStackPointer(frame, stack_pointer);
++                        int err = _Py_call_instrumentation_2args(
++                            tstate, PY_MONITORING_EVENT_C_RETURN,
++                            frame, this_instr, func, arg);
++                        stack_pointer = _PyFrame_GetStackPointer(frame);
++                        if (err < 0) {
+                             _PyFrame_SetStackPointer(frame, stack_pointer);
+-                            int err = _Py_call_instrumentation_2args(
+-                                tstate, PY_MONITORING_EVENT_C_RETURN,
+-                                frame, this_instr, func, arg);
++                            Py_CLEAR(result_o);
+                             stack_pointer = _PyFrame_GetStackPointer(frame);
+-                            if (err < 0) {
+-                                _PyFrame_SetStackPointer(frame, stack_pointer);
+-                                Py_CLEAR(result_o);
+-                                stack_pointer = _PyFrame_GetStackPointer(frame);
+-                            }
+                         }
+                     }
+                 }
+@@ -6991,7 +6991,9 @@
+                 EVAL_CALL_STAT_INC_IF_FUNCTION(EVAL_CALL_FUNCTION_EX, func);
+                 PyObject *result_o;
+                 assert(!_PyErr_Occurred(tstate));
+-                if (opcode == INSTRUMENTED_CALL_FUNCTION_EX) {
++                if (opcode == INSTRUMENTED_CALL_FUNCTION_EX &&
++                    !PyFunction_Check(func) && !PyMethod_Check(func)
++                ) {
+                     PyObject *callargs = PyStackRef_AsPyObjectBorrow(callargs_st);
+                     PyObject *kwargs = PyStackRef_AsPyObjectBorrow(kwargs_st);
+                     assert(kwargs == NULL || PyDict_CheckExact(kwargs));
+@@ -7010,25 +7012,23 @@
+                     _PyFrame_SetStackPointer(frame, stack_pointer);
+                     result_o = PyObject_Call(func, callargs, kwargs);
+                     stack_pointer = _PyFrame_GetStackPointer(frame);
+-                    if (!PyFunction_Check(func) && !PyMethod_Check(func)) {
+-                        if (result_o == NULL) {
+-                            _PyFrame_SetStackPointer(frame, stack_pointer);
+-                            _Py_call_instrumentation_exc2(
+-                                tstate, PY_MONITORING_EVENT_C_RAISE,
+-                                frame, this_instr, func, arg);
+-                            stack_pointer = _PyFrame_GetStackPointer(frame);
+-                        }
+-                        else {
++                    if (result_o == NULL) {
++                        _PyFrame_SetStackPointer(frame, stack_pointer);
++                        _Py_call_instrumentation_exc2(
++                            tstate, PY_MONITORING_EVENT_C_RAISE,
++                            frame, this_instr, func, arg);
++                        stack_pointer = _PyFrame_GetStackPointer(frame);
++                    }
++                    else {
++                        _PyFrame_SetStackPointer(frame, stack_pointer);
++                        int err = _Py_call_instrumentation_2args(
++                            tstate, PY_MONITORING_EVENT_C_RETURN,
++                            frame, this_instr, func, arg);
++                        stack_pointer = _PyFrame_GetStackPointer(frame);
++                        if (err < 0) {
+                             _PyFrame_SetStackPointer(frame, stack_pointer);
+-                            int err = _Py_call_instrumentation_2args(
+-                                tstate, PY_MONITORING_EVENT_C_RETURN,
+-                                frame, this_instr, func, arg);
++                            Py_CLEAR(result_o);
+                             stack_pointer = _PyFrame_GetStackPointer(frame);
+-                            if (err < 0) {
+-                                _PyFrame_SetStackPointer(frame, stack_pointer);
+-                                Py_CLEAR(result_o);
+-                                stack_pointer = _PyFrame_GetStackPointer(frame);
+-                            }
+                         }
+                     }
+                 }

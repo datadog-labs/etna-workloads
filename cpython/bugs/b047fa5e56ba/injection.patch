@@ -1,0 +1,36 @@
+--- a/Parser/lexer/lexer.c
++++ b/Parser/lexer/lexer.c
+@@ -260,12 +260,8 @@
+ }
+ 
+ static int
+-verify_end_of_number(struct tok_state *tok, int c, const char *kind) {
+-    if (tok->tok_extra_tokens) {
+-        // When we are parsing extra tokens, we don't want to emit warnings
+-        // about invalid literals, because we want to be a bit more liberal.
+-        return 1;
+-    }
++verify_end_of_number(struct tok_state *tok, int c, const char *kind)
++{
+     /* Emit a deprecation warning only if the numeric literal is immediately
+      * followed by one of keywords which can occur after a numeric literal
+      * in valid code: "and", "else", "for", "if", "in", "is" and "or".
+@@ -321,9 +317,6 @@
+ static int
+ verify_identifier(struct tok_state *tok)
+ {
+-    if (tok->tok_extra_tokens) {
+-        return 1;
+-    }
+     PyObject *s;
+     if (tok->decoding_erred)
+         return 0;
+@@ -926,7 +919,7 @@
+                 else if (c == 'j' || c == 'J') {
+                     goto imaginary;
+                 }
+-                else if (nonzero && !tok->tok_extra_tokens) {
++                else if (nonzero) {
+                     /* Old-style octal: now disallowed. */
+                     tok_backup(tok, c);
+                     return MAKE_TOKEN(_PyTokenizer_syntaxerror_known_range(

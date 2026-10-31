@@ -1,0 +1,31 @@
+--- a/Lib/typing.py
++++ b/Lib/typing.py
+@@ -2044,12 +2044,6 @@
+             getattr(cls, '_is_protocol', False)
+             and not _allow_reckless_class_checks()
+         ):
+-            if not getattr(cls, '_is_runtime_protocol', False):
+-                _type_check_issubclass_arg_1(other)
+-                raise TypeError(
+-                    "Instance and class checks can only be used with "
+-                    "@runtime_checkable protocols"
+-                )
+             if getattr(cls, '__typing_is_deprecated_inherited_runtime_protocol__', False):
+                 # See GH-132604.
+                 import warnings
+@@ -2124,6 +2118,15 @@
+     if not cls.__dict__.get('_is_protocol', False):
+         return NotImplemented
+ 
++    # First, perform various sanity checks.
++    if not getattr(cls, '_is_runtime_protocol', False):
++        if _allow_reckless_class_checks(depth=3):
++            return NotImplemented
++        raise TypeError("Instance and class checks can only be used with"
++                        " @runtime_checkable protocols")
++
++    _type_check_issubclass_arg_1(other)
++
+     for attr in cls.__protocol_attrs__:
+         for base in other.__mro__:
+             # Check if the members appears in the class dictionary...

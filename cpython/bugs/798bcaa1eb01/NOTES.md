@@ -1,0 +1,1 @@
+repro.py writes a 1-byte entry with force_zip64=True and prints the local header's version-needed and size fields. Clean: zip64 version and 0xffffffff sizes; buggy: sizes are left as real values / version not bumped.

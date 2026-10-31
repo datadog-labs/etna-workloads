@@ -1,0 +1,1 @@
+repro.py compiles a list comprehension whose target has a subscript using name c, then rebinds c with (c := 1). Clean: compiles fine. Buggy: wrongly raises SyntaxError 'cannot rebind comprehension iteration variable c' (symtable.c lost the DEF_LOCAL check).

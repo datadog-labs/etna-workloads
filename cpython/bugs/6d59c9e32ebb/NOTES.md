@@ -1,0 +1,1 @@
+repro.py: isinstance() against a runtime-checkable protocol with a property member, for an object whose __getattr__ raises RuntimeError. Clean (static attribute lookup) prints 'W False'; buggy (hasattr/getattr) lets the RuntimeError propagate.

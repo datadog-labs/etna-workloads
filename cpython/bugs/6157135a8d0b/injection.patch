@@ -1,0 +1,32 @@
+--- a/Objects/floatobject.c
++++ b/Objects/floatobject.c
+@@ -1914,15 +1914,7 @@
+     else if (isnan(x)) {
+         sign = (copysign(1.0, x) == -1.0);
+         e = 0x1f;
+-
+-        uint64_t v;
+-        memcpy(&v, &x, sizeof(v));
+-        v &= 0xffc0000000000ULL;
+-        bits = (unsigned short)(v >> 42); /* NaN's type & payload */
+-        /* set qNaN if no payload */
+-        if (!bits) {
+-            bits |= (1<<9);
+-        }
++        bits = 512;
+     }
+     else {
+         sign = (x < 0.0);
+@@ -2117,11 +2109,7 @@
+         }
+         else {
+             /* NaN */
+-            uint64_t v = sign ? 0xfff0000000000000ULL : 0x7ff0000000000000ULL;
+-
+-            v += (uint64_t)f << 42; /* add NaN's type & payload */
+-            memcpy(&x, &v, sizeof(v));
+-            return x;
++            return sign ? -fabs(Py_NAN) : fabs(Py_NAN);
+         }
+     }
+ 

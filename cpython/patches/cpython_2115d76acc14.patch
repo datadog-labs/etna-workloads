@@ -1,0 +1,91 @@
+--- a/Objects/typevarobject.c
++++ b/Objects/typevarobject.c
+@@ -1862,24 +1862,6 @@
+     return (PyObject *)typevartuple_alloc(v, NULL, NULL, false, false, true, NULL);
+ }
+ 
+-static PyObject *
+-get_type_param_default(PyThreadState *ts, PyObject *typeparam) {
+-    // Does not modify refcount of existing objects.
+-    if (Py_IS_TYPE(typeparam, ts->interp->cached_objects.typevar_type)) {
+-        return typevar_default(typeparam, NULL);
+-    }
+-    else if (Py_IS_TYPE(typeparam, ts->interp->cached_objects.paramspec_type)) {
+-        return paramspec_default(typeparam, NULL);
+-    }
+-    else if (Py_IS_TYPE(typeparam, ts->interp->cached_objects.typevartuple_type)) {
+-        return typevartuple_default(typeparam, NULL);
+-    }
+-    else {
+-        PyErr_Format(PyExc_TypeError, "Expected a type param, got %R", typeparam);
+-        return NULL;
+-    }
+-}
+-
+ static void
+ typealias_dealloc(PyObject *self)
+ {
+@@ -2016,50 +1998,6 @@
+ };
+ 
+ static PyObject *
+-typealias_check_type_params(PyObject *type_params, int *err) {
+-    // Can return type_params or NULL without exception set.
+-    // Does not change the reference count of type_params,
+-    // sets `*err` to 1 when error happens and sets an exception,
+-    // otherwise `*err` is set to 0.
+-    *err = 0;
+-    if (type_params == NULL) {
+-        return NULL;
+-    }
+-
+-    assert(PyTuple_Check(type_params));
+-    Py_ssize_t length = PyTuple_GET_SIZE(type_params);
+-    if (!length) {  // 0-length tuples are the same as `NULL`.
+-        return NULL;
+-    }
+-
+-    PyThreadState *ts = _PyThreadState_GET();
+-    int default_seen = 0;
+-    for (Py_ssize_t index = 0; index < length; index++) {
+-        PyObject *type_param = PyTuple_GET_ITEM(type_params, index);
+-        PyObject *dflt = get_type_param_default(ts, type_param);
+-        if (dflt == NULL) {
+-            *err = 1;
+-            return NULL;
+-        }
+-        if (dflt == &_Py_NoDefaultStruct) {
+-            if (default_seen) {
+-                *err = 1;
+-                PyErr_Format(PyExc_TypeError,
+-                                "non-default type parameter '%R' "
+-                                "follows default type parameter",
+-                                type_param);
+-                return NULL;
+-            }
+-        } else {
+-            default_seen = 1;
+-            Py_DECREF(dflt);
+-        }
+-    }
+-
+-    return type_params;
+-}
+-
+-static PyObject *
+ typealias_convert_type_params(PyObject *type_params)
+ {
+     if (
+@@ -2171,11 +2109,7 @@
+         return NULL;
+     }
+ 
+-    int err = 0;
+-    PyObject *checked_params = typealias_check_type_params(type_params, &err);
+-    if (err) {
+-        return NULL;
+-    }
++    PyObject *checked_params = typealias_convert_type_params(type_params);
+ 
+     if (qualname == NULL || qualname == Py_None) {
+         // If qualname was not set directly, we use name instead.

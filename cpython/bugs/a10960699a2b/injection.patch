@@ -1,0 +1,67 @@
+--- a/Include/internal/pycore_pylifecycle.h
++++ b/Include/internal/pycore_pylifecycle.h
+@@ -41,7 +41,6 @@
+ 
+ extern PyStatus _PyGC_Init(PyInterpreterState *interp);
+ extern PyStatus _PyAtExit_Init(PyInterpreterState *interp);
+-extern PyStatus _PyDateTime_InitTypes(PyInterpreterState *interp);
+ 
+ /* Various internal finalizers */
+ 
+--- a/Modules/_datetimemodule.c
++++ b/Modules/_datetimemodule.c
+@@ -7528,8 +7528,8 @@
+ }
+ 
+ 
+-PyStatus
+-_PyDateTime_InitTypes(PyInterpreterState *interp)
++static PyStatus
++init_static_types(PyInterpreterState *interp)
+ {
+     /* Bases classes must be initialized before subclasses,
+      * so capi_types must have the types in the appropriate order. */
+@@ -7629,6 +7629,29 @@
+     }
+     /* We actually set the "current" module right before a successful return. */
+ 
++    /* The static types outlive the module, so only the first load
++     * in this interpreter initializes them. */
++    PyObject *idict = PyInterpreterState_GetDict(interp);
++    if (idict == NULL) {
++        goto error;
++    }
++    PyObject *prev = NULL;
++    if (PyDict_GetItemRef(idict, INTERP_KEY, &prev) < 0) {
++        goto error;
++    }
++    int reloading = (prev != NULL);
++    Py_XDECREF(prev);
++    if (!reloading) {
++        PyStatus status = init_static_types(interp);
++        if (_PyStatus_EXCEPTION(status)) {
++            if (!PyErr_Occurred()) {
++                PyErr_SetString(PyExc_ImportError,
++                                "could not initialize static types");
++            }
++            goto error;
++        }
++    }
++
+     for (size_t i = 0; i < Py_ARRAY_LENGTH(capi_types); i++) {
+         PyTypeObject *type = capi_types[i];
+         const char *name = _PyType_Name(type);
+--- a/Python/pylifecycle.c
++++ b/Python/pylifecycle.c
+@@ -828,11 +828,6 @@
+         return status;
+     }
+ 
+-    status = _PyDateTime_InitTypes(interp);
+-    if (_PyStatus_EXCEPTION(status)) {
+-        return status;
+-    }
+-
+     return _PyStatus_OK();
+ }
+ 

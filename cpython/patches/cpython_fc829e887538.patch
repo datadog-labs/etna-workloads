@@ -1,0 +1,80 @@
+--- a/Lib/shutil.py
++++ b/Lib/shutil.py
+@@ -1328,9 +1328,27 @@
+     if not zipfile.is_zipfile(filename):
+         raise ReadError("%s is not a zip file" % filename)
+ 
+-    with zipfile.ZipFile(filename) as zip:
+-        zip._ignore_invalid_names = True
+-        zip.extractall(extract_dir)
++    zip = zipfile.ZipFile(filename)
++    try:
++        for info in zip.infolist():
++            name = info.filename
++
++            # don't extract absolute paths or ones with .. in them
++            if name.startswith('/') or '..' in name:
++                continue
++
++            targetpath = os.path.join(extract_dir, *name.split('/'))
++            if not targetpath:
++                continue
++
++            _ensure_directory(targetpath)
++            if not name.endswith('/'):
++                # file
++                with zip.open(name, 'r') as source, \
++                        open(targetpath, 'wb') as target:
++                    copyfileobj(source, target)
++    finally:
++        zip.close()
+ 
+ def _unpack_tarfile(filename, extract_dir, *, filter=None):
+     """Unpack tar/tar.gz/tar.bz2/tar.xz/tar.zst `filename` to `extract_dir`
+--- a/Lib/zipfile/__init__.py
++++ b/Lib/zipfile/__init__.py
+@@ -1443,7 +1443,6 @@
+ 
+     fp = None                   # Set here since __del__ checks it
+     _windows_illegal_name_trans_table = None
+-    _ignore_invalid_names = False
+ 
+     def __init__(self, file, mode="r", compression=ZIP_STORED, allowZip64=True,
+                  compresslevel=None, *, strict_timestamps=True, metadata_encoding=None):
+@@ -1924,31 +1923,21 @@
+ 
+         # build the destination pathname, replacing
+         # forward slashes to platform specific separators.
+-        arcname = member.filename
+-        if os.path.sep != '/':
+-            arcname = arcname.replace('/', os.path.sep)
+-        if os.path.altsep and os.path.altsep != '/':
++        arcname = member.filename.replace('/', os.path.sep)
++
++        if os.path.altsep:
+             arcname = arcname.replace(os.path.altsep, os.path.sep)
+         # interpret absolute pathname as relative, remove drive letter or
+         # UNC path, redundant separators, "." and ".." components.
+-        drive, root, arcname = os.path.splitroot(arcname)
+-        if self._ignore_invalid_names and (drive or root):
+-            return None
+-        if self._ignore_invalid_names and os.path.pardir in arcname.split(os.path.sep):
+-            return None
++        arcname = os.path.splitdrive(arcname)[1]
+         invalid_path_parts = ('', os.path.curdir, os.path.pardir)
+         arcname = os.path.sep.join(x for x in arcname.split(os.path.sep)
+                                    if x not in invalid_path_parts)
+         if os.path.sep == '\\':
+             # filter illegal characters on Windows
+-            arcname2 = self._sanitize_windows_name(arcname, os.path.sep)
+-            if self._ignore_invalid_names and arcname2 != arcname:
+-                return None
+-            arcname = arcname2
++            arcname = self._sanitize_windows_name(arcname, os.path.sep)
+ 
+         if not arcname and not member.is_dir():
+-            if self._ignore_invalid_names:
+-                return None
+             raise ValueError("Empty filename.")
+ 
+         targetpath = os.path.join(targetpath, arcname)

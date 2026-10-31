@@ -1,0 +1,1 @@
+Reproducer: gets a FORWARDREF annotation whose ForwardRef has __extra_names__ (str, int, ... resolved from globals), then prints its repr and evaluate(format=STRING). Clean prints the resolved string using type_repr of extra names ('unknown | str | ...' with __resolved_str__); buggy prints the raw internal __forward_arg__ (with synthetic __annotationlib_name_N__ names).

@@ -1,0 +1,1 @@
+repro.py calls MimeTypes.guess_type on URLs with a query or fragment. Clean (urlparse) uses only the path: ('text/html', None) and ('image/gif', None). Buggy (_splittype) keeps the query/fragment in the name, so the extension is wrong: ('text/plain', None) for both.

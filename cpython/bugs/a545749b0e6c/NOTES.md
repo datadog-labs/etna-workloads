@@ -1,0 +1,1 @@
+Calls run_forever() on a second loop from inside a running loop. Clean: RuntimeError, and the outer running loop is still registered (prints True). Buggy: _run_forever_setup is inside the try, so its failure triggers cleanup that clears the running loop, and get_running_loop() then fails/differs.

@@ -1,0 +1,1 @@
+repro.py calls typing.get_type_hints on a function whose annotations use a types.GenericAlias subclass (MyAlias) with a forward ref and with Annotated. Clean prints 'MyAlias MyAlias'; buggy prints 'GenericAlias GenericAlias' because the subclass is lost when the alias is rebuilt.

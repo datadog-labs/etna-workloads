@@ -1,0 +1,29 @@
+--- a/Lib/inspect.py
++++ b/Lib/inspect.py
+@@ -1013,12 +1013,10 @@
+ 
+     if isclass(object):
+         try:
+-            lnum = vars(object)['__firstlineno__'] - 1
++            firstlineno = vars(object)['__firstlineno__']
+         except (TypeError, KeyError):
+             raise OSError('source code not available')
+-        if lnum >= len(lines):
+-            raise OSError('lineno is out of bounds')
+-        return lines, lnum
++        return lines, firstlineno - 1
+ 
+     if ismethod(object):
+         object = object.__func__
+--- a/Objects/typeobject.c
++++ b/Objects/typeobject.c
+@@ -1683,9 +1683,6 @@
+     PyType_Modified(type);
+ 
+     PyObject *dict = lookup_tp_dict(type);
+-    if (PyDict_Pop(dict, &_Py_ID(__firstlineno__), NULL) < 0) {
+-        return -1;
+-    }
+     return PyDict_SetItem(dict, &_Py_ID(__module__), value);
+ }
+ 

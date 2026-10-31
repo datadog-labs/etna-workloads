@@ -1,0 +1,83 @@
+--- a/Python/structmember.c
++++ b/Python/structmember.c
+@@ -237,32 +237,21 @@
+         break;
+         }
+     case Py_T_UINT: {
+-        /* XXX: For compatibility, accept negative int values
+-           as well. */
+-        v = _PyNumber_Index(v);
+-        if (v == NULL) {
+-            return -1;
+-        }
+-        if (_PyLong_IsNegative((PyLongObject *)v)) {
+-            long long_val = PyLong_AsLong(v);
+-            Py_DECREF(v);
+-            if (long_val == -1 && PyErr_Occurred()) {
++        unsigned long ulong_val = PyLong_AsUnsignedLong(v);
++        if ((ulong_val == (unsigned long)-1) && PyErr_Occurred()) {
++            /* XXX: For compatibility, accept negative int values
++               as well. */
++            PyErr_Clear();
++            ulong_val = PyLong_AsLong(v);
++            if ((ulong_val == (unsigned long)-1) &&
++                PyErr_Occurred())
+                 return -1;
+-            }
+-            FT_ATOMIC_STORE_UINT_RELAXED(*(unsigned int *)addr, (unsigned int)(unsigned long)long_val);
++            FT_ATOMIC_STORE_UINT_RELAXED(*(unsigned int *)addr, (unsigned int)ulong_val);
+             WARN("Writing negative value into unsigned field");
+-        }
+-        else {
+-            unsigned long ulong_val = PyLong_AsUnsignedLong(v);
+-            Py_DECREF(v);
+-            if (ulong_val == (unsigned long)-1 && PyErr_Occurred()) {
+-                return -1;
+-            }
++        } else
+             FT_ATOMIC_STORE_UINT_RELAXED(*(unsigned int *)addr, (unsigned int)ulong_val);
+-            if (ulong_val > UINT_MAX) {
+-                WARN("Truncation of value to unsigned int");
+-            }
+-        }
++        if (ulong_val > UINT_MAX)
++            WARN("Truncation of value to unsigned int");
+         break;
+     }
+     case Py_T_LONG: {
+@@ -273,27 +262,18 @@
+         break;
+     }
+     case Py_T_ULONG: {
+-        /* XXX: For compatibility, accept negative int values
+-           as well. */
+-        v = _PyNumber_Index(v);
+-        if (v == NULL) {
+-            return -1;
+-        }
+-        if (_PyLong_IsNegative((PyLongObject *)v)) {
+-            long long_val = PyLong_AsLong(v);
+-            Py_DECREF(v);
+-            if (long_val == -1 && PyErr_Occurred()) {
++        unsigned long ulong_val = PyLong_AsUnsignedLong(v);
++        if ((ulong_val == (unsigned long)-1) && PyErr_Occurred()) {
++            /* XXX: For compatibility, accept negative int values
++               as well. */
++            PyErr_Clear();
++            ulong_val = PyLong_AsLong(v);
++            if ((ulong_val == (unsigned long)-1) && PyErr_Occurred())
+                 return -1;
+-            }
+-            FT_ATOMIC_STORE_ULONG_RELAXED(*(unsigned long *)addr, (unsigned long)long_val);
++            FT_ATOMIC_STORE_ULONG_RELAXED(*(unsigned long *)addr, ulong_val);
+             WARN("Writing negative value into unsigned field");
+         }
+         else {
+-            unsigned long ulong_val = PyLong_AsUnsignedLong(v);
+-            Py_DECREF(v);
+-            if (ulong_val == (unsigned long)-1 && PyErr_Occurred()) {
+-                return -1;
+-            }
+             FT_ATOMIC_STORE_ULONG_RELAXED(*(unsigned long *)addr, ulong_val);
+         }
+         break;

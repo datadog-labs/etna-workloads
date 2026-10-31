@@ -1,0 +1,20 @@
+--- a/Lib/annotationlib.py
++++ b/Lib/annotationlib.py
+@@ -168,12 +168,13 @@
+             # to avoid mutating the argument.
+             locals = dict(locals)
+ 
+-        # "Inject" type parameters into the local namespace
+-        # (unless they are shadowed by assignments *in* the local namespace),
+-        # as a way of emulating annotation scopes when calling `eval()`
++        # Type parameters exist in their own scope, which is logically
++        # between the locals and the globals. We simulate this by adding
++        # them to the globals.
+         if type_params is not None:
++            globals = dict(globals)
+             for param in type_params:
+-                locals.setdefault(param.__name__, param)
++                globals[param.__name__] = param
+ 
+         # Similar logic can be used for nonlocals, which should not
+         # override locals.

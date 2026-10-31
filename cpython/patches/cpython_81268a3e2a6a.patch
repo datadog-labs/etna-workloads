@@ -1,0 +1,41 @@
+--- a/Lib/mimetypes.py
++++ b/Lib/mimetypes.py
+@@ -739,30 +739,24 @@
+ 
+ def _main(args=None):
+     """Run the mimetypes command-line interface and return a text to print."""
++    import sys
++
+     args, help_text = _parse_args(args)
+ 
+-    results = []
+     if args.extension:
+         for gtype in args.type:
+             guess = guess_extension(gtype, not args.lenient)
+             if guess:
+-                results.append(str(guess))
+-            else:
+-                results.append(f"error: unknown type {gtype}")
+-        return results
++                return str(guess)
++            sys.exit(f"error: unknown type {gtype}")
+     else:
+         for gtype in args.type:
+             guess, encoding = guess_type(gtype, not args.lenient)
+             if guess:
+-                results.append(f"type: {guess} encoding: {encoding}")
+-            else:
+-                results.append(f"error: media type unknown for {gtype}")
+-        return results
++                return f"type: {guess} encoding: {encoding}"
++            sys.exit(f"error: media type unknown for {gtype}")
++    return help_text
+ 
+ 
+ if __name__ == '__main__':
+-    import sys
+-
+-    results = _main()
+-    print("\n".join(results))
+-    sys.exit(any(result.startswith("error: ") for result in results))
++    print(_main())

@@ -1,0 +1,64 @@
+--- a/Python/bytecodes.c
++++ b/Python/bytecodes.c
+@@ -2233,12 +2233,22 @@
+             PyStackRef_CLOSE(mod_or_class_dict);
+             ERROR_IF(err < 0);
+             if (v_o == NULL) {
+-                _PyEval_LoadGlobalStackRef(GLOBALS(), BUILTINS(), name, &v);
+-                ERROR_IF(PyStackRef_IsNull(v));
+-            }
+-            else {
+-                v = PyStackRef_FromPyObjectSteal(v_o);
++                if (PyDict_GetItemRef(GLOBALS(), name, &v_o) < 0) {
++                    ERROR_NO_POP();
++                }
++                if (v_o == NULL) {
++                    if (PyMapping_GetOptionalItem(BUILTINS(), name, &v_o) < 0) {
++                        ERROR_NO_POP();
++                    }
++                    if (v_o == NULL) {
++                        _PyEval_FormatExcCheckArg(
++                            tstate, PyExc_NameError,
++                            NAME_ERROR_MSG, name);
++                        ERROR_NO_POP();
++                    }
++                }
+             }
++            v = PyStackRef_FromPyObjectSteal(v_o);
+         }
+ 
+         inst(LOAD_NAME, (-- v)) {
+--- a/Python/generated_cases.c.h
++++ b/Python/generated_cases.c.h
+@@ -9585,16 +9585,24 @@
+                 JUMP_TO_LABEL(error);
+             }
+             if (v_o == NULL) {
+-                _PyFrame_SetStackPointer(frame, stack_pointer);
+-                _PyEval_LoadGlobalStackRef(GLOBALS(), BUILTINS(), name, &v);
+-                stack_pointer = _PyFrame_GetStackPointer(frame);
+-                if (PyStackRef_IsNull(v)) {
++                if (PyDict_GetItemRef(GLOBALS(), name, &v_o) < 0) {
+                     JUMP_TO_LABEL(error);
+                 }
++                if (v_o == NULL) {
++                    if (PyMapping_GetOptionalItem(BUILTINS(), name, &v_o) < 0) {
++                        JUMP_TO_LABEL(error);
++                    }
++                    if (v_o == NULL) {
++                        _PyFrame_SetStackPointer(frame, stack_pointer);
++                        _PyEval_FormatExcCheckArg(
++                            tstate, PyExc_NameError,
++                            NAME_ERROR_MSG, name);
++                        stack_pointer = _PyFrame_GetStackPointer(frame);
++                        JUMP_TO_LABEL(error);
++                    }
++                }
+             }
+-            else {
+-                v = PyStackRef_FromPyObjectSteal(v_o);
+-            }
++            v = PyStackRef_FromPyObjectSteal(v_o);
+             stack_pointer[0] = v;
+             stack_pointer += 1;
+             ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);

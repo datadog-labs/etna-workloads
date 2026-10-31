@@ -1,0 +1,1 @@
+repro.py calls functools.partial(print, a=Placeholder). Clean raises TypeError ("Placeholder cannot be passed as a keyword argument"); buggy accepts it silently and prints no error plus keywords {a: Placeholder}.

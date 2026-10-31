@@ -1,0 +1,2 @@
+Runs a script in a subprocess that sets traceback._print_exception_bltin = None (fallback traceback printing), deletes io.open, then raises RuntimeError. Prints the return code and the stderr lines (File-line omitted since the path is temporary).
+Clean: rc 1 with a normal traceback. Buggy: the missing NULL check in _Py_FindSourceFile hits assert(callable != NULL) in callmethod, so the child aborts with rc -6.

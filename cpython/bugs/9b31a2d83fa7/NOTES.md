@@ -1,0 +1,1 @@
+repro.py: argparse with a tuple metavar on a positional (nargs=2) and an option. Clean prints help and a normal 'required arguments' error (exit 2). Buggy raises ValueError in format_help and TypeError in the required-args error message (tuple metavar not joined).

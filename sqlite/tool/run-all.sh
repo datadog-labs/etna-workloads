@@ -13,8 +13,10 @@ source ./env.sh
 mkdir -p logs
 ADAPT_BUDGET=${ADAPT_BUDGET:-100}
 REPRO_BUDGET=${REPRO_BUDGET:-40}
+ADAPT_SINCE=${ADAPT_SINCE:-0}
 REPRO=tool/repro.py
 [ "${ETNA_KIND:-sqlite}" = valkey ] && REPRO=tool/repro_valkey.py
+[ "${ETNA_KIND:-sqlite}" = cpython ] && REPRO=tool/repro_cpython.py
 
 log() { echo "$(date -u +%FT%TZ) $*" | tee -a logs/run-all.log; }
 stage() {   # stage <name> <command...>
@@ -28,7 +30,7 @@ rm -f logs/run-all.done
 stage verbatim python3 tool/sqlite_etna.py verbatim -j 8 --jobs-per 2
 stage triage   python3 tool/triage.py -j 8
 stage triage2  python3 tool/triage.py -j 6 --batch 10            # batches that failed to parse
-stage adapt    python3 tool/adapt.py run -j 8 --tag sonnet --model claude-sonnet-5-5 --bugs-only --budget "$ADAPT_BUDGET"
+stage adapt    python3 tool/adapt.py run -j 8 --tag sonnet --model claude-sonnet-5-5 --bugs-only --budget "$ADAPT_BUDGET" --since "$ADAPT_SINCE"
 stage anchor   python3 tool/adapt.py anchor -j 8 --tag sonnet
 stage repro    python3 "$REPRO" run -j 8 --budget "$REPRO_BUDGET"
 log "all stages finished"

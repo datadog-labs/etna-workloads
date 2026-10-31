@@ -1,0 +1,2 @@
+Gets FORWARDREF-format annotations of a function whose annotations use undefined names via attribute access / subscript (`some.module`, `some[module]`).
+Clean: each annotation is a ForwardRef (`ForwardRef` with the source string). Buggy: the stringifier created by `__getattr__`/`__getitem__` is not registered in `stringifiers`, so it is not converted to a ForwardRef and the raw `_Stringifier` object is returned (type `_Stringifier`).

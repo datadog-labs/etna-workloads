@@ -1,0 +1,29 @@
+--- a/Lib/email/_header_value_parser.py
++++ b/Lib/email/_header_value_parser.py
+@@ -1524,6 +1524,11 @@
+             local_part.defects.append(errors.ObsoleteHeaderDefect(
+                 "local-part is not a dot-atom (contains CFWS)"))
+         local_part[0] = obs_local_part
++    try:
++        local_part.value.encode('ascii')
++    except UnicodeEncodeError:
++        local_part.defects.append(errors.NonASCIILocalPartDefect(
++                "local-part contains non-ASCII characters)"))
+     return local_part, value
+ 
+ def get_obs_local_part(value):
+--- a/Lib/email/errors.py
++++ b/Lib/email/errors.py
+@@ -109,9 +109,9 @@
+     """Header uses syntax declared obsolete by RFC 5322"""
+ 
+ class NonASCIILocalPartDefect(HeaderDefect):
+-    """Unused. Note: this error is deprecated and may be removed in the future."""
+-    # RFC 6532 permits a non-ASCII local-part. _header_value_parser previously
+-    # treated this as a parse-time defect (when parsing Unicode, but not bytes).
++    """local_part contains non-ASCII characters"""
++    # This defect only occurs during unicode parsing, not when
++    # parsing messages decoded from binary.
+ 
+ class InvalidDateDefect(HeaderDefect):
+     """Header has unparsable or invalid date"""

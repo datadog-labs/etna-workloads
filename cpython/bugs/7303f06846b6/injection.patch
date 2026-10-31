@@ -1,0 +1,50 @@
+--- a/Modules/_ctypes/callproc.c
++++ b/Modules/_ctypes/callproc.c
+@@ -1598,11 +1598,10 @@
+     Py_XDECREF(name2);
+     if (!handle) {
+         const char *errmsg = dlerror();
+-        if (errmsg) {
+-            _PyErr_SetLocaleString(PyExc_OSError, errmsg);
+-            return NULL;
+-        }
+-        PyErr_SetString(PyExc_OSError, "dlopen() error");
++        if (!errmsg)
++            errmsg = "dlopen() error";
++        PyErr_SetString(PyExc_OSError,
++                               errmsg);
+         return NULL;
+     }
+     return PyLong_FromVoidPtr(handle);
+@@ -1615,12 +1614,8 @@
+     if (!PyArg_ParseTuple(args, "O&:dlclose", &_parse_voidp, &handle))
+         return NULL;
+     if (dlclose(handle)) {
+-        const char *errmsg = dlerror();
+-        if (errmsg) {
+-            _PyErr_SetLocaleString(PyExc_OSError, errmsg);
+-            return NULL;
+-        }
+-        PyErr_SetString(PyExc_OSError, "dlclose() error");
++        PyErr_SetString(PyExc_OSError,
++                               dlerror());
+         return NULL;
+     }
+     Py_RETURN_NONE;
+--- a/Modules/_gdbmmodule.c
++++ b/Modules/_gdbmmodule.c
+@@ -44,13 +44,7 @@
+ static void
+ set_gdbm_error(_gdbm_state *state, const char *generic_error)
+ {
+-    const char *gdbm_errmsg = gdbm_strerror(gdbm_errno);
+-    if (gdbm_errmsg) {
+-        _PyErr_SetLocaleString(state->gdbm_error, gdbm_errmsg);
+-    }
+-    else {
+-        PyErr_SetString(state->gdbm_error, generic_error);
+-    }
++    PyErr_SetString(state->gdbm_error, gdbm_strerror(gdbm_errno));
+ }
+ 
+ /*[clinic input]

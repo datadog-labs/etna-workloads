@@ -70,6 +70,7 @@ def describe(c):
 
 def classify(batch, model):
     prompt = PROMPT.format(name=E.NAME, commits="\n".join(describe(c) for c in batch))
+    E.wait_for_auth()
     r = subprocess.run(
         [os.environ.get("CLAUDE_BIN", os.path.expanduser("~/.local/bin/claude")), "-p",
          "--model", model, "--output-format", "json", "--max-turns", "1"],

@@ -1,0 +1,30 @@
+--- a/Objects/dictobject.c
++++ b/Objects/dictobject.c
+@@ -3105,19 +3105,18 @@
+         assert(oldkeys->dk_refcnt == 1);
+         dictkeys_decref(oldkeys, IS_DICT_SHARED(mp));
+     }
+-    else if (oldvalues->embedded) {
+-        clear_embedded_values(oldvalues, oldkeys->dk_nentries);
+-    }
+     else {
+         set_values(mp, NULL);
+         set_keys(mp, Py_EMPTY_KEYS);
+-        n = oldkeys->dk_nentries;
+-        for (i = 0; i < n; i++) {
+-            PyObject *tmp = oldvalues->values[i];
+-            FT_ATOMIC_STORE_PTR_RELEASE(oldvalues->values[i], NULL);
+-            Py_XDECREF(tmp);
++        if (!oldvalues->embedded) {
++            n = oldkeys->dk_nentries;
++            for (i = 0; i < n; i++) {
++                PyObject *tmp = oldvalues->values[i];
++                FT_ATOMIC_STORE_PTR_RELEASE(oldvalues->values[i], NULL);
++                Py_XDECREF(tmp);
++            }
++            free_values(oldvalues, IS_DICT_SHARED(mp));
+         }
+-        free_values(oldvalues, IS_DICT_SHARED(mp));
+         dictkeys_decref(oldkeys, IS_DICT_SHARED(mp));
+     }
+     ASSERT_CONSISTENT(mp);

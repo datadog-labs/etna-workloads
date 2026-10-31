@@ -1,0 +1,1 @@
+Runs modulefinder on a script importing namespace package 'a' (dir without __init__.py). Clean: modules ['__main__','a'], bad ['a.c','blahblah']. Buggy: AttributeError, spec.loader is None in _find_module.

@@ -1,0 +1,58 @@
+--- a/Objects/genobject.c
++++ b/Objects/genobject.c
+@@ -2069,25 +2069,8 @@
+ async_gen_asend_close(PyObject *self, PyObject *args)
+ {
+     PyAsyncGenASend *o = _PyAsyncGenASend_CAST(self);
+-    if (o->ags_state == AWAITABLE_STATE_CLOSED) {
+-        Py_RETURN_NONE;
+-    }
+-
+-    PyObject *result = async_gen_asend_throw(self, &PyExc_GeneratorExit, 1);
+-    if (result == NULL) {
+-        if (PyErr_ExceptionMatches(PyExc_StopIteration) ||
+-            PyErr_ExceptionMatches(PyExc_StopAsyncIteration) ||
+-            PyErr_ExceptionMatches(PyExc_GeneratorExit))
+-        {
+-            PyErr_Clear();
+-            Py_RETURN_NONE;
+-        }
+-        return result;
+-    }
+-
+-    Py_DECREF(result);
+-    PyErr_SetString(PyExc_RuntimeError, "coroutine ignored GeneratorExit");
+-    return NULL;
++    o->ags_state = AWAITABLE_STATE_CLOSED;
++    Py_RETURN_NONE;
+ }
+ 
+ static void
+@@ -2502,25 +2485,8 @@
+ async_gen_athrow_close(PyObject *self, PyObject *args)
+ {
+     PyAsyncGenAThrow *agt = _PyAsyncGenAThrow_CAST(self);
+-    if (agt->agt_state == AWAITABLE_STATE_CLOSED) {
+-        Py_RETURN_NONE;
+-    }
+-    PyObject *result = async_gen_athrow_throw((PyObject*)agt,
+-                                              &PyExc_GeneratorExit, 1);
+-    if (result == NULL) {
+-        if (PyErr_ExceptionMatches(PyExc_StopIteration) ||
+-            PyErr_ExceptionMatches(PyExc_StopAsyncIteration) ||
+-            PyErr_ExceptionMatches(PyExc_GeneratorExit))
+-        {
+-            PyErr_Clear();
+-            Py_RETURN_NONE;
+-        }
+-        return result;
+-    } else {
+-        Py_DECREF(result);
+-        PyErr_SetString(PyExc_RuntimeError, "coroutine ignored GeneratorExit");
+-        return NULL;
+-    }
++    agt->agt_state = AWAITABLE_STATE_CLOSED;
++    Py_RETURN_NONE;
+ }
+ 
+ 

@@ -1,0 +1,1 @@
+repro.py reads a config with allow_no_value=True and ExtendedInterpolation where b = ${a} and a has no value. Clean: prints None then ''. Buggy: TypeError (argument of type 'NoneType' is not a container or iterable) when interpolating b.

@@ -1,0 +1,64 @@
+--- a/Modules/_posixsubprocess.c
++++ b/Modules/_posixsubprocess.c
+@@ -1038,9 +1038,7 @@
+     Py_ssize_t fds_to_keep_len = PyTuple_GET_SIZE(py_fds_to_keep);
+ 
+     PyInterpreterState *interp = _PyInterpreterState_GET();
+-    if ((preexec_fn != Py_None) &&
+-        _PyInterpreterState_GetFinalizing(interp) != NULL)
+-    {
++    if ((preexec_fn != Py_None) && interp->finalizing) {
+         PyErr_SetString(PyExc_PythonFinalizationError,
+                         "preexec_fn not supported at interpreter shutdown");
+         return NULL;
+--- a/Modules/_threadmodule.c
++++ b/Modules/_threadmodule.c
+@@ -1908,7 +1908,7 @@
+                         "thread is not supported for isolated subinterpreters");
+         return -1;
+     }
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
++    if (interp->finalizing) {
+         PyErr_SetString(PyExc_PythonFinalizationError,
+                         "can't create new thread at interpreter shutdown");
+         return -1;
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -8643,7 +8643,7 @@
+     pid_t pid;
+ 
+     PyInterpreterState *interp = _PyInterpreterState_GET();
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
++    if (interp->finalizing) {
+         PyErr_SetString(PyExc_PythonFinalizationError,
+                         "can't fork at interpreter shutdown");
+         return NULL;
+@@ -8692,7 +8692,7 @@
+ {
+     pid_t pid;
+     PyInterpreterState *interp = _PyInterpreterState_GET();
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
++    if (interp->finalizing) {
+         PyErr_SetString(PyExc_PythonFinalizationError,
+                         "can't fork at interpreter shutdown");
+         return NULL;
+@@ -9579,7 +9579,7 @@
+     pid_t pid;
+ 
+     PyInterpreterState *interp = _PyInterpreterState_GET();
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
++    if (interp->finalizing) {
+         PyErr_SetString(PyExc_PythonFinalizationError,
+                         "can't fork at interpreter shutdown");
+         return NULL;
+--- a/Objects/unicodeobject.c
++++ b/Objects/unicodeobject.c
+@@ -547,7 +547,7 @@
+     /* Disable checks during Python finalization. For example, it allows to
+      * call PyObject_Dump() during finalization for debugging purpose.
+      */
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
++    if (interp->finalizing) {
+         return 0;
+     }
+ 

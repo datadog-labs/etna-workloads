@@ -1,0 +1,53 @@
+--- a/Lib/_pyrepl/console.py
++++ b/Lib/_pyrepl/console.py
+@@ -242,13 +242,7 @@
+ 
+     def runsource(self, source, filename="<input>", symbol="single"):
+         try:
+-            tree = self.compile.compiler(
+-                source,
+-                filename,
+-                "exec",
+-                ast.PyCF_ONLY_AST,
+-                incomplete_input=False,
+-            )
++            tree = ast.parse(source)
+         except SyntaxError as e:
+             # If it looks like pip install was entered (a common beginner
+             # mistake), provide a hint to use the system command prompt.
+@@ -271,7 +265,7 @@
+             the_symbol = symbol if stmt is last_stmt else "exec"
+             item = wrapper([stmt])
+             try:
+-                code = self.compile.compiler(item, filename, the_symbol)
++                code = self.compile.compiler(item, filename, the_symbol, dont_inherit=True)
+                 linecache._register_code(code, source, filename)
+             except SyntaxError as e:
+                 if e.args[0] == "'await' outside function":
+--- a/Lib/codeop.py
++++ b/Lib/codeop.py
+@@ -44,7 +44,6 @@
+ # Caveat emptor: These flags are undocumented on purpose and depending
+ # on their effect outside the standard library is **unsupported**.
+ PyCF_DONT_IMPLY_DEDENT = 0x200
+-PyCF_ONLY_AST = 0x400
+ PyCF_ALLOW_INCOMPLETE_INPUT = 0x4000
+ 
+ def _maybe_compile(compiler, source, filename, symbol, flags):
+@@ -109,14 +108,12 @@
+     def __init__(self):
+         self.flags = PyCF_DONT_IMPLY_DEDENT | PyCF_ALLOW_INCOMPLETE_INPUT
+ 
+-    def __call__(self, source, filename, symbol, flags=0, **kwargs):
+-        flags |= self.flags
++    def __call__(self, source, filename, symbol, **kwargs):
++        flags = self.flags
+         if kwargs.get('incomplete_input', True) is False:
+             flags &= ~PyCF_DONT_IMPLY_DEDENT
+             flags &= ~PyCF_ALLOW_INCOMPLETE_INPUT
+         codeob = compile(source, filename, symbol, flags, True)
+-        if flags & PyCF_ONLY_AST:
+-            return codeob  # this is an ast.Module in this case
+         for feature in _features:
+             if codeob.co_flags & feature.compiler_flag:
+                 self.flags |= feature.compiler_flag

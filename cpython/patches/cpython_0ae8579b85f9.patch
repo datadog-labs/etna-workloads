@@ -1,0 +1,66 @@
+--- a/Python/symtable.c
++++ b/Python/symtable.c
+@@ -833,36 +833,36 @@
+         if (existing == NULL && PyErr_Occurred()) {
+             return 0;
+         }
+-        // __class__, __classdict__ and __conditional_annotations__ are
+-        // not allowed to be free through a class scope (see
+-        // drop_class_free) unless children scopes need it
+-        if (scope == FREE && ste->ste_type == ClassBlock &&
+-                (_PyUnicode_EqualToASCIIString(k, "__class__") ||
+-                 _PyUnicode_EqualToASCIIString(k, "__classdict__") ||
+-                 _PyUnicode_EqualToASCIIString(k, "__conditional_annotations__"))) {
+-            scope = GLOBAL_IMPLICIT;
+-            int child_needs_free = is_free_in_any_child(comp, k);
+-            if (child_needs_free < 0) {
+-                return 0;
+-            }
+-            if (!child_needs_free) {
+-                if (PySet_Discard(comp_free, k) < 0) {
+-                    return 0;
+-                }
+-            }
+-            if (_PyUnicode_EqualToASCIIString(k, "__class__")) {
+-                remove_dunder_class = 1;
+-            }
+-            else if (_PyUnicode_EqualToASCIIString(k, "__conditional_annotations__")) {
+-                remove_dunder_cond_annotations = 1;
+-            }
+-            else {
+-                remove_dunder_classdict = 1;
+-            }
+-        }
+         if (!existing) {
+             // name does not exist in scope, copy from comprehension
+             assert(scope != FREE || PySet_Contains(comp_free, k) == 1);
++            // __class__, __classdict__ and __conditional_annotations__ are
++            // not allowed to be free through a class scope (see
++            // drop_class_free) unless children scopes need it
++            if (scope == FREE && ste->ste_type == ClassBlock &&
++                    (_PyUnicode_EqualToASCIIString(k, "__class__") ||
++                     _PyUnicode_EqualToASCIIString(k, "__classdict__") ||
++                     _PyUnicode_EqualToASCIIString(k, "__conditional_annotations__"))) {
++                scope = GLOBAL_IMPLICIT;
++                int child_needs_free = is_free_in_any_child(comp, k);
++                if (child_needs_free < 0) {
++                    return 0;
++                }
++                if (!child_needs_free) {
++                    if (PySet_Discard(comp_free, k) < 0) {
++                        return 0;
++                    }
++                }
++                if (_PyUnicode_EqualToASCIIString(k, "__class__")) {
++                    remove_dunder_class = 1;
++                }
++                else if (_PyUnicode_EqualToASCIIString(k, "__conditional_annotations__")) {
++                    remove_dunder_cond_annotations = 1;
++                }
++                else {
++                    remove_dunder_classdict = 1;
++                }
++            }
+             PyObject *v_flags = PyLong_FromLong(only_flags);
+             if (v_flags == NULL) {
+                 return 0;

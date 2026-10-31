@@ -1,0 +1,1 @@
+Reproducer patches socket.getaddrinfo, calls loop.sock_connect with a hostname for TCP and UDP sockets, and prints the getaddrinfo args. Clean passes sock.type (SOCK_DGRAM for UDP). Buggy omits it, so it falls back to the default SOCK_STREAM for the UDP socket.

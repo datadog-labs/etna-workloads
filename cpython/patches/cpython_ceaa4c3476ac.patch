@@ -1,0 +1,48 @@
+--- a/Modules/mmapmodule.c
++++ b/Modules/mmapmodule.c
+@@ -630,7 +630,6 @@
+ 
+     Py_ssize_t index;
+     PyObject *result;
+-    CHECK_VALID(NULL);
+     if (end < start) {
+         result = PyLong_FromSsize_t(-1);
+     }
+@@ -1555,7 +1554,6 @@
+                 "mmap index out of range");
+             return NULL;
+         }
+-        CHECK_VALID(NULL);
+ 
+         char dest;
+         if (safe_byte_copy(&dest, self->data + i) < 0) {
+@@ -1571,7 +1569,6 @@
+         }
+         slicelen = PySlice_AdjustIndices(self->size, &start, &stop, step);
+ 
+-        CHECK_VALID(NULL);
+         if (slicelen <= 0)
+             return Py_GetConstant(Py_CONSTANT_EMPTY_BYTES);
+         else if (step == 1)
+@@ -1686,10 +1683,6 @@
+             return -1;
+         }
+ 
+-        /* Converting item or value above may have run arbitrary code
+-         * (e.g. __index__) that resized or closed the mmap, so bounds
+-         * are only checked now, against the current size. */
+-        CHECK_VALID(-1);
+         if (i < 0)
+             i += self->size;
+         if (i < 0 || i >= self->size) {
+@@ -1719,10 +1712,6 @@
+         if (PyObject_GetBuffer(value, &vbuf, PyBUF_SIMPLE) < 0)
+             return -1;
+ 
+-        /* Acquiring the buffer above may have run arbitrary code (e.g. a
+-         * __buffer__ method) that resized or closed this mmap, so the slice bounds
+-         * are only computed now, against the current size. */
+-        CHECK_VALID_OR_RELEASE(-1, vbuf);
+         slicelen = PySlice_AdjustIndices(self->size, &start, &stop, step);
+         if (vbuf.len != slicelen) {
+             PyErr_SetString(PyExc_IndexError,

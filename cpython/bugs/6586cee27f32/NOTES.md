@@ -1,0 +1,1 @@
+repro.py evals r"f'\{{'" with warnings recorded and prints the SyntaxWarnings. Clean emits 1 warning; buggy emits 2 (duplicate, since the string parser no longer skips the '{'/'}' case the tokenizer already warned about).

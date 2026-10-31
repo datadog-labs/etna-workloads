@@ -1,0 +1,52 @@
+--- a/Lib/typing.py
++++ b/Lib/typing.py
+@@ -3223,13 +3223,8 @@
+         mutable_keys = set()
+ 
+         for base in bases:
+-            base_required = base.__dict__.get('__required_keys__', set())
+-            required_keys |= base_required
+-            optional_keys -= base_required
+-
+-            base_optional = base.__dict__.get('__optional_keys__', set())
+-            required_keys -= base_optional
+-            optional_keys |= base_optional
++            required_keys.update(base.__dict__.get('__required_keys__', ()))
++            optional_keys.update(base.__dict__.get('__optional_keys__', ()))
+ 
+             readonly_keys.update(base.__dict__.get('__readonly_keys__', ()))
+             mutable_keys.update(base.__dict__.get('__mutable_keys__', ()))
+@@ -3237,18 +3232,13 @@
+         for annotation_key, annotation_type in own_checked_annotations.items():
+             qualifiers = set(_get_typeddict_qualifiers(annotation_type))
+             if Required in qualifiers:
+-                is_required = True
++                required_keys.add(annotation_key)
+             elif NotRequired in qualifiers:
+-                is_required = False
+-            else:
+-                is_required = total
+-
+-            if is_required:
++                optional_keys.add(annotation_key)
++            elif total:
+                 required_keys.add(annotation_key)
+-                optional_keys.discard(annotation_key)
+             else:
+                 optional_keys.add(annotation_key)
+-                required_keys.discard(annotation_key)
+ 
+             if ReadOnly in qualifiers:
+                 if annotation_key in mutable_keys:
+@@ -3261,11 +3251,6 @@
+                 mutable_keys.add(annotation_key)
+                 readonly_keys.discard(annotation_key)
+ 
+-        assert required_keys.isdisjoint(optional_keys), (
+-            f"Required keys overlap with optional keys in {name}:"
+-            f" {required_keys=}, {optional_keys=}"
+-        )
+-
+         def __annotate__(format):
+             annos = {}
+             for base in bases:

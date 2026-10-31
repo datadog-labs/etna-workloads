@@ -1,0 +1,44 @@
+--- a/Lib/asyncio/futures.py
++++ b/Lib/asyncio/futures.py
+@@ -204,7 +204,8 @@
+         the future is done and has an exception set, this exception is raised.
+         """
+         if self._state == _CANCELLED:
+-            raise self._make_cancelled_error()
++            exc = self._make_cancelled_error()
++            raise exc
+         if self._state != _FINISHED:
+             raise exceptions.InvalidStateError('Result is not ready.')
+         self.__log_traceback = False
+@@ -221,7 +222,8 @@
+         InvalidStateError.
+         """
+         if self._state == _CANCELLED:
+-            raise self._make_cancelled_error()
++            exc = self._make_cancelled_error()
++            raise exc
+         if self._state != _FINISHED:
+             raise exceptions.InvalidStateError('Exception is not set.')
+         self.__log_traceback = False
+--- a/Lib/asyncio/taskgroups.py
++++ b/Lib/asyncio/taskgroups.py
+@@ -70,18 +70,7 @@
+         return self
+ 
+     async def __aexit__(self, et, exc, tb):
+-        tb = None
+-        try:
+-            return await self._aexit(et, exc)
+-        finally:
+-            # Exceptions are heavy objects that can have object
+-            # cycles (bad for GC); let's not keep a reference to
+-            # a bunch of them. It would be nicer to use a try/finally
+-            # in __aexit__ directly but that introduced some diff noise
+-            self._parent_task = None
+-            self._errors = None
+-            self._base_error = None
+-            exc = None
++        return await self._aexit(et, exc)
+ 
+     async def _aexit(self, et, exc):
+         self._exiting = True

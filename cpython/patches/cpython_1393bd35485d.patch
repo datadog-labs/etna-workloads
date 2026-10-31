@@ -1,0 +1,50 @@
+--- a/Objects/genobject.c
++++ b/Objects/genobject.c
+@@ -1491,7 +1491,7 @@
+     {"send", coro_wrapper_send, METH_O, coro_send_doc},
+     {"throw", _PyCFunction_CAST(coro_wrapper_throw), METH_FASTCALL,
+      coro_throw_doc},
+-    {"close", coro_wrapper_close, METH_NOARGS, coro_close_doc},
++    {"close", coro_wrapper_close, METH_VARARGS, coro_close_doc},
+     {NULL, NULL}        /* Sentinel */
+ };
+ 
+--- a/Objects/iterobject.c
++++ b/Objects/iterobject.c
+@@ -415,11 +415,9 @@
+     if (awaitable == NULL) {
+         return NULL;
+     }
+-    // When specified, 'arg' may be a tuple (if coming from a METH_VARARGS
+-    // method) or a single object (if coming from a METH_O method).
+-    PyObject *ret = arg == NULL
+-        ? PyObject_CallMethod(awaitable, meth, NULL)
+-        : PyObject_CallMethod(awaitable, meth, "O", arg);
++    // 'arg' may be a tuple (if coming from a METH_VARARGS method)
++    // or a single object (if coming from a METH_O method).
++    PyObject *ret = PyObject_CallMethod(awaitable, meth, "O", arg);
+     Py_DECREF(awaitable);
+     if (ret != NULL) {
+         return ret;
+@@ -454,10 +452,10 @@
+ 
+ 
+ static PyObject *
+-anextawaitable_close(PyObject *op, PyObject *Py_UNUSED(dummy))
++anextawaitable_close(PyObject *op, PyObject *args)
+ {
+     anextawaitableobject *obj = anextawaitableobject_CAST(op);
+-    return anextawaitable_proxy(obj, "close", NULL);
++    return anextawaitable_proxy(obj, "close", args);
+ }
+ 
+ 
+@@ -483,7 +481,7 @@
+ static PyMethodDef anextawaitable_methods[] = {
+     {"send", anextawaitable_send, METH_O, send_doc},
+     {"throw", anextawaitable_throw, METH_VARARGS, throw_doc},
+-    {"close", anextawaitable_close, METH_NOARGS, close_doc},
++    {"close", anextawaitable_close, METH_VARARGS, close_doc},
+     {NULL, NULL}        /* Sentinel */
+ };
+ 

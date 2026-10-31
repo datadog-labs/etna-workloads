@@ -1,0 +1,79 @@
+--- a/Grammar/python.gram
++++ b/Grammar/python.gram
+@@ -420,8 +420,8 @@
+ 
+ with_stmt[stmt_ty]:
+     | invalid_with_stmt_indent
+-    | 'with' '(' a[asdl_withitem_seq*]=','.with_item+ ','? ')' ':' tc=[TYPE_COMMENT] b=block {
+-       _PyAST_With(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA) }
++    | 'with' '(' a[asdl_withitem_seq*]=','.with_item+ ','? ')' ':' b=block {
++       _PyAST_With(a, b, NULL, EXTRA) }
+     | 'with' a[asdl_withitem_seq*]=','.with_item+ ':' tc=[TYPE_COMMENT] b=block {
+         _PyAST_With(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA) }
+     | 'async' 'with' '(' a[asdl_withitem_seq*]=','.with_item+ ','? ')' ':' b=block {
+--- a/Parser/parser.c
++++ b/Parser/parser.c
+@@ -6698,7 +6698,7 @@
+ 
+ // with_stmt:
+ //     | invalid_with_stmt_indent
+-//     | 'with' '(' ','.with_item+ ','? ')' ':' TYPE_COMMENT? block
++//     | 'with' '(' ','.with_item+ ','? ')' ':' block
+ //     | 'with' ','.with_item+ ':' TYPE_COMMENT? block
+ //     | 'async' 'with' '(' ','.with_item+ ','? ')' ':' block
+ //     | 'async' 'with' ','.with_item+ ':' TYPE_COMMENT? block
+@@ -6743,12 +6743,12 @@
+         D(fprintf(stderr, "%*c%s with_stmt[%d-%d]: %s failed!\n", p->level, ' ',
+                   p->error_indicator ? "ERROR!" : "-", _mark, p->mark, "invalid_with_stmt_indent"));
+     }
+-    { // 'with' '(' ','.with_item+ ','? ')' ':' TYPE_COMMENT? block
++    { // 'with' '(' ','.with_item+ ','? ')' ':' block
+         if (p->error_indicator) {
+             p->level--;
+             return NULL;
+         }
+-        D(fprintf(stderr, "%*c> with_stmt[%d-%d]: %s\n", p->level, ' ', _mark, p->mark, "'with' '(' ','.with_item+ ','? ')' ':' TYPE_COMMENT? block"));
++        D(fprintf(stderr, "%*c> with_stmt[%d-%d]: %s\n", p->level, ' ', _mark, p->mark, "'with' '(' ','.with_item+ ','? ')' ':' block"));
+         Token * _keyword;
+         Token * _literal;
+         Token * _literal_1;
+@@ -6757,7 +6757,6 @@
+         UNUSED(_opt_var); // Silence compiler warnings
+         asdl_withitem_seq* a;
+         asdl_stmt_seq* b;
+-        void *tc;
+         if (
+             (_keyword = _PyPegen_expect_token(p, 665))  // token='with'
+             &&
+@@ -6771,12 +6770,10 @@
+             &&
+             (_literal_2 = _PyPegen_expect_token(p, 11))  // token=':'
+             &&
+-            (tc = _PyPegen_expect_token(p, TYPE_COMMENT), !p->error_indicator)  // TYPE_COMMENT?
+-            &&
+             (b = block_rule(p))  // block
+         )
+         {
+-            D(fprintf(stderr, "%*c+ with_stmt[%d-%d]: %s succeeded!\n", p->level, ' ', _mark, p->mark, "'with' '(' ','.with_item+ ','? ')' ':' TYPE_COMMENT? block"));
++            D(fprintf(stderr, "%*c+ with_stmt[%d-%d]: %s succeeded!\n", p->level, ' ', _mark, p->mark, "'with' '(' ','.with_item+ ','? ')' ':' block"));
+             Token *_token = _PyPegen_get_last_nonnwhitespace_token(p);
+             if (_token == NULL) {
+                 p->level--;
+@@ -6786,7 +6783,7 @@
+             UNUSED(_end_lineno); // Only used by EXTRA macro
+             int _end_col_offset = _token->end_col_offset;
+             UNUSED(_end_col_offset); // Only used by EXTRA macro
+-            _res = _PyAST_With ( a , b , NEW_TYPE_COMMENT ( p , tc ) , EXTRA );
++            _res = _PyAST_With ( a , b , NULL , EXTRA );
+             if ((_res == NULL || p->error_indicator) && PyErr_Occurred()) {
+                 p->error_indicator = 1;
+                 p->level--;
+@@ -6796,7 +6793,7 @@
+         }
+         p->mark = _mark;
+         D(fprintf(stderr, "%*c%s with_stmt[%d-%d]: %s failed!\n", p->level, ' ',
+-                  p->error_indicator ? "ERROR!" : "-", _mark, p->mark, "'with' '(' ','.with_item+ ','? ')' ':' TYPE_COMMENT? block"));
++                  p->error_indicator ? "ERROR!" : "-", _mark, p->mark, "'with' '(' ','.with_item+ ','? ')' ':' block"));
+     }
+     { // 'with' ','.with_item+ ':' TYPE_COMMENT? block
+         if (p->error_indicator) {

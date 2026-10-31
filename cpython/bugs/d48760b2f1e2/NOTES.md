@@ -1,0 +1,1 @@
+repro.py defines an IntEnum whose __new__ calls super().__new__(cls, value). Clean raises TypeError ('do not use super().__new__...'); buggy raises ValueError '1 is not a valid BadSuper' because the no-members check was removed from Enum.__new__.

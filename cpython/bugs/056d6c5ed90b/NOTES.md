@@ -1,0 +1,1 @@
+Calls SampleProfiler.sample with a mocked unwinder raising KeyboardInterrupt mid-run. Clean: interrupt handled, prints 'Interrupted by user.' and a Captured summary. Buggy: KeyboardInterrupt escapes sample().
