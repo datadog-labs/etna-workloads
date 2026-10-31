@@ -1,0 +1,1 @@
+repro.py prints reprs of typing.Unpack[...] objects. Clean: 'typing.Unpack[~Ts]', 'typing.Unpack[__main__.M]'; buggy: '*~Ts', "*<class '__main__.M'>" (injection uses '*' + repr() instead of 'typing.Unpack[' + _type_repr() + ']').

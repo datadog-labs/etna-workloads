@@ -1,0 +1,24 @@
+--- a/Lib/email/feedparser.py
++++ b/Lib/email/feedparser.py
+@@ -504,9 +504,10 @@
+                     self._input.unreadline(line)
+                     return
+                 else:
+-                    # Weirdly placed unix-from line.
++                    # Weirdly placed unix-from line.  Note this as a defect
++                    # and ignore it.
+                     defect = errors.MisplacedEnvelopeHeaderDefect(line)
+-                    self.policy.handle_defect(self._cur, defect)
++                    self._cur.defects.append(defect)
+                     continue
+             # Split the line on the colon separating field name from value.
+             # There will always be a colon, because if there wasn't the part of
+@@ -518,7 +519,7 @@
+             # message. Track the error but keep going.
+             if i == 0:
+                 defect = errors.InvalidHeaderDefect("Missing header name.")
+-                self.policy.handle_defect(self._cur, defect)
++                self._cur.defects.append(defect)
+                 continue
+ 
+             assert i>0, "_parse_headers fed line with no : and no leading WS"

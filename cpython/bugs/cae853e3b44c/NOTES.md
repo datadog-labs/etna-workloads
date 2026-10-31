@@ -1,0 +1,1 @@
+Creates a C Future with two done callbacks, removes one, and checks whether `fut._callbacks` returns a fresh list each access (and whether mutating it affects internal state). The buggy build returns the internal list itself when callback0 is unset, so `is` gives True and `.clear()` empties internal state; the clean build returns copies.

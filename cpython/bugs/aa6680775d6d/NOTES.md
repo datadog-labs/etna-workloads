@@ -1,0 +1,1 @@
+repro.py registers a collation, starts a SELECT using it, then re-registers it while the statement is active (SQLITE_BUSY). Clean: prints OperationalError. Buggy: abort on assertion ctx->refcount == 0 in free_callback_context (wrong cleanup path in create_collation error handling).

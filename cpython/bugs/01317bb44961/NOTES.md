@@ -1,0 +1,2 @@
+Reproducer: executes module-level annotations where one comprehension annotation is followed by another containing a lambda inside a genexp (the `_exec` test from the fix), then evaluates `__annotate__(1)` and prints the results.
+Clean: prints the annotation names, `{1}` and `42`. Buggy: compile raises `SystemError: compiler_lookup_arg(name='name_0') ... failed in __annotate__`, because the annotation block gets added to its parent's children twice in the symtable.

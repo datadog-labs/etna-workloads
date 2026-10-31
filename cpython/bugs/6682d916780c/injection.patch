@@ -1,0 +1,21 @@
+--- a/Python/symtable.c
++++ b/Python/symtable.c
+@@ -3179,9 +3179,15 @@
+ static int
+ symtable_visit_genexp(struct symtable *st, expr_ty e)
+ {
+-    return symtable_handle_comprehension(st, e, &_Py_STR(anon_genexpr),
+-                                         e->v.GeneratorExp.generators,
+-                                         e->v.GeneratorExp.elt, NULL);
++    PyObject *name = PyUnicode_InternFromString("genexpr");
++    if (name == NULL) {
++        return 0;
++    }
++    int rc = symtable_handle_comprehension(st, e, name,
++                                           e->v.GeneratorExp.generators,
++                                           e->v.GeneratorExp.elt, NULL);
++    Py_DECREF(name);
++    return rc;
+ }
+ 
+ static int

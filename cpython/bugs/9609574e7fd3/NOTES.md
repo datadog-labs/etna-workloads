@@ -1,0 +1,1 @@
+`repro.py` calls `os.execve` with a custom env mapping whose key/value object's `__fspath__` clears the list that `keys()`/`values()` returned. In the buggy `parse_envlist`, borrowed references are used, so the object is freed during conversion (use-after-free; crashes/asserts on the debug build). The clean build execs the child, which prints "hello from execve".

@@ -1,0 +1,63 @@
+--- a/Lib/inspect.py
++++ b/Lib/inspect.py
+@@ -2616,13 +2616,6 @@
+         # An object with __call__
+         call = getattr_static(type(obj), '__call__', None)
+         if call is not None:
+-            try:
+-                text_sig = obj.__text_signature__
+-            except AttributeError:
+-                pass
+-            else:
+-                if text_sig:
+-                    return _signature_fromstr(sigcls, obj, text_sig)
+             call = _descriptor_get(call, obj)
+             return _get_signature_of(call)
+ 
+--- a/Lib/operator.py
++++ b/Lib/operator.py
+@@ -247,7 +247,7 @@
+     """
+     __slots__ = ('_attrs', '_call')
+ 
+-    def __init__(self, attr, /, *attrs):
++    def __init__(self, attr, *attrs):
+         if not attrs:
+             if not isinstance(attr, str):
+                 raise TypeError('attribute name must be a string')
+@@ -265,7 +265,7 @@
+                 return tuple(getter(obj) for getter in getters)
+             self._call = func
+ 
+-    def __call__(self, obj, /):
++    def __call__(self, obj):
+         return self._call(obj)
+ 
+     def __repr__(self):
+@@ -284,7 +284,7 @@
+     """
+     __slots__ = ('_items', '_call')
+ 
+-    def __init__(self, item, /, *items):
++    def __init__(self, item, *items):
+         if not items:
+             self._items = (item,)
+             def func(obj):
+@@ -296,7 +296,7 @@
+                 return tuple(obj[i] for i in items)
+             self._call = func
+ 
+-    def __call__(self, obj, /):
++    def __call__(self, obj):
+         return self._call(obj)
+ 
+     def __repr__(self):
+@@ -323,7 +323,7 @@
+         self._args = args
+         self._kwargs = kwargs
+ 
+-    def __call__(self, obj, /):
++    def __call__(self, obj):
+         return getattr(obj, self._name)(*self._args, **self._kwargs)
+ 
+     def __repr__(self):

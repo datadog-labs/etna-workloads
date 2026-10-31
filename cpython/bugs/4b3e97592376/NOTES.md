@@ -1,0 +1,1 @@
+repro.py calls add_argument(nargs='abc') and nargs=0, printing the ValueError. Clean: 'invalid nargs value' and '...must be != 0...'. Buggy: 'length of metavar tuple does not match nargs' and '...must be > 0...'.

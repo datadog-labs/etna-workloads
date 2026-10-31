@@ -1,0 +1,91 @@
+--- a/Python/bytecodes.c
++++ b/Python/bytecodes.c
+@@ -3157,7 +3157,7 @@
+             assert(PyDict_CheckExact((PyObject *)dict));
+             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
+             if (hint >= (size_t)dict->ma_keys->dk_nentries ||
+-                    dict->ma_keys->dk_kind != DICT_KEYS_UNICODE) {
++                    !DK_IS_UNICODE(dict->ma_keys)) {
+                 UNLOCK_OBJECT(dict);
+                 DEOPT_IF(true);
+             }
+@@ -3167,11 +3167,8 @@
+                 DEOPT_IF(true);
+             }
+             PyObject *old_value = ep->me_value;
+-            if (old_value == NULL) {
+-                UNLOCK_OBJECT(dict);
+-                DEOPT_IF(true);
+-            }
+-            _PyDict_NotifyEvent(PyDict_EVENT_MODIFIED, dict, name, PyStackRef_AsPyObjectBorrow(value));
++            PyDict_WatchEvent event = old_value == NULL ? PyDict_EVENT_ADDED : PyDict_EVENT_MODIFIED;
++            _PyDict_NotifyEvent(event, dict, name, PyStackRef_AsPyObjectBorrow(value));
+             FT_ATOMIC_STORE_PTR_RELEASE(ep->me_value, PyStackRef_AsPyObjectSteal(value));
+             UNLOCK_OBJECT(dict);
+ 
+--- a/Python/executor_cases.c.h
++++ b/Python/executor_cases.c.h
+@@ -13115,7 +13115,7 @@
+             assert(PyDict_CheckExact((PyObject *)dict));
+             PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
+             if (hint >= (size_t)dict->ma_keys->dk_nentries ||
+-                dict->ma_keys->dk_kind != DICT_KEYS_UNICODE) {
++                !DK_IS_UNICODE(dict->ma_keys)) {
+                 UNLOCK_OBJECT(dict);
+                 if (true) {
+                     UOP_STAT_INC(uopcode, miss);
+@@ -13137,22 +13137,13 @@
+                 }
+             }
+             PyObject *old_value = ep->me_value;
+-            if (old_value == NULL) {
+-                UNLOCK_OBJECT(dict);
+-                if (true) {
+-                    UOP_STAT_INC(uopcode, miss);
+-                    _tos_cache1 = owner;
+-                    _tos_cache0 = value;
+-                    SET_CURRENT_CACHED_VALUES(2);
+-                    JUMP_TO_JUMP_TARGET();
+-                }
+-            }
++            PyDict_WatchEvent event = old_value == NULL ? PyDict_EVENT_ADDED : PyDict_EVENT_MODIFIED;
+             stack_pointer[0] = value;
+             stack_pointer[1] = owner;
+             stack_pointer += 2;
+             ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+             _PyFrame_SetStackPointer(frame, stack_pointer);
+-            _PyDict_NotifyEvent(PyDict_EVENT_MODIFIED, dict, name, PyStackRef_AsPyObjectBorrow(value));
++            _PyDict_NotifyEvent(event, dict, name, PyStackRef_AsPyObjectBorrow(value));
+             stack_pointer = _PyFrame_GetStackPointer(frame);
+             FT_ATOMIC_STORE_PTR_RELEASE(ep->me_value, PyStackRef_AsPyObjectSteal(value));
+             UNLOCK_OBJECT(dict);
+--- a/Python/generated_cases.c.h
++++ b/Python/generated_cases.c.h
+@@ -11722,7 +11722,7 @@
+                 assert(PyDict_CheckExact((PyObject *)dict));
+                 PyObject *name = GETITEM(FRAME_CO_NAMES, oparg);
+                 if (hint >= (size_t)dict->ma_keys->dk_nentries ||
+-                    dict->ma_keys->dk_kind != DICT_KEYS_UNICODE) {
++                    !DK_IS_UNICODE(dict->ma_keys)) {
+                     UNLOCK_OBJECT(dict);
+                     if (true) {
+                         UPDATE_MISS_STATS(STORE_ATTR);
+@@ -11740,16 +11740,9 @@
+                     }
+                 }
+                 PyObject *old_value = ep->me_value;
+-                if (old_value == NULL) {
+-                    UNLOCK_OBJECT(dict);
+-                    if (true) {
+-                        UPDATE_MISS_STATS(STORE_ATTR);
+-                        assert(_PyOpcode_Deopt[opcode] == (STORE_ATTR));
+-                        JUMP_TO_PREDICTED(STORE_ATTR);
+-                    }
+-                }
++                PyDict_WatchEvent event = old_value == NULL ? PyDict_EVENT_ADDED : PyDict_EVENT_MODIFIED;
+                 _PyFrame_SetStackPointer(frame, stack_pointer);
+-                _PyDict_NotifyEvent(PyDict_EVENT_MODIFIED, dict, name, PyStackRef_AsPyObjectBorrow(value));
++                _PyDict_NotifyEvent(event, dict, name, PyStackRef_AsPyObjectBorrow(value));
+                 stack_pointer = _PyFrame_GetStackPointer(frame);
+                 FT_ATOMIC_STORE_PTR_RELEASE(ep->me_value, PyStackRef_AsPyObjectSteal(value));
+                 UNLOCK_OBJECT(dict);

@@ -1,0 +1,27 @@
+--- a/Objects/abstract.c
++++ b/Objects/abstract.c
+@@ -2649,7 +2649,23 @@
+     }
+ 
+     if (_PyUnion_Check(cls)) {
+-        cls = _Py_union_args(cls);
++        /* Union instance checks go through the subclass checks of the
++           type of the instance against each argument. */
++        PyObject *args = _Py_union_args(cls);
++        if (_Py_EnterRecursiveCallTstate(tstate, " in __instancecheck__")) {
++            return -1;
++        }
++        Py_ssize_t n = PyTuple_GET_SIZE(args);
++        int r = 0;
++        for (Py_ssize_t i = 0; i < n; ++i) {
++            r = PyObject_IsSubclass((PyObject *)Py_TYPE(inst),
++                                    PyTuple_GET_ITEM(args, i));
++            if (r != 0) {
++                break;
++            }
++        }
++        _Py_LeaveRecursiveCallTstate(tstate);
++        return r;
+     }
+ 
+     if (PyTuple_Check(cls)) {

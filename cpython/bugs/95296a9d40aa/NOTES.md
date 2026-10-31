@@ -1,0 +1,1 @@
+repro.py feeds '&#123', '&gt', '&undefined' (EOF inside a charref/entityref, convert_charrefs=False) to HTMLParser and closes it. Clean emits charref/entityref events; buggy emits the text as plain data instead.

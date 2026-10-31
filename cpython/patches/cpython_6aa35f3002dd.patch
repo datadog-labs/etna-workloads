@@ -1,0 +1,50 @@
+--- a/Lib/zipfile/_path/__init__.py
++++ b/Lib/zipfile/_path/__init__.py
+@@ -206,10 +206,7 @@
+ 
+ class Path:
+     """
+-    A :class:`importlib.resources.abc.Traversable` interface for zip files.
+-
+-    Implements many of the features users enjoy from
+-    :class:`pathlib.Path`.
++    A pathlib-compatible interface for zip files.
+ 
+     Consider a zip file with this structure::
+ 
+@@ -425,7 +422,8 @@
+         prefix = re.escape(self.at)
+         tr = Translator(seps='/')
+         matches = re.compile(prefix + tr.translate(pattern)).fullmatch
+-        return map(self._next, filter(matches, self.root.namelist()))
++        names = (data.filename for data in self.root.filelist)
++        return map(self._next, filter(matches, names))
+ 
+     def rglob(self, pattern):
+         return self.glob(f'**/{pattern}')
+--- a/Lib/zipfile/_path/glob.py
++++ b/Lib/zipfile/_path/glob.py
+@@ -27,7 +27,7 @@
+         """
+         Given a glob pattern, produce a regex that matches it.
+         """
+-        return self.extend(self.match_dirs(self.translate_core(pattern)))
++        return self.extend(self.translate_core(pattern))
+ 
+     def extend(self, pattern):
+         r"""
+@@ -40,14 +40,6 @@
+         """
+         return rf'(?s:{pattern})\z'
+ 
+-    def match_dirs(self, pattern):
+-        """
+-        Ensure that zipfile.Path directory names are matched.
+-
+-        zipfile.Path directory names always end in a slash.
+-        """
+-        return rf'{pattern}[/]?'
+-
+     def translate_core(self, pattern):
+         r"""
+         Given a glob pattern, produce a regex that matches it.

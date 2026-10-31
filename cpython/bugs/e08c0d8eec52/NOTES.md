@@ -1,0 +1,1 @@
+repro.py prints `__module__` of signal.signal and signal.pthread_sigmask. Clean: 'signal' for both. Buggy: '_signal', because the injected functools.wraps copies the wrapped function's __module__ (the test_functions_module_attr failure).

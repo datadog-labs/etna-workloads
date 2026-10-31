@@ -1,0 +1,1 @@
+Reproducer calls bytearray find/count/index/rfind/rindex with an argument whose __buffer__/__index__ clears the bytearray. Clean raises BufferError; buggy doesn't (returns a result/other error or crashes).

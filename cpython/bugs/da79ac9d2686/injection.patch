@@ -1,0 +1,64 @@
+--- a/Objects/object.c
++++ b/Objects/object.c
+@@ -1218,27 +1218,16 @@
+ int
+ PyObject_SetAttrString(PyObject *v, const char *name, PyObject *w)
+ {
+-    PyThreadState *tstate = _PyThreadState_GET();
+-    if (w == NULL && _PyErr_Occurred(tstate)) {
+-        PyObject *exc = _PyErr_GetRaisedException(tstate);
+-        _PyErr_SetString(tstate, PyExc_SystemError,
+-            "PyObject_SetAttrString() must not be called with NULL value "
+-            "and an exception set");
+-        _PyErr_ChainExceptions1Tstate(tstate, exc);
+-        return -1;
+-    }
++    PyObject *s;
++    int res;
+ 
+-    if (Py_TYPE(v)->tp_setattr != NULL) {
++    if (Py_TYPE(v)->tp_setattr != NULL)
+         return (*Py_TYPE(v)->tp_setattr)(v, (char*)name, w);
+-    }
+-
+-    PyObject *s = PyUnicode_InternFromString(name);
+-    if (s == NULL) {
++    s = PyUnicode_InternFromString(name);
++    if (s == NULL)
+         return -1;
+-    }
+-
+-    int res = PyObject_SetAttr(v, s, w);
+-    Py_DECREF(s);
++    res = PyObject_SetAttr(v, s, w);
++    Py_XDECREF(s);
+     return res;
+ }
+ 
+@@ -1508,16 +1497,6 @@
+ int
+ PyObject_SetAttr(PyObject *v, PyObject *name, PyObject *value)
+ {
+-    PyThreadState *tstate = _PyThreadState_GET();
+-    if (value == NULL && _PyErr_Occurred(tstate)) {
+-        PyObject *exc = _PyErr_GetRaisedException(tstate);
+-        _PyErr_SetString(tstate, PyExc_SystemError,
+-            "PyObject_SetAttr() must not be called with NULL value "
+-            "and an exception set");
+-        _PyErr_ChainExceptions1Tstate(tstate, exc);
+-        return -1;
+-    }
+-
+     PyTypeObject *tp = Py_TYPE(v);
+     int err;
+ 
+@@ -1529,7 +1508,8 @@
+     }
+     Py_INCREF(name);
+ 
+-    _PyUnicode_InternMortal(tstate->interp, &name);
++    PyInterpreterState *interp = _PyInterpreterState_GET();
++    _PyUnicode_InternMortal(interp, &name);
+     if (tp->tp_setattro != NULL) {
+         err = (*tp->tp_setattro)(v, name, value);
+         Py_DECREF(name);

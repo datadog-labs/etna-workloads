@@ -1,0 +1,1 @@
+Fake socket returns a 404 to the CONNECT tunnel request; reproducer prints whether the response's file object was closed. Clean: [True]; buggy: [False] (response not closed on tunnel failure, leaking it).

@@ -1,0 +1,1 @@
+Reproducer calls a partial with a str-subclass keyword whose __eq__ raises. Clean: RuntimeError propagates. Buggy: PyDict_Contains error treated as true, so the error is swallowed/assert fires (see check.sh output).

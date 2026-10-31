@@ -1,0 +1,1 @@
+repro.py calls Reader.process_prompt on several prompts and prints the results. For the unbracketed ANSI prompt '[0;32m>>> [0m' the clean build reports width 4; the buggy build subtracts the escape lengths twice and reports -7.

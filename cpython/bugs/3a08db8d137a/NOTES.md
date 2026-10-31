@@ -1,0 +1,1 @@
+repro.py calls _testcapi.mapping_getoptionalitemstring({}, b'�'). The buggy build no longer sets *result = NULL on the error path, so the C helper's assert(value == NULL) fails (abort) on the debug build; the clean build raises UnicodeDecodeError.

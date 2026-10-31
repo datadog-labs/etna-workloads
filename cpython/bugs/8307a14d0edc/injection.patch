@@ -1,0 +1,81 @@
+--- a/Modules/_zoneinfo.c
++++ b/Modules/_zoneinfo.c
+@@ -293,11 +293,16 @@
+ get_weak_cache(zoneinfo_state *state, PyTypeObject *type)
+ {
+     if (type == state->ZoneInfoType) {
+-        Py_INCREF(state->ZONEINFO_WEAK_CACHE);
+         return state->ZONEINFO_WEAK_CACHE;
+     }
+     else {
+-        return PyObject_GetAttrString((PyObject *)type, "_weak_cache");
++        PyObject *cache =
++            PyObject_GetAttrString((PyObject *)type, "_weak_cache");
++        // We are assuming that the type lives at least as long as the function
++        // that calls get_weak_cache, and that it holds a reference to the
++        // cache, so we'll return a "borrowed reference".
++        Py_XDECREF(cache);
++        return cache;
+     }
+ }
+ 
+@@ -327,7 +332,6 @@
+     }
+     instance = PyObject_CallMethod(weak_cache, "get", "O", key, Py_None);
+     if (instance == NULL) {
+-        Py_DECREF(weak_cache);
+         return NULL;
+     }
+ 
+@@ -335,7 +339,6 @@
+         Py_DECREF(instance);
+         PyObject *tmp = zoneinfo_new_instance(state, type, key);
+         if (tmp == NULL) {
+-            Py_DECREF(weak_cache);
+             return NULL;
+         }
+ 
+@@ -344,7 +347,6 @@
+             PyObject_CallMethod(weak_cache, "setdefault", "OO", key, tmp);
+         Py_DECREF(tmp);
+         if (instance == NULL) {
+-            Py_DECREF(weak_cache);
+             return NULL;
+         }
+     }
+@@ -354,12 +356,10 @@
+                      "Unexpected instance of %T in %s weak cache for key %R",
+                      instance, _PyType_Name(type), key);
+         Py_DECREF(instance);
+-        Py_DECREF(weak_cache);
+         return NULL;
+     }
+ 
+     update_strong_cache(state, type, key, instance);
+-    Py_DECREF(weak_cache);
+     return instance;
+ }
+ 
+@@ -526,14 +526,12 @@
+         PyObject *item = NULL;
+         PyObject *pop = PyUnicode_FromString("pop");
+         if (pop == NULL) {
+-            Py_DECREF(weak_cache);
+             return NULL;
+         }
+ 
+         PyObject *iter = PyObject_GetIter(only_keys);
+         if (iter == NULL) {
+             Py_DECREF(pop);
+-            Py_DECREF(weak_cache);
+             return NULL;
+         }
+ 
+@@ -558,7 +556,6 @@
+         Py_DECREF(pop);
+     }
+ 
+-    Py_DECREF(weak_cache);
+     if (PyErr_Occurred()) {
+         return NULL;
+     }

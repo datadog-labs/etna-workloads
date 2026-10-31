@@ -1,0 +1,1 @@
+Compiles source with docstrings in a function, nested function and class, at optimize=-1,0,1,2 in exec/single modes, disassembles it, and prints whether the disassembly contains a NOP. The clean build never emits one; the buggy build emits a redundant NOP where the docstring was dropped (optimize=2).

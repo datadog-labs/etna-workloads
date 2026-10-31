@@ -1,0 +1,1 @@
+repro.py imports a pure-Python (non-frozen) importlib.util and calls cache_from_source('qux.py') with sys.pycache_prefix='/tmp/bytecode' and cwd '/'. Clean returns '/tmp/bytecode/qux.cpython-315.pyc'; buggy raises IndexError (head[1] on empty head). The frozen copy in the binary isn't affected, so the pure-Python variant is needed.

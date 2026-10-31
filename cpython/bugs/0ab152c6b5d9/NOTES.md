@@ -1,0 +1,1 @@
+Reproduces bpo-43285: a fake FTP server answers PASV with 252.253.254.255. Clean ftplib ignores that address and returns the connected peer (127.0.0.1); the buggy one returns the untrusted 252.253.254.255.

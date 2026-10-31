@@ -1,0 +1,34 @@
+--- a/Lib/email/_encoded_words.py
++++ b/Lib/email/_encoded_words.py
+@@ -179,15 +179,15 @@
+     # Turn the CTE decoded bytes into a string.
+     try:
+         string = bstring.decode(charset)
+-    except UnicodeDecodeError:
++    except UnicodeError:
+         defects.append(errors.UndecodableBytesDefect("Encoded word "
+-            f"contains bytes not decodable using {charset!r} charset"))
++            "contains bytes not decodable using {} charset".format(charset)))
+         string = bstring.decode(charset, 'surrogateescape')
+-    except (LookupError, UnicodeEncodeError):
++    except LookupError:
+         string = bstring.decode('ascii', 'surrogateescape')
+         if charset.lower() != 'unknown-8bit':
+-            defects.append(errors.CharsetError(f"Unknown charset {charset!r} "
+-                f"in encoded word; decoded as unknown bytes"))
++            defects.append(errors.CharsetError("Unknown charset {} "
++                "in encoded word; decoded as unknown bytes".format(charset)))
+     return string, charset, lang, defects
+ 
+ 
+--- a/Lib/email/_header_value_parser.py
++++ b/Lib/email/_header_value_parser.py
+@@ -814,7 +814,7 @@
+                             import codecs
+                             codecs.lookup(charset)
+                             value = value.decode(charset, 'surrogateescape')
+-                        except (LookupError, UnicodeEncodeError):
++                        except LookupError:
+                             # XXX: there should really be a custom defect for
+                             # unknown character set to make it easy to find,
+                             # because otherwise unknown charset is a silent

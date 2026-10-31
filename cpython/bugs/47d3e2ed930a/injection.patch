@@ -1,0 +1,25 @@
+--- a/Include/internal/pycore_runtime_init.h
++++ b/Include/internal/pycore_runtime_init.h
+@@ -153,8 +153,7 @@
+                     .h_root = (PyHamtNode*)&_Py_SINGLETON(hamt_bitmap_node_empty), \
+                 }, \
+                 .last_resort_memory_error = { \
+-                    _PyObject_HEAD_INIT(&_PyExc_MemoryError), \
+-                    .args = (PyObject*)&_Py_SINGLETON(tuple_empty) \
++                    _PyObject_HEAD_INIT(&_PyExc_MemoryError) \
+                 }, \
+             }, \
+         }, \
+--- a/Objects/exceptions.c
++++ b/Objects/exceptions.c
+@@ -4522,6 +4522,10 @@
+ PyStatus
+ _PyExc_InitGlobalObjects(PyInterpreterState *interp)
+ {
++    if (!_Py_IsMainInterpreter(interp)) {
++        return _PyStatus_OK();
++    }
++
+     if (preallocate_memerrors() < 0) {
+         return _PyStatus_NO_MEMORY();
+     }

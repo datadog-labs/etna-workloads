@@ -1,0 +1,73 @@
+--- a/Python/compile.c
++++ b/Python/compile.c
+@@ -1663,7 +1663,6 @@
+ {
+     PyObject *res = NULL;
+     PyObject *metadata = NULL;
+-    PyObject *consts_list = NULL;
+ 
+     if (!PyAST_Check(ast)) {
+         PyErr_SetString(PyExc_TypeError, "expected an AST");
+@@ -1718,23 +1717,12 @@
+     }
+ 
+     if (_PyInstructionSequence_ApplyLabelMap(_PyCompile_InstrSequence(c)) < 0) {
+-        goto finally;
+-    }
+-
+-    /* After AddReturnAtEnd: co_consts indices match the final instruction stream. */
+-    consts_list = consts_dict_keys_inorder(umd->u_consts);
+-    if (consts_list == NULL) {
+-        goto finally;
+-    }
+-    if (PyDict_SetItemString(metadata, "consts", consts_list) < 0) {
+-        goto finally;
++        return NULL;
+     }
+-
+     /* Allocate a copy of the instruction sequence on the heap */
+     res = _PyTuple_FromPair((PyObject *)_PyCompile_InstrSequence(c), metadata);
+ 
+ finally:
+-    Py_XDECREF(consts_list);
+     Py_XDECREF(metadata);
+     if (c->u != NULL) {
+         _PyCompile_ExitScope(c);
+--- a/Python/flowgraph.c
++++ b/Python/flowgraph.c
+@@ -1319,14 +1319,6 @@
+     PyObject *constant = NULL;
+     assert(loads_const(opcode));
+     if (opcode == LOAD_CONST) {
+-        assert(PyList_Check(co_consts));
+-        Py_ssize_t n = PyList_GET_SIZE(co_consts);
+-        if (oparg < 0 || oparg >= n) {
+-            PyErr_Format(PyExc_ValueError,
+-                         "LOAD_CONST index %d is out of range for consts (len=%zd)",
+-                         oparg, n);
+-            return NULL;
+-        }
+         constant = PyList_GET_ITEM(co_consts, oparg);
+     }
+     if (opcode == LOAD_SMALL_INT) {
+@@ -2276,9 +2268,6 @@
+         cfg_instr *inst = &bb->b_instr[i];
+         if (inst->i_opcode == LOAD_CONST) {
+             PyObject *constant = get_const_value(inst->i_opcode, inst->i_oparg, consts);
+-            if (constant == NULL) {
+-                return ERROR;
+-            }
+             int res = maybe_instr_make_load_smallint(inst, constant, consts, const_cache);
+             Py_DECREF(constant);
+             if (res < 0) {
+@@ -4224,10 +4213,6 @@
+         PyErr_SetString(PyExc_ValueError, "expected an instruction sequence");
+         return NULL;
+     }
+-    if (!PyList_Check(consts)) {
+-        PyErr_SetString(PyExc_TypeError, "consts must be a list");
+-        return NULL;
+-    }
+     PyObject *const_cache = PyDict_New();
+     if (const_cache == NULL) {
+         return NULL;

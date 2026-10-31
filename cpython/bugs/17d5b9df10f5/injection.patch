@@ -1,0 +1,44 @@
+--- a/Lib/zipimport.py
++++ b/Lib/zipimport.py
+@@ -149,8 +149,6 @@
+             toc_entry = self._get_files()[key]
+         except KeyError:
+             raise OSError(0, '', key)
+-        if toc_entry is None:
+-            return b''
+         return _get_data(self.archive, toc_entry)
+ 
+ 
+@@ -504,22 +502,6 @@
+         finally:
+             fp.seek(start_offset)
+     _bootstrap._verbose_message('zipimport: found {} names in {!r}', count, archive)
+-
+-    # Add implicit directories.
+-    count = 0
+-    for name in list(files):
+-        while True:
+-            i = name.rstrip(path_sep).rfind(path_sep)
+-            if i < 0:
+-                break
+-            name = name[:i + 1]
+-            if name in files:
+-                break
+-            files[name] = None
+-            count += 1
+-    if count:
+-        _bootstrap._verbose_message('zipimport: added {} implicit directories in {!r}',
+-                                    count, archive)
+     return files
+ 
+ # During bootstrap, we may need to load the encodings
+--- a/Python/import.c
++++ b/Python/import.c
+@@ -4820,6 +4820,7 @@
+ /* "external" imports */
+ 
+ static int
++/* zipimport is frozen; this edit makes make refreeze Lib/zipimport.py */
+ init_zipimport(PyThreadState *tstate, int verbose)
+ {
+     PyObject *path_hooks = PySys_GetAttrString("path_hooks");

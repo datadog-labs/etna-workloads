@@ -1,0 +1,1 @@
+repro.py compares hash(Literal[1, 2]) with hash(Literal[2, 1]). Clean prints True (hash is order-independent); buggy prints False (hash uses a tuple, so it depends on argument order). The second line (duplicates) is True on both.

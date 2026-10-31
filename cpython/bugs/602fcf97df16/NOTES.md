@@ -1,0 +1,1 @@
+Builds a ReadlineAlikeReader on a mock 10-column console, types a two-line 'if' block with real prompts, and prints reader.screen. Clean wraps continuation rows without a prompt; buggy (prompt_from_cache=False) repeats '>>> ' on every wrapped row.

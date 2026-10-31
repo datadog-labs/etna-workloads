@@ -1,0 +1,1 @@
+repro.py compiles an AST with a TypeAlias whose name is a Subscript. Clean raises TypeError 'TypeAlias with non-Name name'; buggy hits an assert in symtable.c (SIGABRT) because the validator check was removed.

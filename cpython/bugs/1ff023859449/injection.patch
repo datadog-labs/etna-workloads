@@ -1,0 +1,41 @@
+--- a/Lib/asyncio/sslproto.py
++++ b/Lib/asyncio/sslproto.py
+@@ -247,12 +247,13 @@
+         The protocol's connection_lost() method will (eventually) be
+         called with None as its argument.
+         """
+-        self._force_close(None)
++        self._closed = True
++        if self._ssl_protocol is not None:
++            self._ssl_protocol._abort()
+ 
+     def _force_close(self, exc):
+         self._closed = True
+-        if self._ssl_protocol is not None:
+-            self._ssl_protocol._abort(exc)
++        self._ssl_protocol._abort(exc)
+ 
+     def _test__append_write_backlog(self, data):
+         # for test only
+@@ -621,7 +622,7 @@
+         if self._app_transport is not None:
+             self._app_transport._closed = True
+         if self._state == SSLProtocolState.DO_HANDSHAKE:
+-            self._abort(None)
++            self._abort()
+         else:
+             self._set_state(SSLProtocolState.FLUSHING)
+             self._shutdown_timeout_handle = self._loop.call_later(
+@@ -676,10 +677,10 @@
+                 )
+             self._loop.call_soon(self._transport.close)
+ 
+-    def _abort(self, exc):
++    def _abort(self):
+         self._set_state(SSLProtocolState.UNWRAPPED)
+         if self._transport is not None:
+-            self._transport._force_close(exc)
++            self._transport.abort()
+ 
+     # Outgoing flow
+ 

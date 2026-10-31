@@ -1,0 +1,82 @@
+--- a/Objects/genobject.c
++++ b/Objects/genobject.c
+@@ -1983,7 +1983,6 @@
+ 
+     if (o->ags_state == AWAITABLE_STATE_INIT) {
+         if (o->ags_gen->ag_running_async) {
+-            o->ags_state = AWAITABLE_STATE_CLOSED;
+             PyErr_SetString(
+                 PyExc_RuntimeError,
+                 "anext(): asynchronous generator is already running");
+@@ -2040,24 +2039,10 @@
+         return NULL;
+     }
+ 
+-    if (o->ags_state == AWAITABLE_STATE_INIT) {
+-        if (o->ags_gen->ag_running_async) {
+-            o->ags_state = AWAITABLE_STATE_CLOSED;
+-            PyErr_SetString(
+-                PyExc_RuntimeError,
+-                "anext(): asynchronous generator is already running");
+-            return NULL;
+-        }
+-
+-        o->ags_state = AWAITABLE_STATE_ITER;
+-        o->ags_gen->ag_running_async = 1;
+-    }
+-
+     PyObject *result = gen_throw((PyObject*)o->ags_gen, args, nargs);
+     result = async_gen_unwrap_value(o->ags_gen, result);
+ 
+     if (result == NULL) {
+-        o->ags_gen->ag_running_async = 0;
+         o->ags_state = AWAITABLE_STATE_CLOSED;
+     }
+ 
+@@ -2433,31 +2418,10 @@
+         return NULL;
+     }
+ 
+-    if (o->agt_state == AWAITABLE_STATE_INIT) {
+-        if (o->agt_gen->ag_running_async) {
+-            o->agt_state = AWAITABLE_STATE_CLOSED;
+-            if (o->agt_typ == NULL) {
+-                PyErr_SetString(
+-                    PyExc_RuntimeError,
+-                    "aclose(): asynchronous generator is already running");
+-            }
+-            else {
+-                PyErr_SetString(
+-                    PyExc_RuntimeError,
+-                    "athrow(): asynchronous generator is already running");
+-            }
+-            return NULL;
+-        }
+-
+-        o->agt_state = AWAITABLE_STATE_ITER;
+-        o->agt_gen->ag_running_async = 1;
+-    }
+-
+     PyObject *retval = gen_throw((PyObject*)o->agt_gen, args, nargs);
+     if (o->agt_typ) {
+         retval = async_gen_unwrap_value(o->agt_gen, retval);
+         if (retval == NULL) {
+-            o->agt_gen->ag_running_async = 0;
+             o->agt_state = AWAITABLE_STATE_CLOSED;
+         }
+         return retval;
+@@ -2465,14 +2429,12 @@
+     else {
+         /* aclose() mode */
+         if (retval && _PyAsyncGenWrappedValue_CheckExact(retval)) {
+-            o->agt_gen->ag_running_async = 0;
+             o->agt_state = AWAITABLE_STATE_CLOSED;
+             Py_DECREF(retval);
+             PyErr_SetString(PyExc_RuntimeError, ASYNC_GEN_IGNORED_EXIT_MSG);
+             return NULL;
+         }
+         if (retval == NULL) {
+-            o->agt_gen->ag_running_async = 0;
+             o->agt_state = AWAITABLE_STATE_CLOSED;
+         }
+         if (PyErr_ExceptionMatches(PyExc_StopAsyncIteration) ||

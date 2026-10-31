@@ -1,0 +1,46 @@
+--- a/Python/import.c
++++ b/Python/import.c
+@@ -3858,20 +3858,23 @@
+             if (dot == -2) {
+                 goto error;
+             }
+-            else if (dot == -1) {
+-                goto no_parent_error;
+-            }
+-            PyObject *substr = PyUnicode_Substring(package, 0, dot);
+-            if (substr == NULL) {
+-                goto error;
++
++            if (dot >= 0) {
++                PyObject *substr = PyUnicode_Substring(package, 0, dot);
++                if (substr == NULL) {
++                    goto error;
++                }
++                Py_SETREF(package, substr);
+             }
+-            Py_SETREF(package, substr);
+         }
+     }
+ 
+     last_dot = PyUnicode_GET_LENGTH(package);
+     if (last_dot == 0) {
+-        goto no_parent_error;
++        _PyErr_SetString(tstate, PyExc_ImportError,
++                         "attempted relative import "
++                         "with no known parent package");
++        goto error;
+     }
+ 
+     for (level_up = 1; level_up < level; level_up += 1) {
+@@ -3898,11 +3901,6 @@
+     Py_DECREF(base);
+     return abs_name;
+ 
+-  no_parent_error:
+-    _PyErr_SetString(tstate, PyExc_ImportError,
+-                     "attempted relative import "
+-                     "with no known parent package");
+-
+   error:
+     Py_XDECREF(spec);
+     Py_XDECREF(package);

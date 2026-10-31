@@ -1,0 +1,29 @@
+--- a/Python/_warnings.c
++++ b/Python/_warnings.c
+@@ -263,12 +263,12 @@
+     _PyRecursiveMutex_Lock(&st->lock);
+ }
+ 
+-static inline int
++static inline void
+ warnings_unlock(PyInterpreterState *interp)
+ {
+     WarningsState *st = warnings_get_state(interp);
+     assert(st != NULL);
+-    return _PyRecursiveMutex_TryUnlock(&st->lock);
++    _PyRecursiveMutex_Unlock(&st->lock);
+ }
+ 
+ static inline bool
+@@ -391,10 +391,7 @@
+     if (interp == NULL) {
+         return NULL;
+     }
+-    if (warnings_unlock(interp) < 0) {
+-        PyErr_SetString(PyExc_RuntimeError, "cannot release un-acquired lock");
+-        return NULL;
+-    }
++    warnings_unlock(interp);
+     Py_RETURN_NONE;
+ }
+ 

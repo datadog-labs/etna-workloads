@@ -1,0 +1,1 @@
+Reproducer: create_autospec on an async function, then check inspect.iscoroutinefunction and that awaiting a call with a bad signature raises TypeError. In the buggy build the signature is not checked and iscoroutinefunction is False.

@@ -1,0 +1,35 @@
+--- a/Lib/asyncio/__main__.py
++++ b/Lib/asyncio/__main__.py
+@@ -120,10 +120,22 @@
+                 import_line = "import asyncio"
+             console.write(f"{ps1}{import_line}\n")
+ 
+-            if CAN_USE_PYREPL:
++            try:
++                import errno
++                if not os.isatty(sys.stdin.fileno()):
++                    return_code = errno.ENOTTY
++                    raise OSError(return_code, "tty required", "stdin")
++
++                # This import will fail on operating systems with no termios.
+                 from _pyrepl.simple_interact import (
++                    check,
+                     run_multiline_interactive_console,
+                 )
++                if err := check():
++                    raise RuntimeError(err)
++            except Exception as e:
++                console.interact(banner="", exitmsg="")
++            else:
+                 try:
+                     sys.ps1 = ps1
+                     run_multiline_interactive_console(console)
+@@ -135,8 +147,6 @@
+                     console.showtraceback()
+                     console.write("Internal error, ")
+                     return_code = 1
+-            else:
+-                console.interact(banner="", exitmsg="")
+         finally:
+             warnings.filterwarnings(
+                 'ignore',

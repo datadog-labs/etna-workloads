@@ -1,0 +1,1 @@
+Reproducer: a function with two sibling inlined comprehensions, one binding x and one reading global x. Clean prints [3]; buggy raises UnboundLocalError (name treated as local in the second comprehension). Mirrors test_multiple_comprehension_name_reuse.

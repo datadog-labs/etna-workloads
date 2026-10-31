@@ -1,0 +1,1 @@
+Calls pydoc.TextDoc().getdocloc with a patched module_docs mapping. Clean uses the mapping (encodings -> .../codecs#module-encodings, importlib._bootstrap -> None); buggy builds .../encodings.html and a .html link for importlib._bootstrap.

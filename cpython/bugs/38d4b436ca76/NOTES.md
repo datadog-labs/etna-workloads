@@ -1,0 +1,1 @@
+Reproducer calls tokenize.detect_encoding on lines with non-UTF-8 bytes in a coding comment/shebang, UTF-8 bytes under an ascii cookie, and a NUL byte. The clean build returns iso-8859-15 and raises SyntaxError for the ascii and NUL cases. The buggy build raises SyntaxError for the non-UTF-8 lines and doesn't detect the others.

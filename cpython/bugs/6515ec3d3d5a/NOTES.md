@@ -1,0 +1,1 @@
+repro.py calls forkserver context's set_forkserver_preload([1, 2, 3]). Clean raises TypeError('module_names must be a list of strings'); buggy validates the stored (empty) _preload_modules instead of the argument, so no error is raised.

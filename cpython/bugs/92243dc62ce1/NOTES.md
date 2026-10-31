@@ -1,0 +1,1 @@
+repro.py runs a one-yield generator to exhaustion and checks gen.gi_frame.f_back is None after each step. Clean: True, True, True. Buggy: the last is False, because clear_gen_frame clears frame->previous after the frame is cleared, so the exhausted frame still points at the caller's frame (a reference cycle).

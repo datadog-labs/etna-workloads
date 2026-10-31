@@ -1,0 +1,135 @@
+--- a/Modules/_bz2module.c
++++ b/Modules/_bz2module.c
+@@ -626,47 +626,57 @@
+     return result;
+ }
+ 
+-/*[clinic input]
+-@classmethod
+-_bz2.BZ2Decompressor.__new__
+-
+-Create a decompressor object for decompressing data incrementally.
+-
+-For one-shot decompression, use the decompress() function instead.
+-[clinic start generated code]*/
+-
+-static PyObject *
+-_bz2_BZ2Decompressor_impl(PyTypeObject *type)
+-/*[clinic end generated code: output=5150d51ccaab220e input=b87413ce51853528]*/
++/* Argument Clinic is not used since the Argument Clinic always want to
++   check the type which would be wrong here */
++static int
++_bz2_BZ2Decompressor___init___impl(BZ2Decompressor *self)
+ {
+-    BZ2Decompressor *self;
+     int bzerror;
+ 
+-    assert(type != NULL && type->tp_alloc != NULL);
+-    self = (BZ2Decompressor *)type->tp_alloc(type, 0);
+-    if (self == NULL) {
+-        return NULL;
+-    }
+-
+     self->mutex = (PyMutex){0};
+     self->bzerror = 0;
+     self->needs_input = 1;
+     self->bzs_avail_in_real = 0;
+     self->input_buffer = NULL;
+     self->input_buffer_size = 0;
+-    self->unused_data = Py_GetConstant(Py_CONSTANT_EMPTY_BYTES);
++    Py_XSETREF(self->unused_data, Py_GetConstant(Py_CONSTANT_EMPTY_BYTES));
+ 
+     bzerror = BZ2_bzDecompressInit(&self->bzs, 0, 0);
+     if (catch_bz2_error(bzerror))
+         goto error;
+ 
+-    return (PyObject *)self;
++    return 0;
+ 
+ error:
+-    Py_DECREF(self);
+-    return NULL;
++    Py_CLEAR(self->unused_data);
++    return -1;
+ }
+ 
++static int
++_bz2_BZ2Decompressor___init__(PyObject *self, PyObject *args, PyObject *kwargs)
++{
++    int return_value = -1;
++
++    if (!_PyArg_NoPositional("BZ2Decompressor", args)) {
++        goto exit;
++    }
++    if (!_PyArg_NoKeywords("BZ2Decompressor", kwargs)) {
++        goto exit;
++    }
++    return_value = _bz2_BZ2Decompressor___init___impl((BZ2Decompressor *)self);
++
++exit:
++    return return_value;
++}
++
++PyDoc_STRVAR(_bz2_BZ2Decompressor___init____doc__,
++"BZ2Decompressor()\n"
++"--\n"
++"\n"
++"Create a decompressor object for decompressing data incrementally.\n"
++"\n"
++"For one-shot decompression, use the decompress() function instead.");
++
+ static void
+ BZ2Decompressor_dealloc(PyObject *op)
+ {
+@@ -729,10 +739,11 @@
+ static PyType_Slot bz2_decompressor_type_slots[] = {
+     {Py_tp_dealloc, BZ2Decompressor_dealloc},
+     {Py_tp_methods, BZ2Decompressor_methods},
+-    {Py_tp_doc, (char *)_bz2_BZ2Decompressor__doc__},
++    {Py_tp_init, _bz2_BZ2Decompressor___init__},
++    {Py_tp_doc, (char *)_bz2_BZ2Decompressor___init____doc__},
+     {Py_tp_members, BZ2Decompressor_members},
+     {Py_tp_getset, BZ2Decompressor_getset},
+-    {Py_tp_new, _bz2_BZ2Decompressor},
++    {Py_tp_new, PyType_GenericNew},
+     {0, 0}
+ };
+ 
+--- a/Modules/clinic/_bz2module.c.h
++++ b/Modules/clinic/_bz2module.c.h
+@@ -207,35 +207,3 @@
+ 
+     return return_value;
+ }
+-
+-PyDoc_STRVAR(_bz2_BZ2Decompressor__doc__,
+-"BZ2Decompressor()\n"
+-"--\n"
+-"\n"
+-"Create a decompressor object for decompressing data incrementally.\n"
+-"\n"
+-"For one-shot decompression, use the decompress() function instead.");
+-
+-static PyObject *
+-_bz2_BZ2Decompressor_impl(PyTypeObject *type);
+-
+-static PyObject *
+-_bz2_BZ2Decompressor(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+-{
+-    PyObject *return_value = NULL;
+-    PyTypeObject *base_tp = clinic_state()->bz2_decompressor_type;
+-
+-    if ((type == base_tp || type->tp_init == base_tp->tp_init) &&
+-        !_PyArg_NoPositional("BZ2Decompressor", args)) {
+-        goto exit;
+-    }
+-    if ((type == base_tp || type->tp_init == base_tp->tp_init) &&
+-        !_PyArg_NoKeywords("BZ2Decompressor", kwargs)) {
+-        goto exit;
+-    }
+-    return_value = _bz2_BZ2Decompressor_impl(type);
+-
+-exit:
+-    return return_value;
+-}
+-/*[clinic end generated code: output=1dce5396d592bad7 input=a9049054013a1b77]*/

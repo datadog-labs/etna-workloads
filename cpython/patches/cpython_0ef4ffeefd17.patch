@@ -1,0 +1,62 @@
+--- a/Python/bltinmodule.c
++++ b/Python/bltinmodule.c
+@@ -2331,9 +2331,8 @@
+             Py_DECREF(file);
+             Py_RETURN_NONE;
+         }
+-    }
+-    else {
+-        Py_INCREF(file);
++        /* borrowed reference */
++        Py_DECREF(file);
+     }
+ 
+     if (sep == Py_None) {
+@@ -2343,7 +2342,6 @@
+         PyErr_Format(PyExc_TypeError,
+                      "sep must be None or a string, not %.200s",
+                      Py_TYPE(sep)->tp_name);
+-        Py_DECREF(file);
+         return NULL;
+     }
+     if (end == Py_None) {
+@@ -2353,7 +2351,6 @@
+         PyErr_Format(PyExc_TypeError,
+                      "end must be None or a string, not %.200s",
+                      Py_TYPE(end)->tp_name);
+-        Py_DECREF(file);
+         return NULL;
+     }
+ 
+@@ -2366,13 +2363,11 @@
+                 err = PyFile_WriteObject(sep, file, Py_PRINT_RAW);
+             }
+             if (err) {
+-                Py_DECREF(file);
+                 return NULL;
+             }
+         }
+         err = PyFile_WriteObject(objects[i], file, Py_PRINT_RAW);
+         if (err) {
+-            Py_DECREF(file);
+             return NULL;
+         }
+     }
+@@ -2384,17 +2379,14 @@
+         err = PyFile_WriteObject(end, file, Py_PRINT_RAW);
+     }
+     if (err) {
+-        Py_DECREF(file);
+         return NULL;
+     }
+ 
+     if (flush) {
+         if (_PyFile_Flush(file) < 0) {
+-            Py_DECREF(file);
+             return NULL;
+         }
+     }
+-    Py_DECREF(file);
+ 
+     Py_RETURN_NONE;
+ }

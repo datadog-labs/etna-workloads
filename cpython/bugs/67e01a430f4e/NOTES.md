@@ -1,0 +1,1 @@
+repro.py pipes statements into `python -m asyncio` (basic REPL): sets a ContextVar in one statement and reads it in later ones. Clean prints 'ok' (REPL shares one context); buggy prints 'failed' (each statement runs in a fresh context because the REPL's context copy was removed).

@@ -1,0 +1,25 @@
+--- a/Python/compile.c
++++ b/Python/compile.c
+@@ -868,7 +868,10 @@
+     switch (mod->kind) {
+     case Module_kind: {
+         asdl_stmt_seq *stmts = mod->v.Module.body;
+-        RETURN_IF_ERROR(_PyCodegen_Module(c, start_location(stmts), stmts, false));
++        if (_PyCodegen_Module(c, start_location(stmts), stmts, false) < 0) {
++            _PyCompile_ExitScope(c);
++            return ERROR;
++        }
+         break;
+     }
+     case Interactive_kind: {
+@@ -1736,9 +1739,7 @@
+ finally:
+     Py_XDECREF(consts_list);
+     Py_XDECREF(metadata);
+-    if (c->u != NULL) {
+-        _PyCompile_ExitScope(c);
+-    }
++    _PyCompile_ExitScope(c);
+     compiler_free(c);
+     _PyArena_Free(arena);
+     return res;

@@ -1,0 +1,1 @@
+repro.py emits two records through a RotatingFileHandler subclass that defines namer/rotator methods. Clean: methods are honored (log.txt.1.test.rotated created). Buggy: __init__ sets instance namer/rotator = None, shadowing the methods, so h.namer() raises TypeError.

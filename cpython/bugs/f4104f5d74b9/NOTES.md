@@ -1,0 +1,1 @@
+`repro.py` writes a module where a decorator is followed by a comment line or a blank line, then calls `inspect.getsourcelines` on the functions. The clean build returns the full function source. The buggy build returns a truncated block that ends at the `def` line and omits the body.

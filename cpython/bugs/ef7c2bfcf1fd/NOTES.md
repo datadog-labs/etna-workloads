@@ -1,0 +1,1 @@
+repro.py: an IntFlag with a custom __new__ (value = 1 << c) creates a pseudo-member via F.a | 1. Clean prints the repr of the combined flag. Buggy calls the custom __new__ with the value in _missing_, so it raises OverflowError (too many digits in integer).

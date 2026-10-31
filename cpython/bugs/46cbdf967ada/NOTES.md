@@ -1,0 +1,1 @@
+repro.py: builds dataclass(slots=True) classes (which replace the original class), runs gc.collect(), and counts live 'SlotsTest' subclasses of object. Clean prints 1 for every variant; buggy prints 2 for the 'ann' and 'fwd' variants because the per-type __dict__/__weakref__ descriptors (no longer shared/cached) keep the original class alive.

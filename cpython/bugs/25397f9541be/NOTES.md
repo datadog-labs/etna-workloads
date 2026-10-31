@@ -1,0 +1,1 @@
+Reproducer closes a never-started generator holding a __del__ object and prints whether the object was freed. Clean: fresh: True. Buggy: fresh: False, because close() on a just-created generator no longer clears its frame (the suspended case is unaffected).

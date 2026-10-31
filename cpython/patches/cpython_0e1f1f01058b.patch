@@ -1,0 +1,31 @@
+--- a/Lib/http/cookiejar.py
++++ b/Lib/http/cookiejar.py
+@@ -1014,7 +1014,7 @@
+             req_path = request_path(request)
+             if ((cookie.version > 0 or
+                  (cookie.version == 0 and self.strict_ns_set_path)) and
+-                not self.path_return_ok(cookie.path, request)):
++                not req_path.startswith(cookie.path)):
+                 _debug("   path attribute %s is not a prefix of request "
+                        "path %s", cookie.path, req_path)
+                 return False
+@@ -1228,15 +1228,11 @@
+     def path_return_ok(self, path, request):
+         _debug("- checking cookie path=%s", path)
+         req_path = request_path(request)
+-        pathlen = len(path)
+-        if req_path == path:
+-            return True
+-        elif (req_path.startswith(path) and
+-              (path.endswith("/") or req_path[pathlen:pathlen+1] == "/")):
+-            return True
++        if not req_path.startswith(path):
++            _debug("  %s does not path-match %s", req_path, path)
++            return False
++        return True
+ 
+-        _debug("  %s does not path-match %s", req_path, path)
+-        return False
+ 
+ def deepvalues(mapping):
+     """Iterates over nested mapping, depth-first"""

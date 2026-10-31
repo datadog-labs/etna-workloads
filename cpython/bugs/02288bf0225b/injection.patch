@@ -1,0 +1,54 @@
+--- a/Objects/dictobject.c
++++ b/Objects/dictobject.c
+@@ -3063,21 +3063,6 @@
+ }
+ 
+ static void
+-clear_embedded_values(PyDictValues *values, Py_ssize_t nentries)
+-{
+-    PyObject *refs[SHARED_KEYS_MAX_SIZE];
+-    assert(nentries <= SHARED_KEYS_MAX_SIZE);
+-    for (Py_ssize_t i = 0; i < nentries; i++) {
+-        refs[i] = values->values[i];
+-        FT_ATOMIC_STORE_PTR_RELEASE(values->values[i], NULL);
+-    }
+-    FT_ATOMIC_STORE_UINT8_RELEASE(values->size, 0);
+-    for (Py_ssize_t i = 0; i < nentries; i++) {
+-        Py_XDECREF(refs[i]);
+-    }
+-}
+-
+-static void
+ clear_lock_held(PyObject *op)
+ {
+     if (!PyDict_Check(op)) {
+@@ -3105,20 +3090,22 @@
+         assert(oldkeys->dk_refcnt == 1);
+         dictkeys_decref(oldkeys, IS_DICT_SHARED(mp));
+     }
+-    else if (oldvalues->embedded) {
+-        clear_embedded_values(oldvalues, oldkeys->dk_nentries);
+-    }
+     else {
+-        set_values(mp, NULL);
+-        set_keys(mp, Py_EMPTY_KEYS);
+         n = oldkeys->dk_nentries;
+         for (i = 0; i < n; i++) {
+             PyObject *tmp = oldvalues->values[i];
+             FT_ATOMIC_STORE_PTR_RELEASE(oldvalues->values[i], NULL);
+             Py_XDECREF(tmp);
+         }
+-        free_values(oldvalues, IS_DICT_SHARED(mp));
+-        dictkeys_decref(oldkeys, IS_DICT_SHARED(mp));
++        if (oldvalues->embedded) {
++            FT_ATOMIC_STORE_UINT8_RELEASE(oldvalues->size, 0);
++        }
++        else {
++            set_values(mp, NULL);
++            set_keys(mp, Py_EMPTY_KEYS);
++            free_values(oldvalues, IS_DICT_SHARED(mp));
++            dictkeys_decref(oldkeys, IS_DICT_SHARED(mp));
++        }
+     }
+     ASSERT_CONSISTENT(mp);
+ }

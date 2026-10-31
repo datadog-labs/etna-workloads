@@ -1,0 +1,2 @@
+Reproducer: opens a STORED zip entry, seeks forward then backward (and to end then back), printing `_left`/`_compress_left` and read result.
+Clean: `_left == _compress_left`, and read after seeking from EOF works. Buggy: the backward seek (read_offset < 0) skips the fast path, and the fast path no longer updates `_compress_left`/`_eof`, so counters diverge / reads after EOF seek return wrong data.

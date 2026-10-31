@@ -1,0 +1,1 @@
+Reproducer: lazily loads the stdlib json package via LazyLoader (self-referential submodule imports) and calls json.loads('{}'). Clean prints {}; buggy raises ImportError (circular import) because reentrant non-dunder attribute access during exec re-triggers the load.

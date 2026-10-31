@@ -1,0 +1,1 @@
+Reproducer: prints `co_branches()` of an `async for` coroutine. Clean gives `[(48, 52, 64)]`; buggy (END_ASYNC_FOR case removed from the branch-offset code in instrumentation.c) gives `[]`, so the async-for branch is missing.

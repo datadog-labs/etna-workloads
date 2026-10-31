@@ -1,0 +1,54 @@
+--- a/Lib/tempfile.py
++++ b/Lib/tempfile.py
+@@ -105,11 +105,7 @@
+                                 "path components.")
+             return_type = str
+     if return_type is None:
+-        if tempdir is None or isinstance(tempdir, str):
+-            return str  # tempfile APIs return a str by default.
+-        else:
+-            # we could check for bytes but it'll fail later on anyway
+-            return bytes
++        return str  # tempfile APIs return a str by default.
+     return return_type
+ 
+ 
+@@ -340,17 +336,17 @@
+ # User visible interfaces.
+ 
+ def gettempprefix():
+-    """The default prefix for temporary directories as string."""
+-    return _os.fsdecode(template)
++    """The default prefix for temporary directories."""
++    return template
+ 
+ def gettempprefixb():
+     """The default prefix for temporary directories as bytes."""
+-    return _os.fsencode(template)
++    return _os.fsencode(gettempprefix())
+ 
+ tempdir = None
+ 
+-def _gettempdir():
+-    """Private accessor for tempfile.tempdir."""
++def gettempdir():
++    """Accessor for tempfile.tempdir."""
+     global tempdir
+     if tempdir is None:
+         _once_lock.acquire()
+@@ -361,13 +357,9 @@
+             _once_lock.release()
+     return tempdir
+ 
+-def gettempdir():
+-    """Returns tempfile.tempdir as str."""
+-    return _os.fsdecode(_gettempdir())
+-
+ def gettempdirb():
+-    """Returns tempfile.tempdir as bytes."""
+-    return _os.fsencode(_gettempdir())
++    """A bytes version of tempfile.gettempdir()."""
++    return _os.fsencode(gettempdir())
+ 
+ def mkstemp(suffix=None, prefix=None, dir=None, text=False):
+     """User-callable function to create and return a unique temporary

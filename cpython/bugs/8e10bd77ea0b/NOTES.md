@@ -1,0 +1,1 @@
+repro.py: adds a tuple subclass (plain subclass and NamedTuple) to an object defining __radd__. Clean: __radd__ is called ('radd'). Buggy: TypeError 'can only concatenate tuple' for the subclasses, because the sq_concat/nb_add slot update picks the wrong slot when several slotdefs share a name.

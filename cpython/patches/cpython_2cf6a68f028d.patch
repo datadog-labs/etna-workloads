@@ -1,0 +1,31 @@
+--- a/Lib/annotationlib.py
++++ b/Lib/annotationlib.py
+@@ -1073,26 +1073,13 @@
+             obj_globals = obj_locals = unwrap = None
+ 
+         if unwrap is not None:
+-            # Use an id-based visited set to detect cycles in the __wrapped__
+-            # and functools.partial.func chain (e.g. f.__wrapped__ = f).
+-            # On cycle detection we stop and use whatever __globals__ we have
+-            # found so far, mirroring the approach of inspect.unwrap().
+-            _seen_ids = {id(unwrap)}
+             while True:
+                 if hasattr(unwrap, "__wrapped__"):
+-                    candidate = unwrap.__wrapped__
+-                    if id(candidate) in _seen_ids:
+-                        break
+-                    _seen_ids.add(id(candidate))
+-                    unwrap = candidate
++                    unwrap = unwrap.__wrapped__
+                     continue
+                 if functools := sys.modules.get("functools"):
+                     if isinstance(unwrap, functools.partial):
+-                        candidate = unwrap.func
+-                        if id(candidate) in _seen_ids:
+-                            break
+-                        _seen_ids.add(id(candidate))
+-                        unwrap = candidate
++                        unwrap = unwrap.func
+                         continue
+                 break
+             if hasattr(unwrap, "__globals__"):

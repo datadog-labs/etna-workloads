@@ -1,0 +1,1 @@
+repro.py calls SimpleXMLRPCDispatcher._dispatch with an instance whose _dispatch raises ValueError, then prints the exception's __cause__ and __context__. Clean: __context__ is None. Buggy: __context__ is KeyError('method'), because the instance dispatch now runs inside the except KeyError block.

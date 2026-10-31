@@ -1,0 +1,36 @@
+--- a/Python/pylifecycle.c
++++ b/Python/pylifecycle.c
+@@ -2647,17 +2647,18 @@
+        interpreters: disable PyGILState_Check(). */
+     _Py_atomic_store_int_relaxed(&runtime->gilstate.check_enabled, 0);
+ 
+-    // XXX Might new_interpreter() have been called without the GIL held?
+-    PyThreadState *save_tstate = _PyThreadState_GET();
+-    PyThreadState *tstate = NULL;
+-    PyInterpreterState *interp;
+-    status = _PyInterpreterState_New(save_tstate, &interp);
++    PyInterpreterState *interp = PyInterpreterState_New();
+     if (interp == NULL) {
+-        goto error;
++        *tstate_p = NULL;
++        return _PyStatus_OK();
+     }
+     _PyInterpreterState_SetWhence(interp, whence);
+     interp->_ready = 1;
+ 
++    // XXX Might new_interpreter() have been called without the GIL held?
++    PyThreadState *save_tstate = _PyThreadState_GET();
++    PyThreadState *tstate = NULL;
++
+     /* Initialize the module dict watcher early, before any modules are created */
+     if (_PyModule_InitModuleDictWatcher(interp) != 0) {
+         goto error;
+@@ -2746,7 +2747,7 @@
+     *tstate_p = NULL;
+     if (tstate != NULL) {
+         Py_EndInterpreter(tstate);
+-    } else if (interp != NULL) {
++    } else {
+         PyInterpreterState_Delete(interp);
+     }
+     if (save_tstate != NULL) {

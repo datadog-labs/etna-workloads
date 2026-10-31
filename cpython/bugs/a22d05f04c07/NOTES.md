@@ -1,0 +1,1 @@
+repro.py: slots=True, weakref_slot=True dataclass deriving from a plain class (which already has __weakref__). Clean prints () ; buggy raises TypeError '__weakref__ slot disallowed' because _get_slots no longer inspects base __weakrefoffset__/__dictoffset__.

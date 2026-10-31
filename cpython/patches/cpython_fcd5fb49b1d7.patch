@@ -1,0 +1,23 @@
+--- a/Python/symtable.c
++++ b/Python/symtable.c
+@@ -824,15 +824,15 @@
+         }
+         int scope = SYMBOL_TO_SCOPE(comp_flags);
+         int only_flags = comp_flags & ((1 << SCOPE_OFFSET) - 1);
+-        if (scope == CELL || only_flags & DEF_COMP_CELL) {
+-            if (PySet_Add(inlined_cells, k) < 0) {
+-                return 0;
+-            }
+-        }
+         PyObject *existing = PyDict_GetItemWithError(ste->ste_symbols, k);
+         if (existing == NULL && PyErr_Occurred()) {
+             return 0;
+         }
++        if (!existing && (scope == CELL || only_flags & DEF_COMP_CELL)) {
++            if (PySet_Add(inlined_cells, k) < 0) {
++                return 0;
++            }
++        }
+         // __class__, __classdict__ and __conditional_annotations__ are
+         // not allowed to be free through a class scope (see
+         // drop_class_free) unless children scopes need it

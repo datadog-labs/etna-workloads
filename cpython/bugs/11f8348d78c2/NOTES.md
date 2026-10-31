@@ -1,0 +1,1 @@
+Reproducer: inspect.signature() on a callable instance whose __eq__ raises. Clean prints '(a)'; buggy raises ZeroDivisionError because _signature_is_builtin uses 'obj in (type, object)', which invokes __eq__.

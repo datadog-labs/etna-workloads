@@ -1,0 +1,94 @@
+--- a/Modules/_ctypes/_ctypes.c
++++ b/Modules/_ctypes/_ctypes.c
+@@ -3654,9 +3654,6 @@
+ #endif
+ }
+ 
+-static int
+-_validate_paramflags(ctypes_state *st, PyTypeObject *type, PyObject *paramflags, PyObject *argtypes);
+-
+ 
+ 
+ /*[clinic input]
+@@ -3773,22 +3770,16 @@
+ _ctypes_CFuncPtr_argtypes_set_impl(PyCFuncPtrObject *self, PyObject *value)
+ /*[clinic end generated code: output=596a36e2ae89d7d1 input=fd012f1fd7cc35be]*/
+ {
++    PyObject *converters;
++
+     if (value == NULL || value == Py_None) {
+         atomic_xsetref(&self->argtypes, NULL);
+         atomic_xsetref(&self->converters, NULL);
+     } else {
+-        PyTypeObject *type = Py_TYPE(self);
+-        ctypes_state *st = get_module_state_by_def(Py_TYPE(type));
+-
+-        PyObject *converters = converters_from_argtypes(st, value);
++        ctypes_state *st = get_module_state_by_def(Py_TYPE(Py_TYPE(self)));
++        converters = converters_from_argtypes(st, value);
+         if (!converters)
+             return -1;
+-
+-        /* Verify paramflags again due to constraints with argtypes */
+-        if (!_validate_paramflags(st, type, self->paramflags, value)) {
+-            Py_DECREF(converters);
+-            return -1;
+-        }
+         atomic_xsetref(&self->converters, converters);
+         Py_INCREF(value);
+         atomic_xsetref(&self->argtypes, value);
+@@ -3918,9 +3909,10 @@
+ 
+ /* Returns 1 on success, 0 on error */
+ static int
+-_validate_paramflags(ctypes_state *st, PyTypeObject *type, PyObject *paramflags, PyObject *argtypes)
++_validate_paramflags(ctypes_state *st, PyTypeObject *type, PyObject *paramflags)
+ {
+     Py_ssize_t i, len;
++    PyObject *argtypes;
+ 
+     StgInfo *info;
+     if (PyStgInfo_FromType(st, (PyObject *)type, &info) < 0) {
+@@ -3931,13 +3923,10 @@
+                         "abstract class");
+         return 0;
+     }
+-    if (argtypes == NULL) {
+-        argtypes = info->argtypes;
+-    }
++    argtypes = info->argtypes;
+ 
+-    if (paramflags == NULL || argtypes == NULL) {
++    if (paramflags == NULL || info->argtypes == NULL)
+         return 1;
+-    }
+ 
+     if (!PyTuple_Check(paramflags)) {
+         PyErr_SetString(PyExc_TypeError,
+@@ -3946,7 +3935,7 @@
+     }
+ 
+     len = PyTuple_GET_SIZE(paramflags);
+-    if (len != PyTuple_GET_SIZE(argtypes)) {
++    if (len != PyTuple_GET_SIZE(info->argtypes)) {
+         PyErr_SetString(PyExc_ValueError,
+                         "paramflags must have the same length as argtypes");
+         return 0;
+@@ -4122,7 +4111,7 @@
+ #endif
+ #undef USE_DLERROR
+     ctypes_state *st = get_module_state_by_def(Py_TYPE(type));
+-    if (!_validate_paramflags(st, type, paramflags, NULL)) {
++    if (!_validate_paramflags(st, type, paramflags)) {
+         Py_DECREF(ftuple);
+         return NULL;
+     }
+@@ -4166,7 +4155,7 @@
+         paramflags = NULL;
+ 
+     ctypes_state *st = get_module_state_by_def(Py_TYPE(type));
+-    if (!_validate_paramflags(st, type, paramflags, NULL)) {
++    if (!_validate_paramflags(st, type, paramflags)) {
+         return NULL;
+     }
+     self = (PyCFuncPtrObject *)generic_pycdata_new(st, type, args, kwds);

@@ -1,0 +1,3 @@
+import csv
+class Foo(csv.Error): ...
+print(Foo.__mro__[1] is csv.Error)

@@ -1,0 +1,2 @@
+repro.py imports the single-phase-init extension `_testsinglephase` twice in the same isolated subinterpreter (which disallows legacy extensions) and prints the exception type for each run.
+Clean: ImportError both times. Buggy: the second import hits the cached-module path, which no longer checks the subinterpreter-compat setting, so it succeeds (the module repr is printed and the second result is None).

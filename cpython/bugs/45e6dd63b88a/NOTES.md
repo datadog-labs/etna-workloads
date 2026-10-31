@@ -1,0 +1,1 @@
+repro.py puts a non-module object with __spec__ = [] in sys.modules and does a from-import of a missing name. Clean: ImportError 'cannot import name ... (unknown location)'. Buggy: PyModule_GetFilenameObject is called on the non-module, so TypeError 'bad argument type for built-in operation' escapes (exit 1, uncaught).

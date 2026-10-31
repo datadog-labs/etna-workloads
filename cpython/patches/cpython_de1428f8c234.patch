@@ -1,0 +1,22 @@
+--- a/Lib/argparse.py
++++ b/Lib/argparse.py
+@@ -380,8 +380,17 @@
+             if len(prefix) + len(self._decolor(usage)) > text_width:
+ 
+                 # break usage into wrappable parts
+-                opt_parts = parts[:pos_start]
+-                pos_parts = parts[pos_start:]
++                part_regexp = (
++                    r'\(.*?\)+(?=\s|$)|'
++                    r'\[.*?\]+(?=\s|$)|'
++                    r'\S+'
++                )
++                opt_usage = ' '.join(parts[:pos_start])
++                pos_usage = ' '.join(parts[pos_start:])
++                opt_parts = _re.findall(part_regexp, opt_usage)
++                pos_parts = _re.findall(part_regexp, pos_usage)
++                assert ' '.join(opt_parts) == opt_usage
++                assert ' '.join(pos_parts) == pos_usage
+ 
+                 # helper for wrapping lines
+                 def get_lines(parts, indent, prefix=None):

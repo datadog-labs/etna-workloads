@@ -1,0 +1,1 @@
+repro.py mocks asyncio.staggered.staggered_race to return (None, []) and calls loop.create_connection with happy_eyeballs_delay. Clean raises TimeoutError('create_connection failed'); buggy raises IndexError (exceptions[0] on empty list).

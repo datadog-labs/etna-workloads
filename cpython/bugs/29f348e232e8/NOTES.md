@@ -1,0 +1,1 @@
+Reproducer calls urllib.parse.urlsplit on malformed bracketed hosts (IPv4 in brackets, text around brackets, bad IPvFuture). Clean raises ValueError for each; buggy skips _check_bracketed_netloc and returns SplitResult.

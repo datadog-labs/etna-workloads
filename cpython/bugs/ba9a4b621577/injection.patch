@@ -1,0 +1,28 @@
+--- a/Lib/_pyrepl/unix_console.py
++++ b/Lib/_pyrepl/unix_console.py
+@@ -608,12 +608,10 @@
+             """
+             try:
+                 return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
+-            except (KeyError, TypeError, ValueError):
+-                try:
+-                    size = ioctl(self.input_fd, TIOCGWINSZ, b"\000" * 8)
+-                except OSError:
+-                    return 25, 80
+-                height, width = struct.unpack("hhhh", size)[0:2]
++            except KeyError:
++                height, width = struct.unpack(
++                    "hhhh", ioctl(self.input_fd, TIOCGWINSZ, b"\000" * 8)
++                )[0:2]
+                 if not height:
+                     return 25, 80
+                 return height, width
+@@ -629,7 +627,7 @@
+             """
+             try:
+                 return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
+-            except (KeyError, TypeError, ValueError):
++            except KeyError:
+                 return 25, 80
+ 
+     def forgetinput(self):

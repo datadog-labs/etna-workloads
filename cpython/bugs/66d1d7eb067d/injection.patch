@@ -1,0 +1,37 @@
+--- a/Lib/unittest/loader.py
++++ b/Lib/unittest/loader.py
+@@ -85,10 +85,9 @@
+             raise TypeError("Test cases should not be derived from "
+                             "TestSuite. Maybe you meant to derive from "
+                             "TestCase?")
+-        if (testCaseClass in (case.TestCase, case.FunctionTestCase) or
+-            inspect.isabstract(testCaseClass)):
+-            # We don't load any tests from base types that should not be loaded,
+-            # and abstract base classes that can't be instantiated
++        if inspect.isabstract(testCaseClass):
++            # We don't load any tests from abstract base classes that can't be
++            # instantiated
+             testCaseNames = []
+         else:
+             testCaseNames = self.getTestCaseNames(testCaseClass)
+@@ -105,7 +104,6 @@
+             if (
+                 isinstance(obj, type)
+                 and issubclass(obj, case.TestCase)
+-                and obj not in (case.TestCase, case.FunctionTestCase)
+                 and not inspect.isabstract(obj)
+             ):
+                 tests.append(self.loadTestsFromTestCase(obj))
+@@ -176,11 +174,7 @@
+ 
+         if isinstance(obj, types.ModuleType):
+             return self.loadTestsFromModule(obj)
+-        elif (
+-            isinstance(obj, type)
+-            and issubclass(obj, case.TestCase)
+-            and obj not in (case.TestCase, case.FunctionTestCase)
+-        ):
++        elif isinstance(obj, type) and issubclass(obj, case.TestCase):
+             return self.loadTestsFromTestCase(obj)
+         elif (isinstance(obj, types.FunctionType) and
+               isinstance(parent, type) and

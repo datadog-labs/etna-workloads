@@ -1,0 +1,74 @@
+--- a/Modules/_interpretersmodule.c
++++ b/Modules/_interpretersmodule.c
+@@ -1031,7 +1031,7 @@
+ /*[clinic input]
+ _interpreters.set___main___attrs
+     id: object
+-    updates: object(subclass_of='&PyDict_Type')
++    updates: object
+     *
+     restrict as restricted: bool = False
+ 
+@@ -1041,7 +1041,7 @@
+ static PyObject *
+ _interpreters_set___main___attrs_impl(PyObject *module, PyObject *id,
+                                       PyObject *updates, int restricted)
+-/*[clinic end generated code: output=f3803010cb452bf0 input=d16ab8d81371f86a]*/
++/*[clinic end generated code: output=f3803010cb452bf0 input=86b069c9c68f3cd3]*/
+ {
+     // Look up the interpreter.
+     int reqready = 1;
+@@ -1052,14 +1052,16 @@
+     }
+ 
+     // Check the updates.
+-    Py_ssize_t size = PyDict_Size(updates);
+-    if (size < 0) {
+-        return NULL;
+-    }
+-    if (size == 0) {
+-        PyErr_SetString(PyExc_ValueError,
+-                        "arg 2 must be a non-empty dict");
+-        return NULL;
++    if (updates != Py_None) {
++        Py_ssize_t size = PyObject_Size(updates);
++        if (size < 0) {
++            return NULL;
++        }
++        if (size == 0) {
++            PyErr_SetString(PyExc_ValueError,
++                            "arg 2 must be a non-empty mapping");
++            return NULL;
++        }
+     }
+ 
+     _PyXI_session *session = _PyXI_NewSession();
+--- a/Modules/clinic/_interpretersmodule.c.h
++++ b/Modules/clinic/_interpretersmodule.c.h
+@@ -323,10 +323,6 @@
+         goto exit;
+     }
+     id = args[0];
+-    if (!PyDict_Check(args[1])) {
+-        _PyArg_BadArgument("set___main___attrs", "argument 'updates'", "dict", args[1]);
+-        goto exit;
+-    }
+     updates = args[1];
+     if (!noptargs) {
+         goto skip_optional_kwonly;
+@@ -1200,4 +1196,4 @@
+ exit:
+     return return_value;
+ }
+-/*[clinic end generated code: output=8c3ca09c304378ad input=a9049054013a1b77]*/
++/*[clinic end generated code: output=a22c77e20267b0bc input=a9049054013a1b77]*/
+--- a/Python/crossinterp.c
++++ b/Python/crossinterp.c
+@@ -2680,7 +2680,6 @@
+     // Convert the attrs for cross-interpreter use.
+     _PyXI_namespace *sharedns = NULL;
+     if (nsupdates != NULL) {
+-        assert(PyDict_Check(nsupdates));
+         Py_ssize_t len = PyDict_Size(nsupdates);
+         if (len < 0) {
+             if (result != NULL) {

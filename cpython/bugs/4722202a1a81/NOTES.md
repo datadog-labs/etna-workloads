@@ -1,0 +1,1 @@
+repro.py calls getattr on classes/instances with custom __dir__ (non-str entries, metaclass __dir__) and prints the AttributeError suggestion text. Clean uses obj.__dir__() so the custom __dir__ is honored; buggy uses dir(obj) so suggestions differ (e.g. missing 'bluch'/'fox' hints).

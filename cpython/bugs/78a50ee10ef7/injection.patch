@@ -1,0 +1,95 @@
+--- a/Lib/pydoc.py
++++ b/Lib/pydoc.py
+@@ -470,7 +470,6 @@
+     PYTHONDOCS = os.environ.get("PYTHONDOCS",
+                                 "https://docs.python.org/%d.%d/library"
+                                 % sys.version_info[:2])
+-    STDLIB_DIR = sysconfig.get_path('stdlib')
+ 
+     def document(self, object, name=None, *args):
+         """Generate documentation for an object."""
+@@ -496,12 +495,23 @@
+ 
+     docmodule = docclass = docroutine = docother = docproperty = docdata = fail
+ 
+-    def getdocloc(self, object, basedir=None):
++    def getdocloc(self, object, basedir=sysconfig.get_path('stdlib')):
+         """Return the location of module docs or None"""
+-        basedir = self.STDLIB_DIR if basedir is None else basedir
++
++        try:
++            file = inspect.getabsfile(object)
++        except TypeError:
++            file = '(built-in)'
++
+         docloc = os.environ.get("PYTHONDOCS", self.PYTHONDOCS)
+ 
+-        if (self._is_stdlib_module(object, basedir) and
++        basedir = os.path.normcase(basedir)
++        if (isinstance(object, type(os)) and
++            (object.__name__ in ('errno', 'exceptions', 'gc',
++                                 'marshal', 'posix', 'signal', 'sys',
++                                 '_thread', 'zipimport') or
++             (file.startswith(basedir) and
++              not file.startswith(os.path.join(basedir, 'site-packages')))) and
+             object.__name__ not in ('xml.etree', 'test.test_pydoc.pydoc_mod')):
+ 
+             try:
+@@ -521,36 +531,6 @@
+             docloc = None
+         return docloc
+ 
+-    def _get_version(self, object):
+-        if self._is_stdlib_module(object):
+-            with warnings.catch_warnings():
+-                warnings.simplefilter("ignore", DeprecationWarning)
+-                version = getattr(object, '__version__', None)
+-        else:
+-            version = getattr(object, '__version__', None)
+-        return '' if version is None else str(version)
+-
+-    def _is_stdlib_module(self, object, basedir=None):
+-        basedir = self.STDLIB_DIR if basedir is None else basedir
+-
+-        try:
+-            file = inspect.getabsfile(object)
+-        except TypeError:
+-            file = '(built-in)'
+-
+-        if sysconfig.is_python_build():
+-            srcdir = sysconfig.get_config_var('srcdir')
+-            if srcdir:
+-                basedir = os.path.join(srcdir, 'Lib')
+-
+-        basedir = os.path.normcase(basedir)
+-        return (isinstance(object, type(os)) and
+-                (object.__name__ in ('errno', 'exceptions', 'gc',
+-                                     'marshal', 'posix', 'signal', 'sys',
+-                                     '_thread', 'zipimport')
+-                or (file.startswith(basedir) and
+-                 not file.startswith(os.path.join(basedir, 'site-packages')))))
+-
+ # -------------------------------------------- HTML documentation generator
+ 
+ class HTMLRepr(Repr):
+@@ -811,8 +791,8 @@
+         except TypeError:
+             filelink = '(built-in)'
+         info = []
+-
+-        if version := self._get_version(object):
++        if hasattr(object, '__version__'):
++            version = str(object.__version__)
+             if version[:11] == '$' + 'Revision: ' and version[-1:] == '$':
+                 version = version[11:-1].strip()
+             info.append('version %s' % self.escape(version))
+@@ -1347,7 +1327,8 @@
+                 contents.append(self.docother(value, key, name, maxlen=70))
+             result = result + self.section('DATA', '\n'.join(contents))
+ 
+-        if version := self._get_version(object):
++        if hasattr(object, '__version__'):
++            version = str(object.__version__)
+             if version[:11] == '$' + 'Revision: ' and version[-1:] == '$':
+                 version = version[11:-1].strip()
+             result = result + self.section('VERSION', version)

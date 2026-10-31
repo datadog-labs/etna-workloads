@@ -1,0 +1,38 @@
+--- a/Modules/itertoolsmodule.c
++++ b/Modules/itertoolsmodule.c
+@@ -355,24 +355,16 @@
+         return NULL;
+     }
+     if (old == NULL) {
+-        old = (*Py_TYPE(it)->tp_iternext)(it);
+-        Py_XSETREF(po->old, old);
++        po->old = old = (*Py_TYPE(it)->tp_iternext)(it);
+         if (old == NULL) {
+             Py_CLEAR(po->it);
+             return NULL;
+         }
+-        it = po->it;
+-        if (it == NULL) {
+-            Py_CLEAR(po->old);
+-            return NULL;
+-        }
+     }
+-    Py_INCREF(old);
+     new = (*Py_TYPE(it)->tp_iternext)(it);
+     if (new == NULL) {
+         Py_CLEAR(po->it);
+         Py_CLEAR(po->old);
+-        Py_DECREF(old);
+         return NULL;
+     }
+ 
+@@ -393,8 +385,7 @@
+         result = _PyTuple_FromPair(old, new);
+     }
+ 
+-    Py_XSETREF(po->old, new);
+-    Py_DECREF(old);
++    Py_SETREF(po->old, new);
+     return result;
+ }
+ 

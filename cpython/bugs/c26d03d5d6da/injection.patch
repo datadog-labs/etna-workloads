@@ -1,0 +1,46 @@
+--- a/Python/instrumentation.c
++++ b/Python/instrumentation.c
+@@ -1385,10 +1385,12 @@
+                 frame_obj->f_lineno = 0;
+                 tstate->tracing--;
+                 tstate->what_event = old_what;
+-                Py_DECREF(frame_obj);
+                 if (err) {
++                    PyTraceBack_Here(frame_obj);
++                    Py_DECREF(frame_obj);
+                     return -1;
+                 }
++                Py_DECREF(frame_obj);
+             }
+         }
+         tools &= (255 - (1 << PY_MONITORING_SYS_TRACE_ID));
+--- a/Python/legacy_tracing.c
++++ b/Python/legacy_tracing.c
+@@ -196,10 +196,12 @@
+     Py_INCREF(frame);
+     int err = tstate->c_tracefunc(tstate->c_traceobj, frame, self->event, arg);
+     frame->f_lineno = 0;
+-    Py_DECREF(frame);
+     if (err) {
++        PyTraceBack_Here(frame);
++        Py_DECREF(frame);
+         return NULL;
+     }
++    Py_DECREF(frame);
+     Py_RETURN_NONE;
+ }
+ 
+@@ -333,10 +335,12 @@
+     frame->f_lineno = line;
+     int err = tstate->c_tracefunc(tstate->c_traceobj, frame, self->event, Py_None);
+     frame->f_lineno = 0;
+-    Py_DECREF(frame);
+     if (err) {
++        PyTraceBack_Here(frame);
++        Py_DECREF(frame);
+         return NULL;
+     }
++    Py_DECREF(frame);
+     Py_RETURN_NONE;
+ }
+ 

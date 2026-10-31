@@ -1,0 +1,1 @@
+repro.py builds c_double_complex.__ctype_le__/__ctype_be__ instances and prints their bytes. Clean: both work (big-endian bytes match struct.pack('>D')). Buggy: AttributeError, since the swapped 'Zd'/'Zf' format table entries were removed from cfield.c.

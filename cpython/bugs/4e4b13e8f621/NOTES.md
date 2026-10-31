@@ -1,0 +1,1 @@
+repro.py adds an audit hook with sys.addaudithook, then scans gc.get_objects() for a list containing it. Clean prints False (audit hook list is untracked from GC); buggy prints True (list leaked into gc).

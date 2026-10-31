@@ -1,0 +1,32 @@
+--- a/Lib/email/_header_value_parser.py
++++ b/Lib/email/_header_value_parser.py
+@@ -3121,19 +3121,16 @@
+             lines.append(newline or ' ')
+             new_last_ew = len(lines[-1])
+             continue
+-
+-        to_encode_word = to_encode[:text_space]
+-        encoded_word = _ew.encode(to_encode_word, charset=encode_as)
+-        excess = len(encoded_word) - remaining_space
+-        while excess > 0:
+-            # Since the chunk to encode is guaranteed to fit into less than 100 characters,
+-            # shrinking it by one at a time shouldn't take long.
+-            to_encode_word = to_encode_word[:-1]
+-            encoded_word = _ew.encode(to_encode_word, charset=encode_as)
+-            excess = len(encoded_word) - remaining_space
+-        lines[-1] += encoded_word
+-        to_encode = to_encode[len(to_encode_word):]
+-
++        first_part = to_encode[:text_space]
++        ew = _ew.encode(first_part, charset=encode_as)
++        excess = len(ew) - remaining_space
++        if excess > 0:
++            # encode always chooses the shortest encoding, so this
++            # is guaranteed to fit at this point.
++            first_part = first_part[:-excess]
++            ew = _ew.encode(first_part)
++        lines[-1] += ew
++        to_encode = to_encode[len(first_part):]
+         if to_encode:
+             lines.append(' ')
+             new_last_ew = len(lines[-1])

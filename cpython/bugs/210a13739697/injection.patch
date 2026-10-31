@@ -1,0 +1,112 @@
+--- a/Lib/asyncio/selector_events.py
++++ b/Lib/asyncio/selector_events.py
+@@ -291,7 +291,6 @@
+                                   (handle, writer))
+             if reader is not None:
+                 reader.cancel()
+-        return handle
+ 
+     def _remove_reader(self, fd):
+         if self.is_closed():
+@@ -325,7 +324,6 @@
+                                   (reader, handle))
+             if writer is not None:
+                 writer.cancel()
+-        return handle
+ 
+     def _remove_writer(self, fd):
+         """Remove a writer callback."""
+@@ -351,7 +349,7 @@
+     def add_reader(self, fd, callback, *args):
+         """Add a reader callback."""
+         self._ensure_fd_no_transport(fd)
+-        self._add_reader(fd, callback, *args)
++        return self._add_reader(fd, callback, *args)
+ 
+     def remove_reader(self, fd):
+         """Remove a reader callback."""
+@@ -361,7 +359,7 @@
+     def add_writer(self, fd, callback, *args):
+         """Add a writer callback.."""
+         self._ensure_fd_no_transport(fd)
+-        self._add_writer(fd, callback, *args)
++        return self._add_writer(fd, callback, *args)
+ 
+     def remove_writer(self, fd):
+         """Remove a writer callback."""
+@@ -384,15 +382,13 @@
+             pass
+         fut = self.create_future()
+         fd = sock.fileno()
+-        self._ensure_fd_no_transport(fd)
+-        handle = self._add_reader(fd, self._sock_recv, fut, sock, n)
++        self.add_reader(fd, self._sock_recv, fut, sock, n)
+         fut.add_done_callback(
+-            functools.partial(self._sock_read_done, fd, handle=handle))
++            functools.partial(self._sock_read_done, fd))
+         return await fut
+ 
+-    def _sock_read_done(self, fd, fut, handle=None):
+-        if handle is None or not handle.cancelled():
+-            self.remove_reader(fd)
++    def _sock_read_done(self, fd, fut):
++        self.remove_reader(fd)
+ 
+     def _sock_recv(self, fut, sock, n):
+         # _sock_recv() can add itself as an I/O callback if the operation can't
+@@ -425,10 +421,9 @@
+             pass
+         fut = self.create_future()
+         fd = sock.fileno()
+-        self._ensure_fd_no_transport(fd)
+-        handle = self._add_reader(fd, self._sock_recv_into, fut, sock, buf)
++        self.add_reader(fd, self._sock_recv_into, fut, sock, buf)
+         fut.add_done_callback(
+-            functools.partial(self._sock_read_done, fd, handle=handle))
++            functools.partial(self._sock_read_done, fd))
+         return await fut
+ 
+     def _sock_recv_into(self, fut, sock, buf):
+@@ -554,12 +549,11 @@
+ 
+         fut = self.create_future()
+         fd = sock.fileno()
+-        self._ensure_fd_no_transport(fd)
+-        # use a trick with a list in closure to store a mutable state
+-        handle = self._add_writer(fd, self._sock_sendall, fut, sock,
+-                                  memoryview(data), [n])
+         fut.add_done_callback(
+-            functools.partial(self._sock_write_done, fd, handle=handle))
++            functools.partial(self._sock_write_done, fd))
++        # use a trick with a list in closure to store a mutable state
++        self.add_writer(fd, self._sock_sendall, fut, sock,
++                        memoryview(data), [n])
+         return await fut
+ 
+     def _sock_sendall(self, fut, sock, view, pos):
+@@ -657,11 +651,9 @@
+             # connection runs in background. We have to wait until the socket
+             # becomes writable to be notified when the connection succeed or
+             # fails.
+-            self._ensure_fd_no_transport(fd)
+-            handle = self._add_writer(
+-                fd, self._sock_connect_cb, fut, sock, address)
+             fut.add_done_callback(
+-                functools.partial(self._sock_write_done, fd, handle=handle))
++                functools.partial(self._sock_write_done, fd))
++            self.add_writer(fd, self._sock_connect_cb, fut, sock, address)
+         except (SystemExit, KeyboardInterrupt):
+             raise
+         except BaseException as exc:
+@@ -671,9 +663,8 @@
+         finally:
+             fut = None
+ 
+-    def _sock_write_done(self, fd, fut, handle=None):
+-        if handle is None or not handle.cancelled():
+-            self.remove_writer(fd)
++    def _sock_write_done(self, fd, fut):
++        self.remove_writer(fd)
+ 
+     def _sock_connect_cb(self, fut, sock, address):
+         if fut.done():

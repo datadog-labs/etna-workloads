@@ -1,0 +1,44 @@
+--- a/Lib/zoneinfo/_common.py
++++ b/Lib/zoneinfo/_common.py
+@@ -67,10 +67,6 @@
+             f">{timecnt}{time_type}", fobj.read(timecnt * time_size)
+         )
+         trans_idx = struct.unpack(f">{timecnt}B", fobj.read(timecnt))
+-
+-        if max(trans_idx) >= typecnt:
+-            raise ValueError("Invalid transition index found while reading TZif: "
+-                            f"{max(trans_idx)}")
+     else:
+         trans_list_utc = ()
+         trans_idx = ()
+--- a/Lib/zoneinfo/_zoneinfo.py
++++ b/Lib/zoneinfo/_zoneinfo.py
+@@ -338,7 +338,7 @@
+             if not isdsts[comp_idx]:
+                 dstoff = utcoff - utcoffsets[comp_idx]
+ 
+-            if not dstoff and idx < (typecnt - 1) and i + 1 < len(trans_idx):
++            if not dstoff and idx < (typecnt - 1):
+                 comp_idx = trans_idx[i + 1]
+ 
+                 # If the following transition is also DST and we couldn't
+--- a/Modules/_zoneinfo.c
++++ b/Modules/_zoneinfo.c
+@@ -1075,7 +1075,7 @@
+         }
+ 
+         trans_idx[i] = (size_t)cur_trans_idx;
+-        if (trans_idx[i] >= self->num_ttinfos) {
++        if (trans_idx[i] > self->num_ttinfos) {
+             PyErr_Format(
+                 PyExc_ValueError,
+                 "Invalid transition index found while reading TZif: %zd",
+@@ -2089,7 +2089,7 @@
+             dstoff = utcoff - utcoffs[comp_idx];
+         }
+ 
+-        if (!dstoff && idx < (num_ttinfos - 1) && i + 1 < num_transitions) {
++        if (!dstoff && idx < (num_ttinfos - 1)) {
+             comp_idx = trans_idx[i + 1];
+ 
+             // If the following transition is also DST and we couldn't find

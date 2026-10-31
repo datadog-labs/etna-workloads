@@ -1,0 +1,40 @@
+--- a/Lib/_ast_unparse.py
++++ b/Lib/_ast_unparse.py
+@@ -738,13 +738,9 @@
+ 
+     def visit_DictComp(self, node):
+         with self.delimit("{", "}"):
+-            if node.value:
+-                self.traverse(node.key)
+-                self.write(": ")
+-                self.traverse(node.value)
+-            else:
+-                self.write("**")
+-                self.traverse(node.key)
++            self.traverse(node.key)
++            self.write(": ")
++            self.traverse(node.value)
+             for gen in node.generators:
+                 self.traverse(gen)
+ 
+--- a/Python/ast_unparse.c
++++ b/Python/ast_unparse.c
+@@ -464,15 +464,9 @@
+ append_ast_dictcomp(PyUnicodeWriter *writer, expr_ty e)
+ {
+     APPEND_CHAR('{');
+-    if (e->v.DictComp.value) {
+-        APPEND_EXPR(e->v.DictComp.key, PR_TEST);
+-        APPEND_STR(": ");
+-        APPEND_EXPR(e->v.DictComp.value, PR_TEST);
+-    }
+-    else {
+-        APPEND_STR("**");
+-        APPEND_EXPR(e->v.DictComp.key, PR_TEST);
+-    }
++    APPEND_EXPR(e->v.DictComp.key, PR_TEST);
++    APPEND_STR(": ");
++    APPEND_EXPR(e->v.DictComp.value, PR_TEST);
+     APPEND(comprehensions, e->v.DictComp.generators);
+     APPEND_CHAR_FINISH('}');
+ }

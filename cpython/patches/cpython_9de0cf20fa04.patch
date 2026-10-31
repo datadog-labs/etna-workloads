@@ -1,0 +1,32 @@
+--- a/Lib/http/client.py
++++ b/Lib/http/client.py
+@@ -1027,21 +1027,17 @@
+         del headers
+ 
+         response = self.response_class(self.sock, method=self._method)
+-        try:
+-            (version, code, message) = response._read_status()
++        (version, code, message) = response._read_status()
+ 
+-            self._raw_proxy_headers = _read_headers(response.fp, self.max_response_headers)
++        self._raw_proxy_headers = _read_headers(response.fp, self.max_response_headers)
+ 
+-            if self.debuglevel > 0:
+-                for header in self._raw_proxy_headers:
+-                    print('header:', header.decode())
++        if self.debuglevel > 0:
++            for header in self._raw_proxy_headers:
++                print('header:', header.decode())
+ 
+-            if code != http.HTTPStatus.OK:
+-                self.close()
+-                raise OSError(f"Tunnel connection failed: {code} {message.strip()}")
+-
+-        finally:
+-            response.close()
++        if code != http.HTTPStatus.OK:
++            self.close()
++            raise OSError(f"Tunnel connection failed: {code} {message.strip()}")
+ 
+     def get_proxy_response_headers(self):
+         """

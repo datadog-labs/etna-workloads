@@ -1,0 +1,68 @@
+--- a/Modules/_posixsubprocess.c
++++ b/Modules/_posixsubprocess.c
+@@ -1038,13 +1038,6 @@
+     Py_ssize_t fds_to_keep_len = PyTuple_GET_SIZE(py_fds_to_keep);
+ 
+     PyInterpreterState *interp = _PyInterpreterState_GET();
+-    if ((preexec_fn != Py_None) &&
+-        _PyInterpreterState_GetFinalizing(interp) != NULL)
+-    {
+-        PyErr_SetString(PyExc_PythonFinalizationError,
+-                        "preexec_fn not supported at interpreter shutdown");
+-        return NULL;
+-    }
+     if ((preexec_fn != Py_None) && (interp != PyInterpreterState_Main())) {
+         PyErr_SetString(PyExc_RuntimeError,
+                         "preexec_fn not supported within subinterpreters");
+--- a/Modules/_threadmodule.c
++++ b/Modules/_threadmodule.c
+@@ -1908,11 +1908,6 @@
+                         "thread is not supported for isolated subinterpreters");
+         return -1;
+     }
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
+-        PyErr_SetString(PyExc_PythonFinalizationError,
+-                        "can't create new thread at interpreter shutdown");
+-        return -1;
+-    }
+ 
+     if (!daemon) {
+         // Add the handle before starting the thread to avoid adding a handle
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -8643,11 +8643,6 @@
+     pid_t pid;
+ 
+     PyInterpreterState *interp = _PyInterpreterState_GET();
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
+-        PyErr_SetString(PyExc_PythonFinalizationError,
+-                        "can't fork at interpreter shutdown");
+-        return NULL;
+-    }
+     if (!_Py_IsMainInterpreter(interp)) {
+         PyErr_SetString(PyExc_RuntimeError, "fork not supported for subinterpreters");
+         return NULL;
+@@ -8692,11 +8687,6 @@
+ {
+     pid_t pid;
+     PyInterpreterState *interp = _PyInterpreterState_GET();
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
+-        PyErr_SetString(PyExc_PythonFinalizationError,
+-                        "can't fork at interpreter shutdown");
+-        return NULL;
+-    }
+     if (!_PyInterpreterState_HasFeature(interp, Py_RTFLAGS_FORK)) {
+         PyErr_SetString(PyExc_RuntimeError,
+                         "fork not supported for isolated subinterpreters");
+@@ -9579,11 +9569,6 @@
+     pid_t pid;
+ 
+     PyInterpreterState *interp = _PyInterpreterState_GET();
+-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
+-        PyErr_SetString(PyExc_PythonFinalizationError,
+-                        "can't fork at interpreter shutdown");
+-        return NULL;
+-    }
+     if (!_Py_IsMainInterpreter(interp)) {
+         PyErr_SetString(PyExc_RuntimeError, "fork not supported for subinterpreters");
+         return NULL;

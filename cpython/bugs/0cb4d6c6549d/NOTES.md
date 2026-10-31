@@ -1,0 +1,1 @@
+repro.py builds a parser with a custom usage string and a subparser, then prints the subparsers' prog prefix. Clean: 'PROG'. Buggy: the custom usage string leaks into the prefix (add_subparsers passes self.usage to add_usage), so subparser error messages would show the wrong prog.

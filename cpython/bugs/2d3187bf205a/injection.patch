@@ -1,0 +1,18 @@
+--- a/Lib/typing.py
++++ b/Lib/typing.py
+@@ -2519,12 +2519,9 @@
+ def _add_type_params_to_scope(type_params, globalns, localns, is_class):
+     if not type_params:
+         return globalns, localns
+-    globalns = dict(globalns)
+-    localns = dict(localns)
+-    for param in type_params:
+-        if not is_class or param.__name__ not in globalns:
+-            globalns[param.__name__] = param
+-            localns.pop(param.__name__, None)
++    # "Inject" type parameters into the local namespace
++    # (unless they are shadowed by assignments *in* the local namespace)
++    localns = {param.__name__: param for param in type_params} | localns
+     return globalns, localns
+ 
+ 

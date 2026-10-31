@@ -1,0 +1,1 @@
+Calls `os.stat(0, follow_symlinks=False)`. Clean raises ValueError ("cannot use fd and follow_symlinks together"); buggy checks `fd > 0` instead of `is_fd`, so fd 0 is accepted and it prints "no error".

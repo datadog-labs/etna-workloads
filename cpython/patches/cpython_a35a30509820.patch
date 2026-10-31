@@ -1,0 +1,41 @@
+--- a/Lib/typing.py
++++ b/Lib/typing.py
+@@ -575,7 +575,7 @@
+         return self._getitem(self, parameters)
+ 
+ 
+-class _TypedCacheSpecialForm(_SpecialForm, _root=True):
++class _LiteralSpecialForm(_SpecialForm, _root=True):
+     def __getitem__(self, parameters):
+         if not isinstance(parameters, tuple):
+             parameters = (parameters,)
+@@ -762,7 +762,7 @@
+     arg = _type_check(parameters, f"{self} requires a single type.")
+     return Union[arg, type(None)]
+ 
+-@_TypedCacheSpecialForm
++@_LiteralSpecialForm
+ @_tp_cache(typed=True)
+ def Literal(self, *parameters):
+     """Special typing form to define literal types (a.k.a. value types).
+@@ -2259,9 +2259,8 @@
+         return (self.__origin__,)
+ 
+ 
+-@_TypedCacheSpecialForm
+-@_tp_cache(typed=True)
+-def Annotated(self, *params):
++@_SpecialForm
++def Annotated(self, params):
+     """Add context-specific metadata to a type.
+ 
+     Example: Annotated[int, runtime_check.Unsigned] indicates to the
+@@ -2308,7 +2307,7 @@
+       where T1, T2 etc. are TypeVars, which would be invalid, because
+       only one type should be passed to Annotated.
+     """
+-    if len(params) < 2:
++    if not isinstance(params, tuple) or len(params) < 2:
+         raise TypeError("Annotated[...] should be used "
+                         "with at least two arguments (a type and an "
+                         "annotation).")

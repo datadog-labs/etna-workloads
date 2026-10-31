@@ -1,0 +1,23 @@
+--- a/Modules/_threadmodule.c
++++ b/Modules/_threadmodule.c
+@@ -474,7 +474,6 @@
+     PyThread_handle_t os_handle;
+     if (PyThread_start_joinable_thread(thread_run, boot, &ident, &os_handle)) {
+         PyThreadState_Clear(boot->tstate);
+-        PyThreadState_Delete(boot->tstate);
+         thread_bootstate_free(boot, 1);
+         PyErr_SetString(ThreadError, "can't start new thread");
+         goto start_failed;
+--- a/Python/pystate.c
++++ b/Python/pystate.c
+@@ -1973,9 +1973,7 @@
+     if (tstate->_status.bound_gilstate) {
+         unbind_gilstate_tstate(tstate);
+     }
+-    if (tstate->_status.bound) {
+-        unbind_tstate(tstate);
+-    }
++    unbind_tstate(tstate);
+ 
+     // XXX Move to PyThreadState_Clear()?
+     clear_datastack(tstate);
