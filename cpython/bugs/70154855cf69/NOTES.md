@@ -1,0 +1,1 @@
+repro.py sets sys.prefix/exec_prefix to new values and calls sysconfig.get_config_vars() twice. Clean (cache invalidated on prefix change, GH-126789) reports the new prefixes; buggy uses prefixes cached at import time and prints /usr/local.

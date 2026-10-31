@@ -173,6 +173,12 @@ def impl_changes(w):
         if m:
             f = os.path.relpath(m.group(1), base_src)
             files.append(f)
+    # A symlink in the tree differs whenever its target does (CPython's
+    # Misc/mypy/ links into Lib/); only the target counts.
+    def linked(root, f):        # the file, or a directory above it, is a symlink
+        p = root / f
+        return os.path.realpath(p) != os.path.abspath(p)
+    files = [f for f in files if not linked(base_src, f) and not linked(w / "tree", f)]
     impl = [f for f in files if E.IMPL.match(f) and not E.NOT_IMPL.search(f)]
     return impl, sorted(set(files) - set(impl))
 
@@ -193,6 +199,7 @@ def _adapt_one(c, oracle, model):
         rec["result"] = "no_oracle"
         return rec
     w = prepare(c, oracle)
+    E.wait_for_auth()
     t0 = time.time()
     try:
         r = subprocess.run(
@@ -221,7 +228,9 @@ def _adapt_one(c, oracle, model):
     impl, other = impl_changes(w)
     rec["files"], rec["non_impl_changes"] = impl, other
     if not impl:
-        rec["result"] = "no_change"
+        agent = rec.get("agent") or {}
+        # An API failure is not an answer: record it so a rerun retries it.
+        rec["result"] = "agent_error" if (agent.get("is_error") or "raw_tail" in agent) else "no_change"
         return rec
     if other:
         rec["result"] = "touched_non_impl"     # rejected: tests or build files changed
@@ -246,11 +255,14 @@ def cmd_run(a):
     if a.ids:
         ids = a.ids.split(",")
     else:
-        ids = [i for i, r in v.items() if r.get("result") in RETRY and i not in done]
+        retry_done = {i for i, r in done.items() if r.get("result") in ("agent_error", "error")}
+        ids = [i for i, r in v.items() if r.get("result") in RETRY and (i not in done or i in retry_done)]
         if a.bugs_only:
             tri = E.latest("triage")
             ids = [i for i in ids if tri.get(i, {}).get("kind") == "bug"
                    and tri.get(i, {}).get("confidence") != "low"]
+        if a.since:
+            ids = [i for i in ids if cands[i]["date"][:4] >= str(a.since)]
         ids.sort(key=lambda i: cands[i]["date"], reverse=True)
     if a.limit:
         ids = ids[:a.limit]
@@ -341,6 +353,7 @@ def main():
     p.add_argument("--tag", default="")
     p.add_argument("--bugs-only", action="store_true", help="only candidates triaged as bug fixes (medium/high)")
     p.add_argument("--budget", type=float, default=0, help="stop queuing agents once this many USD are spent")
+    p.add_argument("--since", type=int, default=0, help="only fixes from this year on")
     p = sub.add_parser("anchor")
     p.add_argument("-j", type=int, default=8)
     p.add_argument("--tag", default="")

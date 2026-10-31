@@ -1,0 +1,24 @@
+--- a/Lib/typing.py
++++ b/Lib/typing.py
+@@ -2104,16 +2104,11 @@
+         if _abc_instancecheck(cls, instance):
+             return True
+ 
+-        getattr_static = _lazy_load_getattr_static()
+-        for attr in cls.__protocol_attrs__:
+-            try:
+-                val = getattr_static(instance, attr)
+-            except AttributeError:
+-                break
+-            # this attribute is set by @runtime_checkable:
+-            if val is None and attr not in cls.__non_callable_proto_members__:
+-                break
+-        else:
++        if all(hasattr(instance, attr) and
++                # All *methods* can be blocked by setting them to None.
++                (attr in cls.__non_callable_proto_members__ or
++                 getattr(instance, attr) is not None)
++                for attr in cls.__protocol_attrs__):
+             return True
+ 
+         return False

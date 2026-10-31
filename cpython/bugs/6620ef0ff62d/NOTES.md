@@ -1,0 +1,1 @@
+Blocks the C `_datetime` module, then imports `zoneinfo`. The clean interpreter falls back to the pure-Python ZoneInfo and prints `zoneinfo`. The buggy one only catches ImportError, so the AttributeError from the missing `datetime_CAPI` escapes and `import zoneinfo` fails with a traceback.

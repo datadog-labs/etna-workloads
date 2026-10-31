@@ -1,0 +1,1 @@
+repro.py mocks socket.socket (close() raises OSError) and sock_connect (raises a non-OSError CustomError), then calls loop.create_connection. Clean: CustomError both times. Buggy: close()'s OSError replaces the CustomError, giving TimeoutError and ValueError instead.

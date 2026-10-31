@@ -1,0 +1,1 @@
+repro.py writes a 1-byte mono 8-bit WAV via wave and prints the length, last byte and RIFF size field. Clean pads the odd data chunk (length 46, last byte 0, RIFF size 38); buggy omits the pad byte and RIFF size.

@@ -1,0 +1,1 @@
+Reproducer runs staggered_race with nested timeouts whose cancellations are swallowed inside the coroutine. Clean: log has 'cancelled 3' (CancelledError propagated). Buggy: 'cancelled 3' missing since the cancellation error is not re-raised.

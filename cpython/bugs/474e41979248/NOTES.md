@@ -1,0 +1,1 @@
+Reproducer calls pydoc.source_synopsis on several sources (single-quoted docstring, ''' docstring, null byte). Buggy version's hand-rolled parser returns None/wrong values where clean returns the docstring summary.

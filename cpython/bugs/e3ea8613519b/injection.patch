@@ -1,0 +1,64 @@
+--- a/Lib/asyncio/proactor_events.py
++++ b/Lib/asyncio/proactor_events.py
+@@ -459,8 +459,6 @@
+ class _ProactorDatagramTransport(_ProactorBasePipeTransport,
+                                  transports.DatagramTransport):
+     max_size = 256 * 1024
+-    _header_size = 8
+-
+     def __init__(self, loop, sock, protocol, address=None,
+                  waiter=None, extra=None):
+         self._address = address
+@@ -504,7 +502,7 @@
+ 
+         # Ensure that what we buffer is immutable.
+         self._buffer.append((bytes(data), addr))
+-        self._buffer_size += len(data) + self._header_size
++        self._buffer_size += len(data) + 8  # include header bytes
+ 
+         if self._write_fut is None:
+             # No current write operations are active, kick one off
+@@ -534,7 +532,7 @@
+                 return
+ 
+             data, addr = self._buffer.popleft()
+-            self._buffer_size -= len(data) + self._header_size
++            self._buffer_size -= len(data)
+             if self._address is not None:
+                 self._write_fut = self._loop._proactor.send(self._sock,
+                                                             data)
+--- a/Lib/asyncio/selector_events.py
++++ b/Lib/asyncio/selector_events.py
+@@ -1246,7 +1246,6 @@
+ class _SelectorDatagramTransport(_SelectorTransport, transports.DatagramTransport):
+ 
+     _buffer_factory = collections.deque
+-    _header_size = 8
+ 
+     def __init__(self, loop, sock, protocol, address=None,
+                  waiter=None, extra=None):
+@@ -1318,13 +1317,13 @@
+ 
+         # Ensure that what we buffer is immutable.
+         self._buffer.append((bytes(data), addr))
+-        self._buffer_size += len(data) + self._header_size
++        self._buffer_size += len(data) + 8  # include header bytes
+         self._maybe_pause_protocol()
+ 
+     def _sendto_ready(self):
+         while self._buffer:
+             data, addr = self._buffer.popleft()
+-            self._buffer_size -= len(data) + self._header_size
++            self._buffer_size -= len(data)
+             try:
+                 if self._extra['peername']:
+                     self._sock.send(data)
+@@ -1332,7 +1331,7 @@
+                     self._sock.sendto(data, addr)
+             except (BlockingIOError, InterruptedError):
+                 self._buffer.appendleft((data, addr))  # Try again later.
+-                self._buffer_size += len(data) + self._header_size
++                self._buffer_size += len(data)
+                 break
+             except OSError as exc:
+                 self._protocol.error_received(exc)

@@ -1,0 +1,39 @@
+--- a/Python/errors.c
++++ b/Python/errors.c
+@@ -294,10 +294,8 @@
+                  const char *string)
+ {
+     PyObject *value = PyUnicode_FromString(string);
+-    if (value != NULL) {
+-        _PyErr_SetObject(tstate, exception, value);
+-        Py_DECREF(value);
+-    }
++    _PyErr_SetObject(tstate, exception, value);
++    Py_XDECREF(value);
+ }
+ 
+ void
+@@ -927,9 +925,6 @@
+     if (filename) {
+         int i = errno;
+         name = PyUnicode_DecodeFSDefault(filename);
+-        if (name == NULL) {
+-            return NULL;
+-        }
+         errno = i;
+     }
+     PyObject *result = PyErr_SetFromErrnoWithFilenameObjects(exc, name, NULL);
+@@ -1226,10 +1221,9 @@
+     _PyErr_Clear(tstate);
+ 
+     string = PyUnicode_FromFormatV(format, vargs);
+-    if (string != NULL) {
+-        _PyErr_SetObject(tstate, exception, string);
+-        Py_DECREF(string);
+-    }
++
++    _PyErr_SetObject(tstate, exception, string);
++    Py_XDECREF(string);
+     return NULL;
+ }
+ 

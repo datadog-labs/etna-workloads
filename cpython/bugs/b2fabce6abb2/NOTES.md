@@ -1,0 +1,1 @@
+repro.py calls _pyrepl.utils.gen_colors on source with an inconsistent dedent (IndentationError). Clean interpreter returns the colour spans for the valid prefix; buggy one lets the IndentationError (a SyntaxError) escape because the 'except SyntaxError: return' was removed.

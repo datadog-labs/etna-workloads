@@ -1,0 +1,128 @@
+--- a/Lib/pathlib/_os.py
++++ b/Lib/pathlib/_os.py
+@@ -20,7 +20,7 @@
+     _winapi = None
+ 
+ 
+-def _get_copy_blocksize(infd):
++def get_copy_blocksize(infd):
+     """Determine blocksize for fastcopying on Linux.
+     Hopefully the whole file will be copied in a single call.
+     The copying itself should be performed in a loop 'till EOF is
+@@ -40,7 +40,7 @@
+ 
+ 
+ if fcntl and hasattr(fcntl, 'FICLONE'):
+-    def _ficlone(source_fd, target_fd):
++    def clonefd(source_fd, target_fd):
+         """
+         Perform a lightweight copy of two files, where the data blocks are
+         copied only when modified. This is known as Copy on Write (CoW),
+@@ -48,22 +48,18 @@
+         """
+         fcntl.ioctl(target_fd, fcntl.FICLONE, source_fd)
+ else:
+-    _ficlone = None
++    clonefd = None
+ 
+ 
+ if posix and hasattr(posix, '_fcopyfile'):
+-    def _fcopyfile(source_fd, target_fd):
++    def copyfd(source_fd, target_fd):
+         """
+         Copy a regular file content using high-performance fcopyfile(3)
+         syscall (macOS).
+         """
+         posix._fcopyfile(source_fd, target_fd, posix._COPYFILE_DATA)
+-else:
+-    _fcopyfile = None
+-
+-
+-if hasattr(os, 'copy_file_range'):
+-    def _copy_file_range(source_fd, target_fd):
++elif hasattr(os, 'copy_file_range'):
++    def copyfd(source_fd, target_fd):
+         """
+         Copy data from one regular mmap-like fd to another by using a
+         high-performance copy_file_range(2) syscall that gives filesystems
+@@ -71,7 +67,7 @@
+         copy.
+         This should work on Linux >= 4.5 only.
+         """
+-        blocksize = _get_copy_blocksize(source_fd)
++        blocksize = get_copy_blocksize(source_fd)
+         offset = 0
+         while True:
+             sent = os.copy_file_range(source_fd, target_fd, blocksize,
+@@ -79,17 +75,13 @@
+             if sent == 0:
+                 break  # EOF
+             offset += sent
+-else:
+-    _copy_file_range = None
+-
+-
+-if hasattr(os, 'sendfile'):
+-    def _sendfile(source_fd, target_fd):
++elif hasattr(os, 'sendfile'):
++    def copyfd(source_fd, target_fd):
+         """Copy data from one regular mmap-like fd to another by using
+         high-performance sendfile(2) syscall.
+         This should work on Linux >= 2.6.33 only.
+         """
+-        blocksize = _get_copy_blocksize(source_fd)
++        blocksize = get_copy_blocksize(source_fd)
+         offset = 0
+         while True:
+             sent = os.sendfile(target_fd, source_fd, offset, blocksize)
+@@ -97,7 +89,7 @@
+                 break  # EOF
+             offset += sent
+ else:
+-    _sendfile = None
++    copyfd = None
+ 
+ 
+ if _winapi and hasattr(_winapi, 'CopyFile2'):
+@@ -122,36 +114,18 @@
+     else:
+         try:
+             # Use OS copy-on-write where available.
+-            if _ficlone:
++            if clonefd:
+                 try:
+-                    _ficlone(source_fd, target_fd)
++                    clonefd(source_fd, target_fd)
+                     return
+                 except OSError as err:
+                     if err.errno not in (EBADF, EOPNOTSUPP, ETXTBSY, EXDEV):
+                         raise err
+ 
+             # Use OS copy where available.
+-            if _fcopyfile:
+-                try:
+-                    _fcopyfile(source_fd, target_fd)
+-                    return
+-                except OSError as err:
+-                    if err.errno not in (EINVAL, ENOTSUP):
+-                        raise err
+-            if _copy_file_range:
+-                try:
+-                    _copy_file_range(source_fd, target_fd)
+-                    return
+-                except OSError as err:
+-                    if err.errno not in (ETXTBSY, EXDEV):
+-                        raise err
+-            if _sendfile:
+-                try:
+-                    _sendfile(source_fd, target_fd)
+-                    return
+-                except OSError as err:
+-                    if err.errno != ENOTSOCK:
+-                        raise err
++            if copyfd:
++                copyfd(source_fd, target_fd)
++                return
+         except OSError as err:
+             # Produce more useful error messages.
+             err.filename = source_f.name

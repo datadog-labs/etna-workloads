@@ -1,0 +1,22 @@
+--- a/Python/ceval.c
++++ b/Python/ceval.c
+@@ -2470,6 +2470,7 @@
+     do_monitor_exc(tstate, frame, instr, PY_MONITORING_EVENT_RAISE);
+ }
+ 
++/* Unwind events are reported for every frame (see do_monitor_exc). */
+ bool
+ _PyEval_NoToolsForUnwind(PyThreadState *tstate, _PyInterpreterFrame *frame)
+ {
+--- a/Python/ceval.h
++++ b/Python/ceval.h
+@@ -342,9 +342,6 @@
+                _Py_CODEUNIT *instr, int event)
+ {
+     assert(event < _PY_MONITORING_UNGROUPED_EVENTS);
+-    if (_PyFrame_GetCode(frame)->co_flags & CO_NO_MONITORING_EVENTS) {
+-        return 0;
+-    }
+     PyObject *exc = PyErr_GetRaisedException();
+     assert(exc != NULL);
+     int err = _Py_call_instrumentation_arg(tstate, event, frame, instr, exc);

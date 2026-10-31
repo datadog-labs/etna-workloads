@@ -1,0 +1,1 @@
+Reproducer mocks fcntl.ioctl/copy_file_range/sendfile to raise non-fatal errors (EXDEV/ENOTSOCK) and calls Path.copy. Clean falls back to a plain read/write copy and prints 'hello'; buggy lacks the per-function fallback and errors.

@@ -1,0 +1,1 @@
+repro.py runs unittest.main() with a TestCase whose setUpClass raises, and prints the SystemExit code. Clean: 1. Buggy: 5 (NO TESTS RAN code), because main.py checks testsRun == 0 before wasSuccessful().

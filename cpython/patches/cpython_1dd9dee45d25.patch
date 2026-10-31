@@ -1,0 +1,57 @@
+--- a/Modules/_interpretersmodule.c
++++ b/Modules/_interpretersmodule.c
+@@ -64,18 +64,18 @@
+ static int
+ is_running_main(PyInterpreterState *interp)
+ {
+-    if (_PyInterpreterState_IsRunningMain(interp)) {
+-        return 1;
++    PyThreadState *tstate = PyInterpreterState_ThreadHead(interp);
++    if (PyThreadState_Next(tstate) != NULL) {
++        PyErr_SetString(PyExc_RuntimeError,
++                        "interpreter has more than one thread");
++        return -1;
+     }
+-    // Unlike with the general C-API, we can be confident that someone
+-    // using this module for the main interpreter is doing so through
+-    // the main program.  Thus we can make this extra check.  This benefits
+-    // applications that embed Python but haven't been updated yet
+-    // to call _PyInterpreterState_SetRunningMain().
+-    if (_Py_IsMainInterpreter(interp)) {
+-        return 1;
++
++    assert(!PyErr_Occurred());
++    if (tstate->current_frame == tstate->base_frame) {
++        return 0;
+     }
+-    return 0;
++    return 1;
+ }
+ 
+ 
+@@ -940,7 +940,11 @@
+     // Ensure the interpreter isn't running.
+     /* XXX We *could* support destroying a running interpreter but
+        aren't going to worry about it for now. */
+-    if (is_running_main(interp)) {
++    int is_running = is_running_main(interp);
++    if (is_running < 0) {
++        return NULL;
++    }
++    if (is_running) {
+         PyErr_Format(PyExc_InterpreterError, "interpreter running");
+         return NULL;
+     }
+@@ -1368,7 +1372,11 @@
+         return NULL;
+     }
+ 
+-    if (is_running_main(interp)) {
++    int is_running = is_running_main(interp);
++    if (is_running < 0) {
++        return NULL;
++    }
++    if (is_running) {
+         Py_RETURN_TRUE;
+     }
+     Py_RETURN_FALSE;

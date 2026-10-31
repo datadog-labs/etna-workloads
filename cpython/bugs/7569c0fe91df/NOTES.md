@@ -1,0 +1,1 @@
+repro.py calls typing.get_type_hints on a class hierarchy whose __module__ ('bad') isn't in sys.modules. Clean: {'foo': tuple, 'bar': list}. Buggy: {} (the KeyError handler skips the bases' annotations).

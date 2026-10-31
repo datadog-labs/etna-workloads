@@ -1,0 +1,1 @@
+repro.py compiles bytes source containing invalid UTF-8 on lines 2/3 with no (or utf-8) coding declaration. Clean: SyntaxError 'Non-UTF-8 code starting with ... no encoding declared' with offsets 1/6. Buggy (missing _PyTokenizer_ensure_utf8 in string tokenizer): generic '(unicode error) utf-8 codec can't decode' message and different offset.

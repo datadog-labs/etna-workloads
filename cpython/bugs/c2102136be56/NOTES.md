@@ -1,0 +1,1 @@
+Reproducer runs nested unittest classes with class cleanups; buggy build shares the _class_cleanups list across TestCase subclasses, so cleanup ordering differs (inner cleanup runs at wrong time/outer cleanups leak).

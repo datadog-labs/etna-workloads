@@ -1,0 +1,1 @@
+repro.py sets To headers whose display name starts or ends with a dot without a space (.foo <a@b.com>, foo.<a@b.com>) and prints the result. Clean prints the quoted address; buggy raises AttributeError ('str' object has no attribute 'token_type') in email._header_value_parser, which no longer checks for non-TokenList tokens.

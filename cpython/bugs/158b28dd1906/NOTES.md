@@ -1,0 +1,1 @@
+repro.py: defines B2(A[T2], Protocol[T1,T2]) and prints __parameters__; clean gives (T1, T2), buggy gives (T2, T1). Also a class with an unlisted type var S raises TypeError on clean but not on buggy.

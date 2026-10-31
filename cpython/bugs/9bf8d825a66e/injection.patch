@@ -1,0 +1,44 @@
+--- a/Lib/unittest/mock.py
++++ b/Lib/unittest/mock.py
+@@ -208,28 +208,6 @@
+     _setup_func(funcopy, mock, sig)
+     return funcopy
+ 
+-def _set_async_signature(mock, original, instance=False, is_async_mock=False):
+-    # creates an async function with signature (*args, **kwargs) that delegates to a
+-    # mock. It still does signature checking by calling a lambda with the same
+-    # signature as the original.
+-
+-    skipfirst = isinstance(original, type)
+-    func, sig = _get_signature_object(original, instance, skipfirst)
+-    def checksig(*args, **kwargs):
+-        sig.bind(*args, **kwargs)
+-    _copy_func_details(func, checksig)
+-
+-    name = original.__name__
+-    context = {'_checksig_': checksig, 'mock': mock}
+-    src = """async def %s(*args, **kwargs):
+-    _checksig_(*args, **kwargs)
+-    return await mock(*args, **kwargs)""" % name
+-    exec (src, context)
+-    funcopy = context[name]
+-    _setup_func(funcopy, mock, sig)
+-    _setup_async_mock(funcopy)
+-    return funcopy
+-
+ 
+ def _setup_func(funcopy, mock, sig):
+     funcopy.mock = mock
+@@ -2834,10 +2812,9 @@
+     if isinstance(spec, FunctionTypes):
+         # should only happen at the top level because we don't
+         # recurse for functions
++        mock = _set_signature(mock, spec)
+         if is_async_func:
+-            mock = _set_async_signature(mock, spec)
+-        else:
+-            mock = _set_signature(mock, spec)
++            _setup_async_mock(mock)
+     else:
+         _check_signature(spec, mock, is_type, instance)
+ 

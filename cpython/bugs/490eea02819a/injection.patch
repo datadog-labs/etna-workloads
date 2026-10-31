@@ -1,0 +1,38 @@
+--- a/Lib/concurrent/futures/__init__.py
++++ b/Lib/concurrent/futures/__init__.py
+@@ -33,19 +33,25 @@
+     'wait',
+     'as_completed',
+     'ProcessPoolExecutor',
++    'InterpreterPoolExecutor',
+     'ThreadPoolExecutor',
+ ]
+ 
+ 
+-try:
+-    import _interpreters
+-except ImportError:
+-    _interpreters = None
+-
+-if _interpreters:
+-    lazy from .interpreter import InterpreterPoolExecutor  # noqa: F401
+-    __all__.append('InterpreterPoolExecutor')
+-
+-
+ def __dir__():
+     return __all__ + ['__author__', '__doc__']
++
++
++def __getattr__(name):
++    global InterpreterPoolExecutor
++
++    if name == 'InterpreterPoolExecutor':
++        try:
++            from .interpreter import InterpreterPoolExecutor as ie
++        except ModuleNotFoundError:
++            ie = InterpreterPoolExecutor = None
++        else:
++            InterpreterPoolExecutor = ie
++        return ie
++
++    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

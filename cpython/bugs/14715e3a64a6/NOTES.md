@@ -1,0 +1,1 @@
+Reproducer: run_coroutine_threadsafe(...) on the running loop, cancel the concurrent future, then check whether the underlying task got cancelled. Clean prints 'True True'; buggy prints 'False True' (task left running, plus a 'Task was destroyed' warning).

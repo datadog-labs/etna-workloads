@@ -1,0 +1,110 @@
+--- a/Lib/email/_header_value_parser.py
++++ b/Lib/email/_header_value_parser.py
+@@ -2926,6 +2926,75 @@
+             last_word_is_ew = False
+             continue
+         tstr = str(part)
++        if part.token_type == 'ptext' and set(tstr) & SPECIALS:
++            # Encode if tstr contains special characters.
++            want_encoding = True
++        try:
++            tstr.encode(encoding)
++        except UnicodeEncodeError:
++            if any(isinstance(x, errors.UndecodableBytesDefect)
++                   for x in part.all_defects):
++                # There is garbage data from parsing a message in binary mode,
++                # just pass it through.  Not good, but the best we can do.
++                pass
++            elif policy.utf8:
++                # If this happens, it's a programmer error.
++                raise
++            else:
++                raise errors.HeaderWriteError(
++                    f"Non-ASCII {part.token_type} '{part}' is invalid"
++                    " under current policy setting (utf8=False)"
++                )
++        if len(tstr) <= maxlen - len(lines[-1]):
++            lines[-1] += tstr
++            continue
++        # This part is too long to fit.  The RFC wants us to break at
++        # "major syntactic breaks", so unless we don't consider this
++        # to be one, check if it will fit on the next line by itself.
++        if (part.syntactic_break and
++                len(tstr) + 1 <= maxlen):
++            newline = _steal_trailing_WSP_if_exists(lines)
++            if newline or part.startswith_fws():
++                lines.append(newline + tstr)
++                continue
++        if not hasattr(part, 'encode'):
++            # It's not a terminal, try folding the subparts.
++            newparts = list(part)
++            parts = newparts + parts
++            continue
++        # We can't figure out how to wrap, it, so give up.
++        newline = _steal_trailing_WSP_if_exists(lines)
++        if newline or part.startswith_fws():
++            lines.append(newline + tstr)
++        else:
++            # We can't fold it onto the next line either...
++            lines[-1] += tstr
++    return
++
++
++def _refold_with_ew(parse_tree, lines, maxlen, encoding, *, policy):
++    """Return string of contents of parse_tree folded according to RFC rules.
++
++    """
++    last_word_is_ew = False
++    last_ew = None  # if there is an encoded word in the last line of lines,
++                    # points to the encoded word's first character
++    last_charset = None
++    wrap_as_ew_blocked = 0
++    want_encoding = False  # This is set to True if we need to encode this part
++    end_ew_not_allowed = Terminal('', 'wrap_as_ew_blocked')
++    parts = list(parse_tree)
++    while parts:
++        part = parts.pop(0)
++        if part is end_ew_not_allowed:
++            wrap_as_ew_blocked -= 1
++            continue
++        if part.token_type == 'mime-parameters':
++            # Mime parameter folding (using RFC2231) is extra special.
++            _fold_mime_parameters(part, lines, maxlen, encoding)
++            last_word_is_ew = False
++            continue
++        tstr = str(part)
+         if not want_encoding:
+             if part.token_type == 'ptext' or part.contains_token_type('vtext'):
+                 # Encode if tstr contains special characters.
+--- a/Lib/email/generator.py
++++ b/Lib/email/generator.py
+@@ -226,14 +226,6 @@
+     def _write_headers(self, msg):
+         for h, v in msg.raw_items():
+             folded = self.policy.fold(h, v)
+-            if self.policy.verify_generated_headers:
+-                linesep = self.policy.linesep
+-                if not folded.endswith(linesep):
+-                    raise HeaderWriteError(
+-                        f'folded header does not end with {linesep!r}: {folded!r}')
+-                if NEWLINE_WITHOUT_FWSP.search(folded.removesuffix(linesep)):
+-                    raise HeaderWriteError(
+-                        f'folded header contains newline: {folded!r}')
+             self.write(folded)
+         # A blank line always separates headers from body
+         self.write(self._NL)
+@@ -431,14 +423,6 @@
+         # strings with 8bit bytes.
+         for h, v in msg.raw_items():
+             folded = self.policy.fold_binary(h, v)
+-            if self.policy.verify_generated_headers:
+-                linesep = self.policy.linesep.encode()
+-                if not folded.endswith(linesep):
+-                    raise HeaderWriteError(
+-                        f'folded header does not end with {linesep!r}: {folded!r}')
+-                if NEWLINE_WITHOUT_FWSP_BYTES.search(folded.removesuffix(linesep)):
+-                    raise HeaderWriteError(
+-                        f'folded header contains newline: {folded!r}')
+             self._fp.write(folded)
+         # A blank line always separates headers from body
+         self.write(self._NL)

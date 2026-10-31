@@ -1,0 +1,1 @@
+repro.py unpacks a half-float NaN with payload (0x7d55) via struct and packs it back. Clean preserves it (557d); buggy loses the payload and returns the default qNaN (007e). The second line (double sNaN to float32) is the same in both.

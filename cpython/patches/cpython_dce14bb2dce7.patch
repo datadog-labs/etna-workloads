@@ -1,0 +1,27 @@
+--- a/Lib/logging/config.py
++++ b/Lib/logging/config.py
+@@ -753,16 +753,16 @@
+ 
+     def _configure_queue_handler(self, klass, **kwargs):
+         if 'queue' in kwargs:
+-            q = kwargs.pop('queue')
++            q = kwargs['queue']
+         else:
+             q = queue.Queue()  # unbounded
+-
+-        rhl = kwargs.pop('respect_handler_level', False)
+-        lklass = kwargs.pop('listener', logging.handlers.QueueListener)
+-        handlers = kwargs.pop('handlers', [])
+-
+-        listener = lklass(q, *handlers, respect_handler_level=rhl)
+-        handler = klass(q, **kwargs)
++        rhl = kwargs.get('respect_handler_level', False)
++        if 'listener' in kwargs:
++            lklass = kwargs['listener']
++        else:
++            lklass = logging.handlers.QueueListener
++        listener = lklass(q, *kwargs.get('handlers', []), respect_handler_level=rhl)
++        handler = klass(q)
+         handler.listener = listener
+         return handler
+ 

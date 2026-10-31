@@ -1,0 +1,1 @@
+repro.py applies runtime_checkable() to a PEP 695 generic non-protocol class. Clean: TypeError ('can be only applied to protocol classes'). Buggy: AttributeError for missing _is_protocol (typing.py uses cls._is_protocol instead of getattr).

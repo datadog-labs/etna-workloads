@@ -1,0 +1,56 @@
+--- a/Lib/xml/sax/expatreader.py
++++ b/Lib/xml/sax/expatreader.py
+@@ -97,16 +97,9 @@
+         source = saxutils.prepare_input_source(source)
+ 
+         self._source = source
+-        try:
+-            self.reset()
+-            self._cont_handler.setDocumentLocator(ExpatLocator(self))
+-            xmlreader.IncrementalParser.parse(self, source)
+-        except:
+-            # bpo-30264: Close the source on error to not leak resources:
+-            # xml.sax.parse() doesn't give access to the underlying parser
+-            # to the caller
+-            self._close_source()
+-            raise
++        self.reset()
++        self._cont_handler.setDocumentLocator(ExpatLocator(self))
++        xmlreader.IncrementalParser.parse(self, source)
+ 
+     def prepareParser(self, source):
+         if source.getSystemId() is not None:
+@@ -226,17 +219,6 @@
+         finally:
+             self._parser.SetReparseDeferralEnabled(was_enabled)
+ 
+-    def _close_source(self):
+-        source = self._source
+-        try:
+-            file = source.getCharacterStream()
+-            if file is not None:
+-                file.close()
+-        finally:
+-            file = source.getByteStream()
+-            if file is not None:
+-                file.close()
+-
+     def close(self):
+         if (self._entity_stack or self._parser is None or
+             isinstance(self._parser, _ClosedParser)):
+@@ -256,7 +238,14 @@
+                 parser.ErrorColumnNumber = self._parser.ErrorColumnNumber
+                 parser.ErrorLineNumber = self._parser.ErrorLineNumber
+                 self._parser = parser
+-            self._close_source()
++            try:
++                file = self._source.getCharacterStream()
++                if file is not None:
++                    file.close()
++            finally:
++                file = self._source.getByteStream()
++                if file is not None:
++                    file.close()
+ 
+     def _reset_cont_handler(self):
+         self._parser.ProcessingInstructionHandler = \

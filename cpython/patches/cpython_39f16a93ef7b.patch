@@ -1,0 +1,144 @@
+--- a/Modules/arraymodule.c
++++ b/Modules/arraymodule.c
+@@ -224,19 +224,6 @@
+         }                                                   \
+     } while (0)
+ 
+-#define CHECK_ARRAY_BOUNDS_WITH_CLEANUP(OP, IDX, VAL, CLEANUP)  \
+-    do {                                                        \
+-        if ((IDX) >= 0 && ((OP)->ob_item == NULL ||             \
+-                  (IDX) >= Py_SIZE((OP)))) {                    \
+-            PyErr_SetString(PyExc_IndexError,                   \
+-                    "array assignment index out of range");     \
+-            if (CLEANUP) {                                      \
+-                Py_DECREF(VAL);                                 \
+-            }                                                   \
+-            return -1;                                          \
+-        }                                                       \
+-    } while (0)
+-
+ static PyObject *
+ b_getitem(arrayobject *ap, Py_ssize_t i)
+ {
+@@ -253,10 +240,7 @@
+        the overflow checking */
+     if (!PyArg_Parse(v, "h;array item must be integer", &x))
+         return -1;
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+-    if (x < -128) {
++    else if (x < -128) {
+         PyErr_SetString(PyExc_OverflowError,
+             "signed char is less than minimum");
+         return -1;
+@@ -285,9 +269,6 @@
+     /* 'B' == unsigned char, maps to PyArg_Parse's 'b' formatter */
+     if (!PyArg_Parse(v, "b;array item must be integer", &x))
+         return -1;
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+     if (i >= 0)
+         ((unsigned char *)ap->ob_item)[i] = x;
+     return 0;
+@@ -380,9 +361,6 @@
+     /* 'h' == signed short, maps to PyArg_Parse's 'h' formatter */
+     if (!PyArg_Parse(v, "h;array item must be integer", &x))
+         return -1;
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+     if (i >= 0)
+                  ((short *)ap->ob_item)[i] = x;
+     return 0;
+@@ -412,9 +390,6 @@
+             "unsigned short is greater than maximum");
+         return -1;
+     }
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+     if (i >= 0)
+         ((short *)ap->ob_item)[i] = (short)x;
+     return 0;
+@@ -433,9 +408,6 @@
+     /* 'i' == signed int, maps to PyArg_Parse's 'i' formatter */
+     if (!PyArg_Parse(v, "i;array item must be integer", &x))
+         return -1;
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+     if (i >= 0)
+                  ((int *)ap->ob_item)[i] = x;
+     return 0;
+@@ -479,9 +451,6 @@
+         }
+         return -1;
+     }
+-
+-    CHECK_ARRAY_BOUNDS_WITH_CLEANUP(ap, i, v, do_decref);
+-
+     if (i >= 0)
+         ((unsigned int *)ap->ob_item)[i] = (unsigned int)x;
+ 
+@@ -503,9 +472,6 @@
+     long x;
+     if (!PyArg_Parse(v, "l;array item must be integer", &x))
+         return -1;
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+     if (i >= 0)
+                  ((long *)ap->ob_item)[i] = x;
+     return 0;
+@@ -540,9 +506,6 @@
+         }
+         return -1;
+     }
+-
+-    CHECK_ARRAY_BOUNDS_WITH_CLEANUP(ap, i, v, do_decref);
+-
+     if (i >= 0)
+         ((unsigned long *)ap->ob_item)[i] = x;
+ 
+@@ -564,9 +527,6 @@
+     long long x;
+     if (!PyArg_Parse(v, "L;array item must be integer", &x))
+         return -1;
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+     if (i >= 0)
+         ((long long *)ap->ob_item)[i] = x;
+     return 0;
+@@ -602,9 +562,6 @@
+         }
+         return -1;
+     }
+-
+-    CHECK_ARRAY_BOUNDS_WITH_CLEANUP(ap, i, v, do_decref);
+-
+     if (i >= 0)
+         ((unsigned long long *)ap->ob_item)[i] = x;
+ 
+@@ -652,9 +609,6 @@
+     float x;
+     if (!PyArg_Parse(v, "f;array item must be float", &x))
+         return -1;
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+     if (i >= 0)
+                  ((float *)ap->ob_item)[i] = x;
+     return 0;
+@@ -672,9 +626,6 @@
+     double x;
+     if (!PyArg_Parse(v, "d;array item must be float", &x))
+         return -1;
+-
+-    CHECK_ARRAY_BOUNDS(ap, i);
+-
+     if (i >= 0)
+                  ((double *)ap->ob_item)[i] = x;
+     return 0;

@@ -1,0 +1,1 @@
+repro.py: patches _colorize.can_colorize to return True only when file is None, then calls ArgumentParser(color=True).print_help(file=StringIO). Clean passes the target file to can_colorize, so no ANSI codes (prints '0 [True]'). Buggy ignores the file, so output is colorized ('19 [False]').

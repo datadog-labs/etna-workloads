@@ -1,0 +1,1 @@
+repro.py opens two ZIP_STORED entries at once, reads 1 byte from a.txt, then seeks to 1 in b.txt and reads a byte. Clean prints b'5'; buggy prints b'K' (wrong data from the shared file position, since seek no longer uses the entry-relative position for SEEK_CUR).

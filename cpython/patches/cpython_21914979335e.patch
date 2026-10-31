@@ -1,0 +1,26 @@
+--- a/Lib/threading.py
++++ b/Lib/threading.py
+@@ -1702,9 +1702,8 @@
+     # normally - that won't happen until the interpreter is nearly dead. So
+     # mark it done here.
+     if _main_thread._os_thread_handle.is_done() and _is_main_interpreter():
+-        # _shutdown() was already called, but threads might have started
+-        # in the meantime.
+-        return _thread_shutdown()
++        # _shutdown() was already called
++        return
+ 
+     global _SHUTTING_DOWN
+     _SHUTTING_DOWN = True
+--- a/Python/pylifecycle.c
++++ b/Python/pylifecycle.c
+@@ -2352,8 +2352,7 @@
+                                     ? runtime_has_subinterpreters(interp->runtime)
+                                     : 0;
+         uintptr_t guards_expected = 0;
+-        int should_continue = (interp_has_threads(interp)
+-                              || interp_has_atexit_callbacks(interp)
++        int should_continue = (interp_has_atexit_callbacks(interp)
+                               || interp_has_pending_calls(interp)
+                               || has_subinterpreters);
+ 

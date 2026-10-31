@@ -1,0 +1,20 @@
+--- a/Lib/bdb.py
++++ b/Lib/bdb.py
+@@ -406,13 +406,11 @@
+         self.user_opcode(). Raise BdbQuit if self.quitting is set.
+         Return self.trace_dispatch to continue tracing in this scope.
+ 
+-        Opcode event will always trigger the user callback. For now the only
+-        opcode event is from an inline set_trace() and we want to stop there
+-        unconditionally.
+         """
+-        self.user_opcode(frame)
+-        self.restart_events()
+-        if self.quitting: raise BdbQuit
++        if self.stop_here(frame) or self.break_here(frame):
++            self.user_opcode(frame)
++            self.restart_events()
++            if self.quitting: raise BdbQuit
+         return self.trace_dispatch
+ 
+     # Normally derived classes don't override the following

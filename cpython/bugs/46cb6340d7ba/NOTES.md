@@ -1,0 +1,1 @@
+repro.py calls datetime.datetime(...).strftime('%z') on a naive datetime, which yields an empty string (nothing to copy in the unicode writer). Clean: prints ''. Buggy: debug assertion failure in _PyUnicodeWriter_CanWrite (abort, status -6), since the zero-length early return in the writer was removed.

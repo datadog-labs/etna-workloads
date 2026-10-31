@@ -1,0 +1,22 @@
+--- a/Lib/shutil.py
++++ b/Lib/shutil.py
+@@ -725,10 +725,7 @@
+             func, fd, path, entry = stack.pop()
+             if func is not os.close:
+                 continue
+-            try:
+-                os.close(fd)
+-            except OSError as err:
+-                onexc(os.close, path, err)
++            os.close(fd)
+ 
+ def _rmtree_safe_fd_step(stack, onexc):
+     # Each stack item has four elements:
+@@ -748,6 +745,7 @@
+     parent_fd = None if func is os.close else dirfd
+     try:
+         if func is os.close:
++            func = os.rmdir  # close() and rmdir() share one error path
+             os.close(dirfd)
+             return
+         if func is os.rmdir:

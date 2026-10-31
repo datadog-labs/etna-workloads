@@ -1,0 +1,1 @@
+`repro.py` calls `filecmp.cmpfiles` with filenames containing NUL bytes. Clean: returns `([], [], ['\x00'])` (counted as "funny"). Buggy: `_cmp` no longer catches ValueError, so `ValueError: embedded null byte` propagates.

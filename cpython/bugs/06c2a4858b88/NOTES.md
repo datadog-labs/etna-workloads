@@ -1,0 +1,1 @@
+Calls `_csv.Reader()` and `_csv.Writer()` directly. Clean: TypeError "cannot create '_csv.Reader' instances" (Py_TPFLAGS_DISALLOW_INSTANTIATION). Buggy: the flag is missing, so the uninitialised objects are created ("instantiated").

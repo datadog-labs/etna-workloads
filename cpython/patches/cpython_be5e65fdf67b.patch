@@ -1,0 +1,39 @@
+--- a/Lib/mailbox.py
++++ b/Lib/mailbox.py
+@@ -1153,24 +1153,10 @@
+         """Return a count of messages in the mailbox."""
+         return len(list(self.iterkeys()))
+ 
+-    def _open_mh_sequences_file(self, text):
+-        mode = '' if text else 'b'
+-        kwargs = {'encoding': 'ASCII'} if text else {}
+-        path = os.path.join(self._path, '.mh_sequences')
+-        while True:
+-            try:
+-                return open(path, 'r+' + mode, **kwargs)
+-            except FileNotFoundError:
+-                pass
+-            try:
+-                return open(path, 'x+' + mode, **kwargs)
+-            except FileExistsError:
+-                pass
+-
+     def lock(self):
+         """Lock the mailbox."""
+         if not self._locked:
+-            self._file = self._open_mh_sequences_file(text=False)
++            self._file = open(os.path.join(self._path, '.mh_sequences'), 'rb+')
+             _lock_file(self._file)
+             self._locked = True
+ 
+@@ -1251,9 +1237,8 @@
+ 
+     def set_sequences(self, sequences):
+         """Set sequences using the given name-to-key-list dictionary."""
+-        f = self._open_mh_sequences_file(text=True)
++        f = open(os.path.join(self._path, '.mh_sequences'), 'w', encoding='ASCII')
+         try:
+-            os.close(os.open(f.name, os.O_WRONLY | os.O_TRUNC))
+             for name, keys in sequences.items():
+                 if len(keys) == 0:
+                     continue

@@ -1,0 +1,99 @@
+--- a/Python/marshal.c
++++ b/Python/marshal.c
+@@ -383,6 +383,7 @@
+ w_ref(PyObject *v, char *flag, WFILE *p)
+ {
+     _Py_hashtable_entry_t *entry;
++    int w;
+ 
+     if (p->version < 3 || p->hashtable == NULL)
+         return 0; /* not writing object references */
+@@ -399,28 +400,20 @@
+     entry = _Py_hashtable_get_entry(p->hashtable, v);
+     if (entry != NULL) {
+         /* write the reference index to the stream */
+-        uintptr_t w = (uintptr_t)entry->value;
+-        if (w & 0x80000000LU) {
+-            PyErr_Format(PyExc_ValueError, "cannot marshal recursion %T objects", v);
+-            goto err;
+-        }
++        w = (int)(uintptr_t)entry->value;
+         /* we don't store "long" indices in the dict */
+-        assert(w <= 0x7fffffff);
++        assert(0 <= w && w <= 0x7fffffff);
+         w_byte(TYPE_REF, p);
+-        w_long((int)w, p);
++        w_long(w, p);
+         return 1;
+     } else {
+-        size_t w = p->hashtable->nentries;
++        size_t s = p->hashtable->nentries;
+         /* we don't support long indices */
+-        if (w >= 0x7fffffff) {
++        if (s >= 0x7fffffff) {
+             PyErr_SetString(PyExc_ValueError, "too many objects");
+             goto err;
+         }
+-        // Corresponding code should call w_complete() after
+-        // writing the object.
+-        if (PyCode_Check(v) || PySlice_Check(v) || PyFrozenDict_CheckExact(v)) {
+-            w |= 0x80000000LU;
+-        }
++        w = (int)s;
+         if (_Py_hashtable_set(p->hashtable, Py_NewRef(v),
+                               (void *)(uintptr_t)w) < 0) {
+             Py_DECREF(v);
+@@ -435,27 +428,6 @@
+ }
+ 
+ static void
+-w_complete(PyObject *v, WFILE *p)
+-{
+-    if (p->version < 3 || p->hashtable == NULL) {
+-        return;
+-    }
+-    if (_PyObject_IsUniquelyReferenced(v)) {
+-        return;
+-    }
+-
+-    _Py_hashtable_entry_t *entry = _Py_hashtable_get_entry(p->hashtable, v);
+-    if (entry == NULL) {
+-        return;
+-    }
+-    assert(entry != NULL);
+-    uintptr_t w = (uintptr_t)entry->value;
+-    assert(w & 0x80000000LU);
+-    w &= ~0x80000000LU;
+-    entry->value = (void *)(uintptr_t)w;
+-}
+-
+-static void
+ w_complex_object(PyObject *v, char flag, WFILE *p);
+ 
+ static void
+@@ -628,9 +600,6 @@
+             w_object(value, p);
+         }
+         w_object((PyObject *)NULL, p);
+-        if (PyFrozenDict_CheckExact(v)) {
+-            w_complete(v, p);
+-        }
+     }
+     else if (PyAnySet_CheckExact(v)) {
+         PyObject *value;
+@@ -741,7 +710,6 @@
+         w_object(co->co_linetable, p);
+         w_object(co->co_exceptiontable, p);
+         Py_DECREF(co_code);
+-        w_complete(v, p);
+     }
+     else if (PyObject_CheckBuffer(v)) {
+         /* Write unknown bytes-like objects as a bytes object */
+@@ -767,7 +735,6 @@
+         w_object(slice->start, p);
+         w_object(slice->stop, p);
+         w_object(slice->step, p);
+-        w_complete(v, p);
+     }
+     else {
+         W_TYPE(TYPE_UNKNOWN, p);

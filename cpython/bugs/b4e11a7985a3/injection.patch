@@ -1,0 +1,36 @@
+--- a/Modules/_ctypes/_ctypes.c
++++ b/Modules/_ctypes/_ctypes.c
+@@ -2584,31 +2584,23 @@
+     parg->obj = fd->setfunc(&parg->value, value, info->size);
+     if (parg->obj)
+         return (PyObject *)parg;
+-    PyObject *exc = PyErr_GetRaisedException();
++    PyErr_Clear();
+     Py_DECREF(parg);
+ 
+     if (PyObject_GetOptionalAttr(value, &_Py_ID(_as_parameter_), &as_parameter) < 0) {
+-        Py_XDECREF(exc);
+         return NULL;
+     }
+     if (as_parameter) {
+         if (_Py_EnterRecursiveCall(" while processing _as_parameter_")) {
+             Py_DECREF(as_parameter);
+-            Py_XDECREF(exc);
+             return NULL;
+         }
+         value = PyCSimpleType_from_param_impl(type, cls, as_parameter);
+         Py_DECREF(as_parameter);
+-        Py_XDECREF(exc);
+         _Py_LeaveRecursiveCall();
+         return value;
+     }
+-    if (exc) {
+-        PyErr_SetRaisedException(exc);
+-    }
+-    else {
+-        PyErr_SetString(PyExc_TypeError, "wrong type");
+-    }
++    PyErr_SetString(PyExc_TypeError, "wrong type");
+     return NULL;
+ }
+ 

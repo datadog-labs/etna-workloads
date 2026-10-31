@@ -1,0 +1,36 @@
+--- a/Python/bytecodes.c
++++ b/Python/bytecodes.c
+@@ -3240,7 +3240,9 @@
+             if (oparg & 16) {
+                 int res_bool = PyObject_IsTrue(res_o);
+                 Py_DECREF(res_o);
+-                ERROR_IF(res_bool < 0);
++                if (res_bool < 0) {
++                    goto pop_2_error;
++                }
+                 res = res_bool ? PyStackRef_True : PyStackRef_False;
+             }
+             else {
+--- a/Python/executor_cases.c.h
++++ b/Python/executor_cases.c.h
+@@ -13256,8 +13256,7 @@
+                 Py_DECREF(res_o);
+                 stack_pointer = _PyFrame_GetStackPointer(frame);
+                 if (res_bool < 0) {
+-                    SET_CURRENT_CACHED_VALUES(0);
+-                    JUMP_TO_ERROR();
++                    JUMP_TO_LABEL(pop_2_error);
+                 }
+                 res = res_bool ? PyStackRef_True : PyStackRef_False;
+             }
+--- a/Python/generated_cases.c.h
++++ b/Python/generated_cases.c.h
+@@ -5059,7 +5059,7 @@
+                     Py_DECREF(res_o);
+                     stack_pointer = _PyFrame_GetStackPointer(frame);
+                     if (res_bool < 0) {
+-                        JUMP_TO_LABEL(error);
++                        JUMP_TO_LABEL(pop_2_error);
+                     }
+                     res = res_bool ? PyStackRef_True : PyStackRef_False;
+                 }

@@ -1,0 +1,1 @@
+repro.py calls socket.setsockopt with an oversized int, a dict, None without optlen, and bytes with optlen. Clean raises OverflowError / the specific TypeErrors; buggy (arg-parsing rewrite) raises generic 'a bytes-like object is required' TypeErrors and the wrong OverflowError->TypeError.

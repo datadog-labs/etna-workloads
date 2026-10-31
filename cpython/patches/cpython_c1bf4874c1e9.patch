@@ -1,0 +1,36 @@
+--- a/Include/cpython/code.h
++++ b/Include/cpython/code.h
+@@ -157,7 +157,7 @@
+ */
+ #define PY_PARSER_REQUIRES_FUTURE_KEYWORD
+ 
+-#define CO_MAXBLOCKS 21 /* Max static block nesting within a function */
++#define CO_MAXBLOCKS 20 /* Max static block nesting within a function */
+ 
+ PyAPI_DATA(PyTypeObject) PyCode_Type;
+ 
+--- a/Python/codegen.c
++++ b/Python/codegen.c
+@@ -1395,22 +1395,12 @@
+         RETURN_IF_ERROR(idx < 0 ? ERROR : SUCCESS);
+     }
+ 
+-    NEW_JUMP_TARGET_LABEL(c, start);
+-    USE_LABEL(c, start);
+     bool add_stopiteration_handler = ste->ste_coroutine || ste->ste_generator;
+-    if (add_stopiteration_handler) {
+-        /* codegen_wrap_in_stopiteration_handler will push a block, so we need to account for that */
+-        RETURN_IF_ERROR(
+-            _PyCompile_PushFBlock(c, NO_LOCATION, COMPILE_FBLOCK_STOP_ITERATION,
+-                                  start, NO_LABEL, NULL));
+-    }
+-
+     for (Py_ssize_t i = first_instr; i < asdl_seq_LEN(body); i++) {
+         VISIT(c, stmt, (stmt_ty)asdl_seq_GET(body, i));
+     }
+     if (add_stopiteration_handler) {
+         RETURN_IF_ERROR(codegen_wrap_in_stopiteration_handler(c));
+-        _PyCompile_PopFBlock(c, COMPILE_FBLOCK_STOP_ITERATION, start);
+     }
+     return SUCCESS;
+ }

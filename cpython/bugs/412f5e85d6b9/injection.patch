@@ -1,0 +1,21 @@
+--- a/Python/instrumentation.c
++++ b/Python/instrumentation.c
+@@ -764,7 +764,7 @@
+     if (opcode == INSTRUMENTED_INSTRUCTION) {
+         opcode_ptr = &monitoring->per_instruction_opcodes[i];
+         opcode = *opcode_ptr;
+-        CHECK(opcode != INSTRUMENTED_INSTRUCTION && opcode != INSTRUMENTED_LINE);
++        CHECK(!is_instrumented(opcode));
+         CHECK(opcode == _PyOpcode_Deopt[opcode]);
+     }
+     CHECK(opcode != 0);
+@@ -1508,9 +1508,6 @@
+         if (opcode == INSTRUMENTED_LINE) {
+             opcode = _PyCode_GetOriginalOpcode(code->_co_monitoring->lines, i);
+         }
+-        if (opcode == INSTRUMENTED_INSTRUCTION) {
+-            opcode = code->_co_monitoring->per_instruction_opcodes[i];
+-        }
+         bool instrumented = is_instrumented(opcode);
+         if (instrumented) {
+             opcode = DE_INSTRUMENT[opcode];

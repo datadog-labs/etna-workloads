@@ -1,0 +1,1 @@
+Reproducer: HTTPResponse with Content-Length 10**12 and a 3-byte body, tracing the sizes passed to the underlying fp.read(). Clean caps the first read at 1 MiB (_MIN_READ_BUF_SIZE) and then raises IncompleteRead; buggy requests the full 10**12 bytes in one read (overallocation risk).

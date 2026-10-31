@@ -1,0 +1,25 @@
+--- a/Lib/typing.py
++++ b/Lib/typing.py
+@@ -2133,17 +2133,11 @@
+                 break
+ 
+             # ...or in annotations, if it is a sub-protocol.
+-            if issubclass(other, Generic) and getattr(other, "_is_protocol", False):
+-                # We avoid the slower path through annotationlib here because in most
+-                # cases it should be unnecessary.
+-                try:
+-                    annos = base.__annotations__
+-                except Exception:
+-                    annos = annotationlib.get_annotations(
+-                        base, format=annotationlib.Format.FORWARDREF
+-                    )
+-                if attr in annos:
+-                    break
++            annotations = getattr(base, '__annotations__', {})
++            if (isinstance(annotations, collections.abc.Mapping) and
++                    attr in annotations and
++                    issubclass(other, Generic) and getattr(other, '_is_protocol', False)):
++                break
+         else:
+             return NotImplemented
+     return True

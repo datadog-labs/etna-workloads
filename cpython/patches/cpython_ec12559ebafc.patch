@@ -1,0 +1,65 @@
+--- a/Lib/json/encoder.py
++++ b/Lib/json/encoder.py
+@@ -339,6 +339,7 @@
+             _current_indent_level += 1
+             newline_indent = '\n' + _indent * _current_indent_level
+             item_separator = _item_separator + newline_indent
++            yield newline_indent
+         else:
+             newline_indent = None
+             item_separator = _item_separator
+@@ -371,8 +372,6 @@
+                                 f'not {key.__class__.__name__}')
+             if first:
+                 first = False
+-                if newline_indent is not None:
+-                    yield newline_indent
+             else:
+                 yield item_separator
+             yield _encoder(key)
+@@ -405,7 +404,7 @@
+             except BaseException as exc:
+                 exc.add_note(f'when serializing {type(dct).__name__} item {key!r}')
+                 raise
+-        if not first and newline_indent is not None:
++        if newline_indent is not None:
+             _current_indent_level -= 1
+             yield '\n' + _indent * _current_indent_level
+         yield '}'
+--- a/Modules/_json.c
++++ b/Modules/_json.c
+@@ -1705,12 +1705,6 @@
+ 
+     if (*first) {
+         *first = false;
+-        if (s->indent != Py_None) {
+-            if (write_newline_indent(writer, indent_level, indent_cache) < 0) {
+-                Py_DECREF(keystr);
+-                return -1;
+-            }
+-        }
+     }
+     else {
+         if (PyUnicodeWriter_WriteStr(writer, item_separator) < 0) {
+@@ -1832,8 +1826,11 @@
+     if (s->indent != Py_None) {
+         indent_level++;
+         separator = get_item_separator(s, indent_level, indent_cache);
+-        if (separator == NULL)
++        if (separator == NULL ||
++            write_newline_indent(writer, indent_level, indent_cache) < 0)
++        {
+             goto bail;
++        }
+     }
+ 
+     if (s->sort_keys || !PyAnyDict_CheckExact(dct)) {
+@@ -1869,7 +1866,7 @@
+             goto bail;
+         Py_CLEAR(ident);
+     }
+-    if (s->indent != Py_None && !first) {
++    if (s->indent != Py_None) {
+         indent_level--;
+         if (write_newline_indent(writer, indent_level, indent_cache) < 0) {
+             goto bail;

@@ -1,0 +1,87 @@
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -1665,10 +1665,10 @@
+ }
+ 
+ static int
+-fd_and_follow_symlinks_invalid(const char *function_name, int is_fd,
++fd_and_follow_symlinks_invalid(const char *function_name, int fd,
+                                int follow_symlinks)
+ {
+-    if (is_fd && (!follow_symlinks)) {
++    if ((fd > 0) && (!follow_symlinks)) {
+         PyErr_Format(PyExc_ValueError,
+                      "%s: cannot use fd and follow_symlinks together",
+                      function_name);
+@@ -2923,7 +2923,7 @@
+ 
+     if (path_and_dir_fd_invalid("stat", path, dir_fd) ||
+         dir_fd_and_fd_invalid("stat", dir_fd, path->fd) ||
+-        fd_and_follow_symlinks_invalid("stat", path->is_fd, follow_symlinks))
++        fd_and_follow_symlinks_invalid("stat", path->fd, follow_symlinks))
+         return NULL;
+ 
+     Py_BEGIN_ALLOW_THREADS
+@@ -3693,7 +3693,7 @@
+ {
+     if (path_and_dir_fd_invalid("statx", path, dir_fd) ||
+         dir_fd_and_fd_invalid("statx", dir_fd, path->fd) ||
+-        fd_and_follow_symlinks_invalid("statx", path->is_fd, follow_symlinks)) {
++        fd_and_follow_symlinks_invalid("statx", path->fd, follow_symlinks)) {
+         return NULL;
+     }
+ 
+@@ -4562,7 +4562,7 @@
+         return NULL;
+ #endif
+     if (dir_fd_and_fd_invalid("chown", dir_fd, path->fd) ||
+-        fd_and_follow_symlinks_invalid("chown", path->is_fd, follow_symlinks))
++        fd_and_follow_symlinks_invalid("chown", path->fd, follow_symlinks))
+         return NULL;
+ 
+     if (PySys_Audit("os.chown", "OIIi", path->object, uid, gid,
+@@ -7188,7 +7188,7 @@
+ 
+     if (path_and_dir_fd_invalid("utime", path, dir_fd) ||
+         dir_fd_and_fd_invalid("utime", dir_fd, path->fd) ||
+-        fd_and_follow_symlinks_invalid("utime", path->is_fd, follow_symlinks))
++        fd_and_follow_symlinks_invalid("utime", path->fd, follow_symlinks))
+         return NULL;
+ 
+ #if !defined(HAVE_UTIMENSAT)
+@@ -15574,7 +15574,7 @@
+                  int follow_symlinks)
+ /*[clinic end generated code: output=5f2f44200a43cff2 input=db1021ed738d9754]*/
+ {
+-    if (fd_and_follow_symlinks_invalid("getxattr", path->is_fd, follow_symlinks))
++    if (fd_and_follow_symlinks_invalid("getxattr", path->fd, follow_symlinks))
+         return NULL;
+ 
+     if (PySys_Audit("os.getxattr", "OO", path->object, attribute->object) < 0) {
+@@ -15645,7 +15645,7 @@
+ {
+     ssize_t result;
+ 
+-    if (fd_and_follow_symlinks_invalid("setxattr", path->is_fd, follow_symlinks))
++    if (fd_and_follow_symlinks_invalid("setxattr", path->fd, follow_symlinks))
+         return NULL;
+ 
+     if (PySys_Audit("os.setxattr", "OOy#i", path->object, attribute->object,
+@@ -15699,7 +15699,7 @@
+ {
+     ssize_t result;
+ 
+-    if (fd_and_follow_symlinks_invalid("removexattr", path->is_fd, follow_symlinks))
++    if (fd_and_follow_symlinks_invalid("removexattr", path->fd, follow_symlinks))
+         return NULL;
+ 
+     if (PySys_Audit("os.removexattr", "OO", path->object, attribute->object) < 0) {
+@@ -15749,7 +15749,7 @@
+     const char *name;
+     char *buffer = NULL;
+ 
+-    if (fd_and_follow_symlinks_invalid("listxattr", path->is_fd, follow_symlinks))
++    if (fd_and_follow_symlinks_invalid("listxattr", path->fd, follow_symlinks))
+         goto exit;
+ 
+     if (PySys_Audit("os.listxattr", "(O)",

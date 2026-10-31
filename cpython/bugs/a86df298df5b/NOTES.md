@@ -1,0 +1,1 @@
+Reproducer calls shutil.make_archive('out','tar',root_dir) with a nonexistent path and a regular file, with dry_run False/True. Clean raises FileNotFoundError/NotADirectoryError and creates no archive; buggy skips the root_dir check (no error in dry_run, or different error / empty archive created).

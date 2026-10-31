@@ -1,0 +1,1 @@
+repro.py: two Condition consumers; notify(1) then cancel the woken one before it runs. Clean prints 'state 0' (notify handed to the other consumer); buggy prints 'state 1' (wakeup lost, item never consumed).

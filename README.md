@@ -8,6 +8,7 @@ re-injected into a fixed release as patches, for evaluating testing tools.
 |---|---|---|---|---|
 | [`sqlite/`](sqlite) | SQLite 3.54.1 | Public domain | 1,300 | injection patches (also [Marauders](https://github.com/alpaylan/marauders) patch variants), upstream test oracles, 1,216 standalone reproducers, and the mining pipeline |
 | [`valkey/`](valkey) | Valkey 9.0.7 | BSD-3-Clause | 176 | injection patches (also Marauders patch variants), upstream test oracles, 173 standalone reproducers; mined with the pipeline in `sqlite/tool/` (`ETNA_KIND=valkey`) |
+| [`cpython/`](cpython) | CPython 3.15.2 | PSF-2.0 | 1,076 | injection patches in C and Python (also Marauders patch variants), upstream test oracles, 1,035 standalone reproducers; mined with the pipeline in `sqlite/tool/` (`ETNA_KIND=cpython`) |
 
 ## Licensing
 

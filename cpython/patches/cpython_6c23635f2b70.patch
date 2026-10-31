@@ -1,0 +1,38 @@
+--- a/Lib/asyncio/taskgroups.py
++++ b/Lib/asyncio/taskgroups.py
+@@ -57,13 +57,14 @@
+         if self._entered:
+             raise RuntimeError(
+                 f"TaskGroup {self!r} has already been entered")
++        self._entered = True
++
+         if self._loop is None:
+             self._loop = events.get_running_loop()
+         self._parent_task = tasks.current_task(self._loop)
+         if self._parent_task is None:
+             raise RuntimeError(
+                 f'TaskGroup {self!r} cannot determine the parent task')
+-        self._entered = True
+         if self._cancel_on_enter:
+             self.cancel()
+ 
+--- a/Lib/asyncio/timeouts.py
++++ b/Lib/asyncio/timeouts.py
+@@ -82,14 +82,11 @@
+         return f"<Timeout [{self._state.value}]{info_str}>"
+ 
+     async def __aenter__(self) -> "Timeout":
+-        if self._state is not _State.CREATED:
+-            raise RuntimeError("Timeout has already been entered")
+-        task = tasks.current_task()
+-        if task is None:
+-            raise RuntimeError("Timeout should be used inside a task")
+         self._state = _State.ENTERED
+-        self._task = task
++        self._task = tasks.current_task()
+         self._cancelling = self._task.cancelling()
++        if self._task is None:
++            raise RuntimeError("Timeout should be used inside a task")
+         self.reschedule(self._when)
+         return self
+ 

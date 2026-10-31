@@ -1,0 +1,54 @@
+--- a/Include/internal/pycore_magic_number.h
++++ b/Include/internal/pycore_magic_number.h
+@@ -297,6 +297,7 @@
+     Python 3.15a8 3664 (Fix __qualname__ for __annotate__ functions)
+     Python 3.15a8 3665 (Add FOR_ITER_VIRTUAL and GET_ITER specializations)
+     Python 3.15b1 3666 (Add SEND_VIRTUAL and SEND_ASYNC_GEN specializations)
++    Python 3.15b1 3667 (Fix missing exception handlers in logical expression)
+ 
+ 
+     Python 3.16 will start with 3700
+@@ -310,7 +311,7 @@
+ 
+ */
+ 
+-#define PYC_MAGIC_NUMBER 3666
++#define PYC_MAGIC_NUMBER 3667
+ /* This is equivalent to converting PYC_MAGIC_NUMBER to 2 bytes
+    (little-endian) and then appending b'\r\n'. */
+ #define PYC_MAGIC_NUMBER_TOKEN \
+--- a/Python/flowgraph.c
++++ b/Python/flowgraph.c
+@@ -3616,13 +3616,11 @@
+                 instr->i_opcode = instr->i_opcode == JUMP_IF_FALSE ?
+                                           POP_JUMP_IF_FALSE : POP_JUMP_IF_TRUE;
+                 location loc = instr->i_loc;
+-                basicblock *except = instr->i_except;
+                 cfg_instr copy = {
+                             .i_opcode = COPY,
+                             .i_oparg = 1,
+                             .i_loc = loc,
+                             .i_target = NULL,
+-                            .i_except = except,
+                 };
+                 RETURN_IF_ERROR(basicblock_insert_instruction(b, i++, &copy));
+                 cfg_instr to_bool = {
+@@ -3630,7 +3628,6 @@
+                             .i_oparg = 0,
+                             .i_loc = loc,
+                             .i_target = NULL,
+-                            .i_except = except,
+                 };
+                 RETURN_IF_ERROR(basicblock_insert_instruction(b, i++, &to_bool));
+             }
+--- a/Python/import.c
++++ b/Python/import.c
+@@ -2755,7 +2755,7 @@
+ /* the magic number */
+ /********************/
+ 
+-/* Helper for pythonrun.c -- return magic number and tag. */
++/* Helper for pythonrun.c -- return magic number and tag (see pycore_magic_number.h). */
+ 
+ long
+ PyImport_GetMagicNumber(void)

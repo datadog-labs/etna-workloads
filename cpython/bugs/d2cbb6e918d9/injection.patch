@@ -1,0 +1,22 @@
+--- a/Modules/_asynciomodule.c
++++ b/Modules/_asynciomodule.c
+@@ -2281,16 +2281,18 @@
+         return NULL;
+     }
+ 
+-    /* transfer ownership to avoid redundant ref counting */
+     PyObject *prev_task = ts->asyncio_running_task;
+     if (task != Py_None) {
+         ts->asyncio_running_task = Py_NewRef(task);
+     } else {
+         ts->asyncio_running_task = NULL;
+     }
++    /* the running task slot no longer holds a reference to prev_task */
++    Py_XDECREF(prev_task);
+     if (prev_task == NULL) {
+         Py_RETURN_NONE;
+     }
++    Py_INCREF(prev_task);
+     return prev_task;
+ }
+ 

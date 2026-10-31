@@ -1,0 +1,55 @@
+--- a/Lib/asyncio/futures.py
++++ b/Lib/asyncio/futures.py
+@@ -79,10 +79,6 @@
+         loop object used by the future. If it's not provided, the future uses
+         the default event loop.
+         """
+-        if self._loop is not None:
+-            raise RuntimeError(f"{self.__class__.__name__} object is already "
+-                                "initialized")
+-
+         if loop is None:
+             self._loop = events.get_event_loop()
+         else:
+--- a/Modules/_asynciomodule.c
++++ b/Modules/_asynciomodule.c
+@@ -499,13 +499,21 @@
+ static int
+ future_init(FutureObj *fut, PyObject *loop)
+ {
+-    if (fut->fut_loop != NULL) {
+-        PyErr_Format(PyExc_RuntimeError, "%T object is already initialized", fut);
+-        return -1;
+-    }
+-
+     PyObject *res;
+     int is_true;
++
++    Py_CLEAR(fut->fut_loop);
++    Py_CLEAR(fut->fut_callback0);
++    Py_CLEAR(fut->fut_context0);
++    Py_CLEAR(fut->fut_callbacks);
++    Py_CLEAR(fut->fut_result);
++    Py_CLEAR(fut->fut_exception);
++    Py_CLEAR(fut->fut_exception_tb);
++    Py_CLEAR(fut->fut_source_tb);
++    Py_CLEAR(fut->fut_cancel_msg);
++    Py_CLEAR(fut->fut_cancelled_exc);
++    Py_CLEAR(fut->fut_awaited_by);
++
+     fut->fut_state = STATE_PENDING;
+     fut->fut_log_tb = 0;
+     fut->fut_blocking = 0;
+@@ -3014,7 +3022,11 @@
+         return -1;
+     }
+ 
+-    int ret = call_soon(state, task->task_loop, cb, NULL, task->task_context);
++    // Beware: An evil call_soon could alter task_context.
++    // See: https://github.com/python/cpython/issues/126080.
++    PyObject *task_context = Py_NewRef(task->task_context);
++    int ret = call_soon(state, task->task_loop, cb, NULL, task_context);
++    Py_DECREF(task_context);
+     Py_DECREF(cb);
+     return ret;
+ }

@@ -1,0 +1,41 @@
+--- a/Python/crossinterp.c
++++ b/Python/crossinterp.c
+@@ -217,10 +217,21 @@
+     assert(main->cached.loaded != NULL);
+ 
+     assert(main_mod_matches(main->cached.module));
+-    if (_PyImport_SetModule(&_Py_ID(__main__), main->cached.loaded) < 0) {
++    // Set the missing attributes on the actual __main__ module.
++    PyObject *ns = PyModule_GetDict(main->cached.module);
++    PyObject *loaded_ns = PyModule_GetDict(main->cached.loaded);
++    if (ns == NULL || loaded_ns == NULL) {
+         sync_module_capture_exc(tstate, main);
+         return -1;
+     }
++    PyObject *key, *value;
++    Py_ssize_t pos = 0;
++    while (PyDict_Next(loaded_ns, &pos, &key, &value)) {
++        if (PyDict_SetDefault(ns, key, value) == NULL) {
++            sync_module_capture_exc(tstate, main);
++            return -1;
++        }
++    }
+     return 0;
+ }
+ 
+@@ -230,14 +241,7 @@
+     assert(main->cached.failed == NULL);
+     assert(main->cached.module != NULL);
+     assert(main->cached.loaded != NULL);
+-    PyObject *exc = _PyErr_GetRaisedException(tstate);
+-    assert(main_mod_matches(main->cached.loaded));
+-    int res = _PyImport_SetModule(&_Py_ID(__main__), main->cached.module);
+-    assert(res == 0);
+-    if (res < 0) {
+-        PyErr_FormatUnraisable("Exception ignored while restoring __main__");
+-    }
+-    _PyErr_SetRaisedException(tstate, exc);
++    // The attributes were set on the actual __main__, so nothing to restore.
+ }
+ 
+ 

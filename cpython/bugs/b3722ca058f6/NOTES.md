@@ -1,0 +1,1 @@
+repro.py raises StopIteration (and a subclass) inside a @contextmanager with-block and prints the traceback frames. Clean: only the <module> frame. Buggy: an extra ('f', 'yield') frame, because the traceback is restored on the wrong exception object in contextlib's __exit__.

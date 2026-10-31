@@ -1,0 +1,2 @@
+repro.py: a class whose `__dir__` returns non-string entries (`['bar', 1, None]`); formats an AttributeError for `A().baz` via `traceback.TracebackException`.
+Clean: prints the "Did you mean '.bar' instead of '.baz'?" suggestion. Buggy: the suggestion is missing, because the non-string candidates make the suggestion code fail and the error is swallowed (the injection removed the `isinstance(x, str)` filter).

@@ -1,0 +1,63 @@
+--- a/Include/internal/pycore_instruments.h
++++ b/Include/internal/pycore_instruments.h
+@@ -61,6 +61,10 @@
+     _PyInterpreterFrame *frame, _Py_CODEUNIT *instr, PyObject *arg0, PyObject *arg1);
+ 
+ PyAPI_FUNC(void)
++_Py_call_instrumentation_exc0(PyThreadState *tstate, int event,
++    _PyInterpreterFrame *frame, _Py_CODEUNIT *instr);
++
++PyAPI_FUNC(void)
+ _Py_call_instrumentation_exc2(PyThreadState *tstate, int event,
+     _PyInterpreterFrame *frame, _Py_CODEUNIT *instr, PyObject *arg0, PyObject *arg1);
+ 
+--- a/Python/ceval.h
++++ b/Python/ceval.h
+@@ -396,7 +396,7 @@
+     if (no_tools_for_local_event(tstate, frame, PY_MONITORING_EVENT_PY_THROW)) {
+         return;
+     }
+-    do_monitor_exc(tstate, frame, instr, PY_MONITORING_EVENT_PY_THROW);
++    _Py_call_instrumentation_exc0(tstate, PY_MONITORING_EVENT_PY_THROW, frame, instr);
+ }
+ 
+ static void
+--- a/Python/instrumentation.c
++++ b/Python/instrumentation.c
+@@ -1312,6 +1312,16 @@
+     assert(_PyErr_Occurred(tstate));
+ }
+ 
++void
++_Py_call_instrumentation_exc0(
++    PyThreadState *tstate, int event,
++    _PyInterpreterFrame *frame, _Py_CODEUNIT *instr)
++{
++    assert(_PyErr_Occurred(tstate));
++    PyObject *args[3] = { NULL, NULL, NULL };
++    call_instrumentation_vector_protected(tstate, event, frame, instr, 2, args);
++}
++
+ Py_NO_INLINE void
+ _Py_call_instrumentation_exc2(
+     PyThreadState *tstate, int event,
+--- a/Python/legacy_tracing.c
++++ b/Python/legacy_tracing.c
+@@ -67,7 +67,7 @@
+ ) {
+     _PyLegacyEventHandler *self = _PyLegacyEventHandler_CAST(callable);
+     assert(kwnames == NULL);
+-    assert(PyVectorcall_NARGS(nargsf) == 3);
++    assert(PyVectorcall_NARGS(nargsf) == 2);
+     return call_profile_func(self, Py_None);
+ }
+ 
+@@ -246,7 +246,7 @@
+ ) {
+     _PyLegacyEventHandler *self = _PyLegacyEventHandler_CAST(callable);
+     assert(kwnames == NULL);
+-    assert(PyVectorcall_NARGS(nargsf) == 3);
++    assert(PyVectorcall_NARGS(nargsf) == 2);
+     return call_trace_func(self, Py_None);
+ }
+ 

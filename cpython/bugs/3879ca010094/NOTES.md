@@ -1,0 +1,1 @@
+repro.py: an ExceptionGroup subclass whose split() returns a non-tuple is caught with except*. Clean raises TypeError ('BadEG.split must return a tuple, not str'); buggy hits assert(PyTuple_CheckExact(pair)) in ceval.c and aborts (SIGABRT).

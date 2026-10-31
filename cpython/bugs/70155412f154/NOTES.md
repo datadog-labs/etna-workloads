@@ -1,0 +1,1 @@
+repro.py calls _ProactorBasePipeTransport._call_connection_lost on a stub transport whose socket reports fileno() == -1. Clean: shutdown() is skipped. Buggy: shutdown() is called on the invalid socket (prints 'shutdown called').

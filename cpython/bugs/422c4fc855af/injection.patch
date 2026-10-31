@@ -1,0 +1,66 @@
+--- a/Lib/_py_abc.py
++++ b/Lib/_py_abc.py
+@@ -92,12 +92,7 @@
+     def __instancecheck__(cls, instance):
+         """Override for isinstance(instance, cls)."""
+         # Inline the cache checking
+-        try:
+-            subclass = instance.__class__
+-        except AttributeError:
+-            # Fall back to the type when the instance has no __class__,
+-            # matching the behaviour of the built-in isinstance() (gh-153772).
+-            subclass = type(instance)
++        subclass = instance.__class__
+         if subclass in cls._abc_cache:
+             return True
+         subtype = type(instance)
+--- a/Lib/unittest/mock.py
++++ b/Lib/unittest/mock.py
+@@ -1535,11 +1535,13 @@
+                     # If we're patching out a class and there is a spec
+                     inherit = True
+ 
+-            # Determine the Klass to use
++            if spec is None and _is_async_obj(original):
++                Klass = AsyncMock
++            else:
++                Klass = MagicMock
++            _kwargs = {}
+             if new_callable is not None:
+                 Klass = new_callable
+-            elif spec is None and _is_async_obj(original):
+-                Klass = AsyncMock
+             elif spec is not None or spec_set is not None:
+                 this_spec = spec
+                 if spec_set is not None:
+@@ -1552,10 +1554,6 @@
+                     Klass = AsyncMock
+                 elif not_callable:
+                     Klass = NonCallableMagicMock
+-                else:
+-                    Klass = MagicMock
+-            else:
+-                Klass = MagicMock
+ 
+             _kwargs = {}
+             if spec is not None:
+--- a/Modules/_abc.c
++++ b/Modules/_abc.c
+@@ -629,15 +629,11 @@
+         return NULL;
+     }
+ 
+-    if (PyObject_GetOptionalAttr(instance, &_Py_ID(__class__), &subclass) < 0) {
++    subclass = PyObject_GetAttr(instance, &_Py_ID(__class__));
++    if (subclass == NULL) {
+         Py_DECREF(impl);
+         return NULL;
+     }
+-    if (subclass == NULL) {
+-        /* Fall back to the type when the instance has no __class__, matching
+-           the behaviour of the built-in isinstance() (gh-153772). */
+-        subclass = Py_NewRef((PyObject *)Py_TYPE(instance));
+-    }
+     /* Inline the cache checking. */
+     int incache = _in_weak_set(impl, &impl->_abc_cache, subclass);
+     if (incache < 0) {

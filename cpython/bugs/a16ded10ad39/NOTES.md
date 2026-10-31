@@ -1,0 +1,1 @@
+repro.py formats SyntaxErrors with non-standard metadata (SyntaxError('error','abcd'), (1,'a','b',2)) via traceback.format_exception_only. Clean returns formatted lines; buggy (isinstance checks on text/offset/end_offset removed) raises TypeError/AttributeError.

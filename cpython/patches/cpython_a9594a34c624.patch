@@ -1,0 +1,36 @@
+--- a/Include/internal/pycore_compile.h
++++ b/Include/internal/pycore_compile.h
+@@ -155,6 +155,7 @@
+ int _PyCompile_ResolveNameop(struct _PyCompiler *c, PyObject *mangled, int scope,
+                              _PyCompile_optype *optype, Py_ssize_t *arg);
+ 
++int _PyCompile_IsInteractive(struct _PyCompiler *c);
+ int _PyCompile_IsInteractiveTopLevel(struct _PyCompiler *c);
+ int _PyCompile_IsInInlinedComp(struct _PyCompiler *c);
+ int _PyCompile_ScopeType(struct _PyCompiler *c);
+--- a/Python/codegen.c
++++ b/Python/codegen.c
+@@ -1632,7 +1632,7 @@
+         ADDOP_N_IN_SCOPE(c, loc, STORE_DEREF, &_Py_ID(__conditional_annotations__), cellvars);
+     }
+     /* compile the body proper */
+-    RETURN_IF_ERROR_IN_SCOPE(c, codegen_body(c, loc, s->v.ClassDef.body, false));
++    RETURN_IF_ERROR_IN_SCOPE(c, codegen_body(c, loc, s->v.ClassDef.body, _PyCompile_IsInteractive(c)));
+     ADDOP_LOAD_CONST_NEW_IN_SCOPE(c, NO_LOCATION, _PyCompile_StaticAttributesAsTuple(c));
+     RETURN_IF_ERROR_IN_SCOPE(
+         c, codegen_nameop(c, NO_LOCATION, &_Py_ID(__static_attributes__), Store));
+--- a/Python/compile.c
++++ b/Python/compile.c
+@@ -1348,6 +1348,12 @@
+ }
+ 
+ int
++_PyCompile_IsInteractive(compiler *c)
++{
++    return c->c_interactive;
++}
++
++int
+ _PyCompile_IsInteractiveTopLevel(compiler *c)
+ {
+     assert(c->c_stack != NULL);

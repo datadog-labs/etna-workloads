@@ -1,0 +1,38 @@
+--- a/Lib/dataclasses.py
++++ b/Lib/dataclasses.py
+@@ -1025,11 +1025,8 @@
+     # Find our base classes in reverse MRO order, and exclude
+     # ourselves.  In reversed order so that more derived classes
+     # override earlier field definitions in base classes.  As long as
+-    # we're iterating over them, see if all or any of them are frozen.
++    # we're iterating over them, see if any are frozen.
+     any_frozen_base = False
+-    # By default `all_frozen_bases` is `None` to represent a case,
+-    # where some dataclasses does not have any bases with `_FIELDS`
+-    all_frozen_bases = None
+     has_dataclass_bases = False
+     for b in cls.__mro__[-1:0:-1]:
+         # Only process classes that have been processed by our
+@@ -1039,11 +1036,8 @@
+             has_dataclass_bases = True
+             for f in base_fields.values():
+                 fields[f.name] = f
+-            if all_frozen_bases is None:
+-                all_frozen_bases = True
+-            current_frozen = getattr(b, _PARAMS).frozen
+-            all_frozen_bases = all_frozen_bases and current_frozen
+-            any_frozen_base = any_frozen_base or current_frozen
++            if getattr(b, _PARAMS).frozen:
++                any_frozen_base = True
+ 
+     # Annotations defined specifically in this class (not in base classes).
+     #
+@@ -1114,7 +1108,7 @@
+                             'frozen one')
+ 
+         # Raise an exception if we're frozen, but none of our bases are.
+-        if all_frozen_bases is False and frozen:
++        if not any_frozen_base and frozen:
+             raise TypeError('cannot inherit frozen dataclass from a '
+                             'non-frozen one')
+ 

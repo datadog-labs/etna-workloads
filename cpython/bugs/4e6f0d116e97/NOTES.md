@@ -1,0 +1,1 @@
+repro.py calls _interpreters.set___main___attrs(interp, 1) and (interp, None). Clean raises TypeError (must be dict) for both; buggy raises TypeError 'has no len()' for int and SystemError (bad argument to internal function) for None.

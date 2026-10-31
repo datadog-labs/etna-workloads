@@ -1,0 +1,1 @@
+repro.py: calls bytearray.extend(A()) while an export of the bytearray exists, so a BufferError is pending when A.__release_buffer__ is invoked via bf_releasebuffer. Clean prints the BufferError; buggy aborts on assert(!PyErr_Occurred()) in type lookup (exit -6) because the active exception is no longer stashed during the Python call.

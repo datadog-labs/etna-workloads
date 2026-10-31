@@ -1,0 +1,1 @@
+Prints __module__/__name__/__qualname__ of weakref.ReferenceType, ProxyType, CallableProxyType. Clean: module 'weakref' and proper names; buggy: old tp_name values (e.g. 'weakproxy', module 'builtins').

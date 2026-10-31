@@ -1,0 +1,1 @@
+Reproducer: shutdown_default_executor(timeout=0.1) with a worker blocked ~1s. Clean: returns after timeout with RuntimeWarning, event not yet set. Buggy: await future ignores timeout, returns after the job finishes, no warning, event set.

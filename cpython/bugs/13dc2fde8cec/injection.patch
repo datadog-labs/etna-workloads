@@ -1,0 +1,30 @@
+--- a/Lib/http/server.py
++++ b/Lib/http/server.py
+@@ -302,7 +302,6 @@
+         error response has already been sent back.
+ 
+         """
+-        is_http_0_9 = False
+         self.command = None  # set in case of error on the first line
+         self.request_version = version = self.default_request_version
+         self.close_connection = True
+@@ -364,7 +363,6 @@
+                     HTTPStatus.BAD_REQUEST,
+                     "Bad HTTP/0.9 request type (%r)" % command)
+                 return False
+-            is_http_0_9 = True
+         self.command, self.path = command, path
+ 
+         # gh-87389: The purpose of replacing '//' with '/' is to protect
+@@ -374,11 +372,6 @@
+         if self.path.startswith('//'):
+             self.path = '/' + self.path.lstrip('/')  # Reduce to a single /
+ 
+-        # For HTTP/0.9, headers are not expected at all.
+-        if is_http_0_9:
+-            self.headers = {}
+-            return True
+-
+         # Examine the headers and look for a Connection directive.
+         try:
+             self.headers = http.client.parse_headers(self.rfile,

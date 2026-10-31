@@ -1,0 +1,41 @@
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -7663,7 +7663,6 @@
+                         PyObject *setsigdef, PyObject *scheduler,
+                         posix_spawnattr_t *attrp)
+ {
+-    assert(scheduler == NULL || scheduler == Py_None || PyTuple_Check(scheduler));
+     long all_flags = 0;
+ 
+     errno = posix_spawnattr_init(attrp);
+@@ -7672,7 +7671,7 @@
+         return -1;
+     }
+ 
+-    if (setpgroup && setpgroup != Py_None) {
++    if (setpgroup) {
+         pid_t pgid = PyLong_AsPid(setpgroup);
+         if (pgid == (pid_t)-1 && PyErr_Occurred()) {
+             goto fail;
+@@ -7745,7 +7744,7 @@
+     }
+ #endif
+ 
+-    if (scheduler && scheduler != Py_None) {
++    if (scheduler) {
+ #ifdef POSIX_SPAWN_SETSCHEDULER
+         PyObject *py_schedpolicy;
+         PyObject *schedparam_obj;
+@@ -7970,12 +7969,6 @@
+         goto exit;
+     }
+ 
+-    if (scheduler && !PyTuple_Check(scheduler) && scheduler != Py_None) {
+-        PyErr_Format(PyExc_TypeError,
+-                     "%s: scheduler must be a tuple or None", func_name);
+-        goto exit;
+-    }
+-
+     argvlist = parse_arglist(argv, &argc);
+     if (argvlist == NULL) {
+         goto exit;

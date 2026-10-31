@@ -1,0 +1,1 @@
+repro.py creates a task wrapping ag.aclose() (an async_generator_athrow awaitable, no cr_frame/gi_frame) and calls task.get_stack(). Clean prints []; buggy raises AttributeError ('gi_frame' missing) because _task_get_stack lost the fallback to ag_frame/None.

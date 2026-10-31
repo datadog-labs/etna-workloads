@@ -1,0 +1,50 @@
+--- a/Lib/_ast_unparse.py
++++ b/Lib/_ast_unparse.py
+@@ -51,13 +51,14 @@
+     output source code for the abstract syntax; original formatting
+     is disregarded."""
+ 
+-    def __init__(self):
++    def __init__(self, *, _avoid_backslashes=False):
+         self._source = []
+         self._precedences = {}
+         self._type_ignores = {}
+         self._indent = 0
+         self._in_try_star = False
+         self._in_interactive = False
++        self._avoid_backslashes = _avoid_backslashes
+ 
+     def interleave(self, inter, f, seq):
+         """Call f on each item in seq, calling inter() in between."""
+@@ -617,6 +618,11 @@
+ 
+     def _write_ftstring(self, values, prefix):
+         self.write(prefix)
++        if self._avoid_backslashes:
++            with self.buffered() as buffer:
++                for value in values:
++                    self._write_ftstring_inner(value)
++            return self._write_str_avoiding_backslashes("".join(buffer))
+         fstring_parts = []
+         for value in values:
+             with self.buffered() as buffer:
+@@ -654,7 +660,7 @@
+             raise ValueError(f"Unexpected node inside JoinedStr, {node!r}")
+ 
+     def _unparse_interpolation_value(self, inner):
+-        unparser = type(self)()
++        unparser = type(self)(_avoid_backslashes=True)
+         unparser.set_precedence(_Precedence.TEST.next(), inner)
+         return unparser.visit(inner)
+ 
+@@ -664,6 +670,10 @@
+                 expr = node.str
+             else:
+                 expr = self._unparse_interpolation_value(node.value)
++                if "\\" in expr:
++                    raise ValueError(
++                        "Unable to avoid backslash in f-string expression part"
++                    )
+             if expr.startswith("{"):
+                 # Separate pair of opening brackets as "{ {"
+                 self.write(" ")

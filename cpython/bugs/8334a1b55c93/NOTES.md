@@ -1,0 +1,1 @@
+repro.py: extended-slice assignment lst[::-1] = evil(lst), where the iterator clears lst after yielding. Clean: ValueError (slice length is computed after the value is consumed). Buggy: slice length is computed before, so the stale length matches and writes go out of bounds of the emptied list (assert/crash).

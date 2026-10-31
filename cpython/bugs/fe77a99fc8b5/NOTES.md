@@ -1,0 +1,1 @@
+Reproducer: defines a type alias via exec() with an empty globals dict (no `__name__`), then reads `__module__`. The function has no module, so `PyFunction_GetModule` returns NULL. Clean: prints `None`. Buggy: `Py_NewRef(NULL)` hits an assertion failure/crash in the debug build.

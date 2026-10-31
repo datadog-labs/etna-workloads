@@ -1,0 +1,22 @@
+--- a/Lib/threading.py
++++ b/Lib/threading.py
+@@ -262,8 +262,6 @@
+     # Internal method used for reentrancy checks
+ 
+     def _recursion_count(self):
+-        if self._owner != get_ident():
+-            return 0
+         return self._count
+ 
+ _PyRLock = _RLock
+--- a/Modules/_threadmodule.c
++++ b/Modules/_threadmodule.c
+@@ -1246,7 +1246,7 @@
+ _thread_RLock__recursion_count_impl(rlockobject *self)
+ /*[clinic end generated code: output=7993fb9695ef2c4d input=7fd1834cd7a4b044]*/
+ {
+-    if (_PyRecursiveMutex_IsLockedByCurrentThread(&self->lock)) {
++    if (PyMutex_IsLocked(&self->lock.mutex)) {
+         return PyLong_FromSize_t(self->lock.level + 1);
+     }
+     return PyLong_FromLong(0);

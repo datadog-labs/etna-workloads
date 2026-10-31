@@ -1,0 +1,1 @@
+repro.py matches three possessive-quantifier patterns with a nested alternative and capture group (gh-101955) against 'xyz'. Clean prints groups ('z', 'x') for each. Buggy raises SystemError 'The span of capturing group is wrong' for each.

@@ -1,0 +1,1 @@
+repro.py runs venv.create() with os.listxattr mocked and prints whether it was called. Clean: False (shutil.copy doesn't copy xattrs). Buggy: True (shutil.copy2 in install_scripts copies xattrs/SELinux context).

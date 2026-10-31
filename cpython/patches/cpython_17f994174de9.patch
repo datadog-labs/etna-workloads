@@ -1,0 +1,74 @@
+--- a/Python/bytecodes.c
++++ b/Python/bytecodes.c
+@@ -2230,15 +2230,20 @@
+                     err = -1;
+                 }
+             }
+-            PyStackRef_CLOSE(mod_or_class_dict);
+-            ERROR_IF(err < 0);
++            Py_DECREF(namespace);
++            if (err < 0) {
++                ERROR_NO_POP();
++            }
+             if (v_o == NULL) {
+                 _PyEval_LoadGlobalStackRef(GLOBALS(), BUILTINS(), name, &v);
+-                ERROR_IF(PyStackRef_IsNull(v));
++                if (PyStackRef_IsNull(v)) {
++                    ERROR_NO_POP();
++                }
+             }
+             else {
+                 v = PyStackRef_FromPyObjectSteal(v_o);
+             }
++            DEAD(mod_or_class_dict);
+         }
+ 
+         inst(LOAD_NAME, (-- v)) {
+--- a/Python/executor_cases.c.h
++++ b/Python/executor_cases.c.h
+@@ -10116,10 +10116,8 @@
+                     err = -1;
+                 }
+             }
+-            stack_pointer += -1;
+-            ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+             _PyFrame_SetStackPointer(frame, stack_pointer);
+-            PyStackRef_CLOSE(mod_or_class_dict);
++            Py_DECREF(namespace);
+             stack_pointer = _PyFrame_GetStackPointer(frame);
+             if (err < 0) {
+                 SET_CURRENT_CACHED_VALUES(0);
+@@ -10141,6 +10139,8 @@
+             _tos_cache1 = PyStackRef_ZERO_BITS;
+             _tos_cache2 = PyStackRef_ZERO_BITS;
+             SET_CURRENT_CACHED_VALUES(1);
++            stack_pointer += -1;
++            ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+             assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+             break;
+         }
+--- a/Python/generated_cases.c.h
++++ b/Python/generated_cases.c.h
+@@ -9576,10 +9576,8 @@
+                     err = -1;
+                 }
+             }
+-            stack_pointer += -1;
+-            ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+             _PyFrame_SetStackPointer(frame, stack_pointer);
+-            PyStackRef_CLOSE(mod_or_class_dict);
++            Py_DECREF(namespace);
+             stack_pointer = _PyFrame_GetStackPointer(frame);
+             if (err < 0) {
+                 JUMP_TO_LABEL(error);
+@@ -9595,9 +9593,7 @@
+             else {
+                 v = PyStackRef_FromPyObjectSteal(v_o);
+             }
+-            stack_pointer[0] = v;
+-            stack_pointer += 1;
+-            ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
++            stack_pointer[-1] = v;
+             DISPATCH();
+         }
+ 

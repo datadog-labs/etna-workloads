@@ -1,0 +1,47 @@
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -5042,7 +5042,7 @@
+ 
+     errno = 0;
+ #ifdef HAVE_FDOPENDIR
+-    if (path->is_fd) {
++    if (path->fd != -1) {
+       if (HAVE_FDOPENDIR_RUNTIME) {
+         /* closedir() closes the FD, so we duplicate it */
+         fd = _Py_dup(path->fd);
+@@ -15749,7 +15749,7 @@
+     const char *name;
+     char *buffer = NULL;
+ 
+-    if (fd_and_follow_symlinks_invalid("listxattr", path->is_fd, follow_symlinks))
++    if (fd_and_follow_symlinks_invalid("listxattr", path->fd, follow_symlinks))
+         goto exit;
+ 
+     if (PySys_Audit("os.listxattr", "(O)",
+@@ -15776,7 +15776,7 @@
+         }
+ 
+         Py_BEGIN_ALLOW_THREADS;
+-        if (path->is_fd)
++        if (path->fd > -1)
+             length = flistxattr(path->fd, buffer, buffer_size);
+         else if (follow_symlinks)
+             length = listxattr(name, buffer, buffer_size);
+@@ -17043,7 +17043,7 @@
+     if (dirp != NULL) {
+         Py_BEGIN_ALLOW_THREADS
+ #ifdef HAVE_FDOPENDIR
+-        if (iterator->path.is_fd) {
++        if (iterator->path.fd != -1) {
+             rewinddir(dirp);
+         }
+ #endif
+@@ -17310,7 +17310,7 @@
+ #else /* POSIX */
+     errno = 0;
+ #ifdef HAVE_FDOPENDIR
+-    if (iterator->path.is_fd) {
++    if (iterator->path.fd != -1) {
+       if (HAVE_FDOPENDIR_RUNTIME) {
+         /* closedir() closes the FD, so we duplicate it */
+         fd = _Py_dup(iterator->path.fd);

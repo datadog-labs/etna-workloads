@@ -1,0 +1,1 @@
+repro.py writes a small Makefile (CFLAGS/LDFLAGS/CPPFLAGS references, $$ escapes) and prints the result of sysconfig.__main__._parse_makefile. Clean: parsed dict. Buggy: KeyError 'PY_CPPFLAGS' (undefined CPPFLAGS reference), fixed upstream in gh-136097.

@@ -1,0 +1,63 @@
+--- a/Lib/profiling/sampling/heatmap_collector.py
++++ b/Lib/profiling/sampling/heatmap_collector.py
+@@ -431,13 +431,8 @@
+ 
+             # frames[0] is the leaf - where execution is actually happening
+             is_leaf = (i == 0)
+-            line_key = (filename, lineno)
+-            count_cumulative = line_key not in self._seen_lines
+-            if count_cumulative:
+-                self._seen_lines.add(line_key)
+-
+             self._record_line_sample(filename, lineno, funcname, is_leaf=is_leaf,
+-                                     count_cumulative=count_cumulative, weight=weight)
++                                     weight=weight)
+ 
+             if opcode is not None:
+                 # Set opcodes_enabled flag when we first encounter opcode data
+@@ -469,12 +464,11 @@
+         return True
+ 
+     def _record_line_sample(self, filename, lineno, funcname, is_leaf=False,
+-                            count_cumulative=True, weight=1):
++                            weight=1):
+         """Record a sample for a specific line."""
+         # Track cumulative samples (all occurrences in stack)
+-        if count_cumulative:
+-            self.line_samples[(filename, lineno)] += weight
+-            self.file_samples[filename][lineno] += weight
++        self.line_samples[(filename, lineno)] += weight
++        self.file_samples[filename][lineno] += weight
+ 
+         # Track self/leaf samples (only when at top of stack)
+         if is_leaf:
+--- a/Lib/profiling/sampling/live_collector/collector.py
++++ b/Lib/profiling/sampling/live_collector/collector.py
+@@ -320,11 +320,9 @@
+         for frame in frames:
+             lineno = extract_lineno(frame.location)
+             location = (frame.filename, lineno, frame.funcname)
+-            if location not in self._seen_locations:
+-                self._seen_locations.add(location)
+-                self.result[location]["cumulative_calls"] += 1
+-                if thread_data:
+-                    thread_data.result[location]["cumulative_calls"] += 1
++            self.result[location]["cumulative_calls"] += 1
++            if thread_data:
++                thread_data.result[location]["cumulative_calls"] += 1
+ 
+         # The top frame gets counted as an inline call (directly executing)
+         top_frame = frames[0]
+--- a/Lib/profiling/sampling/pstats_collector.py
++++ b/Lib/profiling/sampling/pstats_collector.py
+@@ -34,9 +34,7 @@
+         for frame in frames:
+             lineno = extract_lineno(frame.location)
+             location = (frame.filename, lineno, frame.funcname)
+-            if location not in self._seen_locations:
+-                self._seen_locations.add(location)
+-                self.result[location]["cumulative_calls"] += weight
++            self.result[location]["cumulative_calls"] += weight
+ 
+         # The top frame gets counted as an inline call (directly executing)
+         top_lineno = extract_lineno(frames[0].location)

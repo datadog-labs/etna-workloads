@@ -1,0 +1,1 @@
+repro.py compiles three snippets using `__classdict__` as a type parameter name. Clean raises SyntaxError ("reserved name '__classdict__' cannot be used for type parameter") for each. Buggy compiles them without error.

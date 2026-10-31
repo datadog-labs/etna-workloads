@@ -1,0 +1,1 @@
+repro.py calls _imp.get_frozen_object with invalid marshal data (from test_issue105979). Clean: raises ImportError "Frozen object named 'x' is invalid". Buggy: the unmarshal error is not cleared before set_frozen_error, so a debug assertion fails in PyObject_Repr (abort, exit -6).

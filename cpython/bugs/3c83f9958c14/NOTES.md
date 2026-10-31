@@ -1,0 +1,1 @@
+Reproducer: argparse positional with nargs='*' (no default) is wrongly marked required. Clean: error says 'required: bar' and a mutually exclusive group accepts the positional. Buggy: error says 'required: bar, baz' and add_argument to the group raises ValueError (mutually exclusive arguments must be optional).

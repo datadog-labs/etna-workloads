@@ -1,0 +1,32 @@
+--- a/Modules/_asynciomodule.c
++++ b/Modules/_asynciomodule.c
+@@ -2985,19 +2985,23 @@
+ static void
+ TaskObj_dealloc(PyObject *self)
+ {
+-    if (PyObject_CallFinalizerFromDealloc(self) < 0) {
+-        return; // resurrected
++    _PyObject_ResurrectStart(self);
++    // Unregister the task here so that even if any subclass of Task
++    // which doesn't end up calling TaskObj_finalize not crashes.
++    unregister_task((TaskObj *)self);
++
++    PyObject_CallFinalizer(self);
++
++    if (_PyObject_ResurrectEnd(self)) {
++        return;
+     }
++
+     // Untrack the object before unregistering the task, since the
+     // latter can cause a stop-the-world pause, after which another
+     // thread might call the GC and reach the object while it is
+     // semi-deallocated but still tracked
+     PyObject_GC_UnTrack(self);
+ 
+-    // unregister the task after finalization so that
+-    // if the task gets resurrected, it remains registered
+-    unregister_task((TaskObj *)self);
+-
+     PyTypeObject *tp = Py_TYPE(self);
+     PyObject_ClearWeakRefs(self);
+ 

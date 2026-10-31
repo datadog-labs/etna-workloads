@@ -1,0 +1,1 @@
+repro.py runs a list comprehension via interpreters.create().exec(). Clean prints 0123456789 (exit 0); buggy aborts on the re-added assert in _PyCode_CheckNoExternalState (hidden vars from the comprehension), exit -6.

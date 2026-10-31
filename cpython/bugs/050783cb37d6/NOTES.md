@@ -1,0 +1,2 @@
+Installs a SIGHUP handler that is a functools.partial holding an object with a counting `__repr__`, then restores the old handler (so `_int_to_enum` receives the partial as the previous handler).
+Clean prints `0`. Buggy prints `1`, because the injection removed the `isinstance(value, int)` check in `signal._int_to_enum`, so `Signals(value)`/`Handlers(value)` fails with ValueError whose message calls `repr()` on the handler.

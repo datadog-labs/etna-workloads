@@ -1,0 +1,67 @@
+--- a/Python/codegen.c
++++ b/Python/codegen.c
+@@ -4847,30 +4847,45 @@
+         long outsymbol = _PyST_GetSymbol(outer, k);
+         RETURN_IF_ERROR(outsymbol);
+         long outsc = SYMBOL_TO_SCOPE(outsymbol);
++        if (state->temp_symbols != NULL) {
++            // the outer scope of this name was overridden while tweaking the
++            // scopes; use the original outer scope
++            PyObject *origv = PyDict_GetItemWithError(state->temp_symbols, k);
++            if (origv == NULL && PyErr_Occurred()) {
++                return ERROR;
++            }
++            if (origv != NULL) {
++                long origsym = PyLong_AsLong(origv);
++                RETURN_IF_ERROR(origsym);
++                outsc = SYMBOL_TO_SCOPE(origsym);
++            }
++        }
+ 
+         if ((symbol & DEF_LOCAL && !(symbol & DEF_NONLOCAL)) || in_class_block) {
+-            // local names bound in comprehension must be isolated from
+-            // outer scope; push existing value (which may be NULL if
+-            // not defined) on stack
+-            if (state->pushed_locals == NULL) {
+-                state->pushed_locals = PyList_New(0);
++            if (outsc == LOCAL || outsc == CELL || outsc == FREE) {
++                // local names bound in comprehension must be isolated from
++                // outer scope; push existing value (which may be NULL if
++                // not defined) on stack
+                 if (state->pushed_locals == NULL) {
+-                    return ERROR;
++                    state->pushed_locals = PyList_New(0);
++                    if (state->pushed_locals == NULL) {
++                        return ERROR;
++                    }
+                 }
+-            }
+-            // in the case of a cell, this will actually push the cell
+-            // itself to the stack, then we'll create a new one for the
+-            // comprehension and restore the original one after
+-            ADDOP_NAME(c, loc, LOAD_FAST_AND_CLEAR, k, varnames);
+-            if (scope == CELL) {
+-                if (outsc == FREE) {
+-                    ADDOP_NAME(c, loc, MAKE_CELL, k, freevars);
+-                } else {
+-                    ADDOP_NAME(c, loc, MAKE_CELL, k, cellvars);
++                // in the case of a cell, this will actually push the cell
++                // itself to the stack, then we'll create a new one for the
++                // comprehension and restore the original one after
++                ADDOP_NAME(c, loc, LOAD_FAST_AND_CLEAR, k, varnames);
++                if (scope == CELL) {
++                    if (outsc == FREE) {
++                        ADDOP_NAME(c, loc, MAKE_CELL, k, freevars);
++                    } else {
++                        ADDOP_NAME(c, loc, MAKE_CELL, k, cellvars);
++                    }
++                }
++                if (PyList_Append(state->pushed_locals, k) < 0) {
++                    return ERROR;
+                 }
+-            }
+-            if (PyList_Append(state->pushed_locals, k) < 0) {
+-                return ERROR;
+             }
+         }
+     }
