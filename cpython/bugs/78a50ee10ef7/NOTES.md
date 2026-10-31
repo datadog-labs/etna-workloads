@@ -1,0 +1,1 @@
+repro.py renders pydoc text docs for json under warnings 'always'. Clean: no DeprecationWarning (pydoc suppresses it for stdlib modules via _get_version) and no VERSION section. Buggy: hasattr/__version__ access emits two DeprecationWarnings.

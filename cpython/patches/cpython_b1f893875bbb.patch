@@ -1,0 +1,48 @@
+--- a/Grammar/python.gram
++++ b/Grammar/python.gram
+@@ -457,11 +457,7 @@
+     | 'except' e=expression 'as' t=NAME ':' b=block {
+         _PyAST_ExceptHandler(e, ((expr_ty) t)->v.Name.id, b, EXTRA) }
+     | 'except' e=expressions ':' b=block {
+-        CHECK_VERSION(
+-            excepthandler_ty,
+-            14,
+-            "except expressions without parentheses are",
+-            _PyAST_ExceptHandler(e, NULL, b, EXTRA)) }
++        _PyAST_ExceptHandler(e, NULL, b, EXTRA) }
+     | 'except' ':' b=block { _PyAST_ExceptHandler(NULL, NULL, b, EXTRA) }
+     | invalid_except_stmt
+ except_star_block[excepthandler_ty]:
+@@ -471,11 +467,7 @@
+     | 'except' '*' e=expression 'as' t=NAME ':' b=block {
+         _PyAST_ExceptHandler(e, ((expr_ty) t)->v.Name.id, b, EXTRA) }
+     | 'except' '*' e=expressions ':' b=block {
+-        CHECK_VERSION(
+-            excepthandler_ty,
+-            14,
+-            "except expressions without parentheses are",
+-            _PyAST_ExceptHandler(e,  NULL, b, EXTRA)) }
++        _PyAST_ExceptHandler(e,  NULL, b, EXTRA) }
+     | invalid_except_star_stmt
+ finally_block[asdl_stmt_seq*]:
+     | invalid_finally_stmt
+--- a/Parser/parser.c
++++ b/Parser/parser.c
+@@ -7424,7 +7424,7 @@
+             UNUSED(_end_lineno); // Only used by EXTRA macro
+             int _end_col_offset = _token->end_col_offset;
+             UNUSED(_end_col_offset); // Only used by EXTRA macro
+-            _res = CHECK_VERSION ( excepthandler_ty , 14 , "except expressions without parentheses are" , _PyAST_ExceptHandler ( e , NULL , b , EXTRA ) );
++            _res = _PyAST_ExceptHandler ( e , NULL , b , EXTRA );
+             if ((_res == NULL || p->error_indicator) && PyErr_Occurred()) {
+                 p->error_indicator = 1;
+                 p->level--;
+@@ -7675,7 +7675,7 @@
+             UNUSED(_end_lineno); // Only used by EXTRA macro
+             int _end_col_offset = _token->end_col_offset;
+             UNUSED(_end_col_offset); // Only used by EXTRA macro
+-            _res = CHECK_VERSION ( excepthandler_ty , 14 , "except expressions without parentheses are" , _PyAST_ExceptHandler ( e , NULL , b , EXTRA ) );
++            _res = _PyAST_ExceptHandler ( e , NULL , b , EXTRA );
+             if ((_res == NULL || p->error_indicator) && PyErr_Occurred()) {
+                 p->error_indicator = 1;
+                 p->level--;

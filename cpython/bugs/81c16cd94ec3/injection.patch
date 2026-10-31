@@ -1,0 +1,43 @@
+--- a/Lib/tempfile.py
++++ b/Lib/tempfile.py
+@@ -269,10 +269,7 @@
+ 
+ def _dont_follow_symlinks(func, path, *args):
+     # Pass follow_symlinks=False, unless not supported on this platform.
+-    if func in _os.supports_follow_symlinks:
+-        func(path, *args, follow_symlinks=False)
+-    elif not _os.path.islink(path):
+-        func(path, *args)
++    func(path, *args)
+ 
+ def _resetflags(path):
+     try:
+@@ -314,27 +311,7 @@
+         _resetperms(path)
+         return
+     _resetflags(path)
+-    if _os.chmod in _os.supports_follow_symlinks:
+-        _os.chmod(name, 0o700, dir_fd=dir_fd, follow_symlinks=False)
+-    else:
+-        # dir_fd & follow_symlinks is not supported on this platform.
+-        # Try chmod opening the file with O_NOFOLLOW.
+-        if _nofollow_mode is not None:
+-            try:
+-                fd = _os.open(name, _nofollow_mode, dir_fd=dir_fd)
+-            except OSError:
+-                pass
+-            else:
+-                try:
+-                    _os.chmod(fd, 0o700)
+-                finally:
+-                    _os.close(fd)
+-                return
+-        # If that did not work, we change by name, which is subject to a race
+-        # condition.
+-        stat = _os.lstat(name, dir_fd=dir_fd)
+-        if not _stat.S_ISLNK(stat.st_mode):
+-            _os.chmod(name, 0o700, dir_fd=dir_fd)
++    _os.chmod(name, 0o700, dir_fd=dir_fd)
+ 
+ 
+ # User visible interfaces.

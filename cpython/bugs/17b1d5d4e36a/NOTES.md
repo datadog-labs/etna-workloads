@@ -1,0 +1,1 @@
+repro.py feeds a document with an external DTD to the default expat SAX parser and prints the external-ges feature and the resolver calls. Clean: prints 0 and []. Buggy: prints 1, then the parser tries to fetch the external DTD and raises URLError (default _external_ges flipped to 1).

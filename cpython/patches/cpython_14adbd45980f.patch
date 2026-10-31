@@ -1,0 +1,24 @@
+--- a/Modules/_functoolsmodule.c
++++ b/Modules/_functoolsmodule.c
+@@ -1240,10 +1240,8 @@
+     PyObject *key, *keyword, *value;
+     Py_ssize_t key_size, pos, key_pos, kwds_size;
+ 
+-    kwds_size = kwds ? PyDict_GET_SIZE(kwds) : 0;
+-
+     /* short path, key will match args anyway, which is a tuple */
+-    if (!typed && !kwds_size) {
++    if (!typed && !kwds) {
+         if (PyTuple_GET_SIZE(args) == 1) {
+             key = PyTuple_GET_ITEM(args, 0);
+             if (PyUnicode_CheckExact(key) || PyLong_CheckExact(key)) {
+@@ -1255,6 +1253,9 @@
+         return Py_NewRef(args);
+     }
+ 
++    kwds_size = kwds ? PyDict_GET_SIZE(kwds) : 0;
++    assert(kwds_size >= 0);
++
+     key_size = PyTuple_GET_SIZE(args);
+     if (kwds_size)
+         key_size += kwds_size * 2 + 1;

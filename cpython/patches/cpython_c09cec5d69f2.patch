@@ -1,0 +1,34 @@
+--- a/Python/ceval_gil.c
++++ b/Python/ceval_gil.c
+@@ -1278,7 +1278,7 @@
+                 pathsz);
+             path[pathsz - 1] = '\0';
+             if (*path) {
+-                PyObject *path_obj = PyUnicode_DecodeFSDefault(path);
++                PyObject *path_obj = PyUnicode_DecodeUTF8(path, strlen(path), NULL);
+                 if (path_obj == NULL) {
+                     PyErr_FormatUnraisable("Can't decode debugger script");
+                 }
+--- a/Python/sysmodule.c
++++ b/Python/sysmodule.c
+@@ -2501,7 +2501,7 @@
+     PyObject *path;
+     const char *debugger_script_path;
+ 
+-    if (PyUnicode_FSConverter(script, &path) == 0) {
++    if (PyUnicode_FSDecoder(script, &path) == 0) {
+         return NULL;
+     }
+ 
+@@ -2509,7 +2509,10 @@
+         goto error;
+     }
+ 
+-    debugger_script_path = PyBytes_AS_STRING(path);
++    debugger_script_path = PyUnicode_AsUTF8(path);
++    if (debugger_script_path == NULL) {
++        goto error;
++    }
+ #ifdef MS_WINDOWS
+     PyObject *unicode_path;
+     if (PyUnicode_FSDecoder(path, &unicode_path) < 0) {

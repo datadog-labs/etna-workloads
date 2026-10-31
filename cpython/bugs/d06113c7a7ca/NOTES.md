@@ -1,0 +1,1 @@
+repro.py makes the allocator fail (_testcapi.set_nomemory(0,1)) then calls _interpreters.create(). Clean: raises InterpreterError (prints it). Buggy: fatal error 'memory allocation failed' in _PyInterpreterState_New, exit 1.

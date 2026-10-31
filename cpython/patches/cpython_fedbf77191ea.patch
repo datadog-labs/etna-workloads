@@ -1,0 +1,19 @@
+--- a/Python/symtable.c
++++ b/Python/symtable.c
+@@ -840,12 +840,14 @@
+                 (_PyUnicode_EqualToASCIIString(k, "__class__") ||
+                  _PyUnicode_EqualToASCIIString(k, "__classdict__") ||
+                  _PyUnicode_EqualToASCIIString(k, "__conditional_annotations__"))) {
+-            scope = GLOBAL_IMPLICIT;
++            if (!_PyUnicode_EqualToASCIIString(k, "__class__")) {
++                scope = GLOBAL_IMPLICIT;
++            }
+             int child_needs_free = is_free_in_any_child(comp, k);
+             if (child_needs_free < 0) {
+                 return 0;
+             }
+-            if (!child_needs_free) {
++            if (!child_needs_free && !_PyUnicode_EqualToASCIIString(k, "__class__")) {
+                 if (PySet_Discard(comp_free, k) < 0) {
+                     return 0;
+                 }

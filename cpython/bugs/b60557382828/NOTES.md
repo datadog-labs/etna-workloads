@@ -1,0 +1,1 @@
+repro.py builds Address(addr_spec='wők@exàmple.com') and prints its fields. Clean: works and prints username/domain/addr_spec. Buggy: raises NonASCIILocalPartDefect (non-ASCII local-part wrongly treated as a defect).

@@ -1,0 +1,1 @@
+repro.py builds a message with non-ASCII 8bit body, a charset and no Content-Transfer-Encoding, then calls as_string(). Clean: output gains a quoted-printable CTE header. Buggy: generator calls replace_header on the missing header and raises KeyError.

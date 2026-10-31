@@ -1,0 +1,1 @@
+repro.py loads a cookie with an RFC 850 expires date ("Saturday, 01-Jan-83 00:00:00 GMT") via SimpleCookie. Clean parses it and prints the full date. Buggy regex only accepts 3-letter day names, so the cookie is dropped and c["key"] raises KeyError (exit 1).

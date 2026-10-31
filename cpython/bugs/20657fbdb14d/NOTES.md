@@ -1,0 +1,1 @@
+Calls `_thread._local.__setattr__` with a non-str name whose `__eq__` always returns True, so the `name == '__dict__'` check fires. The error message is formatted with `%R` on the clean build and raises AttributeError ("... read-only"). The buggy build uses `%U` on a non-str object, which hits an assertion failure or crash in a debug build.

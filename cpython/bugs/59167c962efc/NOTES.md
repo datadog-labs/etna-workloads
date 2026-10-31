@@ -1,0 +1,1 @@
+Reproducer: inspect.signature of a plain class with __init__(self, a, b). Clean prints (a, b); buggy prints (self, a, b) because __init__ is fetched with getattr (an unbound function) instead of getattr_static plus descriptor binding, so self isn't skipped.

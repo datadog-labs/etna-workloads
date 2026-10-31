@@ -1,0 +1,1 @@
+repro.py calls a function whose global lookup fails (globals is a dict subclass, so the slow path in _PyEval_LoadGlobalStackRef runs). Clean: prints the NameError. Buggy: aborts with assertion 'obj != NULL' in PyStackRef_FromPyObjectSteal because the NameError path no longer returns early.

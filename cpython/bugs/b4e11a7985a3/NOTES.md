@@ -1,0 +1,1 @@
+repro.py calls c_char.from_param(b'abc') and c_wchar.from_param('abc'). Clean prints the specific setfunc TypeError messages; buggy (PyErr_Clear instead of preserving the exception) prints the generic 'wrong type'.

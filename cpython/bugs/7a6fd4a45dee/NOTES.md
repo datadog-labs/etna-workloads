@@ -1,0 +1,1 @@
+repro.py execs module code combining a module-level annotation with a listcomp whose condition has a lambda (gh-138349). Clean prints {'annotated_name': 0} per case; buggy raises TypeError: 'function' object is not a set (miscompiled annotation-scope handling).

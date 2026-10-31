@@ -1,0 +1,1 @@
+repro.py creates a package pkg with a trivial unittest module and runs `python -m unittest ./pkg/test_x.py` (and without ./). Clean: both pass (OK). Buggy: the ./ form fails with ValueError: Empty module name, since the path is no longer normpath'd.

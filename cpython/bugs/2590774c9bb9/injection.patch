@@ -1,0 +1,36 @@
+--- a/Modules/_ctypes/_ctypes.c
++++ b/Modules/_ctypes/_ctypes.c
+@@ -1346,23 +1346,32 @@
+                              PyObject *type)
+ /*[clinic end generated code: output=51459d8f429a70ac input=67e1e8df921f123e]*/
+ {
++    PyObject *attrdict = PyType_GetDict(self);
++    if (!attrdict) {
++        return NULL;
++    }
+     ctypes_state *st = get_module_state_by_class(cls);
+     StgInfo *info;
+     if (PyStgInfo_FromType(st, (PyObject *)self, &info) < 0) {
++        Py_DECREF(attrdict);
+         return NULL;
+     }
+     if (!info) {
+         PyErr_SetString(PyExc_TypeError,
+                         "abstract class");
++        Py_DECREF(attrdict);
+         return NULL;
+     }
+ 
+     if (PyCPointerType_SetProto(st, (PyObject *)self, info, type) < 0) {
++        Py_DECREF(attrdict);
+         return NULL;
+     }
+-    if (PyObject_SetAttr((PyObject *)self, &_Py_ID(_type_), type) < 0) {
++    if (-1 == PyDict_SetItem(attrdict, &_Py_ID(_type_), type)) {
++        Py_DECREF(attrdict);
+         return NULL;
+     }
++    Py_DECREF(attrdict);
+     Py_RETURN_NONE;
+ }
+ 

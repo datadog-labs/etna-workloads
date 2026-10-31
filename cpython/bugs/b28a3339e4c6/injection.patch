@@ -1,0 +1,58 @@
+--- a/Lib/unittest/mock.py
++++ b/Lib/unittest/mock.py
+@@ -2844,8 +2844,8 @@
+     if _parent is not None and not instance:
+         _parent._mock_children[_name] = mock
+ 
+-    # Pop wraps from kwargs because it must not be passed to configure_mock.
+-    wrapped = kwargs.pop('wraps', None)
++    wrapped = kwargs.get('wraps')
++
+     if is_type and not instance and 'return_value' not in kwargs:
+         mock.return_value = create_autospec(spec, spec_set, instance=True,
+                                             _name='()', _parent=mock,
+@@ -2871,12 +2871,12 @@
+             except AttributeError:
+                 continue
+ 
+-        child_kwargs = {'spec': original}
++        kwargs = {'spec': original}
+         # Wrap child attributes also.
+         if wrapped and hasattr(wrapped, entry):
+-            child_kwargs.update(wraps=original)
++            kwargs.update(wraps=original)
+         if spec_set:
+-            child_kwargs = {'spec_set': original}
++            kwargs = {'spec_set': original}
+ 
+         if not isinstance(original, FunctionTypes):
+             new = _SpecState(original, spec_set, mock, entry, instance)
+@@ -2887,13 +2887,14 @@
+                 parent = mock.mock
+ 
+             skipfirst = _must_skip(spec, entry, is_type)
+-            child_kwargs['_eat_self'] = skipfirst
++            kwargs['_eat_self'] = skipfirst
+             if iscoroutinefunction(original):
+                 child_klass = AsyncMock
+             else:
+                 child_klass = MagicMock
+             new = child_klass(parent=parent, name=entry, _new_name=entry,
+-                              _new_parent=parent, **child_kwargs)
++                              _new_parent=parent,
++                              **kwargs)
+             mock._mock_children[entry] = new
+             new.return_value = child_klass()
+             _check_signature(original, new, skipfirst=skipfirst)
+@@ -2904,11 +2905,6 @@
+         # setting as an instance attribute?
+         if isinstance(new, FunctionTypes):
+             setattr(mock, entry, new)
+-    # kwargs are passed with respect to the parent mock so, they are not used
+-    # for creating return_value of the parent mock. So, this condition
+-    # should be true only for the parent mock if kwargs are given.
+-    if _is_instance_mock(mock) and kwargs:
+-        mock.configure_mock(**kwargs)
+ 
+     return mock
+ 

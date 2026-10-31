@@ -1,0 +1,44 @@
+--- a/Objects/typeobject.c
++++ b/Objects/typeobject.c
+@@ -11515,12 +11515,6 @@
+ static void
+ releasebuffer_call_python(PyObject *self, Py_buffer *buffer)
+ {
+-    // bf_releasebuffer may be called while an exception is already active.
+-    // We have no way to report additional errors up the stack, because
+-    // this slot returns void, so we simply stash away the active exception
+-    // and restore it after the call to Python returns.
+-    PyObject *exc = PyErr_GetRaisedException();
+-
+     PyObject *mv;
+     bool is_buffer_wrapper = Py_TYPE(buffer->obj) == &_PyBufferWrapper_Type;
+     if (is_buffer_wrapper) {
+@@ -11528,7 +11522,7 @@
+         // __release_buffer__() that __buffer__() returned.
+         PyBufferWrapper *bw = (PyBufferWrapper *)buffer->obj;
+         if (bw->mv == NULL) {
+-            goto end;
++            return;
+         }
+         mv = Py_NewRef(bw->mv);
+     }
+@@ -11538,7 +11532,7 @@
+         mv = PyMemoryView_FromBuffer(buffer);
+         if (mv == NULL) {
+             PyErr_FormatUnraisable("Exception ignored in bf_releasebuffer of %s", Py_TYPE(self)->tp_name);
+-            goto end;
++            return;
+         }
+         // Set the memoryview to restricted mode, which forbids
+         // users from saving any reference to the underlying buffer
+@@ -11565,10 +11559,6 @@
+         }
+     }
+     Py_DECREF(mv);
+-end:
+-    assert(!PyErr_Occurred());
+-
+-    PyErr_SetRaisedException(exc);
+ }
+ 
+ /*

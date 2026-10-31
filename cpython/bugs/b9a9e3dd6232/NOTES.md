@@ -1,0 +1,1 @@
+repro.py renders pydoc help for a lambda with parameter and return annotations. Clean shows 'lambda (a: int, b: int, c: int) -> int'; buggy strips the parentheses, giving 'lambda a: int, b: int, c: int -> int'.

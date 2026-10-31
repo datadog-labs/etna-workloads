@@ -1,0 +1,54 @@
+--- a/Lib/traceback.py
++++ b/Lib/traceback.py
+@@ -581,7 +581,7 @@
+         colorize = kwargs.get("colorize", False)
+         row = []
+         filename = frame_summary.filename
+-        if frame_summary.filename.startswith("<stdin-") and frame_summary.filename.endswith('>'):
++        if frame_summary.filename.startswith("<stdin>-"):
+             filename = "<stdin>"
+         if colorize:
+             theme = _safe_get_theme(force_color=True).traceback
+--- a/Python/pythonrun.c
++++ b/Python/pythonrun.c
+@@ -1399,29 +1399,6 @@
+ }
+ 
+ static PyObject *
+-get_interactive_filename(PyObject *filename, Py_ssize_t count)
+-{
+-    PyObject *result;
+-    Py_ssize_t len = PyUnicode_GET_LENGTH(filename);
+-
+-    if (len >= 2
+-            && PyUnicode_ReadChar(filename, 0) == '<'
+-            && PyUnicode_ReadChar(filename, len - 1) == '>') {
+-        PyObject *middle = PyUnicode_Substring(filename, 1, len-1);
+-        if (middle == NULL) {
+-            return NULL;
+-        }
+-        result = PyUnicode_FromFormat("<%U-%zd>", middle, count);
+-        Py_DECREF(middle);
+-    } else {
+-        result = PyUnicode_FromFormat(
+-            "%U-%zd", filename, count);
+-    }
+-    return result;
+-
+-}
+-
+-static PyObject *
+ run_mod(mod_ty mod, PyObject *filename, PyObject *globals, PyObject *locals,
+             PyCompilerFlags *flags, PyArena *arena, PyObject* interactive_src,
+             int generate_new_source)
+@@ -1431,8 +1408,8 @@
+     if (interactive_src) {
+         PyInterpreterState *interp = tstate->interp;
+         if (generate_new_source) {
+-            interactive_filename = get_interactive_filename(
+-                filename, interp->_interactive_src_count++);
++            interactive_filename = PyUnicode_FromFormat(
++                "%U-%zd", filename, interp->_interactive_src_count++);
+         } else {
+             Py_INCREF(interactive_filename);
+         }

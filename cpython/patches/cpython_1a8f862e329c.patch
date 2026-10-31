@@ -1,0 +1,32 @@
+--- a/Lib/http/client.py
++++ b/Lib/http/client.py
+@@ -965,15 +965,10 @@
+ 
+         self._tunnel_host, self._tunnel_port = self._get_hostport(host, port)
+         if headers:
+-            self._tunnel_headers = headers.copy()
++            self._tunnel_headers = headers
+         else:
+             self._tunnel_headers.clear()
+ 
+-        if not any(header.lower() == "host" for header in self._tunnel_headers):
+-            encoded_host = self._tunnel_host.encode("idna").decode("ascii")
+-            self._tunnel_headers["Host"] = "%s:%d" % (
+-                encoded_host, self._tunnel_port)
+-
+     def _get_hostport(self, host, port):
+         if port is None:
+             i = host.rfind(':')
+@@ -1006,10 +1001,9 @@
+         if _contains_disallowed_url_pchar_re.search(self._tunnel_host):
+             raise ValueError('Tunnel host can\'t contain control characters %r'
+                              % (self._tunnel_host,))
+-        connect = b"CONNECT %s:%d %s\r\n" % (
++        connect = b"CONNECT %s:%d HTTP/1.0\r\n" % (
+             self._wrap_ipv6(self._tunnel_host.encode("idna")),
+-            self._tunnel_port,
+-            self._http_vsn_str.encode("ascii"))
++            self._tunnel_port)
+         headers = [connect]
+         for header, value in self._tunnel_headers.items():
+             header_bytes = header.encode("latin-1")

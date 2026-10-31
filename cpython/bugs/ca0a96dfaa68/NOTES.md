@@ -1,0 +1,1 @@
+Reproducer parses single-expression except/except* handlers with feature_version=(3,13). Clean parses fine; buggy raises a SyntaxError about unparenthesized except expressions (grammar tries 'expressions' alternative first).

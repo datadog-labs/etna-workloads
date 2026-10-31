@@ -1,0 +1,40 @@
+--- a/Lib/hmac.py
++++ b/Lib/hmac.py
+@@ -178,7 +178,6 @@
+         # Call __new__ directly to avoid the expensive __init__.
+         other = self.__class__.__new__(self.__class__)
+         other.digest_size = self.digest_size
+-        other.block_size = self.block_size
+         if self._hmac:
+             other._hmac = self._hmac.copy()
+             other._inner = other._outer = None
+--- a/Modules/_hashopenssl.c
++++ b/Modules/_hashopenssl.c
+@@ -606,14 +606,9 @@
+ {
+     const char *name = OBJ_nid2ln(nid);
+     if (name == NULL) {
+-        /* In OpenSSL 3.0 and later, OBJ_nid*() are thread-safe and may raise.
+-         * However, not all versions of OpenSSL set a last error, so we simply
+-         * ignore the last error if none exists.
+-         *
+-         * See https://github.com/python/cpython/issues/142451.
+-         */
+-        unsigned long errcode = ERR_peek_last_error();
+-        if (errcode && ERR_GET_REASON(errcode) != OBJ_R_UNKNOWN_NID) {
++        // In OpenSSL 3.0 and later, OBJ_nid*() are thread-safe and may raise.
++        assert(ERR_peek_last_error() != 0);
++        if (ERR_GET_REASON(ERR_peek_last_error()) != OBJ_R_UNKNOWN_NID) {
+             goto error;
+         }
+         // fallback to short name and unconditionally propagate errors
+@@ -2273,9 +2268,6 @@
+         return NULL;
+     }
+     retval->ctx = ctx;
+-#ifdef Py_HAS_OPENSSL3_SUPPORT
+-    retval->evp_md_nid = self->evp_md_nid;
+-#endif
+     HASHLIB_INIT_MUTEX(retval);
+     return (PyObject *)retval;
+ }

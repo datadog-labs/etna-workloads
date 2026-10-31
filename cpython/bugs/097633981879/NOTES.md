@@ -1,0 +1,1 @@
+Reproducer feeds a custom header whose fold() returns raw text with newline / no trailing linesep to Message.as_string(). Clean raises HeaderWriteError (verify_generated_headers); buggy writes the header unchecked (injection).

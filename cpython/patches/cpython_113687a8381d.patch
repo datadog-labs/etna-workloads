@@ -1,0 +1,29 @@
+--- a/Lib/logging/handlers.py
++++ b/Lib/logging/handlers.py
+@@ -393,13 +393,23 @@
+         fileNames = os.listdir(dirName)
+         result = []
+         if self.namer is None:
+-            prefix = baseName + '.'
++            # See bpo-44753: Don't use the extension when computing the prefix.
++            n, e = os.path.splitext(baseName)
++            prefix = n + '.'
+             plen = len(prefix)
+             for fileName in fileNames:
++                # Our files will always start with baseName
++                if not fileName.startswith(baseName):
++                    continue
+                 if fileName[:plen] == prefix:
+                     suffix = fileName[plen:]
+-                    if self.extMatch.fullmatch(suffix):
+-                        result.append(os.path.join(dirName, fileName))
++                    # See bpo-45628: The date/time suffix could be anywhere in the
++                    # filename
++                    parts = suffix.split('.')
++                    for part in parts:
++                        if self.extMatch.match(part):
++                            result.append(os.path.join(dirName, fileName))
++                            break
+         else:
+             for fileName in fileNames:
+                 # Our files could be just about anything after custom naming,

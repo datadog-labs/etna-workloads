@@ -1,0 +1,1 @@
+repro.py prints inspect.signature(turtle.teleport). Clean: '(x=None, y=None, *, fill_gap: bool = False) -> None'; buggy (old __methodDict-style signature generation via __code__/__defaults__) gives '(x, y=None, fill_gap=None)', losing keyword-only marker, annotations and defaults.

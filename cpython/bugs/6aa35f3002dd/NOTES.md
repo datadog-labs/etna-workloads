@@ -1,0 +1,1 @@
+repro.py builds a zip with implicit dirs (b/, g/h/) and globs for directory names via zipfile.Path.glob. Clean returns the directory entries (e.g. 'b/'); buggy returns [] because the glob regex no longer matches the trailing slash and implied dirs are missing from filelist.

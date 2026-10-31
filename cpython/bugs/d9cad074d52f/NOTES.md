@@ -1,0 +1,1 @@
+repro.py parses '<T@[' with email._header_value_parser.get_address. Clean returns '<T@[]>' with two defects; buggy appends the defect to the parse tree instead of defects, so it raises AttributeError ('InvalidHeaderDefect' has no 'all_defects').

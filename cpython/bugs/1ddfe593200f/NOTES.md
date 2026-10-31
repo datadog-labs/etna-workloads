@@ -1,0 +1,1 @@
+repro.py installs an audit hook, calls sys.remote_exec on the current pid, and prints the remote-related audit events. Clean: ['sys.remote_exec', 'cpython.remote_debugger_script']. Buggy: ['remote_debugger_script'] (sys.remote_exec event missing, other event misnamed).

@@ -1,0 +1,23 @@
+--- a/Lib/importlib/util.py
++++ b/Lib/importlib/util.py
+@@ -186,6 +186,9 @@
+                     return __class__.__getattribute__(self, attr)
+                 loader_state['is_loading'] = True
+ 
++                # Stop triggering this method.
++                object.__setattr__(self, '__class__', __class__)
++
+                 __dict__ = __class__.__getattribute__(self, '__dict__')
+ 
+                 # All module metadata must be gathered from __spec__ in order to avoid
+@@ -216,10 +219,6 @@
+                 # Update after loading since that's what would happen in an eager
+                 # loading situation.
+                 __dict__.update(attrs_updated)
+-                # Finally, stop triggering this method, if the module did not
+-                # already update its own __class__.
+-                if isinstance(self, _LazyModule):
+-                    object.__setattr__(self, '__class__', __class__)
+ 
+         return getattr(self, attr)
+ 

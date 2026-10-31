@@ -1,0 +1,1 @@
+Calls `type(name, (Model,), {})` where Model's metaclass `__new__` raises. type_new delegates to the winner metaclass; with the bug the NULL result is not turned into an error (returns 1 with no check), so the exception handling is wrong (assert failure in debug build / SystemError). The clean build prints the RuntimeWarning.

@@ -1,0 +1,1 @@
+Forces pure-Python decimal (_decimal=None) and does str() of a 100001-digit int. Clean uses _pylong's decimal-free int->str path; buggy routes through _pydecimal, which calls str(int) again, recursing infinitely: prints RecursionError instead of '100001 10000 12345'.

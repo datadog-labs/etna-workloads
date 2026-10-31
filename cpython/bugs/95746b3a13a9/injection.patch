@@ -1,0 +1,69 @@
+--- a/Lib/http/cookies.py
++++ b/Lib/http/cookies.py
+@@ -87,9 +87,9 @@
+ such trickeries do not confuse it.
+ 
+    >>> C = cookies.SimpleCookie()
+-   >>> C.load('keebler="E=everybody; L=\\"Loves\\"; fudge=;";')
++   >>> C.load('keebler="E=everybody; L=\\"Loves\\"; fudge=\\012;";')
+    >>> print(C)
+-   Set-Cookie: keebler="E=everybody; L=\"Loves\"; fudge=;"
++   Set-Cookie: keebler="E=everybody; L=\"Loves\"; fudge=\012;"
+ 
+ Each element of the Cookie also supports all of the RFC 2109
+ Cookie attributes.  Here's an example which sets the Path
+@@ -171,15 +171,6 @@
+ })
+ 
+ _is_legal_key = re.compile('[%s]+' % re.escape(_LegalChars)).fullmatch
+-_control_character_re = re.compile(r'[\x00-\x1F\x7F]')
+-
+-
+-def _has_control_character(*val):
+-    """Detects control characters within a value.
+-    Supports any type, as header values can be any type.
+-    """
+-    return any(_control_character_re.search(str(v)) for v in val)
+-
+ 
+ def _quote(str):
+     r"""Quote a string for use in a cookie header.
+@@ -304,16 +295,12 @@
+         K = K.lower()
+         if not K in self._reserved:
+             raise CookieError("Invalid attribute %r" % (K,))
+-        if _has_control_character(K, V):
+-            raise CookieError(f"Control characters are not allowed in cookies {K!r} {V!r}")
+         dict.__setitem__(self, K, V)
+ 
+     def setdefault(self, key, val=None):
+         key = key.lower()
+         if key not in self._reserved:
+             raise CookieError("Invalid attribute %r" % (key,))
+-        if _has_control_character(key, val):
+-            raise CookieError("Control characters are not allowed in cookies %r %r" % (key, val,))
+         return dict.setdefault(self, key, val)
+ 
+     def __eq__(self, morsel):
+@@ -356,9 +343,6 @@
+             raise CookieError('Attempt to set a reserved key %r' % (key,))
+         if not _is_legal_key(key):
+             raise CookieError('Illegal key %r' % (key,))
+-        if _has_control_character(key, val, coded_val):
+-            raise CookieError(
+-                "Control characters are not allowed in cookies %r %r %r" % (key, val, coded_val,))
+ 
+         # It's a good key, so save it.
+         self._key = key
+@@ -534,10 +518,7 @@
+         result = []
+         items = sorted(self.items())
+         for key, value in items:
+-            value_output = value.output(attrs, header)
+-            if _has_control_character(value_output):
+-                raise CookieError("Control characters are not allowed in cookies")
+-            result.append(value_output)
++            result.append(value.output(attrs, header))
+         return sep.join(result)
+ 
+     __str__ = output

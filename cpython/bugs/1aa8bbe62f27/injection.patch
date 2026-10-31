@@ -1,0 +1,66 @@
+--- a/Lib/email/_header_value_parser.py
++++ b/Lib/email/_header_value_parser.py
+@@ -1248,7 +1248,7 @@
+     value is the text between the quote marks, with whitespace
+     preserved and quoted pairs decoded.
+     """
+-    if not value or value[0] != '"':
++    if value[0] != '"':
+         raise errors.HeaderParseError(
+             "expected '\"' but found '{}'".format(value))
+     bare_quoted_string = BareQuotedString()
+@@ -1498,7 +1498,7 @@
+     """
+     local_part = LocalPart()
+     leader = None
+-    if value and value[0] in CFWS_LEADER:
++    if value[0] in CFWS_LEADER:
+         leader, value = get_cfws(value)
+     if not value:
+         raise errors.HeaderParseError(
+@@ -1652,7 +1652,7 @@
+     """
+     domain = Domain()
+     leader = None
+-    if value and value[0] in CFWS_LEADER:
++    if value[0] in CFWS_LEADER:
+         leader, value = get_cfws(value)
+     if not value:
+         raise errors.HeaderParseError(
+@@ -1728,8 +1728,6 @@
+         if value[0] in CFWS_LEADER:
+             token, value = get_cfws(value)
+             obs_route.append(token)
+-        if not value:
+-            break
+         if value[0] == '@':
+             obs_route.append(RouteComponentMarker)
+             token, value = get_domain(value[1:])
+@@ -1748,7 +1746,7 @@
+ 
+     """
+     angle_addr = AngleAddr()
+-    if value and value[0] in CFWS_LEADER:
++    if value[0] in CFWS_LEADER:
+         token, value = get_cfws(value)
+         angle_addr.append(token)
+     if not value or value[0] != '<':
+@@ -1758,7 +1756,7 @@
+     value = value[1:]
+     # Although it is not legal per RFC5322, SMTP uses '<>' in certain
+     # circumstances.
+-    if value and value[0] == '>':
++    if value[0] == '>':
+         angle_addr.append(ValueTerminal('>', 'angle-addr-end'))
+         angle_addr.defects.append(errors.InvalidHeaderDefect(
+             "null addr-spec in angle-addr"))
+@@ -1810,9 +1808,6 @@
+     name_addr = NameAddr()
+     # Both the optional display name and the angle-addr can start with cfws.
+     leader = None
+-    if not value:
+-        raise errors.HeaderParseError(
+-            "expected name-addr but found '{}'".format(value))
+     if value[0] in CFWS_LEADER:
+         leader, value = get_cfws(value)
+         if not value:

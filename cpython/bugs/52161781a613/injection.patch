@@ -1,0 +1,28 @@
+--- a/Lib/asyncio/locks.py
++++ b/Lib/asyncio/locks.py
+@@ -408,21 +408,13 @@
+             finally:
+                 self._waiters.remove(fut)
+         except exceptions.CancelledError:
+-            # Currently the only exception designed be able to occur here.
+-            if fut.done() and not fut.cancelled():
+-                # Our Future was successfully set to True via _wake_up_next(),
+-                # but we are not about to successfully acquire(). Therefore we
+-                # must undo the bookkeeping already done and attempt to wake
+-                # up someone else.
++            if not fut.cancelled():
+                 self._value += 1
++                self._wake_up_next()
+             raise
+ 
+-        finally:
+-            # New waiters may have arrived but had to wait due to FIFO.
+-            # Wake up as many as are allowed.
+-            while self._value > 0:
+-                if not self._wake_up_next():
+-                    break  # There was no-one to wake up.
++        if self._value > 0:
++            self._wake_up_next()
+         return True
+ 
+     def release(self):

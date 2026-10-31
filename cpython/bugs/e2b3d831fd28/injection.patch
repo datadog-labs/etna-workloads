@@ -1,0 +1,118 @@
+--- a/Lib/re/_compiler.py
++++ b/Lib/re/_compiler.py
+@@ -154,8 +154,6 @@
+                 emit(0) # look ahead
+             else:
+                 lo, hi = av[1].getwidth()
+-                if lo > MAXCODE:
+-                    raise error("looks too much behind")
+                 if lo != hi:
+                     raise PatternError("look-behind requires fixed-width pattern")
+                 emit(lo) # look behind
+@@ -570,7 +568,7 @@
+     else:
+         emit(MAXCODE)
+         prefix = prefix[:MAXCODE]
+-    emit(hi)
++    emit(min(hi, MAXCODE))
+     # add literal prefix
+     if prefix:
+         emit(len(prefix)) # length
+--- a/Lib/re/_parser.py
++++ b/Lib/re/_parser.py
+@@ -68,10 +68,6 @@
+ TYPE_FLAGS = SRE_FLAG_ASCII | SRE_FLAG_LOCALE | SRE_FLAG_UNICODE
+ GLOBAL_FLAGS = SRE_FLAG_DEBUG
+ 
+-# Maximal value returned by SubPattern.getwidth().
+-# Must be larger than MAXREPEAT, MAXCODE and sys.maxsize.
+-MAXWIDTH = 1 << 64
+-
+ class State:
+     # keeps track of state for parsing
+     def __init__(self):
+@@ -182,7 +178,7 @@
+         lo = hi = 0
+         for op, av in self.data:
+             if op is BRANCH:
+-                i = MAXWIDTH
++                i = MAXREPEAT - 1
+                 j = 0
+                 for av in av[1]:
+                     l, h = av.getwidth()
+@@ -201,10 +197,7 @@
+             elif op in _REPEATCODES:
+                 i, j = av[2].getwidth()
+                 lo = lo + i * av[0]
+-                if av[1] == MAXREPEAT and j:
+-                    hi = MAXWIDTH
+-                else:
+-                    hi = hi + j * av[1]
++                hi = hi + j * av[1]
+             elif op in _UNITCODES:
+                 lo = lo + 1
+                 hi = hi + 1
+@@ -224,7 +217,7 @@
+                 hi = hi + j
+             elif op is SUCCESS:
+                 break
+-        self.width = min(lo, MAXWIDTH), min(hi, MAXWIDTH)
++        self.width = min(lo, MAXREPEAT - 1), min(hi, MAXREPEAT)
+         return self.width
+ 
+ class Tokenizer:
+--- a/Modules/_sre/sre.c
++++ b/Modules/_sre/sre.c
+@@ -2217,6 +2217,8 @@
+             GET_SKIP;
+             GET_ARG; /* 0 for lookahead, width for lookbehind */
+             code--; /* Back up over arg to simplify math below */
++            if (arg & 0x80000000)
++                FAIL; /* Width too large */
+             /* Stop 1 before the end; we check the SUCCESS below */
+             if (_validate_inner(code+1, code+skip-2, groups))
+                 FAIL;
+--- a/Modules/_sre/sre_lib.h
++++ b/Modules/_sre/sre_lib.h
+@@ -684,8 +684,8 @@
+         /* optimization info block */
+         /* <INFO> <1=skip> <2=flags> <3=min> ... */
+         if (pattern[3] && (uintptr_t)(end - ptr) < pattern[3]) {
+-            TRACE(("reject (got %tu chars, need %zu)\n",
+-                   end - ptr, (size_t) pattern[3]));
++            TRACE(("reject (got %zd chars, need %zd)\n",
++                   end - ptr, (Py_ssize_t) pattern[3]));
+             RETURN_FAILURE;
+         }
+         pattern += pattern[1] + 1;
+@@ -1617,7 +1617,7 @@
+             /* <ASSERT> <skip> <back> <pattern> */
+             TRACE(("|%p|%p|ASSERT %d\n", pattern,
+                    ptr, pattern[1]));
+-            if ((uintptr_t)(ptr - (SRE_CHAR *)state->beginning) < pattern[1])
++            if (ptr - (SRE_CHAR *)state->beginning < (Py_ssize_t)pattern[1])
+                 RETURN_FAILURE;
+             state->ptr = ptr - pattern[1];
+             DO_JUMP0(JUMP_ASSERT, jump_assert, pattern+2);
+@@ -1630,7 +1630,7 @@
+             /* <ASSERT_NOT> <skip> <back> <pattern> */
+             TRACE(("|%p|%p|ASSERT_NOT %d\n", pattern,
+                    ptr, pattern[1]));
+-            if ((uintptr_t)(ptr - (SRE_CHAR *)state->beginning) >= pattern[1]) {
++            if (ptr - (SRE_CHAR *)state->beginning >= (Py_ssize_t)pattern[1]) {
+                 state->ptr = ptr - pattern[1];
+                 LASTMARK_SAVE();
+                 if (state->repeat)
+@@ -1766,9 +1766,9 @@
+ 
+         flags = pattern[2];
+ 
+-        if (pattern[3] && (uintptr_t)(end - ptr) < pattern[3]) {
+-            TRACE(("reject (got %tu chars, need %zu)\n",
+-                   end - ptr, (size_t) pattern[3]));
++        if (pattern[3] && end - ptr < (Py_ssize_t)pattern[3]) {
++            TRACE(("reject (got %u chars, need %u)\n",
++                   (unsigned int)(end - ptr), pattern[3]));
+             return 0;
+         }
+         if (pattern[3] > 1) {

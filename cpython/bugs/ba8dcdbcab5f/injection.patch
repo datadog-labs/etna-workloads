@@ -1,0 +1,26 @@
+--- a/Lib/asyncio/base_events.py
++++ b/Lib/asyncio/base_events.py
+@@ -1025,10 +1025,7 @@
+                 sock = socket.socket(family=family, type=type_, proto=proto)
+                 sock.setblocking(False)
+                 if local_addr_infos is not None:
+-                    for lfamily, _, _, _, laddr in local_addr_infos:
+-                        # skip local addresses of different family
+-                        if lfamily != family:
+-                            continue
++                    for _, _, _, _, laddr in local_addr_infos:
+                         try:
+                             sock.bind(laddr)
+                             break
+@@ -1040,10 +1037,7 @@
+                             exc = OSError(exc.errno, msg)
+                             my_exceptions.append(exc)
+                     else:  # all bind attempts failed
+-                        if my_exceptions:
+-                            raise my_exceptions.pop()
+-                        else:
+-                            raise OSError(f"no matching local address with {family=} found")
++                        raise my_exceptions.pop()
+                 await self.sock_connect(sock, address)
+                 return sock
+             except OSError as exc:

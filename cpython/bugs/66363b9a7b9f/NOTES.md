@@ -1,0 +1,1 @@
+repro.py reads entry 'a' from a crafted zip whose second local header lies inside the first entry's data (overlapping entries, zip bomb). Clean: raises BadZipFile 'Overlapped entries'. Buggy (overlap check removed from ZipFile.open): read succeeds / different error.

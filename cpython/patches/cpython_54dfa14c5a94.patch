@@ -1,0 +1,115 @@
+--- a/Objects/bytearrayobject.c
++++ b/Objects/bytearrayobject.c
+@@ -3094,17 +3094,13 @@
+ static PyObject *
+ bytearrayiter_reduce(PyObject *self, PyObject *Py_UNUSED(ignored))
+ {
+-    PyObject *iter = _PyEval_GetBuiltin(&_Py_ID(iter));
+-
+-    /* _PyEval_GetBuiltin can invoke arbitrary code,
+-     * call must be before access of iterator pointers.
+-     * see issue #101765 */
+     bytesiterobject *it = _bytesiterobject_CAST(self);
+     Py_ssize_t index = FT_ATOMIC_LOAD_SSIZE_RELAXED(it->it_index);
+     if (index >= 0) {
+-        return Py_BuildValue("N(O)n", iter, it->it_seq, index);
++        return Py_BuildValue("N(O)n", _PyEval_GetBuiltin(&_Py_ID(iter)),
++                             it->it_seq, index);
+     }
+-    return Py_BuildValue("N(())", iter);
++    return Py_BuildValue("N(())", _PyEval_GetBuiltin(&_Py_ID(iter)));
+ }
+ 
+ static PyObject *
+--- a/Objects/bytesobject.c
++++ b/Objects/bytesobject.c
+@@ -3549,16 +3549,12 @@
+ static PyObject *
+ striter_reduce(PyObject *op, PyObject *Py_UNUSED(ignored))
+ {
+-    PyObject *iter = _PyEval_GetBuiltin(&_Py_ID(iter));
+-
+-    /* _PyEval_GetBuiltin can invoke arbitrary code,
+-     * call must be before access of iterator pointers.
+-     * see issue #101765 */
+     striterobject *it = _striterobject_CAST(op);
+     if (it->it_seq != NULL) {
+-        return Py_BuildValue("N(O)n", iter, it->it_seq, it->it_index);
++        return Py_BuildValue("N(O)n", _PyEval_GetBuiltin(&_Py_ID(iter)),
++                             it->it_seq, it->it_index);
+     } else {
+-        return Py_BuildValue("N(())", iter);
++        return Py_BuildValue("N(())", _PyEval_GetBuiltin(&_Py_ID(iter)));
+     }
+ }
+ 
+--- a/Objects/iterobject.c
++++ b/Objects/iterobject.c
+@@ -110,16 +110,11 @@
+ iter_reduce(PyObject *op, PyObject *Py_UNUSED(ignored))
+ {
+     seqiterobject *it = (seqiterobject*)op;
+-    PyObject *iter = _PyEval_GetBuiltin(&_Py_ID(iter));
+-
+-    /* _PyEval_GetBuiltin can invoke arbitrary code,
+-     * call must be before access of iterator pointers.
+-     * see issue #101765 */
+-
+     if (it->it_seq != NULL)
+-        return Py_BuildValue("N(O)n", iter, it->it_seq, it->it_index);
++        return Py_BuildValue("N(O)n", _PyEval_GetBuiltin(&_Py_ID(iter)),
++                             it->it_seq, it->it_index);
+     else
+-        return Py_BuildValue("N(())", iter);
++        return Py_BuildValue("N(())", _PyEval_GetBuiltin(&_Py_ID(iter)));
+ }
+ 
+ PyDoc_STRVAR(reduce_doc, "Return state information for pickling.");
+@@ -257,16 +252,11 @@
+ calliter_reduce(PyObject *op, PyObject *Py_UNUSED(ignored))
+ {
+     calliterobject *it = (calliterobject*)op;
+-    PyObject *iter = _PyEval_GetBuiltin(&_Py_ID(iter));
+-
+-    /* _PyEval_GetBuiltin can invoke arbitrary code,
+-     * call must be before access of iterator pointers.
+-     * see issue #101765 */
+-
+     if (it->it_callable != NULL && it->it_sentinel != NULL)
+-        return Py_BuildValue("N(OO)", iter, it->it_callable, it->it_sentinel);
++        return Py_BuildValue("N(OO)", _PyEval_GetBuiltin(&_Py_ID(iter)),
++                             it->it_callable, it->it_sentinel);
+     else
+-        return Py_BuildValue("N(())", iter);
++        return Py_BuildValue("N(())", _PyEval_GetBuiltin(&_Py_ID(iter)));
+ }
+ 
+ static PyMethodDef calliter_methods[] = {
+--- a/Objects/unicodeobject.c
++++ b/Objects/unicodeobject.c
+@@ -14688,21 +14688,14 @@
+ unicodeiter_reduce(PyObject *op, PyObject *Py_UNUSED(ignored))
+ {
+     unicodeiterobject *it = (unicodeiterobject *)op;
+-    PyObject *iter = _PyEval_GetBuiltin(&_Py_ID(iter));
+-
+-    /* _PyEval_GetBuiltin can invoke arbitrary code,
+-     * call must be before access of iterator pointers.
+-     * see issue #101765 */
+-
+     if (it->it_seq != NULL) {
+-        return Py_BuildValue("N(O)n", iter, it->it_seq, it->it_index);
++        return Py_BuildValue("N(O)n", _PyEval_GetBuiltin(&_Py_ID(iter)),
++                             it->it_seq, it->it_index);
+     } else {
+         PyObject *u = _PyUnicode_GetEmpty();
+-        if (u == NULL) {
+-            Py_XDECREF(iter);
++        if (u == NULL)
+             return NULL;
+-        }
+-        return Py_BuildValue("N(N)", iter, u);
++        return Py_BuildValue("N(N)", _PyEval_GetBuiltin(&_Py_ID(iter)), u);
+     }
+ }
+ 

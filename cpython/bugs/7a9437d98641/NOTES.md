@@ -1,0 +1,1 @@
+repro.py: applies | between a typing.Union and a float/str (as in test_allow_non_types_in_or). Clean builds unions (str becomes ForwardRef); buggy raises TypeError for the str cases because union's nb_or uses is_unionable().

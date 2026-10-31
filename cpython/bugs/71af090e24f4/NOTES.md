@@ -1,0 +1,1 @@
+Reproducer checks isinstance() on a runtime protocol with classes whose annotations are deferred and reference undefined names. The buggy interpreter raises NameError from base.__annotations__ in typing; the clean one falls back to FORWARDREF annotations and returns results.

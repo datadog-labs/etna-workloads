@@ -1,0 +1,50 @@
+--- a/Objects/dictobject.c
++++ b/Objects/dictobject.c
+@@ -3418,7 +3418,6 @@
+ {
+     PyObject *it = NULL;       /* iter(iterable) */
+     PyObject *d;
+-    int need_copy = 0;
+ 
+     if (cls == (PyObject*)&PyFrozenDict_Type) {
+         // gh-151722: Create a frozendict which is not tracked by the GC.
+@@ -3433,26 +3432,6 @@
+         return NULL;
+     }
+ 
+-    // gh-151722: If cls constructor returns a frozendict which is tracked by
+-    // the GC, create a frozendict copy which is not tracked by the GC.
+-    //
+-    // At the function exit, return cls(fd) where fd is a frozendict.
+-    //
+-    // Untracking the frozendict requires tracking again the frozendict on
+-    // error which is more complicated. It's easier to work on a copy.
+-    if (PyFrozenDict_Check(d) && _PyObject_GC_IS_TRACKED(d)) {
+-        need_copy = 1;
+-
+-        PyObject *copy = frozendict_new_untracked(&PyFrozenDict_Type);
+-        if (copy == NULL) {
+-            goto Fail;
+-        }
+-        if (dict_merge(copy, d, 1, NULL) < 0) {
+-            Py_DECREF(copy);
+-            goto Fail;
+-        }
+-        Py_SETREF(d, copy);
+-    }
+     if (PyFrozenDict_Check(d)) {
+         assert(can_modify_dict((PyDictObject*)d));
+     }
+@@ -3589,11 +3568,7 @@
+         return NULL;
+     }
+ 
+-    if (need_copy) {
+-        PyObject *copy = _PyObject_CallOneArg(cls, d);
+-        Py_SETREF(d, copy);
+-    }
+-    else if (!_PyObject_GC_IS_TRACKED(d)) {
++    if (!_PyObject_GC_IS_TRACKED(d)) {
+         _PyObject_GC_TRACK(d);
+     }
+     return d;

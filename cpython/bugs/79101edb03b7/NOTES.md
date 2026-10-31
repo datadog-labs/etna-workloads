@@ -1,0 +1,1 @@
+repro.py compiles an AST whose NamedExpr target is a Constant. Clean raises TypeError 'NamedExpr target must be a Name'; buggy (validation removed) aborts on an assert in symtable_extend_namedexpr_scope (exit -6).

@@ -1,0 +1,91 @@
+--- a/Modules/timemodule.c
++++ b/Modules/timemodule.c
+@@ -872,7 +872,6 @@
+     PyObject *tup = NULL;
+     struct tm buf;
+     PyObject *format_arg;
+-    Py_ssize_t format_size;
+     time_char *format, *outbuf = NULL;
+     size_t fmtlen, bufsize = 1024;
+ 
+@@ -915,64 +914,27 @@
+     else if (buf.tm_isdst > 1)
+         buf.tm_isdst = 1;
+ 
+-    format_size = PyUnicode_GET_LENGTH(format_arg);
+-    if ((size_t)format_size > PY_SSIZE_T_MAX/sizeof(time_char) - 1) {
+-        PyErr_NoMemory();
++#ifdef HAVE_WCSFTIME
++    format = PyUnicode_AsWideCharString(format_arg, NULL);
++    if (format == NULL)
+         return NULL;
+-    }
+-    format = PyMem_Malloc((format_size + 1)*sizeof(time_char));
+-    if (format == NULL) {
+-        PyErr_NoMemory();
++#else
++    /* Convert the unicode string to an ascii one */
++    PyObject *format_bytes = PyUnicode_EncodeLocale(format_arg, "surrogateescape");
++    if (format_bytes == NULL)
+         return NULL;
+-    }
+-    PyUnicodeWriter *writer = PyUnicodeWriter_Create(0);
+-    if (writer == NULL) {
+-        goto error;
+-    }
+-    Py_ssize_t i = 0;
+-    while (i < format_size) {
+-        fmtlen = 0;
+-        for (; i < format_size; i++) {
+-            Py_UCS4 c = PyUnicode_READ_CHAR(format_arg, i);
+-            if (!c || c > 127) {
+-                break;
+-            }
+-            format[fmtlen++] = (char)c;
+-        }
+-        if (fmtlen) {
+-            format[fmtlen] = 0;
+-            PyObject *unicode = time_strftime1(&outbuf, &bufsize,
+-                                               format, fmtlen, &buf);
+-            if (unicode == NULL) {
+-                goto error;
+-            }
+-            if (PyUnicodeWriter_WriteStr(writer, unicode) < 0) {
+-                Py_DECREF(unicode);
+-                goto error;
+-            }
+-            Py_DECREF(unicode);
+-        }
+-
+-        Py_ssize_t start = i;
+-        for (; i < format_size; i++) {
+-            Py_UCS4 c = PyUnicode_READ_CHAR(format_arg, i);
+-            if (c == '%') {
+-                break;
+-            }
+-        }
+-        if (PyUnicodeWriter_WriteSubstring(writer, format_arg, start, i) < 0) {
+-            goto error;
+-        }
+-    }
++    format = PyBytes_AS_STRING(format_bytes);
++#endif
+ 
++    fmtlen = time_strlen(format);
++    PyObject *ret = time_strftime1(&outbuf, &bufsize, format, fmtlen, &buf);
+     PyMem_Free(outbuf);
++#ifdef HAVE_WCSFTIME
+     PyMem_Free(format);
+-    return PyUnicodeWriter_Finish(writer);
+-error:
+-    PyMem_Free(outbuf);
+-    PyMem_Free(format);
+-    PyUnicodeWriter_Discard(writer);
+-    return NULL;
++#else
++    Py_DECREF(format_bytes);
++#endif
++    return ret;
+ }
+ 
+ #undef time_char

@@ -1,0 +1,23 @@
+--- a/Python/symtable.c
++++ b/Python/symtable.c
+@@ -824,7 +824,7 @@
+         }
+         int scope = SYMBOL_TO_SCOPE(comp_flags);
+         int only_flags = comp_flags & ((1 << SCOPE_OFFSET) - 1);
+-        if (scope == CELL || only_flags & DEF_COMP_CELL) {
++        if (only_flags & DEF_COMP_CELL) {
+             if (PySet_Add(inlined_cells, k) < 0) {
+                 return 0;
+             }
+@@ -893,6 +893,11 @@
+                     return 0;
+                 }
+             }
++            // cell vars in comprehension that are locals in outer scope
++            // must be promoted to cell so u_cellvars isn't wrong
++            if (scope == CELL && _PyST_IsFunctionLike(ste)) {
++                SET_SCOPE(scopes, k, scope);
++            }
+             if ((flags & DEF_BOUND) && ste->ste_type != ClassBlock) {
+                 // free vars in comprehension that are locals in outer scope can
+                 // now simply be locals, unless they are free in comp children,

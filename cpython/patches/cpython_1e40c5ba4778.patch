@@ -1,0 +1,46 @@
+--- a/Lib/unittest/mock.py
++++ b/Lib/unittest/mock.py
+@@ -1372,7 +1372,6 @@
+         self.autospec = autospec
+         self.kwargs = kwargs
+         self.additional_patchers = []
+-        self.is_started = False
+ 
+ 
+     def copy(self):
+@@ -1485,9 +1484,6 @@
+ 
+     def __enter__(self):
+         """Perform the patch."""
+-        if self.is_started:
+-            raise RuntimeError("Patch is already started")
+-
+         new, spec, spec_set = self.new, self.spec, self.spec_set
+         autospec, kwargs = self.autospec, self.kwargs
+         new_callable = self.new_callable
+@@ -1623,7 +1619,6 @@
+         self.temp_original = original
+         self.is_local = local
+         self._exit_stack = contextlib.ExitStack()
+-        self.is_started = True
+         try:
+             setattr(self.target, self.attribute, new_attr)
+             if self.attribute_name is not None:
+@@ -1643,9 +1638,6 @@
+ 
+     def __exit__(self, *exc_info):
+         """Undo the patch."""
+-        if not self.is_started:
+-            return
+-
+         if self.is_local and self.temp_original is not DEFAULT:
+             setattr(self.target, self.attribute, self.temp_original)
+         else:
+@@ -1662,7 +1654,6 @@
+         del self.target
+         exit_stack = self._exit_stack
+         del self._exit_stack
+-        self.is_started = False
+         return exit_stack.__exit__(*exc_info)
+ 
+ 

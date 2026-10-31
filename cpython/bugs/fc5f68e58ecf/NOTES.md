@@ -1,0 +1,1 @@
+repro.py builds a tiny package in the cwd and calls TestLoader.discover with an explicit top_level_dir, then prints loader._top_level_dir. Clean prints None (restored after the call); buggy prints the leaked absolute top-level path.

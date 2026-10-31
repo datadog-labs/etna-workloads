@@ -1,0 +1,1 @@
+Reproducer: with 'mymodule' already imported from dir1, completes 'import mymodule.' while dir2 (earlier on sys.path) has another mymodule. Clean returns no suggestions; buggy suggests dir2's 'mymodule.bar'.

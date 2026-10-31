@@ -1,0 +1,23 @@
+--- a/Modules/_asynciomodule.c
++++ b/Modules/_asynciomodule.c
+@@ -2866,6 +2866,9 @@
+     PyObject *message = NULL;
+     PyObject *func;
+ 
++    // Unregister the task from the linked list of tasks.
++    unregister_task(task);
++
+     if (task->task_state != STATE_PENDING || !task->task_log_destroy_pending) {
+         goto done;
+     }
+@@ -2994,10 +2997,6 @@
+     // semi-deallocated but still tracked
+     PyObject_GC_UnTrack(self);
+ 
+-    // unregister the task after finalization so that
+-    // if the task gets resurrected, it remains registered
+-    unregister_task((TaskObj *)self);
+-
+     PyTypeObject *tp = Py_TYPE(self);
+     PyObject_ClearWeakRefs(self);
+ 

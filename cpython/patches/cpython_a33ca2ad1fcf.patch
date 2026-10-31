@@ -1,0 +1,34 @@
+--- a/Python/errors.c
++++ b/Python/errors.c
+@@ -162,16 +162,9 @@
+                       exception);
+         return;
+     }
+-    /* Normalize the exception */
+-    int is_subclass = 0;
+-    if (value != NULL && PyExceptionInstance_Check(value)) {
+-        is_subclass = PyObject_IsSubclass((PyObject *)Py_TYPE(value), exception);
+-        if (is_subclass < 0) {
+-            return;
+-        }
+-    }
+     Py_XINCREF(value);
+-    if (!is_subclass) {
++    /* Normalize the exception */
++    if (value == NULL || (PyObject *)Py_TYPE(value) != exception) {
+         /* We must normalize the value right now */
+ 
+         /* Issue #23571: functions must not be called with an
+@@ -234,10 +227,9 @@
+             Py_DECREF(exc_value);
+         }
+     }
+-    assert(value != NULL);
+-    if (PyExceptionInstance_Check(value))
++    if (value != NULL && PyExceptionInstance_Check(value))
+         tb = PyException_GetTraceback(value);
+-    _PyErr_Restore(tstate, Py_NewRef(Py_TYPE(value)), value, tb);
++    _PyErr_Restore(tstate, Py_XNewRef(exception), value, tb);
+ }
+ 
+ void

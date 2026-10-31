@@ -1,0 +1,62 @@
+--- a/Objects/typeobject.c
++++ b/Objects/typeobject.c
+@@ -4681,29 +4681,17 @@
+ 
+ /* Add __dict__ or __weakref__ descriptor */
+ static int
+-type_add_common_descriptor(PyInterpreterState *interp,
+-                           PyObject **cache,
++type_add_common_descriptor(PyTypeObject *type,
+                            PyGetSetDef *getset_def,
+                            PyObject *dict)
+ {
+-#ifdef Py_GIL_DISABLED
+-    PyMutex_Lock(&interp->cached_objects.descriptor_mutex);
+-#endif
+-    PyObject *descr = *cache;
+-    if (!descr) {
+-        descr = PyDescr_NewGetSet(&PyBaseObject_Type, getset_def);
+-        *cache = descr;
+-    }
+-#ifdef Py_GIL_DISABLED
+-    PyMutex_Unlock(&interp->cached_objects.descriptor_mutex);
+-#endif
+-    if (!descr) {
+-        return -1;
+-    }
+-    if (PyDict_SetDefaultRef(dict, PyDescr_NAME(descr), descr, NULL) < 0) {
++    PyObject *descr = PyDescr_NewGetSet(type, getset_def);
++    if (descr == NULL) {
+         return -1;
+     }
+-    return 0;
++    int r = PyDict_SetDefaultRef(dict, PyDescr_NAME(descr), descr, NULL);
++    Py_DECREF(descr);
++    return r < 0 ? -1 : 0;
+ }
+ 
+ /* Add descriptors for custom slots from __slots__, or for __dict__ */
+@@ -4760,12 +4748,9 @@
+     type->tp_itemsize = ctx->base->tp_itemsize;
+     type->tp_members = _PyHeapType_GET_MEMBERS(et);
+ 
+-    PyInterpreterState *interp = _PyInterpreterState_GET();
+-
+     if (type->tp_dictoffset) {
+         if (type_add_common_descriptor(
+-            interp,
+-            &interp->cached_objects.dict_descriptor,
++            type,
+             &subtype_getset_dict,
+             dict) < 0)
+         {
+@@ -4774,8 +4759,7 @@
+     }
+     if (type->tp_weaklistoffset) {
+         if (type_add_common_descriptor(
+-            interp,
+-            &interp->cached_objects.weakref_descriptor,
++            type,
+             &subtype_getset_weakref,
+             dict) < 0)
+         {

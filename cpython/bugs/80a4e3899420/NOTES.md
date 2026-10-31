@@ -1,0 +1,1 @@
+repro.py: execs `class A: type Alias = undefined` with a dict subclass (with __missing__) as globals, then reads Alias.__value__. Clean prints 'undefined'; buggy raises NameError because LOAD_FROM_DICT_OR_GLOBALS uses PyDict_GetItemRef on globals, bypassing __missing__.

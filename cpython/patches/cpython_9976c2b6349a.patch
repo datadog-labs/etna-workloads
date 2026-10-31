@@ -1,0 +1,34 @@
+--- a/Objects/bytearrayobject.c
++++ b/Objects/bytearrayobject.c
+@@ -2737,13 +2737,7 @@
+ {
+     char* argbuf = PyByteArray_AS_STRING(self);
+     Py_ssize_t arglen = PyByteArray_GET_SIZE(self);
+-    // Prevent 'self' from being freed if computing len(sep) mutates 'self'
+-    // in _Py_strhex_with_sep().
+-    // See: https://github.com/python/cpython/issues/143195.
+-    self->ob_exports++;
+-    PyObject *res = _Py_strhex_with_sep(argbuf, arglen, sep, bytes_per_sep);
+-    self->ob_exports--;
+-    return res;
++    return _Py_strhex_with_sep(argbuf, arglen, sep, bytes_per_sep);
+ }
+ 
+ static PyObject *
+--- a/Objects/memoryobject.c
++++ b/Objects/memoryobject.c
+@@ -2423,13 +2423,7 @@
+     CHECK_RELEASED(self);
+ 
+     if (MV_C_CONTIGUOUS(self->flags)) {
+-        // Prevent 'self' from being freed if computing len(sep) mutates 'self'
+-        // in _Py_strhex_with_sep().
+-        // See: https://github.com/python/cpython/issues/143195.
+-        FT_ATOMIC_ADD_SSIZE(self->exports, 1);
+-        PyObject *ret = _Py_strhex_with_sep(src->buf, src->len, sep, bytes_per_sep);
+-        FT_ATOMIC_ADD_SSIZE(self->exports, -1);
+-        return ret;
++        return _Py_strhex_with_sep(src->buf, src->len, sep, bytes_per_sep);
+     }
+ 
+     PyBytesWriter *writer = PyBytesWriter_Create(src->len);

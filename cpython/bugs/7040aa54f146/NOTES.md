@@ -1,0 +1,1 @@
+repro.py opens a tar whose first GNU header has a negative size (0xff bytes) followed by a valid member. Clean: ReadError 'invalid offset'. Buggy (_block no longer rejects negative counts): the archive opens and lists ['', 'filename'].

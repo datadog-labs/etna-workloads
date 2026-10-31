@@ -1,0 +1,6 @@
+repro.py folds an address list ('a'*9 + ', ' + 'b'*20) with max_line_length=10. Clean gives 'aaaaaaaaa,
+ bbbb...
+'; buggy gives a doubled newline ('aaaaaaaaa,
+
+ bbbb...
+') because _steal_trailing_WSP_if_exists leaves an empty line in the buffer.

@@ -1,0 +1,33 @@
+--- a/Modules/itertoolsmodule.c
++++ b/Modules/itertoolsmodule.c
+@@ -731,7 +731,6 @@
+     PyObject_HEAD
+     PyObject *it;
+     int numread;                /* 0 <= numread <= LINKCELLS */
+-    int running;
+     PyObject *nextlink;
+     PyObject *(values[LINKCELLS]);
+ } teedataobject;
+@@ -757,7 +756,6 @@
+     if (tdo == NULL)
+         return NULL;
+ 
+-    tdo->running = 0;
+     tdo->numread = 0;
+     tdo->nextlink = NULL;
+     tdo->it = Py_NewRef(it);
+@@ -788,14 +786,7 @@
+     else {
+         /* this is the lead iterator, so fetch more data */
+         assert(i == tdo->numread);
+-        if (tdo->running) {
+-            PyErr_SetString(PyExc_RuntimeError,
+-                            "cannot re-enter the tee iterator");
+-            return NULL;
+-        }
+-        tdo->running = 1;
+         value = PyIter_Next(tdo->it);
+-        tdo->running = 0;
+         if (value == NULL)
+             return NULL;
+         tdo->numread++;

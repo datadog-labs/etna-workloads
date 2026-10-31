@@ -1,0 +1,1 @@
+repro.py sets persistent_id on a C Pickler and persistent_load on a C Unpickler instance, then dumps/loads and deletes them. Clean: assignment works, hook is called, delete restores the original. Buggy: AttributeError 'attribute ... is read-only' for both.

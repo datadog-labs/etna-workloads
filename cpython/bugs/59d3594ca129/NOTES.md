@@ -1,0 +1,1 @@
+repro.py gets FORWARDREF annotations twice (inside a class body, so closure cells are still unresolved) for functions with one and two free names, then compares equality and hash of the ForwardRefs. Clean: hash works and matches. Buggy: hash() raises TypeError: unhashable type: 'cell' (cells are hashed directly instead of by id).

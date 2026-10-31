@@ -1,0 +1,1 @@
+Runs the test's comprehension code via exec() at module and class level. The comprehension iteration variable x must be visible to locals()/dir()/eval() inside an inlined list comprehension. Clean prints [1, 2] ...; buggy raises KeyError: 'x' at locals()["x"].

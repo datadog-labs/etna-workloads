@@ -1,0 +1,94 @@
+--- a/Include/internal/pycore_typeobject.h
++++ b/Include/internal/pycore_typeobject.h
+@@ -70,6 +70,12 @@
+     PyInterpreterState *interp,
+      PyTypeObject *self);
+ 
++// Export for '_datetime' shared extension.
++PyAPI_FUNC(void) _PyStaticType_FiniForExtension(
++    PyInterpreterState *interp,
++    PyTypeObject *type,
++    int final);
++
+ // Export for _testinternalcapi extension.
+ PyAPI_FUNC(PyObject *) _PyStaticType_GetBuiltins(void);
+ 
+--- a/Modules/_datetimemodule.c
++++ b/Modules/_datetimemodule.c
+@@ -7528,6 +7528,34 @@
+ }
+ 
+ 
++/* ---------------------------------------------------------------------------
++ * Global module state.
++ */
++
++static struct {
++    PyMutex mutex;
++    int64_t interp_count;
++} _globals = {0};
++
++static void
++callback_for_interp_exit(void *Py_UNUSED(data))
++{
++    PyInterpreterState *interp = PyInterpreterState_Get();
++
++    assert(_globals.interp_count > 0);
++    PyMutex_Lock(&_globals.mutex);
++    _globals.interp_count -= 1;
++    int final = !_globals.interp_count;
++    PyMutex_Unlock(&_globals.mutex);
++
++    /* They must be done in reverse order so subclasses are finalized
++     * before base classes. */
++    for (size_t i = Py_ARRAY_LENGTH(capi_types); i > 0; i--) {
++        PyTypeObject *type = capi_types[i-1];
++        _PyStaticType_FiniForExtension(interp, type, final);
++    }
++}
++
+ PyStatus
+ _PyDateTime_InitTypes(PyInterpreterState *interp)
+ {
+@@ -7540,6 +7568,16 @@
+         }
+     }
+ 
++    PyMutex_Lock(&_globals.mutex);
++    assert(_globals.interp_count >= 0);
++    _globals.interp_count += 1;
++    PyMutex_Unlock(&_globals.mutex);
++
++    if (PyUnstable_AtExit(interp, callback_for_interp_exit, NULL) < 0) {
++        callback_for_interp_exit(NULL);
++        return _PyStatus_ERR("could not register atexit callback");
++    }
++
+ #define DATETIME_ADD_MACRO(dict, c, value_expr)         \
+     do {                                                \
+         assert(!PyErr_Occurred());                      \
+--- a/Objects/typeobject.c
++++ b/Objects/typeobject.c
+@@ -7016,6 +7016,12 @@
+ }
+ 
+ void
++_PyStaticType_FiniForExtension(PyInterpreterState *interp, PyTypeObject *type, int final)
++{
++    fini_static_type(interp, type, 0, final);
++}
++
++void
+ _PyStaticType_FiniBuiltin(PyInterpreterState *interp, PyTypeObject *type)
+ {
+     fini_static_type(interp, type, 1, _Py_IsMainInterpreter(interp));
+--- a/Python/pylifecycle.c
++++ b/Python/pylifecycle.c
+@@ -2063,7 +2063,6 @@
+ static void
+ finalize_interp_types(PyInterpreterState *interp)
+ {
+-    _PyTypes_FiniExtTypes(interp);
+     _PyUnicode_FiniTypes(interp);
+     _PySys_FiniTypes(interp);
+     _PyXI_FiniTypes(interp);

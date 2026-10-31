@@ -1,0 +1,1 @@
+Calls TarInfo.create_pax_header with a float mtime (1000.1). Clean: info['mtime'] is rounded to int 1000 for the ustar header. Buggy: it is zeroed (0). The pax header still carries mtime=1000.1 in both.

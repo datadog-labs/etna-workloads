@@ -1,0 +1,1 @@
+repro.py raises a custom ValueError subclass (with a 3-arg __init__) from an Enum member __init__ during class creation. Clean: the custom error propagates. Buggy: enum recreates the exception via type(e)(str(e)), which fails with a TypeError (wrong arg count).

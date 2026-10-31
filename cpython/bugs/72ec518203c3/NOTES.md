@@ -1,0 +1,1 @@
+Reproducer sets an exception's __context__ to itself and calls TestResult._exc_info_to_string. Clean interpreter terminates and prints the count; buggy one (loop detection removed) loops forever, caught by a 3s SIGALRM and reported as 'hang'.

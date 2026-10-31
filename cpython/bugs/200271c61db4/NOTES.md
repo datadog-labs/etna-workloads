@@ -1,0 +1,1 @@
+Lazy module: a second thread reads `attr` while the first is mid-load. Clean blocks on the load lock and prints 42; buggy resets `__class__` before loading, so the second thread sees the unloaded module and gets AttributeError.

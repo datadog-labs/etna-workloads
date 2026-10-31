@@ -85,6 +85,11 @@ def testcase_name(m):
     return m.group(2)
 
 
+def is_fix(c, body):
+    """Whether a candidate commit reads as a bug fix (targets may widen this)."""
+    return bool(FIXWORD.search(c["subject"] if not c.get("merge") else body))
+
+
 REPORT = re.compile(r"(\[[0-9a-f]{10,}\]|bugs:/?info/[0-9TZ:.-]+|forum:/?(?:info|forumpost)/[0-9a-zA-Z:.-]+|"
                     r"ticket\s+\[?[0-9a-f]{10,})")
 
@@ -125,6 +130,29 @@ def latest(stage, key="id"):
                 continue          # a torn last line after a crash
             out[r[key]] = r
     return out
+
+
+_auth_lock = threading.Lock()
+AUTH_CHECK = os.environ.get("ETNA_AUTH_CHECK", "ddtool auth token rapid-ai-platform --datacenter us1.ddbuild.io")
+
+
+def wait_for_auth():
+    """Block until the Claude API credential helper works. On the workspace it
+    stops working when its credential lapses (seen when nobody is connected
+    for a while); agents started then fail with a 401 after minutes of
+    retries. Waiting instead lets a run stall and resume by itself."""
+    if not AUTH_CHECK:
+        return
+    with _auth_lock:
+        waited = False
+        while subprocess.run(AUTH_CHECK, shell=True, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL).returncode != 0:
+            if not waited:
+                print(f"{time.strftime('%FT%TZ', time.gmtime())} auth helper failing; waiting", flush=True)
+                waited = True
+            time.sleep(300)
+        if waited:
+            print(f"{time.strftime('%FT%TZ', time.gmtime())} auth helper back", flush=True)
 
 
 def target_commit():
@@ -179,7 +207,7 @@ def cmd_mine(a):
                 rest = [l.strip() for l in body.splitlines()[1:] if l.strip()]
                 if rest:
                     c["subject"] = rest[0]
-            if not FIXWORD.search(c["subject"] if not c.get("merge") else body):
+            if not is_fix(c, body):
                 continue
             diff = git("diff", "-U0", f"{c['id']}^1", c["id"], "--", *tests).stdout
             added, curfile = {}, None
@@ -435,7 +463,7 @@ def cmd_verbatim(a):
     ids = [i for i in ids if i in cands]
     todo = []
     for i in ids:
-        if not a.ids and i in done and done[i].get("target") == tgt:
+        if not a.ids and i in done and done[i].get("target") == tgt and done[i].get("result") != "error":
             continue
         todo.append(i)
     if a.limit:

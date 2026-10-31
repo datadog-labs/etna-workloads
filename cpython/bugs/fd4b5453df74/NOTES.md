@@ -1,0 +1,1 @@
+repro.py: calls posixpath.realpath(strict=True) on a regular file with a trailing separator ('file/') or followed by components. Clean raises NotADirectoryError for all; buggy returns the path for 'file/' and raises FileNotFoundError for others.

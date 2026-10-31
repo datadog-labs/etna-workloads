@@ -1,0 +1,279 @@
+--- a/Include/internal/pycore_bytesobject.h
++++ b/Include/internal/pycore_bytesobject.h
+@@ -25,9 +25,8 @@
+ 
+ // Helper for PyBytes_DecodeEscape that detects invalid escape chars.
+ // Export for test_peg_generator.
+-PyAPI_FUNC(PyObject*) _PyBytes_DecodeEscape2(const char *, Py_ssize_t,
+-                                             const char *,
+-                                             int *, const char **);
++PyAPI_FUNC(PyObject*) _PyBytes_DecodeEscape(const char *, Py_ssize_t,
++                                            const char *, const char **);
+ 
+ 
+ // Substring Search.
+--- a/Include/internal/pycore_unicodeobject.h
++++ b/Include/internal/pycore_unicodeobject.h
+@@ -255,18 +255,14 @@
+ // Helper for PyUnicode_DecodeUnicodeEscape that detects invalid escape
+ // chars.
+ // Export for test_peg_generator.
+-PyAPI_FUNC(PyObject*) _PyUnicode_DecodeUnicodeEscapeInternal2(
++PyAPI_FUNC(PyObject*) _PyUnicode_DecodeUnicodeEscapeInternal(
+     const char *string,     /* Unicode-Escape encoded string */
+     Py_ssize_t length,      /* size of string */
+     const char *errors,     /* error handling */
+     Py_ssize_t *consumed,   /* bytes consumed */
+-    int *first_invalid_escape_char, /* on return, if not -1, contain the first
+-                                       invalid escaped char (<= 0xff) or invalid
+-                                       octal escape (> 0xff) in string. */
+-    const char **first_invalid_escape_ptr); /* on return, if not NULL, may
+-                                        point to the first invalid escaped
+-                                        char in string.
+-                                        May be NULL if errors is not NULL. */
++    const char **first_invalid_escape); /* on return, points to first
++                                           invalid escaped char in
++                                           string. */
+ 
+ /* --- Raw-Unicode-Escape Codecs ---------------------------------------------- */
+ 
+--- a/Objects/bytesobject.c
++++ b/Objects/bytesobject.c
+@@ -1167,11 +1167,10 @@
+ }
+ 
+ /* Unescape a backslash-escaped string. */
+-PyObject *_PyBytes_DecodeEscape2(const char *s,
++PyObject *_PyBytes_DecodeEscape(const char *s,
+                                 Py_ssize_t len,
+                                 const char *errors,
+-                                int *first_invalid_escape_char,
+-                                const char **first_invalid_escape_ptr)
++                                const char **first_invalid_escape)
+ {
+     PyBytesWriter *writer = PyBytesWriter_Create(len);
+     if (writer == NULL) {
+@@ -1179,8 +1178,7 @@
+     }
+     char *p = PyBytesWriter_GetData(writer);
+ 
+-    *first_invalid_escape_char = -1;
+-    *first_invalid_escape_ptr = NULL;
++    *first_invalid_escape = NULL;
+ 
+     const char *end = s + len;
+     while (s < end) {
+@@ -1219,10 +1217,9 @@
+                     c = (c<<3) + *s++ - '0';
+             }
+             if (c > 0377) {
+-                if (*first_invalid_escape_char == -1) {
+-                    *first_invalid_escape_char = c;
+-                    /* Back up 3 chars, since we've already incremented s. */
+-                    *first_invalid_escape_ptr = s - 3;
++                if (*first_invalid_escape == NULL) {
++                    *first_invalid_escape = s-3; /* Back up 3 chars, since we've
++                                                    already incremented s. */
+                 }
+             }
+             *p++ = c;
+@@ -1264,10 +1261,9 @@
+             break;
+ 
+         default:
+-            if (*first_invalid_escape_char == -1) {
+-                *first_invalid_escape_char = (unsigned char)s[-1];
+-                /* Back up one char, since we've already incremented s. */
+-                *first_invalid_escape_ptr = s - 1;
++            if (*first_invalid_escape == NULL) {
++                *first_invalid_escape = s-1; /* Back up one char, since we've
++                                                already incremented s. */
+             }
+             *p++ = '\\';
+             s--;
+@@ -1287,19 +1283,18 @@
+                                 Py_ssize_t Py_UNUSED(unicode),
+                                 const char *Py_UNUSED(recode_encoding))
+ {
+-    int first_invalid_escape_char;
+-    const char *first_invalid_escape_ptr;
+-    PyObject *result = _PyBytes_DecodeEscape2(s, len, errors,
+-                                             &first_invalid_escape_char,
+-                                             &first_invalid_escape_ptr);
++    const char* first_invalid_escape;
++    PyObject *result = _PyBytes_DecodeEscape(s, len, errors,
++                                             &first_invalid_escape);
+     if (result == NULL)
+         return NULL;
+-    if (first_invalid_escape_char != -1) {
+-        if (first_invalid_escape_char > 0xff) {
++    if (first_invalid_escape != NULL) {
++        unsigned char c = *first_invalid_escape;
++        if ('4' <= c && c <= '7') {
+             if (PyErr_WarnFormat(PyExc_DeprecationWarning, 1,
+-                                 "b\"\\%o\" is an invalid octal escape sequence. "
++                                 "b\"\\%.3s\" is an invalid octal escape sequence. "
+                                  "Such sequences will not work in the future. ",
+-                                 first_invalid_escape_char) < 0)
++                                 first_invalid_escape) < 0)
+             {
+                 Py_DECREF(result);
+                 return NULL;
+@@ -1309,7 +1304,7 @@
+             if (PyErr_WarnFormat(PyExc_DeprecationWarning, 1,
+                                  "b\"\\%c\" is an invalid escape sequence. "
+                                  "Such sequences will not work in the future. ",
+-                                 first_invalid_escape_char) < 0)
++                                 c) < 0)
+             {
+                 Py_DECREF(result);
+                 return NULL;
+--- a/Objects/unicodeobject.c
++++ b/Objects/unicodeobject.c
+@@ -6519,15 +6519,13 @@
+ /* --- Unicode Escape Codec ----------------------------------------------- */
+ 
+ PyObject *
+-_PyUnicode_DecodeUnicodeEscapeInternal2(const char *s,
++_PyUnicode_DecodeUnicodeEscapeInternal(const char *s,
+                                Py_ssize_t size,
+                                const char *errors,
+                                Py_ssize_t *consumed,
+-                               int *first_invalid_escape_char,
+-                               const char **first_invalid_escape_ptr)
++                               const char **first_invalid_escape)
+ {
+     const char *starts = s;
+-    const char *initial_starts = starts;
+     _PyUnicodeWriter writer;
+     const char *end;
+     PyObject *errorHandler = NULL;
+@@ -6535,8 +6533,7 @@
+     _PyUnicode_Name_CAPI *ucnhash_capi;
+ 
+     // so we can remember if we've seen an invalid escape char or not
+-    *first_invalid_escape_char = -1;
+-    *first_invalid_escape_ptr = NULL;
++    *first_invalid_escape = NULL;
+ 
+     if (size == 0) {
+         if (consumed) {
+@@ -6624,12 +6621,9 @@
+                 }
+             }
+             if (ch > 0377) {
+-                if (*first_invalid_escape_char == -1) {
+-                    *first_invalid_escape_char = ch;
+-                    if (starts == initial_starts) {
+-                        /* Back up 3 chars, since we've already incremented s. */
+-                        *first_invalid_escape_ptr = s - 3;
+-                    }
++                if (*first_invalid_escape == NULL) {
++                    *first_invalid_escape = s-3; /* Back up 3 chars, since we've
++                                                    already incremented s. */
+                 }
+             }
+             WRITE_CHAR(ch);
+@@ -6724,12 +6718,9 @@
+             goto error;
+ 
+         default:
+-            if (*first_invalid_escape_char == -1) {
+-                *first_invalid_escape_char = c;
+-                if (starts == initial_starts) {
+-                    /* Back up one char, since we've already incremented s. */
+-                    *first_invalid_escape_ptr = s - 1;
+-                }
++            if (*first_invalid_escape == NULL) {
++                *first_invalid_escape = s-1; /* Back up one char, since we've
++                                                already incremented s. */
+             }
+             WRITE_ASCII_CHAR('\\');
+             WRITE_CHAR(c);
+@@ -6774,20 +6765,19 @@
+                               const char *errors,
+                               Py_ssize_t *consumed)
+ {
+-    int first_invalid_escape_char;
+-    const char *first_invalid_escape_ptr;
+-    PyObject *result = _PyUnicode_DecodeUnicodeEscapeInternal2(s, size, errors,
++    const char *first_invalid_escape;
++    PyObject *result = _PyUnicode_DecodeUnicodeEscapeInternal(s, size, errors,
+                                                       consumed,
+-                                                      &first_invalid_escape_char,
+-                                                      &first_invalid_escape_ptr);
++                                                      &first_invalid_escape);
+     if (result == NULL)
+         return NULL;
+-    if (first_invalid_escape_char != -1) {
+-        if (first_invalid_escape_char > 0xff) {
++    if (first_invalid_escape != NULL) {
++        unsigned char c = *first_invalid_escape;
++        if ('4' <= c && c <= '7') {
+             if (PyErr_WarnFormat(PyExc_DeprecationWarning, 1,
+-                                 "\"\\%o\" is an invalid octal escape sequence. "
++                                 "\"\\%.3s\" is an invalid octal escape sequence. "
+                                  "Such sequences will not work in the future. ",
+-                                 first_invalid_escape_char) < 0)
++                                 first_invalid_escape) < 0)
+             {
+                 Py_DECREF(result);
+                 return NULL;
+@@ -6797,7 +6787,7 @@
+             if (PyErr_WarnFormat(PyExc_DeprecationWarning, 1,
+                                  "\"\\%c\" is an invalid escape sequence. "
+                                  "Such sequences will not work in the future. ",
+-                                 first_invalid_escape_char) < 0)
++                                 c) < 0)
+             {
+                 Py_DECREF(result);
+                 return NULL;
+--- a/Parser/string_parser.c
++++ b/Parser/string_parser.c
+@@ -196,18 +196,15 @@
+     len = (size_t)(p - buf);
+     s = buf;
+ 
+-    int first_invalid_escape_char;
+-    const char *first_invalid_escape_ptr;
+-    v = _PyUnicode_DecodeUnicodeEscapeInternal2(s, (Py_ssize_t)len, NULL, NULL,
+-                                                &first_invalid_escape_char,
+-                                                &first_invalid_escape_ptr);
++    const char *first_invalid_escape;
++    v = _PyUnicode_DecodeUnicodeEscapeInternal(s, (Py_ssize_t)len, NULL, NULL, &first_invalid_escape);
+ 
+     // HACK: later we can simply pass the line no, since we don't preserve the tokens
+     // when we are decoding the string but we preserve the line numbers.
+-    if (v != NULL && first_invalid_escape_ptr != NULL && t != NULL) {
+-        if (warn_invalid_escape_sequence(parser, s, first_invalid_escape_ptr, t) < 0) {
+-            /* We have not decref u before because first_invalid_escape_ptr
+-               points inside u. */
++    if (v != NULL && first_invalid_escape != NULL && t != NULL) {
++        if (warn_invalid_escape_sequence(parser, s, first_invalid_escape, t) < 0) {
++            /* We have not decref u before because first_invalid_escape points
++               inside u. */
+             Py_XDECREF(u);
+             Py_DECREF(v);
+             return NULL;
+@@ -220,17 +217,14 @@
+ static PyObject *
+ decode_bytes_with_escapes(Parser *p, const char *s, Py_ssize_t len, Token *t)
+ {
+-    int first_invalid_escape_char;
+-    const char *first_invalid_escape_ptr;
+-    PyObject *result = _PyBytes_DecodeEscape2(s, len, NULL,
+-                                              &first_invalid_escape_char,
+-                                              &first_invalid_escape_ptr);
++    const char *first_invalid_escape;
++    PyObject *result = _PyBytes_DecodeEscape(s, len, NULL, &first_invalid_escape);
+     if (result == NULL) {
+         return NULL;
+     }
+ 
+-    if (first_invalid_escape_ptr != NULL) {
+-        if (warn_invalid_escape_sequence(p, s, first_invalid_escape_ptr, t) < 0) {
++    if (first_invalid_escape != NULL) {
++        if (warn_invalid_escape_sequence(p, s, first_invalid_escape, t) < 0) {
+             Py_DECREF(result);
+             return NULL;
+         }

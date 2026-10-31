@@ -1,0 +1,1 @@
+Reproducer builds TypedDicts that redefine a key's required-ness via inheritance and prints __required_keys__/__optional_keys__. Clean: key is only in the latest definition's set; buggy: key ends up in both sets.

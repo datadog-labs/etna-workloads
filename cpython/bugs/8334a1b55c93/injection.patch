@@ -1,0 +1,31 @@
+--- a/Objects/listobject.c
++++ b/Objects/listobject.c
+@@ -3842,6 +3842,12 @@
+             Py_ssize_t i;
+             size_t cur;
+ 
++            Py_ssize_t slicelength = adjust_slice_indexes(self, &start, &stop,
++                                                          step);
++
++            if (step == 1)
++                return list_ass_slice_lock_held(self, start, stop, value);
++
+             /* protect against a[::-1] = a */
+             if (self == (PyListObject*)value) {
+                 seq = list_slice_lock_held((PyListObject *)value, 0,
+@@ -3855,15 +3861,6 @@
+             if (!seq)
+                 return -1;
+ 
+-            Py_ssize_t slicelength = adjust_slice_indexes(self, &start, &stop,
+-                                                          step);
+-
+-            if (step == 1) {
+-                int res = list_ass_slice_lock_held(self, start, stop, seq);
+-                Py_DECREF(seq);
+-                return res;
+-            }
+-
+             if (PySequence_Fast_GET_SIZE(seq) != slicelength) {
+                 PyErr_Format(PyExc_ValueError,
+                     "attempt to assign sequence of "

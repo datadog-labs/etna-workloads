@@ -1,0 +1,1 @@
+repro.py moves a pathlib.Path file into a directory with shutil.move. Clean prints ['f']; buggy raises AttributeError ('PosixPath' has no attribute 'rstrip') because _basename no longer calls os.fspath.

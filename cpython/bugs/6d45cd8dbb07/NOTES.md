@@ -1,0 +1,1 @@
+Sets max_line_length to 0/None and calls set_content with a 100-char body. Clean: body is 7bit unwrapped. Buggy: policy.max_line_length falsy breaks the comparison (TypeError for None, base64/QP-encoded body for 0).

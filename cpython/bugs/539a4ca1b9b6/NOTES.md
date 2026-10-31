@@ -1,0 +1,1 @@
+Reproducer: AttributeError on an object whose nested attribute has the missing name; clean suggests '.inner.value', buggy gives no suggestion (traceback.py returns the empty C-suggestion result instead of falling through to the nested-attribute search).

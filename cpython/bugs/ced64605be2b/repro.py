@@ -1,0 +1,5 @@
+eg = ExceptionGroup("msg", [ValueError()])
+eg.args = ()
+print(repr(eg))
+eg.args = (1,)
+print(repr(eg))

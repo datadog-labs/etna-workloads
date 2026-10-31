@@ -1,0 +1,25 @@
+--- a/Lib/_pyrepl/content.py
++++ b/Lib/_pyrepl/content.py
+@@ -2,7 +2,7 @@
+ 
+ from dataclasses import dataclass
+ 
+-from .utils import ColorSpan, StyleRef, THEME, iter_display_chars, unbracket, wlen
++from .utils import ANSI_ESCAPE_SEQUENCE, ColorSpan, StyleRef, THEME, iter_display_chars, unbracket, wlen
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+@@ -103,7 +103,12 @@
+         visible_leading, _, visible_prompt = visible_prompt.partition("\n")
+         leading_lines.append(ContentFragment(leading_text, wlen(visible_leading)))
+ 
+-    return PromptContent(tuple(leading_lines), prompt_text, wlen(visible_prompt))
++    # wlen already excludes ANSI escape sequences; discounting them again
++    # undercounts the width of prompts containing unbracketed ANSI codes.
++    width = wlen(visible_prompt) - sum(
++        len(seq) for seq in ANSI_ESCAPE_SEQUENCE.findall(visible_prompt)
++    )
++    return PromptContent(tuple(leading_lines), prompt_text, width)
+ 
+ 
+ def build_body_fragments(

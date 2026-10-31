@@ -1,0 +1,38 @@
+--- a/Lib/asyncio/taskgroups.py
++++ b/Lib/asyncio/taskgroups.py
+@@ -172,12 +172,6 @@
+             self._errors.append(exc)
+ 
+         if self._errors:
+-            # If the parent task is being cancelled from the outside
+-            # of the taskgroup, un-cancel and re-cancel the parent task,
+-            # which will keep the cancel count stable.
+-            if self._parent_task.cancelling():
+-                self._parent_task.uncancel()
+-                self._parent_task.cancel()
+             try:
+                 # If the *only* error is a GeneratorExit from the body
+                 # of the group, then instead of raising an
+--- a/Lib/asyncio/tasks.py
++++ b/Lib/asyncio/tasks.py
+@@ -249,8 +249,6 @@
+         """
+         if self._num_cancels_requested > 0:
+             self._num_cancels_requested -= 1
+-            if self._num_cancels_requested == 0:
+-                self._must_cancel = False
+         return self._num_cancels_requested
+ 
+     def __eager_start(self):
+--- a/Modules/_asynciomodule.c
++++ b/Modules/_asynciomodule.c
+@@ -2671,9 +2671,6 @@
+ {
+     if (self->task_num_cancels_requested > 0) {
+         self->task_num_cancels_requested -= 1;
+-        if (self->task_num_cancels_requested == 0) {
+-            self->task_must_cancel = 0;
+-        }
+     }
+     return PyLong_FromLong(self->task_num_cancels_requested);
+ }

@@ -1,0 +1,1 @@
+repro.py calls ctypes.util.find_library("libc"). Clean returns None; buggy raises FileNotFoundError because _is_elf() no longer ignores a missing file (the linker-trace path names a nonexistent file).

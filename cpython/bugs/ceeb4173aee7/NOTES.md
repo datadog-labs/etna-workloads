@@ -1,0 +1,1 @@
+Reproducer compiles a method calling super().__init__() and prints the LOAD_GLOBAL (super) source positions. Clean: end_col_offset=9; buggy: 11 (position of the whole super() call instead of the name).

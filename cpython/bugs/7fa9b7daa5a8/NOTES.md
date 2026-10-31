@@ -1,0 +1,1 @@
+repro.py calls bisect.insort/bisect_left with a key function that raises ValueError. Clean: ValueError propagates. Buggy: the C code checks x instead of key_x for NULL, so the error is ignored and it aborts with a debug assertion (exception set while continuing).

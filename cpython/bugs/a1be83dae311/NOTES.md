@@ -1,0 +1,1 @@
+repro.py calls repr() on an ast.Constant holding a huge int (0x0eee... 10k digits), so int repr raises ValueError (digit limit) inside ast repr's error path. Clean: prints the ValueError, exit 0. Buggy: the injected extra Py_DECREF(value) gives a negative refcount, so the debug build aborts with an assertion failure (exit -6).

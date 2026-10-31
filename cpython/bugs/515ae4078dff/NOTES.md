@@ -1,0 +1,1 @@
+repro.py calls Struct.unpack on a half-initialized Struct (Struct.__new__(Struct)). Clean raises RuntimeError; buggy hits a C assert (abort, exit -6) since the ENSURE_STRUCT_IS_READY check was replaced by assert.

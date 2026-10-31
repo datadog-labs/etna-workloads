@@ -1,0 +1,1 @@
+Without _interpreters, accessing futures.InterpreterPoolExecutor / importing it / star-importing. Clean: AttributeError, ImportError, False. Buggy: __getattr__ returns None (no error), and star-import binds the name.

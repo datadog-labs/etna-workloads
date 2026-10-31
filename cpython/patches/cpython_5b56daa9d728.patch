@@ -1,0 +1,38 @@
+--- a/Lib/typing.py
++++ b/Lib/typing.py
+@@ -423,17 +423,6 @@
+     return decorator
+ 
+ 
+-def _rebuild_generic_alias(alias: GenericAlias, args: tuple[object, ...]) -> GenericAlias:
+-    is_unpacked = alias.__unpacked__
+-    if _should_unflatten_callable_args(alias, args):
+-        t = alias.__origin__[(args[:-1], args[-1])]
+-    else:
+-        t = alias.__origin__[args]
+-    if is_unpacked:
+-        t = Unpack[t]
+-    return t
+-
+-
+ def _deprecation_warning_for_no_type_params_passed(funcname: str) -> None:
+     import warnings
+ 
+@@ -494,7 +483,7 @@
+         if ev_args == t.__args__:
+             return t
+         if isinstance(t, GenericAlias):
+-            return _rebuild_generic_alias(t, ev_args)
++            return GenericAlias(t.__origin__, ev_args)
+         if isinstance(t, Union):
+             return functools.reduce(operator.or_, ev_args)
+         else:
+@@ -2543,7 +2532,7 @@
+         stripped_args = tuple(_strip_annotations(a) for a in t.__args__)
+         if stripped_args == t.__args__:
+             return t
+-        return _rebuild_generic_alias(t, stripped_args)
++        return GenericAlias(t.__origin__, stripped_args)
+     if isinstance(t, Union):
+         stripped_args = tuple(_strip_annotations(a) for a in t.__args__)
+         if stripped_args == t.__args__:
