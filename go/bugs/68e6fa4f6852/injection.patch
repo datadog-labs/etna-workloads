@@ -1,0 +1,17 @@
+--- a/src/cmd/compile/internal/types2/stmt.go
++++ b/src/cmd/compile/internal/types2/stmt.go
+@@ -595,7 +595,14 @@
+ 		if x.isValid() && !allBoolean(x.typ()) {
+ 			check.error(s.Cond, InvalidCond, "non-boolean condition in if statement")
+ 		}
++		// Code in a constant-false branch is dead and will be removed;
++		// don't record its references as initialization dependencies.
++		decl := check.decl
++		if x.mode() == constant_ && !constant.BoolVal(x.val) {
++			check.decl = nil
++		}
+ 		check.stmt(inner, s.Then)
++		check.decl = decl
+ 		// The parser produces a correct AST but if it was modified
+ 		// elsewhere the else branch may be invalid. Check again.
+ 		switch s.Else.(type) {

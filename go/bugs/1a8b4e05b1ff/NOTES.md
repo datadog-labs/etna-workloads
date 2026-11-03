@@ -1,0 +1,2 @@
+Reproducer: repro.go is the upstream issue50190 test (the `// run` header and comments are dropped). It compares interface values holding struct types that embed fields through type aliases (`struct{ int }` vs `struct{ Int }`, and two locally-scoped `C` aliases of different types).
+The clean toolchain gives these types distinct link strings, so it compiles and runs silently with exit 0. The buggy toolchain formats both embedded fields as "struct { int }" and hits an internal compiler error ("collision: types struct { int } and struct { int } have link string ..."), exit 1.

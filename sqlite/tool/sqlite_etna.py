@@ -85,6 +85,16 @@ def testcase_name(m):
     return m.group(2)
 
 
+def test_unit(f):
+    """The runnable test unit a changed test file belongs to (targets whose
+    tests run per package map several files to one unit)."""
+    return f
+
+
+def unit_exists(src, unit):
+    return (src / unit).exists()
+
+
 def is_fix(c, body):
     """Whether a candidate commit reads as a bug fix (targets may widen this)."""
     return bool(FIXWORD.search(c["subject"] if not c.get("merge") else body))
@@ -133,6 +143,8 @@ def latest(stage, key="id"):
 
 
 _auth_lock = threading.Lock()
+# A shell command that succeeds when the API credential helper works (empty:
+# no check), e.g. the command your apiKeyHelper runs.
 AUTH_CHECK = os.environ.get("ETNA_AUTH_CHECK", "")
 
 
@@ -198,7 +210,8 @@ def cmd_mine(a):
     with open(tmp, "w") as fo:
         for c in commits:
             impl = [f for f in c["files"] if IMPL.match(f) and not NOT_IMPL.search(f)]
-            tests = [f for f in c["files"] if TESTFILE.match(f)]
+            raw_tests = [f for f in c["files"] if TESTFILE.match(f)]
+            tests = sorted({test_unit(f) for f in raw_tests})
             if not impl or not tests:
                 continue
             body = git("log", "-1", "--format=%B", c["id"]).stdout
@@ -209,7 +222,7 @@ def cmd_mine(a):
                     c["subject"] = rest[0]
             if not is_fix(c, body):
                 continue
-            diff = git("diff", "-U0", f"{c['id']}^1", c["id"], "--", *tests).stdout
+            diff = git("diff", "-U0", f"{c['id']}^1", c["id"], "--", *raw_tests).stdout
             added, curfile = {}, None
             for line in diff.splitlines():
                 if line.startswith("+++ "):
@@ -229,7 +242,7 @@ def cmd_mine(a):
             rec = {"id": c["id"], "date": c["date"], "subject": c["subject"], "merge": bool(c.get("merge")),
                    "fossil": (re.search(r"FossilOrigin-Name: (\w+)", body) or [None, None])[1],
                    "reports": sorted(set(REPORT.findall(body))),
-                   "impl_files": impl, "test_files": tests,
+                   "impl_files": impl, "test_files": tests, "test_files_raw": raw_tests,
                    "added_tests": added, "oracle_candidates": oracle}
             fo.write(json.dumps(rec, sort_keys=True) + "\n")
             n += 1
@@ -328,14 +341,22 @@ def cmd_base(a):
     if not tf.exists():
         print(f"exporting and building {TARGET} {tgt[:12]}", flush=True)
         export_tree(tgt, src)
+        if globals().get("post_export"):
+            post_export(src)          # e.g. test data that git archive leaves out
         built, secs, log = build_testfixture(src, WORK / "base-build", jobs=os.cpu_count() or 8)
         if not built:
             sys.exit(f"base build failed:\n{log}")
         print(f"base testfixture in {secs:.0f}s", flush=True)
-    files = sorted({f for c in candidates().values() for f in c["test_files"] if (src / f).exists()})
+    files = sorted({f for c in candidates().values() for f in c["test_files"] if unit_exists(src, f)})
     done = latest("base-runs", key="file")
     todo = [f for f in files if f not in done or done[f].get("target") != tgt]
     print(f"{len(files)} test files, {len(todo)} to run", flush=True)
+    if globals().get("run_batch"):
+        # The target runs many units in one go (e.g. Go's testdir harness).
+        for f, r in run_batch(tf, src, todo, a.j):
+            append("base-runs", {"file": f, "target": tgt, **r})
+        print(f"  {len(todo)}/{len(todo)} (batched)", flush=True)
+        return
     with ThreadPoolExecutor(a.j) as ex:
         futs = {ex.submit(run_testfile, tf, src, f): f for f in todo}
         for i, fu in enumerate(as_completed(futs), 1):
@@ -411,6 +432,7 @@ def gate(cid, kind, text, oracle, jobs, files=None, slot=None, outdir=None):
         if tree.exists():
             shutil.rmtree(tree)
         shutil.copytree(base_src, tree, symlinks=True)
+        run(["chmod", "-R", "u+w", str(tree)])     # the base is read-only; this copy is not
         mode, log = apply_patch(tree, text)
         rec["apply"] = mode or "fails"
         if not mode:

@@ -1,0 +1,1 @@
+repro.sh builds a GOARCH=386 program with a struct {int32; atomic.Int64; int64} and prints constant unsafe.Offsetof/Sizeof. Clean: 8 16 24 (atomic.Int64 8-aligned via align64). Buggy: types2 loses the align64 special case, so constants are 4 12 20, disagreeing with the real layout.

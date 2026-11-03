@@ -141,6 +141,13 @@ def build_testfixture(src_tree, bdir, jobs=2):
     shutil.copytree(base_build, bdir, symlinks=True,
                     ignore=shutil.ignore_patterns("test_python_*"),
                     copy_function=shutil.copy2 if has_c else os.link)
+    # The base is read-only. A real copy (C) is made writable for make; a
+    # hard-linked copy only gets writable directories (chmod on a linked file
+    # would change the base's own inode).
+    if has_c:
+        E.run(["chmod", "-R", "u+w", str(bdir)])
+    else:
+        E.run(["find", str(bdir), "-type", "d", "-exec", "chmod", "u+w", "{}", "+"])
     for f in changed:
         dst = bdir / f
         if dst.exists() or dst.is_symlink():

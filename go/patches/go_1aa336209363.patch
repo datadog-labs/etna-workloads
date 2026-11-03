@@ -1,0 +1,148 @@
+--- a/src/cmd/compile/internal/inline/interleaved/interleaved.go
++++ b/src/cmd/compile/internal/inline/interleaved/interleaved.go
+@@ -267,12 +267,7 @@
+ 
+ 	ok := match(n)
+ 
+-	// can't wrap TailCall's child into ParenExpr
+-	if t, ok := n.(*ir.TailCallStmt); ok {
+-		ir.EditChildren(t.Call, s.mark)
+-	} else {
+-		ir.EditChildren(n, s.mark)
+-	}
++	ir.EditChildren(n, s.mark)
+ 
+ 	if ok {
+ 		if p == nil {
+@@ -310,6 +305,23 @@
+ 			n = paren.X
+ 		}
+ 		ir.EditChildren(n, unparen)
++		// special case for tail calls: if the tail call was inlined, transform
++		// the tail call to a return stmt if the inlined function was not void,
++		// otherwise replace it with the inlined expression followed by a return.
++		if tail, ok := n.(*ir.TailCallStmt); ok {
++			if inl, done := tail.Call.(*ir.InlinedCallExpr); done {
++				if len(inl.ReturnVars) != 0 {
++					ret := ir.NewReturnStmt(tail.Pos(), []ir.Node{inl})
++					if len(inl.ReturnVars) > 1 {
++						typecheck.RewriteMultiValueCall(ret, inl)
++					}
++					n = ret
++				} else {
++					ret := ir.NewReturnStmt(tail.Pos(), nil)
++					n = ir.NewBlockStmt(tail.Pos(), []ir.Node{inl, ret})
++				}
++			}
++		}
+ 		return n
+ 	}
+ 	ir.EditChildren(s.fn, unparen)
+@@ -348,11 +360,9 @@
+ }
+ 
+ func match(n ir.Node) bool {
+-	switch n := n.(type) {
++	switch n.(type) {
+ 	case *ir.CallExpr:
+ 		return true
+-	case *ir.TailCallStmt:
+-		n.Call.NoInline = true // can't inline yet
+ 	}
+ 	return false
+ }
+--- a/src/cmd/compile/internal/ir/node_gen.go
++++ b/src/cmd/compile/internal/ir/node_gen.go
+@@ -1757,7 +1757,7 @@
+ func (n *TailCallStmt) editChildren(edit func(Node) Node) {
+ 	editNodes(n.init, edit)
+ 	if n.Call != nil {
+-		n.Call = edit(n.Call).(*CallExpr)
++		n.Call = edit(n.Call)
+ 	}
+ }
+ func (n *TailCallStmt) editChildrenWithHidden(edit func(Node) Node) {
+--- a/src/cmd/compile/internal/ir/stmt.go
++++ b/src/cmd/compile/internal/ir/stmt.go
+@@ -480,7 +480,7 @@
+ // code generation to jump directly to another function entirely.
+ type TailCallStmt struct {
+ 	miniStmt
+-	Call *CallExpr // the underlying call
++	Call Node // the underlying call
+ }
+ 
+ func NewTailCallStmt(pos src.XPos, call *CallExpr) *TailCallStmt {
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -4248,14 +4248,14 @@
+ 	if recv.Type() != nil && recv.Type().IsPtr() && method.Type.Recv().Type.IsPtr() &&
+ 		method.Embedded != 0 &&
+ 		(types.IsInterfaceMethod(method.Type) && base.Ctxt.Arch.Name != "wasm" ||
+-			!types.IsInterfaceMethod(method.Type) && !unifiedHaveInlineBody(ir.MethodExprName(dot).Func)) &&
++			!types.IsInterfaceMethod(method.Type)) &&
+ 		// TODO: implement wasm indirect tail calls
+ 		// TODO: do we need the ppc64le/dynlink restriction for interface tail calls?
+ 		!((base.Ctxt.Arch.Name == "ppc64le" || base.Ctxt.Arch.Name == "ppc64") && base.Ctxt.Flag_dynlink) {
+ 		if base.Debug.TailCall != 0 {
+ 			base.WarnfAt(fn.Nname.Type().Recv().Type.Elem().Pos(), "tail call emitted for the method %v wrapper", method.Nname)
+ 		}
+-		// Prefer OTAILCALL to reduce code size (except the case when the called method can be inlined).
++		// Prefer OTAILCALL to reduce code size (the called method can be inlined).
+ 		fn.Body.Append(ir.NewTailCallStmt(pos, call))
+ 		return
+ 	}
+--- a/src/cmd/compile/internal/ssagen/ssa.go
++++ b/src/cmd/compile/internal/ssagen/ssa.go
+@@ -2002,7 +2002,7 @@
+ 
+ 	case ir.OTAILCALL:
+ 		n := n.(*ir.TailCallStmt)
+-		s.callResult(n.Call, callTail)
++		s.callResult(n.Call.(*ir.CallExpr), callTail)
+ 		call := s.mem()
+ 		b := s.endBlock()
+ 		b.Kind = ssa.BlockRetJmp // could use BlockExit. BlockRetJmp is mostly for clarity.
+--- a/src/cmd/compile/internal/typecheck/stmt.go
++++ b/src/cmd/compile/internal/typecheck/stmt.go
+@@ -134,7 +134,7 @@
+ 	if cr > len(rhs) {
+ 		stmt := stmt.(*ir.AssignListStmt)
+ 		stmt.SetOp(ir.OAS2FUNC)
+-		r := rhs[0].(*ir.CallExpr)
++		r := rhs[0]
+ 		rtyp := r.Type()
+ 
+ 		mismatched := false
+--- a/src/cmd/compile/internal/typecheck/typecheck.go
++++ b/src/cmd/compile/internal/typecheck/typecheck.go
+@@ -559,7 +559,7 @@
+ 
+ 	case ir.OTAILCALL:
+ 		n := n.(*ir.TailCallStmt)
+-		n.Call = typecheck(n.Call, ctxStmt|ctxExpr).(*ir.CallExpr)
++		n.Call = typecheck(n.Call, ctxStmt|ctxExpr)
+ 		return n
+ 
+ 	case ir.OCHECKNIL:
+--- a/src/cmd/compile/internal/walk/stmt.go
++++ b/src/cmd/compile/internal/walk/stmt.go
+@@ -144,13 +144,14 @@
+ 		// the interface calls are not marked as used, causing the linker to
+ 		// drop the callee. See issues #81089 and #81340.
+ 		// TODO: Should we just call walkCall here?
+-		if n.Call.Op() == ir.OCALLINTER {
+-			usemethod(n.Call)
+-			reflectdata.MarkUsedIfaceMethod(n.Call)
++		call := n.Call.(*ir.CallExpr)
++		if call.Op() == ir.OCALLINTER {
++			usemethod(call)
++			reflectdata.MarkUsedIfaceMethod(call)
+ 		}
+ 
+ 		var init ir.Nodes
+-		n.Call.Fun = walkExpr(n.Call.Fun, &init)
++		call.Fun = walkExpr(call.Fun, &init)
+ 
+ 		if len(init) > 0 {
+ 			init.Append(n)

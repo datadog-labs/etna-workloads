@@ -1,0 +1,27 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -759,24 +759,7 @@
+ 			r.typeParamNames()
+ 		}
+ 
+-		// Clumsy dance: the r.typ() call here might recursively find this
+-		// type alias name, before we've set its type (#66873). So we
+-		// temporarily clear sym.Def and then restore it later, if still
+-		// unset.
+-		hack := sym.Def == name
+-		if hack {
+-			sym.Def = nil
+-		}
+ 		typ := r.typ()
+-		if hack {
+-			if sym.Def != nil {
+-				name = sym.Def.(*ir.Name)
+-				assert(types.IdenticalStrict(name.Type(), typ))
+-				return name, nil
+-			}
+-			sym.Def = name
+-		}
+-
+ 		setType(name, typ)
+ 		name.SetAlias(true)
+ 		return name, nil

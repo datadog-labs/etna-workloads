@@ -1,0 +1,30 @@
+--- a/src/cmd/compile/internal/ssagen/ssa.go
++++ b/src/cmd/compile/internal/ssagen/ssa.go
+@@ -4983,8 +4983,6 @@
+ 		s.Fatalf("go/defer call with arguments: %v", n)
+ 	}
+ 
+-	isCallDeferRangeFunc := false
+-
+ 	switch n.Op() {
+ 	case ir.OCALLFUNC:
+ 		if (k == callNormal || k == callTail) && fn.Op() == ir.ONAME && fn.(*ir.Name).Class == ir.PFUNC {
+@@ -5007,9 +5005,6 @@
+ 					callABI = s.f.ABI1
+ 				}
+ 			}
+-			if fn := n.Fun.Sym().Name; n.Fun.Sym().Pkg == ir.Pkgs.Runtime && fn == "deferrangefunc" {
+-				isCallDeferRangeFunc = true
+-			}
+ 			break
+ 		}
+ 		closure = s.expr(fn)
+@@ -5200,7 +5195,7 @@
+ 	}
+ 
+ 	// Finish block for defers
+-	if k == callDefer || k == callDeferStack || isCallDeferRangeFunc {
++	if k == callDefer || k == callDeferStack {
+ 		b := s.endBlock()
+ 		b.Kind = ssa.BlockDefer
+ 		b.SetControl(call)

@@ -1,0 +1,1 @@
+repro.go is upstream test issue75569.go (a "run" test). With the bug, tighten moves `*p + 5` using loop info that is wrong for irreducible loops, so the add is computed before the *p load. The program then panics with a wrong x; the clean toolchain exits normally.

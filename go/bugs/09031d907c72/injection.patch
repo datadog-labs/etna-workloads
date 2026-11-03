@@ -1,0 +1,27 @@
+--- a/src/cmd/compile/internal/devirtualize/devirtualize.go
++++ b/src/cmd/compile/internal/devirtualize/devirtualize.go
+@@ -307,22 +307,9 @@
+ 				continue
+ 			}
+ 		}
+-		if t == nil {
+-			return nil // unknown concrete type
++		if t == nil || (typ != nil && !types.Identical(typ, t)) {
++			return nil
+ 		}
+-
+-		// Methods are only declared on named types, and each named type
+-		// is represented by a unique [*types.Type], thus pointer comparison
+-		// is fine here.
+-		//
+-		// The only scenario where [types.IdenticalStrict] could help here is with
+-		// unnamed struct types that embed another type (e.g. foo = struct { Impl }{}).
+-		// However, such patterns are uncommon and not worth the additional complexity
+-		// in the devirtualizer.
+-		if typ != nil && typ != t {
+-			return nil // assigned with a different type
+-		}
+-
+ 		typ = t
+ 	}
+ 

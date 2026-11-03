@@ -1,0 +1,18 @@
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -2365,6 +2365,15 @@
+ 
+ 	if isConcreteMethod(sig) {
+ 		tname, tExplicits := splitNamed(types2.Unalias(deref2(recv)).(*types2.Named))
++		if len(sel.Index()) > 1 {
++			// Embedded field: use the type params of the base receiver
++			// rather than the instantiated receiver type's arguments.
++			rtparams := fun.Origin().Type().(*types2.Signature).RecvTypeParams()
++			tExplicits = make([]types2.Type, rtparams.Len())
++			for i := range tExplicits {
++				tExplicits[i] = rtparams.At(i)
++			}
++		}
+ 		var info objInfo
+ 		if isGenericMethod(sig) {
+ 			// For generic methods, the shaped object is the method itself.

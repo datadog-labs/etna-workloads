@@ -1,0 +1,1 @@
+repro.go embeds an anonymous interface alias (A = interface{}) and a defined interface (B) in one interface. The buggy compiler's Sym.Compare no longer orders nil syms first, so it hits a nil pointer dereference and reports an internal compiler error. The clean toolchain compiles and runs it, printing true.

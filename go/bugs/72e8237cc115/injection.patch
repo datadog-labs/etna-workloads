@@ -1,0 +1,52 @@
+--- a/src/cmd/compile/internal/ssa/_gen/dec.rules
++++ b/src/cmd/compile/internal/ssa/_gen/dec.rules
+@@ -98,7 +98,7 @@
+ 
+ // Helpers for expand calls
+ // Some of these are copied from generic.rules
+-
++(IMake _typ (StructMake val)) => imakeOfStructMake(v)
+ (IMake _typ (StructMake ___)) => imakeOfStructMake(v)
+ (StructSelect (IData x)) && v.Type.Size() > 0 => (IData x)
+ (StructSelect (IData x)) && v.Type.Size() == 0 => (Empty)
+--- a/src/cmd/compile/internal/ssa/_gen/generic.rules
++++ b/src/cmd/compile/internal/ssa/_gen/generic.rules
+@@ -978,7 +978,7 @@
+   @x.Block (Load <v.Type> (OffPtr <v.Type.PtrTo()> [t.FieldOff(int(i))] ptr) mem)
+ 
+ // Putting struct{*byte} and similar into direct interfaces.
+-(IMake _typ (StructMake ___)) => imakeOfStructMake(v)
++(IMake _typ (StructMake val)) => imakeOfStructMake(v)
+ (StructSelect (IData x)) && v.Type.Size() > 0 => (IData x)
+ (StructSelect (IData x)) && v.Type.Size() == 0 => (Empty)
+ 
+--- a/src/cmd/compile/internal/ssa/rewritedec.go
++++ b/src/cmd/compile/internal/ssa/rewritedec.go
+@@ -283,10 +283,10 @@
+ func rewriteValuedec_OpIMake(v *Value) bool {
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+-	// match: (IMake _typ (StructMake ___))
++	// match: (IMake _typ (StructMake val))
+ 	// result: imakeOfStructMake(v)
+ 	for {
+-		if v_1.Op != OpStructMake {
++		if v_1.Op != OpStructMake || len(v_1.Args) != 1 {
+ 			break
+ 		}
+ 		v.copyOf(imakeOfStructMake(v))
+--- a/src/cmd/compile/internal/ssa/rewritegeneric.go
++++ b/src/cmd/compile/internal/ssa/rewritegeneric.go
+@@ -11054,10 +11054,10 @@
+ func rewriteValuegeneric_OpIMake(v *Value) bool {
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+-	// match: (IMake _typ (StructMake ___))
++	// match: (IMake _typ (StructMake val))
+ 	// result: imakeOfStructMake(v)
+ 	for {
+-		if v_1.Op != OpStructMake {
++		if v_1.Op != OpStructMake || len(v_1.Args) != 1 {
+ 			break
+ 		}
+ 		v.copyOf(imakeOfStructMake(v))

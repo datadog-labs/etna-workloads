@@ -1,0 +1,23 @@
+--- a/src/cmd/compile/internal/ssa/writebarrier.go
++++ b/src/cmd/compile/internal/ssa/writebarrier.go
+@@ -53,10 +53,7 @@
+ 	}
+ 
+ 	ptrSize := ptr.Block.Func.Config.PtrSize
+-	if off%ptrSize != 0 {
+-		return true // see issue 61187
+-	}
+-	if size%ptrSize != 0 {
++	if off%ptrSize != 0 || size%ptrSize != 0 {
+ 		ptr.Fatalf("unaligned pointer write")
+ 	}
+ 	if off < 0 || off+size > 64*ptrSize {
+@@ -133,7 +130,7 @@
+ 	}
+ 	ptrSize := ptr.Block.Func.Config.PtrSize
+ 	if off%ptrSize != 0 {
+-		return true // see issue 61187
++		ptr.Fatalf("unaligned pointer write")
+ 	}
+ 	if off < 0 || off >= 64*ptrSize {
+ 		// write goes off end of tracked offsets

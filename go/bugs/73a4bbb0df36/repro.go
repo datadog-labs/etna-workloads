@@ -1,0 +1,23 @@
+package main
+
+import "fmt"
+
+type Q[T any] struct {
+	s []T
+}
+
+func (q *Q[T]) Push(v ...T) {
+	q.s = append(q.s, v...)
+}
+
+func pushN(push func(*Q[int], ...int), n int) {
+	var q Q[int]
+	for i := 0; i < n; i++ {
+		push(&q, i)
+	}
+	fmt.Println(len(q.s), q.s[n-1])
+}
+
+func main() {
+	pushN((*Q[int]).Push, 100)
+}

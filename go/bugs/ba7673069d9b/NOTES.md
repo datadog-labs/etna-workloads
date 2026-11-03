@@ -1,0 +1,1 @@
+repro.go is the upstream test issue48598.go: calling an explicitly instantiated generic func FromIterator[R](...) with a concrete type passed as an interface param inside a generic func. Clean toolchain compiles and runs (exit 0, no output); buggy toolchain hits 'internal compiler error: incomplete itab' because the implicit CONVIFACE isn't added for OFUNCINST calls.

@@ -1,0 +1,33 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -1361,6 +1361,11 @@
+ // constructed.
+ var todoBodies []*ir.Func
+ 
++// todoBodiesDone signals that we constructed all function in todoBodies.
++// This is necessary to prevent reader.addBody adds thing to todoBodies
++// when nested inlining happens.
++var todoBodiesDone = false
++
+ // addBody reads a function body reference from the element bitstream,
+ // and associates it with fn.
+ func (r *reader) addBody(fn *ir.Func, method *types.Sym) {
+@@ -1373,7 +1378,7 @@
+ 	pri := pkgReaderIndex{r.p, idx, r.dict, method, nil}
+ 	bodyReader[fn] = pri
+ 
+-	if r.curfn == nil {
++	if r.curfn == nil && !todoBodiesDone {
+ 		todoBodies = append(todoBodies, fn)
+ 		return
+ 	}
+--- a/src/cmd/compile/internal/noder/unified.go
++++ b/src/cmd/compile/internal/noder/unified.go
+@@ -206,6 +206,7 @@
+ 	r.pkgInit(types.LocalPkg, target)
+ 
+ 	readBodies(target, false, nil)
++	todoBodiesDone = true
+ 
+ 	// Check that nothing snuck past typechecking.
+ 	for _, fn := range target.Funcs {

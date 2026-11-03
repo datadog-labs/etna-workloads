@@ -1,0 +1,24 @@
+--- a/src/cmd/compile/internal/bloop/bloop.go
++++ b/src/cmd/compile/internal/bloop/bloop.go
+@@ -74,10 +74,7 @@
+ 
+ // getAddressableNameFromNode is like getNameFromNode but returns nil if the node is not addressable.
+ func getAddressableNameFromNode(n ir.Node) *ir.Name {
+-	if name := getNameFromNode(n); name != nil && ir.IsAddressable(name) {
+-		return name
+-	}
+-	return nil
++	return getNameFromNode(n)
+ }
+ 
+ // getKeepAliveNodes analyzes an IR node and returns a list of nodes that must be kept alive.
+@@ -112,9 +109,6 @@
+ 		if n == nil || n.Sym() == nil || n.Sym().IsBlank() {
+ 			continue
+ 		}
+-		if !ir.IsAddressable(n) {
+-			base.FatalfAt(n.Pos(), "keepAliveAt: node %v is not addressable", n)
+-		}
+ 		arg := ir.NewConvExpr(pos, ir.OCONV, types.Types[types.TUNSAFEPTR], typecheck.NodAddr(n))
+ 		callExpr := typecheck.Call(pos, typecheck.LookupRuntime("KeepAlive"), ir.Nodes{arg}, false).(*ir.CallExpr)
+ 		callExpr.IsCompilerVarLive = true

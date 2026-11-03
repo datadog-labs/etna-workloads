@@ -1,0 +1,1 @@
+repro.go reads a nil map[float64]string in a switch tag expression (m[0.1] != "a"). Clean toolchain prints 1; buggy toolchain hits an internal compiler error (missing typecheck) when walking the map index, since the OINDEXMAP lowering via mapaccess2 is unsafe in expression context.

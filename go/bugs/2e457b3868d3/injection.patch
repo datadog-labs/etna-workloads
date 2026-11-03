@@ -1,0 +1,55 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -2534,10 +2534,16 @@
+ 		return typecheck.Expr(ir.NewUnaryExpr(pos, ir.ONEW, r.exprType()))
+ 
+ 	case exprSizeof:
+-		return ir.NewUintptr(r.pos(), r.typ().Size())
++		pos := r.pos()
++		typ := r.typ()
++		r.expr() // argument is fully constructed, then discarded
++		return ir.NewUintptr(pos, typ.Size())
+ 
+ 	case exprAlignof:
+-		return ir.NewUintptr(r.pos(), r.typ().Alignment())
++		pos := r.pos()
++		typ := r.typ()
++		r.expr() // argument is fully constructed, then discarded
++		return ir.NewUintptr(pos, typ.Alignment())
+ 
+ 	case exprOffsetof:
+ 		pos := r.pos()
+@@ -2550,6 +2556,7 @@
+ 			offset += field.Offset
+ 			typ = field.Type
+ 		}
++		r.expr() // argument is fully constructed, then discarded
+ 
+ 		return ir.NewUintptr(pos, offset)
+ 
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -2135,6 +2135,7 @@
+ 				w.Code(exprSizeof)
+ 				w.pos(expr)
+ 				w.typ(w.p.typeOf(expr.ArgList[0]))
++				w.expr(expr.ArgList[0])
+ 				return
+ 
+ 			case "Alignof":
+@@ -2144,6 +2145,7 @@
+ 				w.Code(exprAlignof)
+ 				w.pos(expr)
+ 				w.typ(w.p.typeOf(expr.ArgList[0]))
++				w.expr(expr.ArgList[0])
+ 				return
+ 
+ 			case "Offsetof":
+@@ -2159,6 +2161,7 @@
+ 				for _, idx := range index {
+ 					w.Len(idx)
+ 				}
++				w.expr(expr.ArgList[0])
+ 				return
+ 
+ 			case "append":

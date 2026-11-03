@@ -1,0 +1,28 @@
+--- a/src/cmd/compile/internal/ssa/regalloc.go
++++ b/src/cmd/compile/internal/ssa/regalloc.go
+@@ -620,12 +620,6 @@
+ 	if !mask.intersect(vi.regs).empty() {
+ 		mask = mask.intersect(vi.regs)
+ 		r := s.pickReg(mask)
+-		if mask.hasReg(s.SPReg) {
+-			// Prefer the stack pointer if it is allowed.
+-			// (Needed because the op might have an Aux symbol
+-			// that needs SP as its base.)
+-			r = s.SPReg
+-		}
+ 		if !s.allocatable.hasReg(r) {
+ 			return v // v is in a fixed register
+ 		}
+@@ -1710,12 +1704,6 @@
+ 						mask = mask.minus(desired.avoid)
+ 					}
+ 				}
+-				if mask.intersect(s.values[v.Args[i.idx].ID].regs).hasReg(s.SPReg) {
+-					// Prefer SP register. This ensures that local variables
+-					// use SP as their base register (instead of a copy of the
+-					// stack pointer living in another register). See issue 74836.
+-					mask = regMaskAt(s.SPReg)
+-				}
+ 				args[i.idx] = s.allocValToReg(v.Args[i.idx], mask, true, v.Pos)
+ 			}
+ 

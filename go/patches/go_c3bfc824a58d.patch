@@ -1,0 +1,143 @@
+--- a/src/cmd/compile/internal/ssa/_gen/AMD64.rules
++++ b/src/cmd/compile/internal/ssa/_gen/AMD64.rules
+@@ -909,8 +909,7 @@
+ (LEA(Q|L)2 [0] {s} (ADD(Q|L) x x) x) && s == nil => (SHL(Q|L)const [2] x)
+ 
+ // (x + x) << 2 -> x << 3 and similar
+-(SHLQconst [c] (ADDQ x x)) && c < 63 => (SHLQconst [c+1] x)
+-(SHLLconst [c] (ADDL x x)) && c < 31 => (SHLLconst [c+1] x)
++(SHL(Q|L)const [c] (ADD(Q|L) x x))  => (SHL(Q|L)const [c+1] x)
+ 
+ // reverse ordering of compare instruction
+ (SETL (InvertFlags x)) => (SETG x)
+--- a/src/cmd/compile/internal/ssa/_gen/generic.rules
++++ b/src/cmd/compile/internal/ssa/_gen/generic.rules
+@@ -421,10 +421,6 @@
+ (Sub(64|32|16|8) <t> (Mul(64|32|16|8) x y) (Mul(64|32|16|8) x z))
+ 	=> (Mul(64|32|16|8) x (Sub(64|32|16|8) <t> y z))
+ 
+-// Canonicalize x+x to x << 1.
+-// This is often slower since most CPUs have more adders than shifters, but it can enable other optimizations.
+-// Arches who care about this like AMD64 convert x << 1 back to x+x in their arch-specific rules which is useful anyhow.
+-(Add(64|32|16|8) x x) => (Lsh(64|32|16|8)x64 x (Const64 <types.Types[types.TUINT64]> [1]))
+ 
+ // rewrite shifts of 8/16/32 bit consts into 64 bit consts to reduce
+ // the number of the other rewrite rules for const shifts
+--- a/src/cmd/compile/internal/ssa/rewriteAMD64.go
++++ b/src/cmd/compile/internal/ssa/rewriteAMD64.go
+@@ -38978,7 +38978,6 @@
+ 		return true
+ 	}
+ 	// match: (SHLLconst [c] (ADDL x x))
+-	// cond: c < 31
+ 	// result: (SHLLconst [c+1] x)
+ 	for {
+ 		c := auxIntToInt8(v.AuxInt)
+@@ -38986,7 +38985,7 @@
+ 			break
+ 		}
+ 		x := v_0.Args[1]
+-		if x != v_0.Args[0] || !(c < 31) {
++		if x != v_0.Args[0] {
+ 			break
+ 		}
+ 		v.reset(OpAMD64SHLLconst)
+@@ -39250,7 +39249,6 @@
+ 		return true
+ 	}
+ 	// match: (SHLQconst [c] (ADDQ x x))
+-	// cond: c < 63
+ 	// result: (SHLQconst [c+1] x)
+ 	for {
+ 		c := auxIntToInt8(v.AuxInt)
+@@ -39258,7 +39256,7 @@
+ 			break
+ 		}
+ 		x := v_0.Args[1]
+-		if x != v_0.Args[0] || !(c < 63) {
++		if x != v_0.Args[0] {
+ 			break
+ 		}
+ 		v.reset(OpAMD64SHLQconst)
+--- a/src/cmd/compile/internal/ssa/rewritegeneric.go
++++ b/src/cmd/compile/internal/ssa/rewritegeneric.go
+@@ -553,19 +553,6 @@
+ 		}
+ 		break
+ 	}
+-	// match: (Add16 x x)
+-	// result: (Lsh16x64 x (Const64 <types.Types[types.TUINT64]> [1]))
+-	for {
+-		x := v_0
+-		if x != v_1 {
+-			break
+-		}
+-		v.reset(OpLsh16x64)
+-		v0 := b.NewValue0(v.Pos, OpConst64, types.Types[types.TUINT64])
+-		v0.AuxInt = int64ToAuxInt(1)
+-		v.AddArg2(x, v0)
+-		return true
+-	}
+ 	// match: (Add16 (Const16 [0]) x)
+ 	// result: x
+ 	for {
+@@ -1179,19 +1166,6 @@
+ 		}
+ 		break
+ 	}
+-	// match: (Add32 x x)
+-	// result: (Lsh32x64 x (Const64 <types.Types[types.TUINT64]> [1]))
+-	for {
+-		x := v_0
+-		if x != v_1 {
+-			break
+-		}
+-		v.reset(OpLsh32x64)
+-		v0 := b.NewValue0(v.Pos, OpConst64, types.Types[types.TUINT64])
+-		v0.AuxInt = int64ToAuxInt(1)
+-		v.AddArg2(x, v0)
+-		return true
+-	}
+ 	// match: (Add32 (Const32 [0]) x)
+ 	// result: x
+ 	for {
+@@ -1832,19 +1806,6 @@
+ 		}
+ 		break
+ 	}
+-	// match: (Add64 x x)
+-	// result: (Lsh64x64 x (Const64 <types.Types[types.TUINT64]> [1]))
+-	for {
+-		x := v_0
+-		if x != v_1 {
+-			break
+-		}
+-		v.reset(OpLsh64x64)
+-		v0 := b.NewValue0(v.Pos, OpConst64, types.Types[types.TUINT64])
+-		v0.AuxInt = int64ToAuxInt(1)
+-		v.AddArg2(x, v0)
+-		return true
+-	}
+ 	// match: (Add64 (Const64 [0]) x)
+ 	// result: x
+ 	for {
+@@ -2523,19 +2484,6 @@
+ 		}
+ 		break
+ 	}
+-	// match: (Add8 x x)
+-	// result: (Lsh8x64 x (Const64 <types.Types[types.TUINT64]> [1]))
+-	for {
+-		x := v_0
+-		if x != v_1 {
+-			break
+-		}
+-		v.reset(OpLsh8x64)
+-		v0 := b.NewValue0(v.Pos, OpConst64, types.Types[types.TUINT64])
+-		v0.AuxInt = int64ToAuxInt(1)
+-		v.AddArg2(x, v0)
+-		return true
+-	}
+ 	// match: (Add8 (Const8 [0]) x)
+ 	// result: x
+ 	for {

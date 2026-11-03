@@ -1,0 +1,81 @@
+--- a/src/cmd/compile/internal/types2/typeset.go
++++ b/src/cmd/compile/internal/types2/typeset.go
+@@ -6,6 +6,7 @@
+ 
+ import (
+ 	"cmd/compile/internal/syntax"
++	"fmt"
+ 	. "internal/types/errors"
+ 	"slices"
+ 	"strings"
+@@ -214,6 +215,7 @@
+ 	// we can get rid of the mpos map below and simply use the cloned method's
+ 	// position.
+ 
++	var todo []*Func
+ 	var seen objset
+ 	var allMethods []*Func
+ 	mpos := make(map[*Func]syntax.Pos) // method specification or method embedding position, for good error messages
+@@ -223,28 +225,32 @@
+ 			allMethods = append(allMethods, m)
+ 			mpos[m] = pos
+ 		case explicit:
+-			if check != nil {
+-				err := check.newError(DuplicateDecl)
+-				err.addf(atPos(pos), "duplicate method %s", m.name)
+-				err.addf(atPos(mpos[other.(*Func)]), "other declaration of method %s", m.name)
+-				err.report()
++			if check == nil {
++				panic(fmt.Sprintf("%s: duplicate method %s", m.pos, m.name))
+ 			}
++			err := check.newError(DuplicateDecl)
++			err.addf(atPos(pos), "duplicate method %s", m.name)
++			err.addf(atPos(mpos[other.(*Func)]), "other declaration of method %s", m.name)
++			err.report()
+ 		default:
+ 			// We have a duplicate method name in an embedded (not explicitly declared) method.
+ 			// Check method signatures after all types are computed (go.dev/issue/33656).
+ 			// If we're pre-go1.14 (overlapping embeddings are not permitted), report that
+ 			// error here as well (even though we could do it eagerly) because it's the same
+ 			// error message.
+-			if check != nil {
+-				check.later(func() {
+-					if pos.IsKnown() && !check.allowVersion(go1_14) || !Identical(m.typ, other.Type()) {
+-						err := check.newError(DuplicateDecl)
+-						err.addf(atPos(pos), "duplicate method %s", m.name)
+-						err.addf(atPos(mpos[other.(*Func)]), "other declaration of method %s", m.name)
+-						err.report()
+-					}
+-				}).describef(atPos(pos), "duplicate method check for %s", m.name)
++			if check == nil {
++				// check method signatures after all locally embedded interfaces are computed
++				todo = append(todo, m, other.(*Func))
++				break
+ 			}
++			check.later(func() {
++				if pos.IsKnown() && !check.allowVersion(go1_14) || !Identical(m.typ, other.Type()) {
++					err := check.newError(DuplicateDecl)
++					err.addf(atPos(pos), "duplicate method %s", m.name)
++					err.addf(atPos(mpos[other.(*Func)]), "other declaration of method %s", m.name)
++					err.report()
++				}
++			}).describef(atPos(pos), "duplicate method check for %s", m.name)
+ 		}
+ 	}
+ 
+@@ -305,6 +311,15 @@
+ 		allTerms, allComparable = intersectTermLists(allTerms, allComparable, terms, comparable)
+ 	}
+ 
++	// process todo's (this only happens if check == nil)
++	for i := 0; i < len(todo); i += 2 {
++		m := todo[i]
++		other := todo[i+1]
++		if !Identical(m.typ, other.typ) {
++			panic(fmt.Sprintf("%s: duplicate method %s", m.pos, m.name))
++		}
++	}
++
+ 	ityp.tset.comparable = allComparable
+ 	if len(allMethods) != 0 {
+ 		sortMethods(allMethods)

@@ -1,0 +1,115 @@
+--- a/src/cmd/compile/internal/types2/assignments.go
++++ b/src/cmd/compile/internal/types2/assignments.go
+@@ -91,8 +91,9 @@
+ 	// x.typ is typed
+ 
+ 	// A generic (non-instantiated) function value cannot be assigned to a variable.
+-	check.nonGeneric(newTarget(T, context), x)
+-	if !x.isValid() {
++	if sig, _ := x.typ_.Underlying().(*Signature); sig != nil && sig.TypeParams().Len() > 0 {
++		check.errorf(x, WrongTypeArgCount, "cannot use generic function %s without instantiation in %s", x, context)
++		x.mode_ = invalid
+ 		return
+ 	}
+ 
+--- a/src/cmd/compile/internal/types2/call.go
++++ b/src/cmd/compile/internal/types2/call.go
+@@ -208,7 +208,7 @@
+ 		case 0:
+ 			check.errorf(call, WrongArgCount, "missing argument in conversion to %s", T)
+ 		case 1:
+-			check.expr(newTarget(T, "conversion"), x, call.ArgList[0])
++			check.expr(nil, x, call.ArgList[0])
+ 			if x.isValid() {
+ 				if t, _ := T.Underlying().(*Interface); t != nil && !isTypeParam(T) {
+ 					if !t.IsMethodSet() {
+--- a/src/cmd/compile/internal/types2/expr.go
++++ b/src/cmd/compile/internal/types2/expr.go
+@@ -964,10 +964,8 @@
+ // The result is nil if typ is not a signature.
+ func newTarget(typ Type, desc string) *target {
+ 	if typ != nil {
+-		if u, _ := commonUnder(typ, nil); u != nil {
+-			if sig, _ := u.(*Signature); sig != nil {
+-				return &target{sig, desc}
+-			}
++		if sig, _ := typ.Underlying().(*Signature); sig != nil {
++			return &target{sig, desc}
+ 		}
+ 	}
+ 	return nil
+@@ -1382,6 +1380,16 @@
+ 	return fmt.Sprintf("%d%s %s", n, ext, what)
+ }
+ 
++// exprWithHint typechecks expression e and initializes x with the expression value;
++// hint is the type of a composite literal element.
++// If an error occurred, x.mode is set to invalid.
++func (check *Checker) exprWithHint(x *operand, e syntax.Expr, hint Type) {
++	assert(hint != nil)
++	check.rawExpr(nil, x, e, hint, false)
++	check.exclude(x, 1<<novalue|1<<builtin|1<<typexpr)
++	check.singleValue(x)
++}
++
+ // exprOrType typechecks expression or type e and initializes x with the expression value or type.
+ // If allowGeneric is set, the operand type may be an uninstantiated parameterized type or function
+ // value.
+--- a/src/cmd/compile/internal/types2/literals.go
++++ b/src/cmd/compile/internal/types2/literals.go
+@@ -170,7 +170,7 @@
+ 				key, _ := kv.Key.(*syntax.Name)
+ 				// do all possible checks early (before exiting due to errors)
+ 				// so we don't drop information on the floor
+-				check.genericExpr(x, kv.Value, nil)
++				check.expr(nil, x, kv.Value)
+ 				if key == nil {
+ 					check.errorf(kv, InvalidLitField, "invalid field name %s in struct literal", kv.Key)
+ 					continue
+@@ -214,7 +214,7 @@
+ 					check.error(kv, MixedStructLit, "mixture of field:value and value elements in struct literal")
+ 					continue
+ 				}
+-				check.genericExpr(x, e, nil)
++				check.expr(nil, x, e)
+ 				if i >= len(fields) {
+ 					check.errorf(x, InvalidStructLit, "too many values in struct literal of type %s", base)
+ 					break // cannot continue
+@@ -277,7 +277,7 @@
+ 				check.error(e, MissingLitKey, "missing key in map literal")
+ 				continue
+ 			}
+-			check.genericExpr(x, kv.Key, utyp.key)
++			check.exprWithHint(x, kv.Key, utyp.key)
+ 			check.assignment(x, utyp.key, "map literal")
+ 			if !x.isValid() {
+ 				continue
+@@ -302,7 +302,7 @@
+ 					continue
+ 				}
+ 			}
+-			check.genericExpr(x, kv.Value, utyp.elem)
++			check.exprWithHint(x, kv.Value, utyp.elem)
+ 			check.assignment(x, utyp.elem, "map literal")
+ 		}
+ 
+@@ -379,7 +379,7 @@
+ 
+ 		// check element against composite literal element type
+ 		var x operand
+-		check.genericExpr(&x, eval, typ)
++		check.exprWithHint(&x, eval, typ)
+ 		check.assignment(&x, typ, "array or slice literal")
+ 	}
+ 	return max
+--- a/src/cmd/compile/internal/types2/stmt.go
++++ b/src/cmd/compile/internal/types2/stmt.go
+@@ -463,7 +463,7 @@
+ 	case *syntax.SendStmt:
+ 		var ch, val operand
+ 		check.expr(nil, &ch, s.Chan)
+-		check.genericExpr(&val, s.Value, nil)
++		check.expr(nil, &val, s.Value)
+ 		if !ch.isValid() || !val.isValid() {
+ 			return
+ 		}

@@ -1,0 +1,1 @@
+repro.sh builds a small module (a, b, main) matching issue60945: a.S.M has a closure containing a method value s.m, and b takes the method value (&a.S{}).M. go-clean builds and prints ok. go-buggy fails with 'internal compiler error: missing wrapper for a.m', because finishWrapperFunc doesn't scan closure bodies inside the inlined wrapper.

@@ -1,0 +1,119 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -1785,7 +1785,7 @@
+ 	case stmtAssign:
+ 		pos := r.pos()
+ 		names, lhs := r.assignList()
+-		rhs := r.multiExpr()
++		rhs, _ := r.multiExprCall(true)
+ 
+ 		if len(rhs) == 0 {
+ 			for _, name := range names {
+@@ -3119,25 +3119,55 @@
+ }
+ 
+ func (r *reader) multiExpr() []ir.Node {
++	rhs, _ := r.multiExprCall(false)
++	return rhs
++}
++
++// multiExprCall is like multiExpr. If direct is set and the expression is
++// a multi-valued call whose results need implicit conversions to their
++// destinations, the call is returned unrewritten as the sole value, with
++// ok set.
++func (r *reader) multiExprCall(direct bool) (_ []ir.Node, ok bool) {
+ 	r.Sync(pkgbits.SyncMultiExpr)
+ 
+ 	if r.Bool() { // N:1
+ 		pos := r.pos()
+ 		expr := r.expr()
+ 
+-		results := make([]ir.Node, r.Len())
++		type result struct {
++			typ                *types.Type
++			conv               bool
++			dst                *types.Type
++			typeWord, srcRType ir.Node
++		}
++		rs := make([]result, r.Len())
++		mismatched := false
++		for i := range rs {
++			rs[i].typ = r.typ()
++			if r.Bool() {
++				rs[i].conv = true
++				rs[i].dst = r.typ()
++				rs[i].typeWord, rs[i].srcRType = r.convRTTI(pos)
++				mismatched = true
++			}
++		}
++		if direct && mismatched {
++			return []ir.Node{expr}, true
++		}
++
++		results := make([]ir.Node, len(rs))
+ 		as := ir.NewAssignListStmt(pos, ir.OAS2, nil, []ir.Node{expr})
+ 		as.Def = true
+-		for i := range results {
+-			tmp := r.temp(pos, r.typ())
++		for i, rs := range rs {
++			tmp := r.temp(pos, rs.typ)
+ 			tmp.Defn = as
+ 			as.PtrInit().Append(ir.NewDecl(pos, ir.ODCL, tmp))
+ 			as.Lhs.Append(tmp)
+ 
+ 			res := ir.Node(tmp)
+-			if r.Bool() {
+-				n := ir.NewConvExpr(pos, ir.OCONV, r.typ(), res)
+-				n.TypeWord, n.SrcRType = r.convRTTI(pos)
++			if rs.conv {
++				n := ir.NewConvExpr(pos, ir.OCONV, rs.dst, res)
++				n.TypeWord, n.SrcRType = rs.typeWord, rs.srcRType
+ 				n.SetImplicit(true)
+ 				res = typecheck.Expr(n)
+ 			}
+@@ -3146,18 +3176,18 @@
+ 
+ 		// TODO(mdempsky): Could use ir.InlinedCallExpr instead?
+ 		results[0] = ir.InitExpr([]ir.Node{typecheck.Stmt(as)}, results[0])
+-		return results
++		return results, false
+ 	}
+ 
+ 	// N:N
+ 	exprs := make([]ir.Node, r.Len())
+ 	if len(exprs) == 0 {
+-		return nil
++		return nil, false
+ 	}
+ 	for i := range exprs {
+ 		exprs[i] = r.expr()
+ 	}
+-	return exprs
++	return exprs, false
+ }
+ 
+ // temp returns a new autotemp of the specified type.
+--- a/src/cmd/compile/internal/typecheck/stmt.go
++++ b/src/cmd/compile/internal/typecheck/stmt.go
+@@ -137,20 +137,8 @@
+ 		r := rhs[0].(*ir.CallExpr)
+ 		rtyp := r.Type()
+ 
+-		mismatched := false
+-		failed := false
+ 		for i := range lhs {
+-			result := rtyp.Field(i).Type
+-			assignType(i, result)
+-
+-			if lhs[i].Type() == nil || result == nil {
+-				failed = true
+-			} else if lhs[i] != ir.BlankNode && !types.Identical(lhs[i].Type(), result) {
+-				mismatched = true
+-			}
+-		}
+-		if mismatched && !failed {
+-			RewriteMultiValueCall(stmt, r)
++			assignType(i, rtyp.Field(i).Type)
+ 		}
+ 		return
+ 	}

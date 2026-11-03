@@ -1,0 +1,1 @@
+Reproducer (repro.sh): compiles package a (generic type T with methods One calling Two, F returns new(T[int])) then package b importing it, using `go tool compile`. Clean toolchain: both succeed. Buggy: compiling b hits "internal compiler error: assertion failed" because bodies of functions discovered during inlining are no longer read (todoBodiesDone bug).

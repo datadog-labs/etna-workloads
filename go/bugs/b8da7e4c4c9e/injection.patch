@@ -1,0 +1,44 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -1828,7 +1828,7 @@
+ 	case stmtBranch:
+ 		pos := r.pos()
+ 		op := r.op()
+-		sym := r.optLabel()
++		sym := r.optLabel(op == ir.OGOTO)
+ 		return ir.NewBranchStmt(pos, op, sym)
+ 
+ 	case stmtCall:
+@@ -1855,7 +1855,7 @@
+ 
+ 	case stmtLabel:
+ 		pos := r.pos()
+-		sym := r.label()
++		sym := r.label(true)
+ 		return ir.NewLabelStmt(pos, sym)
+ 
+ 	case stmtReturn:
+@@ -2166,19 +2166,19 @@
+ 	return n
+ }
+ 
+-func (r *reader) label() *types.Sym {
++func (r *reader) label(translate bool) *types.Sym {
+ 	r.Sync(pkgbits.SyncLabel)
+ 	name := r.String()
+-	if r.inlCall != nil && name != "_" {
++	if translate && r.inlCall != nil && name != "_" {
+ 		name = fmt.Sprintf("~%s·%d", name, inlgen)
+ 	}
+ 	return typecheck.Lookup(name)
+ }
+ 
+-func (r *reader) optLabel() *types.Sym {
++func (r *reader) optLabel(translate bool) *types.Sym {
+ 	r.Sync(pkgbits.SyncOptLabel)
+ 	if r.Bool() {
+-		return r.label()
++		return r.label(translate)
+ 	}
+ 	return nil
+ }

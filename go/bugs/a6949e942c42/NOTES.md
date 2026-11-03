@@ -1,0 +1,1 @@
+repro.go: calls append(s, x...) and copy(s, x) with x of unconstrained type parameter P (any). Clean toolchain reports two type errors; buggy toolchain hits an internal compiler error (nil pointer dereference) because the typeset iterator yields (nil, nil) and isString(nil) is no longer guarded.

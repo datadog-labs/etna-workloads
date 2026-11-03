@@ -1,0 +1,1 @@
+repro.go is the upstream issue53982 test program. With the bug, go-buggy hits an internal compiler error (failed to find method M in shaped type) on the method expression (*S[K,V]).M, where M is promoted from embedded generic E[V]. go-clean compiles and runs it with exit 0.

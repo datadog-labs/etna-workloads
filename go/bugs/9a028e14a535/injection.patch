@@ -1,0 +1,29 @@
+--- a/src/cmd/compile/internal/staticinit/sched.go
++++ b/src/cmd/compile/internal/staticinit/sched.go
+@@ -920,8 +920,13 @@
+ 		return ok && v.Op() == ir.ONAME && !(v.Class == ir.PEXTERN && v.Sym().Pkg == types.LocalPkg)
+ 	}
+ 
+-	return ir.Any(n, func(n ir.Node) bool {
++	var do func(n ir.Node) bool
++	do = func(n ir.Node) bool {
+ 		switch n.Op() {
++		case ir.OINLCALL:
++			// Inlined call bodies are not examined.
++			return false
++
+ 		case ir.OCALLFUNC, ir.OCALLINTER:
+ 			return !ir.IsFuncPCIntrinsic(n.(*ir.CallExpr))
+ 
+@@ -949,8 +954,9 @@
+ 			}
+ 		}
+ 
+-		return false
+-	})
++		return ir.DoChildren(n, do)
++	}
++	return n != nil && do(n)
+ }
+ 
+ // canRepeat reports whether executing n multiple times has the same effect as

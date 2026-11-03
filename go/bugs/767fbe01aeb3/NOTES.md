@@ -1,0 +1,1 @@
+repro.go is the upstream test issue59338.go (reverse type inference of generic functions in assignment/argument contexts). Clean toolchain runs it with exit 0; buggy toolchain hits an internal compiler error ('func[P any](x P) P is not assignable to func(int) int') because the noder no longer consults Info.Instances for inferred type arguments.

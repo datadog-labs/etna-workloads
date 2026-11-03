@@ -1,0 +1,27 @@
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -2481,7 +2481,7 @@
+ 	w.pos(lit)
+ 	w.typ(typ)
+ 
+-	if ptr, ok := types2.CoreType(typ).(*types2.Pointer); ok {
++	if ptr, ok := typ.Underlying().(*types2.Pointer); ok {
+ 		typ = ptr.Elem()
+ 	}
+ 
+--- a/src/cmd/compile/internal/types2/literals.go
++++ b/src/cmd/compile/internal/types2/literals.go
+@@ -128,9 +128,11 @@
+ 		// no composite literal type present - use hint (element type of enclosing type)
+ 		typ = hint
+ 		base = typ
++		if !isTypeParam(typ) {
++			base = typ.Underlying()
++		}
+ 		// *T implies &T{}
+-		u, _ := commonUnder(base, nil)
+-		if b, ok := deref(u); ok {
++		if b, ok := deref(base); ok {
+ 			base = b
+ 		}
+ 		isElem = true

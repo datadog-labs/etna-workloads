@@ -1,0 +1,53 @@
+--- a/src/cmd/compile/internal/types2/resolver.go
++++ b/src/cmd/compile/internal/types2/resolver.go
+@@ -606,12 +606,6 @@
+ 			return ptr, tname
+ 		}
+ 
+-		// an alias must not be generic
+-		// (importantly, we must not collect such methods - was https://go.dev/issue/70417)
+-		if tdecl.TParamList != nil {
+-			break
+-		}
+-
+ 		// otherwise, remember this type name and continue resolving
+ 		if seen == nil {
+ 			seen = make(map[*TypeName]bool)
+--- a/src/cmd/compile/internal/types2/signature.go
++++ b/src/cmd/compile/internal/types2/signature.go
+@@ -207,20 +207,6 @@
+ 		// We use rparam.Type (rather than base) to correctly record pointer
+ 		// and parentheses in types2.Info (was bug, see go.dev/issue/68639).
+ 		recvType = check.varType(rparam.Type)
+-		// Defining new methods on instantiated (alias or defined) types is not permitted.
+-		// Follow literal pointer/alias type chain and check.
+-		// (Correct code permits at most one pointer indirection, but for this check it
+-		// doesn't matter if we have multiple pointers.)
+-		a, _ := unpointer(recvType).(*Alias) // recvType is not generic per above
+-		for a != nil {
+-			baseType := unpointer(a.fromRHS)
+-			if g, _ := baseType.(genericType); g != nil && g.TypeParams() != nil {
+-				check.errorf(rbase, InvalidRecv, "cannot define new methods on instantiated type %s", g)
+-				recvType = Typ[Invalid] // avoid follow-on errors by Checker.validRecv
+-				break
+-			}
+-			a, _ = baseType.(*Alias)
+-		}
+ 	} else {
+ 		// If there are type parameters, rbase must denote a generic base type.
+ 		// Important: rbase must be resolved before declaring any receiver type
+@@ -232,13 +218,7 @@
+ 			case *Named:
+ 				baseType = t
+ 			case *Alias:
+-				// Methods on generic aliases are not permitted.
+-				// Only report an error if the alias type is valid.
+-				if isValid(t) {
+-					check.errorf(rbase, InvalidRecv, "cannot define new methods on generic alias type %s", t)
+-				}
+-				// Ok to continue but do not set basetype in this case so that
+-				// recvType remains invalid (was bug, see go.dev/issue/70417).
++				baseType = asNamed(t)
+ 			default:
+ 				panic("unreachable")
+ 			}

@@ -1,0 +1,78 @@
+--- a/src/cmd/compile/internal/walk/assign.go
++++ b/src/cmd/compile/internal/walk/assign.go
+@@ -633,23 +633,21 @@
+ //	    panicmakeslicelen()
+ //	  }
+ //	  s := l1
+-//	  if l2 != 0 {
+-//	    n := len(s) + l2
+-//	    // Compare n and s as uint so growslice can panic on overflow of len(s) + l2.
+-//	    // cap is a positive int and n can become negative when len(s) + l2
+-//	    // overflows int. Interpreting n when negative as uint makes it larger
+-//	    // than cap(s). growslice will check the int n arg and panic if n is
+-//	    // negative. This prevents the overflow from being undetected.
+-//	    if uint(n) <= uint(cap(s)) {
+-//	      s = s[:n]
+-//	    } else {
+-//	      s = growslice(T, s.ptr, n, s.cap, l2, T)
+-//	    }
+-//	    // clear the new portion of the underlying array.
+-//	    hp := &s[len(s)-l2]
+-//	    hn := l2 * sizeof(T)
+-//	    memclr(hp, hn)
++//	  n := len(s) + l2
++//	  // Compare n and s as uint so growslice can panic on overflow of len(s) + l2.
++//	  // cap is a positive int and n can become negative when len(s) + l2
++//	  // overflows int. Interpreting n when negative as uint makes it larger
++//	  // than cap(s). growslice will check the int n arg and panic if n is
++//	  // negative. This prevents the overflow from being undetected.
++//	  if uint(n) <= uint(cap(s)) {
++//	    s = s[:n]
++//	  } else {
++//	    s = growslice(T, s.ptr, n, s.cap, l2, T)
+ //	  }
++//	  // clear the new portion of the underlying array.
++//	  hp := &s[len(s)-l2]
++//	  hn := l2 * sizeof(T)
++//	  memclr(hp, hn)
+ //	}
+ //	s
+ //
+@@ -683,18 +681,11 @@
+ 	s := typecheck.TempAt(base.Pos, ir.CurFunc, l1.Type())
+ 	nodes = append(nodes, ir.NewAssignStmt(base.Pos, s, l1))
+ 
+-	// if l2 != 0 {
+-	// Avoid work if we're not appending anything. But more importantly,
+-	// avoid allowing hp to be a past-the-end pointer when clearing. See issue 67255.
+-	nifnz := ir.NewIfStmt(base.Pos, ir.NewBinaryExpr(base.Pos, ir.ONE, l2, ir.NewInt(base.Pos, 0)), nil, nil)
+-	nifnz.Likely = true
+-	nodes = append(nodes, nifnz)
+-
+ 	elemtype := s.Type().Elem()
+ 
+ 	// n := s.len + l2
+ 	nn := typecheck.TempAt(base.Pos, ir.CurFunc, types.Types[types.TINT])
+-	nifnz.Body = append(nifnz.Body, ir.NewAssignStmt(base.Pos, nn, ir.NewBinaryExpr(base.Pos, ir.OADD, ir.NewUnaryExpr(base.Pos, ir.OLEN, s), l2)))
++	nodes = append(nodes, ir.NewAssignStmt(base.Pos, nn, ir.NewBinaryExpr(base.Pos, ir.OADD, ir.NewUnaryExpr(base.Pos, ir.OLEN, s), l2)))
+ 
+ 	// if uint(n) <= uint(s.cap)
+ 	nuint := typecheck.Conv(nn, types.Types[types.TUINT])
+@@ -716,7 +707,7 @@
+ 			l2)),
+ 	}
+ 
+-	nifnz.Body = append(nifnz.Body, nif)
++	nodes = append(nodes, nif)
+ 
+ 	// hp := &s[s.len - l2]
+ 	// TODO: &s[s.len] - hn?
+@@ -742,7 +733,7 @@
+ 		// if growslice isn't called do we need to do the zeroing ourselves.
+ 		nif.Body = append(nif.Body, clr...)
+ 	} else {
+-		nifnz.Body = append(nifnz.Body, clr...)
++		nodes = append(nodes, clr...)
+ 	}
+ 
+ 	typecheck.Stmts(nodes)

@@ -1,0 +1,39 @@
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -153,16 +153,6 @@
+ 
+ func (pw *pkgWriter) maybeTypeAndValue(x syntax.Expr) (syntax.TypeAndValue, bool) {
+ 	tv := x.GetTypeInfo()
+-
+-	// If x is a generic function whose type arguments are inferred
+-	// from assignment context, then we need to find its inferred type
+-	// in Info.Instances instead.
+-	if name, ok := x.(*syntax.Name); ok {
+-		if inst, ok := pw.info.Instances[name]; ok {
+-			tv.Type = inst.Type
+-		}
+-	}
+-
+ 	return tv, tv.Type != nil
+ }
+ 
+--- a/src/cmd/compile/internal/types2/expr.go
++++ b/src/cmd/compile/internal/types2/expr.go
+@@ -993,7 +993,17 @@
+ 	kind := check.exprInternal(T, x, e, hint)
+ 
+ 	if !allowGeneric {
++		generic := x.typ_
+ 		check.nonGeneric(T, x)
++		if x.isValid() && x.typ_ != generic {
++			// x was implicitly instantiated from assignment context;
++			// the types are only available via Info.Instances.
++			inst := x.typ_
++			x.typ_ = generic
++			check.record(x)
++			x.typ_ = inst
++			return kind
++		}
+ 	}
+ 
+ 	check.record(x)

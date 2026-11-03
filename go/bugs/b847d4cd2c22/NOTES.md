@@ -1,0 +1,1 @@
+repro.go: the upstream issue65593 test with a main added. After a terminating `return` inside the if, the declaration of messages is dropped as dead code, but the labeled loop after it still uses it. go-buggy fails with an internal compiler error (assertion failed); go-clean prints ok.

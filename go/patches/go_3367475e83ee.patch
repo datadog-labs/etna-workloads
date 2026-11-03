@@ -1,0 +1,55 @@
+--- a/src/cmd/compile/internal/types2/call.go
++++ b/src/cmd/compile/internal/types2/call.go
+@@ -85,7 +85,7 @@
+ 		var args []*operand
+ 		var params []*Var
+ 		var reverse bool
+-		if T != nil && sig.tparams != nil {
++		if T != nil && sig.tparams != nil && T.sig.params.Len() == sig.params.Len() && T.sig.results.Len() == sig.results.Len() {
+ 			if !versionErr && !check.allowVersion(go1_21) {
+ 				if inst != nil {
+ 					check.versionErrorf(instErrPos, go1_21, "partially instantiated function in assignment")
+@@ -93,13 +93,22 @@
+ 					check.versionErrorf(instErrPos, go1_21, "implicitly instantiated function in assignment")
+ 				}
+ 			}
+-			gsig := NewSignatureType(nil, nil, nil, sig.params, sig.results, sig.variadic)
+-			params = []*Var{NewParam(x.Pos(), check.pkg, "", gsig)}
+-			// The type of the argument operand is tsig, which is the type of the LHS in an assignment
+-			// or the result type in a return statement. Create a pseudo-expression for that operand
+-			// that makes sense when reported in error messages from infer, below.
+-			expr := syntax.NewName(x.Pos(), T.desc)
+-			args = []*operand{{mode_: value, expr: expr, typ_: T.sig}}
++			n := T.sig.params.Len()
++			m := T.sig.results.Len()
++			args = make([]*operand, n+m)
++			params = make([]*Var, n+m)
++			for i := 0; i < n; i++ {
++				lvar := T.sig.params.At(i)
++				lname := syntax.NewName(x.Pos(), paramName(lvar.name, i, "parameter"))
++				args[i] = &operand{mode_: value, expr: lname, typ_: lvar.typ}
++				params[i] = sig.params.At(i)
++			}
++			for i := 0; i < m; i++ {
++				lvar := T.sig.results.At(i)
++				lname := syntax.NewName(x.Pos(), paramName(lvar.name, i, "result parameter"))
++				args[n+i] = &operand{mode_: value, expr: lname, typ_: lvar.typ}
++				params[n+i] = sig.results.At(i)
++			}
+ 			reverse = true
+ 		}
+ 
+@@ -128,6 +137,13 @@
+ 	return nil
+ }
+ 
++func paramName(name string, i int, kind string) string {
++	if name != "" {
++		return name
++	}
++	return nth(i+1, kind)
++}
++
+ func (check *Checker) instantiateSignature(pos syntax.Pos, expr syntax.Expr, typ *Signature, targs []Type, xlist []syntax.Expr) (res *Signature) {
+ 	assert(check != nil)
+ 	assert(len(targs) == typ.TypeParams().Len())

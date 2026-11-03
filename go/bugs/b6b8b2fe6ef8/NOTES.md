@@ -1,0 +1,1 @@
+Reproducer: repro.go is the issue76950 test (MatchLog with a goto/switch jump table) plus a main calling it. The clean compiler builds and prints true. The buggy compiler hits an internal compiler error in the sccp pass, "index out of range [-157]", because SCCP propagates an out-of-range jump table index.

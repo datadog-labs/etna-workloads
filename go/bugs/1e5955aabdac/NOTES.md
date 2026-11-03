@@ -1,0 +1,1 @@
+repro.go is the upstream issue59378 test as a main program. Generic F ranges over a slice and closes over &v. With the bug, go-buggy hits an ICE (cannot call SetType(go.shape.int) on v (type int)); go-clean compiles and runs with no output.

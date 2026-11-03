@@ -1,0 +1,1 @@
+Reproducer is the upstream issue73888b test (repro.go). Converting a composite literal to a named type (testNode(SourceRange{1,1})) and passing it as an interface made order.go use the destination type n.Type() wrongly; with the bug, the program crashes at runtime (fatal error/segfault, exit 2). The clean toolchain runs silently with exit 0.

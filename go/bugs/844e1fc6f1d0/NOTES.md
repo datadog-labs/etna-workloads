@@ -1,0 +1,1 @@
+repro.go passes a [2]string with ... to non-variadic f(s1, s2 string). Clean toolchain reports 'cannot use ... in call to non-variadic f'; buggy one skips that check and reports 'not enough arguments in call to f' instead (wrong diagnostic).

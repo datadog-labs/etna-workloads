@@ -1,0 +1,52 @@
+--- a/src/cmd/compile/internal/walk/order.go
++++ b/src/cmd/compile/internal/walk/order.go
+@@ -44,6 +44,8 @@
+ 	temp []*ir.Name            // stack of temporary variables
+ 	free map[string][]*ir.Name // free list of unused temporaries, by type.LinkString().
+ 	edit func(ir.Node) ir.Node // cached closure of o.exprNoLHS
++
++	keepAlive []*ir.Name // variables to keep alive until the temporaries are popped
+ }
+ 
+ // order rewrites fn.Nbody to apply the ordering constraints
+@@ -408,6 +410,7 @@
+ // popTemp pops temporaries off the stack until reaching the mark,
+ // which must have been returned by markTemp.
+ func (o *orderState) popTemp(mark ordermarker) {
++	o.emitKeepAlive()
+ 	for _, n := range o.temp[mark:] {
+ 		key := n.Type().LinkString()
+ 		o.free[key] = append(o.free[key], n)
+@@ -415,6 +418,20 @@
+ 	o.temp = o.temp[:mark]
+ }
+ 
++// emitKeepAlive emits runtime.KeepAlive calls for the variables whose
++// lifetime was extended by calls to //go:uintptrkeepalive functions.
++func (o *orderState) emitKeepAlive() {
++	for _, v := range o.keepAlive {
++		pos := v.Pos()
++		arg := ir.NewConvExpr(pos, ir.OCONV, types.Types[types.TUNSAFEPTR], typecheck.NodAddr(v))
++		call := typecheck.Call(pos, typecheck.LookupRuntime("KeepAlive"), ir.Nodes{arg}, false).(*ir.CallExpr)
++		call.IsCompilerVarLive = true
++		call.NoInline = true
++		o.out = append(o.out, call)
++	}
++	o.keepAlive = o.keepAlive[:0]
++}
++
+ // stmtList orders each of the statements in the list.
+ func (o *orderState) stmtList(l ir.Nodes) {
+ 	s := l
+@@ -604,6 +621,11 @@
+ 
+ 	n.Fun = o.expr(n.Fun, nil)
+ 	o.exprList(n.Args)
++
++	// Keep the variables alive until the end of the statement,
++	// rather than right after the call.
++	o.keepAlive = append(o.keepAlive, n.KeepAlive...)
++	n.KeepAlive = nil
+ }
+ 
+ // mapAssign appends n to o.out.

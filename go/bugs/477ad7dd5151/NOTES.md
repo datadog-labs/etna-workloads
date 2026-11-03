@@ -1,0 +1,1 @@
+repro.go: generic alias types (Seq[V], A[P]) from issue68054. Clean toolchain builds and prints ok; buggy toolchain hits an internal compiler error (index out of range) at the generic alias declaration/use because the noder writer doesn't handle alias type params/args.

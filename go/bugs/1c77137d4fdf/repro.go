@@ -1,0 +1,21 @@
+package main
+
+type T struct {
+	Field1 bool
+}
+
+func main() {
+	var ret T
+	ret.Field1 = true
+	var v *bool = &ret.Field1
+	ret = T{Field1: *v}
+	check(ret.Field1)
+	println("ok")
+}
+
+//go:noinline
+func check(b bool) {
+	if !b {
+		panic("FAIL")
+	}
+}

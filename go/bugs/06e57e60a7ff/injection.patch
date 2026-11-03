@@ -1,0 +1,50 @@
+--- a/src/cmd/compile/internal/types2/builtins.go
++++ b/src/cmd/compile/internal/types2/builtins.go
+@@ -647,31 +647,31 @@
+ 		// new(T) or new(expr)
+ 		// (no argument evaluated yet)
+ 		arg := argList[0]
+-		check.exprOrType(x, arg, false)
+-		check.exclude(x, 1<<novalue|1<<builtin)
++		check.exprOrType(x, arg, true)
++		var T Type
+ 		switch x.mode() {
+-		case invalid:
+-			return
++		case builtin:
++			check.errorf(x, UncalledBuiltin, "%s must be called", x)
++			x.mode_ = invalid
+ 		case typexpr:
+ 			// new(T)
+-			check.validVarType(arg, x.typ())
++			T = x.typ()
++			if !isValid(T) {
++				return
++			}
+ 		default:
+ 			// new(expr)
+-			if isUntyped(x.typ()) {
+-				// check for overflow and untyped nil
+-				check.assignment(x, nil, "argument to new")
+-				if !x.isValid() {
+-					return
+-				}
+-				assert(isTyped(x.typ()))
++			check.verifyVersionf(call.Fun, go1_26, "new(expr)")
++			T = Default(x.typ())
++			if T != x.typ() {
++				// untyped constant: check for overflow.
++				check.assignment(x, T, "argument to new")
+ 			}
+-			// report version error only if there are no other errors
+-			check.verifyVersionf(call.Fun, go1_26, "new(%s)", arg)
++			check.validVarType(arg, T)
+ 		}
+ 
+-		T := x.typ()
+ 		x.mode_ = value
+-		x.typ_ = NewPointer(T)
++		x.typ_ = &Pointer{base: T}
+ 		if check.recordTypes() {
+ 			check.recordBuiltinType(call.Fun, makeSig(x.typ(), T))
+ 		}

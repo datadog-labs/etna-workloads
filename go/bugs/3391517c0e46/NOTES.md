@@ -1,0 +1,1 @@
+repro.sh: compiles issue52748 program. Clean reports "initialization cycle: c refers to itself"; buggy hits internal compiler error (panic: unreachable) in size computation of the invalid type (basicSizes lacks types2.Invalid).

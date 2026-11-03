@@ -1,0 +1,37 @@
+--- a/src/cmd/compile/internal/types2/union.go
++++ b/src/cmd/compile/internal/types2/union.go
+@@ -116,12 +116,14 @@
+ 				switch {
+ 				case tset.NumMethods() != 0:
+ 					check.errorf(tlist[i], InvalidUnion, "cannot use %s in union (%s contains methods)", t, t)
++					continue
+ 				case t.typ == universeComparable.Type():
+ 					check.error(tlist[i], InvalidUnion, "cannot use comparable in union")
++					continue
+ 				case tset.comparable:
+ 					check.errorf(tlist[i], InvalidUnion, "cannot use %s in union (%s embeds comparable)", t, t)
++					continue
+ 				}
+-				continue // terms with interface types are not subject to the no-overlap rule
+ 			}
+ 
+ 			// Report overlapping (non-disjoint) terms such as
+@@ -165,16 +167,10 @@
+ 
+ // overlappingTerm reports the index of the term x in terms which is
+ // overlapping (not disjoint) from y. The result is < 0 if there is no
+-// such term. The type of term y must not be an interface, and terms
+-// with an interface type are ignored in the terms list.
++// such term.
+ func overlappingTerm(terms []*Term, y *Term) int {
+-	assert(!IsInterface(y.typ))
+ 	for i, x := range terms {
+-		if IsInterface(x.typ) {
+-			continue
+-		}
+-		// disjoint requires non-nil, non-top arguments,
+-		// and non-interface types as term types.
++		// disjoint requires non-nil, non-top arguments
+ 		if debug {
+ 			if x == nil || x.typ == nil || y == nil || y.typ == nil {
+ 				panic("empty or top union term")

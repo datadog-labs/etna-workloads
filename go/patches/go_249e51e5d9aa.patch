@@ -1,0 +1,27 @@
+--- a/src/cmd/compile/internal/staticinit/sched.go
++++ b/src/cmd/compile/internal/staticinit/sched.go
+@@ -688,24 +688,14 @@
+ 		count[x.(*ir.Name)] = 0
+ 	}
+ 
+-	hasClosure := false
+ 	ir.Visit(as2body.Rhs[0], func(n ir.Node) {
+ 		if name, ok := n.(*ir.Name); ok {
+ 			if c, ok := count[name]; ok {
+ 				count[name] = c + 1
+ 			}
+ 		}
+-		if clo, ok := n.(*ir.ClosureExpr); ok {
+-			hasClosure = hasClosure || clo.Func.IsClosure()
+-		}
+ 	})
+ 
+-	// If there's a closure, it has captured the param,
+-	// so we can't substitute arg for param.
+-	if hasClosure {
+-		return false
+-	}
+-
+ 	for name, c := range count {
+ 		if c > 1 {
+ 			// Check whether corresponding initializer can be repeated.

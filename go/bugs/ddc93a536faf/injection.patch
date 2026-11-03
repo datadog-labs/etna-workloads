@@ -1,0 +1,27 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -961,22 +961,8 @@
+ // If basic is true, then the type argument is used to instantiate a
+ // type parameter whose constraint is a basic interface.
+ func Shapify(targ *types.Type, basic bool) *types.Type {
+-	if targ.Kind() == types.TFORW {
+-		if targ.IsFullyInstantiated() {
+-			// For recursive instantiated type argument, it may  still be a TFORW
+-			// when shapifying happens. If we don't have targ's underlying type,
+-			// shapify won't work. The worst case is we end up not reusing code
+-			// optimally in some tricky cases.
+-			if base.Debug.Shapify != 0 {
+-				base.Warn("skipping shaping of recursive type %v", targ)
+-			}
+-			if targ.HasShape() {
+-				return targ
+-			}
+-		} else {
+-			base.Fatalf("%v is missing its underlying type", targ)
+-		}
+-	}
++	base.Assertf(targ.Kind() != types.TFORW, "%v is missing its underlying type", targ)
++
+ 	// For fully instantiated shape interface type, use it as-is. Otherwise, the instantiation
+ 	// involved recursive generic interface may cause mismatching in function signature, see issue #65362.
+ 	if targ.Kind() == types.TINTER && targ.IsFullyInstantiated() && targ.HasShape() {

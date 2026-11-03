@@ -1,0 +1,1 @@
+repro.go: generic call f(s) with S []Interface[T] and a recursive generic interface. Clean toolchain compiles and prints ok; buggy toolchain hits an ICE (unification reached recursion depth limit) because interface method signatures are unified inexactly (issue 61879).

@@ -1,0 +1,58 @@
+--- a/src/cmd/compile/internal/types2/check.go
++++ b/src/cmd/compile/internal/types2/check.go
+@@ -121,8 +121,7 @@
+ 	objMap  map[Object]*declInfo   // maps package-level objects and (non-interface) methods to declaration info
+ 	objList []Object               // source-ordered keys of objMap
+ 	impMap  map[importKey]*Package // maps (import path, source directory) to (complete or fake) package
+-	// see TODO in validtype.go
+-	// valids  instanceLookup      // valid *Named (incl. instantiated) types per the validType check
++	valids  instanceLookup         // valid *Named (incl. instantiated) types per the validType check
+ 
+ 	// pkgPathMap maps package names to the set of distinct import paths we've
+ 	// seen for that name, anywhere in the import graph. It is used for
+--- a/src/cmd/compile/internal/types2/validtype.go
++++ b/src/cmd/compile/internal/types2/validtype.go
+@@ -71,25 +71,14 @@
+ 		}
+ 
+ 	case *Named:
+-		// TODO(gri) The optimization below is incorrect (see go.dev/issue/65711):
+-		//           in that issue `type A[P any] [1]P` is a valid type on its own
+-		//           and the (uninstantiated) A is recorded in check.valids. As a
+-		//           consequence, when checking the remaining declarations, which
+-		//           are not valid, the validity check ends prematurely because A
+-		//           is considered valid, even though its validity depends on the
+-		//           type argument provided to it.
+-		//
+-		//           A correct optimization is important for pathological cases.
+-		//           Keep code around for reference until we found an optimization.
+-		//
+-		// // Exit early if we already know t is valid.
+-		// // This is purely an optimization but it prevents excessive computation
+-		// // times in pathological cases such as testdata/fixedbugs/issue6977.go.
+-		// // (Note: The valids map could also be allocated locally, once for each
+-		// // validType call.)
+-		// if check.valids.lookup(t) != nil {
+-		// 	break
+-		// }
++		// Exit early if we already know t is valid.
++		// This is purely an optimization but it prevents excessive computation
++		// times in pathological cases such as testdata/fixedbugs/issue6977.go.
++		// (Note: The valids map could also be allocated locally, once for each
++		// validType call.)
++		if check.valids.lookup(t) != nil {
++			break
++		}
+ 
+ 		// If the current type t is also found in nest, (the memory of) t is
+ 		// embedded in itself, indicating an invalid recursive type.
+@@ -146,8 +135,7 @@
+ 			return false
+ 		}
+ 
+-		// see TODO above
+-		// check.valids.add(t) // t is valid
++		check.valids.add(t) // t is valid
+ 
+ 	case *TypeParam:
+ 		// A type parameter stands for the type (argument) it was instantiated with.

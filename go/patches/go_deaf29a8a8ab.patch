@@ -1,0 +1,33 @@
+--- a/src/cmd/compile/internal/walk/assign.go
++++ b/src/cmd/compile/internal/walk/assign.go
+@@ -295,14 +295,11 @@
+ 	}
+ 
+ 	var assigned ir.NameSet
+-	var memWrite, deferResultWrite bool
++	var memWrite bool
+ 
+ 	// affected reports whether expression n could be affected by
+ 	// the assignments applied so far.
+ 	affected := func(n ir.Node) bool {
+-		if deferResultWrite {
+-			return true
+-		}
+ 		return ir.Any(n, func(n ir.Node) bool {
+ 			if n.Op() == ir.ONAME && assigned.Has(n.(*ir.Name)) {
+ 				return true
+@@ -395,14 +392,6 @@
+ 			continue
+ 		}
+ 
+-		if name.Class == ir.PPARAMOUT && ir.CurFunc.HasDefer() {
+-			// Assignments to a result parameter in a function with defers
+-			// becomes visible early if evaluation of any later expression
+-			// panics (#43835).
+-			deferResultWrite = true
+-			continue
+-		}
+-
+ 		if ir.IsBlank(name) {
+ 			// We can ignore assignments to blank or anonymous result parameters.
+ 			// These can't appear in expressions anyway.

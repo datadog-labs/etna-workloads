@@ -134,6 +134,7 @@ def prepare(c, oracle):
     w.mkdir(parents=True)
     base_src, _ = E.base_paths()
     shutil.copytree(base_src, w / "tree", symlinks=True)
+    E.run(["chmod", "-R", "u+w", str(w / "tree")])  # the agent's own copy must be editable
     tgt = E.target_commit()
     (w / "TASK.md").write_text(TASK.format(target=E.TARGET, date=c["date"][:10], name=E.NAME, impl=E.IMPL_DESC))
     (w / "fix.patch").write_text(E.git("show", "--format=fuller", c["id"]).stdout)
@@ -305,7 +306,7 @@ def anchor_one(c, rec):
             return {"anchor": "build_fails", "build_log": blog[-1500:]}
         ref = {}
         for f, names in rec["oracle"].items():
-            if not (tree / f).exists():
+            if not E.unit_exists(tree, f):        # a file, or a target's test unit
                 continue
             r = E.run_testfile(tf, tree, f)
             passing = set(r["ok"])

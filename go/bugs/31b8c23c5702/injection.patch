@@ -1,0 +1,40 @@
+--- a/src/cmd/compile/internal/ssa/_gen/generic.rules
++++ b/src/cmd/compile/internal/ssa/_gen/generic.rules
+@@ -705,7 +705,6 @@
+ (Less32 (Const32 [math.MaxInt32]) _) => (ConstBool [false])
+ (Less16 (Const16 [math.MaxInt16]) _) => (ConstBool [false])
+ (Less8  (Const8  [math.MaxInt8 ]) _) => (ConstBool [false])
+-(Leq64 _ (Const64 [math.MaxInt64]))  => (ConstBool [true])
+ (Leq32 _ (Const32 [math.MaxInt32]))  => (ConstBool [true])
+ (Leq16 _ (Const16 [math.MaxInt16]))  => (ConstBool [true])
+ (Leq8  _ (Const8  [math.MaxInt8 ]))  => (ConstBool [true])
+--- a/src/cmd/compile/internal/ssa/loopbce.go
++++ b/src/cmd/compile/internal/ssa/loopbce.go
+@@ -245,7 +245,7 @@
+ 							// for addWillOverflow.
+ 							v = addU(init.AuxInt, diff(v, init.AuxInt)/uint64(step)*uint64(step))
+ 						}
+-						if addWillOverflow(v, step, maxSignedValue(ind.Type)) {
++						if !inclusive && addWillOverflow(v, step, maxSignedValue(ind.Type)) {
+ 							return false
+ 						}
+ 						if inclusive && v != limit.AuxInt || !inclusive && v+1 != limit.AuxInt {
+--- a/src/cmd/compile/internal/ssa/rewritegeneric.go
++++ b/src/cmd/compile/internal/ssa/rewritegeneric.go
+@@ -12571,16 +12571,6 @@
+ 		v.AuxInt = boolToAuxInt(true)
+ 		return true
+ 	}
+-	// match: (Leq64 _ (Const64 [math.MaxInt64]))
+-	// result: (ConstBool [true])
+-	for {
+-		if v_1.Op != OpConst64 || auxIntToInt64(v_1.AuxInt) != math.MaxInt64 {
+-			break
+-		}
+-		v.reset(OpConstBool)
+-		v.AuxInt = boolToAuxInt(true)
+-		return true
+-	}
+ 	// match: (Leq64 x c:(Const64 [math.MinInt64]))
+ 	// result: (Eq64 x c)
+ 	for {

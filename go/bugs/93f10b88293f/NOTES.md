@@ -1,0 +1,1 @@
+repro.go is the issue58341 test program (plus a main). Deferring delete() on a generic map makes the wrapper refer to the outer .dict. Clean compiles and runs with exit 0. Buggy hits an internal compiler error: '.dict (nil) incorrectly live at entry'.

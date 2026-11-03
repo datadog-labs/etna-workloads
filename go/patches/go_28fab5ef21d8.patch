@@ -1,0 +1,17 @@
+--- a/src/cmd/compile/internal/types2/typexpr.go
++++ b/src/cmd/compile/internal/types2/typexpr.go
+@@ -423,6 +423,14 @@
+ 		return Typ[Invalid]
+ 	}
+ 
++	// infer missing type arguments using constraint type inference
++	if tparams := gtyp.TypeParams().list(); len(targs) < len(tparams) {
++		err := check.newError(CannotInferTypeArgs)
++		if inferred := check.infer(x.Pos(), tparams, targs, nil, nil, false, err); len(inferred) > len(targs) {
++			targs = inferred
++		}
++	}
++
+ 	// create instance
+ 	// The instance is not generic anymore as it has type arguments, but unless
+ 	// instantiation failed, it still satisfies the genericType interface because

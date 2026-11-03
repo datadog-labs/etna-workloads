@@ -1,0 +1,1 @@
+repro.go: the upstream issue74888 test plus a main. Converting an interface to struct{q struct{}; p *int} and passing it to a noinline func. go-buggy hits an ICE ('not lowered: StructSelect PTR PTR') because the dec.rules StructSelect rules lost their generality (match only index 0); go-clean compiles and runs with exit 0.

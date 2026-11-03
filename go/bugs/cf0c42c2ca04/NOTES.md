@@ -1,0 +1,1 @@
+repro.go compares an array of 3 zero-size structs containing [0]float64 (x == x). The buggy compiler hits an internal compiler error (integer divide by zero in the eq signature unroll computation); the clean one compiles and prints true.

@@ -1,0 +1,1 @@
+repro.go ranges over a func whose yield returns a user-defined bool type (type Bool bool). Clean go1.27.3 reports a type error (yield func returns user-defined boolean, not bool); the buggy toolchain accepts it in types2 and crashes with an internal compiler error.

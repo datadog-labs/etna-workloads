@@ -1,0 +1,1 @@
+repro.go is the issue48538 test (struct-constrained type param composite literal) plus a main. The clean toolchain prints 'a'. The buggy one hits an internal compiler error, 'unexpected composite literal type: T', from the added check in writer.go.

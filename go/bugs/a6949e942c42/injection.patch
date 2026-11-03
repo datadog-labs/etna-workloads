@@ -1,0 +1,50 @@
+--- a/src/cmd/compile/internal/types2/builtins.go
++++ b/src/cmd/compile/internal/types2/builtins.go
+@@ -112,7 +112,7 @@
+ 				for _, u := range typeset(y.typ()) {
+ 					if s, _ := u.(*Slice); s != nil && Identical(s.elem, universeByte) {
+ 						// typeset ⊇ {[]byte}
+-					} else if u != nil && isString(u) {
++					} else if isString(u) {
+ 						// typeset ⊇ {string}
+ 						hasString = true
+ 					} else {
+@@ -386,7 +386,7 @@
+ 			for _, u := range typeset(y.typ()) {
+ 				if s, _ := u.(*Slice); s != nil && Identical(s.elem, universeByte) {
+ 					// typeset ⊇ {[]byte}
+-				} else if u != nil && isString(u) {
++				} else if isString(u) {
+ 					// typeset ⊇ {string}
+ 				} else {
+ 					special = false
+--- a/src/cmd/compile/internal/types2/signature.go
++++ b/src/cmd/compile/internal/types2/signature.go
+@@ -69,9 +69,6 @@
+ 		last := params.At(n - 1).typ
+ 		var S *Slice
+ 		for t := range typeset(last) {
+-			if t == nil {
+-				break
+-			}
+ 			var s *Slice
+ 			if isString(t) {
+ 				s = NewSlice(universeByte)
+--- a/src/cmd/compile/internal/types2/under.go
++++ b/src/cmd/compile/internal/types2/under.go
+@@ -26,12 +26,12 @@
+ // typeset is an iterator over the (type/underlying type) pairs of the
+ // specific type terms of the type set implied by t.
+ // If t is a type parameter, the implied type set is the type set of t's constraint.
+-// In this case, if there are no specific terms, the iterator produces (nil, nil).
++// In that case, if there are no specific terms, typeset calls yield with (nil, nil).
+ // If t is not a type parameter, the implied type set consists of just t.
+-// In any case, typeset is guaranteed to produce at least one set of results.
++// In any case, typeset is guaranteed to call yield at least once.
+ func typeset(t Type) iter.Seq2[Type, Type] {
+ 	return func(yield func(t, u Type) bool) {
+-		all(t, yield)
++		_ = all(t, yield)
+ 	}
+ }
+ 

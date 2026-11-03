@@ -1,0 +1,1 @@
+repro.go: generic method with x.(K) passed as an argument (from test/typeparam/issue47924.go, made runnable). go-clean compiles and prints "ok"; go-buggy fails with an internal compiler error: mayCall on DYNAMICDOTTYPE (exit 1).
