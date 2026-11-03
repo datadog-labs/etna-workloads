@@ -1,0 +1,27 @@
+--- a/src/cmd/compile/internal/walk/complit.go
++++ b/src/cmd/compile/internal/walk/complit.go
+@@ -181,7 +181,6 @@
+ // fixedlit handles struct, array, and slice literals.
+ // TODO: expand documentation.
+ func fixedlit(kind initKind, n *ir.CompLitExpr, var_ ir.Node, init *ir.Nodes) {
+-	isBlank := var_ == ir.BlankNode
+ 	var splitnode func(ir.Node) (a ir.Node, value ir.Node)
+ 	switch n.Op() {
+ 	case ir.OARRAYLIT, ir.OSLICELIT:
+@@ -194,15 +193,12 @@
+ 			}
+ 			a := ir.NewIndexExpr(base.Pos, var_, ir.NewInt(base.Pos, k))
+ 			k++
+-			if isBlank {
+-				return ir.BlankNode, r
+-			}
+ 			return a, r
+ 		}
+ 	case ir.OSTRUCTLIT:
+ 		splitnode = func(rn ir.Node) (ir.Node, ir.Node) {
+ 			r := rn.(*ir.StructKeyExpr)
+-			if r.Sym().IsBlank() || isBlank {
++			if r.Sym().IsBlank() {
+ 				return ir.BlankNode, r.Value
+ 			}
+ 			ir.SetPos(r)

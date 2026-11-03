@@ -1,0 +1,1 @@
+repro.go: range-over-const-of-named-int-type loop clearing a pointer array (range-clear idiom). The buggy compiler omits the conversion of len-1 to the key type T, giving an internal compiler error ('cannot use .autotmp_2 - 1 (type int) as type T'); the clean toolchain compiles and prints ok.

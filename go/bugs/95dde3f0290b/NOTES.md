@@ -1,0 +1,2 @@
+repro.sh builds a non-main package whose function f contains a closure returning a closure that has a labeled `goto l` loop (test/fixedbugs/issue45947.go).
+Clean toolchain: compiles, exit 0. Buggy toolchain: internal compiler error (index out of range in ssa fuseBlockPlain), because the label definition inside the inlined closure isn't renamed while the goto is, so the goto targets a missing label.

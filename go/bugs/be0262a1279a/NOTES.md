@@ -1,0 +1,1 @@
+repro.go declares two blank labels (`_:` twice) in main. go-clean compiles and prints ok; go-buggy (escape analysis no longer skips blank labels) fails with an internal compiler error: label _ missing tag.

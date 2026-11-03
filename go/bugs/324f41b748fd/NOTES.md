@@ -1,0 +1,1 @@
+repro.go inlines f(), which has two blank labels `_:`. Clean: prints "ok". Buggy: internal compiler error "label ~_·1 missing tag", because the inliner mangles the blank label name so it is no longer blank.

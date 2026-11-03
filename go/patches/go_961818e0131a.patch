@@ -1,0 +1,19 @@
+--- a/src/cmd/compile/internal/walk/order.go
++++ b/src/cmd/compile/internal/walk/order.go
+@@ -252,14 +252,14 @@
+ 	if (v.Op() == ir.OSTRUCTLIT || v.Op() == ir.OARRAYLIT) && !base.Ctxt.IsFIPS() {
+ 		if ir.IsZero(v) && 0 < v.Type().Size() && v.Type().Size() <= abi.ZeroValSize && optEnabled(n) {
+ 			// This zero value can be represented by the read-only zeroVal.
+-			zeroVal := ir.NewLinksymExpr(v.Pos(), ir.Syms.ZeroVal, n.Type())
++			zeroVal := ir.NewLinksymExpr(v.Pos(), ir.Syms.ZeroVal, v.Type())
+ 			vstat := typecheck.Expr(zeroVal).(*ir.LinksymOffsetExpr)
+ 			return vstat
+ 		}
+ 		if isStaticCompositeLiteral(v) && optEnabled(n) {
+ 			// v can be directly represented in the read-only data section.
+ 			lit := v.(*ir.CompLitExpr)
+-			vstat := readonlystaticname(n.Type())
++			vstat := readonlystaticname(lit.Type())
+ 			fixedlit(initKindStatic, lit, vstat, nil) // nil init
+ 			vstat = typecheck.Expr(vstat).(*ir.Name)
+ 			return vstat

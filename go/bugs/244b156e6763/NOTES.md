@@ -1,0 +1,1 @@
+repro.go: assigns a zero-value struct containing a zero-size array of zero-size structs ([4]struct{}) plus a chan through a pointer, requiring a write barrier. Clean toolchain compiles and prints true; buggy toolchain hits ICE 'bad write barrier type [4]struct {}' because the injection checks NumElem()==0 instead of Size()==0 in storeTypeScalars/storeTypePtrs.

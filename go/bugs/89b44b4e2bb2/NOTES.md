@@ -1,0 +1,1 @@
+repro.go is the upstream test/fixedbugs/issue43292.go program. With the bug, the compiler devirtualizes i.M() as if i were still A (missing the reassignment via receive), so the buggy toolchain panics with an interface conversion error (exit 2); the clean toolchain exits 0 silently.

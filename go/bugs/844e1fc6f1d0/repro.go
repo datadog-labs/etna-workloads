@@ -1,0 +1,9 @@
+package main
+
+import "fmt"
+
+func f(s1, s2 string) { fmt.Printf("%s %s", s1, s2) }
+
+func main() {
+	f([2]string{"a", "b"}...)
+}

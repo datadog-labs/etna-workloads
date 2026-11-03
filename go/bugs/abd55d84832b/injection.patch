@@ -1,0 +1,28 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -3745,7 +3745,12 @@
+ 		endParams := sig.NumRecvs() + sig.NumParams()
+ 		endResults := endParams + sig.NumResults()
+ 
+-		inlvars = r.curfn.Dcl[:endParams]
++		inlvars = append([]*ir.Name(nil), r.curfn.Dcl[:endParams]...)
++		for i, param := range sig.RecvParams() {
++			if r.synthetic == nil && !r.hasTypeParams() && (param.Sym == nil || param.Sym.IsBlank()) {
++				inlvars[i] = ir.BlankNode
++			}
++		}
+ 		retvars = r.curfn.Dcl[endParams:endResults]
+ 	}
+ 
+--- a/src/cmd/compile/internal/staticinit/sched.go
++++ b/src/cmd/compile/internal/staticinit/sched.go
+@@ -723,9 +723,6 @@
+ 	// Build tree with args substituted for params and try it.
+ 	args := make(map[*ir.Name]ir.Node)
+ 	for i, v := range as2init.Lhs {
+-		if ir.IsBlank(v) {
+-			continue
+-		}
+ 		args[v.(*ir.Name)] = as2init.Rhs[i]
+ 	}
+ 	r, ok := subst(as2body.Rhs[0], args)

@@ -1,0 +1,35 @@
+--- a/src/cmd/compile/internal/types2/unify.go
++++ b/src/cmd/compile/internal/types2/unify.go
+@@ -458,8 +458,8 @@
+ 	if u.enableInterfaceInference && mode&exact == 0 {
+ 		// One or both interfaces may be defined types.
+ 		// Look under the name, but not under type parameters (go.dev/issue/60564).
+-		xi := asInterface(x)
+-		yi := asInterface(y)
++		xi, _ := Unalias(x).(*Interface)
++		yi, _ := Unalias(y).(*Interface)
+ 		// If we have two interfaces, check the type terms for equivalence,
+ 		// and unify common methods if possible.
+ 		if xi != nil && yi != nil {
+@@ -742,6 +742,21 @@
+ 		// Two named types unify if their type names originate in the same type declaration.
+ 		// If they are instantiated, their type argument lists must unify.
+ 		if y := asNamed(y); y != nil {
++			if u.enableInterfaceInference && mode&exact == 0 {
++				xi, _ := x.Underlying().(*Interface)
++				yi, _ := y.Underlying().(*Interface)
++				// If one or both of x and y are interfaces, use interface unification.
++				switch {
++				case xi != nil && yi != nil:
++					return u.nify(xi, yi, mode, p)
++				case xi != nil:
++					return u.nify(xi, y, mode, p)
++				case yi != nil:
++					return u.nify(x, yi, mode, p)
++				}
++				// In all other cases, the type arguments and origins must match.
++			}
++
+ 			// Check type arguments before origins so they unify
+ 			// even if the origins don't match; for better error
+ 			// messages (see go.dev/issue/53692).

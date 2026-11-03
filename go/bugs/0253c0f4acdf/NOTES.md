@@ -1,0 +1,1 @@
+repro.go: calls a generic function whose type parameter S cannot be inferred. The clean compiler reports "cannot infer S (declared at ./repro.go:3:8)" with a relative path. The buggy one prints "(./repro.go...)" without "declared at", so the path is not rewritten by cmd/go and leaks as $WORK/repro.go:3:8.

@@ -1,0 +1,2 @@
+Reproducer (repro.go) is the upstream test issue49432.go: converting a method value of a generic type with a variadic signature (`Handler(b.Bar)`).
+Clean toolchain compiles and runs it (exit 0, no output). The buggy toolchain, which drops SetIsDDD on the wrapper's params, fails with an internal compiler error: "func literal (type func([]interface {})) and func(...interface {}) are not shape types".

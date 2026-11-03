@@ -1,0 +1,1 @@
+repro.go indexes a map whose key type is an invalid func type with a generic function (x[f]), both directly and through a type parameter. Clean reports only 'invalid map key type'; buggy also reports a follow-on 'cannot use generic function f without instantiation' because the key is checked with expr instead of genericExpr.

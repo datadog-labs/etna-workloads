@@ -1,0 +1,1 @@
+repro.go: calls a generic method with its own type parameter on a pointer receiver of a generic type ((&G[int]{}).m[bool]()). Clean prints ok. Buggy mangles the name as (*G)[int].m[bool] instead of (*G[int]).m[bool], so the build fails with 'relocation target ... not defined'.

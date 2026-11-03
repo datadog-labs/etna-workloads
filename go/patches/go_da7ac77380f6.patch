@@ -1,0 +1,37 @@
+--- a/src/cmd/compile/internal/ssagen/ssa.go
++++ b/src/cmd/compile/internal/ssagen/ssa.go
+@@ -285,8 +285,32 @@
+ 	s.curfn.LSym.Func().OpenCodedDeferInfo = x
+ 
+ 	off := 0
+-	off = objw.Uvarint(x, off, uint64(-s.deferBitsTemp.FrameOffset()))
+-	off = objw.Uvarint(x, off, uint64(-firstOffset))
++	off = dvarint(x, off, -s.deferBitsTemp.FrameOffset())
++	off = dvarint(x, off, -firstOffset)
++}
++
++// dvarint writes a varint v to the funcdata in symbol x and returns the new offset.
++func dvarint(x *obj.LSym, off int, v int64) int {
++	if v < 0 || v > 1e9 {
++		panic(fmt.Sprintf("dvarint: bad offset for funcdata - %v", v))
++	}
++	if v < 1<<7 {
++		return objw.Uint8(x, off, uint8(v))
++	}
++	off = objw.Uint8(x, off, uint8((v&127)|128))
++	if v < 1<<14 {
++		return objw.Uint8(x, off, uint8(v>>7))
++	}
++	off = objw.Uint8(x, off, uint8(((v>>7)&127)|128))
++	if v < 1<<21 {
++		return objw.Uint8(x, off, uint8(v>>14))
++	}
++	off = objw.Uint8(x, off, uint8(((v>>14)&127)|128))
++	if v < 1<<28 {
++		return objw.Uint8(x, off, uint8(v>>21))
++	}
++	off = objw.Uint8(x, off, uint8(((v>>21)&127)|128))
++	return objw.Uint8(x, off, uint8(v>>28))
+ }
+ 
+ // buildssa builds an SSA function for fn.

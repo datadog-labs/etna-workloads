@@ -1,0 +1,15 @@
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -1793,7 +1793,11 @@
+ 		// Except that we need to keep comparisons of channel values from
+ 		// being wrapped in any(). See issue #67190.
+ 
+-		if !tagTypeIsChan {
++		if tag != nil && !types2.IsInterface(tagType) && w.p.typIdx(tagType, w.dict).derived {
++			// To implement a switch on a value that is or has a type
++			// parameter, convert it to `any` first.
++			tagType = types2.NewInterfaceType(nil, nil)
++		} else if !tagTypeIsChan {
+ 		Outer:
+ 			for _, clause := range stmt.Body {
+ 				for _, cas := range syntax.UnpackListExpr(clause.Cases) {

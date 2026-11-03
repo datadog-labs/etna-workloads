@@ -1,0 +1,1 @@
+repro.go is the upstream issue48317 test. It unmarshals and marshals JSON into a generic struct with tags. The buggy compiler drops struct tags when it reads generic struct types (noder/reader.go), so Unmarshal ignores the tags and the program panics with a mismatched JSON string. The clean toolchain exits 0 with no output.

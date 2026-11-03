@@ -1,0 +1,2 @@
+repro.sh builds a file with `//go:build go1.21` and a `//line` directive before the package clause, with `-gcflags=-lang=go1.22`, and a `for range 10` loop that is a version error.
+Clean: prints the "cannot range over 10 ... (file declares //go:build go1.21)" error. Buggy: fileBaseMap is keyed by the line-directive base, so the lookup returns nil and the compiler crashes with an internal compiler error (nil pointer dereference).

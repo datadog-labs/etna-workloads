@@ -1,0 +1,34 @@
+--- a/src/cmd/compile/internal/types2/instantiate.go
++++ b/src/cmd/compile/internal/types2/instantiate.go
+@@ -136,9 +136,9 @@
+ 		res = check.newNamedInstance(pos, orig, targs, expanding) // substituted lazily
+ 
+ 	case *Alias:
+-		// verify type parameter count (see go.dev/issue/71198 for a test case)
+ 		tparams := orig.TypeParams()
+-		if !check.validateTArgLen(pos, orig.obj.Name(), tparams.Len(), len(targs)) {
++		// TODO(gri) investigate if this is needed (type argument and parameter count seem to be correct here)
++		if !check.validateTArgLen(pos, orig.String(), tparams.Len(), len(targs)) {
+ 			// TODO(gri) Consider returning a valid alias instance with invalid
+ 			//           underlying (aliased) type to match behavior of *Named
+ 			//           types. Then this function will never return an invalid
+--- a/src/cmd/compile/internal/types2/typexpr.go
++++ b/src/cmd/compile/internal/types2/typexpr.go
+@@ -424,14 +424,9 @@
+ 	}
+ 
+ 	// create instance
+-	// The instance is not generic anymore as it has type arguments, but unless
+-	// instantiation failed, it still satisfies the genericType interface because
+-	// it has type parameters, too.
+-	ityp := check.instance(x.Pos(), gtyp, targs, nil, check.context())
+-	inst, _ := ityp.(genericType)
+-	if inst == nil {
+-		return Typ[Invalid]
+-	}
++	// The instance is not generic anymore as it has type arguments, but it still
++	// satisfies the genericType interface because it has type parameters, too.
++	inst := check.instance(x.Pos(), gtyp, targs, nil, check.context()).(genericType)
+ 
+ 	// For Named types, orig.tparams may not be set up, so we need to do expansion later.
+ 	check.later(func() {

@@ -1,0 +1,15 @@
+--- a/src/cmd/compile/internal/ssagen/ssa.go
++++ b/src/cmd/compile/internal/ssagen/ssa.go
+@@ -3557,9 +3557,9 @@
+ 				if bound == 0 {
+ 					// Bounds check will never succeed.
+ 					s.boundsCheck(i, len, ssa.BoundsIndex, false)
+-					// The return value won't be live. In case bounds checks
+-					// are turned off, load from (*T)(nil) to cause a segfault.
+-					return s.load(n.Type(), s.constNil(n.Type().PtrTo()))
++					// The return value won't be live, return junk.
++					// But not quite junk, in case bounds checks are turned off. See issue 48092.
++					return s.zeroVal(n.Type())
+ 				}
+ 				s.boundsCheck(i, len, ssa.BoundsIndex, n.Bounded()) // checks i == 0
+ 				return s.newValue1I(ssa.OpArraySelect, n.Type(), 0, a)

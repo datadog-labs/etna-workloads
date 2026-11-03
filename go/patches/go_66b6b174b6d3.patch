@@ -1,0 +1,34 @@
+--- a/src/cmd/compile/internal/types2/infer.go
++++ b/src/cmd/compile/internal/types2/infer.go
+@@ -299,7 +299,7 @@
+ 				//           Eventually, unify should return an error with cause.
+ 				var cause string
+ 				constraint := tpar.iface()
+-				if !check.hasAllMethods(tx, constraint, true, func(x, y Type) bool { return u.unify(x, y, exact) }, &cause) {
++				if m, _ := check.missingMethod(tx, constraint, true, func(x, y Type) bool { return u.unify(x, y, exact) }, &cause); m != nil {
+ 					// TODO(gri) better error message (see TODO above)
+ 					err.addf(pos, "%s (type %s) does not satisfy %s %s", tpar, tx, tpar.Constraint(), cause)
+ 					return nil
+--- a/src/cmd/compile/internal/types2/instantiate.go
++++ b/src/cmd/compile/internal/types2/instantiate.go
+@@ -289,7 +289,7 @@
+ 	}
+ 
+ 	// V must implement T's methods, if any.
+-	if !check.hasAllMethods(V, T, true, Identical, cause) /* !Implements(V, T) */ {
++	if m, _ := check.missingMethod(V, T, true, Identical, cause); m != nil /* !Implements(V, T) */ {
+ 		if cause != nil {
+ 			*cause = check.sprintf("%s does not %s %s %s", V, verb, T, *cause)
+ 		}
+--- a/src/cmd/compile/internal/types2/lookup.go
++++ b/src/cmd/compile/internal/types2/lookup.go
+@@ -602,7 +602,8 @@
+ 		return true
+ 	}
+ 	// TODO(gri) fix this for generalized interfaces
+-	return check.hasAllMethods(T, V, false, Identical, cause)
++	m, _ := check.missingMethod(T, V, false, Identical, cause)
++	return m == nil
+ }
+ 
+ // newAssertableTo reports whether a value of type V can be asserted to have type T.

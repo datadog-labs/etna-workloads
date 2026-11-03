@@ -1,0 +1,81 @@
+--- a/src/cmd/compile/internal/noder/noder.go
++++ b/src/cmd/compile/internal/noder/noder.go
+@@ -175,10 +175,6 @@
+ 	WasmExport *WasmExport
+ }
+ 
+-func (p *pragmas) Nointerface() bool {
+-	return p.Flag&ir.Nointerface != 0
+-}
+-
+ // WasmImport stores metadata associated with the //go:wasmimport pragma
+ type WasmImport struct {
+ 	Pos    syntax.Pos
+--- a/src/cmd/compile/internal/types2/decl.go
++++ b/src/cmd/compile/internal/types2/decl.go
+@@ -684,12 +684,6 @@
+ 	fdecl := decl.fdecl
+ 	check.funcType(sig, fdecl.Recv, fdecl.TParamList, fdecl.Type)
+ 
+-	if fdecl.Pragma != nil {
+-		if p, ok := fdecl.Pragma.(interface{ Nointerface() bool }); ok && p.Nointerface() {
+-			obj.nointerface = true
+-		}
+-	}
+-
+ 	// Set the scope's extent to the complete "func (...) { ... }"
+ 	// so that Scope.Innermost works correctly.
+ 	sig.scope.pos = fdecl.Pos()
+--- a/src/cmd/compile/internal/types2/lookup.go
++++ b/src/cmd/compile/internal/types2/lookup.go
+@@ -390,7 +390,6 @@
+ 		ambigSel
+ 		ptrRecv
+ 		field
+-		nointerface
+ 	)
+ 
+ 	state := ok
+@@ -454,11 +453,6 @@
+ 				check.objDecl(f)
+ 			}
+ 
+-			if f.nointerface {
+-				state = nointerface
+-				break
+-			}
+-
+ 			if !equivalent(f.typ, m.typ) {
+ 				state = wrongSig
+ 				break
+@@ -518,8 +512,6 @@
+ 			*cause = check.sprintf("(method %s has pointer receiver)", m.Name())
+ 		case field:
+ 			*cause = check.sprintf("(%s.%s is a field, not a method)", V, m.Name())
+-		case nointerface:
+-			*cause = check.sprintf("(%s method is marked 'nointerface')", m.Name())
+ 		default:
+ 			panic("unreachable")
+ 		}
+--- a/src/cmd/compile/internal/types2/object.go
++++ b/src/cmd/compile/internal/types2/object.go
+@@ -396,9 +396,8 @@
+ // An abstract method may belong to many interfaces due to embedding.
+ type Func struct {
+ 	object
+-	origin      *Func // if non-nil, the Func from which this one was instantiated
+ 	hasPtrRecv_ bool  // only valid for methods that don't have a type yet; use hasPtrRecv() to read
+-	nointerface bool
++	origin      *Func // if non-nil, the Func from which this one was instantiated
+ }
+ 
+ // NewFunc returns a new function with the given signature, representing
+@@ -413,7 +412,7 @@
+ 		// as this would violate object.{Type,color} invariants.
+ 		// TODO(adonovan): propose to disallow NewFunc with nil *Signature.
+ 	}
+-	return &Func{object{nil, pos, pkg, name, typ, 0, nopos}, nil, false, false}
++	return &Func{object{nil, pos, pkg, name, typ, 0, nopos}, false, nil}
+ }
+ 
+ // Signature returns the signature (type) of the function or method.

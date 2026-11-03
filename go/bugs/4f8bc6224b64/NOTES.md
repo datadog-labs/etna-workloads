@@ -1,0 +1,1 @@
+repro.go is the upstream test for issue 57309: devirtualizing I(&S{}).M() inside a closure yields an unlowered OCALLMETH. The buggy toolchain hits an internal compiler error (unexpected call op: CALLMETH) in escape analysis; the clean toolchain compiles and runs it with exit 0.

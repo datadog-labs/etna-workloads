@@ -1,0 +1,22 @@
+--- a/src/cmd/compile/internal/types2/named.go
++++ b/src/cmd/compile/internal/types2/named.go
+@@ -477,6 +477,19 @@
+ 	}
+ 
+ 	oldSig := orig.typ.(*Signature)
++	rbase, _ := deref(oldSig.Recv().Type())
++
++	// If rbase is t, then orig is already the instantiated method we're looking
++	// for. In this case, we return orig to preserve the invariant that
++	// traversing Method->Receiver Type->Method should get back to the same
++	// method.
++	//
++	// This occurs if t is instantiated with the receiver type parameters, as in
++	// the use of m in func (r T[_]) m() { r.m() }.
++	if rbase == t {
++		return orig
++	}
++
+ 	rtpars := oldSig.rparams.list()
+ 	rtargs := t.inst.targs.list()
+ 

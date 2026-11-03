@@ -1,0 +1,1 @@
+repro.go is the issue40746 test plus a main. go-clean prints '1 1' and exits 0. go-buggy hits an internal compiler error ('isNonNegative bad type' panic in prove, after phiopt gives CvtBoolToUint8 the wrong type). The buggy compiler fails while compiling package runtime (gcStart), so the repro's own code isn't what triggers it.

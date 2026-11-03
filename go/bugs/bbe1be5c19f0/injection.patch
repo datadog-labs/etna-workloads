@@ -1,0 +1,35 @@
+--- a/src/cmd/compile/internal/types/size.go
++++ b/src/cmd/compile/internal/types/size.go
+@@ -351,13 +351,8 @@
+ 	case TCHANARGS:
+ 		t1 := t.ChanArgs()
+ 		CalcSize(t1) // just in case
+-		// Make sure size of t1.Elem() is calculated at this point. We can
+-		// use CalcSize() here rather than CheckSize(), because the top-level
+-		// (possibly recursive) type will have been calculated before the fake
+-		// chanargs is handled.
+-		CalcSize(t1.Elem())
+ 		if t1.Elem().width >= 1<<16 {
+-			base.Errorf("channel element type too large (>64kB)")
++			base.ErrorfAt(typePos(t1), 0, "channel element type too large (>64kB)")
+ 		}
+ 		w = 1 // anything will do
+ 
+@@ -443,7 +438,7 @@
+ 	}
+ 
+ 	if PtrSize == 4 && w != int64(int32(w)) {
+-		base.Errorf("type %v too large", t)
++		base.ErrorfAt(typePos(t), 0, "type %v too large", t)
+ 	}
+ 
+ 	t.width = w
+@@ -601,7 +596,7 @@
+ 	if elem.width != 0 {
+ 		cap := (uint64(MaxWidth) - 1) / uint64(elem.width)
+ 		if uint64(n) > cap {
+-			base.Errorf("type %L larger than address space", t)
++			base.ErrorfAt(typePos(t), 0, "type %L larger than address space", t)
+ 		}
+ 	}
+ 

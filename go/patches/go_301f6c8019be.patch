@@ -1,0 +1,15 @@
+--- a/src/cmd/compile/internal/walk/expr.go
++++ b/src/cmd/compile/internal/walk/expr.go
+@@ -580,7 +580,11 @@
+ 		usemethod(n)
+ 	}
+ 	if n.Op() == ir.OCALLINTER {
+-		reflectdata.MarkUsedIfaceMethod(n)
++		if n.Fun.(*ir.SelectorExpr).X.Type().HasShape() {
++			// The dictionary is expected to mark the method as used.
++		} else {
++			reflectdata.MarkUsedIfaceMethod(n)
++		}
+ 	}
+ 
+ 	if n.Op() == ir.OCALLFUNC && n.Fun.Op() == ir.OCLOSURE {

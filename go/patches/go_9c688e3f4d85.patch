@@ -1,0 +1,87 @@
+--- a/src/cmd/compile/internal/ssa/_gen/AMD64Ops.go
++++ b/src/cmd/compile/internal/ssa/_gen/AMD64Ops.go
+@@ -399,19 +399,19 @@
+ 
+ 		// DIVx[U] computes [arg0 / arg1, arg0 % arg1]
+ 		// For signed versions, AuxInt non-zero means that the divisor has been proved to be not -1.
+-		{name: "DIVQ", argLength: 2, reg: gp11div, typ: "(Int64,Int64)", asm: "IDIVQ", aux: "Bool", clobberFlags: true},
+-		{name: "DIVL", argLength: 2, reg: gp11div, typ: "(Int32,Int32)", asm: "IDIVL", aux: "Bool", clobberFlags: true},
+-		{name: "DIVW", argLength: 2, reg: gp11div, typ: "(Int16,Int16)", asm: "IDIVW", aux: "Bool", clobberFlags: true},
+-		{name: "DIVQU", argLength: 2, reg: gp11div, typ: "(UInt64,UInt64)", asm: "DIVQ", clobberFlags: true},
+-		{name: "DIVLU", argLength: 2, reg: gp11div, typ: "(UInt32,UInt32)", asm: "DIVL", clobberFlags: true},
+-		{name: "DIVWU", argLength: 2, reg: gp11div, typ: "(UInt16,UInt16)", asm: "DIVW", clobberFlags: true},
++		{name: "DIVQ", argLength: 2, reg: gp11div, typ: "(Int64,Int64)", asm: "IDIVQ", aux: "Bool", clobberFlags: true, earlyOk: true},
++		{name: "DIVL", argLength: 2, reg: gp11div, typ: "(Int32,Int32)", asm: "IDIVL", aux: "Bool", clobberFlags: true, earlyOk: true},
++		{name: "DIVW", argLength: 2, reg: gp11div, typ: "(Int16,Int16)", asm: "IDIVW", aux: "Bool", clobberFlags: true, earlyOk: true},
++		{name: "DIVQU", argLength: 2, reg: gp11div, typ: "(UInt64,UInt64)", asm: "DIVQ", clobberFlags: true, earlyOk: true},
++		{name: "DIVLU", argLength: 2, reg: gp11div, typ: "(UInt32,UInt32)", asm: "DIVL", clobberFlags: true, earlyOk: true},
++		{name: "DIVWU", argLength: 2, reg: gp11div, typ: "(UInt16,UInt16)", asm: "DIVW", clobberFlags: true, earlyOk: true},
+ 
+ 		// computes -arg0, flags set for 0-arg0.
+ 		{name: "NEGLflags", argLength: 1, reg: gp11flags, typ: "(UInt32,Flags)", asm: "NEGL", resultInArg0: true},
+ 		// compute arg0+auxint. flags set for arg0+auxint.
+ 		// NOTE: we pretend the CF/OF flags are undefined for these instructions,
+ 		// so we can use INC/DEC instead of ADDQconst if auxint is +/-1. (INC/DEC don't modify CF.)
+-		{name: "ADDQconstflags", argLength: 1, reg: gp11flags, aux: "Int32", asm: "ADDQ", resultInArg0: true},
++		{name: "ADDQconstflags", argLength: 1, reg: gp11flags, aux: "Int32", asm: "ADDQ", resultInArg0: true, earlyOk: true},
+ 		{name: "ADDLconstflags", argLength: 1, reg: gp11flags, aux: "Int32", asm: "ADDL", resultInArg0: true},
+ 
+ 		// The following 4 add opcodes return the low 64 bits of the sum in the first result and
+--- a/src/cmd/compile/internal/ssa/opGen.go
++++ b/src/cmd/compile/internal/ssa/opGen.go
+@@ -13512,6 +13512,7 @@
+ 		auxType:      auxBool,
+ 		argLen:       2,
+ 		clobberFlags: true,
++		earlyOk:      true,
+ 		asm:          x86.AIDIVQ,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{
+@@ -13529,6 +13530,7 @@
+ 		auxType:      auxBool,
+ 		argLen:       2,
+ 		clobberFlags: true,
++		earlyOk:      true,
+ 		asm:          x86.AIDIVL,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{
+@@ -13546,6 +13548,7 @@
+ 		auxType:      auxBool,
+ 		argLen:       2,
+ 		clobberFlags: true,
++		earlyOk:      true,
+ 		asm:          x86.AIDIVW,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{
+@@ -13562,6 +13565,7 @@
+ 		name:         "DIVQU",
+ 		argLen:       2,
+ 		clobberFlags: true,
++		earlyOk:      true,
+ 		asm:          x86.ADIVQ,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{
+@@ -13578,6 +13582,7 @@
+ 		name:         "DIVLU",
+ 		argLen:       2,
+ 		clobberFlags: true,
++		earlyOk:      true,
+ 		asm:          x86.ADIVL,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{
+@@ -13594,6 +13599,7 @@
+ 		name:         "DIVWU",
+ 		argLen:       2,
+ 		clobberFlags: true,
++		earlyOk:      true,
+ 		asm:          x86.ADIVW,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{
+@@ -13626,6 +13632,7 @@
+ 		auxType:      auxInt32,
+ 		argLen:       1,
+ 		resultInArg0: true,
++		earlyOk:      true,
+ 		asm:          x86.AADDQ,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{

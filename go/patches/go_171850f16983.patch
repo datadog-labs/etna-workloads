@@ -1,0 +1,46 @@
+--- a/src/cmd/compile/internal/types2/builtins.go
++++ b/src/cmd/compile/internal/types2/builtins.go
+@@ -826,13 +826,8 @@
+ 				check.recordBuiltinType(call.Fun, makeSig(Typ[Uintptr], obj.Type()))
+ 			}
+ 		} else {
+-			offs := check.conf.offsetof(base, index)
+-			if offs < 0 {
+-				check.errorf(x, TypeTooLarge, "%s is too large", x)
+-				return
+-			}
+ 			x.mode_ = constant_
+-			x.val = constant.MakeInt64(offs)
++			x.val = constant.MakeInt64(check.conf.offsetof(base, index))
+ 			// result is constant - no need to record signature
+ 		}
+ 		x.typ_ = Typ[Uintptr]
+@@ -850,13 +845,8 @@
+ 				check.recordBuiltinType(call.Fun, makeSig(Typ[Uintptr], x.typ()))
+ 			}
+ 		} else {
+-			size := check.conf.sizeof(x.typ())
+-			if size < 0 {
+-				check.errorf(x, TypeTooLarge, "%s is too large", x)
+-				return
+-			}
+ 			x.mode_ = constant_
+-			x.val = constant.MakeInt64(size)
++			x.val = constant.MakeInt64(check.conf.sizeof(x.typ()))
+ 			// result is constant - no need to record signature
+ 		}
+ 		x.typ_ = Typ[Uintptr]
+--- a/src/cmd/compile/internal/types2/gcsizes.go
++++ b/src/cmd/compile/internal/types2/gcsizes.go
+@@ -122,11 +122,6 @@
+ 			return 0 // 0-size element
+ 		}
+ 		// esize > 0
+-		// Final size is esize * n; and size must be <= maxInt64.
+-		const maxInt64 = 1<<63 - 1
+-		if esize > maxInt64/n {
+-			return -1 // esize * n overflows
+-		}
+ 		return esize * n
+ 	case *Slice:
+ 		return s.WordSize * 3

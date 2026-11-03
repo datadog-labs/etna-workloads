@@ -1,0 +1,40 @@
+--- a/src/cmd/compile/internal/types2/call.go
++++ b/src/cmd/compile/internal/types2/call.go
+@@ -105,7 +105,7 @@
+ 
+ 		// Rename type parameters to avoid problems with recursive instantiations.
+ 		// Note that NewTuple(params...) below is (*Tuple)(nil) if len(params) == 0, as desired.
+-		tparams, params2 := check.renameTParams(pos, sig.TypeParams().list(), NewTuple(params...))
++		tparams, params2 := check.renameCalleeTParams(pos, sig.TypeParams().list(), NewTuple(params...))
+ 
+ 		err := check.newError(CannotInferTypeArgs)
+ 		targs = check.infer(pos, tparams, targs, params2.(*Tuple), args, reverse, err)
+@@ -566,7 +566,7 @@
+ 		}
+ 		// rename type parameters to avoid problems with recursive calls
+ 		var tmp Type
+-		tparams, tmp = check.renameTParams(call.Pos(), sig.TypeParams().list(), sigParams)
++		tparams, tmp = check.renameCalleeTParams(call.Pos(), sig.TypeParams().list(), sigParams)
+ 		sigParams = tmp.(*Tuple)
+ 		// make sure targs and tparams have the same length
+ 		for len(targs) < len(tparams) {
+--- a/src/cmd/compile/internal/types2/infer.go
++++ b/src/cmd/compile/internal/types2/infer.go
+@@ -458,6 +458,17 @@
+ 	return
+ }
+ 
++// renameCalleeTParams calls renameTParams only for self-recursive calls, that is
++// if the first type parameter of the callee is the first type parameter of the
++// enclosing function declaration.
++func (check *Checker) renameCalleeTParams(pos syntax.Pos, tparams []*TypeParam, typ Type) ([]*TypeParam, Type) {
++	selfRecursive := check.sig != nil && check.sig.tparams.Len() > 0 && tparams[0] == check.sig.tparams.At(0)
++	if !selfRecursive {
++		return tparams, typ
++	}
++	return check.renameTParams(pos, tparams, typ)
++}
++
+ // renameTParams renames the type parameters in the given type such that each type
+ // parameter is given a new identity. renameTParams returns the new type parameters
+ // and updated type. If the result type is unchanged from the argument type, none

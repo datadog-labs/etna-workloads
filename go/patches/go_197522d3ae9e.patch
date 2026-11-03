@@ -1,0 +1,57 @@
+--- a/src/cmd/compile/internal/types2/unify.go
++++ b/src/cmd/compile/internal/types2/unify.go
+@@ -450,6 +450,13 @@
+ 	// x != y if we get here
+ 	assert(x != y && Unalias(x) != Unalias(y))
+ 
++	// Type elements (array, slice, etc. elements) use emode for unification.
++	// Element types must match exactly if the types are used in an assignment.
++	emode := mode
++	if mode&assign != 0 {
++		emode |= exact
++	}
++
+ 	// If u.EnableInterfaceInference is set and we don't require exact unification,
+ 	// if both types are interfaces, one interface must have a subset of the
+ 	// methods of the other and corresponding method signatures must unify.
+@@ -518,7 +525,7 @@
+ 			}
+ 			// All xmethods must exist in ymethods and corresponding signatures must unify.
+ 			for _, xm := range xmethods {
+-				if ym := ymap[xm.Id()]; ym == nil || !u.nify(xm.typ, ym.typ, exact, p) {
++				if ym := ymap[xm.Id()]; ym == nil || !u.nify(xm.typ, ym.typ, emode, p) {
+ 					return false
+ 				}
+ 			}
+@@ -546,7 +553,7 @@
+ 					return false
+ 				}
+ 				u.check.objDecl(ym) // ensure fully set-up signature
+-				if ym.Signature().TypeParams() != nil || !u.nify(xm.typ, ym.typ, exact, p) {
++				if ym.Signature().TypeParams() != nil || !u.nify(xm.typ, ym.typ, emode, p) {
+ 					return false
+ 				}
+ 			}
+@@ -572,13 +579,6 @@
+ 		x, y = y, x
+ 	}
+ 
+-	// Type elements (array, slice, etc. elements) use emode for unification.
+-	// Element types must match exactly if the types are used in an assignment.
+-	emode := mode
+-	if mode&assign != 0 {
+-		emode |= exact
+-	}
+-
+ 	// Continue with unaliased types but don't lose original alias names, if any (go.dev/issue/67628).
+ 	xorig, x := x, Unalias(x)
+ 	yorig, y := y, Unalias(y)
+@@ -716,7 +716,7 @@
+ 				}
+ 				for i, f := range a {
+ 					g := b[i]
+-					if f.Id() != g.Id() || !u.nify(f.typ, g.typ, exact, q) {
++					if f.Id() != g.Id() || !u.nify(f.typ, g.typ, emode, q) {
+ 						return false
+ 					}
+ 				}

@@ -1,0 +1,135 @@
+--- a/src/cmd/compile/internal/ssa/_gen/dec.rules
++++ b/src/cmd/compile/internal/ssa/_gen/dec.rules
+@@ -99,7 +99,6 @@
+ // Helpers for expand calls
+ // Some of these are copied from generic.rules
+ 
+-(IMake _typ (StructMake ___)) => imakeOfStructMake(v)
+ (StructSelect (IData x)) && v.Type.Size() > 0 => (IData x)
+ (StructSelect (IData x)) && v.Type.Size() == 0 => (Empty)
+ 
+@@ -112,12 +111,12 @@
+ // More annoying case: (ArraySelect[0] (StructSelect[0] isAPtr))
+ // There, result of the StructSelect is an Array (not a pointer) and
+ // the pre-rewrite input to the ArraySelect is a struct, not a pointer.
+-(StructSelect x) && x.Type.IsPtrShaped()  => x
+-(ArraySelect [0] x) && x.Type.IsPtrShaped()  => x
++(StructSelect x) && x.Type.IsPtr()  => x
++(ArraySelect [0] x) && x.Type.IsPtr()  => x
+ 
+ // These, too.  Bits is bits.
+-(ArrayMake1 x) && x.Type.IsPtrShaped() => x
+-(StructMake x) && x.Type.IsPtrShaped() => x
++(ArrayMake1 x) && x.Type.IsPtr() => x
++(StructMake x) && x.Type.IsPtr() => x
+ 
+ 
+ (Store _ (StructMake ___) _) => rewriteStructStore(v)
+--- a/src/cmd/compile/internal/ssa/_gen/generic.rules
++++ b/src/cmd/compile/internal/ssa/_gen/generic.rules
+@@ -978,7 +978,6 @@
+   @x.Block (Load <v.Type> (OffPtr <v.Type.PtrTo()> [t.FieldOff(int(i))] ptr) mem)
+ 
+ // Putting struct{*byte} and similar into direct interfaces.
+-(IMake _typ (StructMake ___)) => imakeOfStructMake(v)
+ (StructSelect (IData x)) && v.Type.Size() > 0 => (IData x)
+ (StructSelect (IData x)) && v.Type.Size() == 0 => (Empty)
+ 
+--- a/src/cmd/compile/internal/ssa/rewritedec.go
++++ b/src/cmd/compile/internal/ssa/rewritedec.go
+@@ -46,11 +46,11 @@
+ func rewriteValuedec_OpArrayMake1(v *Value) bool {
+ 	v_0 := v.Args[0]
+ 	// match: (ArrayMake1 x)
+-	// cond: x.Type.IsPtrShaped()
++	// cond: x.Type.IsPtr()
+ 	// result: x
+ 	for {
+ 		x := v_0
+-		if !(x.Type.IsPtrShaped()) {
++		if !(x.Type.IsPtr()) {
+ 			break
+ 		}
+ 		v.copyOf(x)
+@@ -62,14 +62,14 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (ArraySelect [0] x)
+-	// cond: x.Type.IsPtrShaped()
++	// cond: x.Type.IsPtr()
+ 	// result: x
+ 	for {
+ 		if auxIntToInt64(v.AuxInt) != 0 {
+ 			break
+ 		}
+ 		x := v_0
+-		if !(x.Type.IsPtrShaped()) {
++		if !(x.Type.IsPtr()) {
+ 			break
+ 		}
+ 		v.copyOf(x)
+@@ -283,15 +283,6 @@
+ func rewriteValuedec_OpIMake(v *Value) bool {
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+-	// match: (IMake _typ (StructMake ___))
+-	// result: imakeOfStructMake(v)
+-	for {
+-		if v_1.Op != OpStructMake {
+-			break
+-		}
+-		v.copyOf(imakeOfStructMake(v))
+-		return true
+-	}
+ 	// match: (IMake _typ (ArrayMake1 val))
+ 	// result: (IMake _typ val)
+ 	for {
+@@ -834,14 +825,14 @@
+ }
+ func rewriteValuedec_OpStructMake(v *Value) bool {
+ 	// match: (StructMake x)
+-	// cond: x.Type.IsPtrShaped()
++	// cond: x.Type.IsPtr()
+ 	// result: x
+ 	for {
+ 		if len(v.Args) != 1 {
+ 			break
+ 		}
+ 		x := v.Args[0]
+-		if !(x.Type.IsPtrShaped()) {
++		if !(x.Type.IsPtr()) {
+ 			break
+ 		}
+ 		v.copyOf(x)
+@@ -892,11 +883,11 @@
+ 		return true
+ 	}
+ 	// match: (StructSelect x)
+-	// cond: x.Type.IsPtrShaped()
++	// cond: x.Type.IsPtr()
+ 	// result: x
+ 	for {
+ 		x := v_0
+-		if !(x.Type.IsPtrShaped()) {
++		if !(x.Type.IsPtr()) {
+ 			break
+ 		}
+ 		v.copyOf(x)
+--- a/src/cmd/compile/internal/ssa/rewritegeneric.go
++++ b/src/cmd/compile/internal/ssa/rewritegeneric.go
+@@ -11054,15 +11054,6 @@
+ func rewriteValuegeneric_OpIMake(v *Value) bool {
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+-	// match: (IMake _typ (StructMake ___))
+-	// result: imakeOfStructMake(v)
+-	for {
+-		if v_1.Op != OpStructMake {
+-			break
+-		}
+-		v.copyOf(imakeOfStructMake(v))
+-		return true
+-	}
+ 	// match: (IMake _typ (ArrayMake1 val))
+ 	// result: (IMake _typ val)
+ 	for {

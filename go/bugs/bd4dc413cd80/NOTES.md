@@ -1,0 +1,1 @@
+repro.go is upstream test issue76008.go. It compares two non-comparable values boxed in interfaces (func, map, slice). The clean toolchain panics on each comparison, so the program prints nothing. The buggy toolchain optimizes the comparison to a pointer compare, so no panic occurs. It prints 'did not panic at line 13' and 'did not panic at line 16' (func and map cases).

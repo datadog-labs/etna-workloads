@@ -1,0 +1,1 @@
+repro.sh compiles a function doing make([]int, i, 3) with non-constant len and constant cap, using -gcflags=-m. Clean reports 'does not escape' (stack allocated); buggy reports 'escapes to heap' because of the extra non-constant-size check in escape analysis.

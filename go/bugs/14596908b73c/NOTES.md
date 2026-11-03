@@ -1,0 +1,1 @@
+repro.go: calls generic funcs with inference against an interface, passing S whose method m is declared after use. Clean compiles and prints '0 0'; buggy fails with 'cannot infer T' because the method isn't type-checked on demand during unification.

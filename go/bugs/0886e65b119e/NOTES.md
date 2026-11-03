@@ -1,0 +1,1 @@
+repro.go is test/fixedbugs/issue77635.go. It builds a struct containing a [2][0]int generic value and passes it to reflect.DeepEqual. go-clean compiles and runs it with exit 0. go-buggy fails with an internal compiler error ("can SSA LHS .autotmp_4.t but not RHS"), because zero-sized types are not always treated as SSA-able.

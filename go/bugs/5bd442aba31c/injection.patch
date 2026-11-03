@@ -1,0 +1,32 @@
+--- a/src/cmd/compile/internal/types2/call.go
++++ b/src/cmd/compile/internal/types2/call.go
+@@ -722,16 +722,14 @@
+ 					}
+ 				}
+ 				if exp == nil {
+-					if isValidName(sel) {
+-						check.errorf(e.Sel, UndeclaredImportedName, "undefined: %s", syntax.Expr(e)) // cast to syntax.Expr to silence vet
+-					}
++					check.errorf(e.Sel, UndeclaredImportedName, "undefined: %s", syntax.Expr(e)) // cast to syntax.Expr to silence vet
+ 					goto Error
+ 				}
+ 				check.objDecl(exp)
+ 			} else {
+ 				exp = pkg.scope.Lookup(sel)
+ 				if exp == nil {
+-					if !pkg.fake && isValidName(sel) {
++					if !pkg.fake {
+ 						// Try to give a better error message when selector matches an object name ignoring case.
+ 						exps := pkg.scope.lookupIgnoringCase(sel, true)
+ 						if len(exps) >= 1 {
+--- a/src/cmd/compile/internal/types2/typexpr.go
++++ b/src/cmd/compile/internal/types2/typexpr.go
+@@ -26,7 +26,7 @@
+ 	case nil:
+ 		if e.Value == "_" {
+ 			check.error(e, InvalidBlank, "cannot use _ as value or type")
+-		} else if isValidName(e.Value) {
++		} else {
+ 			check.errorf(e, UndeclaredName, "undefined: %s", e.Value)
+ 		}
+ 		return

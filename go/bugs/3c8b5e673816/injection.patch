@@ -1,0 +1,52 @@
+--- a/src/cmd/compile/internal/ssa/_gen/AMD64.rules
++++ b/src/cmd/compile/internal/ssa/_gen/AMD64.rules
+@@ -1559,8 +1559,7 @@
+ 
+ (MOVBload [off] {sym} (SB) _) && symIsRO(sym) => (MOVLconst [int32(read8(sym, int64(off)))])
+ (MOVWload [off] {sym} (SB) _) && symIsRO(sym) => (MOVLconst [int32(read16(sym, int64(off), config.ctxt.Arch.ByteOrder))])
+-(MOVLload <t> [off] {sym} (SB) _) && symIsRO(sym) && is32BitInt(t) => (MOVLconst [int32(read32(sym, int64(off), config.ctxt.Arch.ByteOrder))])
+-(MOVLload <t> [off] {sym} (SB) _) && symIsRO(sym) && is64BitInt(t) => (MOVQconst [int64(read32(sym, int64(off), config.ctxt.Arch.ByteOrder))])
++(MOVLload [off] {sym} (SB) _) && symIsRO(sym) => (MOVLconst [int32(read32(sym, int64(off), config.ctxt.Arch.ByteOrder))])
+ (MOVQload [off] {sym} (SB) _) && symIsRO(sym) => (MOVQconst [int64(read64(sym, int64(off), config.ctxt.Arch.ByteOrder))])
+ (MOVBQSXload [off] {sym} (SB) _) && symIsRO(sym) => (MOVQconst [int64(int8(read8(sym, int64(off))))])
+ (MOVWQSXload [off] {sym} (SB) _) && symIsRO(sym) => (MOVQconst [int64(int16(read16(sym, int64(off), config.ctxt.Arch.ByteOrder)))])
+--- a/src/cmd/compile/internal/ssa/rewriteAMD64.go
++++ b/src/cmd/compile/internal/ssa/rewriteAMD64.go
+@@ -26516,34 +26516,19 @@
+ 		v.AddArg(val)
+ 		return true
+ 	}
+-	// match: (MOVLload <t> [off] {sym} (SB) _)
+-	// cond: symIsRO(sym) && is32BitInt(t)
++	// match: (MOVLload [off] {sym} (SB) _)
++	// cond: symIsRO(sym)
+ 	// result: (MOVLconst [int32(read32(sym, int64(off), config.ctxt.Arch.ByteOrder))])
+ 	for {
+-		t := v.Type
+ 		off := auxIntToInt32(v.AuxInt)
+ 		sym := auxToSym(v.Aux)
+-		if v_0.Op != OpSB || !(symIsRO(sym) && is32BitInt(t)) {
++		if v_0.Op != OpSB || !(symIsRO(sym)) {
+ 			break
+ 		}
+ 		v.reset(OpAMD64MOVLconst)
+ 		v.AuxInt = int32ToAuxInt(int32(read32(sym, int64(off), config.ctxt.Arch.ByteOrder)))
+ 		return true
+ 	}
+-	// match: (MOVLload <t> [off] {sym} (SB) _)
+-	// cond: symIsRO(sym) && is64BitInt(t)
+-	// result: (MOVQconst [int64(read32(sym, int64(off), config.ctxt.Arch.ByteOrder))])
+-	for {
+-		t := v.Type
+-		off := auxIntToInt32(v.AuxInt)
+-		sym := auxToSym(v.Aux)
+-		if v_0.Op != OpSB || !(symIsRO(sym) && is64BitInt(t)) {
+-			break
+-		}
+-		v.reset(OpAMD64MOVQconst)
+-		v.AuxInt = int64ToAuxInt(int64(read32(sym, int64(off), config.ctxt.Arch.ByteOrder)))
+-		return true
+-	}
+ 	return false
+ }
+ func rewriteValueAMD64_OpAMD64MOVLstore(v *Value) bool {

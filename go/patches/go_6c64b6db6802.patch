@@ -1,0 +1,736 @@
+--- a/src/cmd/compile/internal/ssa/_gen/ARM.rules
++++ b/src/cmd/compile/internal/ssa/_gen/ARM.rules
+@@ -775,8 +775,8 @@
+ (MUL (MOVWconst [c]) (MOVWconst [d])) => (MOVWconst [c*d])
+ (MULA (MOVWconst [c]) (MOVWconst [d]) a) => (ADDconst [c*d] a)
+ (MULS (MOVWconst [c]) (MOVWconst [d]) a) => (SUBconst [c*d] a)
+-(Select0 (CALLudiv (MOVWconst [c]) (MOVWconst [d]))) && d != 0 => (MOVWconst [int32(uint32(c)/uint32(d))])
+-(Select1 (CALLudiv (MOVWconst [c]) (MOVWconst [d]))) && d != 0 => (MOVWconst [int32(uint32(c)%uint32(d))])
++(Select0 (CALLudiv (MOVWconst [c]) (MOVWconst [d]))) => (MOVWconst [int32(uint32(c)/uint32(d))])
++(Select1 (CALLudiv (MOVWconst [c]) (MOVWconst [d]))) => (MOVWconst [int32(uint32(c)%uint32(d))])
+ (ANDconst [c] (MOVWconst [d])) => (MOVWconst [c&d])
+ (ANDconst [c] (ANDconst [d] x)) => (ANDconst [c&d] x)
+ (ORconst [c] (MOVWconst [d])) => (MOVWconst [c|d])
+--- a/src/cmd/compile/internal/ssa/_gen/ARM64.rules
++++ b/src/cmd/compile/internal/ssa/_gen/ARM64.rules
+@@ -1229,14 +1229,14 @@
+ (MSUBW (MOVDconst [c]) x y) => (MOVWUreg (ADDconst <x.Type> [c] (MNEGW <x.Type> x y)))
+ (MADDW a (MOVDconst [c]) (MOVDconst [d])) => (MOVWUreg (ADDconst <a.Type> [c*d] a))
+ (MSUBW a (MOVDconst [c]) (MOVDconst [d])) => (MOVWUreg (SUBconst <a.Type> [c*d] a))
+-(DIV   (MOVDconst [c]) (MOVDconst [d])) && d != 0 => (MOVDconst [c/d])
+-(UDIV  (MOVDconst [c]) (MOVDconst [d])) && d != 0 => (MOVDconst [int64(uint64(c)/uint64(d))])
+-(DIVW  (MOVDconst [c]) (MOVDconst [d])) && d != 0 => (MOVDconst [int64(uint32(int32(c)/int32(d)))])
+-(UDIVW (MOVDconst [c]) (MOVDconst [d])) && d != 0 => (MOVDconst [int64(uint32(c)/uint32(d))])
+-(MOD   (MOVDconst [c]) (MOVDconst [d])) && d != 0 => (MOVDconst [c%d])
+-(UMOD  (MOVDconst [c]) (MOVDconst [d])) && d != 0 => (MOVDconst [int64(uint64(c)%uint64(d))])
+-(MODW  (MOVDconst [c]) (MOVDconst [d])) && d != 0 => (MOVDconst [int64(uint32(int32(c)%int32(d)))])
+-(UMODW (MOVDconst [c]) (MOVDconst [d])) && d != 0 => (MOVDconst [int64(uint32(c)%uint32(d))])
++(DIV   (MOVDconst [c]) (MOVDconst [d])) => (MOVDconst [c/d])
++(UDIV  (MOVDconst [c]) (MOVDconst [d])) => (MOVDconst [int64(uint64(c)/uint64(d))])
++(DIVW  (MOVDconst [c]) (MOVDconst [d])) => (MOVDconst [int64(uint32(int32(c)/int32(d)))])
++(UDIVW (MOVDconst [c]) (MOVDconst [d])) => (MOVDconst [int64(uint32(c)/uint32(d))])
++(MOD   (MOVDconst [c]) (MOVDconst [d])) => (MOVDconst [c%d])
++(UMOD  (MOVDconst [c]) (MOVDconst [d])) => (MOVDconst [int64(uint64(c)%uint64(d))])
++(MODW  (MOVDconst [c]) (MOVDconst [d])) => (MOVDconst [int64(uint32(int32(c)%int32(d)))])
++(UMODW (MOVDconst [c]) (MOVDconst [d])) => (MOVDconst [int64(uint32(c)%uint32(d))])
+ (ANDconst [c] (MOVDconst [d]))  => (MOVDconst [c&d])
+ (ANDconst [c] (ANDconst [d] x)) => (ANDconst [c&d] x)
+ (ANDconst [c] (MOVWUreg x)) => (ANDconst [c&(1<<32-1)] x)
+--- a/src/cmd/compile/internal/ssa/_gen/MIPS.rules
++++ b/src/cmd/compile/internal/ssa/_gen/MIPS.rules
+@@ -662,10 +662,10 @@
+ (MUL (MOVWconst [c]) (MOVWconst [d])) => (MOVWconst [c*d])
+ (Select1 (MULTU  (MOVWconst [c]) (MOVWconst [d]))) => (MOVWconst [int32(uint32(c)*uint32(d))])
+ (Select0 (MULTU  (MOVWconst [c]) (MOVWconst [d]))) => (MOVWconst [int32((int64(uint32(c))*int64(uint32(d)))>>32)])
+-(Select1 (DIV  (MOVWconst [c]) (MOVWconst [d]))) && d != 0 => (MOVWconst [c/d])
+-(Select1 (DIVU (MOVWconst [c]) (MOVWconst [d]))) && d != 0 => (MOVWconst [int32(uint32(c)/uint32(d))])
+-(Select0 (DIV  (MOVWconst [c]) (MOVWconst [d]))) && d != 0 => (MOVWconst [c%d])
+-(Select0 (DIVU (MOVWconst [c]) (MOVWconst [d]))) && d != 0 => (MOVWconst [int32(uint32(c)%uint32(d))])
++(Select1 (DIV  (MOVWconst [c]) (MOVWconst [d]))) => (MOVWconst [c/d])
++(Select1 (DIVU (MOVWconst [c]) (MOVWconst [d]))) => (MOVWconst [int32(uint32(c)/uint32(d))])
++(Select0 (DIV  (MOVWconst [c]) (MOVWconst [d]))) => (MOVWconst [c%d])
++(Select0 (DIVU (MOVWconst [c]) (MOVWconst [d]))) => (MOVWconst [int32(uint32(c)%uint32(d))])
+ (ANDconst [c] (MOVWconst [d])) => (MOVWconst [c&d])
+ (ANDconst [c] (ANDconst [d] x)) => (ANDconst [c&d] x)
+ (ORconst [c] (MOVWconst [d])) => (MOVWconst [c|d])
+--- a/src/cmd/compile/internal/ssa/_gen/MIPS64.rules
++++ b/src/cmd/compile/internal/ssa/_gen/MIPS64.rules
+@@ -727,10 +727,10 @@
+ (SRLVconst [c] (MOVVconst [d]))  => (MOVVconst [int64(uint64(d)>>uint64(c))])
+ (SRAVconst [c] (MOVVconst [d]))  => (MOVVconst [d>>uint64(c)])
+ (Select1 (MULVU (MOVVconst [c]) (MOVVconst [d]))) => (MOVVconst [c*d])
+-(Select1 (DIVV  (MOVVconst [c]) (MOVVconst [d]))) && d != 0 => (MOVVconst [c/d])
+-(Select1 (DIVVU (MOVVconst [c]) (MOVVconst [d]))) && d != 0 => (MOVVconst [int64(uint64(c)/uint64(d))])
+-(Select0 (DIVV  (MOVVconst [c]) (MOVVconst [d]))) && d != 0 => (MOVVconst [c%d])   // mod
+-(Select0 (DIVVU (MOVVconst [c]) (MOVVconst [d]))) && d != 0 => (MOVVconst [int64(uint64(c)%uint64(d))]) // mod
++(Select1 (DIVV  (MOVVconst [c]) (MOVVconst [d]))) => (MOVVconst [c/d])
++(Select1 (DIVVU (MOVVconst [c]) (MOVVconst [d]))) => (MOVVconst [int64(uint64(c)/uint64(d))])
++(Select0 (DIVV  (MOVVconst [c]) (MOVVconst [d]))) => (MOVVconst [c%d])   // mod
++(Select0 (DIVVU (MOVVconst [c]) (MOVVconst [d]))) => (MOVVconst [int64(uint64(c)%uint64(d))]) // mod
+ (ANDconst [c] (MOVVconst [d])) => (MOVVconst [c&d])
+ (ANDconst [c] (ANDconst [d] x)) => (ANDconst [c&d] x)
+ (ORconst [c] (MOVVconst [d])) => (MOVVconst [c|d])
+--- a/src/cmd/compile/internal/ssa/_gen/generic.rules
++++ b/src/cmd/compile/internal/ssa/_gen/generic.rules
+@@ -169,14 +169,14 @@
+ (Ctz16 (Const16 [c])) && config.PtrSize == 8 => (Const64 [int64(ntz16(c))])
+ (Ctz8  (Const8  [c])) && config.PtrSize == 8 => (Const64 [int64(ntz8(c))])
+ 
+-(Div8   (Const8  [c])  (Const8  [d])) && d != 0 => (Const8  [c/d])
+-(Div16  (Const16 [c])  (Const16 [d])) && d != 0 => (Const16 [c/d])
+-(Div32  (Const32 [c])  (Const32 [d])) && d != 0 => (Const32 [c/d])
+-(Div64  (Const64 [c])  (Const64 [d])) && d != 0 => (Const64 [c/d])
+-(Div8u  (Const8  [c])  (Const8  [d])) && d != 0 => (Const8  [int8(uint8(c)/uint8(d))])
+-(Div16u (Const16 [c])  (Const16 [d])) && d != 0 => (Const16 [int16(uint16(c)/uint16(d))])
+-(Div32u (Const32 [c])  (Const32 [d])) && d != 0 => (Const32 [int32(uint32(c)/uint32(d))])
+-(Div64u (Const64 [c])  (Const64 [d])) && d != 0 => (Const64 [int64(uint64(c)/uint64(d))])
++(Div8   (Const8  [c])  (Const8  [d])) => (Const8  [c/d])
++(Div16  (Const16 [c])  (Const16 [d])) => (Const16 [c/d])
++(Div32  (Const32 [c])  (Const32 [d])) => (Const32 [c/d])
++(Div64  (Const64 [c])  (Const64 [d])) => (Const64 [c/d])
++(Div8u  (Const8  [c])  (Const8  [d])) => (Const8  [int8(uint8(c)/uint8(d))])
++(Div16u (Const16 [c])  (Const16 [d])) => (Const16 [int16(uint16(c)/uint16(d))])
++(Div32u (Const32 [c])  (Const32 [d])) => (Const32 [int32(uint32(c)/uint32(d))])
++(Div64u (Const64 [c])  (Const64 [d])) => (Const64 [int64(uint64(c)/uint64(d))])
+ (Div32F (Const32F [c]) (Const32F [d])) && c/d == c/d => (Const32F [c/d])
+ (Div64F (Const64F [c]) (Const64F [d])) && c/d == c/d => (Const64F [c/d])
+ (Div128u <t> (Const64 [0]) lo y) => (MakeTuple (Div64u <t.FieldType(0)> lo y) (Mod64u <t.FieldType(1)> lo y))
+@@ -212,15 +212,15 @@
+ (And(8|16|32|64) x (Or(8|16|32|64) x y)) => x
+ (Or(8|16|32|64) x (And(8|16|32|64) x y)) => x
+ 
+-(Mod8  (Const8  [c]) (Const8  [d])) && d != 0 => (Const8  [c % d])
+-(Mod16 (Const16 [c]) (Const16 [d])) && d != 0 => (Const16 [c % d])
+-(Mod32 (Const32 [c]) (Const32 [d])) && d != 0 => (Const32 [c % d])
+-(Mod64 (Const64 [c]) (Const64 [d])) && d != 0 => (Const64 [c % d])
+-
+-(Mod8u  (Const8 [c])  (Const8  [d])) && d != 0 => (Const8  [int8(uint8(c) % uint8(d))])
+-(Mod16u (Const16 [c]) (Const16 [d])) && d != 0 => (Const16 [int16(uint16(c) % uint16(d))])
+-(Mod32u (Const32 [c]) (Const32 [d])) && d != 0 => (Const32 [int32(uint32(c) % uint32(d))])
+-(Mod64u (Const64 [c]) (Const64 [d])) && d != 0 => (Const64 [int64(uint64(c) % uint64(d))])
++(Mod8  (Const8  [c]) (Const8  [d])) => (Const8  [c % d])
++(Mod16 (Const16 [c]) (Const16 [d])) => (Const16 [c % d])
++(Mod32 (Const32 [c]) (Const32 [d])) => (Const32 [c % d])
++(Mod64 (Const64 [c]) (Const64 [d])) => (Const64 [c % d])
++
++(Mod8u  (Const8 [c])  (Const8  [d])) => (Const8  [int8(uint8(c) % uint8(d))])
++(Mod16u (Const16 [c]) (Const16 [d])) => (Const16 [int16(uint16(c) % uint16(d))])
++(Mod32u (Const32 [c]) (Const32 [d])) => (Const32 [int32(uint32(c) % uint32(d))])
++(Mod64u (Const64 [c]) (Const64 [d])) => (Const64 [int64(uint64(c) % uint64(d))])
+ 
+ (Lsh64x64  (Const64 [c]) (Const64 [d])) => (Const64 [c << uint64(d)])
+ (Rsh64x64  (Const64 [c]) (Const64 [d])) => (Const64 [c >> uint64(d)])
+--- a/src/cmd/compile/internal/ssa/rewriteARM.go
++++ b/src/cmd/compile/internal/ssa/rewriteARM.go
+@@ -15851,7 +15851,6 @@
+ 		return true
+ 	}
+ 	// match: (Select0 (CALLudiv (MOVWconst [c]) (MOVWconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVWconst [int32(uint32(c)/uint32(d))])
+ 	for {
+ 		if v_0.Op != OpARMCALLudiv {
+@@ -15868,9 +15867,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARMMOVWconst)
+ 		v.AuxInt = int32ToAuxInt(int32(uint32(c) / uint32(d)))
+ 		return true
+@@ -15917,7 +15913,6 @@
+ 		return true
+ 	}
+ 	// match: (Select1 (CALLudiv (MOVWconst [c]) (MOVWconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVWconst [int32(uint32(c)%uint32(d))])
+ 	for {
+ 		if v_0.Op != OpARMCALLudiv {
+@@ -15934,9 +15929,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARMMOVWconst)
+ 		v.AuxInt = int32ToAuxInt(int32(uint32(c) % uint32(d)))
+ 		return true
+--- a/src/cmd/compile/internal/ssa/rewriteARM64.go
++++ b/src/cmd/compile/internal/ssa/rewriteARM64.go
+@@ -5239,7 +5239,6 @@
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+ 	// match: (DIV (MOVDconst [c]) (MOVDconst [d]))
+-	// cond: d != 0
+ 	// result: (MOVDconst [c/d])
+ 	for {
+ 		if v_0.Op != OpARM64MOVDconst {
+@@ -5250,9 +5249,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARM64MOVDconst)
+ 		v.AuxInt = int64ToAuxInt(c / d)
+ 		return true
+@@ -5263,7 +5259,6 @@
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+ 	// match: (DIVW (MOVDconst [c]) (MOVDconst [d]))
+-	// cond: d != 0
+ 	// result: (MOVDconst [int64(uint32(int32(c)/int32(d)))])
+ 	for {
+ 		if v_0.Op != OpARM64MOVDconst {
+@@ -5274,9 +5269,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARM64MOVDconst)
+ 		v.AuxInt = int64ToAuxInt(int64(uint32(int32(c) / int32(d))))
+ 		return true
+@@ -10035,7 +10027,6 @@
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+ 	// match: (MOD (MOVDconst [c]) (MOVDconst [d]))
+-	// cond: d != 0
+ 	// result: (MOVDconst [c%d])
+ 	for {
+ 		if v_0.Op != OpARM64MOVDconst {
+@@ -10046,9 +10037,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARM64MOVDconst)
+ 		v.AuxInt = int64ToAuxInt(c % d)
+ 		return true
+@@ -10059,7 +10047,6 @@
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+ 	// match: (MODW (MOVDconst [c]) (MOVDconst [d]))
+-	// cond: d != 0
+ 	// result: (MOVDconst [int64(uint32(int32(c)%int32(d)))])
+ 	for {
+ 		if v_0.Op != OpARM64MOVDconst {
+@@ -10070,9 +10057,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARM64MOVDconst)
+ 		v.AuxInt = int64ToAuxInt(int64(uint32(int32(c) % int32(d))))
+ 		return true
+@@ -17763,7 +17747,6 @@
+ 		return true
+ 	}
+ 	// match: (UDIV (MOVDconst [c]) (MOVDconst [d]))
+-	// cond: d != 0
+ 	// result: (MOVDconst [int64(uint64(c)/uint64(d))])
+ 	for {
+ 		if v_0.Op != OpARM64MOVDconst {
+@@ -17774,9 +17757,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARM64MOVDconst)
+ 		v.AuxInt = int64ToAuxInt(int64(uint64(c) / uint64(d)))
+ 		return true
+@@ -17823,7 +17803,6 @@
+ 		return true
+ 	}
+ 	// match: (UDIVW (MOVDconst [c]) (MOVDconst [d]))
+-	// cond: d != 0
+ 	// result: (MOVDconst [int64(uint32(c)/uint32(d))])
+ 	for {
+ 		if v_0.Op != OpARM64MOVDconst {
+@@ -17834,9 +17813,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARM64MOVDconst)
+ 		v.AuxInt = int64ToAuxInt(int64(uint32(c) / uint32(d)))
+ 		return true
+@@ -17891,7 +17867,6 @@
+ 		return true
+ 	}
+ 	// match: (UMOD (MOVDconst [c]) (MOVDconst [d]))
+-	// cond: d != 0
+ 	// result: (MOVDconst [int64(uint64(c)%uint64(d))])
+ 	for {
+ 		if v_0.Op != OpARM64MOVDconst {
+@@ -17902,9 +17877,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARM64MOVDconst)
+ 		v.AuxInt = int64ToAuxInt(int64(uint64(c) % uint64(d)))
+ 		return true
+@@ -17964,7 +17936,6 @@
+ 		return true
+ 	}
+ 	// match: (UMODW (MOVDconst [c]) (MOVDconst [d]))
+-	// cond: d != 0
+ 	// result: (MOVDconst [int64(uint32(c)%uint32(d))])
+ 	for {
+ 		if v_0.Op != OpARM64MOVDconst {
+@@ -17975,9 +17946,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpARM64MOVDconst)
+ 		v.AuxInt = int64ToAuxInt(int64(uint32(c) % uint32(d)))
+ 		return true
+--- a/src/cmd/compile/internal/ssa/rewriteMIPS.go
++++ b/src/cmd/compile/internal/ssa/rewriteMIPS.go
+@@ -6666,7 +6666,6 @@
+ 		break
+ 	}
+ 	// match: (Select0 (DIV (MOVWconst [c]) (MOVWconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVWconst [c%d])
+ 	for {
+ 		if v_0.Op != OpMIPSDIV {
+@@ -6683,15 +6682,11 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpMIPSMOVWconst)
+ 		v.AuxInt = int32ToAuxInt(c % d)
+ 		return true
+ 	}
+ 	// match: (Select0 (DIVU (MOVWconst [c]) (MOVWconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVWconst [int32(uint32(c)%uint32(d))])
+ 	for {
+ 		if v_0.Op != OpMIPSDIVU {
+@@ -6708,9 +6703,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpMIPSMOVWconst)
+ 		v.AuxInt = int32ToAuxInt(int32(uint32(c) % uint32(d)))
+ 		return true
+@@ -6885,7 +6877,6 @@
+ 		break
+ 	}
+ 	// match: (Select1 (DIV (MOVWconst [c]) (MOVWconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVWconst [c/d])
+ 	for {
+ 		if v_0.Op != OpMIPSDIV {
+@@ -6902,15 +6893,11 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpMIPSMOVWconst)
+ 		v.AuxInt = int32ToAuxInt(c / d)
+ 		return true
+ 	}
+ 	// match: (Select1 (DIVU (MOVWconst [c]) (MOVWconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVWconst [int32(uint32(c)/uint32(d))])
+ 	for {
+ 		if v_0.Op != OpMIPSDIVU {
+@@ -6927,9 +6914,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpMIPSMOVWconst)
+ 		v.AuxInt = int32ToAuxInt(int32(uint32(c) / uint32(d)))
+ 		return true
+--- a/src/cmd/compile/internal/ssa/rewriteMIPS64.go
++++ b/src/cmd/compile/internal/ssa/rewriteMIPS64.go
+@@ -7250,7 +7250,6 @@
+ 		return true
+ 	}
+ 	// match: (Select0 (DIVV (MOVVconst [c]) (MOVVconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVVconst [c%d])
+ 	for {
+ 		if v_0.Op != OpMIPS64DIVV {
+@@ -7267,15 +7266,11 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpMIPS64MOVVconst)
+ 		v.AuxInt = int64ToAuxInt(c % d)
+ 		return true
+ 	}
+ 	// match: (Select0 (DIVVU (MOVVconst [c]) (MOVVconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVVconst [int64(uint64(c)%uint64(d))])
+ 	for {
+ 		if v_0.Op != OpMIPS64DIVVU {
+@@ -7292,9 +7287,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpMIPS64MOVVconst)
+ 		v.AuxInt = int64ToAuxInt(int64(uint64(c) % uint64(d)))
+ 		return true
+@@ -7514,7 +7506,6 @@
+ 		break
+ 	}
+ 	// match: (Select1 (DIVV (MOVVconst [c]) (MOVVconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVVconst [c/d])
+ 	for {
+ 		if v_0.Op != OpMIPS64DIVV {
+@@ -7531,15 +7522,11 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpMIPS64MOVVconst)
+ 		v.AuxInt = int64ToAuxInt(c / d)
+ 		return true
+ 	}
+ 	// match: (Select1 (DIVVU (MOVVconst [c]) (MOVVconst [d])))
+-	// cond: d != 0
+ 	// result: (MOVVconst [int64(uint64(c)/uint64(d))])
+ 	for {
+ 		if v_0.Op != OpMIPS64DIVVU {
+@@ -7556,9 +7543,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_0_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpMIPS64MOVVconst)
+ 		v.AuxInt = int64ToAuxInt(int64(uint64(c) / uint64(d)))
+ 		return true
+--- a/src/cmd/compile/internal/ssa/rewritegeneric.go
++++ b/src/cmd/compile/internal/ssa/rewritegeneric.go
+@@ -8426,7 +8426,6 @@
+ 	b := v.Block
+ 	typ := &b.Func.Config.Types
+ 	// match: (Div16 (Const16 [c]) (Const16 [d]))
+-	// cond: d != 0
+ 	// result: (Const16 [c/d])
+ 	for {
+ 		if v_0.Op != OpConst16 {
+@@ -8437,9 +8436,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt16(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst16)
+ 		v.AuxInt = int16ToAuxInt(c / d)
+ 		return true
+@@ -8491,7 +8487,6 @@
+ 	b := v.Block
+ 	typ := &b.Func.Config.Types
+ 	// match: (Div16u (Const16 [c]) (Const16 [d]))
+-	// cond: d != 0
+ 	// result: (Const16 [int16(uint16(c)/uint16(d))])
+ 	for {
+ 		if v_0.Op != OpConst16 {
+@@ -8502,9 +8497,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt16(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst16)
+ 		v.AuxInt = int16ToAuxInt(int16(uint16(c) / uint16(d)))
+ 		return true
+@@ -8535,7 +8527,6 @@
+ 	b := v.Block
+ 	typ := &b.Func.Config.Types
+ 	// match: (Div32 (Const32 [c]) (Const32 [d]))
+-	// cond: d != 0
+ 	// result: (Const32 [c/d])
+ 	for {
+ 		if v_0.Op != OpConst32 {
+@@ -8546,9 +8537,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst32)
+ 		v.AuxInt = int32ToAuxInt(c / d)
+ 		return true
+@@ -8644,7 +8632,6 @@
+ 	b := v.Block
+ 	typ := &b.Func.Config.Types
+ 	// match: (Div32u (Const32 [c]) (Const32 [d]))
+-	// cond: d != 0
+ 	// result: (Const32 [int32(uint32(c)/uint32(d))])
+ 	for {
+ 		if v_0.Op != OpConst32 {
+@@ -8655,9 +8642,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst32)
+ 		v.AuxInt = int32ToAuxInt(int32(uint32(c) / uint32(d)))
+ 		return true
+@@ -8688,7 +8672,6 @@
+ 	b := v.Block
+ 	typ := &b.Func.Config.Types
+ 	// match: (Div64 (Const64 [c]) (Const64 [d]))
+-	// cond: d != 0
+ 	// result: (Const64 [c/d])
+ 	for {
+ 		if v_0.Op != OpConst64 {
+@@ -8699,9 +8682,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst64)
+ 		v.AuxInt = int64ToAuxInt(c / d)
+ 		return true
+@@ -8809,7 +8789,6 @@
+ 	b := v.Block
+ 	typ := &b.Func.Config.Types
+ 	// match: (Div64u (Const64 [c]) (Const64 [d]))
+-	// cond: d != 0
+ 	// result: (Const64 [int64(uint64(c)/uint64(d))])
+ 	for {
+ 		if v_0.Op != OpConst64 {
+@@ -8820,9 +8799,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst64)
+ 		v.AuxInt = int64ToAuxInt(int64(uint64(c) / uint64(d)))
+ 		return true
+@@ -8853,7 +8829,6 @@
+ 	b := v.Block
+ 	typ := &b.Func.Config.Types
+ 	// match: (Div8 (Const8 [c]) (Const8 [d]))
+-	// cond: d != 0
+ 	// result: (Const8 [c/d])
+ 	for {
+ 		if v_0.Op != OpConst8 {
+@@ -8864,9 +8839,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt8(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst8)
+ 		v.AuxInt = int8ToAuxInt(c / d)
+ 		return true
+@@ -8918,7 +8890,6 @@
+ 	b := v.Block
+ 	typ := &b.Func.Config.Types
+ 	// match: (Div8u (Const8 [c]) (Const8 [d]))
+-	// cond: d != 0
+ 	// result: (Const8 [int8(uint8(c)/uint8(d))])
+ 	for {
+ 		if v_0.Op != OpConst8 {
+@@ -8929,9 +8900,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt8(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst8)
+ 		v.AuxInt = int8ToAuxInt(int8(uint8(c) / uint8(d)))
+ 		return true
+@@ -17244,7 +17212,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Mod16 (Const16 [c]) (Const16 [d]))
+-	// cond: d != 0
+ 	// result: (Const16 [c % d])
+ 	for {
+ 		if v_0.Op != OpConst16 {
+@@ -17255,9 +17222,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt16(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst16)
+ 		v.AuxInt = int16ToAuxInt(c % d)
+ 		return true
+@@ -17331,7 +17295,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Mod16u (Const16 [c]) (Const16 [d]))
+-	// cond: d != 0
+ 	// result: (Const16 [int16(uint16(c) % uint16(d))])
+ 	for {
+ 		if v_0.Op != OpConst16 {
+@@ -17342,9 +17305,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt16(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst16)
+ 		v.AuxInt = int16ToAuxInt(int16(uint16(c) % uint16(d)))
+ 		return true
+@@ -17398,7 +17358,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Mod32 (Const32 [c]) (Const32 [d]))
+-	// cond: d != 0
+ 	// result: (Const32 [c % d])
+ 	for {
+ 		if v_0.Op != OpConst32 {
+@@ -17409,9 +17368,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst32)
+ 		v.AuxInt = int32ToAuxInt(c % d)
+ 		return true
+@@ -17485,7 +17441,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Mod32u (Const32 [c]) (Const32 [d]))
+-	// cond: d != 0
+ 	// result: (Const32 [int32(uint32(c) % uint32(d))])
+ 	for {
+ 		if v_0.Op != OpConst32 {
+@@ -17496,9 +17451,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt32(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst32)
+ 		v.AuxInt = int32ToAuxInt(int32(uint32(c) % uint32(d)))
+ 		return true
+@@ -17552,7 +17504,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Mod64 (Const64 [c]) (Const64 [d]))
+-	// cond: d != 0
+ 	// result: (Const64 [c % d])
+ 	for {
+ 		if v_0.Op != OpConst64 {
+@@ -17563,9 +17514,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst64)
+ 		v.AuxInt = int64ToAuxInt(c % d)
+ 		return true
+@@ -17650,7 +17598,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Mod64u (Const64 [c]) (Const64 [d]))
+-	// cond: d != 0
+ 	// result: (Const64 [int64(uint64(c) % uint64(d))])
+ 	for {
+ 		if v_0.Op != OpConst64 {
+@@ -17661,9 +17608,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt64(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst64)
+ 		v.AuxInt = int64ToAuxInt(int64(uint64(c) % uint64(d)))
+ 		return true
+@@ -17717,7 +17661,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Mod8 (Const8 [c]) (Const8 [d]))
+-	// cond: d != 0
+ 	// result: (Const8 [c % d])
+ 	for {
+ 		if v_0.Op != OpConst8 {
+@@ -17728,9 +17671,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt8(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst8)
+ 		v.AuxInt = int8ToAuxInt(c % d)
+ 		return true
+@@ -17804,7 +17744,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Mod8u (Const8 [c]) (Const8 [d]))
+-	// cond: d != 0
+ 	// result: (Const8 [int8(uint8(c) % uint8(d))])
+ 	for {
+ 		if v_0.Op != OpConst8 {
+@@ -17815,9 +17754,6 @@
+ 			break
+ 		}
+ 		d := auxIntToInt8(v_1.AuxInt)
+-		if !(d != 0) {
+-			break
+-		}
+ 		v.reset(OpConst8)
+ 		v.AuxInt = int8ToAuxInt(int8(uint8(c) % uint8(d)))
+ 		return true

@@ -1,0 +1,1 @@
+Reproducer for #62498: two packages each have a closure capturing a variable named `L` (same type, deferred call); after inlining both closures land in main.Two, and the old closure-struct field naming yields distinct types with identical LinkStrings. Buggy toolchain fails at compile time (see check output); clean builds and prints "ok".

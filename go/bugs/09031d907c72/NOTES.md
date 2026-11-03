@@ -1,0 +1,1 @@
+repro.go is the issue78404 test program. With the bug, the devirtualizer treats *Impl1[int] and *Impl2 as identical (types.Identical instead of pointer comparison), devirtualizes val.Foo() to *Impl2, and the buggy toolchain panics with an interface conversion error (exit 2). The clean toolchain exits 0 with no output.

@@ -1,0 +1,1 @@
+repro.go slices a (*[32]byte)(b[:32]) slice-to-array-pointer conversion. The buggy compiler gives the OSLICE2ARRPTR SSA value type int instead of *[32]byte, so it hits an internal compiler error ('bad type in slice int'). The clean compiler builds it and prints 32.

@@ -1,0 +1,1 @@
+repro.go declares an unused untyped integer constant literal of more than 512 bits. The clean toolchain rejects it with `constant overflow` (exit 1). The buggy toolchain compiles and runs it silently (exit 0), because the literal overflow check was removed from types2.

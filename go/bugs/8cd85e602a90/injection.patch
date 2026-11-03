@@ -1,0 +1,56 @@
+--- a/src/cmd/compile/internal/ssa/loopbce.go
++++ b/src/cmd/compile/internal/ssa/loopbce.go
+@@ -37,20 +37,19 @@
+ //   - the minimum bound
+ //   - the increment value
+ //   - the "next" value (SSA value that is Phi'd into the induction variable every loop)
+-//   - the header's edge returning from the body
+ //
+ // Currently, we detect induction variables that match (Phi min nxt),
+ // with nxt being (Add inc ind).
+ // If it can't parse the induction variable correctly, it returns (nil, nil, nil).
+-func parseIndVar(ind *Value) (min, inc, nxt *Value, loopReturn Edge) {
++func parseIndVar(ind *Value) (min, inc, nxt *Value) {
+ 	if ind.Op != OpPhi {
+ 		return
+ 	}
+ 
+ 	if n := ind.Args[0]; (n.Op == OpAdd64 || n.Op == OpAdd32 || n.Op == OpAdd16 || n.Op == OpAdd8) && (n.Args[0] == ind || n.Args[1] == ind) {
+-		min, nxt, loopReturn = ind.Args[1], n, ind.Block.Preds[0]
++		min, nxt = ind.Args[1], n
+ 	} else if n := ind.Args[1]; (n.Op == OpAdd64 || n.Op == OpAdd32 || n.Op == OpAdd16 || n.Op == OpAdd8) && (n.Args[0] == ind || n.Args[1] == ind) {
+-		min, nxt, loopReturn = ind.Args[0], n, ind.Block.Preds[1]
++		min, nxt = ind.Args[0], n
+ 	} else {
+ 		// Not a recognized induction variable.
+ 		return
+@@ -140,7 +139,7 @@
+ 			// induction variable, ending value
+ 			ind, limit := c.Args[idx], c.Args[1-idx]
+ 			// starting value, increment value, next value, loop return edge
+-			init, inc, nxt, loopReturn := parseIndVar(ind)
++			init, inc, nxt := parseIndVar(ind)
+ 			if init == nil {
+ 				continue // this is not an induction variable
+ 			}
+@@ -166,19 +165,7 @@
+ 				continue
+ 			}
+ 
+-			// startBody is the edge that eventually returns to the loop header.
+-			var startBody Edge
+-			switch {
+-			case sdom.IsAncestorEq(b.Succs[0].b, loopReturn.b):
+-				startBody = b.Succs[0]
+-			case sdom.IsAncestorEq(b.Succs[1].b, loopReturn.b):
+-				// if x { goto exit } else { goto entry } is identical to if !x { goto entry } else { goto exit }
+-				startBody = b.Succs[1]
+-				less = !less
+-				inclusive = !inclusive
+-			default:
+-				continue
+-			}
++			startBody := b.Succs[0]
+ 
+ 			// Increment sign must match comparison direction.
+ 			// When incrementing, the termination comparison must be ind </<= limit.

@@ -1,0 +1,13 @@
+--- a/src/cmd/compile/internal/walk/expr.go
++++ b/src/cmd/compile/internal/walk/expr.go
+@@ -132,6 +132,10 @@
+ 		n := n.(*ir.BinaryExpr)
+ 		n.X = walkExpr(n.X, init)
+ 		n.Y = walkExpr(n.Y, init)
++		if n.Op() == ir.OANDNOT {
++			n.SetOp(ir.OAND)
++			n.Y = typecheck.Expr(ir.NewUnaryExpr(n.Pos(), ir.OBITNOT, n.Y))
++		}
+ 		if n.Op() == ir.OUNSAFEADD && ir.ShouldCheckPtr(ir.CurFunc, 1) {
+ 			// For unsafe.Add(p, n), just walk "unsafe.Pointer(uintptr(p)+uintptr(n))"
+ 			// for the side effects of validating unsafe.Pointer rules.

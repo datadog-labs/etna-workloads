@@ -1,0 +1,1 @@
+repro.go converts constants between int/float and complex types (e.g. complex64(int(3))). go-clean compiles and prints "3 2"; go-buggy rejects them with "cannot convert ... to type complex64" (exit 1).

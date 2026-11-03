@@ -1,0 +1,127 @@
+--- a/src/cmd/compile/internal/types2/call.go
++++ b/src/cmd/compile/internal/types2/call.go
+@@ -911,7 +911,6 @@
+ 			x.mode_ = value
+ 			x.typ_ = &Signature{
+ 				tparams:  sig.tparams,
+-				recvold:  methodExprSentinel,
+ 				params:   NewTuple(params...),
+ 				results:  sig.results,
+ 				variadic: sig.variadic,
+@@ -925,9 +924,8 @@
+ 
+ 			x.mode_ = value
+ 
+-			// remove/stash receiver
++			// remove receiver
+ 			sig := *obj.typ.(*Signature)
+-			sig.recvold = sig.recv
+ 			sig.recv = nil
+ 			x.typ_ = &sig
+ 		}
+--- a/src/cmd/compile/internal/types2/instantiate.go
++++ b/src/cmd/compile/internal/types2/instantiate.go
+@@ -153,11 +153,6 @@
+ 
+ 	case *Signature:
+ 		assert(expanding == nil) // function instances cannot be reached from Named types
+-		// Note that orig may be a generic method on a generic type. In that case, orig
+-		// is an instantiated type. It will not have receiver type parameters, but will
+-		// still have ordinary type parameters.
+-		assert(orig.RecvTypeParams() == nil)
+-		assert(orig.TypeParams() != nil)
+ 
+ 		tparams := orig.TypeParams()
+ 		// TODO(gri) investigate if this is needed (type argument and parameter count seem to be correct here)
+--- a/src/cmd/compile/internal/types2/recording.go
++++ b/src/cmd/compile/internal/types2/recording.go
+@@ -131,23 +131,6 @@
+ 	assert(ident != nil)
+ 	assert(typ != nil)
+ 	if m := check.Instances; m != nil {
+-		// If this is an instance of a method value/expression, replace the
+-		// receiver for the Signature stored in Instances (go.dev/issue/79657).
+-		if sig, _ := typ.(*Signature); sig != nil && sig.recvold != nil {
+-			copy := *sig
+-			copy.recvold = nil // not strictly necessary
+-			if sig.recvold == methodExprSentinel {
+-				pars := *copy.params
+-				copy.recv = pars.vars[0]
+-				pars.vars = pars.vars[1:]
+-				copy.params = &pars
+-				m[ident] = Instance{newTypeList(targs), &copy}
+-				return
+-			}
+-			copy.recv = sig.recvold
+-			m[ident] = Instance{newTypeList(targs), &copy}
+-			return
+-		}
+ 		m[ident] = Instance{newTypeList(targs), typ}
+ 	}
+ }
+--- a/src/cmd/compile/internal/types2/selection.go
++++ b/src/cmd/compile/internal/types2/selection.go
+@@ -92,7 +92,6 @@
+ func (s *Selection) Type() Type {
+ 	switch s.kind {
+ 	case MethodVal:
+-		// TODO(mark) Align this with call.go if possible.
+ 		// The type of x.f is a method with its receiver type set
+ 		// to the type of x.
+ 		sig := *s.obj.(*Func).typ.(*Signature)
+@@ -108,7 +107,6 @@
+ 		// TODO(gri) Compute this eagerly to avoid allocations.
+ 		sig := *s.obj.(*Func).typ.(*Signature)
+ 		arg0 := *sig.recv
+-		sig.recvold = sig.recv // stash receiver (for consistency with call.go)
+ 		sig.recv = nil
+ 		arg0.typ = s.recv
+ 		var params []*Var
+@@ -119,7 +117,7 @@
+ 		return &sig
+ 	}
+ 
+-	// In all other cases, the type of x.f is the type of f.
++	// In all other cases, the type of x.f is the type of x.
+ 	return s.obj.Type()
+ }
+ 
+--- a/src/cmd/compile/internal/types2/signature.go
++++ b/src/cmd/compile/internal/types2/signature.go
+@@ -26,16 +26,10 @@
+ 	tparams  *TypeParamList // type parameters from left to right, or nil
+ 	scope    *Scope         // function scope for package-local and non-instantiated signatures; nil otherwise
+ 	recv     *Var           // nil if not a method
+-	recvold  *Var           // receiver dropped via method selection; or nil
+ 	params   *Tuple         // (incoming) parameters from left to right; or nil
+ 	results  *Tuple         // (outgoing) results from left to right; or nil
+ 	variadic bool           // true if the last parameter's type is of the form ...T
+ 
+-	// If recvold is the sentinel value [methExpr], then recvold should
+-	// instead be sourced from params[0]. Otherwise, recvold points to
+-	// the receiver of the original method signature from which this
+-	// function signature was cloned via a selector expression.
+-
+ 	// If variadic, the last element of params ordinarily has an
+ 	// unnamed Slice type. As a special case, in a call to append,
+ 	// it may be string, or a TypeParam T whose typeset ⊇ {string, []byte}.
+@@ -43,9 +37,6 @@
+ 	// T at such a type.
+ }
+ 
+-// sentinel value for detecting method expressions
+-var methodExprSentinel = &Var{}
+-
+ // NewSignatureType creates a new function type for the given receiver,
+ // receiver type parameters, type parameters, parameters, and results.
+ //
+--- a/src/cmd/compile/internal/types2/subst.go
++++ b/src/cmd/compile/internal/types2/subst.go
+@@ -246,7 +246,6 @@
+ 				tparams: tparams,
+ 				// instantiated signatures have a nil scope
+ 				recv:     recv,
+-				recvold:  t.recvold,
+ 				params:   params,
+ 				results:  results,
+ 				variadic: t.variadic,

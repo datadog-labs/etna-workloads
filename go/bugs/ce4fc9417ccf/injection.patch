@@ -1,0 +1,24 @@
+--- a/src/cmd/compile/internal/ir/func.go
++++ b/src/cmd/compile/internal/ir/func.go
+@@ -13,6 +13,7 @@
+ 	"cmd/internal/src"
+ 	"encoding/base64"
+ 	"fmt"
++	"io"
+ 	"unicode/utf8"
+ )
+ 
+@@ -471,11 +472,9 @@
+ 		// we use a content hash to disambiguate instead.
+ 		// We choose the suffix as a hash of the inline call stack.
+ 		h := hash.New32()
+-		fmt.Fprint(h, inlIndex)
++		io.WriteString(h, outer)
+ 		base.Ctxt.InlTree.AllParents(inlIndex, func(call obj.InlinedCall) {
+-			if call.Parent >= 0 {
+-				fmt.Fprint(h, " ", call.Parent)
+-			}
++			io.WriteString(h, call.Name+":"+call.Pos.LineNumber()+":"+call.Pos.ColumnNumber())
+ 		})
+ 		inlHash = base64.StdEncoding.EncodeToString(h.Sum(nil)[:8])
+ 

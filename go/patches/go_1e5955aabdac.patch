@@ -1,0 +1,34 @@
+--- a/src/cmd/compile/internal/typecheck/stmt.go
++++ b/src/cmd/compile/internal/typecheck/stmt.go
+@@ -397,6 +397,31 @@
+ func tcRange(n *ir.RangeStmt) {
+ 	n.X = Expr(n.X)
+ 
++	// Set the type of declared key/value from the range expression.
++	setRangeType := func(nn ir.Node, t *types.Type) {
++		if nn != nil && t != nil && ir.DeclaredBy(nn, n) {
++			nn.SetType(t)
++		}
++	}
++	if t := n.X.Type(); t != nil {
++		if t.IsPtr() && t.Elem().IsArray() {
++			t = t.Elem()
++		}
++		switch t.Kind() {
++		case types.TARRAY, types.TSLICE:
++			setRangeType(n.Key, types.Types[types.TINT])
++			setRangeType(n.Value, t.Elem())
++		case types.TMAP:
++			setRangeType(n.Key, t.Key())
++			setRangeType(n.Value, t.Elem())
++		case types.TCHAN:
++			setRangeType(n.Key, t.Elem())
++		case types.TSTRING:
++			setRangeType(n.Key, types.Types[types.TINT])
++			setRangeType(n.Value, types.RuneType)
++		}
++	}
++
+ 	// delicate little dance.  see tcAssignList
+ 	if n.Key != nil {
+ 		if !ir.DeclaredBy(n.Key, n) {

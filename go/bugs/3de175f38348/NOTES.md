@@ -1,0 +1,1 @@
+Reproducer is the upstream issue68816 test. Clean toolchain runs it silently (exit 0); the buggy toolchain's prove pass crashes with an internal compiler error (nil-pointer in removeBranch) compiling f1, because a block with an unconditional panic is wrongly treated as unreachable.

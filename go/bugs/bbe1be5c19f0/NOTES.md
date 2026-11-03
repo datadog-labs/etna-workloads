@@ -1,0 +1,1 @@
+repro.go (from test/fixedbugs/issue49767.go) makes a channel whose element type is struct{ v [65536]byte }. The clean compiler reports "channel element type too large (>64kB)". The buggy compiler hits an internal compiler error ("bad type: chan struct { v [65536]byte }"), because the channel element size is not computed before the check.

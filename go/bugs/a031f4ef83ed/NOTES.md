@@ -1,0 +1,2 @@
+Reproducer: repro.sh writes the issue60982 test (a >500-block function using min/max builtins, so the large-function phi placement is used) plus a main, and builds it with `-gcflags="-N -l"`.
+Clean: builds fine (exit 0). Buggy: internal compiler error "panic during writebarrier while compiling f" (nil deref), because ternary() emits an explicit OpPhi that the large-function phi placement mishandles.

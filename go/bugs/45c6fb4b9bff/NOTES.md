@@ -1,0 +1,1 @@
+repro.go: package-level 'var a, b, c interface{} = f()' with a multi-value f. Clean prints '1 2 3'; buggy toolchain hits an ICE in staticinit ('unexpected rhs, not an autotmp') because OCONVIFACE isn't unwrapped.

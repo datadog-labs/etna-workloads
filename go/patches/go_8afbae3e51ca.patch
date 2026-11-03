@@ -1,0 +1,25 @@
+--- a/src/cmd/compile/internal/ssa/loopbce.go
++++ b/src/cmd/compile/internal/ssa/loopbce.go
+@@ -120,7 +120,7 @@
+ 
+ nextblock:
+ 	for _, b := range f.Blocks {
+-		if b.Kind != BlockIf {
++		if b.Kind != BlockIf || len(b.Preds) != 2 {
+ 			continue
+ 		}
+ 		c := b.Controls[0]
+@@ -145,9 +145,10 @@
+ 				continue // this is not an induction variable
+ 			}
+ 
+-			// This is ind.Block.Preds, not b.Preds. That's a restriction on the loop header,
+-			// not the comparison block.
+-			if len(ind.Block.Preds) != 2 {
++			if ind.Block != b {
++				// TODO: Could be extended to include disjointed loop headers.
++				// I don't think this is causing missed optimizations in real world code often.
++				// See https://go.dev/issue/63955
+ 				continue
+ 			}
+ 

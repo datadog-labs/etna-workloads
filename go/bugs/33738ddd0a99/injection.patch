@@ -1,0 +1,57 @@
+--- a/src/cmd/compile/internal/inline/inl.go
++++ b/src/cmd/compile/internal/inline/inl.go
+@@ -1169,54 +1169,6 @@
+ 	sym := fn.Linksym()
+ 	inlIndex := base.Ctxt.InlTree.Add(parent, n.Pos(), sym, ir.FuncName(fn))
+ 
+-	closureInitLSym := func(n *ir.CallExpr, fn *ir.Func) {
+-		// The linker needs FuncInfo metadata for all inlined
+-		// functions. This is typically handled by gc.enqueueFunc
+-		// calling ir.InitLSym for all function declarations in
+-		// typecheck.Target.Decls (ir.UseClosure adds all closures to
+-		// Decls).
+-		//
+-		// However, closures in Decls are ignored, and are
+-		// instead enqueued when walk of the calling function
+-		// discovers them.
+-		//
+-		// This presents a problem for direct calls to closures.
+-		// Inlining will replace the entire closure definition with its
+-		// body, which hides the closure from walk and thus suppresses
+-		// symbol creation.
+-		//
+-		// Explicitly create a symbol early in this edge case to ensure
+-		// we keep this metadata.
+-		//
+-		// TODO: Refactor to keep a reference so this can all be done
+-		// by enqueueFunc.
+-
+-		if n.Op() != ir.OCALLFUNC {
+-			// Not a standard call.
+-			return
+-		}
+-
+-		var nf = n.Fun
+-		// Skips ir.OCONVNOPs, see issue #73716.
+-		for nf.Op() == ir.OCONVNOP {
+-			nf = nf.(*ir.ConvExpr).X
+-		}
+-		if nf.Op() != ir.OCLOSURE {
+-			// Not a direct closure call or one with type conversion.
+-			return
+-		}
+-
+-		clo := nf.(*ir.ClosureExpr)
+-		if !clo.Func.IsClosure() {
+-			// enqueueFunc will handle non closures anyways.
+-			return
+-		}
+-
+-		ir.InitLSym(fn, true)
+-	}
+-
+-	closureInitLSym(n, fn)
+-
+ 	if base.Flag.GenDwarfInl > 0 {
+ 		if !sym.WasInlined() {
+ 			base.Ctxt.DwFixups.SetPrecursorFunc(sym, fn)

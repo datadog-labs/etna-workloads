@@ -1,0 +1,1 @@
+Reproducer (repro.sh) builds the issue71184 program: a generic F[T int32] slicing the result of G[*[0]T](). The buggy compiler shapifies the reshaped expression and fails with an ICE ("bad ptr to array in slice go.shape.*uint8"); the clean compiler builds fine (exit 0).

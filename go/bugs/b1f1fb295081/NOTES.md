@@ -1,0 +1,1 @@
+repro.go indexes a non-indexable func value with a local variable (`f[x]`). The clean compiler reports only "cannot index f". The buggy compiler also reports a spurious "declared and not used: x", because the index expression is no longer marked as used after the error (the `check.use(e.Index)` call was removed in types2/index.go).

@@ -1,0 +1,2 @@
+repro.go declares generic types whose type-parameter constraints refer back to the type itself (e.g. `type A[T interface{ A[T] }] interface{}`, `type Eq[a Eq[a]] interface{...}`). These cycles through type parameter lists are valid (go.dev/issue/68162).
+go-clean compiles and runs it with exit 0 and no output. go-buggy rejects it with "invalid recursive type: ... refers to itself" errors and exits 1.

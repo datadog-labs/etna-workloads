@@ -1,0 +1,87 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -73,6 +73,9 @@
+ 	methodSym *types.Sym
+ 
+ 	synthetic func(pos src.XPos, r *reader)
++
++	// inlClosure is set for closure bodies read while inlining.
++	inlClosure bool
+ }
+ 
+ func (pri pkgReaderIndex) asReader(k pkgbits.SectionKind, marker pkgbits.SyncMarker) *reader {
+@@ -83,6 +86,7 @@
+ 	r := pri.pr.newReader(k, pri.idx, marker)
+ 	r.dict = pri.dict
+ 	r.methodSym = pri.methodSym
++	r.inlClosure = pri.inlClosure
+ 	return r
+ }
+ 
+@@ -148,7 +152,10 @@
+ 	inlCall      *ir.CallExpr
+ 	inlFunc      *ir.Func
+ 	inlTreeIndex int
+-	inlPosBases  map[*src.PosBase]*src.PosBase
++
++	// Set when reading the body of a closure inside an inlined body.
++	inlClosure  bool
++	inlPosBases map[*src.PosBase]*src.PosBase
+ 
+ 	// suppressInlPos tracks whether position base rewriting for
+ 	// inlining should be suppressed. See funcLit.
+@@ -1370,7 +1377,7 @@
+ 
+ 	idx := r.Reloc(pkgbits.SectionBody)
+ 
+-	pri := pkgReaderIndex{r.p, idx, r.dict, method, nil}
++	pri := pkgReaderIndex{r.p, idx, r.dict, method, nil, r.inlCall != nil || r.inlClosure}
+ 	bodyReader[fn] = pri
+ 
+ 	if r.curfn == nil {
+@@ -1855,7 +1862,7 @@
+ 
+ 	case stmtLabel:
+ 		pos := r.pos()
+-		sym := r.label()
++		sym := r.labelSym(false)
+ 		return ir.NewLabelStmt(pos, sym)
+ 
+ 	case stmtReturn:
+@@ -2167,9 +2174,15 @@
+ }
+ 
+ func (r *reader) label() *types.Sym {
++	return r.labelSym(true)
++}
++
++// labelSym reads a label. If isRef is set, the label is the target of a
++// branch statement rather than the label of a labeled statement.
++func (r *reader) labelSym(isRef bool) *types.Sym {
+ 	r.Sync(pkgbits.SyncLabel)
+ 	name := r.String()
+-	if r.inlCall != nil && name != "_" {
++	if (r.inlCall != nil || isRef && r.inlClosure) && name != "_" {
+ 		name = fmt.Sprintf("~%s·%d", name, inlgen)
+ 	}
+ 	return typecheck.Lookup(name)
+--- a/src/cmd/compile/internal/noder/unified.go
++++ b/src/cmd/compile/internal/noder/unified.go
+@@ -432,7 +432,7 @@
+ 
+ 			path, name, code := r.p.PeekObj(idx)
+ 			if code != pkgbits.ObjStub {
+-				objReader[types.NewPkg(path, "").Lookup(name)] = pkgReaderIndex{pr, idx, nil, nil, nil}
++				objReader[types.NewPkg(path, "").Lookup(name)] = pkgReaderIndex{pr, idx, nil, nil, nil, false}
+ 			}
+ 		}
+ 
+@@ -456,7 +456,7 @@
+ 
+ 			sym := types.NewPkg(path, "").Lookup(name)
+ 			if _, ok := importBodyReader[sym]; !ok {
+-				importBodyReader[sym] = pkgReaderIndex{pr, idx, nil, nil, nil}
++				importBodyReader[sym] = pkgReaderIndex{pr, idx, nil, nil, nil, false}
+ 			}
+ 		}
+ 

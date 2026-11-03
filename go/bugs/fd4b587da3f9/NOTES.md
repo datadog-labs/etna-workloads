@@ -1,0 +1,1 @@
+repro.go calls f(nil...) where f(a int, b ...int). Clean toolchain reports 'not enough arguments in call to f' with have/want details; buggy toolchain's types2 assumes the spread arg is a slice and panics with an internal compiler error.

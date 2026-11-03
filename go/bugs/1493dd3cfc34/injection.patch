@@ -1,0 +1,61 @@
+--- a/src/cmd/compile/internal/ssa/_gen/dec.rules
++++ b/src/cmd/compile/internal/ssa/_gen/dec.rules
+@@ -7,8 +7,6 @@
+ // types.  These rules work together with the decomposeBuiltin
+ // pass which handles phis of these types.
+ 
+-(Store {t} _ _ mem) && t.Size() == 0 => mem
+-
+ // complex ops
+ (ComplexReal (ComplexMake real _  )) => real
+ (ComplexImag (ComplexMake _ imag )) => imag
+--- a/src/cmd/compile/internal/ssa/_gen/generic.rules
++++ b/src/cmd/compile/internal/ssa/_gen/generic.rules
+@@ -1002,7 +1002,6 @@
+ 
+ // zero-sized values.
+ (Load <t> _ _) && t.Size() == 0 => (Empty)
+-(Store _ (Empty) mem) => mem
+ 
+ // string ops
+ // Decomposing StringMake and lowering of StringPtr and StringLen
+--- a/src/cmd/compile/internal/ssa/rewritedec.go
++++ b/src/cmd/compile/internal/ssa/rewritedec.go
+@@ -596,18 +596,6 @@
+ 	b := v.Block
+ 	config := b.Func.Config
+ 	typ := &b.Func.Config.Types
+-	// match: (Store {t} _ _ mem)
+-	// cond: t.Size() == 0
+-	// result: mem
+-	for {
+-		t := auxToType(v.Aux)
+-		mem := v_2
+-		if !(t.Size() == 0) {
+-			break
+-		}
+-		v.copyOf(mem)
+-		return true
+-	}
+ 	// match: (Store {t} dst (ComplexMake real imag) mem)
+ 	// cond: t.Size() == 8
+ 	// result: (Store {typ.Float32} (OffPtr <typ.Float32Ptr> [4] dst) imag (Store {typ.Float32} dst real mem))
+--- a/src/cmd/compile/internal/ssa/rewritegeneric.go
++++ b/src/cmd/compile/internal/ssa/rewritegeneric.go
+@@ -35057,16 +35057,6 @@
+ 		v.AddArg3(dst, e, mem)
+ 		return true
+ 	}
+-	// match: (Store _ (Empty) mem)
+-	// result: mem
+-	for {
+-		if v_1.Op != OpEmpty {
+-			break
+-		}
+-		mem := v_2
+-		v.copyOf(mem)
+-		return true
+-	}
+ 	// match: (Store (SelectN [0] call:(StaticLECall ___)) x mem:(SelectN [1] call))
+ 	// cond: isConstZero(x) && isMalloc(call.Aux)
+ 	// result: mem

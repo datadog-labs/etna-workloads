@@ -1,0 +1,167 @@
+--- a/src/cmd/compile/internal/walk/complit.go
++++ b/src/cmd/compile/internal/walk/complit.go
+@@ -23,7 +23,7 @@
+ 		// n can be directly represented in the read-only data section.
+ 		// Make direct reference to the static data. See issue 12841.
+ 		vstat := readonlystaticname(n.Type())
+-		fixedlit(initKindStatic, n, vstat, init)
++		fixedlit(inInitFunction, initKindStatic, n, vstat, init)
+ 		return typecheck.Expr(vstat)
+ 	}
+ 	var_ := typecheck.TempAt(base.Pos, ir.CurFunc, n.Type())
+@@ -172,6 +172,13 @@
+ // first static then dynamic.
+ type initKind uint8
+ 
++type initContext uint8
++
++const (
++	inInitFunction initContext = iota
++	inNonInitFunction
++)
++
+ const (
+ 	initKindStatic initKind = iota + 1
+ 	initKindDynamic
+@@ -180,7 +187,7 @@
+ 
+ // fixedlit handles struct, array, and slice literals.
+ // TODO: expand documentation.
+-func fixedlit(kind initKind, n *ir.CompLitExpr, var_ ir.Node, init *ir.Nodes) {
++func fixedlit(ctxt initContext, kind initKind, n *ir.CompLitExpr, var_ ir.Node, init *ir.Nodes) {
+ 	isBlank := var_ == ir.BlankNode
+ 	var splitnode func(ir.Node) (a ir.Node, value ir.Node)
+ 	switch n.Op() {
+@@ -222,14 +229,25 @@
+ 		switch value.Op() {
+ 		case ir.OSLICELIT:
+ 			value := value.(*ir.CompLitExpr)
+-			if kind == initKindDynamic {
+-				slicelit(value, a, init)
++			if (kind == initKindStatic && ctxt == inNonInitFunction) || (kind == initKindDynamic && ctxt == inInitFunction) {
++				var sinit ir.Nodes
++				slicelit(ctxt, value, a, &sinit)
++				if kind == initKindStatic {
++					// When doing static initialization, init statements may contain dynamic
++					// expression, which will be initialized later, causing liveness analysis
++					// confuses about variables lifetime. So making sure those expressions
++					// are ordered correctly here. See issue #52673.
++					orderBlock(&sinit, map[string][]*ir.Name{})
++					typecheck.Stmts(sinit)
++					walkStmtList(sinit)
++				}
++				init.Append(sinit...)
+ 				continue
+ 			}
+ 
+ 		case ir.OARRAYLIT, ir.OSTRUCTLIT:
+ 			value := value.(*ir.CompLitExpr)
+-			fixedlit(kind, value, a, init)
++			fixedlit(ctxt, kind, value, a, init)
+ 			continue
+ 		}
+ 
+@@ -262,11 +280,28 @@
+ 	return n.Type().Elem().Size() == 0 || n.Len <= ir.MaxSmallArraySize/n.Type().Elem().Size()
+ }
+ 
+-func slicelit(n *ir.CompLitExpr, var_ ir.Node, init *ir.Nodes) {
++func slicelit(ctxt initContext, n *ir.CompLitExpr, var_ ir.Node, init *ir.Nodes) {
+ 	// make an array type corresponding the number of elements we have
+ 	t := types.NewArray(n.Type().Elem(), n.Len)
+ 	types.CalcSize(t)
+ 
++	if ctxt == inNonInitFunction {
++		// put everything into static array
++		vstat := staticinit.StaticName(t)
++
++		fixedlit(ctxt, initKindStatic, n, vstat, init)
++		fixedlit(ctxt, initKindDynamic, n, vstat, init)
++
++		// copy static to slice
++		var_ = typecheck.AssignExpr(var_)
++		name, offset, ok := staticinit.StaticLoc(var_)
++		if !ok || name.Class != ir.PEXTERN {
++			base.Fatalf("slicelit: %v", var_)
++		}
++		staticdata.InitSlice(name, offset, vstat.Linksym(), t.NumElem())
++		return
++	}
++
+ 	// recipe for var = []t{...}
+ 	// 1. make a static array
+ 	//	var vstat [...]t
+@@ -293,7 +328,7 @@
+ 	mode := getdyn(n, true)
+ 	if mode&initConst != 0 && !isSmallSliceLit(n) {
+ 		vstat = readonlystaticname(t)
+-		fixedlit(initKindStatic, n, vstat, init)
++		fixedlit(ctxt, initKindStatic, n, vstat, init)
+ 	}
+ 
+ 	// make new auto *array (3 declare)
+@@ -348,7 +383,7 @@
+ 				// See issue #31987.
+ 				k = initKindLocalCode
+ 			}
+-			fixedlit(k, value, a, init)
++			fixedlit(ctxt, k, value, a, init)
+ 			continue
+ 		}
+ 
+@@ -410,8 +445,8 @@
+ 			datak.List.Append(r.Key)
+ 			datae.List.Append(r.Value)
+ 		}
+-		fixedlit(initKindStatic, datak, vstatk, init)
+-		fixedlit(initKindStatic, datae, vstate, init)
++		fixedlit(inInitFunction, initKindStatic, datak, vstatk, init)
++		fixedlit(inInitFunction, initKindStatic, datae, vstate, init)
+ 
+ 		// loop adding structure elements to map
+ 		// for i = 0; i < len(vstatk); i++ {
+@@ -521,13 +556,17 @@
+ 			// lay out static data
+ 			vstat := readonlystaticname(t)
+ 
+-			fixedlit(initKindStatic, n, vstat, init)
++			ctxt := inInitFunction
++			if n.Op() == ir.OARRAYLIT {
++				ctxt = inNonInitFunction
++			}
++			fixedlit(ctxt, initKindStatic, n, vstat, init)
+ 
+ 			// copy static to var
+ 			appendWalkStmt(init, ir.NewAssignStmt(base.Pos, var_, vstat))
+ 
+ 			// add expressions to automatic
+-			fixedlit(initKindDynamic, n, var_, init)
++			fixedlit(inInitFunction, initKindDynamic, n, var_, init)
+ 			break
+ 		}
+ 
+@@ -542,11 +581,11 @@
+ 			appendWalkStmt(init, ir.NewAssignStmt(base.Pos, var_, nil))
+ 		}
+ 
+-		fixedlit(initKindLocalCode, n, var_, init)
++		fixedlit(inInitFunction, initKindLocalCode, n, var_, init)
+ 
+ 	case ir.OSLICELIT:
+ 		n := n.(*ir.CompLitExpr)
+-		slicelit(n, var_, init)
++		slicelit(inInitFunction, n, var_, init)
+ 
+ 	case ir.OMAPLIT:
+ 		n := n.(*ir.CompLitExpr)
+--- a/src/cmd/compile/internal/walk/order.go
++++ b/src/cmd/compile/internal/walk/order.go
+@@ -260,7 +260,7 @@
+ 			// v can be directly represented in the read-only data section.
+ 			lit := v.(*ir.CompLitExpr)
+ 			vstat := readonlystaticname(n.Type())
+-			fixedlit(initKindStatic, lit, vstat, nil) // nil init
++			fixedlit(inInitFunction, initKindStatic, lit, vstat, nil) // nil init
+ 			vstat = typecheck.Expr(vstat).(*ir.Name)
+ 			return vstat
+ 		}

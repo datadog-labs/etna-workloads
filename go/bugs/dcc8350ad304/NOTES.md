@@ -1,0 +1,1 @@
+repro.go: generic inc[T Numeric] doing x++ over int32|int64|float64|complex64 and printing results. Clean prints '6 6 6 (6+0i)'; buggy toolchain hits an ICE ('int (INT) does not represent (1 + 0i)') because the implicit constant 1 for ++ is built wrongly for the complex type in the type set.

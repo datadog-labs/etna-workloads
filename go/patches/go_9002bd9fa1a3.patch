@@ -1,0 +1,35 @@
+--- a/src/cmd/compile/internal/walk/builtin.go
++++ b/src/cmd/compile/internal/walk/builtin.go
+@@ -136,18 +136,17 @@
+ }
+ 
+ // walkClear walks an OCLEAR node.
+-func walkClear(n *ir.UnaryExpr, init *ir.Nodes) ir.Node {
+-	x := walkExpr(n.X, init)
++func walkClear(n *ir.UnaryExpr) ir.Node {
+ 	typ := n.X.Type()
+ 	switch {
+ 	case typ.IsSlice():
+-		if n := arrayClear(x.Pos(), x, nil); n != nil {
++		if n := arrayClear(n.X.Pos(), n.X, nil); n != nil {
+ 			return n
+ 		}
+ 		// If n == nil, we are clearing an array which takes zero memory, do nothing.
+ 		return ir.NewBlockStmt(n.Pos(), nil)
+ 	case typ.IsMap():
+-		return mapClear(x, reflectdata.TypePtrAt(x.Pos(), typ))
++		return mapClear(n.X, reflectdata.TypePtrAt(n.X.Pos(), n.X.Type()))
+ 	}
+ 	panic("unreachable")
+ }
+--- a/src/cmd/compile/internal/walk/expr.go
++++ b/src/cmd/compile/internal/walk/expr.go
+@@ -294,7 +294,7 @@
+ 
+ 	case ir.OCLEAR:
+ 		n := n.(*ir.UnaryExpr)
+-		return walkClear(n, init)
++		return walkClear(n)
+ 
+ 	case ir.OCLOSE:
+ 		n := n.(*ir.UnaryExpr)

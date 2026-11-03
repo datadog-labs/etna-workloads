@@ -1,0 +1,39 @@
+--- a/src/cmd/compile/internal/types2/decl.go
++++ b/src/cmd/compile/internal/types2/decl.go
+@@ -225,23 +225,20 @@
+ 		}()
+ 	}
+ 
+-	// Cycles through type parameter lists are ok (go.dev/issue/68162).
+-	if tparCycle {
+-		return true
+-	}
+-
+-	// A cycle involving only constants and variables is invalid but we
+-	// ignore them here because they are reported via the initialization
+-	// cycle check.
+-	if nval == len(cycle) {
+-		return true
+-	}
++	if !tparCycle {
++		// A cycle involving only constants and variables is invalid but we
++		// ignore them here because they are reported via the initialization
++		// cycle check.
++		if nval == len(cycle) {
++			return true
++		}
+ 
+-	// A cycle involving only types (and possibly functions) must have at least
+-	// one type definition to be permitted: If there is no type definition, we
+-	// have a sequence of alias type names which will expand ad infinitum.
+-	if nval == 0 && ndef > 0 {
+-		return true
++		// A cycle involving only types (and possibly functions) must have at least
++		// one type definition to be permitted: If there is no type definition, we
++		// have a sequence of alias type names which will expand ad infinitum.
++		if nval == 0 && ndef > 0 {
++			return true
++		}
+ 	}
+ 
+ 	check.cycleError(cycle, firstInSrc(cycle))

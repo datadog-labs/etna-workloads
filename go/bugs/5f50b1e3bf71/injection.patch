@@ -1,0 +1,56 @@
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -1714,7 +1714,6 @@
+ 	w.stmt(stmt.Init)
+ 
+ 	var iface, tagType types2.Type
+-	var tagTypeIsChan bool
+ 	if guard, ok := stmt.Tag.(*syntax.TypeSwitchGuard); w.Bool(ok) {
+ 		iface = w.p.typeOf(guard.X)
+ 
+@@ -1736,7 +1735,6 @@
+ 			tv := w.p.typeAndValue(tag)
+ 			tagType = tv.Type
+ 			tagValue = tv.Value
+-			_, tagTypeIsChan = tagType.Underlying().(*types2.Chan)
+ 		} else {
+ 			tagType = types2.Typ[types2.Bool]
+ 			tagValue = constant.MakeBool(true)
+@@ -1789,18 +1787,12 @@
+ 		// have the same type. If there are any case values that can't be
+ 		// converted to the tag value's type, then convert everything to
+ 		// `any` instead.
+-		//
+-		// Except that we need to keep comparisons of channel values from
+-		// being wrapped in any(). See issue #67190.
+-
+-		if !tagTypeIsChan {
+-		Outer:
+-			for _, clause := range stmt.Body {
+-				for _, cas := range syntax.UnpackListExpr(clause.Cases) {
+-					if casType := w.p.typeOf(cas); !types2.AssignableTo(casType, tagType) && (types2.IsInterface(casType) || types2.IsInterface(tagType)) {
+-						tagType = types2.NewInterfaceType(nil, nil)
+-						break Outer
+-					}
++	Outer:
++		for _, clause := range stmt.Body {
++			for _, cas := range syntax.UnpackListExpr(clause.Cases) {
++				if casType := w.p.typeOf(cas); !types2.AssignableTo(casType, tagType) {
++					tagType = types2.NewInterfaceType(nil, nil)
++					break Outer
+ 				}
+ 			}
+ 		}
+@@ -1836,11 +1828,7 @@
+ 			w.Sync(pkgbits.SyncExprs)
+ 			w.Len(len(cases))
+ 			for _, cas := range cases {
+-				typ := tagType
+-				if tagTypeIsChan {
+-					typ = nil
+-				}
+-				w.implicitConvExpr(typ, cas)
++				w.implicitConvExpr(tagType, cas)
+ 			}
+ 		}
+ 

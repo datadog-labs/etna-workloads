@@ -1,0 +1,61 @@
+--- a/src/cmd/compile/internal/ssa/_gen/AMD64.rules
++++ b/src/cmd/compile/internal/ssa/_gen/AMD64.rules
+@@ -1370,6 +1370,10 @@
+ (TESTW (MOVLconst [c]) x) => (TESTWconst [int16(c)] x)
+ (TESTB (MOVLconst [c]) x) => (TESTBconst [int8(c)] x)
+ 
++// shorten bitwise AND/TESTQ if upper 32 bits are known to be zero.
++(ANDQ x y) && (ZeroUpper32Bits(x, 3) || ZeroUpper32Bits(y, 3)) => (ANDL x y)
++(TESTQ x y) && (ZeroUpper32Bits(x, 3) || ZeroUpper32Bits(y, 3)) => (TESTL x y)
++
+ // TEST %reg,%reg is shorter than CMP
+ (CMP(Q|L|W|B)const x [0]) => (TEST(Q|L|W|B) x x)
+ (TESTQconst [-1] x) && x.Op != OpAMD64MOVQconst => (TESTQ x x)
+--- a/src/cmd/compile/internal/ssa/rewriteAMD64.go
++++ b/src/cmd/compile/internal/ssa/rewriteAMD64.go
+@@ -9480,6 +9480,22 @@
+ 		v.copyOf(x)
+ 		return true
+ 	}
++	// match: (ANDQ x y)
++	// cond: (ZeroUpper32Bits(x, 3) || ZeroUpper32Bits(y, 3))
++	// result: (ANDL x y)
++	for {
++		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
++			x := v_0
++			y := v_1
++			if !(ZeroUpper32Bits(x, 3) || ZeroUpper32Bits(y, 3)) {
++				continue
++			}
++			v.reset(OpAMD64ANDL)
++			v.AddArg2(x, y)
++			return true
++		}
++		break
++	}
+ 	// match: (ANDQ x l:(MOVQload [off] {sym} ptr mem))
+ 	// cond: canMergeLoadClobber(v, l, x) && clobber(l)
+ 	// result: (ANDQload x [off] {sym} ptr mem)
+@@ -41016,6 +41032,22 @@
+ 			return true
+ 		}
+ 		break
++	}
++	// match: (TESTQ x y)
++	// cond: (ZeroUpper32Bits(x, 3) || ZeroUpper32Bits(y, 3))
++	// result: (TESTL x y)
++	for {
++		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
++			x := v_0
++			y := v_1
++			if !(ZeroUpper32Bits(x, 3) || ZeroUpper32Bits(y, 3)) {
++				continue
++			}
++			v.reset(OpAMD64TESTL)
++			v.AddArg2(x, y)
++			return true
++		}
++		break
+ 	}
+ 	// match: (TESTQ l:(MOVQload {sym} [off] ptr mem) l2)
+ 	// cond: l == l2 && l.Uses == 2 && clobber(l)

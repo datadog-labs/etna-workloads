@@ -1,0 +1,1 @@
+repro.sh builds a program with an embedded struct whose promoted method takes a [2]string, using -gcflags=-d=libfuzzer. The wrapper (*T).Foo is a tail call with a libfuzzer-inserted branch, so the call is not in the entry block. go-buggy hits an internal compiler error (startMem has different values); go-clean compiles fine.

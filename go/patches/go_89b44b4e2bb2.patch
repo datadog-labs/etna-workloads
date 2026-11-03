@@ -1,0 +1,33 @@
+--- a/src/cmd/compile/internal/devirtualize/devirtualize.go
++++ b/src/cmd/compile/internal/devirtualize/devirtualize.go
+@@ -529,7 +529,7 @@
+ 			}
+ 			assign(n.Lhs[0], n.Rhs[0])
+ 			assign(n.Lhs[1], nil) // boolean does not have methods to devirtualize
+-		case ir.OAS2MAPR, ir.OAS2RECV, ir.OSELRECV2:
++		case ir.OAS2MAPR:
+ 			n := n.(*ir.AssignListStmt)
+ 			if n.Rhs[0] == nil {
+ 				base.FatalfAt(n.Pos(), "n.Rhs[0] == nil; n = %v", n)
+--- a/src/cmd/compile/internal/ir/expr.go
++++ b/src/cmd/compile/internal/ir/expr.go
+@@ -987,7 +987,7 @@
+ 			if isName(n.X) && n != name.Defn {
+ 				return true
+ 			}
+-		case OAS2, OAS2FUNC, OAS2MAPR, OAS2DOTTYPE, OAS2RECV, OSELRECV2:
++		case OAS2, OAS2FUNC, OAS2MAPR, OAS2DOTTYPE:
+ 			n := n.(*AssignListStmt)
+ 			for _, p := range n.Lhs {
+ 				if isName(p) && n != name.Defn {
+--- a/src/cmd/compile/internal/ir/reassignment.go
++++ b/src/cmd/compile/internal/ir/reassignment.go
+@@ -136,7 +136,7 @@
+ 		case OAS:
+ 			asn := n.(*AssignStmt)
+ 			pruneIfNeeded(asn.X, n)
+-		case OAS2, OAS2FUNC, OAS2MAPR, OAS2DOTTYPE, OAS2RECV, OSELRECV2:
++		case OAS2, OAS2FUNC, OAS2MAPR, OAS2DOTTYPE:
+ 			asn := n.(*AssignListStmt)
+ 			for _, p := range asn.Lhs {
+ 				pruneIfNeeded(p, n)
