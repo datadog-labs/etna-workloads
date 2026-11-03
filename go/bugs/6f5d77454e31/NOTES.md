@@ -1,0 +1,1 @@
+repro.go is the upstream issue65808 test program. The embedded zero-size array type (stringers [2]stringer) makes the compiler generate the promoted wrapper foo.toStrings. On go-buggy (copyelim 0-sized simplification missing) compilation fails with an internal compiler error: 'foo.toStrings': value v2 still has 1 uses. On go-clean it compiles and runs with no output, exit 0.

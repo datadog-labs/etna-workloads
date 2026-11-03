@@ -1,0 +1,46 @@
+--- a/src/cmd/compile/internal/inline/interleaved/interleaved.go
++++ b/src/cmd/compile/internal/inline/interleaved/interleaved.go
+@@ -113,9 +113,7 @@
+ 							paren := s.parens[i]
+ 							if origCall, inlinedCall := s.edit(&state, i); inlinedCall != nil {
+ 								// Update AST and recursively mark nodes.
+-								paren.X = inlinedCall
+-								ir.EditChildren(inlinedCall, s.mark) // mark may append to parens
+-								state.InlinedCall(s.fn, origCall, inlinedCall)
++								s.inline(&state, paren, origCall, inlinedCall)
+ 								done = false
+ 							}
+ 						}
+@@ -223,6 +221,21 @@
+ 	return nil, 0
+ }
+ 
++// inline processes the calls within inlinedCall (transitive inlining)
++// immediately, and only then stores inlinedCall into paren.
++func (s *inlClosureState) inline(state *devirtualize.State, paren *ir.ParenExpr, origCall *ir.CallExpr, inlinedCall *ir.InlinedCallExpr) {
++	start := len(s.parens)
++	ir.EditChildren(inlinedCall, s.mark) // mark may append to parens
++	for i := start; i < len(s.parens); i++ {
++		s.resolve(state, i)
++		if oc, ic := s.edit(state, i); ic != nil {
++			s.inline(state, s.parens[i], oc, ic)
++		}
++	}
++	paren.X = inlinedCall
++	state.InlinedCall(s.fn, origCall, inlinedCall)
++}
++
+ func (s *inlClosureState) edit(state *devirtualize.State, i int) (*ir.CallExpr, *ir.InlinedCallExpr) {
+ 	n := s.parens[i].X
+ 	call, ok := n.(*ir.CallExpr)
+@@ -335,9 +348,7 @@
+ 				paren := s.parens[i]
+ 				if origCall, inlinedCall := s.edit(&state, i); inlinedCall != nil {
+ 					// Update AST and recursively mark nodes.
+-					paren.X = inlinedCall
+-					ir.EditChildren(inlinedCall, s.mark) // mark may append to parens
+-					state.InlinedCall(s.fn, origCall, inlinedCall)
++					s.inline(&state, paren, origCall, inlinedCall)
+ 					done = false
+ 					changed = true
+ 				}

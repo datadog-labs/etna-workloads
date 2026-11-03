@@ -1,0 +1,1 @@
+repro.go uses a parenthesized builtin call `(new)(int)` at package level. Clean toolchain compiles and prints 0; buggy toolchain hits an ICE (nil pointer dereference) in noder writer.expr because lookupObj isn't given the unparenthesized callee (issue 63436).

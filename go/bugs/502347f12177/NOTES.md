@@ -1,0 +1,1 @@
+Reproducer: with go.mod 'go 1.13', an interface embeds local R then io.Reader (identical Read methods). Clean reports 'duplicate method Read'; buggy skips the go1.14 version check when the method is from another package, so it compiles silently (exit 0).

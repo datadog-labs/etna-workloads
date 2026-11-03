@@ -1,0 +1,74 @@
+--- a/src/cmd/compile/internal/types2/assignments.go
++++ b/src/cmd/compile/internal/types2/assignments.go
+@@ -294,11 +294,7 @@
+ // ti's are user-friendly string representations for the given types.
+ // If variadic is set and the last type is a slice, its string is of
+ // the form "...E" where E is the slice's element type.
+-// If hasDots is set, the last argument string is of the form "T..."
+-// where T is the last type.
+-// Only one of variadic and hasDots may be set.
+-func (check *Checker) typesSummary(list []Type, variadic, hasDots bool) string {
+-	assert(!(variadic && hasDots))
++func (check *Checker) typesSummary(list []Type, variadic bool) string {
+ 	var res []string
+ 	for i, t := range list {
+ 		var s string
+@@ -307,7 +303,7 @@
+ 			fallthrough // should not happen but be cautious
+ 		case !isValid(t):
+ 			s = "unknown type"
+-		case isUntyped(t): // => *Basic
++		case isUntyped(t):
+ 			if isNumeric(t) {
+ 				// Do not imply a specific type requirement:
+ 				// "have number, want float64" is better than
+@@ -319,21 +315,11 @@
+ 				// for compactness.
+ 				s = strings.ReplaceAll(t.(*Basic).name, "untyped ", "")
+ 			}
+-		default:
+-			s = check.sprintf("%s", t)
++		case variadic && i == len(list)-1:
++			s = check.sprintf("...%s", t.(*Slice).elem)
+ 		}
+-		// handle ... parameters/arguments
+-		if i == len(list)-1 {
+-			switch {
+-			case variadic:
+-				// In correct code, the parameter type is a slice, but be careful.
+-				if t, _ := t.(*Slice); t != nil {
+-					s = check.sprintf("%s", t.elem)
+-				}
+-				s = "..." + s
+-			case hasDots:
+-				s += "..."
+-			}
++		if s == "" {
++			s = check.sprintf("%s", t)
+ 		}
+ 		res = append(res, s)
+ 	}
+@@ -372,8 +358,8 @@
+ 	}
+ 	err := check.newError(WrongResultCount)
+ 	err.addf(at, "%s return values", qualifier)
+-	err.addf(nopos, "have %s", check.typesSummary(operandTypes(rhs), false, false))
+-	err.addf(nopos, "want %s", check.typesSummary(varTypes(lhs), false, false))
++	err.addf(nopos, "have %s", check.typesSummary(operandTypes(rhs), false))
++	err.addf(nopos, "want %s", check.typesSummary(varTypes(lhs), false))
+ 	err.report()
+ }
+ 
+--- a/src/cmd/compile/internal/types2/call.go
++++ b/src/cmd/compile/internal/types2/call.go
+@@ -545,8 +545,8 @@
+ 		}
+ 		err := check.newError(WrongArgCount)
+ 		err.addf(at, "%s arguments in call to %s", qualifier, call.Fun)
+-		err.addf(nopos, "have %s", check.typesSummary(operandTypes(args), false, ddd))
+-		err.addf(nopos, "want %s", check.typesSummary(varTypes(params), sig.variadic, false))
++		err.addf(nopos, "have %s", check.typesSummary(operandTypes(args), ddd))
++		err.addf(nopos, "want %s", check.typesSummary(varTypes(params), sig.variadic))
+ 		err.report()
+ 		return
+ 	}

@@ -1,0 +1,23 @@
+--- a/src/cmd/compile/internal/ssa/phiopt.go
++++ b/src/cmd/compile/internal/ssa/phiopt.go
+@@ -317,7 +317,7 @@
+ 	}
+ 	v.AddArg(a)
+ 
+-	cvt := v.Block.NewValue1(v.Pos, OpCvtBoolToUint8, v.Block.Func.Config.Types.UInt8, a)
++	cvt := v.Block.NewValue1(v.Pos, OpCvtBoolToUint8, a.Type, a)
+ 	switch v.Type.Size() {
+ 	case 1:
+ 		v.reset(OpCopy)
+--- a/src/cmd/compile/internal/ssa/prove.go
++++ b/src/cmd/compile/internal/ssa/prove.go
+@@ -1259,6 +1259,9 @@
+ 
+ // isNonNegative reports whether v is known to be non-negative.
+ func (ft *factsTable) isNonNegative(v *Value) bool {
++	if !v.Type.IsInteger() {
++		panic("isNonNegative bad type")
++	}
+ 	return ft.limits[v.ID].min >= 0
+ }
+ 

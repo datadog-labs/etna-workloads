@@ -1,0 +1,1 @@
+repro.go is the upstream test issue54535.go (comments stripped). It instantiates generic types with pointer-to-struct type args / fields. go-clean compiles and runs it silently (exit 0). go-buggy fails to compile: 'n.children[i].items undefined (type go.shape.*uint8 has no field or method items)', and similar errors for x.a.b and x.c.d.

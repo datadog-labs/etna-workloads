@@ -1,0 +1,1 @@
+repro.go declares type A [unsafe.Sizeof(B{})]int; type B A, an invalid recursive type. The clean toolchain reports "invalid recursive type: A refers to itself". The buggy toolchain's isComplete no longer walks through named types (the injection removes the check on fromRHS), so B{} is treated as complete. It panics with an internal compiler error (named.go assertion failed).

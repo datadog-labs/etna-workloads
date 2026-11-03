@@ -1,0 +1,1 @@
+repro.go calls generic f(a, b) with a chan string and b <-chan string. The clean compiler infers T=<-chan string for both argument orders and prints ok. The buggy compiler keeps the first-seen bidirectional chan in f(a, b) and reports an assignment error for b.

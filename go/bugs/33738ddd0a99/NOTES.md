@@ -1,0 +1,1 @@
+repro.go is the upstream issue54959 test program. A directly-called closure that captures an escaped variable is inlined, and its LSym is never created early. go-clean builds and runs it with exit 0 and no output. go-buggy fails with an internal compiler error (panic: hashed refs unsupported for now) and exit 1.

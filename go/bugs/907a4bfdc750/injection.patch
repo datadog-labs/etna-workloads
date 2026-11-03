@@ -1,0 +1,41 @@
+--- a/src/cmd/compile/internal/walk/order.go
++++ b/src/cmd/compile/internal/walk/order.go
+@@ -624,6 +624,29 @@
+ 			n.Y = o.safeMapRHS(n.Y)
+ 		}
+ 		o.out = append(o.out, n)
++
++	case ir.OAS2:
++		n := n.(*ir.AssignListStmt)
++		var post []ir.Node
++		for i, m := range n.Lhs {
++			if m.Op() != ir.OINDEXMAP {
++				continue
++			}
++			m := m.(*ir.IndexExpr)
++			if !ir.IsAutoTmp(m.X) {
++				m.X = o.copyExpr(m.X)
++			}
++			if !ir.IsAutoTmp(m.Index) {
++				m.Index = o.copyExpr(m.Index)
++			}
++			t := o.newTemp(m.Type(), false)
++			n.Lhs[i] = t
++			a := ir.NewAssignStmt(base.Pos, m, t)
++			post = append(post, typecheck.Stmt(a))
++		}
++
++		o.out = append(o.out, n)
++		o.out = append(o.out, post...)
+ 	}
+ }
+ 
+@@ -735,7 +758,7 @@
+ 		t := o.markTemp()
+ 		o.exprList(n.Lhs)
+ 		o.exprList(n.Rhs)
+-		o.out = append(o.out, n)
++		o.mapAssign(n)
+ 		o.popTemp(t)
+ 
+ 	// Special: avoid copy of func call n.Right

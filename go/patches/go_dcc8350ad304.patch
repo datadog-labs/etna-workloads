@@ -1,0 +1,16 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -1817,7 +1817,12 @@
+ 		op := r.op()
+ 		lhs := r.expr()
+ 		pos := r.pos()
+-		n := ir.NewAssignOpStmt(pos, op, lhs, ir.NewOne(pos, lhs.Type()))
++		one := ir.NewOne(pos, lhs.Type())
++		if lhs.Type().HasShape() && !lhs.Type().IsInteger() {
++			// "one" is not given the operand's type; default to int.
++			one = ir.NewBasicLit(pos, types.Types[types.TINT], one.Val())
++		}
++		n := ir.NewAssignOpStmt(pos, op, lhs, one)
+ 		n.IncDec = true
+ 		return n
+ 

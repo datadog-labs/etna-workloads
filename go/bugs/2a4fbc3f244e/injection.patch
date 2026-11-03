@@ -1,0 +1,105 @@
+--- a/src/cmd/compile/internal/walk/assign.go
++++ b/src/cmd/compile/internal/walk/assign.go
+@@ -167,9 +167,11 @@
+ 
+ 	r.X = walkExpr(r.X, init)
+ 	r.Index = walkExpr(r.Index, init)
++	map_ := r.X
+ 	t := r.X.Type()
+ 	fast := mapfast(t)
+ 	key := mapKeyArg(fast, r, r.Index, false)
++	args := []ir.Node{reflectdata.IndexMapRType(base.Pos, r), map_, key}
+ 
+ 	// from:
+ 	//   a,b = m[i]
+@@ -178,15 +180,14 @@
+ 	//   a = *var
+ 	a := n.Lhs[0]
+ 
+-	var call *ir.CallExpr
+-	if w := t.Elem().Size(); w <= abi.ZeroValSize {
+-		fn := mapfn(mapaccess2[fast], t, false)
+-		call = mkcall1(fn, fn.Type().ResultsTuple(), init, reflectdata.IndexMapRType(base.Pos, r), r.X, key)
++	var mapFn ir.Node
++	if t.Elem().Size() > abi.ZeroValSize {
++		args = append(args, reflectdata.ZeroAddr(t.Elem().Size()))
++		mapFn = mapfn("mapaccess2_fat", t, true)
+ 	} else {
+-		fn := mapfn("mapaccess2_fat", t, true)
+-		z := reflectdata.ZeroAddr(w)
+-		call = mkcall1(fn, fn.Type().ResultsTuple(), init, reflectdata.IndexMapRType(base.Pos, r), r.X, key, z)
++		mapFn = mapfn(mapaccess[fast], t, false)
+ 	}
++	call := mkcall1(mapFn, mapFn.Type().ResultsTuple(), init, args...)
+ 
+ 	// mapaccess2* returns a typed bool, but due to spec changes,
+ 	// the boolean result of i.(T) is now untyped so we make it the
+--- a/src/cmd/compile/internal/walk/expr.go
++++ b/src/cmd/compile/internal/walk/expr.go
+@@ -914,20 +914,43 @@
+ 	key := mapKeyArg(fast, n, n.Index, n.Assigned)
+ 	args := []ir.Node{reflectdata.IndexMapRType(base.Pos, n), map_, key}
+ 
++	if n.Assigned {
++		mapFn := mapfn(mapassign[fast], t, false)
++		call := mkcall1(mapFn, nil, init, args...)
++		call.SetType(types.NewPtr(t.Elem()))
++		call.MarkNonNil() // mapassign always return non-nil pointers.
++		star := ir.NewStarExpr(base.Pos, call)
++		star.SetType(t.Elem())
++		star.SetTypecheck(1)
++		return star
++	}
++
++	// from:
++	//   m[i]
++	// to:
++	//   var, _ = mapaccess2*(t, m, i)
++	//   *var
+ 	var mapFn ir.Node
+-	switch {
+-	case n.Assigned:
+-		mapFn = mapfn(mapassign[fast], t, false)
+-	case t.Elem().Size() > abi.ZeroValSize:
++	if t.Elem().Size() > abi.ZeroValSize {
+ 		args = append(args, reflectdata.ZeroAddr(t.Elem().Size()))
+-		mapFn = mapfn("mapaccess1_fat", t, true)
+-	default:
+-		mapFn = mapfn(mapaccess1[fast], t, false)
++		mapFn = mapfn("mapaccess2_fat", t, true)
++	} else {
++		mapFn = mapfn(mapaccess[fast], t, false)
+ 	}
+-	call := mkcall1(mapFn, nil, init, args...)
+-	call.SetType(types.NewPtr(t.Elem()))
+-	call.MarkNonNil() // mapaccess1* and mapassign always return non-nil pointers.
+-	star := ir.NewStarExpr(base.Pos, call)
++	call := mkcall1(mapFn, mapFn.Type().ResultsTuple(), init, args...)
++
++	var_ := typecheck.TempAt(base.Pos, ir.CurFunc, types.NewPtr(t.Elem()))
++	var_.SetTypecheck(1)
++	var_.MarkNonNil() // mapaccess always returns a non-nill pointer
++
++	bool_ := typecheck.TempAt(base.Pos, ir.CurFunc, types.Types[types.TBOOL])
++	bool_.SetTypecheck(1)
++
++	r := ir.NewAssignListStmt(base.Pos, ir.OAS2FUNC, []ir.Node{var_, bool_}, []ir.Node{call})
++	r.SetTypecheck(1)
++	init.Append(walkExpr(r, init))
++
++	star := ir.NewStarExpr(base.Pos, var_)
+ 	star.SetType(t.Elem())
+ 	star.SetTypecheck(1)
+ 	return star
+--- a/src/cmd/compile/internal/walk/walk.go
++++ b/src/cmd/compile/internal/walk/walk.go
+@@ -184,8 +184,7 @@
+ 	return mapnames{base, base + "_fast32", base + "_fast32" + ptr, base + "_fast64", base + "_fast64" + ptr, base + "_faststr"}
+ }
+ 
+-var mapaccess1 = mkmapnames("mapaccess1", "")
+-var mapaccess2 = mkmapnames("mapaccess2", "")
++var mapaccess = mkmapnames("mapaccess2", "")
+ var mapassign = mkmapnames("mapassign", "ptr")
+ var mapdelete = mkmapnames("mapdelete", "")
+ 

@@ -1,0 +1,1 @@
+repro.go is the upstream issue57778 test turned into a run program (generic constructor with make([]*node[T]) used in a package-level var initializer). Clean prints 1024; buggy fails with an internal compiler error ('init': value .dict (nil) incorrectly live at entry) because static init inlining misses the hidden RType dictionary fields.

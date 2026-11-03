@@ -1,0 +1,14 @@
+--- a/src/cmd/compile/internal/typecheck/func.go
++++ b/src/cmd/compile/internal/typecheck/func.go
+@@ -211,6 +211,11 @@
+ 		return tcConv(n)
+ 	}
+ 
++	if len(n.Args) > 0 {
++		// Multi-value f(g()) arrives with g()'s temporaries already in
++		// the first argument's init; evaluate them before the callee.
++		n.PtrInit().Append(ir.TakeInit(n.Args[0])...)
++	}
+ 	RewriteNonNameCall(n)
+ 	typecheckargs(n)
+ 	t := l.Type()

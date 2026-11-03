@@ -1,0 +1,1 @@
+repro.go is the issue45706 test (range loop assigning to index/deref expressions with calls) plus a main. The buggy compiler fails with an internal compiler error ("value .autotmp incorrectly live at entry") in h and main; the clean one compiles and runs with exit 0.

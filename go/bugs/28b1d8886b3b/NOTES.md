@@ -1,0 +1,1 @@
+Reproducer: `repro.go` is the upstream test issue78028.go: `make([]byte, z[0], 1)` where z is a map. The buggy compiler fails with `internal compiler error: unhandled expr INDEXMAP`; the clean compiler compiles and runs it with exit status 0.

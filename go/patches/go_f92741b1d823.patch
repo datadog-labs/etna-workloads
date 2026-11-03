@@ -1,0 +1,91 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -1738,11 +1738,7 @@
+ // @@@ Statements
+ 
+ func (r *reader) stmt() ir.Node {
+-	return block(r.stmts())
+-}
+-
+-func block(stmts []ir.Node) ir.Node {
+-	switch len(stmts) {
++	switch stmts := r.stmts(); len(stmts) {
+ 	case 0:
+ 		return nil
+ 	case 1:
+@@ -1752,7 +1748,7 @@
+ 	}
+ }
+ 
+-func (r *reader) stmts() ir.Nodes {
++func (r *reader) stmts() []ir.Node {
+ 	assert(ir.CurFunc == r.curfn)
+ 	var res ir.Nodes
+ 
+@@ -1982,29 +1978,12 @@
+ 	pos := r.pos()
+ 	init := r.stmts()
+ 	cond := r.expr()
+-	staticCond := r.Int()
+-	var then, els []ir.Node
+-	if staticCond >= 0 {
+-		then = r.blockStmt()
+-	} else {
+-		r.lastCloseScopePos = r.pos()
+-	}
+-	if staticCond <= 0 {
+-		els = r.stmts()
+-	}
++	then := r.blockStmt()
++	els := r.stmts()
+ 	r.closeAnotherScope()
+ 
+-	if staticCond != 0 {
+-		// We may have removed a dead return statement, which can trip up
+-		// later passes (#62211). To avoid confusion, we instead flatten
+-		// the if statement into a block.
+-
+-		if cond.Op() != ir.OLITERAL {
+-			init.Append(typecheck.Stmt(ir.NewAssignStmt(pos, ir.BlankNode, cond))) // for side effects
+-		}
+-		init.Append(then...)
+-		init.Append(els...)
+-		return block(init)
++	if ir.IsConst(cond, constant.Bool) && len(init)+len(then)+len(els) == 0 {
++		return nil // drop empty if statement
+ 	}
+ 
+ 	n := ir.NewIfStmt(pos, cond, then, els)
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -1667,22 +1667,20 @@
+ }
+ 
+ func (w *writer) ifStmt(stmt *syntax.IfStmt) {
+-	cond := w.p.staticBool(&stmt.Cond)
++	switch cond := w.p.staticBool(&stmt.Cond); {
++	case cond > 0: // always true
++		stmt.Else = nil
++	case cond < 0: // always false
++		stmt.Then.List = nil
++	}
+ 
+ 	w.Sync(pkgbits.SyncIfStmt)
+ 	w.openScope(stmt.Pos())
+ 	w.pos(stmt)
+ 	w.stmt(stmt.Init)
+ 	w.expr(stmt.Cond)
+-	w.Int(cond)
+-	if cond >= 0 {
+-		w.blockStmt(stmt.Then)
+-	} else {
+-		w.pos(stmt.Then.Rbrace)
+-	}
+-	if cond <= 0 {
+-		w.stmt(stmt.Else)
+-	}
++	w.blockStmt(stmt.Then)
++	w.stmt(stmt.Else)
+ 	w.closeAnotherScope()
+ }
+ 

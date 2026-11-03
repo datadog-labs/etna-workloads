@@ -1,0 +1,1 @@
+repro.go: struct with >4 fields (four empty, one pointer) is pointer-shaped. Converting to interface and type-asserting back. Clean toolchain prints true; buggy toolchain fails with ICE 'dottype of non-load' because CanSSA rejects the type.

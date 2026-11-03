@@ -1,0 +1,23 @@
+--- a/src/cmd/compile/internal/types2/builtins.go
++++ b/src/cmd/compile/internal/types2/builtins.go
+@@ -1013,8 +1013,7 @@
+ // yet been checked.
+ func (check *Checker) hasVarSize(t Type) bool {
+ 	// Note: We could use Underlying here, but passing through the RHS may yield
+-	// better error messages and allows us to stash the result on each traversed
+-	// Named type.
++	// better error messages.
+ 	switch t := Unalias(t).(type) {
+ 	case *Named:
+ 		if t.stateHas(hasVarSize) {
+@@ -1031,9 +1030,7 @@
+ 		check.push(obj)
+ 		defer check.pop()
+ 
+-		// Careful, we're inspecting t.fromRHS, so we need to unpack first.
+-		t.unpack()
+-		varSize := check.hasVarSize(t.rhs())
++		varSize := check.hasVarSize(t.fromRHS)
+ 
+ 		// Special case for portable simd types that rewrite to unknown sizes.
+ 		if pkg := obj.Pkg(); pkg != nil && pkg.Path() == "simd" && obj.Name() == "_simd" {

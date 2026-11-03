@@ -1,0 +1,1 @@
+repro.sh compiles the issue52673 test program (package p). The buggy toolchain hits an internal compiler error ('value .autotmp_N incorrectly live at entry') in f because static init of a slice literal containing a dynamic expression isn't ordered; the clean toolchain compiles it fine (exit 0).

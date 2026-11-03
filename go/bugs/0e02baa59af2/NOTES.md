@@ -1,0 +1,1 @@
+repro.go is the upstream issue62360 test. big.NewInt(int64(x)) with x=0xffffffff on the buggy compiler wrongly turns a 64-bit TESTQ into TESTL (upper 32 bits assumed zero), so the sign check goes wrong. Clean: exits 0. Buggy: panics with b:-ffffffff c:ffffffff (exit 2).

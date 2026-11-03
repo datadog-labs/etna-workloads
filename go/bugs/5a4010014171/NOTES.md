@@ -1,0 +1,1 @@
+Reproducer (repro.go) is upstream test issue47684.go: a generic function containing a closure nested in a closure. The buggy compiler hits an internal compiler error ("misuse of NewClosureVar on closure variable: .dict") at compile time; the clean compiler builds and runs it with exit status 0 and no output.

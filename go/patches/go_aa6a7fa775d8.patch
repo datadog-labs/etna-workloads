@@ -1,0 +1,33 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -891,20 +891,12 @@
+ 	}
+ 
+ 	var buf strings.Builder
+-	// If sym is a locally defined generic type, we need the suffix to
+-	// stay at the end after mangling so that types/fmt.go can strip it
+-	// out again when writing the type's runtime descriptor (#54456).
+-	n0, vsuff := types.SplitVargenSuffix(sym.Name)
++	_, vsuff := types.SplitVargenSuffix(sym.Name)
+ 	n1, msuff := types.SplitMethSuffix(sym.Name)
+ 
+ 	// Methods are never locally defined.
+-	var n string
++	n := n1
+ 	assert(vsuff == "" || msuff == "")
+-	if vsuff != "" {
+-		n = n0
+-	} else {
+-		n = n1
+-	}
+ 
+ 	var j int
+ 	assert(dict.implicits == 0 || dict.receivers == 0)
+@@ -938,7 +930,6 @@
+ 		buf.WriteString(")")
+ 	}
+ 
+-	buf.WriteString(vsuff)
+ 	buf.WriteString(msuff)
+ 
+ 	// method arguments, if any

@@ -1,0 +1,51 @@
+--- a/src/cmd/compile/internal/ssa/decompose.go
++++ b/src/cmd/compile/internal/ssa/decompose.go
+@@ -367,9 +367,9 @@
+ 		return
+ 	}
+ 	n := t.NumFields()
+-	fields := make([]*Value, 0, MaxStruct)
++	var fields [MaxStruct]*Value
+ 	for i := 0; i < n; i++ {
+-		fields = append(fields, v.Block.NewValue0(v.Pos, OpPhi, t.FieldType(i)))
++		fields[i] = v.Block.NewValue0(v.Pos, OpPhi, t.FieldType(i))
+ 	}
+ 	for _, a := range v.Args {
+ 		for i := 0; i < n; i++ {
+@@ -377,10 +377,10 @@
+ 		}
+ 	}
+ 	v.reset(OpStructMake)
+-	v.AddArgs(fields...)
++	v.AddArgs(fields[:n]...)
+ 
+ 	// Recursively decompose phis for each field.
+-	for _, f := range fields {
++	for _, f := range fields[:n] {
+ 		decomposeUserPhi(f)
+ 	}
+ }
+--- a/src/cmd/compile/internal/ssa/expand_calls.go
++++ b/src/cmd/compile/internal/ssa/expand_calls.go
+@@ -562,7 +562,7 @@
+ 			addArg(e)
+ 			pos = pos.WithNotStmt()
+ 		}
+-		if at.NumFields() > MaxStruct && !types.IsDirectIface(at) {
++		if at.NumFields() > 4 {
+ 			panic(fmt.Errorf("Too many fields (%d, %d bytes), container=%s", at.NumFields(), at.Size(), container.LongString()))
+ 		}
+ 		a = makeOf(a, OpStructMake, args)
+--- a/src/cmd/compile/internal/ssa/value.go
++++ b/src/cmd/compile/internal/ssa/value.go
+@@ -644,10 +644,6 @@
+ 		}
+ 		return false
+ 	case types.TSTRUCT:
+-		if types.IsDirectIface(t) {
+-			// Note: even if t.NumFields()>MaxStruct! See issue 77534.
+-			return true
+-		}
+ 		if t.NumFields() > MaxStruct {
+ 			return false
+ 		}

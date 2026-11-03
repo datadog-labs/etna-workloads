@@ -1,0 +1,49 @@
+--- a/src/cmd/compile/internal/types2/predicates.go
++++ b/src/cmd/compile/internal/types2/predicates.go
+@@ -341,41 +341,21 @@
+ 			return false
+ 		}
+ 
+-		// In the case of generic signatures, we will substitute in yparams and
+-		// yresults.
+-		yparams := y.params
+-		yresults := y.results
+-
++		// Generic functions must also have matching type parameter lists, but for the
++		// parameter names.
+ 		if x.TypeParams().Len() > 0 {
+-			// We must ignore type parameter names when comparing x and y. The
+-			// easiest way to do this is to substitute x's type parameters for y's.
+ 			xtparams := x.TypeParams().list()
+ 			ytparams := y.TypeParams().list()
+-
+-			var targs []Type
+-			for i := range xtparams {
+-				targs = append(targs, x.TypeParams().At(i))
+-			}
+-			smap := makeSubstMap(ytparams, targs)
+-
+-			var check *Checker   // ok to call subst on a nil *Checker
+-			ctxt := NewContext() // need a non-nil Context for the substitution below
+-
+-			// Constraints must be pair-wise identical, after substitution.
+ 			for i, xtparam := range xtparams {
+-				ybound := check.subst(nopos, ytparams[i].bound, smap, nil, ctxt)
+-				if !c.identical(xtparam.bound, ybound, p) {
++				if !c.identical(xtparam.bound, ytparams[i].bound, p) {
+ 					return false
+ 				}
+ 			}
+-
+-			yparams = check.subst(nopos, y.params, smap, nil, ctxt).(*Tuple)
+-			yresults = check.subst(nopos, y.results, smap, nil, ctxt).(*Tuple)
+ 		}
+ 
+ 		return x.variadic == y.variadic &&
+-			c.identical(x.params, yparams, p) &&
+-			c.identical(x.results, yresults, p)
++			c.identical(x.params, y.params, p) &&
++			c.identical(x.results, y.results, p)
+ 
+ 	case *Union:
+ 		if y, _ := y.(*Union); y != nil {

@@ -1,0 +1,1 @@
+repro.go is the upstream issue53635 test: a generic switch on an uncomparable value (`[]T(nil)`, func, map) compared to nil. Clean: exits 0. Buggy: the compiler converts the tag to interface{}, so it panics at run time with 'comparing uncomparable type []int' (exit 2).

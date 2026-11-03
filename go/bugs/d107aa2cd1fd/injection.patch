@@ -1,0 +1,46 @@
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -2598,26 +2598,10 @@
+ 		typ := r.typ()
+ 		pos := r.pos()
+ 		typeWord, srcRType := r.convRTTI(pos)
+-		dstTypeParam := r.Bool()
++		_ = r.Bool() // dstTypeParam
+ 		identical := r.Bool()
+ 		x := r.expr()
+ 
+-		// spec: "If the type is a type parameter, the constant is converted
+-		// into a non-constant value of the type parameter."
+-		if dstTypeParam && ir.IsConstNode(x) {
+-			// ConvertVal only handles conversions to constant types.
+-			if v := typecheck.ConvertVal(x.Val(), typ, false); v.Kind() != constant.Unknown {
+-				x = ir.NewBasicLit(x.Pos(), typ, v)
+-				// Wrap in an OCONVNOP node to ensure result is non-constant.
+-				n := Implicit(ir.NewConvExpr(pos, ir.OCONVNOP, typ, x))
+-				n.SetTypecheck(1)
+-				return n
+-			}
+-			// A Go language constant could be converted to a non-constant value,
+-			// like converting string to []byte/[]rune. In this case, just construct
+-			// the conversion expression as usual, see #79960.
+-		}
+-
+ 		// TODO(mdempsky): Stop constructing expressions of untyped type.
+ 		x = typecheck.DefaultLit(x, typ)
+ 
+--- a/src/cmd/compile/internal/ssagen/ssa.go
++++ b/src/cmd/compile/internal/ssagen/ssa.go
+@@ -2911,13 +2911,6 @@
+ 			s.newValueOrSfCall1(op, ttp, s.newValue1(ssa.OpComplexImag, ftp, v)))
+ 	}
+ 
+-	if tt.IsComplex() { // and ft is not complex
+-		// Needed for generics support - can't happen in normal Go code.
+-		et := types.FloatForComplex(tt)
+-		v = s.conv(n, v, ft, et)
+-		return s.newValue2(ssa.OpComplexMake, tt, v, s.zeroVal(et))
+-	}
+-
+ 	if ft.IsFloat() || tt.IsFloat() {
+ 		cft, ctt := s.concreteEtype(ft), s.concreteEtype(tt)
+ 		conv, ok := fpConvOpToSSA[twoTypes{cft, ctt}]

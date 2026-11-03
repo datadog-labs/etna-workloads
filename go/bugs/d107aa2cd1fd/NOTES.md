@@ -1,0 +1,1 @@
+Reproducer: repro.go is test/typeparam/issue50193.go (converting untyped constants 0, 3.14, -1i to a type parameter constrained by ~complex64|~complex128). Clean prints the six complex values; buggy toolchain fails with ICE "unhandled OCONV INT -> COMPLEX128" (exit 1).

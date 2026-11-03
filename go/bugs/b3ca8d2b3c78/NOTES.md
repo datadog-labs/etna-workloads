@@ -1,0 +1,1 @@
+repro.go: min/max with untyped float constants plus a float64 call (math.Sqrt). The buggy types2 doesn't record the final type (float64) for the untyped constant arguments, so the compiler hits an internal compiler error (assertion failed). The clean toolchain compiles it and prints `0.1 0.2`.

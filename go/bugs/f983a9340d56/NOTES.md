@@ -1,0 +1,1 @@
+Runs the upstream issue54632 test. The buggy inliner inlines bug1/bug2 into main, then wrongly decides fn in the transitively inlined body is never reassigned, so it calls fail() and panics with FAIL. The clean toolchain prints nothing and exits 0.

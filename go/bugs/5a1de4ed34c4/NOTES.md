@@ -1,0 +1,1 @@
+Reproducer `repro.go` instantiates generic alias `A[P int]` with `string`, which violates the constraint. Clean compiler reports "string does not satisfy int" (exit 1); buggy compiler skips the constraint check on alias instances and builds and runs fine (exit 0).

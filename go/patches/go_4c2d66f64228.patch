@@ -1,0 +1,15 @@
+--- a/src/cmd/compile/internal/types2/literals.go
++++ b/src/cmd/compile/internal/types2/literals.go
+@@ -175,6 +175,12 @@
+ 					check.errorf(kv, InvalidLitField, "invalid field name %s in struct literal", kv.Key)
+ 					continue
+ 				}
++				// The key may resolve to a dot-imported object; treat it as a use.
++				if scope, kobj := check.lookupScope(key.Value); kobj != nil {
++					if pkgName := check.dotImportMap[dotImportKey{scope, key.Value}]; pkgName != nil {
++						check.usedPkgNames[pkgName] = true
++					}
++				}
+ 				obj, index, indirect := lookupFieldOrMethod(utyp, false, check.pkg, key.Value, false)
+ 				if obj == nil {
+ 					alt, _, _ := lookupFieldOrMethod(utyp, false, check.pkg, key.Value, true)

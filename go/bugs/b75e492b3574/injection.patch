@@ -1,0 +1,36 @@
+--- a/src/cmd/compile/internal/types2/decl.go
++++ b/src/cmd/compile/internal/types2/decl.go
+@@ -606,11 +606,14 @@
+ 	if base != nil {
+ 		assert(base.TypeArgs().Len() == 0) // collectMethods should not be called on an instantiated type
+ 
+-		// See go.dev/issue/52529: we must delay the expansion of underlying here, as
+-		// base may not be fully set-up.
+-		check.later(func() {
+-			check.checkFieldUniqueness(base)
+-		}).describef(obj, "verifying field uniqueness for %v", base)
++		u := base.Underlying()
++		if t, _ := u.(*Struct); t != nil {
++			for _, fld := range t.fields {
++				if fld.name != "_" {
++					assert(mset.insert(fld) == nil)
++				}
++			}
++		}
+ 
+ 		// Checker.Files may be called multiple times; additional package files
+ 		// may add methods to already type-checked types. Add pre-existing methods
+@@ -628,6 +631,13 @@
+ 		// to it must be unique."
+ 		assert(m.name != "_")
+ 		if alt := mset.insert(m); alt != nil {
++			if _, ok := alt.(*Var); ok {
++				err := check.newError(DuplicateFieldAndMethod)
++				err.addf(m.pos, "field and method with the same name %s", m.name)
++				err.addAltDecl(alt)
++				err.report()
++				continue
++			}
+ 			if alt.Pos().IsKnown() {
+ 				check.errorf(m.pos, DuplicateMethod, "method %s.%s already declared at %v", obj.Name(), m.name, alt.Pos())
+ 			} else {

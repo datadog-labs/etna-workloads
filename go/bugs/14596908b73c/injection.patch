@@ -1,0 +1,61 @@
+--- a/src/cmd/compile/internal/types2/infer.go
++++ b/src/cmd/compile/internal/types2/infer.go
+@@ -111,7 +111,7 @@
+ 	// Unify parameter and argument types for generic parameters with typed arguments
+ 	// and collect the indices of generic parameters with untyped arguments.
+ 	// Terminology: generic parameter = function parameter with a type-parameterized type
+-	u := newUnifier(check, tparams, targs, check.allowVersion(go1_21))
++	u := newUnifier(tparams, targs, check.allowVersion(go1_21))
+ 
+ 	errorf := func(tpar, targ Type, arg *operand) {
+ 		// provide a better error message if we can
+--- a/src/cmd/compile/internal/types2/unify.go
++++ b/src/cmd/compile/internal/types2/unify.go
+@@ -67,7 +67,6 @@
+ // corresponding types inferred for each type parameter.
+ // A unifier is created by calling newUnifier.
+ type unifier struct {
+-	check *Checker
+ 	// handles maps each type parameter to its inferred type through
+ 	// an indirection *Type called (inferred type) "handle".
+ 	// Initially, each type parameter has its own, separate handle,
+@@ -86,7 +85,7 @@
+ // and corresponding type argument lists. The type argument list may be shorter
+ // than the type parameter list, and it may contain nil types. Matching type
+ // parameters and arguments must have the same index.
+-func newUnifier(check *Checker, tparams []*TypeParam, targs []Type, enableInterfaceInference bool) *unifier {
++func newUnifier(tparams []*TypeParam, targs []Type, enableInterfaceInference bool) *unifier {
+ 	assert(len(tparams) >= len(targs))
+ 	handles := make(map[*TypeParam]*Type, len(tparams))
+ 	// Allocate all handles up-front: in a correct program, all type parameters
+@@ -100,7 +99,7 @@
+ 		}
+ 		handles[x] = &t
+ 	}
+-	return &unifier{check, handles, 0, enableInterfaceInference}
++	return &unifier{handles, 0, enableInterfaceInference}
+ }
+ 
+ // unifyMode controls the behavior of the unifier.
+@@ -143,7 +142,6 @@
+ }
+ 
+ func (u *unifier) tracef(format string, args ...any) {
+-	// TODO(gri) consider adjusting this to use Checker.trace
+ 	fmt.Println(strings.Repeat(".  ", u.depth) + sprintf(nil, true, format, args...))
+ }
+ 
+@@ -541,12 +539,7 @@
+ 			xmethods := xi.typeSet().methods
+ 			for _, xm := range xmethods {
+ 				obj, _, _ := LookupFieldOrMethod(y, false, xm.pkg, xm.name)
+-				ym, _ := obj.(*Func)
+-				if ym == nil {
+-					return false
+-				}
+-				u.check.objDecl(ym) // ensure fully set-up signature
+-				if ym.Signature().TypeParams() != nil || !u.nify(xm.typ, ym.typ, exact, p) {
++				if ym, _ := obj.(*Func); ym == nil || ym.Signature().TypeParams().Len() > 0 || !u.nify(xm.typ, ym.typ, exact, p) {
+ 					return false
+ 				}
+ 			}

@@ -1,0 +1,104 @@
+--- a/src/cmd/compile/internal/devirtualize/pgo.go
++++ b/src/cmd/compile/internal/devirtualize/pgo.go
+@@ -484,7 +484,6 @@
+ 	res := ir.NewInlinedCallExpr(pos, body, retvars)
+ 	res.SetType(thenCall.Type())
+ 	res.SetTypecheck(1)
+-	res.Reshape = thenCall.Reshape
+ 	return res
+ }
+ 
+--- a/src/cmd/compile/internal/ir/expr.go
++++ b/src/cmd/compile/internal/ir/expr.go
+@@ -197,7 +197,6 @@
+ 	// whether it's a runtime.KeepAlive call the compiler generates to
+ 	// keep a variable alive. See #73137.
+ 	IsCompilerVarLive bool
+-	Reshape           bool
+ }
+ 
+ func NewCallExpr(pos src.XPos, op Op, fun Node, args []Node) *CallExpr {
+@@ -377,7 +376,6 @@
+ 	miniExpr
+ 	Body       Nodes
+ 	ReturnVars Nodes // must be side-effect free
+-	Reshape    bool
+ }
+ 
+ func NewInlinedCallExpr(pos src.XPos, body, retvars []Node) *InlinedCallExpr {
+@@ -393,16 +391,10 @@
+ 	if have := len(n.ReturnVars); have != 1 {
+ 		base.FatalfAt(n.Pos(), "inlined call has %v results, expected 1", have)
+ 	}
+-
+-	// If the type of the call is not a shape, but the type of the return value
+-	// is a shape, we need to do an implicit conversion, so the real type
+-	// of n is maintained.
+-	needImplicitConv := !n.Type().HasShape() && n.ReturnVars[0].Type().HasShape()
+-	if n.Reshape { // or if the inlined call expr needs reshaping.
+-		needImplicitConv = true
+-	}
+-
+-	if needImplicitConv {
++	if !n.Type().HasShape() && n.ReturnVars[0].Type().HasShape() {
++		// If the type of the call is not a shape, but the type of the return value
++		// is a shape, we need to do an implicit conversion, so the real type
++		// of n is maintained.
+ 		r := NewConvExpr(n.Pos(), OCONVNOP, n.Type(), n.ReturnVars[0])
+ 		r.SetTypecheck(1)
+ 		return r
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -998,8 +998,19 @@
+ 	// types, and discarding struct field names and tags. However, we'll
+ 	// need to start tracking how type parameters are actually used to
+ 	// implement some of these optimizations.
++	pointerShaping := basic && targ.IsPtr() && !targ.Elem().NotInHeap()
++	// The exception is when the type parameter is a pointer to a type
++	// which `Type.HasShape()` returns true, but `Type.IsShape()` returns
++	// false, like `*[]go.shape.T`. This is because the type parameter is
++	// used to instantiate a generic function inside another generic function.
++	// In this case, we want to keep the targ as-is, otherwise, we may lose the
++	// original type after `*[]go.shape.T` is shapified to `*go.shape.uint8`.
++	// See issue #54535, #71184.
++	if pointerShaping && !targ.Elem().IsShape() && targ.Elem().HasShape() {
++		return targ
++	}
+ 	under := targ.Underlying()
+-	if basic && targ.IsPtr() && !targ.Elem().NotInHeap() {
++	if pointerShaping {
+ 		under = types.NewPtr(types.Types[types.TUINT8])
+ 	}
+ 
+@@ -2586,11 +2597,6 @@
+ 		}
+ 
+ 		x.SetType(typ)
+-
+-		if call, ok := x.(*ir.CallExpr); ok {
+-			call.Reshape = true
+-		}
+-
+ 		return x
+ 
+ 	case exprConvert:
+@@ -3851,7 +3857,6 @@
+ 	res.SetInit(init)
+ 	res.SetType(call.Type())
+ 	res.SetTypecheck(1)
+-	res.Reshape = call.Reshape
+ 
+ 	// Inlining shouldn't add any functions to todoBodies.
+ 	assert(len(todoBodies) == 0)
+--- a/src/cmd/compile/internal/ssagen/ssa.go
++++ b/src/cmd/compile/internal/ssagen/ssa.go
+@@ -5194,9 +5194,6 @@
+ 		} else {
+ 			result = s.newValue1I(ssa.OpSelectN, fp.Type, 0, call)
+ 		}
+-		if n.Reshape {
+-			result = s.newValue1(ssa.OpCopy, n.Type(), result)
+-		}
+ 	}
+ 
+ 	// Finish block for defers

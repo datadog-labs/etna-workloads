@@ -1,0 +1,1 @@
+Reproducer: repro.go appends a value of type S (~string | ~[]byte) to a []byte via append(buf, s...). Clean toolchain compiles and runs it (exit 0, no output). Buggy toolchain rejects it with "cannot use s ... as []byte value in argument to append: cannot assign string (in S) to []byte" (exit 1), because the []byte term of the type set is no longer accepted.

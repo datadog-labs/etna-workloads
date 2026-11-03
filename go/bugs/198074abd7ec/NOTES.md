@@ -1,0 +1,3 @@
+repro.go is upstream's test/fixedbugs/issue57823.go (unchanged). It takes unsafe.SliceData / unsafe.StringData of a heap slice and a stack-temporary string, sets finalizers on the resulting pointers, and checks the data stays alive across GCs.
+
+With the bug, escape analysis discards the argument of unsafe.SliceData / StringData (a discard hole instead of the result hole), so the pointed-to memory is treated as not escaping. The clean toolchain exits 0 with no output. The buggy toolchain fails at runtime with a fatal runtime error and exit status 1 or 2, depending on where the corruption is detected. The stack trace has addresses, but only the buggy output varies.

@@ -1,0 +1,24 @@
+--- a/src/cmd/compile/internal/types2/infer.go
++++ b/src/cmd/compile/internal/types2/infer.go
+@@ -420,21 +420,6 @@
+ 		for _, index := range dirty {
+ 			t0 := inferred[index]
+ 			if t1 := check.subst(nopos, t0, smap, nil, check.context()); t1 != t0 {
+-				// t0 was simplified to t1.
+-				// If t0 was a generic function, but the simplified signature t1 does
+-				// not contain any type parameters anymore, the function is not generic
+-				// anymore. Remove its type parameters. (go.dev/issue/59953)
+-				// Note that if t0 was a signature, t1 must be a signature, and t1
+-				// can only be a generic signature if it originated from a generic
+-				// function argument. Those signatures are never defined types and
+-				// thus there is no need to call Underlying below.
+-				// TODO(gri) Consider doing this in Checker.subst.
+-				//           Then this would fall out automatically here and also
+-				//           in instantiation (where we also explicitly nil out
+-				//           type parameters).
+-				if sig, _ := t1.(*Signature); sig != nil && sig.TypeParams().Len() > 0 && !isParameterized(tparams, sig) {
+-					sig.tparams = nil
+-				}
+ 				inferred[index] = t1
+ 				dirty[n] = index
+ 				n++

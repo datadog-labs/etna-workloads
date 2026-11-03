@@ -1,0 +1,49 @@
+--- a/src/cmd/compile/internal/types2/labels.go
++++ b/src/cmd/compile/internal/types2/labels.go
+@@ -112,8 +112,8 @@
+ 		return varDeclPos.IsKnown() && slices.Contains(badJumps, jmp)
+ 	}
+ 
+-	var stmtBranches func(*syntax.LabeledStmt, syntax.Stmt)
+-	stmtBranches = func(lstmt *syntax.LabeledStmt, s syntax.Stmt) {
++	var stmtBranches func(syntax.Stmt)
++	stmtBranches = func(s syntax.Stmt) {
+ 		switch s := s.(type) {
+ 		case *syntax.DeclStmt:
+ 			for _, d := range s.DeclList {
+@@ -163,7 +163,7 @@
+ 				fwdJumps = fwdJumps[:i]
+ 				lstmt = s
+ 			}
+-			stmtBranches(lstmt, s.Stmt)
++			stmtBranches(s.Stmt)
+ 
+ 		case *syntax.BranchStmt:
+ 			if s.Label == nil {
+@@ -232,9 +232,9 @@
+ 			fwdJumps = append(fwdJumps, check.blockBranches(all, b, lstmt, s.List)...)
+ 
+ 		case *syntax.IfStmt:
+-			stmtBranches(lstmt, s.Then)
++			stmtBranches(s.Then)
+ 			if s.Else != nil {
+-				stmtBranches(lstmt, s.Else)
++				stmtBranches(s.Else)
+ 			}
+ 
+ 		case *syntax.SwitchStmt:
+@@ -250,12 +250,12 @@
+ 			}
+ 
+ 		case *syntax.ForStmt:
+-			stmtBranches(lstmt, s.Body)
++			stmtBranches(s.Body)
+ 		}
+ 	}
+ 
+ 	for _, s := range list {
+-		stmtBranches(nil, s)
++		stmtBranches(s)
+ 	}
+ 
+ 	return fwdJumps

@@ -1,0 +1,1 @@
+repro.go converts a string to *P (P a type parameter). Clean reports "pointer to type parameter, not type parameter"; buggy reports "pointer to interface, not interface" (injection replaced interfacePtrError with a fixed message). Both fail to compile with exit 1; only the message differs.

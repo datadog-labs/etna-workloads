@@ -1,0 +1,36 @@
+--- a/src/cmd/compile/internal/gc/obj.go
++++ b/src/cmd/compile/internal/gc/obj.go
+@@ -281,11 +281,8 @@
+ 		// restore specialized counter type (which Globl call above overwrote)
+ 		s.Type = saveType
+ 	}
+-	if nam.Sym().Linkname != "" {
+-		// Make sure linkname'd symbol is non-package. When a symbol is
+-		// both imported and linkname'd, s.Pkg may not set to "_" in
+-		// types.Sym.Linksym because LSym already exists. Set it here.
+-		s.Pkg = "_"
++	if nam.Sym().Linkname != "" && nam.Sym().Pkg == types.LocalPkg {
++		s.Set(obj.AttrLinkname, true)
+ 	}
+ }
+ 
+--- a/src/cmd/compile/internal/noder/reader.go
++++ b/src/cmd/compile/internal/noder/reader.go
+@@ -1317,10 +1317,13 @@
+ 			// corresponding packages). So we can tell in which package
+ 			// the linkname is used (pulled), and the linker can
+ 			// make a decision for allowing or disallowing it.
+-			if std {
+-				sym.Linksym().Set(obj.AttrLinknameStd, true)
+-			} else {
+-				sym.Linksym().Set(obj.AttrLinkname, true)
++			// Variables are marked in ggloblnod, when emitted.
++			if name.Class != ir.PEXTERN {
++				if std {
++					sym.Linksym().Set(obj.AttrLinknameStd, true)
++				} else {
++					sym.Linksym().Set(obj.AttrLinkname, true)
++				}
+ 			}
+ 		}
+ 	}

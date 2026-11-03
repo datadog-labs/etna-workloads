@@ -1,0 +1,171 @@
+--- a/src/cmd/compile/internal/ssa/_gen/generic.rules
++++ b/src/cmd/compile/internal/ssa/_gen/generic.rules
+@@ -137,8 +137,8 @@
+ (Mul16  (Const16 [c])  (Const16 [d]))  => (Const16 [c*d])
+ (Mul32  (Const32 [c])  (Const32 [d]))  => (Const32 [c*d])
+ (Mul64  (Const64 [c])  (Const64 [d]))  => (Const64 [c*d])
+-(Mul32F (Const32F [c]) (Const32F [d])) && c*d == c*d => (Const32F [c*d])
+-(Mul64F (Const64F [c]) (Const64F [d])) && c*d == c*d => (Const64F [c*d])
++(Mul32F (Const32F [c]) (Const32F [d])) => (Const32F [c*d])
++(Mul64F (Const64F [c]) (Const64F [d])) => (Const64F [c*d])
+ (Mul32uhilo (Const32 [c]) (Const32 [d])) => (MakeTuple (Const32 <typ.UInt32> [bitsMulU32(c, d).hi]) (Const32 <typ.UInt32> [bitsMulU32(c,d).lo]))
+ (Mul64uhilo (Const64 [c]) (Const64 [d])) => (MakeTuple (Const64 <typ.UInt64> [bitsMulU64(c, d).hi]) (Const64 <typ.UInt64> [bitsMulU64(c,d).lo]))
+ (Mul32uover (Const32 [c]) (Const32 [d])) => (MakeTuple (Const32 <typ.UInt32> [bitsMulU32(c, d).lo]) (ConstBool <typ.Bool> [bitsMulU32(c,d).hi != 0]))
+@@ -177,8 +177,8 @@
+ (Div16u (Const16 [c])  (Const16 [d])) && d != 0 => (Const16 [int16(uint16(c)/uint16(d))])
+ (Div32u (Const32 [c])  (Const32 [d])) && d != 0 => (Const32 [int32(uint32(c)/uint32(d))])
+ (Div64u (Const64 [c])  (Const64 [d])) && d != 0 => (Const64 [int64(uint64(c)/uint64(d))])
+-(Div32F (Const32F [c]) (Const32F [d])) && c/d == c/d => (Const32F [c/d])
+-(Div64F (Const64F [c]) (Const64F [d])) && c/d == c/d => (Const64F [c/d])
++(Div32F (Const32F [c]) (Const32F [d])) => (Const32F [c/d])
++(Div64F (Const64F [c]) (Const64F [d])) => (Const64F [c/d])
+ (Div128u <t> (Const64 [0]) lo y) => (MakeTuple (Div64u <t.FieldType(0)> lo y) (Mod64u <t.FieldType(1)> lo y))
+ 
+ (Not (ConstBool [c])) => (ConstBool [!c])
+@@ -827,8 +827,8 @@
+ 	=> @move.Block (Load <t1> (OffPtr <op.Type> [o1] src) mem)
+ 
+ // Pass constants through math.Float{32,64}bits and math.Float{32,64}frombits
+-(Load <t1> p1 (Store {t2} p2 (Const64  [x]) _)) && isSamePtr(p1,p2) && t2.Size() == 8 && is64BitFloat(t1) && !math.IsNaN(math.Float64frombits(uint64(x))) => (Const64F [math.Float64frombits(uint64(x))])
+-(Load <t1> p1 (Store {t2} p2 (Const32  [x]) _)) && isSamePtr(p1,p2) && t2.Size() == 4 && is32BitFloat(t1) && !math.IsNaN(float64(math.Float32frombits(uint32(x)))) => (Const32F [math.Float32frombits(uint32(x))])
++(Load <t1> p1 (Store {t2} p2 (Const64  [x]) _)) && isSamePtr(p1,p2) && t2.Size() == 8 && is64BitFloat(t1) => (Const64F [math.Float64frombits(uint64(x))])
++(Load <t1> p1 (Store {t2} p2 (Const32  [x]) _)) && isSamePtr(p1,p2) && t2.Size() == 4 && is32BitFloat(t1) => (Const32F [math.Float32frombits(uint32(x))])
+ (Load <t1> p1 (Store {t2} p2 (Const64F [x]) _)) && isSamePtr(p1,p2) && t2.Size() == 8 && is64BitInt(t1)   => (Const64  [int64(math.Float64bits(x))])
+ (Load <t1> p1 (Store {t2} p2 (Const32F [x]) _)) && isSamePtr(p1,p2) && t2.Size() == 4 && is32BitInt(t1)   => (Const32  [int32(math.Float32bits(x))])
+ 
+@@ -1333,7 +1333,7 @@
+ // rewrite single-precision sqrt expression "float32(math.Sqrt(float64(x)))"
+ (Cvt64Fto32F sqrt0:(Sqrt (Cvt32Fto64F x))) && sqrt0.Uses==1 => (Sqrt32 x)
+ 
+-(Sqrt (Const64F [c])) && !math.IsNaN(math.Sqrt(c)) => (Const64F [math.Sqrt(c)])
++(Sqrt (Const64F [c])) => (Const64F [math.Sqrt(c)])
+ 
+ // for rewriting constant folded math/bits ops
+ (Select0 (MakeTuple x y)) => x
+--- a/src/cmd/compile/internal/ssa/rewritegeneric.go
++++ b/src/cmd/compile/internal/ssa/rewritegeneric.go
+@@ -8599,7 +8599,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Div32F (Const32F [c]) (Const32F [d]))
+-	// cond: c/d == c/d
+ 	// result: (Const32F [c/d])
+ 	for {
+ 		if v_0.Op != OpConst32F {
+@@ -8610,9 +8609,6 @@
+ 			break
+ 		}
+ 		d := auxIntToFloat32(v_1.AuxInt)
+-		if !(c/d == c/d) {
+-			break
+-		}
+ 		v.reset(OpConst32F)
+ 		v.AuxInt = float32ToAuxInt(c / d)
+ 		return true
+@@ -8764,7 +8760,6 @@
+ 	v_0 := v.Args[0]
+ 	b := v.Block
+ 	// match: (Div64F (Const64F [c]) (Const64F [d]))
+-	// cond: c/d == c/d
+ 	// result: (Const64F [c/d])
+ 	for {
+ 		if v_0.Op != OpConst64F {
+@@ -8775,9 +8770,6 @@
+ 			break
+ 		}
+ 		d := auxIntToFloat64(v_1.AuxInt)
+-		if !(c/d == c/d) {
+-			break
+-		}
+ 		v.reset(OpConst64F)
+ 		v.AuxInt = float64ToAuxInt(c / d)
+ 		return true
+@@ -14086,7 +14078,7 @@
+ 		return true
+ 	}
+ 	// match: (Load <t1> p1 (Store {t2} p2 (Const64 [x]) _))
+-	// cond: isSamePtr(p1,p2) && t2.Size() == 8 && is64BitFloat(t1) && !math.IsNaN(math.Float64frombits(uint64(x)))
++	// cond: isSamePtr(p1,p2) && t2.Size() == 8 && is64BitFloat(t1)
+ 	// result: (Const64F [math.Float64frombits(uint64(x))])
+ 	for {
+ 		t1 := v.Type
+@@ -14102,7 +14094,7 @@
+ 			break
+ 		}
+ 		x := auxIntToInt64(v_1_1.AuxInt)
+-		if !(isSamePtr(p1, p2) && t2.Size() == 8 && is64BitFloat(t1) && !math.IsNaN(math.Float64frombits(uint64(x)))) {
++		if !(isSamePtr(p1, p2) && t2.Size() == 8 && is64BitFloat(t1)) {
+ 			break
+ 		}
+ 		v.reset(OpConst64F)
+@@ -14110,7 +14102,7 @@
+ 		return true
+ 	}
+ 	// match: (Load <t1> p1 (Store {t2} p2 (Const32 [x]) _))
+-	// cond: isSamePtr(p1,p2) && t2.Size() == 4 && is32BitFloat(t1) && !math.IsNaN(float64(math.Float32frombits(uint32(x))))
++	// cond: isSamePtr(p1,p2) && t2.Size() == 4 && is32BitFloat(t1)
+ 	// result: (Const32F [math.Float32frombits(uint32(x))])
+ 	for {
+ 		t1 := v.Type
+@@ -14126,7 +14118,7 @@
+ 			break
+ 		}
+ 		x := auxIntToInt32(v_1_1.AuxInt)
+-		if !(isSamePtr(p1, p2) && t2.Size() == 4 && is32BitFloat(t1) && !math.IsNaN(float64(math.Float32frombits(uint32(x))))) {
++		if !(isSamePtr(p1, p2) && t2.Size() == 4 && is32BitFloat(t1)) {
+ 			break
+ 		}
+ 		v.reset(OpConst32F)
+@@ -19709,7 +19701,6 @@
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+ 	// match: (Mul32F (Const32F [c]) (Const32F [d]))
+-	// cond: c*d == c*d
+ 	// result: (Const32F [c*d])
+ 	for {
+ 		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+@@ -19721,9 +19712,6 @@
+ 				continue
+ 			}
+ 			d := auxIntToFloat32(v_1.AuxInt)
+-			if !(c*d == c*d) {
+-				continue
+-			}
+ 			v.reset(OpConst32F)
+ 			v.AuxInt = float32ToAuxInt(c * d)
+ 			return true
+@@ -20120,7 +20108,6 @@
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+ 	// match: (Mul64F (Const64F [c]) (Const64F [d]))
+-	// cond: c*d == c*d
+ 	// result: (Const64F [c*d])
+ 	for {
+ 		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+@@ -20132,9 +20119,6 @@
+ 				continue
+ 			}
+ 			d := auxIntToFloat64(v_1.AuxInt)
+-			if !(c*d == c*d) {
+-				continue
+-			}
+ 			v.reset(OpConst64F)
+ 			v.AuxInt = float64ToAuxInt(c * d)
+ 			return true
+@@ -33834,16 +33818,12 @@
+ func rewriteValuegeneric_OpSqrt(v *Value) bool {
+ 	v_0 := v.Args[0]
+ 	// match: (Sqrt (Const64F [c]))
+-	// cond: !math.IsNaN(math.Sqrt(c))
+ 	// result: (Const64F [math.Sqrt(c)])
+ 	for {
+ 		if v_0.Op != OpConst64F {
+ 			break
+ 		}
+ 		c := auxIntToFloat64(v_0.AuxInt)
+-		if !(!math.IsNaN(math.Sqrt(c))) {
+-			break
+-		}
+ 		v.reset(OpConst64F)
+ 		v.AuxInt = float64ToAuxInt(math.Sqrt(c))
+ 		return true

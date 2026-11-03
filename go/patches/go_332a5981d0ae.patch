@@ -1,0 +1,30 @@
+--- a/src/cmd/compile/internal/ssagen/ssa.go
++++ b/src/cmd/compile/internal/ssagen/ssa.go
+@@ -1825,25 +1825,8 @@
+ 			return
+ 		}
+ 
+-		// mayOverlap keeps track of whether the LHS and RHS might
+-		// refer to partially overlapping memory. Partial overlapping can
+-		// only happen for arrays, see the comment in moveWhichMayOverlap.
+-		//
+-		// If both sides of the assignment are not dereferences, then partial
+-		// overlap can't happen. Partial overlap can only occur only when the
+-		// arrays referenced are strictly smaller parts of the same base array.
+-		// If one side of the assignment is a full array, then partial overlap
+-		// can't happen. (The arrays are either disjoint or identical.)
+-		ny := peelConvNop(n.Y)
+-		mayOverlap := n.X.Op() == ir.ODEREF && (n.Y != nil && ny.Op() == ir.ODEREF)
+-		if ny != nil && ny.Op() == ir.ODEREF {
+-			p := peelConvNop(ny.(*ir.StarExpr).X)
+-			if p.Op() == ir.OSPTR && p.(*ir.UnaryExpr).X.Type().IsString() {
+-				// Pointer fields of strings point to unmodifiable memory.
+-				// That memory can't overlap with the memory being written.
+-				mayOverlap = false
+-			}
+-		}
++		// Partial overlap of the LHS and RHS is not considered.
++		mayOverlap := false
+ 
+ 		// Evaluate RHS.
+ 		rhs := n.Y

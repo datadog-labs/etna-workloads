@@ -1,0 +1,33 @@
+--- a/src/cmd/compile/internal/types2/range.go
++++ b/src/cmd/compile/internal/types2/range.go
+@@ -21,6 +21,9 @@
+ // declaration (:=). If the latter and there are no variables, an error is
+ // reported at noNewVarPos.
+ func (check *Checker) rangeStmt(inner stmtContext, rangeStmt *syntax.ForStmt, noNewVarPos poser, sKey, sValue, sExtra, rangeVar syntax.Expr, isDef bool) {
++	check.openScope(rangeStmt, "for")
++	defer check.closeScope()
++
+ 	// check expression to iterate over
+ 	var x operand
+ 
+@@ -80,11 +83,6 @@
+ 		key, val = k, v
+ 	}
+ 
+-	// Open the for-statement block scope now, after the range clause.
+-	// Iteration variables declared with := need to go in this scope (was go.dev/issue/51437).
+-	check.openScope(rangeStmt, "range")
+-	defer check.closeScope()
+-
+ 	// check assignment to/declaration of iteration variables
+ 	// (irregular assignment, cannot easily map to existing assignment checks)
+ 
+@@ -143,7 +141,7 @@
+ 
+ 		// declare variables
+ 		if len(vars) > 0 {
+-			scopePos := rangeStmt.Body.Pos()
++			scopePos := syntax.EndPos(rangeVar)
+ 			for _, obj := range vars {
+ 				check.declare(check.scope, nil /* recordDef already called */, obj, scopePos)
+ 			}

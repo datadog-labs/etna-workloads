@@ -1,0 +1,86 @@
+--- a/src/cmd/compile/internal/ssa/loopbce.go
++++ b/src/cmd/compile/internal/ssa/loopbce.go
+@@ -241,11 +241,9 @@
+ 							if init.AuxInt > v {
+ 								return false
+ 							}
+-							// TODO(1.27): investigate passing a smaller-magnitude overflow limit to addU
+-							// for addWillOverflow.
+ 							v = addU(init.AuxInt, diff(v, init.AuxInt)/uint64(step)*uint64(step))
+ 						}
+-						if addWillOverflow(v, step, maxSignedValue(ind.Type)) {
++						if addWillOverflow(v, step) {
+ 							return false
+ 						}
+ 						if inclusive && v != limit.AuxInt || !inclusive && v+1 != limit.AuxInt {
+@@ -279,7 +277,7 @@
+ 					// for i := 0; i < KNN&^(k-1) ; i += k // k a power of 2
+ 					// for i := 0; i < KNN&(-k) ; i += k // k a power of 2
+ 				} else { // step < 0
+-					if limit.isGenericIntConst() {
++					if limit.Op == OpConst64 {
+ 						// Figure out the actual smallest value.
+ 						v := limit.AuxInt
+ 						if !inclusive {
+@@ -293,11 +291,9 @@
+ 							if init.AuxInt < v {
+ 								return false
+ 							}
+-							// TODO(1.27): investigate passing a smaller-magnitude underflow limit to subU
+-							// for subWillUnderflow.
+ 							v = subU(init.AuxInt, diff(init.AuxInt, v)/uint64(-step)*uint64(-step))
+ 						}
+-						if subWillUnderflow(v, -step, minSignedValue(ind.Type)) {
++						if subWillUnderflow(v, -step) {
+ 							return false
+ 						}
+ 						if inclusive && v != limit.AuxInt || !inclusive && v-1 != limit.AuxInt {
+@@ -357,22 +353,14 @@
+ 	return iv
+ }
+ 
+-// subWillUnderflow checks if x - y underflows the min value.
+-// y must be positive.
+-func subWillUnderflow(x, y int64, min int64) bool {
+-	if y < 0 {
+-		base.Fatalf("expecting positive value")
+-	}
+-	return x < min+y
++// addWillOverflow reports whether x+y would result in a value more than maxint.
++func addWillOverflow(x, y int64) bool {
++	return x+y < x
+ }
+ 
+-// addWillOverflow checks if x + y overflows the max value.
+-// y must be positive.
+-func addWillOverflow(x, y int64, max int64) bool {
+-	if y < 0 {
+-		base.Fatalf("expecting positive value")
+-	}
+-	return x > max-y
++// subWillUnderflow reports whether x-y would result in a value less than minint.
++func subWillUnderflow(x, y int64) bool {
++	return x-y > x
+ }
+ 
+ // diff returns x-y as a uint64. Requires x>=y.
+@@ -393,8 +381,7 @@
+ 		x += 1
+ 		y -= 1 << 63
+ 	}
+-	// TODO(1.27): investigate passing a smaller-magnitude overflow limit in here.
+-	if addWillOverflow(x, int64(y), maxSignedValue(types.Types[types.TINT64])) {
++	if addWillOverflow(x, int64(y)) {
+ 		base.Fatalf("addU overflowed %d + %d", x, y)
+ 	}
+ 	return x + int64(y)
+@@ -410,8 +397,7 @@
+ 		x -= 1
+ 		y -= 1 << 63
+ 	}
+-	// TODO(1.27): investigate passing a smaller-magnitude underflow limit in here.
+-	if subWillUnderflow(x, int64(y), minSignedValue(types.Types[types.TINT64])) {
++	if subWillUnderflow(x, int64(y)) {
+ 		base.Fatalf("subU underflowed %d - %d", x, y)
+ 	}
+ 	return x - int64(y)

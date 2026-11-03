@@ -1,0 +1,1 @@
+repro.go is the upstream test for issue 77613. On go-buggy, strings.HasSuffix on a multibyte-string literal wrongly returns false (a 32-bit constant fold of a read-only load is sign-extended), so it panics with "panic: 1" and exits 2. On go-clean it exits 0 with no output.

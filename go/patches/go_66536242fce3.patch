@@ -1,0 +1,43 @@
+--- a/src/cmd/compile/internal/escape/escape.go
++++ b/src/cmd/compile/internal/escape/escape.go
+@@ -555,8 +555,9 @@
+ 		return
+ 	}
+ 
+-	assignTemp := func(pos src.XPos, n ir.Node, init *ir.Nodes) {
++	assignTemp := func(n ir.Node, init *ir.Nodes) {
+ 		// Preserve any side effects of n by assigning it to an otherwise unused temp.
++		pos := n.Pos()
+ 		tmp := typecheck.TempAt(pos, fn, n.Type())
+ 		init.Append(typecheck.Stmt(ir.NewDecl(pos, ir.ODCL, tmp)))
+ 		init.Append(typecheck.Stmt(ir.NewAssignStmt(pos, tmp, n)))
+@@ -593,7 +594,7 @@
+ 						return
+ 					}
+ 					// Preserve any side effects of the original expression, then replace it.
+-					assignTemp(n.Pos(), *r, n.PtrInit())
++					assignTemp(*r, n.PtrInit())
+ 					*r = ir.NewBasicLit(n.Pos(), (*r).Type(), lit.Val())
+ 				}
+ 			case ir.OLEN:
+@@ -601,7 +602,7 @@
+ 				if x.Op() == ir.OSLICELIT {
+ 					x := x.(*ir.CompLitExpr)
+ 					// Preserve any side effects of the original expression, then update the value.
+-					assignTemp(n.Pos(), *r, n.PtrInit())
++					assignTemp(*r, n.PtrInit())
+ 					*r = ir.NewBasicLit(n.Pos(), types.Types[types.TINT], constant.MakeInt64(x.Len))
+ 				}
+ 			}
+@@ -627,9 +628,9 @@
+ 					base.WarnfAt(n.Pos(), "rewriting OCONVIFACE value from %v (%v) to %v (%v)", conv.X, conv.X.Type(), v, v.Type())
+ 				}
+ 				// Preserve any side effects of the original expression, then replace it.
+-				assignTemp(conv.Pos(), conv.X, conv.PtrInit())
++				assignTemp(conv.X, conv.PtrInit())
+ 				v := v.(*ir.BasicLit)
+-				conv.X = ir.NewBasicLit(conv.Pos(), conv.X.Type(), v.Val())
++				conv.X = ir.NewBasicLit(conv.X.Pos(), conv.X.Type(), v.Val())
+ 				typecheck.Expr(conv)
+ 			}
+ 		}

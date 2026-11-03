@@ -1,0 +1,12 @@
+--- a/src/cmd/compile/internal/types2/lookup.go
++++ b/src/cmd/compile/internal/types2/lookup.go
+@@ -102,7 +102,8 @@
+ 	if t := asNamed(T); t != nil {
+ 		if p, _ := t.Underlying().(*Pointer); p != nil {
+ 			obj, index, indirect = lookupFieldOrMethodImpl(p, false, pkg, name, foldCase)
+-			if _, ok := obj.(*Func); ok {
++			// Only defined pointer types declared in the package block are checked.
++			if _, ok := obj.(*Func); ok && t.Obj().Parent() == t.Obj().Pkg().Scope() {
+ 				return nil, nil, false
+ 			}
+ 			return

@@ -1,0 +1,17 @@
+--- a/src/cmd/compile/internal/noder/writer.go
++++ b/src/cmd/compile/internal/noder/writer.go
+@@ -2216,7 +2216,14 @@
+ 		writeFunExpr()
+ 		w.pos(expr)
+ 
++		// A call with an explicitly instantiated function does not get
++		// its arguments converted to the parameter types.
++		_, explicitInst := expr.Fun.(*syntax.IndexExpr)
++
+ 		paramType := func(i int) types2.Type {
++			if explicitInst {
++				return nil
++			}
+ 			if sigType.Variadic() && !expr.HasDots && i >= paramTypes.Len()-1 {
+ 				return paramTypes.At(paramTypes.Len() - 1).Type().(*types2.Slice).Elem()
+ 			}

@@ -1,0 +1,1 @@
+repro.go calls a variadic func f(...any) with `f(0, x...)` where x is an int (too many arguments). Clean go reports "have (number, int...) want (...any)"; buggy go (typesSummary mishandles hasDots) panics with an internal compiler error (interface conversion: *types2.Basic, not *types2.Slice). Issue 70526.

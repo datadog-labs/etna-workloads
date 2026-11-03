@@ -1,0 +1,1 @@
+Reproducer (repro.sh) compiles a file with `import . "/foo"`, which fails to import. Clean toolchain reports only "could not import"; buggy one also emits a spurious `"/foo" imported and not used` error (types2 marks fake packages used only when path == "C").

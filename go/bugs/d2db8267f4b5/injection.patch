@@ -1,0 +1,44 @@
+--- a/src/cmd/compile/internal/types2/call.go
++++ b/src/cmd/compile/internal/types2/call.go
+@@ -366,8 +366,7 @@
+ }
+ 
+ // genericExprList is like exprList but result operands may be uninstantiated or partially
+-// instantiated generic functions (where constraint information is insufficient to infer
+-// the missing type arguments) for Go 1.21 and later.
++// instantiated generic functions.
+ // For each non-generic or uninstantiated generic operand, the corresponding targsList and
+ // elements do not exist (targsList is nil) or the elements are nil.
+ // For each partially instantiated generic function operand, the corresponding
+@@ -387,13 +386,7 @@
+ 		}()
+ 	}
+ 
+-	// Before Go 1.21, uninstantiated or partially instantiated argument functions are
+-	// not permitted. Checker.funcInst must infer missing type arguments in that case.
+-	infer := true // for -lang < go1.21
+ 	n := len(elist)
+-	if n > 0 && check.allowVersion(go1_21) {
+-		infer = false
+-	}
+ 
+ 	if n == 1 {
+ 		// single value (possibly a partially instantiated function), or a multi-valued expression
+@@ -401,7 +394,7 @@
+ 		var x operand
+ 		if inst, _ := e.(*syntax.IndexExpr); inst != nil && check.indexExpr(&x, inst) {
+ 			// x is a generic function.
+-			targs := check.funcInst(nil, x.Pos(), &x, inst, infer)
++			targs := check.funcInst(nil, x.Pos(), &x, inst, false)
+ 			if targs != nil {
+ 				// x was not instantiated: collect the (partial) type arguments.
+ 				targsList = [][]Type{targs}
+@@ -436,7 +429,7 @@
+ 			var x operand
+ 			if inst, _ := e.(*syntax.IndexExpr); inst != nil && check.indexExpr(&x, inst) {
+ 				// x is a generic function.
+-				targs := check.funcInst(nil, x.Pos(), &x, inst, infer)
++				targs := check.funcInst(nil, x.Pos(), &x, inst, false)
+ 				if targs != nil {
+ 					// x was not instantiated: collect the (partial) type arguments.
+ 					targsList[i] = targs

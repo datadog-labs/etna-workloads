@@ -1,0 +1,1 @@
+repro.sh compiles the issue45693 program (s = s + "" + s + "" + s + ""; for {}). Clean toolchain compiles it (exit 0); buggy toolchain hits 'internal compiler error: bad live variable at entry of f' because the dead-auto elimination pass drops the auto whose address is passed to a call.

@@ -1,0 +1,43 @@
+package main
+
+// Make sure address calculations don't float up before
+// the corresponding nil check.
+
+
+type T struct {
+	a, b int
+}
+
+//go:noinline
+func f(x *T, p *bool, n int) {
+	*p = n != 0
+	useStack(1000)
+	g(&x.b)
+}
+
+//go:noinline
+func g(p *int) {
+}
+
+func useStack(n int) {
+	if n == 0 {
+		return
+	}
+	useStack(n - 1)
+}
+
+func main() {
+	mustPanic(func() {
+		var b bool
+		f(nil, &b, 3)
+	})
+}
+
+func mustPanic(f func()) {
+	defer func() {
+		if recover() == nil {
+			panic("expected panic, got nil")
+		}
+	}()
+	f()
+}

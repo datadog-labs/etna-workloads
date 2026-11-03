@@ -1,0 +1,24 @@
+--- a/src/cmd/compile/internal/typecheck/stmt.go
++++ b/src/cmd/compile/internal/typecheck/stmt.go
+@@ -232,6 +232,12 @@
+ 	// that must be evaluated at the go/defer statement.
+ 	var argps []*ir.Node
+ 
++	// Method calls were rewritten into T.M(t, ...) form by FixMethodCall.
++	isMethodCall := false
++	if call, ok := call.(*ir.CallExpr); ok && call.Op() == ir.OCALLFUNC {
++		isMethodCall = call.Fun.Op() == ir.OMETHEXPR
++	}
++
+ 	var visit func(argp *ir.Node)
+ 	visit = func(argp *ir.Node) {
+ 		arg := *argp
+@@ -265,7 +271,7 @@
+ 			//
+ 			// TODO(mdempsky): Limit to static callees with
+ 			// //go:uintptr{escapes,keepalive}?
+-			if arg.Type().IsUintptr() && arg.X.Type().IsUnsafePtr() {
++			if arg.Type().IsUintptr() && arg.X.Type().IsUnsafePtr() && !isMethodCall {
+ 				visit(&arg.X)
+ 				return
+ 			}

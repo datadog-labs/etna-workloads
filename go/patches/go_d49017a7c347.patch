@@ -1,0 +1,40 @@
+--- a/src/cmd/compile/internal/types2/unify.go
++++ b/src/cmd/compile/internal/types2/unify.go
+@@ -372,37 +372,8 @@
+ 			// x has an inferred type which must match y
+ 			if u.nify(x, y, mode, p) {
+ 				// We have a match, possibly through underlying types.
+-				xi := asInterface(x)
+-				yi := asInterface(y)
+ 				xn := asNamed(x) != nil
+ 				yn := asNamed(y) != nil
+-				// If we have two interfaces, what to do depends on
+-				// whether they are named and their method sets.
+-				if xi != nil && yi != nil {
+-					// Both types are interfaces.
+-					// If both types are defined types, they must be identical
+-					// because unification doesn't know which type has the "right" name.
+-					if xn && yn {
+-						return Identical(x, y)
+-					}
+-					// In all other cases, the method sets must match.
+-					// The types unified so we know that corresponding methods
+-					// match and we can simply compare the number of methods.
+-					// TODO(gri) We may be able to relax this rule and select
+-					// the more general interface. But if one of them is a defined
+-					// type, it's not clear how to choose and whether we introduce
+-					// an order dependency or not. Requiring the same method set
+-					// is conservative.
+-					if len(xi.typeSet().methods) != len(yi.typeSet().methods) {
+-						return false
+-					}
+-				} else if xi != nil || yi != nil {
+-					// One but not both of them are interfaces.
+-					// In this case, either x or y could be viable matches for the corresponding
+-					// type parameter, which means choosing either introduces an order dependence.
+-					// Therefore, we must fail unification (go.dev/issue/60933).
+-					return false
+-				}
+ 				// If we have inexact unification and one of x or y is a defined type, select the
+ 				// defined type. This ensures that in a series of types, all matching against the
+ 				// same type parameter, we infer a defined type if there is one, independent of

@@ -1,0 +1,1 @@
+repro.go is test/fixedbugs/issue24491b.go: `before(uintptr(setup()))` with //go:uintptrescapes must keep the unsafe.Pointer alive only until the call returns. With the bug, the OVARLIVE is emitted at the end of the statement, so the object is kept alive during after()'s runtime.GC() and "GC late" fires; the clean toolchain exits 0, the buggy one panics/crashes.

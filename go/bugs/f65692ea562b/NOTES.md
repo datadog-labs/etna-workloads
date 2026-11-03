@@ -1,0 +1,1 @@
+repro.go is the issue77604 test made runnable (adds main). On go-buggy the compiler crashes with 'internal compiler error: tried to free an already free register' for the copy *y = *x where both operands are the same register (regalloc frees a clobbered arg register twice); go-clean compiles and runs it with no output.

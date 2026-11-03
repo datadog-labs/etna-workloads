@@ -1,0 +1,14 @@
+--- a/src/cmd/compile/internal/walk/compare.go
++++ b/src/cmd/compile/internal/walk/compare.go
+@@ -309,8 +309,9 @@
+ 		expr = ir.NewBool(base.Pos, n.Op() == ir.OEQ)
+ 		// We still need to use cmpl and cmpr, in case they contain
+ 		// an expression which might panic. See issue 23837.
+-		a1 := typecheck.Stmt(ir.NewAssignStmt(base.Pos, ir.BlankNode, cmpl))
+-		a2 := typecheck.Stmt(ir.NewAssignStmt(base.Pos, ir.BlankNode, cmpr))
++		t := typecheck.TempAt(base.Pos, ir.CurFunc, cmpl.Type())
++		a1 := typecheck.Stmt(ir.NewAssignStmt(base.Pos, t, cmpl))
++		a2 := typecheck.Stmt(ir.NewAssignStmt(base.Pos, t, cmpr))
+ 		init.Append(a1, a2)
+ 	}
+ 	return finishCompare(n, expr, init)

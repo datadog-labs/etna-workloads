@@ -1,0 +1,38 @@
+--- a/src/cmd/compile/internal/ssagen/ssa.go
++++ b/src/cmd/compile/internal/ssagen/ssa.go
+@@ -4367,13 +4367,8 @@
+ 
+ // ternary emits code to evaluate cond ? x : y.
+ func (s *state) ternary(cond, x, y *ssa.Value) *ssa.Value {
+-	// Note that we need a new ternaryVar each time (unlike okVar where we can
+-	// reuse the variable) because it might have a different type every time.
+-	ternaryVar := ssaMarker("ternary")
+-
+ 	bThen := s.f.NewBlock(ssa.BlockPlain)
+ 	bElse := s.f.NewBlock(ssa.BlockPlain)
+-	bEnd := s.f.NewBlock(ssa.BlockPlain)
+ 
+ 	b := s.endBlock()
+ 	b.Kind = ssa.BlockIf
+@@ -4381,18 +4376,11 @@
+ 	b.AddEdgeTo(bThen)
+ 	b.AddEdgeTo(bElse)
+ 
+-	s.startBlock(bThen)
+-	s.vars[ternaryVar] = x
+-	s.endBlock().AddEdgeTo(bEnd)
+-
+ 	s.startBlock(bElse)
+-	s.vars[ternaryVar] = y
+-	s.endBlock().AddEdgeTo(bEnd)
++	s.endBlock().AddEdgeTo(bThen)
+ 
+-	s.startBlock(bEnd)
+-	r := s.variable(ternaryVar, x.Type)
+-	delete(s.vars, ternaryVar)
+-	return r
++	s.startBlock(bThen)
++	return s.newValue2(ssa.OpPhi, x.Type, x, y)
+ }
+ 
+ // condBranch evaluates the boolean expression cond and branches to yes

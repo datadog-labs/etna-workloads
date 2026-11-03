@@ -1,0 +1,28 @@
+--- a/src/cmd/compile/internal/noder/irgen.go
++++ b/src/cmd/compile/internal/noder/irgen.go
+@@ -38,13 +38,7 @@
+ 	fileBaseMap := make(map[*syntax.PosBase]*syntax.File)
+ 	for i, p := range noders {
+ 		files[i] = p.file
+-		// The file.Pos() is the position of the package clause.
+-		// If there's a //line directive before that, file.Pos().Base()
+-		// refers to that directive, not the file itself.
+-		// Make sure to consistently map back to file base, here and
+-		// when we look for a file in the conf.Error handler below,
+-		// otherwise the file may not be found (was go.dev/issue/67141).
+-		fileBaseMap[p.file.Pos().FileBase()] = p.file
++		fileBaseMap[p.file.Pos().Base()] = p.file
+ 	}
+ 
+ 	didMidway := false
+@@ -84,9 +78,7 @@
+ 			fileBase := terr.Pos.FileBase()
+ 			fileVersion := info.FileVersions[fileBase]
+ 			file := fileBaseMap[fileBase]
+-			if file == nil {
+-				// This should never happen, but be careful and don't crash.
+-			} else if file.GoVersion == fileVersion {
++			if file.GoVersion == fileVersion {
+ 				// If we have a version error caused by //go:build, report it.
+ 				msg = fmt.Sprintf("%s (file declares //go:build %s)", msg, fileVersion)
+ 			} else {

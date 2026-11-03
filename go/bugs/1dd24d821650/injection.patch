@@ -1,0 +1,25 @@
+--- a/src/cmd/compile/internal/types2/unify.go
++++ b/src/cmd/compile/internal/types2/unify.go
+@@ -463,6 +463,22 @@
+ 		// If we have two interfaces, check the type terms for equivalence,
+ 		// and unify common methods if possible.
+ 		if xi != nil && yi != nil {
++			// If both interfaces originate in the same declaration,
++			// their methods unify if the type parameters unify.
++			// Unify the type parameters rather than the methods in
++			// case the type parameters are not used in the methods
++			// (and to preserve existing behavior in this case).
++			if xn, yn := asNamed(x), asNamed(y); xn != nil && yn != nil && identicalOrigin(xn, yn) {
++				xargs := xn.TypeArgs().list()
++				yargs := yn.TypeArgs().list()
++				assert(len(xargs) == len(yargs))
++				for i, xarg := range xargs {
++					if !u.nify(xarg, yargs[i], mode, p) {
++						return false
++					}
++				}
++				return true
++			}
+ 			xset := xi.typeSet()
+ 			yset := yi.typeSet()
+ 			if xset.comparable != yset.comparable {
