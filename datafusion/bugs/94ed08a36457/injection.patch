@@ -1,0 +1,15 @@
+--- a/datafusion/datasource/src/write/demux.rs
++++ b/datafusion/datasource/src/write/demux.rs
+@@ -519,8 +519,10 @@
+                             .ok_or(exec_datafusion_err!("it is not yet supported to write to hive partitions with datatype {}",
+                             dtype))?;
+ 
+-                        for i in 0..rb.num_rows() {
+-                            partition_values.push(Cow::from(array.value(i)));
++                        for val in array.values() {
++                            partition_values.push(
++                                Cow::from(val.ok_or(exec_datafusion_err!("Cannot partition by null value for column {}", col))?),
++                            );
+                         }
+                     },
+                     _ => unreachable!(),

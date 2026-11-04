@@ -1,0 +1,47 @@
+--- a/datafusion/datasource-parquet/src/page_filter.rs
++++ b/datafusion/datasource-parquet/src/page_filter.rs
+@@ -252,16 +252,6 @@
+             // The selection for this particular row group
+             let mut overall_selection = None;
+ 
+-            let total_pages_in_group =
+-                parquet_metadata.offset_index().map_or(0, |offset_index| {
+-                    offset_index[row_group_index]
+-                        .first()
+-                        .map_or(0, |column| column.page_locations.len())
+-                });
+-            // stores the indexes of the matched pages
+-            let mut matched_pages_in_group: HashSet<usize> =
+-                HashSet::from_iter(0..total_pages_in_group);
+-
+             for predicate in page_index_predicates {
+                 let Some(column) = predicate.required_columns().single_column() else {
+                     debug!(
+@@ -307,13 +297,9 @@
+                     predicate.predicate_expr(),
+                 );
+ 
+-                let matched_pages_indexes: HashSet<_> = pages
+-                    .into_iter()
+-                    .enumerate()
+-                    .filter(|x| x.1)
+-                    .map(|x| x.0)
+-                    .collect();
+-                matched_pages_in_group.retain(|x| matched_pages_indexes.contains(x));
++                let matched_pages = pages.iter().filter(|v| **v).count();
++                total_pages_select += matched_pages;
++                total_pages_skip += pages.len() - matched_pages;
+ 
+                 overall_selection = update_selection(overall_selection, selection);
+ 
+@@ -353,10 +339,6 @@
+                 total_select +=
+                     parquet_metadata.row_group(row_group_index).num_rows() as usize;
+             }
+-
+-            let pages_matched = matched_pages_in_group.len();
+-            total_pages_select += pages_matched;
+-            total_pages_skip += total_pages_in_group - pages_matched;
+         }
+ 
+         file_metrics.page_index_rows_pruned.add_pruned(total_skip);

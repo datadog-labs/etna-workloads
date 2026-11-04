@@ -1,0 +1,33 @@
+--- a/datafusion/expr/src/utils.rs
++++ b/datafusion/expr/src/utils.rs
+@@ -983,9 +983,6 @@
+         DataType::Utf8 => true,
+         DataType::LargeUtf8 => true,
+         DataType::Utf8View => true,
+-        DataType::Binary => true,
+-        DataType::LargeBinary => true,
+-        DataType::BinaryView => true,
+         DataType::Date32 => true,
+         DataType::Date64 => true,
+         DataType::Time32(_) => true,
+@@ -996,13 +993,16 @@
+         DataType::Dictionary(key_type, value_type) => {
+             DataType::is_dictionary_key_type(key_type) && can_hash(value_type)
+         }
+-        DataType::List(value_type) => can_hash(value_type.data_type()),
+-        DataType::LargeList(value_type) => can_hash(value_type.data_type()),
+-        DataType::FixedSizeList(value_type, _) => can_hash(value_type.data_type()),
++        DataType::List(_) => true,
++        DataType::LargeList(_) => true,
++        DataType::FixedSizeList(_, _) => true,
+         DataType::Map(map_struct, true | false) => can_hash(map_struct.data_type()),
+         DataType::Struct(fields) => fields.iter().all(|f| can_hash(f.data_type())),
+ 
+-        DataType::ListView(_)
++        DataType::Binary
++        | DataType::LargeBinary
++        | DataType::BinaryView
++        | DataType::ListView(_)
+         | DataType::LargeListView(_)
+         | DataType::Union(_, _)
+         | DataType::RunEndEncoded(_, _) => false,

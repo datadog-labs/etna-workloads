@@ -1,0 +1,50 @@
+--- a/datafusion/functions/src/regex/regexpinstr.rs
++++ b/datafusion/functions/src/regex/regexpinstr.rs
+@@ -35,7 +35,7 @@
+ use std::collections::hash_map::Entry;
+ use std::sync::Arc;
+ 
+-use crate::regex::{compile_regex, start_to_byte_offset};
++use crate::regex::compile_regex;
+ 
+ #[user_doc(
+     doc_section(label = "Regular Expression Functions"),
+@@ -308,8 +308,16 @@
+             continue;
+         }
+ 
+-        let value = values.value(i);
+         let regex = regex_array.value(i);
++        if regex.is_empty() {
++            result.append_value(0);
++            continue;
++        }
++        let value = values.value(i);
++        if value.is_empty() {
++            result.append_value(0);
++            continue;
++        }
+         let flags = flags_array.map(|array| array.value(i));
+         let pattern = regex_cache.get_or_compile(regex, flags)?;
+ 
+@@ -365,7 +373,7 @@
+ /// Returns the 1-based character position of the `n`-th match of `pattern` in
+ /// `value`, or 0 if there is no such match. The search begins at the 1-based
+ /// character position `start`. A positive `subexpr` selects that capture group
+-/// of the first match instead of the `n`-th match.
++/// of the first match instead of the `n`-th match. `value` is non-empty.
+ fn get_index(
+     value: &str,
+     pattern: &Regex,
+@@ -385,7 +393,10 @@
+         ));
+     }
+ 
+-    let Some(byte_start_offset) = start_to_byte_offset(value, start) else {
++    // Byte offset of the `start`-th character. A `start` past the end of the
++    // string leaves nothing to search, so no match is possible.
++    let Some((byte_start_offset, _)) = value.char_indices().nth((start - 1) as usize)
++    else {
+         return Ok(0);
+     };
+     let search_slice = &value[byte_start_offset..];

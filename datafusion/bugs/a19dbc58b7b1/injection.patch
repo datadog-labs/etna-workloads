@@ -1,0 +1,63 @@
+--- a/datafusion/functions/src/regex/regexpcount.rs
++++ b/datafusion/functions/src/regex/regexpcount.rs
+@@ -279,6 +279,9 @@
+     }
+ 
+     let regex_scalar = is_regex_scalar.then(|| regex_array.value(0));
++    if regex_scalar == Some("") {
++        return Ok(Arc::new(Int64Array::from(vec![0; values.len()])));
++    }
+     // An absent `start` defaults to 1
+     let start_scalar =
+         is_start_scalar.then(|| start_array.map_or(1, |array| array.value(0)));
+@@ -390,6 +393,9 @@
+                         let Some(regex) = regex else {
+                             return Ok(None);
+                         };
++                        if regex.is_empty() {
++                            return Ok(Some(0));
++                        }
+ 
+                         let pattern = compile_and_cache_regex(
+                             regex,
+@@ -425,6 +431,9 @@
+                         let (Some(regex), Some(flags)) = (regex, flags) else {
+                             return Ok(None);
+                         };
++                        if regex.is_empty() {
++                            return Ok(Some(0));
++                        }
+ 
+                         let pattern = compile_and_cache_regex(
+                             regex,
+@@ -461,6 +470,9 @@
+                         let Some(regex) = regex else {
+                             return Ok(None);
+                         };
++                        if regex.is_empty() {
++                            return Ok(Some(0));
++                        }
+ 
+                         let pattern = compile_and_cache_regex(
+                             regex,
+@@ -510,6 +522,9 @@
+                     let (Some(regex), Some(flags)) = (regex, flags) else {
+                         return Ok(None);
+                     };
++                    if regex.is_empty() {
++                        return Ok(Some(0));
++                    }
+ 
+                     let pattern =
+                         compile_and_cache_regex(regex, Some(flags), &mut regex_cache)?;
+@@ -537,6 +552,10 @@
+         ));
+     }
+ 
++    if value.is_empty() {
++        return Ok(Some(0));
++    }
++
+     let Some(byte_offset) = start_to_byte_offset(value, start) else {
+         return Ok(Some(0));
+     };

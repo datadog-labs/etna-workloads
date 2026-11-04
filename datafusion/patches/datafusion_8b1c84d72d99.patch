@@ -1,0 +1,33 @@
+--- a/datafusion/sql/src/select.rs
++++ b/datafusion/sql/src/select.rs
+@@ -1393,10 +1393,6 @@
+         projection: &mut [SelectItem],
+         named_windows: &[NamedWindowDefinition],
+     ) -> Result<()> {
+-        let named_windows: Vec<(&NamedWindowDefinition, String)> = named_windows
+-            .iter()
+-            .map(|w| (w, self.ident_normalizer.normalize(w.0.clone())))
+-            .collect();
+         for proj in projection.iter_mut() {
+             if let SelectItem::ExprWithAlias { expr, alias: _ }
+             | SelectItem::UnnamedExpr(expr) = proj
+@@ -1406,14 +1402,12 @@
+                     if let SQLExpr::Function(f) = expr
+                         && let Some(WindowType::NamedWindow(ident)) = &f.over
+                     {
+-                        let normalized_ident =
+-                            self.ident_normalizer.normalize(ident.clone());
+-                        for (
+-                            NamedWindowDefinition(_, window_expr),
+-                            normalized_window_ident,
+-                        ) in named_windows.iter()
++                        for NamedWindowDefinition(window_ident, window_expr) in
++                            named_windows
+                         {
+-                            if normalized_ident.eq(normalized_window_ident) {
++                            if let Some(WindowType::NamedWindow(ident)) = &f.over
++                                && ident.eq(window_ident)
++                            {
+                                 f.over = Some(match window_expr {
+                                     NamedWindowExpr::NamedWindow(ident) => {
+                                         WindowType::NamedWindow(ident.clone())

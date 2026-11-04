@@ -1,0 +1,21 @@
+--- a/datafusion/functions/src/math/nanvl.rs
++++ b/datafusion/functions/src/math/nanvl.rs
+@@ -123,6 +123,9 @@
+         match (x, y) {
+             // Scalar x: return y if x is NaN, otherwise x (which may be NULL).
+             (ColumnarValue::Scalar(ref x), y) if scalar_is_nan(x) => Ok(y),
++            (ColumnarValue::Scalar(x), ColumnarValue::Scalar(y)) if y.is_null() => {
++                Ok(ColumnarValue::Scalar(ScalarValue::try_from(&x.data_type())?))
++            }
+             (x @ ColumnarValue::Scalar(_), _) => Ok(x),
+             // At least one argument is an array: evaluate element-wise.
+             (x, y) => {
+@@ -205,7 +208,7 @@
+             for i in 0..len {
+                 // `y` is only consulted when `x` is a (non-null) NaN, matching
+                 // the original short-circuiting match.
+-                if x.is_valid(i) {
++                if x.is_valid(i) && y.is_valid(i) {
+                     let x_value = xv[i];
+                     if x_value.is_nan() {
+                         if y.is_valid(i) {

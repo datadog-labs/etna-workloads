@@ -1,0 +1,1 @@
+repro.sql runs the #20194 regression query (ROW_NUMBER with CASE WHEN ORDER BY, join filtered by nvl(col,'0')='0'). Clean build returns one row (ord=1); buggy build fails with a SanityCheckPlan error because the filter's complex_expr=literal equivalence rewrites the literal inside the sort keys.

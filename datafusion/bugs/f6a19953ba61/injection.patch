@@ -1,0 +1,39 @@
+--- a/datafusion/functions/src/datetime/date_part.rs
++++ b/datafusion/functions/src/datetime/date_part.rs
+@@ -81,7 +81,7 @@
+     - dow (day of the week where Sunday is 0)
+     - doy (day of the year)
+     - epoch (seconds since Unix epoch for timestamps/dates, total seconds for intervals)
+-    - isodow (ISO 8601 day of the week where Monday is 1 and Sunday is 7)
++    - isodow (day of the week where Monday is 0)
+ "#
+     ),
+     argument(
+@@ -240,10 +240,7 @@
+                 "qtr" | "quarter" => date_part(array.as_ref(), DatePart::Quarter)?,
+                 "doy" => date_part(array.as_ref(), DatePart::DayOfYear)?,
+                 "dow" => date_part(array.as_ref(), DatePart::DayOfWeekSunday0)?,
+-                "isodow" => {
+-                    // Postgres `isodow` is 1..=7 with Mon=1
+-                    date_part(array.as_ref(), DatePart::DayOfWeekMonday1)?
+-                }
++                "isodow" => date_part(array.as_ref(), DatePart::DayOfWeekMonday0)?,
+                 "epoch" => epoch(array.as_ref())?,
+                 _ => return exec_err!("Date part '{part}' not supported"),
+             }
+--- a/datafusion/spark/src/function/datetime/date_part.rs
++++ b/datafusion/spark/src/function/datetime/date_part.rs
+@@ -125,11 +125,8 @@
+         ));
+ 
+         match part {
+-            // Spark's `dayofweek` is 1..=7 (Sun=1) but df's `dow` is 0..=6
+-            // (Sun=0); shift by +1. df's `isodow` already returns the
+-            // PG-correct 1..=7 (Mon=1), which matches Spark's
+-            // `dayofweek_iso`/`dow_iso`, so no shift is needed there.
+-            "dow" => Ok(ExprSimplifyResult::Simplified(
++            // Add 1 for day-of-week parts to convert 0-indexed to 1-indexed
++            "dow" | "isodow" => Ok(ExprSimplifyResult::Simplified(
+                 date_part_expr + Expr::Literal(ScalarValue::Int32(Some(1)), None),
+             )),
+             _ => Ok(ExprSimplifyResult::Simplified(date_part_expr)),

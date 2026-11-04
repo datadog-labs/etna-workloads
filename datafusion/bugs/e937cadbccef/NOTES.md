@@ -1,0 +1,1 @@
+repro.sql runs `date_bin(NULL, ts[, origin])`. The clean build returns NULL for both queries. The buggy build fails at execution with "DATE_BIN expects stride argument to be an INTERVAL but got Interval(MonthDayNano)". The NULL stride is now coerced to an Interval, but the null-stride early return is missing.

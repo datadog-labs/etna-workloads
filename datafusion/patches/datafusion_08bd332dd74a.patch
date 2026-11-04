@@ -1,0 +1,510 @@
+--- a/datafusion/catalog/src/cte_worktable.rs
++++ b/datafusion/catalog/src/cte_worktable.rs
+@@ -36,16 +36,14 @@
+ pub struct CteWorkTable {
+     /// The name of the CTE work table
+     name: String,
+-    /// Schema exposed by recursive self-references while planning the recursive term.
+-    ///
+-    /// This is a conservative work-table schema, not the final recursive query output
+-    /// schema. For example, the SQL planner may mark fields nullable here so recursive
+-    /// references do not inherit unsound anchor-term nullability assumptions.
++    /// This schema must be shared across both the static and recursive terms of a recursive query
+     table_schema: SchemaRef,
+ }
+ 
+ impl CteWorkTable {
+-    /// Construct a new CteWorkTable with the given name and self-reference schema.
++    /// construct a new CteWorkTable with the given name and schema
++    /// This schema must match the schema of the recursive term of the query
++    /// Since the scan method will contain an physical plan that assumes this schema
+     pub fn new(name: &str, table_schema: SchemaRef) -> Self {
+         Self {
+             name: name.to_owned(),
+@@ -58,7 +56,7 @@
+         &self.name
+     }
+ 
+-    /// The schema exposed by scans of the recursive self-reference.
++    /// The schema of the recursive term of the query
+     pub fn schema(&self) -> SchemaRef {
+         Arc::clone(&self.table_schema)
+     }
+--- a/datafusion/core/src/physical_planner.rs
++++ b/datafusion/core/src/physical_planner.rs
+@@ -1766,15 +1766,11 @@
+                 }
+             }
+             LogicalPlan::RecursiveQuery(RecursiveQuery {
+-                name,
+-                is_distinct,
+-                schema,
+-                ..
++                name, is_distinct, ..
+             }) => {
+                 let [static_term, recursive_term] = children.two()?;
+                 Arc::new(RecursiveQueryExec::try_new(
+                     name.clone(),
+-                    Arc::clone(schema.inner()),
+                     static_term,
+                     recursive_term,
+                     *is_distinct,
+--- a/datafusion/expr/src/logical_plan/builder.rs
++++ b/datafusion/expr/src/logical_plan/builder.rs
+@@ -192,13 +192,12 @@
+         // Ensure that the recursive term has the same field types as the static term
+         let coerced_recursive_term =
+             coerce_plan_expr_for_schema(recursive_term, self.plan.schema())?;
+-        let recursive_query = RecursiveQuery::try_new(
++        Ok(Self::from(LogicalPlan::RecursiveQuery(RecursiveQuery {
+             name,
+-            self.plan,
+-            Arc::new(coerced_recursive_term),
++            static_term: self.plan,
++            recursive_term: Arc::new(coerced_recursive_term),
+             is_distinct,
+-        )?;
+-        Ok(Self::from(LogicalPlan::RecursiveQuery(recursive_query)))
++        })))
+     }
+ 
+     /// Create a values list based relation, and the schema is inferred from data, consuming
+--- a/datafusion/expr/src/logical_plan/plan.rs
++++ b/datafusion/expr/src/logical_plan/plan.rs
+@@ -358,7 +358,10 @@
+             LogicalPlan::Copy(CopyTo { output_schema, .. }) => output_schema,
+             LogicalPlan::Ddl(ddl) => ddl.schema(),
+             LogicalPlan::Unnest(Unnest { schema, .. }) => schema,
+-            LogicalPlan::RecursiveQuery(RecursiveQuery { schema, .. }) => schema,
++            LogicalPlan::RecursiveQuery(RecursiveQuery { static_term, .. }) => {
++                // we take the schema of the static term as the schema of the entire recursive query
++                static_term.schema()
++            }
+         }
+     }
+ 
+@@ -742,14 +745,7 @@
+                 };
+                 Ok(LogicalPlan::Distinct(distinct))
+             }
+-            LogicalPlan::RecursiveQuery(RecursiveQuery {
+-                name,
+-                static_term,
+-                recursive_term,
+-                is_distinct,
+-                schema: _,
+-            }) => RecursiveQuery::try_new(name, static_term, recursive_term, is_distinct)
+-                .map(LogicalPlan::RecursiveQuery),
++            LogicalPlan::RecursiveQuery(_) => Ok(self),
+             LogicalPlan::Analyze(_) => Ok(self),
+             LogicalPlan::Explain(_) => Ok(self),
+             LogicalPlan::TableScan(_) => Ok(self),
+@@ -1123,13 +1119,12 @@
+             }) => {
+                 self.assert_no_expressions(expr)?;
+                 let (static_term, recursive_term) = self.only_two_inputs(inputs)?;
+-                RecursiveQuery::try_new(
+-                    name.clone(),
+-                    Arc::new(static_term),
+-                    Arc::new(recursive_term),
+-                    *is_distinct,
+-                )
+-                .map(LogicalPlan::RecursiveQuery)
++                Ok(LogicalPlan::RecursiveQuery(RecursiveQuery {
++                    name: name.clone(),
++                    static_term: Arc::new(static_term),
++                    recursive_term: Arc::new(recursive_term),
++                    is_distinct: *is_distinct,
++                }))
+             }
+             LogicalPlan::Analyze(a) => {
+                 self.assert_no_expressions(expr)?;
+@@ -2320,7 +2315,7 @@
+ ///   intermediate table, then empty the intermediate table.
+ ///
+ /// [Postgres Docs]: https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-RECURSIVE
+-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
++#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash)]
+ pub struct RecursiveQuery {
+     /// Name of the query
+     pub name: String,
+@@ -2332,90 +2327,6 @@
+     /// Should the output of the recursive term be deduplicated (`UNION`) or
+     /// not (`UNION ALL`).
+     pub is_distinct: bool,
+-    /// Schema exposed to parent plans after reconciling the static and recursive terms.
+-    pub schema: DFSchemaRef,
+-}
+-
+-impl PartialOrd for RecursiveQuery {
+-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+-        match self.name.partial_cmp(&other.name) {
+-            Some(Ordering::Equal) => {
+-                match self.static_term.partial_cmp(&other.static_term) {
+-                    Some(Ordering::Equal) => {
+-                        match self.recursive_term.partial_cmp(&other.recursive_term) {
+-                            Some(Ordering::Equal) => {
+-                                self.is_distinct.partial_cmp(&other.is_distinct)
+-                            }
+-                            cmp => cmp,
+-                        }
+-                    }
+-                    cmp => cmp,
+-                }
+-            }
+-            cmp => cmp,
+-        }
+-        // If the query definition compares equal but the derived schema differs,
+-        // return `None` instead of contradicting `PartialEq` with `Some(Equal)`.
+-        // TODO (https://github.com/apache/datafusion/issues/17477) avoid recomparing all fields
+-        .filter(|cmp| *cmp != Ordering::Equal || self == other)
+-    }
+-}
+-
+-impl RecursiveQuery {
+-    pub fn try_new(
+-        name: String,
+-        static_term: Arc<LogicalPlan>,
+-        recursive_term: Arc<LogicalPlan>,
+-        is_distinct: bool,
+-    ) -> Result<Self> {
+-        let schema =
+-            recursive_query_output_schema(static_term.schema(), recursive_term.schema())?;
+-        Ok(Self {
+-            name,
+-            static_term,
+-            recursive_term,
+-            is_distinct,
+-            schema,
+-        })
+-    }
+-}
+-
+-/// Compute a recursive query's output schema by considering both its static and
+-/// recursive terms.
+-///
+-/// Field names, types, and metadata come from the static term. A field is
+-/// nullable if either the static or the recursive term produces a nullable
+-/// value in that position, matching how `UNION` reconciles branch nullability.
+-///
+-/// Functional dependencies are intentionally dropped: the recursive term
+-/// appends rows that can duplicate values the static term guarantees unique, so
+-/// any FDs carried by the static term may not hold over the combined output.
+-fn recursive_query_output_schema(
+-    static_schema: &DFSchemaRef,
+-    recursive_schema: &DFSchemaRef,
+-) -> Result<DFSchemaRef> {
+-    if static_schema.fields().len() != recursive_schema.fields().len() {
+-        return Err(DataFusionError::Plan(format!(
+-            "Non-recursive term and recursive term must have the same number of columns ({} != {})",
+-            static_schema.fields().len(),
+-            recursive_schema.fields().len()
+-        )));
+-    }
+-
+-    let fields = static_schema
+-        .iter()
+-        .zip(recursive_schema.fields())
+-        .map(|((qualifier, static_field), recursive_field)| {
+-            let nullable = static_field.is_nullable() || recursive_field.is_nullable();
+-            (
+-                qualifier.cloned(),
+-                static_field.as_ref().clone().with_nullable(nullable).into(),
+-            )
+-        })
+-        .collect::<Vec<_>>();
+-
+-    DFSchema::new_with_metadata(fields, static_schema.metadata().clone())
+-        .map(DFSchemaRef::new)
+ }
+ 
+ /// Values expression. See
+@@ -5178,74 +5089,6 @@
+             .build()
+     }
+ 
+-    fn recursive_term_scan(name: &str, fields: Vec<Field>) -> Result<Arc<LogicalPlan>> {
+-        Ok(Arc::new(
+-            table_scan(Some(name), &Schema::new(fields), None)?.build()?,
+-        ))
+-    }
+-
+-    #[test]
+-    fn recursive_query_widens_nullability_per_column() -> Result<()> {
+-        // Column `a` is non-nullable in both terms and must stay non-nullable;
+-        // column `b` is non-nullable in the static term but nullable in the
+-        // recursive term, so the output must widen it to nullable.
+-        let static_term = recursive_term_scan(
+-            "static",
+-            vec![
+-                Field::new("a", DataType::Int32, false),
+-                Field::new("b", DataType::Int32, false),
+-            ],
+-        )?;
+-        let recursive_term = recursive_term_scan(
+-            "rec",
+-            vec![
+-                Field::new("a", DataType::Int32, false),
+-                Field::new("b", DataType::Int32, true),
+-            ],
+-        )?;
+-
+-        let query =
+-            RecursiveQuery::try_new("t".to_string(), static_term, recursive_term, false)?;
+-
+-        // Names and types are taken from the static term.
+-        assert_eq!(query.schema.field(0).name(), "a");
+-        assert_eq!(query.schema.field(1).name(), "b");
+-        assert_eq!(query.schema.field(0).data_type(), &DataType::Int32);
+-        assert_eq!(query.schema.field(1).data_type(), &DataType::Int32);
+-        // Nullability is widened independently per column.
+-        assert!(!query.schema.field(0).is_nullable());
+-        assert!(query.schema.field(1).is_nullable());
+-        // `schema()` returns the widened recursive-query schema.
+-        assert_eq!(
+-            LogicalPlan::RecursiveQuery(query.clone()).schema(),
+-            &query.schema
+-        );
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn recursive_query_rejects_column_count_mismatch() -> Result<()> {
+-        let static_term =
+-            recursive_term_scan("static", vec![Field::new("a", DataType::Int32, false)])?;
+-        let recursive_term = recursive_term_scan(
+-            "rec",
+-            vec![
+-                Field::new("a", DataType::Int32, false),
+-                Field::new("b", DataType::Int32, false),
+-            ],
+-        )?;
+-
+-        let err =
+-            RecursiveQuery::try_new("t".to_string(), static_term, recursive_term, false)
+-                .unwrap_err();
+-        assert!(
+-            err.strip_backtrace()
+-                .contains("must have the same number of columns"),
+-            "unexpected error: {err}"
+-        );
+-        Ok(())
+-    }
+-
+     #[test]
+     fn test_display_indent() -> Result<()> {
+         let plan = display_plan()?;
+--- a/datafusion/expr/src/logical_plan/tree_node.rs
++++ b/datafusion/expr/src/logical_plan/tree_node.rs
+@@ -340,18 +340,13 @@
+                 static_term,
+                 recursive_term,
+                 is_distinct,
+-                schema,
+             }) => (static_term, recursive_term).map_elements(f)?.update_data(
+                 |(static_term, recursive_term)| {
+-                    // Ordinary child rewrites preserve derived schemas. Call
+-                    // `LogicalPlan::recompute_schema` when child schemas should
+-                    // be reconciled again.
+                     LogicalPlan::RecursiveQuery(RecursiveQuery {
+                         name,
+                         static_term,
+                         recursive_term,
+                         is_distinct,
+-                        schema,
+                     })
+                 },
+             ),
+--- a/datafusion/expr/src/planner.rs
++++ b/datafusion/expr/src/planner.rs
+@@ -61,8 +61,7 @@
+         not_impl_err!("Table Functions are not supported")
+     }
+ 
+-    /// Provides an intermediate table that is used to expose a recursive CTE
+-    /// self-reference during planning and execution.
++    /// Provides an intermediate table that is used to store the results of a CTE during execution
+     ///
+     /// CTE stands for "Common Table Expression"
+     ///
+@@ -73,9 +72,6 @@
+     /// of the sql crate (for example [`CteWorkTable`]).
+     ///
+     /// The [`ContextProvider`] provides a way to "hide" this dependency.
+-    /// The schema argument is the schema to expose for scans of the recursive
+-    /// self-reference, which may be more conservative than the final recursive
+-    /// query output schema.
+     ///
+     /// [`SqlToRel`]: https://docs.rs/datafusion/latest/datafusion/sql/planner/struct.SqlToRel.html
+     /// [`CteWorkTable`]: https://docs.rs/datafusion/latest/datafusion/datasource/cte_worktable/struct.CteWorkTable.html
+--- a/datafusion/physical-plan/src/recursive_query.rs
++++ b/datafusion/physical-plan/src/recursive_query.rs
+@@ -35,7 +35,7 @@
+ };
+ use arrow::array::{BooleanArray, BooleanBuilder};
+ use arrow::compute::filter_record_batch;
+-use arrow::datatypes::SchemaRef;
++use arrow::datatypes::{Field, Schema, SchemaRef};
+ use arrow::record_batch::RecordBatch;
+ use datafusion_common::tree_node::TreeNodeRecursion;
+ use datafusion_common::tree_node::{Transformed, TransformedResult, TreeNode};
+@@ -86,7 +86,6 @@
+     /// Create a new RecursiveQueryExec
+     pub fn try_new(
+         name: String,
+-        output_schema: SchemaRef,
+         static_term: Arc<dyn ExecutionPlan>,
+         recursive_term: Arc<dyn ExecutionPlan>,
+         is_distinct: bool,
+@@ -94,6 +93,8 @@
+         // Each recursive query needs its own work table
+         let work_table = Arc::new(WorkTable::new(name.clone()));
+         // Use the same work table for both the WorkTableExec and the recursive term
++        let output_schema =
++            recursive_output_schema(&static_term.schema(), &recursive_term.schema());
+         let static_term = project_plan_to_schema(static_term, &output_schema)?;
+         let recursive_term = assign_work_table(recursive_term, &work_table)?;
+         let recursive_term = project_plan_to_schema(recursive_term, &output_schema)?;
+@@ -190,7 +191,6 @@
+     ) -> Result<Arc<dyn ExecutionPlan>> {
+         RecursiveQueryExec::try_new(
+             self.name.clone(),
+-            self.schema(),
+             Arc::clone(&children[0]),
+             Arc::clone(&children[1]),
+             self.is_distinct,
+@@ -387,6 +387,30 @@
+     }
+ }
+ 
++fn recursive_output_schema(
++    static_schema: &SchemaRef,
++    recursive_schema: &SchemaRef,
++) -> SchemaRef {
++    let fields = static_schema
++        .fields()
++        .iter()
++        .zip(recursive_schema.fields())
++        .map(|(static_field, recursive_field)| {
++            Field::new(
++                static_field.name(),
++                static_field.data_type().clone(),
++                static_field.is_nullable() || recursive_field.is_nullable(),
++            )
++            .with_metadata(static_field.metadata().clone())
++        })
++        .collect::<Vec<_>>();
++
++    Arc::new(Schema::new_with_metadata(
++        fields,
++        static_schema.metadata().clone(),
++    ))
++}
++
+ fn assign_work_table(
+     plan: Arc<dyn ExecutionPlan>,
+     work_table: &Arc<WorkTable>,
+@@ -537,7 +561,6 @@
+ 
+         let exec = RecursiveQueryExec::try_new(
+             "numbers".to_string(),
+-            static_term.schema(),
+             Arc::clone(&static_term),
+             Arc::clone(&recursive_term),
+             false,
+@@ -559,15 +582,9 @@
+         let static_term = empty_exec(vec![Field::new("value", DataType::Int32, false)]);
+         let recursive_term =
+             empty_exec(vec![Field::new("value + Int32(1)", DataType::Int32, true)]);
+-        let output_schema = Arc::new(Schema::new(vec![Field::new(
+-            "value",
+-            DataType::Int32,
+-            true,
+-        )]));
+ 
+         let exec = RecursiveQueryExec::try_new(
+             "numbers".to_string(),
+-            Arc::clone(&output_schema),
+             static_term,
+             recursive_term,
+             false,
+--- a/datafusion/proto/src/logical_plan/mod.rs
++++ b/datafusion/proto/src/logical_plan/mod.rs
+@@ -1241,15 +1241,12 @@
+                     ))?
+                     .try_into_logical_plan(ctx, extension_codec)?;
+ 
+-                // The output schema is derived state, so decoding goes through
+-                // the constructor after restoring the child terms.
+-                RecursiveQuery::try_new(
+-                    recursive_query_node.name.clone(),
+-                    Arc::new(static_term),
+-                    Arc::new(recursive_term),
+-                    recursive_query_node.is_distinct,
+-                )
+-                .map(LogicalPlan::RecursiveQuery)
++                Ok(LogicalPlan::RecursiveQuery(RecursiveQuery {
++                    name: recursive_query_node.name.clone(),
++                    static_term: Arc::new(static_term),
++                    recursive_term: Arc::new(recursive_term),
++                    is_distinct: recursive_query_node.is_distinct,
++                }))
+             }
+             LogicalPlanType::CteWorkTableScan(cte_work_table_scan_node) => {
+                 let CteWorkTableScanNode { name, schema } = cte_work_table_scan_node;
+--- a/datafusion/sql/src/cte.rs
++++ b/datafusion/sql/src/cte.rs
+@@ -19,7 +19,6 @@
+ 
+ use crate::planner::{ContextProvider, PlannerContext, SqlToRel};
+ 
+-use arrow::datatypes::{Schema, SchemaRef};
+ use datafusion_common::{
+     Result, TableReference, not_impl_err, plan_err,
+     tree_node::{TreeNode, TreeNodeRecursion},
+@@ -145,19 +144,15 @@
+         // in the case of DataFusion).
+         //
+         // Since we can't simply register a table during planning stage (it is
+-        // an execution problem), we'll use a relation object that knows which
+-        // recursive CTE it is bound to.
++        // an execution problem), we'll use a relation object that preserves the
++        // schema of the input perfectly and also knows which recursive CTE it is
++        // bound to.
+ 
+         // ---------- Step 2: Create a temporary relation ------------------
+         // Step 2.1: Create a table source for the temporary relation
+-        // Recursive self-references must expose conservative (nullable)
+-        // columns. Deriving them from the static term's possibly non-nullable
+-        // schema would let the recursive term treat values from previous
+-        // iterations as non-nullable.
+-        let work_table_source = self.context_provider.create_cte_work_table(
+-            cte_name,
+-            nullable_schema(static_plan.schema().inner()),
+-        )?;
++        let work_table_source = self
++            .context_provider
++            .create_cte_work_table(cte_name, Arc::clone(static_plan.schema().inner()))?;
+ 
+         // Step 2.2: Create a temporary relation logical plan that will be used
+         // as the input to the recursive term
+@@ -206,19 +201,6 @@
+     }
+ }
+ 
+-/// Return a copy of `schema` with every field marked nullable, preserving field
+-/// and schema metadata.
+-fn nullable_schema(schema: &Schema) -> SchemaRef {
+-    Arc::new(Schema::new_with_metadata(
+-        schema
+-            .fields()
+-            .iter()
+-            .map(|field| field.as_ref().clone().with_nullable(true))
+-            .collect::<Vec<_>>(),
+-        schema.metadata().clone(),
+-    ))
+-}
+-
+ fn has_work_table_reference(
+     plan: &LogicalPlan,
+     work_table_source: &Arc<dyn TableSource>,

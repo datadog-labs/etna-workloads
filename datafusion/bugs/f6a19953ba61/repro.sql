@@ -1,0 +1,2 @@
+SELECT date_part('ISODOW', CAST('2000-01-01' AS DATE));
+SELECT EXTRACT(isodow FROM to_timestamp('2020-09-08T12:00:00+00:00'));

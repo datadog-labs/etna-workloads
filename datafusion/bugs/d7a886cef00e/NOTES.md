@@ -1,0 +1,1 @@
+Reproducer: `greatest(a is [not] null, false)` over a float column. Clean build returns booleans; buggy build errors with 'Cannot find a common type for arguments to greatest', because IS NULL/IS NOT NULL return the argument's field (Float32) instead of Boolean.

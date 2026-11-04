@@ -1,0 +1,719 @@
+--- a/datafusion/functions-nested/src/concat.rs
++++ b/datafusion/functions-nested/src/concat.rs
+@@ -20,29 +20,26 @@
+ use std::sync::Arc;
+ 
+ use crate::make_array::make_array_inner;
+-use crate::utils::{
+-    align_array_dimensions, check_datatypes, list_inner_field, list_type_with_element,
+-    make_scalar_function,
+-};
++use crate::utils::{align_array_dimensions, check_datatypes, make_scalar_function};
+ use arrow::array::{
+     Array, ArrayData, ArrayRef, Capacities, GenericListArray, MutableArrayData,
+     OffsetSizeTrait,
+ };
+ use arrow::buffer::{NullBuffer, OffsetBuffer};
+-use arrow::datatypes::{DataType, Field, FieldRef};
++use arrow::datatypes::{DataType, Field};
+ use datafusion_common::Result;
+ use datafusion_common::utils::{
+     ListCoercion, base_type, coerced_type_with_base_type_only,
+ };
+ use datafusion_common::{
+     cast::as_generic_list_array,
+-    exec_err, internal_err, plan_err,
++    exec_err, plan_err,
+     utils::{list_ndims, take_function_args},
+ };
+ use datafusion_expr::binary::type_union_resolution;
+ use datafusion_expr::{
+-    ColumnarValue, Documentation, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl,
+-    Signature, Volatility,
++    ColumnarValue, Documentation, ScalarFunctionArgs, ScalarUDFImpl, Signature,
++    Volatility,
+ };
+ use datafusion_macros::user_doc;
+ use itertools::Itertools;
+@@ -107,26 +104,17 @@
+         &self.signature
+     }
+ 
+-    fn return_type(&self, _arg_types: &[DataType]) -> Result<DataType> {
+-        internal_err!("return_field_from_args should be used instead")
+-    }
+-
+-    fn return_field_from_args(&self, args: ReturnFieldArgs) -> Result<FieldRef> {
+-        let [array_field, element_field] =
+-            take_function_args(self.name(), args.arg_fields)?;
+-        let data_type = append_prepend_return_type(
+-            array_field.data_type(),
+-            element_field.data_type(),
+-            element_field.is_nullable(),
+-        );
+-        Ok(Arc::new(Field::new(self.name(), data_type, true)))
++    fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
++        let [array_type, element_type] = take_function_args(self.name(), arg_types)?;
++        if array_type.is_null() {
++            Ok(DataType::new_list(element_type.clone(), true))
++        } else {
++            Ok(array_type.clone())
++        }
+     }
+ 
+     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+-        let return_type = args.return_field.data_type().clone();
+-        make_scalar_function(|args: &[ArrayRef]| array_append_inner(args, &return_type))(
+-            &args.args,
+-        )
++        make_scalar_function(array_append_inner)(&args.args)
+     }
+ 
+     fn aliases(&self) -> &[String] {
+@@ -198,26 +186,17 @@
+         &self.signature
+     }
+ 
+-    fn return_type(&self, _arg_types: &[DataType]) -> Result<DataType> {
+-        internal_err!("return_field_from_args should be used instead")
+-    }
+-
+-    fn return_field_from_args(&self, args: ReturnFieldArgs) -> Result<FieldRef> {
+-        let [element_field, array_field] =
+-            take_function_args(self.name(), args.arg_fields)?;
+-        let data_type = append_prepend_return_type(
+-            array_field.data_type(),
+-            element_field.data_type(),
+-            element_field.is_nullable(),
+-        );
+-        Ok(Arc::new(Field::new(self.name(), data_type, true)))
++    fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
++        let [element_type, array_type] = take_function_args(self.name(), arg_types)?;
++        if array_type.is_null() {
++            Ok(DataType::new_list(element_type.clone(), true))
++        } else {
++            Ok(array_type.clone())
++        }
+     }
+ 
+     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+-        let return_type = args.return_field.data_type().clone();
+-        make_scalar_function(|args: &[ArrayRef]| array_prepend_inner(args, &return_type))(
+-            &args.args,
+-        )
++        make_scalar_function(array_prepend_inner)(&args.args)
+     }
+ 
+     fn aliases(&self) -> &[String] {
+@@ -396,38 +375,13 @@
+             args[0].len(),
+         )))
+     } else if large_list {
+-        concat_internal::<i64>(args, None)
+-    } else {
+-        concat_internal::<i32>(args, None)
+-    }
+-}
+-
+-/// Return type shared by `array_append` and `array_prepend`: the input list
+-/// type, except that its inner field is nullable whenever the appended or
+-/// prepended element may be null.
+-fn append_prepend_return_type(
+-    array_type: &DataType,
+-    element_type: &DataType,
+-    element_nullable: bool,
+-) -> DataType {
+-    if array_type.is_null() {
+-        DataType::new_list(element_type.clone(), true)
++        concat_internal::<i64>(args)
+     } else {
+-        list_type_with_element(array_type, element_nullable)
++        concat_internal::<i32>(args)
+     }
+ }
+ 
+-/// Concatenates the list arrays in `args` row-wise.
+-///
+-/// `field` is the list field the output must carry. `array_concat` passes `None`
+-/// because its `return_type` derives a fresh field from the unified element
+-/// types, which is what deriving the field from the aligned inputs reproduces.
+-/// `array_append` / `array_prepend` promise their input's field verbatim and so
+-/// must pass it in explicitly.
+-fn concat_internal<O: OffsetSizeTrait>(
+-    args: &[ArrayRef],
+-    field: Option<&FieldRef>,
+-) -> Result<ArrayRef> {
++fn concat_internal<O: OffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+     let args = align_array_dimensions::<O>(args.to_vec())?;
+ 
+     let list_arrays = args
+@@ -484,14 +438,11 @@
+         offsets.push(O::usize_as(mutable.len()));
+     }
+ 
+-    let field = match field {
+-        Some(field) => Arc::clone(field),
+-        None => Arc::new(Field::new_list_field(list_arrays[0].value_type(), true)),
+-    };
++    let data_type = list_arrays[0].value_type();
+     let data = mutable.freeze();
+ 
+     Ok(Arc::new(GenericListArray::<O>::try_new(
+-        field,
++        Arc::new(Field::new_list_field(data_type, true)),
+         OffsetBuffer::new(offsets.into()),
+         arrow::array::make_array(data),
+         valid,
+@@ -500,26 +451,22 @@
+ 
+ // Kernel functions
+ 
+-fn array_append_inner(args: &[ArrayRef], return_type: &DataType) -> Result<ArrayRef> {
++fn array_append_inner(args: &[ArrayRef]) -> Result<ArrayRef> {
+     let [array, values] = take_function_args("array_append", args)?;
+     match array.data_type() {
+         DataType::Null => make_array_inner(&[Arc::clone(values)]),
+-        DataType::List(_) => general_append_and_prepend::<i32>(args, true, return_type),
+-        DataType::LargeList(_) => {
+-            general_append_and_prepend::<i64>(args, true, return_type)
+-        }
++        DataType::List(_) => general_append_and_prepend::<i32>(args, true),
++        DataType::LargeList(_) => general_append_and_prepend::<i64>(args, true),
+         arg_type => exec_err!("array_append does not support type {arg_type}"),
+     }
+ }
+ 
+-fn array_prepend_inner(args: &[ArrayRef], return_type: &DataType) -> Result<ArrayRef> {
++fn array_prepend_inner(args: &[ArrayRef]) -> Result<ArrayRef> {
+     let [values, array] = take_function_args("array_prepend", args)?;
+     match array.data_type() {
+         DataType::Null => make_array_inner(&[Arc::clone(values)]),
+-        DataType::List(_) => general_append_and_prepend::<i32>(args, false, return_type),
+-        DataType::LargeList(_) => {
+-            general_append_and_prepend::<i64>(args, false, return_type)
+-        }
++        DataType::List(_) => general_append_and_prepend::<i32>(args, false),
++        DataType::LargeList(_) => general_append_and_prepend::<i64>(args, false),
+         arg_type => exec_err!("array_prepend does not support type {arg_type}"),
+     }
+ }
+@@ -527,7 +474,6 @@
+ fn general_append_and_prepend<O: OffsetSizeTrait>(
+     args: &[ArrayRef],
+     is_append: bool,
+-    return_type: &DataType,
+ ) -> Result<ArrayRef>
+ where
+     i64: TryInto<O>,
+@@ -544,22 +490,14 @@
+         (list_array, element_array)
+     };
+ 
+-    let name = if is_append {
+-        "array_append"
+-    } else {
+-        "array_prepend"
+-    };
+-    let field = list_inner_field(name, return_type)?;
+-
+     let res = match list_array.value_type() {
+-        DataType::List(_) | DataType::LargeList(_) => {
+-            concat_internal::<O>(args, Some(&field))?
+-        }
+-        _ => {
++        DataType::List(_) => concat_internal::<O>(args)?,
++        DataType::LargeList(_) => concat_internal::<O>(args)?,
++        data_type => {
+             return generic_append_and_prepend::<O>(
+                 list_array,
+                 element_array,
+-                field,
++                &data_type,
+                 is_append,
+             );
+         }
+@@ -578,7 +516,7 @@
+ ///
+ /// * `list_array` - A reference to the ListArray to which elements will be appended/prepended.
+ /// * `element_array` - A reference to the Array containing elements to be appended/prepended.
+-/// * `field` - The list field the output must carry, taken from the promised return type.
++/// * `field` - A reference to the Field describing the data type of the arrays.
+ /// * `is_append` - A boolean flag indicating whether to append (`true`) or prepend (`false`) elements.
+ ///
+ /// # Examples
+@@ -590,7 +528,7 @@
+ fn generic_append_and_prepend<O: OffsetSizeTrait>(
+     list_array: &GenericListArray<O>,
+     element_array: &ArrayRef,
+-    field: FieldRef,
++    data_type: &DataType,
+     is_append: bool,
+ ) -> Result<ArrayRef>
+ where
+@@ -627,7 +565,7 @@
+     let data = mutable.freeze();
+ 
+     Ok(Arc::new(GenericListArray::<O>::try_new(
+-        field,
++        Arc::new(Field::new_list_field(data_type.to_owned(), true)),
+         OffsetBuffer::new(offsets.into()),
+         arrow::array::make_array(data),
+         None,
+--- a/datafusion/functions-nested/src/extract.rs
++++ b/datafusion/functions-nested/src/extract.rs
+@@ -47,7 +47,7 @@
+ use datafusion_macros::user_doc;
+ use std::sync::Arc;
+ 
+-use crate::utils::{list_inner_field, make_scalar_function};
++use crate::utils::make_scalar_function;
+ 
+ // Create static instances of ScalarUDFs for each function
+ make_udf_expr_and_func!(
+@@ -624,7 +624,14 @@
+     // Carry the input's list field through to the output so that the returned
+     // type matches the one promised by `return_type` / `return_field_from_args`,
+     // including the field name, nullability and metadata.
+-    let field = list_inner_field("general_array_slice", array.data_type())?;
++    let field = match array.data_type() {
++        List(field) | LargeList(field) => Arc::clone(field),
++        other => {
++            return internal_err!(
++                "general_array_slice got unexpected data type: {other}"
++            );
++        }
++    };
+ 
+     // `use_nulls` is false because we never call `try_extend_nulls`: null rows are
+     // emitted as empty slices. Arrow still allocates a validity buffer on its own
+--- a/datafusion/functions-nested/src/replace.rs
++++ b/datafusion/functions-nested/src/replace.rs
+@@ -22,20 +22,17 @@
+     NullBufferBuilder, OffsetSizeTrait, Scalar, new_null_array,
+ };
+ use arrow::buffer::OffsetBuffer;
+-use arrow::datatypes::{DataType, Field, FieldRef};
++use arrow::datatypes::{DataType, Field};
+ use datafusion_common::cast::as_int64_array;
+ use datafusion_common::utils::ListCoercion;
+-use datafusion_common::{
+-    Result, ScalarValue, exec_err, internal_err, utils::take_function_args,
+-};
++use datafusion_common::{Result, ScalarValue, exec_err, utils::take_function_args};
+ use datafusion_expr::{
+     ArrayFunctionArgument, ArrayFunctionSignature, ColumnarValue, Documentation,
+-    ReturnFieldArgs, ScalarFunctionArgs, ScalarUDFImpl, Signature, TypeSignature,
+-    Volatility,
++    ScalarFunctionArgs, ScalarUDFImpl, Signature, TypeSignature, Volatility,
+ };
+ use datafusion_macros::user_doc;
+ 
+-use crate::utils::{compare_element_to_list, list_inner_field, list_type_with_element};
++use crate::utils::compare_element_to_list;
+ 
+ use std::sync::Arc;
+ 
+@@ -121,28 +118,21 @@
+         &self.signature
+     }
+ 
+-    fn return_type(&self, _arg_types: &[DataType]) -> Result<DataType> {
+-        internal_err!("return_field_from_args should be used instead")
+-    }
+-
+-    fn return_field_from_args(&self, args: ReturnFieldArgs) -> Result<FieldRef> {
+-        replace_return_field(self.name(), args.arg_fields)
++    fn return_type(&self, args: &[DataType]) -> Result<DataType> {
++        Ok(args[0].clone())
+     }
+ 
+     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+-        let return_type = args.return_field.data_type().clone();
+         let [list_arg, from_arg, to_arg] = take_function_args(self.name(), &args.args)?;
+         let num_rows = args.number_rows;
+         let list_array = list_arg.to_array(num_rows)?;
+         match (from_arg, to_arg) {
+             (ColumnarValue::Scalar(scalar_from), ColumnarValue::Scalar(scalar_to)) => {
+                 let result = array_replace_with_scalar_args(
+-                    self.name(),
+                     &list_array,
+                     scalar_from,
+                     scalar_to,
+                     1i64,
+-                    &return_type,
+                 )?;
+                 Ok(ColumnarValue::Array(result))
+             }
+@@ -150,12 +140,10 @@
+                 let from_array = from_arg.to_array(num_rows)?;
+                 let to_array = to_arg.to_array(num_rows)?;
+                 let result = array_replace_internal(
+-                    self.name(),
+                     &list_array,
+                     &from_array,
+                     &to_array,
+                     &[Some(1)],
+-                    &return_type,
+                 )?;
+                 Ok(ColumnarValue::Array(result))
+             }
+@@ -229,16 +217,11 @@
+         &self.signature
+     }
+ 
+-    fn return_type(&self, _arg_types: &[DataType]) -> Result<DataType> {
+-        internal_err!("return_field_from_args should be used instead")
+-    }
+-
+-    fn return_field_from_args(&self, args: ReturnFieldArgs) -> Result<FieldRef> {
+-        replace_return_field(self.name(), args.arg_fields)
++    fn return_type(&self, args: &[DataType]) -> Result<DataType> {
++        Ok(args[0].clone())
+     }
+ 
+     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+-        let return_type = args.return_field.data_type().clone();
+         let [list_arg, from_arg, to_arg, max_arg] =
+             take_function_args(self.name(), &args.args)?;
+         let num_rows = args.number_rows;
+@@ -251,17 +234,15 @@
+             ) => {
+                 let ScalarValue::Int64(Some(n)) = scalar_max else {
+                     return Ok(ColumnarValue::Array(new_null_array(
+-                        &return_type,
++                        list_array.data_type(),
+                         num_rows,
+                     )));
+                 };
+                 let result = array_replace_with_scalar_args(
+-                    self.name(),
+                     &list_array,
+                     scalar_from,
+                     scalar_to,
+                     *n,
+-                    &return_type,
+                 )?;
+                 Ok(ColumnarValue::Array(result))
+             }
+@@ -270,12 +251,10 @@
+                 let to_array = to_arg.to_array(num_rows)?;
+                 let max_array = max_arg.to_array(num_rows)?;
+                 let result = array_replace_n_inner(
+-                    self.name(),
+                     &list_array,
+                     &from_array,
+                     &to_array,
+                     &max_array,
+-                    &return_type,
+                 )?;
+                 Ok(ColumnarValue::Array(result))
+             }
+@@ -347,28 +326,21 @@
+         &self.signature
+     }
+ 
+-    fn return_type(&self, _arg_types: &[DataType]) -> Result<DataType> {
+-        internal_err!("return_field_from_args should be used instead")
+-    }
+-
+-    fn return_field_from_args(&self, args: ReturnFieldArgs) -> Result<FieldRef> {
+-        replace_return_field(self.name(), args.arg_fields)
++    fn return_type(&self, args: &[DataType]) -> Result<DataType> {
++        Ok(args[0].clone())
+     }
+ 
+     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+-        let return_type = args.return_field.data_type().clone();
+         let [list_arg, from_arg, to_arg] = take_function_args(self.name(), &args.args)?;
+         let num_rows = args.number_rows;
+         let list_array = list_arg.to_array(num_rows)?;
+         match (from_arg, to_arg) {
+             (ColumnarValue::Scalar(scalar_from), ColumnarValue::Scalar(scalar_to)) => {
+                 let result = array_replace_with_scalar_args(
+-                    self.name(),
+                     &list_array,
+                     scalar_from,
+                     scalar_to,
+                     i64::MAX,
+-                    &return_type,
+                 )?;
+                 Ok(ColumnarValue::Array(result))
+             }
+@@ -376,12 +348,10 @@
+                 let from_array = from_arg.to_array(num_rows)?;
+                 let to_array = to_arg.to_array(num_rows)?;
+                 let result = array_replace_internal(
+-                    self.name(),
+                     &list_array,
+                     &from_array,
+                     &to_array,
+                     &[Some(i64::MAX)],
+-                    &return_type,
+                 )?;
+                 Ok(ColumnarValue::Array(result))
+             }
+@@ -397,24 +367,6 @@
+     }
+ }
+ 
+-/// Return field shared by `array_replace`, `array_replace_n` and
+-/// `array_replace_all`: the input list type, except that its inner field is
+-/// nullable whenever the replacement element may be null.
+-fn replace_return_field(name: &str, arg_fields: &[FieldRef]) -> Result<FieldRef> {
+-    // `array` is at index 0 and `to` at index 2 for all three functions.
+-    // `from` never contributes values to the output, so `to` is the only
+-    // argument besides `array` that can affect the output's type.
+-    let [array_field, _from_field, to_field, ..] = arg_fields else {
+-        return exec_err!(
+-            "{name} expects at least 3 arguments, got {}",
+-            arg_fields.len()
+-        );
+-    };
+-    let data_type =
+-        list_type_with_element(array_field.data_type(), to_field.is_nullable());
+-    Ok(Arc::new(Field::new(name, data_type, true)))
+-}
+-
+ /// For each element of `list_array[i]`, replaces up to `arr_n[i]`  occurrences
+ /// of `from_array[i]`, `to_array[i]`.
+ ///
+@@ -437,7 +389,6 @@
+     from_array: &ArrayRef,
+     to_array: &ArrayRef,
+     arr_n: &[Option<i64>],
+-    field: FieldRef,
+ ) -> Result<ArrayRef> {
+     // Build up the offsets for the final output array
+     let mut offsets: Vec<O> = Vec::with_capacity(list_array.len() + 1);
+@@ -551,7 +502,7 @@
+     let data = mutable.freeze();
+ 
+     Ok(Arc::new(GenericListArray::<O>::try_new(
+-        field,
++        Arc::new(Field::new_list_field(list_array.value_type(), true)),
+         OffsetBuffer::<O>::new(offsets.into()),
+         arrow::array::make_array(data),
+         valid.finish(),
+@@ -569,17 +520,10 @@
+     needle: &Scalar<ArrayRef>,
+     scalar_to: &ScalarValue,
+     max_replacements: i64,
+-    field: FieldRef,
+ ) -> Result<ArrayRef> {
+-    // No replacement needed, but the output still has to carry the promised
+-    // field, which may be more nullable than the input's.
++    // No replacement needed - return unchanged.
+     if max_replacements <= 0 {
+-        return Ok(Arc::new(GenericListArray::<O>::try_new(
+-            field,
+-            list_array.offsets().clone(),
+-            Arc::clone(list_array.values()),
+-            list_array.nulls().cloned(),
+-        )?));
++        return Ok(Arc::new(list_array.clone()));
+     }
+ 
+     let first_offset = list_array.offsets()[0].to_usize().unwrap();
+@@ -654,7 +598,7 @@
+     let data = mutable.freeze();
+ 
+     Ok(Arc::new(GenericListArray::<O>::try_new(
+-        field,
++        Arc::new(Field::new_list_field(list_array.value_type(), true)),
+         OffsetBuffer::new(offsets.into()),
+         arrow::array::make_array(data),
+         list_array.nulls().cloned(),
+@@ -665,12 +609,10 @@
+ ///
+ /// Uses a single bulk `not_distinct` comparison instead of per-row comparisons.
+ fn array_replace_with_scalar_args(
+-    name: &str,
+     list_array: &ArrayRef,
+     scalar_from: &ScalarValue,
+     scalar_to: &ScalarValue,
+     max_replacements: i64,
+-    return_type: &DataType,
+ ) -> Result<ArrayRef> {
+     // `not_distinct` doesn't support nested types, fall back to the generic array path.
+     if scalar_from.data_type().is_nested() {
+@@ -678,74 +620,56 @@
+         let from_array = scalar_from.to_array_of_size(num_rows)?;
+         let to_array = scalar_to.to_array_of_size(num_rows)?;
+         return array_replace_internal(
+-            name,
+             list_array,
+             &from_array,
+             &to_array,
+             &vec![Some(max_replacements); num_rows],
+-            return_type,
+         );
+     }
+ 
+     let needle = Scalar::new(scalar_from.to_array_of_size(1)?);
+     match list_array.data_type() {
+-        DataType::List(_) => general_replace_with_scalar::<i32>(
+-            list_array.as_list::<i32>(),
+-            &needle,
+-            scalar_to,
+-            max_replacements,
+-            list_inner_field(name, return_type)?,
+-        ),
+-        DataType::LargeList(_) => general_replace_with_scalar::<i64>(
+-            list_array.as_list::<i64>(),
+-            &needle,
+-            scalar_to,
+-            max_replacements,
+-            list_inner_field(name, return_type)?,
+-        ),
+-        DataType::Null => Ok(new_null_array(return_type, list_array.len())),
+-        array_type => exec_err!("{name} does not support type '{array_type}'."),
++        DataType::List(_) => {
++            let list = list_array.as_list::<i32>();
++            general_replace_with_scalar::<i32>(list, &needle, scalar_to, max_replacements)
++        }
++        DataType::LargeList(_) => {
++            let list = list_array.as_list::<i64>();
++            general_replace_with_scalar::<i64>(list, &needle, scalar_to, max_replacements)
++        }
++        DataType::Null => Ok(new_null_array(list_array.data_type(), list_array.len())),
++        array_type => exec_err!("array_replace does not support type '{array_type}'."),
+     }
+ }
+ 
+ fn array_replace_internal(
+-    name: &str,
+     array: &ArrayRef,
+     from: &ArrayRef,
+     to: &ArrayRef,
+     arr_n: &[Option<i64>],
+-    return_type: &DataType,
+ ) -> Result<ArrayRef> {
+     match array.data_type() {
+-        DataType::List(_) => general_replace::<i32>(
+-            array.as_list::<i32>(),
+-            from,
+-            to,
+-            arr_n,
+-            list_inner_field(name, return_type)?,
+-        ),
+-        DataType::LargeList(_) => general_replace::<i64>(
+-            array.as_list::<i64>(),
+-            from,
+-            to,
+-            arr_n,
+-            list_inner_field(name, return_type)?,
+-        ),
+-        DataType::Null => Ok(new_null_array(return_type, array.len())),
+-        array_type => exec_err!("{name} does not support type '{array_type}'."),
++        DataType::List(_) => {
++            let list_array = array.as_list::<i32>();
++            general_replace::<i32>(list_array, from, to, arr_n)
++        }
++        DataType::LargeList(_) => {
++            let list_array = array.as_list::<i64>();
++            general_replace::<i64>(list_array, from, to, arr_n)
++        }
++        DataType::Null => Ok(new_null_array(array.data_type(), array.len())),
++        array_type => exec_err!("array_replace does not support type '{array_type}'."),
+     }
+ }
+ 
+ fn array_replace_n_inner(
+-    name: &str,
+     array: &ArrayRef,
+     from: &ArrayRef,
+     to: &ArrayRef,
+     max: &ArrayRef,
+-    return_type: &DataType,
+ ) -> Result<ArrayRef> {
+     let arr_n = as_int64_array(max)?.iter().collect::<Vec<_>>();
+-    array_replace_internal(name, array, from, to, &arr_n, return_type)
++    array_replace_internal(array, from, to, &arr_n)
+ }
+ 
+ #[cfg(test)]
+@@ -772,14 +696,7 @@
+             Some(NullBuffer::from(vec![true, false])),
+         ));
+ 
+-        let result = array_replace_n_inner(
+-            "array_replace_n",
+-            &array,
+-            &from,
+-            &to,
+-            &max,
+-            array.data_type(),
+-        )?;
++        let result = array_replace_n_inner(&array, &from, &to, &max)?;
+         let expected = ListArray::from_iter_primitive::<Int32Type, _, _>(vec![
+             Some(vec![Some(1), Some(9), Some(3)]),
+             None,
+--- a/datafusion/functions-nested/src/utils.rs
++++ b/datafusion/functions-nested/src/utils.rs
+@@ -19,7 +19,7 @@
+ 
+ use std::sync::Arc;
+ 
+-use arrow::datatypes::{DataType, Field, FieldRef, Fields};
++use arrow::datatypes::{DataType, Field, Fields};
+ 
+ use arrow::array::{
+     Array, ArrayRef, BooleanArray, Float64Array, GenericListArray, NullBufferBuilder,
+@@ -35,57 +35,6 @@
+ use datafusion_expr::ColumnarValue;
+ use itertools::Itertools as _;
+ 
+-/// Computes the return type of a function that produces a list with the same
+-/// inner field as `array_type`, plus an element that may be null when
+-/// `element_nullable` is set.
+-///
+-/// The inner field is carried over from `array_type` verbatim — name, metadata
+-/// and all — so that the type promised at planning time is the one the kernel
+-/// can actually build. Its nullability is widened when `element_nullable` is
+-/// set, because a nullable new element may introduce nulls into a list whose
+-/// elements were previously declared non-nullable.
+-///
+-/// Types other than `List`/`LargeList` are returned unchanged; callers handle
+-/// `Null` themselves and the kernels reject anything else at execution time.
+-pub(crate) fn list_type_with_element(
+-    array_type: &DataType,
+-    element_nullable: bool,
+-) -> DataType {
+-    match array_type {
+-        DataType::List(field) => {
+-            DataType::List(widen_nullability(field, element_nullable))
+-        }
+-        DataType::LargeList(field) => {
+-            DataType::LargeList(widen_nullability(field, element_nullable))
+-        }
+-        other => other.clone(),
+-    }
+-}
+-
+-fn widen_nullability(field: &FieldRef, nullable: bool) -> FieldRef {
+-    if nullable && !field.is_nullable() {
+-        Arc::new(field.as_ref().clone().with_nullable(true))
+-    } else {
+-        Arc::clone(field)
+-    }
+-}
+-
+-/// Extracts the inner field of a `List`/`LargeList` type, so that a kernel can
+-/// build a list array carrying exactly that field.
+-///
+-/// Used both on an input's type and on the type promised by
+-/// [`ScalarUDFImpl::return_field_from_args`]. Anything else is a bug in the
+-/// caller's dispatch, hence the internal error; `context` names the kernel so
+-/// that error identifies where the bad dispatch happened.
+-///
+-/// [`ScalarUDFImpl::return_field_from_args`]: datafusion_expr::ScalarUDFImpl::return_field_from_args
+-pub(crate) fn list_inner_field(context: &str, data_type: &DataType) -> Result<FieldRef> {
+-    match data_type {
+-        DataType::List(field) | DataType::LargeList(field) => Ok(Arc::clone(field)),
+-        other => internal_err!("{context} got unexpected data type: {other}"),
+-    }
+-}
+-
+ pub(crate) fn check_datatypes(name: &str, args: &[&ArrayRef]) -> Result<()> {
+     let data_type = args[0].data_type();
+     if !args.iter().all(|arg| {

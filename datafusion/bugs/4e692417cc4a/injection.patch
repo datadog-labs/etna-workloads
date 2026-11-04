@@ -1,0 +1,31 @@
+--- a/datafusion/physical-optimizer/src/limit_pushdown_past_window.rs
++++ b/datafusion/physical-optimizer/src/limit_pushdown_past_window.rs
+@@ -152,19 +152,7 @@
+ }
+ 
+ fn grow_limit(window: &BoundedWindowAggExec, ctx: &mut TraverseState) -> bool {
+-    let mut max_rel = 0;
+     for expr in window.window_expr().iter() {
+-        // grow based on function requirements
+-        match get_limit_effect(expr) {
+-            LimitEffect::None => {}
+-            LimitEffect::Unknown => return false,
+-            LimitEffect::Relative(rel) => max_rel = max_rel.max(rel),
+-            LimitEffect::Absolute(val) => {
+-                let cur = ctx.limit.unwrap_or(0);
+-                ctx.limit = Some(cur.max(val))
+-            }
+-        }
+-
+         // grow based on frames
+         let frame = expr.get_window_frame();
+         if frame.units != WindowFrameUnits::Rows {
+@@ -176,8 +164,6 @@
+         ctx.max_lookahead(end_bound);
+     }
+ 
+-    // finish grow
+-    ctx.max_lookahead(ctx.lookahead + max_rel);
+     true
+ }
+ 

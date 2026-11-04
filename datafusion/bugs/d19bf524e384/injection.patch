@@ -1,0 +1,91 @@
+--- a/datafusion/datasource/src/file_scan_config/mod.rs
++++ b/datafusion/datasource/src/file_scan_config/mod.rs
+@@ -882,19 +882,6 @@
+         )
+         .with_constraints(self.constraints.clone());
+ 
+-        if let Some(filter) = self.file_source.filter() {
+-            // We need to remap column indexes to match the projected schema since that's what the equivalence properties deal with.
+-            // Note that this will *ignore* any non-projected columns: these don't factor into ordering / equivalence.
+-            match Self::add_filter_equivalence_info(&filter, &mut eq_properties, schema) {
+-                Ok(()) => {}
+-                Err(e) => {
+-                    warn!("Failed to add filter equivalence info: {e}");
+-                    #[cfg(debug_assertions)]
+-                    panic!("Failed to add filter equivalence info: {e}");
+-                }
+-            }
+-        }
+-
+         if let Some(projection) = self.file_source.projection() {
+             match (
+                 projection.project_schema(schema),
+--- a/datafusion/datasource/src/source.rs
++++ b/datafusion/datasource/src/source.rs
+@@ -44,7 +44,12 @@
+ use datafusion_common::tree_node::TreeNodeRecursion;
+ use datafusion_common::{Constraints, Result, Statistics};
+ use datafusion_execution::{SendableRecordBatchStream, TaskContext};
+-use datafusion_physical_expr::{EquivalenceProperties, Partitioning, PhysicalExpr};
++use datafusion_expr::Operator;
++use datafusion_physical_expr::expressions::BinaryExpr;
++use datafusion_physical_expr::split_conjunction;
++use datafusion_physical_expr::{
++    EquivalenceProperties, Partitioning, PhysicalExpr, conjunction,
++};
+ use datafusion_physical_expr_common::sort_expr::{LexOrdering, PhysicalSortExpr};
+ use datafusion_physical_plan::SortOrderPushdownResult;
+ use datafusion_physical_plan::StatisticsArgs;
+@@ -551,7 +556,7 @@
+             .collect_vec();
+         let res = self
+             .data_source
+-            .try_pushdown_filters(parent_filters, config)?;
++            .try_pushdown_filters(parent_filters.clone(), config)?;
+         match res.updated_node {
+             Some(data_source) => {
+                 let mut new_node = self.clone();
+@@ -560,6 +565,18 @@
+                 new_node.cache =
+                     Arc::new(Self::compute_properties(&new_node.data_source));
+ 
++                // Recompute equivalence info using new filters
++                let filter = conjunction(
++                    res.filters
++                        .iter()
++                        .zip(parent_filters)
++                        .filter_map(|(s, f)| match s {
++                            PushedDown::Yes => Some(f),
++                            PushedDown::No => None,
++                        })
++                        .collect_vec(),
++                );
++                new_node = new_node.add_filter_equivalence_info(filter)?;
+                 Ok(FilterPushdownPropagation {
+                     filters: res.filters,
+                     updated_node: Some(Arc::new(new_node)),
+@@ -667,6 +684,24 @@
+         self
+     }
+ 
++    /// Add filters' equivalence info
++    fn add_filter_equivalence_info(
++        mut self,
++        filter: Arc<dyn PhysicalExpr>,
++    ) -> Result<Self> {
++        let cache = Arc::make_mut(&mut self.cache);
++        for expr in split_conjunction(&filter) {
++            if let Some(b) = expr.downcast_ref::<BinaryExpr>()
++                && b.op() == &Operator::Eq
++            {
++                cache
++                    .eq_properties
++                    .add_equal_conditions(Arc::clone(b.left()), Arc::clone(b.right()))?
++            }
++        }
++        Ok(self)
++    }
++
+     fn compute_properties(data_source: &Arc<dyn DataSource>) -> PlanProperties {
+         PlanProperties::new(
+             data_source.eq_properties(),

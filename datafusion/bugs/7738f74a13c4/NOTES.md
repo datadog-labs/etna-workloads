@@ -1,0 +1,1 @@
+repro.sql calls range/generate_series with huge bounds (range(0, i64::MAX), etc.). Clean build returns an Execution error 'Range too large to materialize' (exit 0); buggy build panics with 'capacity overflow' (exit 101).

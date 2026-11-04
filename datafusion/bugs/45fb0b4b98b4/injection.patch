@@ -1,0 +1,35 @@
+--- a/datafusion/functions-aggregate/src/percentile_cont.rs
++++ b/datafusion/functions-aggregate/src/percentile_cont.rs
+@@ -445,7 +445,8 @@
+     }
+ 
+     fn evaluate(&mut self) -> Result<ScalarValue> {
+-        let value = calculate_percentile::<T>(&mut self.all_values, self.percentile);
++        let mut d = std::mem::take(&mut self.all_values);
++        let value = calculate_percentile::<T>(&mut d, self.percentile);
+         ScalarValue::new_primitive::<T>(value, &T::DATA_TYPE)
+     }
+ 
+--- a/datafusion/functions-aggregate/src/string_agg.rs
++++ b/datafusion/functions-aggregate/src/string_agg.rs
+@@ -500,13 +500,14 @@
+     }
+ 
+     fn evaluate(&mut self) -> Result<ScalarValue> {
+-        if self.has_value {
+-            Ok(ScalarValue::LargeUtf8(Some(
+-                self.accumulated_string.clone(),
+-            )))
++        let result = if self.has_value {
++            ScalarValue::LargeUtf8(Some(std::mem::take(&mut self.accumulated_string)))
+         } else {
+-            Ok(ScalarValue::LargeUtf8(None))
+-        }
++            ScalarValue::LargeUtf8(None)
++        };
++
++        self.has_value = false;
++        Ok(result)
+     }
+ 
+     fn size(&self) -> usize {

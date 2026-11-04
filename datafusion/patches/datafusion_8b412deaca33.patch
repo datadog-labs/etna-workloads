@@ -1,0 +1,140 @@
+--- a/datafusion/optimizer/src/simplify_expressions/regex.rs
++++ b/datafusion/optimizer/src/simplify_expressions/regex.rs
+@@ -16,7 +16,7 @@
+ // under the License.
+ 
+ use datafusion_common::tree_node::Transformed;
+-use datafusion_common::{DataFusionError, Result, ScalarValue};
++use datafusion_common::{DataFusionError, Result};
+ use datafusion_expr::{BinaryExpr, Expr, Like, Operator, lit};
+ use regex_syntax::hir::{Capture, Hir, HirKind, Literal, Look};
+ 
+@@ -39,7 +39,7 @@
+ /// - partial anchored regex patterns (e.g. `^foo`) to `LIKE 'foo%'`
+ /// - combinations (alternatives) of the above, will be concatenated with `OR` or `AND`
+ /// - `EQ .*` to NotNull
+-/// - `NE .*` to col IS NULL AND Boolean(NULL) (false for any string, or NULL if col is NULL)
++/// - `NE .*` means IS EMPTY
+ ///
+ /// Dev note: unit tests of this function are in `expr_simplifier.rs`, case `test_simplify_regex`.
+ pub fn simplify_regex_expr(
+@@ -68,11 +68,12 @@
+     // Handle the special case for ".*" pattern
+     if pattern == ANY_CHAR_REGEX_PATTERN {
+         let new_expr = if mode.not {
+-            let null_bool = lit(ScalarValue::Boolean(None));
++            // not empty
++            let empty_lit = Box::new(string_scalar.to_expr(""));
+             Expr::BinaryExpr(BinaryExpr {
+-                left: Box::new(left.is_null()),
+-                op: Operator::And,
+-                right: Box::new(null_bool),
++                left,
++                op: Operator::Eq,
++                right: empty_lit,
+             })
+         } else {
+             // not null
+--- a/datafusion/optimizer/src/simplify_expressions/simplify_exprs.rs
++++ b/datafusion/optimizer/src/simplify_expressions/simplify_exprs.rs
+@@ -264,7 +264,6 @@
+     use arrow::datatypes::{DataType, Field, Schema};
+     use chrono::{DateTime, Utc};
+ 
+-    use datafusion_common::ScalarValue;
+     use datafusion_expr::logical_plan::builder::table_scan_with_filters;
+     use datafusion_expr::logical_plan::table_scan;
+     use datafusion_expr::*;
+@@ -1026,7 +1025,7 @@
+         ]);
+         let table_scan = table_scan(Some("test"), &schema, None)?.build()?;
+ 
+-        // Test `~ ".*"` transforms to true for any non-NULL string
++        // Test `= ".*"` transforms to true (except for empty strings)
+         let plan = LogicalPlanBuilder::from(table_scan.clone())
+             .filter(binary_expr(col("a"), Operator::RegexMatch, lit(".*")))?
+             .build()?;
+@@ -1039,22 +1038,22 @@
+         "
+         )?;
+ 
+-        // Test `!~ ".*"` preserves NULL semantics while remaining false for non-NULL strings
++        // Test `!= ".*"` transforms to checking if the column is empty
+         let plan = LogicalPlanBuilder::from(table_scan.clone())
+             .filter(binary_expr(col("a"), Operator::RegexNotMatch, lit(".*")))?
+             .build()?;
+ 
+         assert_optimized_plan_equal!(
+             plan,
+-            @ r"
+-        Filter: test.a IS NULL AND Boolean(NULL)
++            @ r#"
++        Filter: test.a = Utf8("")
+           TableScan: test
+-        "
++        "#
+         )?;
+ 
+         // Test case-insensitive versions
+ 
+-        // Test `~* ".*"` transforms to true for any non-NULL string
++        // Test `=~ ".*"` (case-insensitive) transforms to true (except for empty strings)
+         let plan = LogicalPlanBuilder::from(table_scan.clone())
+             .filter(binary_expr(col("b"), Operator::RegexIMatch, lit(".*")))?
+             .build()?;
+@@ -1067,51 +1066,17 @@
+         "
+         )?;
+ 
+-        // Test NULL `!~ ".*"` transforms to Boolean(NULL)
+-        let plan = LogicalPlanBuilder::from(table_scan.clone())
+-            .filter(binary_expr(
+-                lit(ScalarValue::Utf8(None)),
+-                Operator::RegexNotMatch,
+-                lit(".*"),
+-            ))?
+-            .build()?;
+-
+-        assert_optimized_plan_equal!(
+-            plan,
+-            @ r"
+-        Filter: Boolean(NULL)
+-          TableScan: test
+-        "
+-        )?;
+-
+-        // Test `!~* ".*"` preserves NULL semantics while remaining false for non-NULL strings
++        // Test `!~ ".*"` (case-insensitive) transforms to checking if the column is empty
+         let plan = LogicalPlanBuilder::from(table_scan.clone())
+             .filter(binary_expr(col("a"), Operator::RegexNotIMatch, lit(".*")))?
+             .build()?;
+ 
+         assert_optimized_plan_equal!(
+             plan,
+-            @ r"
+-        Filter: test.a IS NULL AND Boolean(NULL)
++            @ r#"
++        Filter: test.a = Utf8("")
+           TableScan: test
+-        "
+-        )?;
+-
+-        // Test NULL `!~* ".*"` transforms to Boolean(NULL)
+-        let plan = LogicalPlanBuilder::from(table_scan.clone())
+-            .filter(binary_expr(
+-                lit(ScalarValue::Utf8(None)),
+-                Operator::RegexNotIMatch,
+-                lit(".*"),
+-            ))?
+-            .build()?;
+-
+-        assert_optimized_plan_equal!(
+-            plan,
+-            @ r"
+-        Filter: Boolean(NULL)
+-          TableScan: test
+-        "
++        "#
+         )
+     }
+ 

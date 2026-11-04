@@ -1,0 +1,10 @@
+SET datafusion.optimizer.enable_join_dynamic_filter_pushdown = true;
+SET datafusion.optimizer.enable_dynamic_filter_pushdown = true;
+SET datafusion.execution.parquet.pushdown_filters = true;
+SET datafusion.execution.target_partitions = 1;
+COPY (SELECT * FROM (VALUES (11), (22), (NULL)) v(id)) TO 'nej_probe.parquet' STORED AS PARQUET;
+COPY (SELECT * FROM (VALUES (11), (NULL)) v(id)) TO 'nej_build.parquet' STORED AS PARQUET;
+CREATE EXTERNAL TABLE nej_probe STORED AS PARQUET LOCATION 'nej_probe.parquet';
+CREATE EXTERNAL TABLE nej_build STORED AS PARQUET LOCATION 'nej_build.parquet';
+SELECT nej_build.id, nej_probe.id FROM nej_build JOIN nej_probe ON nej_build.id IS NOT DISTINCT FROM nej_probe.id ORDER BY 1,2;
+EXPLAIN SELECT nej_build.id, nej_probe.id FROM nej_build JOIN nej_probe ON nej_build.id IS NOT DISTINCT FROM nej_probe.id;

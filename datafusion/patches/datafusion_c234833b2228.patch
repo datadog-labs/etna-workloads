@@ -1,0 +1,61 @@
+--- a/datafusion/common/src/error.rs
++++ b/datafusion/common/src/error.rs
+@@ -416,16 +416,7 @@
+ 
+ impl From<GenericError> for DataFusionError {
+     fn from(err: GenericError) -> Self {
+-        // If the error is already a DataFusionError, not wrapping it.
+-        if err.is::<DataFusionError>() {
+-            if let Ok(e) = err.downcast::<DataFusionError>() {
+-                *e
+-            } else {
+-                unreachable!()
+-            }
+-        } else {
+-            DataFusionError::External(err)
+-        }
++        DataFusionError::External(err)
+     }
+ }
+ 
+--- a/datafusion/physical-plan/src/joins/utils.rs
++++ b/datafusion/physical-plan/src/joins/utils.rs
+@@ -1135,7 +1135,7 @@
+             OnceFutState::Ready(r) => Poll::Ready(
+                 r.as_ref()
+                     .map(|r| r.as_ref())
+-                    .map_err(DataFusionError::from),
++                    .map_err(|e| DataFusionError::External(Box::new(Arc::clone(e)))),
+             ),
+         }
+     }
+@@ -1149,9 +1149,10 @@
+ 
+         match &self.state {
+             OnceFutState::Pending(_) => unreachable!(),
+-            OnceFutState::Ready(r) => {
+-                Poll::Ready(r.clone().map_err(DataFusionError::Shared))
+-            }
++            OnceFutState::Ready(r) => Poll::Ready(
++                r.clone()
++                    .map_err(|e| DataFusionError::External(Box::new(e))),
++            ),
+         }
+     }
+ }
+--- a/datafusion/physical-plan/src/repartition/mod.rs
++++ b/datafusion/physical-plan/src/repartition/mod.rs
+@@ -2226,12 +2226,11 @@
+             }
+             // Error from running input task
+             Ok(Err(e)) => {
+-                // send the same Arc'd error to all output partitions
+                 let e = Arc::new(e);
+ 
+                 for (_, tx) in txs {
+                     // wrap it because need to send error to all output partitions
+-                    let err = Err(DataFusionError::from(&e));
++                    let err = Err(DataFusionError::External(Box::new(Arc::clone(&e))));
+                     tx.send(Some(err)).await.ok();
+                 }
+             }

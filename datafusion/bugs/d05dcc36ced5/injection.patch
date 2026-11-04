@@ -1,0 +1,92 @@
+--- a/datafusion/functions-aggregate/src/approx_percentile_cont.rs
++++ b/datafusion/functions-aggregate/src/approx_percentile_cont.rs
+@@ -356,23 +356,19 @@
+         }
+     }
+ 
+-    // pub(crate) for approx_percentile_cont_with_weight
++    // public for approx_percentile_cont_with_weight
+     pub(crate) fn max_size(&self) -> usize {
+         self.digest.max_size()
+     }
+ 
+-    // pub(crate) for approx_percentile_cont_with_weight
+-    pub(crate) fn merge_digests(&mut self, digests: &[TDigest]) {
++    // public for approx_percentile_cont_with_weight
++    pub fn merge_digests(&mut self, digests: &[TDigest]) {
+         let digests = digests.iter().chain(std::iter::once(&self.digest));
+         self.digest = TDigest::merge_digests(digests)
+     }
+ 
+-    // pub(crate) for approx_percentile_cont_with_weight
+-    pub(crate) fn convert_to_float(values: &ArrayRef) -> Result<Vec<f64>> {
+-        debug_assert!(
+-            values.null_count() == 0,
+-            "convert_to_float assumes nulls have already been filtered out"
+-        );
++    // public for approx_percentile_cont_with_weight
++    pub fn convert_to_float(values: &ArrayRef) -> Result<Vec<f64>> {
+         match values.data_type() {
+             DataType::Float64 => {
+                 let array = downcast_value!(values, Float64Array);
+@@ -405,7 +401,7 @@
+     fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
+         // Remove any nulls before computing the percentile
+         let mut values = Arc::clone(&values[0]);
+-        if values.null_count() > 0 {
++        if values.nulls().is_some() {
+             values = filter(&values, &is_not_null(&values)?)?;
+         }
+         let sorted_values = &arrow::compute::sort(&values, None)?;
+--- a/datafusion/functions-aggregate/src/approx_percentile_cont_with_weight.rs
++++ b/datafusion/functions-aggregate/src/approx_percentile_cont_with_weight.rs
+@@ -20,7 +20,6 @@
+ use std::mem::size_of_val;
+ use std::sync::Arc;
+ 
+-use arrow::compute::{and, filter, is_not_null};
+ use arrow::datatypes::FieldRef;
+ use arrow::{array::ArrayRef, datatypes::DataType};
+ use datafusion_common::ScalarValue;
+@@ -302,37 +301,15 @@
+     }
+ 
+     fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
+-        let mut means = Arc::clone(&values[0]);
+-        let mut weights = Arc::clone(&values[1]);
+-        // If nulls are present in either array, need to filter those rows out in both arrays
+-        match (means.null_count() > 0, weights.null_count() > 0) {
+-            // Both have nulls
+-            (true, true) => {
+-                let predicate = and(&is_not_null(&means)?, &is_not_null(&weights)?)?;
+-                means = filter(&means, &predicate)?;
+-                weights = filter(&weights, &predicate)?;
+-            }
+-            // Only one has nulls
+-            (false, true) => {
+-                let predicate = &is_not_null(&weights)?;
+-                means = filter(&means, predicate)?;
+-                weights = filter(&weights, predicate)?;
+-            }
+-            (true, false) => {
+-                let predicate = &is_not_null(&means)?;
+-                means = filter(&means, predicate)?;
+-                weights = filter(&weights, predicate)?;
+-            }
+-            // No nulls
+-            (false, false) => {}
+-        }
++        let means = &values[0];
++        let weights = &values[1];
+         debug_assert_eq!(
+             means.len(),
+             weights.len(),
+             "invalid number of values in means and weights"
+         );
+-        let means_f64 = ApproxPercentileAccumulator::convert_to_float(&means)?;
+-        let weights_f64 = ApproxPercentileAccumulator::convert_to_float(&weights)?;
++        let means_f64 = ApproxPercentileAccumulator::convert_to_float(means)?;
++        let weights_f64 = ApproxPercentileAccumulator::convert_to_float(weights)?;
+         let mut digests: Vec<TDigest> = vec![];
+         for (mean, weight) in means_f64.iter().zip(weights_f64.iter()) {
+             digests.push(TDigest::new_with_centroid(

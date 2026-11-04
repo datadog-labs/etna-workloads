@@ -1,0 +1,34 @@
+--- a/datafusion/functions-aggregate-common/src/tdigest.rs
++++ b/datafusion/functions-aggregate-common/src/tdigest.rs
+@@ -372,16 +372,11 @@
+                 min = min.min(digest.min);
+                 max = max.max(digest.max);
+                 count += curr_count;
+-                for centroid in &digest.centroids {
+-                    centroids.push(centroid.clone());
+-                    start += 1;
+-                }
+             }
+-        }
+-
+-        // If no centroids were added (all digests had zero count), return default
+-        if centroids.is_empty() {
+-            return TDigest::default();
++            for centroid in &digest.centroids {
++                centroids.push(centroid.clone());
++                start += 1;
++            }
+         }
+ 
+         let mut digests_per_block: usize = 1;
+@@ -615,9 +610,7 @@
+         let max = cast_scalar_f64!(&state[3]);
+         let min = cast_scalar_f64!(&state[4]);
+ 
+-        if min.is_finite() && max.is_finite() {
+-            assert!(max.total_cmp(&min).is_ge());
+-        }
++        assert!(max.total_cmp(&min).is_ge());
+ 
+         Self {
+             max_size,

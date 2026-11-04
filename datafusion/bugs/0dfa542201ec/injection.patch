@@ -1,0 +1,61 @@
+--- a/datafusion/physical-plan/src/joins/hash_join/inlist_builder.rs
++++ b/datafusion/physical-plan/src/joins/hash_join/inlist_builder.rs
+@@ -21,6 +21,7 @@
+ 
+ use arrow::array::{ArrayRef, StructArray};
+ use arrow::datatypes::{Field, FieldRef, Fields};
++use arrow::downcast_dictionary_array;
+ use arrow_schema::DataType;
+ use datafusion_common::Result;
+ 
+@@ -32,6 +33,18 @@
+         .collect()
+ }
+ 
++/// Flattens dictionary-encoded arrays to their underlying value arrays.
++/// Non-dictionary arrays are returned as-is.
++fn flatten_dictionary_array(array: &ArrayRef) -> ArrayRef {
++    downcast_dictionary_array! {
++        array => {
++            // Recursively flatten in case of nested dictionaries
++            flatten_dictionary_array(array.values())
++        }
++        _ => Arc::clone(array)
++    }
++}
++
+ /// Builds InList values from join key column arrays.
+ ///
+ /// If `join_key_arrays` is:
+@@ -51,14 +64,19 @@
+ pub(super) fn build_struct_inlist_values(
+     join_key_arrays: &[ArrayRef],
+ ) -> Result<Option<ArrayRef>> {
++    let flattened_arrays: Vec<ArrayRef> = join_key_arrays
++        .iter()
++        .map(flatten_dictionary_array)
++        .collect();
++
+     // Build the source array/struct
+-    let source_array: ArrayRef = if join_key_arrays.len() == 1 {
++    let source_array: ArrayRef = if flattened_arrays.len() == 1 {
+         // Single column: use directly
+-        Arc::clone(&join_key_arrays[0])
++        Arc::clone(&flattened_arrays[0])
+     } else {
+         // Multi-column: build StructArray once from all columns
+         let fields = build_struct_fields(
+-            &join_key_arrays
++            &flattened_arrays
+                 .iter()
+                 .map(|arr| arr.data_type().clone())
+                 .collect::<Vec<_>>(),
+@@ -68,7 +86,7 @@
+         let arrays_with_fields: Vec<(FieldRef, ArrayRef)> = fields
+             .iter()
+             .cloned()
+-            .zip(join_key_arrays.iter().cloned())
++            .zip(flattened_arrays.iter().cloned())
+             .collect();
+ 
+         Arc::new(StructArray::from(arrays_with_fields))

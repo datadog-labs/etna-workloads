@@ -1,0 +1,34 @@
+--- a/datafusion/spark/src/function/url/parse_url.rs
++++ b/datafusion/spark/src/function/url/parse_url.rs
+@@ -83,30 +83,7 @@
+         let url: std::result::Result<Url, ParseError> = Url::parse(value);
+         if let Err(ParseError::RelativeUrlWithoutBase) = url {
+             return if !value.contains("://") {
+-                // Schemeless URLs are treated as relative URIs (like java.net.URI).
+-                // Manually parse path, query, and fragment components.
+-                let (without_fragment, fragment) = match value.split_once('#') {
+-                    Some((before, frag)) => (before, Some(frag)),
+-                    None => (value, None),
+-                };
+-                let (path, query) = match without_fragment.split_once('?') {
+-                    Some((p, q)) => (p, Some(q)),
+-                    None => (without_fragment, None),
+-                };
+-                Ok(match part {
+-                    "PATH" => Some(path.to_string()),
+-                    "QUERY" => match key {
+-                        None => query.map(String::from),
+-                        Some(key) => Self::query_value(query, key).map(String::from),
+-                    },
+-                    "REF" => fragment.map(String::from),
+-                    "FILE" => {
+-                        // FILE = path + query (without fragment)
+-                        Some(without_fragment.to_string())
+-                    }
+-                    // HOST, PROTOCOL, AUTHORITY, USERINFO → NULL
+-                    _ => None,
+-                })
++                Ok(None)
+             } else {
+                 Err(exec_datafusion_err!(
+                     "The url is invalid: {value}. Use `try_parse_url` to tolerate invalid URL and return NULL instead. SQLSTATE: 22P02"

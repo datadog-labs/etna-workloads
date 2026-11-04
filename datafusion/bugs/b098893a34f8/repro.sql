@@ -1,0 +1,3 @@
+COPY (SELECT 1 AS c1, 2 AS c2 UNION ALL SELECT 3, 4) TO 't.csv' STORED AS CSV OPTIONS ('format.has_header' 'true');
+CREATE EXTERNAL TABLE t (c1 INT, c2 INT) STORED AS CSV LOCATION 't.csv' OPTIONS ('format.has_header' 'true');
+SELECT c2 FROM t WHERE CASE WHEN true THEN 1 / 0 ELSE 0 END = 1;

@@ -1,0 +1,1 @@
+Reproducer: the select.slt query from the fix (DECIMAL(35,35) + 10000 cast to VARCHAR). Clean build reports an Arrow arithmetic overflow error (exit 0); buggy build panics with unreachable code in interval_arithmetic.rs (exit 101) because Decimal extreme values are unsupported.

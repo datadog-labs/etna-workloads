@@ -1,0 +1,46 @@
++----------+----------------------+
+| category | max(string_topk.val) |
++----------+----------------------+
+| x        | zebra                |
+| z        | mango                |
++----------+----------------------+
++---------------+----------------------------------------------------------------------------------------------------------------+
+| plan_type     | plan                                                                                                           |
++---------------+----------------------------------------------------------------------------------------------------------------+
+| logical_plan  | Sort: max_val DESC NULLS LAST, fetch=2                                                                         |
+|               |   Projection: string_topk.category, max(string_topk.val) AS max_val                                            |
+|               |     Aggregate: groupBy=[[string_topk.category]], aggr=[[max(string_topk.val)]]                                 |
+|               |       TableScan: string_topk projection=[category, val]                                                        |
+| physical_plan | SortPreservingMergeExec: [max_val@1 DESC NULLS LAST], fetch=2                                                  |
+|               |   ProjectionExec: expr=[category@0 as category, max(string_topk.val)@1 as max_val]                             |
+|               |     SortExec: TopK(fetch=2), expr=[max(string_topk.val)@1 DESC NULLS LAST], preserve_partitioning=[true]       |
+|               |       AggregateExec: mode=FinalPartitioned, gby=[category@0 as category], aggr=[max(string_topk.val)], lim=[2] |
+|               |         RepartitionExec: partitioning=Hash([category@0], 4), input_partitions=1                                |
+|               |           AggregateExec: mode=Partial, gby=[category@0 as category], aggr=[max(string_topk.val)], lim=[2]      |
+|               |             DataSourceExec: partitions=1, partition_sizes=[1]                                                  |
+|               |                                                                                                                |
++---------------+----------------------------------------------------------------------------------------------------------------+
++----------+---------------------------+
+| category | max(string_topk_view.val) |
++----------+---------------------------+
+| x        | zebra                     |
+| z        | mango                     |
++----------+---------------------------+
++---------------+---------------------------------------------------------------------------------------------------------------------+
+| plan_type     | plan                                                                                                                |
++---------------+---------------------------------------------------------------------------------------------------------------------+
+| logical_plan  | Sort: max_val DESC NULLS LAST, fetch=2                                                                              |
+|               |   Projection: string_topk_view.category, max(string_topk_view.val) AS max_val                                       |
+|               |     Aggregate: groupBy=[[string_topk_view.category]], aggr=[[max(string_topk_view.val)]]                            |
+|               |       SubqueryAlias: string_topk_view                                                                               |
+|               |         Projection: string_topk.category AS category, string_topk.val AS val                                        |
+|               |           TableScan: string_topk projection=[category, val]                                                         |
+| physical_plan | SortPreservingMergeExec: [max_val@1 DESC NULLS LAST], fetch=2                                                       |
+|               |   ProjectionExec: expr=[category@0 as category, max(string_topk_view.val)@1 as max_val]                             |
+|               |     SortExec: TopK(fetch=2), expr=[max(string_topk_view.val)@1 DESC NULLS LAST], preserve_partitioning=[true]       |
+|               |       AggregateExec: mode=FinalPartitioned, gby=[category@0 as category], aggr=[max(string_topk_view.val)], lim=[2] |
+|               |         RepartitionExec: partitioning=Hash([category@0], 4), input_partitions=1                                     |
+|               |           AggregateExec: mode=Partial, gby=[category@0 as category], aggr=[max(string_topk_view.val)], lim=[2]      |
+|               |             DataSourceExec: partitions=1, partition_sizes=[1]                                                       |
+|               |                                                                                                                     |
++---------------+---------------------------------------------------------------------------------------------------------------------+

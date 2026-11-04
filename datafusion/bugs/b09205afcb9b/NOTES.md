@@ -1,0 +1,1 @@
+repro.sql calls generate_series with a named argument (start => 1, stop => 5) and with (*), then a valid call. Clean reports 'Unsupported function argument type: ...'; buggy (flat_map drops the failed args) reports the misleading 'generate_series function requires 1 to 3 arguments'. The valid call is identical on both.

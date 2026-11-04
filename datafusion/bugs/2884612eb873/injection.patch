@@ -1,0 +1,67 @@
+--- a/datafusion/sql/src/expr/function.rs
++++ b/datafusion/sql/src/expr/function.rs
+@@ -883,30 +883,6 @@
+             }
+         }
+ 
+-        // workaround for https://github.com/apache/datafusion-sqlparser-rs/issues/1909
+-        if function_without_parentheses {
+-            let maybe_ids = object_name
+-                .0
+-                .iter()
+-                .map(|part| part.as_ident().cloned().ok_or(()))
+-                .collect::<Result<Vec<_>, ()>>();
+-            if let Ok(ids) = maybe_ids {
+-                if ids.len() == 1 {
+-                    return self.sql_identifier_to_expr(
+-                        ids.into_iter().next().unwrap(),
+-                        schema,
+-                        planner_context,
+-                    );
+-                } else {
+-                    return self.sql_compound_identifier_to_expr(
+-                        ids,
+-                        schema,
+-                        planner_context,
+-                    );
+-                }
+-            }
+-        }
+-
+         // Could not find the relevant function, so return an error
+         if let Some(suggested_func_name) =
+             suggest_valid_function(&name, is_function_window, self.context_provider)
+--- a/datafusion/sql/src/expr/mod.rs
++++ b/datafusion/sql/src/expr/mod.rs
+@@ -25,7 +25,7 @@
+     AccessExpr, BinaryOperator, CastFormat, CastKind, CeilFloorKind,
+     DataType as SQLDataType, DateTimeField, DictionaryField, Expr as SQLExpr,
+     ExprWithAlias as SQLExprWithAlias, JsonPath, MapEntry, Spanned, StructField,
+-    Subscript, TrimWhereField, TypedString, Value, ValueWithSpan,
++    FunctionArguments, Subscript, TrimWhereField, TypedString, Value, ValueWithSpan,
+ };
+ use sqlparser::ast::{Query, Visit, Visitor};
+ 
+@@ -583,7 +583,21 @@
+             ),
+ 
+             SQLExpr::Function(function) => {
+-                self.sql_function_to_expr(function, schema, planner_context)
++                // workaround for https://github.com/apache/datafusion-sqlparser-rs/issues/1909
++                if matches!(function.args, FunctionArguments::None)
++                    && function.name.0.len() > 1
++                    && function.name.0.iter().all(|part| part.as_ident().is_some())
++                {
++                    let ids = function
++                        .name
++                        .0
++                        .iter()
++                        .map(|part| part.as_ident().expect("just checked").clone())
++                        .collect();
++                    self.sql_compound_identifier_to_expr(ids, schema, planner_context)
++                } else {
++                    self.sql_function_to_expr(function, schema, planner_context)
++                }
+             }
+ 
+             SQLExpr::Rollup(exprs) => {

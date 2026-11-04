@@ -1,0 +1,33 @@
+--- a/datafusion/functions-aggregate/src/sum.rs
++++ b/datafusion/functions-aggregate/src/sum.rs
+@@ -659,15 +659,15 @@
+ impl Accumulator for SlidingDistinctSumAccumulator {
+     fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
+         let arr = values[0].as_primitive::<Int64Type>();
+-        self.apply_valid_values(arr, Self::update_value);
++        for &v in arr.values() {
++            self.update_value(v);
++        }
+         Ok(())
+     }
+ 
+     fn evaluate(&mut self) -> Result<ScalarValue> {
+         // O(1) wrap of running sum
+-        Ok(ScalarValue::Int64(
+-            (!self.counts.is_empty()).then_some(self.sum),
+-        ))
++        Ok(ScalarValue::Int64(Some(self.sum)))
+     }
+ 
+     fn size(&self) -> usize {
+@@ -707,7 +707,9 @@
+ 
+     fn retract_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
+         let arr = values[0].as_primitive::<Int64Type>();
+-        self.apply_valid_values(arr, Self::retract_value);
++        for &v in arr.values() {
++            self.retract_value(v);
++        }
+         Ok(())
+     }
+ 

@@ -1,0 +1,2 @@
+CREATE TABLE t AS VALUES (3, 3), (4, 4), (5, 5), (6, 6);
+SELECT nth_VALUE(column1, 1) IGNORE NULLS OVER(ORDER BY column2) FROM t;

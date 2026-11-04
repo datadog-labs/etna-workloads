@@ -1,0 +1,73 @@
+--- a/datafusion/physical-optimizer/src/ensure_requirements/enforce_sorting/mod.rs
++++ b/datafusion/physical-optimizer/src/ensure_requirements/enforce_sorting/mod.rs
+@@ -505,13 +505,10 @@
+         && sort_input.output_partitioning().partition_count() > 1
+     {
+         // Replace the sort with a sort-preserving merge:
+-        Arc::new(
+-            SortPreservingMergeExec::new(
+-                sort_exec.expr().clone(),
+-                Arc::clone(sort_input),
+-            )
+-            .with_fetch(sort_exec.fetch()),
+-        ) as _
++        Arc::new(SortPreservingMergeExec::new(
++            sort_exec.expr().clone(),
++            Arc::clone(sort_input),
++        )) as _
+     } else {
+         // Remove the sort:
+         node.children = node.children.swap_remove(0).children;
+@@ -790,11 +787,8 @@
+         // If there is existing ordering, to preserve ordering use
+         // `SortPreservingMergeExec` instead of a `CoalescePartitionsExec`.
+         let plan = Arc::clone(&node.plan);
+-        let fetch = plan.fetch();
+         let plan = if let Some(ordering) = plan.output_ordering() {
+-            Arc::new(
+-                SortPreservingMergeExec::new(ordering.clone(), plan).with_fetch(fetch),
+-            ) as _
++            Arc::new(SortPreservingMergeExec::new(ordering.clone(), plan)) as _
+         } else {
+             Arc::new(CoalescePartitionsExec::new(plan)) as _
+         };
+--- a/datafusion/physical-optimizer/src/ensure_requirements/enforce_sorting/replace_with_order_preserving_variants.rs
++++ b/datafusion/physical-optimizer/src/ensure_requirements/enforce_sorting/replace_with_order_preserving_variants.rs
+@@ -148,7 +148,7 @@
+             // When the input of a `CoalescePartitionsExec` has an ordering,
+             // replace it with a `SortPreservingMergeExec` if appropriate:
+             let spm = SortPreservingMergeExec::new(ordering.clone(), Arc::clone(child))
+-                .with_fetch(fetch);
++                ;
+             sort_input.plan = Arc::new(spm) as _;
+             sort_input.children[0].data = true;
+             return Ok(sort_input);
+--- a/datafusion/physical-optimizer/src/ensure_requirements/enforce_sorting/sort_pushdown.rs
++++ b/datafusion/physical-optimizer/src/ensure_requirements/enforce_sorting/sort_pushdown.rs
+@@ -89,7 +89,7 @@
+     {
+         child.data = ParentRequirements {
+             ordering_requirement: requirement,
+-            fetch: child.plan.fetch(),
++            fetch: None,
+             distribution_requirement: dists
+                 .get(idx)
+                 .cloned()
+@@ -154,7 +154,7 @@
+             };
+             // The sort is unnecessary, just propagate the stricter fetch and
+             // ordering requirements.
+-            let fetch = min_fetch(plan.fetch(), parent_fetch);
++            let fetch = parent_fetch;
+             sort_push_down = sort_push_down
+                 .children
+                 .swap_remove(0)
+@@ -226,7 +226,7 @@
+             // because the sort we're removing may have been below a
+             // partition-merging node (like SortPreservingMergeExec) that
+             // already satisfies SinglePartition.
+-            sort_push_down.data.fetch = min_fetch(sort_fetch, parent_fetch);
++            sort_push_down.data.fetch = parent_fetch;
+             sort_push_down.data.distribution_requirement =
+                 Distribution::UnspecifiedDistribution;
+             let current_is_stricter = eqp.requirements_compatible(

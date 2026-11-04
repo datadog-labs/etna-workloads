@@ -1,0 +1,32 @@
+--- a/datafusion/functions/src/string/split_part.rs
++++ b/datafusion/functions/src/string/split_part.rs
+@@ -604,13 +604,7 @@
+                     "split_part index {n} exceeds maximum supported value"
+                 )
+             })?;
+-            if delimiter.is_empty() {
+-                // Match PostgreSQL's behavior: empty delimiter treats input
+-                // as a single field, so only position 1 returns data.
+-                (n == 1).then_some(string)
+-            } else {
+-                split_nth(string, delimiter, idx)
+-            }
++            string.split(delimiter).nth(idx)
+         }
+         std::cmp::Ordering::Less => {
+             let idx: usize = (n.unsigned_abs() - 1).try_into().map_err(|_| {
+@@ -618,13 +612,7 @@
+                     "split_part index {n} exceeds minimum supported value"
+                 )
+             })?;
+-            if delimiter.is_empty() {
+-                // Match PostgreSQL's behavior: empty delimiter treats input
+-                // as a single field, so only position -1 returns data.
+-                (n == -1).then_some(string)
+-            } else {
+-                rsplit_nth(string, delimiter, idx)
+-            }
++            string.rsplit(delimiter).nth(idx)
+         }
+         std::cmp::Ordering::Equal => {
+             return exec_err!("field position must not be zero");

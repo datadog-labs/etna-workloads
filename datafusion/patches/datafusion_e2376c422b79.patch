@@ -1,0 +1,40 @@
+--- a/datafusion/functions-aggregate/src/min_max.rs
++++ b/datafusion/functions-aggregate/src/min_max.rs
+@@ -32,7 +32,6 @@
+ use datafusion_common::{ColumnStatistics, Result, exec_err, internal_err};
+ use datafusion_functions_aggregate_common::aggregate::groups_accumulator::prim_op::PrimitiveGroupsAccumulator;
+ use datafusion_physical_expr::expressions;
+-use std::cmp::Ordering;
+ use std::fmt::Debug;
+ 
+ use arrow::datatypes::i256;
+@@ -118,12 +117,8 @@
+     ($DATA_TYPE:ident, $NATIVE:ident, $PRIMTYPE:ident) => {{
+         Ok(Box::new(
+             PrimitiveGroupsAccumulator::<$PRIMTYPE, _>::new($DATA_TYPE, |cur, new| {
+-                match (new).partial_cmp(cur) {
+-                    Some(Ordering::Greater) | None => {
+-                        // new is Greater or None
+-                        *cur = new
+-                    }
+-                    _ => {}
++                if *cur < new {
++                    *cur = new
+                 }
+             })
+             // Initialize each accumulator to $NATIVE::MIN
+@@ -141,12 +136,8 @@
+     ($DATA_TYPE:ident, $NATIVE:ident, $PRIMTYPE:ident) => {{
+         Ok(Box::new(
+             PrimitiveGroupsAccumulator::<$PRIMTYPE, _>::new(&$DATA_TYPE, |cur, new| {
+-                match (new).partial_cmp(cur) {
+-                    Some(Ordering::Less) | None => {
+-                        // new is Less or NaN
+-                        *cur = new
+-                    }
+-                    _ => {}
++                if *cur > new {
++                    *cur = new
+                 }
+             })
+             // Initialize each accumulator to $NATIVE::MAX

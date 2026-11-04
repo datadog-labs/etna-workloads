@@ -1,0 +1,44 @@
+--- a/datafusion/common/src/functional_dependencies.rs
++++ b/datafusion/common/src/functional_dependencies.rs
+@@ -151,10 +151,8 @@
+ /// Describes functional dependency mode.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ pub enum Dependency {
+-    /// A determinant key may occur only once.
+-    Single,
+-    /// A determinant key may occur multiple times (in multiple rows).
+-    Multi,
++    Single, // A determinant key may occur only once.
++    Multi,  // A determinant key may occur multiple times (in multiple rows).
+ }
+ 
+ impl FunctionalDependence {
+--- a/datafusion/optimizer/src/replace_distinct_aggregate.rs
++++ b/datafusion/optimizer/src/replace_distinct_aggregate.rs
+@@ -22,7 +22,7 @@
+ use std::sync::Arc;
+ 
+ use datafusion_common::tree_node::Transformed;
+-use datafusion_common::{Column, Dependency, Result};
++use datafusion_common::{Column, Result};
+ use datafusion_expr::expr_rewriter::normalize_cols;
+ use datafusion_expr::utils::expand_wildcard;
+ use datafusion_expr::{Aggregate, Distinct, DistinctOn, Expr, LogicalPlan};
+@@ -101,14 +101,9 @@
+ 
+                 let field_count = input.schema().fields().len();
+                 for dep in input.schema().functional_dependencies().iter() {
+-                    // If the input is already unique on all of its columns (e.g.
+-                    // it is a GROUP BY over exactly these columns), the DISTINCT
+-                    // is a no-op and we can simply remove it. The dependency mode
+-                    // must be `Single`: a `Multi` dependence (e.g. a former key
+-                    // downgraded by a join) means equal rows may occur multiple
+-                    // times, so the DISTINCT still has work to do.
+-                    if dep.mode == Dependency::Single
+-                        && dep.source_indices.len() >= field_count
++                    // If distinct is exactly the same with a previous GROUP BY, we can
++                    // simply remove it:
++                    if dep.source_indices.len() >= field_count
+                         && dep.source_indices[..field_count]
+                             .iter()
+                             .enumerate()

@@ -1,0 +1,137 @@
+--- a/datafusion/physical-plan/src/coalesce/mod.rs
++++ b/datafusion/physical-plan/src/coalesce/mod.rs
+@@ -134,6 +134,7 @@
+         Ok(())
+     }
+ 
++    #[allow(dead_code)]
+     pub(crate) fn is_finished(&self) -> bool {
+         self.finished
+     }
+--- a/datafusion/physical-plan/src/filter.rs
++++ b/datafusion/physical-plan/src/filter.rs
+@@ -28,7 +28,8 @@
+     ColumnStatistics, DisplayAs, ExecutionPlanProperties, PlanProperties,
+     RecordBatchStream, SendableRecordBatchStream, Statistics,
+ };
+-use crate::coalesce::{LimitedBatchCoalescer, PushBatchStatus};
++use crate::coalesce::LimitedBatchCoalescer;
++use crate::coalesce::PushBatchStatus::LimitReached;
+ use crate::common::can_project;
+ use crate::execution_plan::{CardinalityEffect, replace_children_if_necessary};
+ use crate::filter_pushdown::{
+@@ -42,7 +43,6 @@
+     try_embed_projection, update_expr,
+ };
+ use crate::statistics::{ChildStats, StatisticsArgs, StatisticsContext};
+-use crate::stream::EmptyRecordBatchStream;
+ use crate::{ChildrenPropertiesMode, ReplaceChildrenOptions, validate_child_count};
+ use crate::{
+     DisplayFormatType, ExecutionPlan,
+@@ -1226,6 +1226,23 @@
+     }
+ }
+ 
++impl FilterExecStream {
++    fn flush_remaining_batches(
++        &mut self,
++    ) -> Poll<Option<std::result::Result<RecordBatch, DataFusionError>>> {
++        // Flush any remaining buffered batch
++        match self.batch_coalescer.finish() {
++            Ok(()) => {
++                Poll::Ready(self.batch_coalescer.next_completed_batch().map(|batch| {
++                    self.metrics.selectivity.add_part(batch.num_rows());
++                    Ok(batch)
++                }))
++            }
++            Err(e) => Poll::Ready(Some(Err(e))),
++        }
++    }
++}
++
+ pub fn batch_filter(
+     batch: &RecordBatch,
+     predicate: &Arc<dyn PhysicalExpr>,
+@@ -1265,29 +1282,10 @@
+         mut self: Pin<&mut Self>,
+         cx: &mut Context<'_>,
+     ) -> Poll<Option<Self::Item>> {
++        let poll;
+         let elapsed_compute = self.metrics.baseline_metrics.elapsed_compute().clone();
+         loop {
+-            // If there is a completed batch ready, return it
+-            if let Some(batch) = self.batch_coalescer.next_completed_batch() {
+-                self.metrics.selectivity.add_part(batch.num_rows());
+-                let poll = Poll::Ready(Some(Ok(batch)));
+-                return self.metrics.baseline_metrics.record_poll(poll);
+-            }
+-
+-            if self.batch_coalescer.is_finished() {
+-                // If input is done and no batches are ready, return None to signal end of stream.
+-                return Poll::Ready(None);
+-            }
+-
+-            // Attempt to pull the next batch from the input stream.
+             match ready!(self.input.poll_next_unpin(cx)) {
+-                None => {
+-                    self.batch_coalescer.finish()?;
+-                    // Release the input pipeline's resources.
+-                    let input_schema = self.input.schema();
+-                    self.input = Box::pin(EmptyRecordBatchStream::new(input_schema));
+-                    // continue draining the coalescer
+-                }
+                 Some(Ok(batch)) => {
+                     let timer = elapsed_compute.timer();
+                     let status = self.predicate.as_ref()
+@@ -1319,26 +1317,37 @@
+                         })?;
+                     timer.done();
+ 
+-                    match status {
+-                        PushBatchStatus::Continue => {
+-                            // Keep pushing more batches
++                    if let LimitReached = status {
++                        poll = self.flush_remaining_batches();
++                        break;
++                    }
++
++                    if let Some(batch) = self.batch_coalescer.next_completed_batch() {
++                        self.metrics.selectivity.add_part(batch.num_rows());
++                        poll = Poll::Ready(Some(Ok(batch)));
++                        break;
++                    }
++                    continue;
++                }
++                None => {
++                    // Flush any remaining buffered batch
++                    match self.batch_coalescer.finish() {
++                        Ok(()) => {
++                            poll = self.flush_remaining_batches();
+                         }
+-                        PushBatchStatus::LimitReached => {
+-                            // limit was reached, so stop early
+-                            self.batch_coalescer.finish()?;
+-                            // Release the input pipeline's resources.
+-                            let input_schema = self.input.schema();
+-                            self.input =
+-                                Box::pin(EmptyRecordBatchStream::new(input_schema));
+-                            // continue draining the coalescer
++                        Err(e) => {
++                            poll = Poll::Ready(Some(Err(e)));
+                         }
+                     }
++                    break;
++                }
++                value => {
++                    poll = Poll::Ready(value);
++                    break;
+                 }
+-
+-                // Error case
+-                other => return Poll::Ready(other),
+             }
+         }
++        self.metrics.baseline_metrics.record_poll(poll)
+     }
+ 
+     fn size_hint(&self) -> (usize, Option<usize>) {

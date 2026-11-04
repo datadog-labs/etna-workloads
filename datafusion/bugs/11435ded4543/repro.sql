@@ -1,0 +1,4 @@
+CREATE TABLE t AS SELECT * FROM (VALUES (CAST(NULL AS BOOLEAN), CAST(NULL AS BOOLEAN)), (false, false), (true, false)) AS v(x, y);
+SELECT x, y, CASE WHEN x THEN true WHEN y THEN true ELSE false END AS a FROM t ORDER BY x, y;
+SELECT x, y, CASE WHEN x THEN true WHEN y THEN false END AS b FROM t ORDER BY x, y;
+SELECT x, y, CASE WHEN x IS NULL THEN true WHEN y IS NULL THEN true END AS c FROM t ORDER BY x, y;

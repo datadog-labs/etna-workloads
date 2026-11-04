@@ -1,0 +1,123 @@
+--- a/datafusion/functions-window/src/lead_lag.rs
++++ b/datafusion/functions-window/src/lead_lag.rs
+@@ -38,7 +38,7 @@
+ use std::cmp::min;
+ use std::collections::VecDeque;
+ use std::hash::Hash;
+-use std::ops::Range;
++use std::ops::{Neg, Range};
+ use std::sync::{Arc, LazyLock};
+ 
+ get_or_init_udwf!(
+@@ -118,7 +118,7 @@
+     fn shift_offset(&self, value: Option<i64>) -> i64 {
+         match self {
+             WindowShiftKind::Lag => value.unwrap_or(1),
+-            WindowShiftKind::Lead => value.map_or(-1, |v| v.wrapping_neg()),
++            WindowShiftKind::Lead => value.map(|v| v.neg()).unwrap_or(-1),
+         }
+     }
+ }
+@@ -268,7 +268,7 @@
+                 .map(|n| self.kind.shift_offset(n))
+                 .map(|offset| {
+                     if partition_evaluator_args.is_reversed() {
+-                        offset.wrapping_neg()
++                        -offset
+                     } else {
+                         offset
+                     }
+@@ -568,14 +568,13 @@
+ 
+ impl PartitionEvaluator for WindowShiftEvaluator {
+     fn get_range(&self, idx: usize, n_rows: usize) -> Result<Range<usize>> {
+-        let offset = offset_magnitude(self.shift_offset);
+-
+         if self.is_lag() {
+-            let start = if self.non_null_offsets.len() == offset {
++            let start = if self.non_null_offsets.len() == self.shift_offset as usize {
+                 // How many rows needed previous than the current row to get necessary lag result
+                 let offset: usize = self.non_null_offsets.iter().sum();
+                 idx.saturating_sub(offset)
+             } else if !self.ignore_nulls {
++                let offset = self.shift_offset as usize;
+                 idx.saturating_sub(offset)
+             } else {
+                 0
+@@ -583,12 +582,13 @@
+             let end = idx + 1;
+             Ok(Range { start, end })
+         } else {
+-            let end = if self.non_null_offsets.len() == offset {
++            let end = if self.non_null_offsets.len() == (-self.shift_offset) as usize {
+                 // How many rows needed further than the current row to get necessary lead result
+                 let offset: usize = self.non_null_offsets.iter().sum();
+-                min(idx.saturating_add(offset).saturating_add(1), n_rows)
++                min(idx + offset + 1, n_rows)
+             } else if !self.ignore_nulls {
+-                min(idx.saturating_add(offset), n_rows)
++                let offset = (-self.shift_offset) as usize;
++                min(idx + offset, n_rows)
+             } else {
+                 n_rows
+             };
+@@ -611,26 +611,20 @@
+ 
+         // LAG mode
+         let i = if self.is_lag() {
+-            range
+-                .end
+-                .checked_sub(1)
+-                .and_then(|end| (end as i64).checked_sub(self.shift_offset))
+-                .and_then(|value| usize::try_from(value).ok())
++            (range.end as i64 - self.shift_offset - 1) as usize
+         } else {
+             // LEAD mode
+-            (range.start as i64)
+-                .checked_sub(self.shift_offset)
+-                .and_then(|value| usize::try_from(value).ok())
++            (range.start as i64 - self.shift_offset) as usize
+         };
+-        let mut idx: Option<usize> = i.filter(|i| *i < len);
++
++        let mut idx: Option<usize> = if i < len { Some(i) } else { None };
+ 
+         // LAG with IGNORE NULLS calculated as the current row index - offset, but only for non-NULL rows
+         // If current row index points to NULL value the row is NOT counted
+         if self.ignore_nulls && self.is_lag() {
+             // LAG when NULLS are ignored.
+             // Find the nonNULL row index that shifted by offset comparing to current row index
+-            let shift_offset = offset_magnitude(self.shift_offset);
+-            idx = if self.non_null_offsets.len() == shift_offset {
++            idx = if self.non_null_offsets.len() == self.shift_offset as usize {
+                 let total_offset: usize = self.non_null_offsets.iter().sum();
+                 Some(range.end - 1 - total_offset)
+             } else {
+@@ -641,7 +635,7 @@
+             if array.is_valid(range.end - 1) {
+                 // Non-null add new offset
+                 self.non_null_offsets.push_back(1);
+-                if self.non_null_offsets.len() > shift_offset {
++                if self.non_null_offsets.len() > self.shift_offset as usize {
+                     // WE do not need to keep track of more than `lag number of offset` values.
+                     self.non_null_offsets.pop_front();
+                 }
+@@ -653,7 +647,7 @@
+         } else if self.ignore_nulls && !self.is_lag() {
+             // LEAD when NULLS are ignored.
+             // Stores the necessary non-null entry number further than the current row.
+-            let non_null_row_count = offset_magnitude(self.shift_offset);
++            let non_null_row_count = (-self.shift_offset) as usize;
+ 
+             if self.non_null_offsets.is_empty() {
+                 // When empty, fill non_null offsets with the data further than the current row.
+@@ -667,8 +661,7 @@
+                     }
+                     // It is enough to keep track of `non_null_row_count + 1` non-null offset.
+                     // further data is unnecessary for the result.
+-                    if self.non_null_offsets.len() == non_null_row_count.saturating_add(1)
+-                    {
++                    if self.non_null_offsets.len() == non_null_row_count + 1 {
+                         break;
+                     }
+                 }

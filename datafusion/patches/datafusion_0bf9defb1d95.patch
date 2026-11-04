@@ -1,0 +1,63 @@
+--- a/datafusion/optimizer/src/decorrelate.rs
++++ b/datafusion/optimizer/src/decorrelate.rs
+@@ -492,10 +492,9 @@
+             // Treat swapped operand order to a binary operator as equivalent
+             !match (filter, in_predicate) {
+                 (Expr::BinaryExpr(a_expr), Expr::BinaryExpr(b_expr)) => {
+-                    a_expr.op == b_expr.op
+-                        && ((a_expr.left == b_expr.left && a_expr.right == b_expr.right)
+-                            || (a_expr.left == b_expr.right
+-                                && a_expr.right == b_expr.left))
++                    (a_expr.op == b_expr.op)
++                        && (a_expr.left == b_expr.left && a_expr.right == b_expr.right)
++                        || (a_expr.left == b_expr.right && a_expr.right == b_expr.left)
+                 }
+                 _ => false,
+             }
+--- a/datafusion/optimizer/src/scalar_subquery_to_join.rs
++++ b/datafusion/optimizer/src/scalar_subquery_to_join.rs
+@@ -130,7 +130,7 @@
+                                 .transform_up(|expr| {
+                                     if let Some(compensation_expr) = expr
+                                         .try_as_col()
+-                                        .and_then(|col| compensation_exprs.get(col))
++                                        .and_then(|col| compensation_exprs.get(&col.name))
+                                     {
+                                         Ok(Transformed::yes(compensation_expr.clone()))
+                                     } else {
+@@ -203,7 +203,7 @@
+                                 .transform_up(|expr| {
+                                     if let Some(compensation_expr) = expr
+                                         .try_as_col()
+-                                        .and_then(|col| compensation_exprs.get(col))
++                                        .and_then(|col| compensation_exprs.get(&col.name))
+                                     {
+                                         Ok(Transformed::yes(compensation_expr.clone()))
+                                     } else {
+@@ -346,7 +346,7 @@
+     subquery: &Subquery,
+     outer_input: &LogicalPlan,
+     subquery_alias: &str,
+-) -> Result<Option<(LogicalPlan, HashMap<Column, Expr>)>> {
++) -> Result<Option<(LogicalPlan, HashMap<String, Expr>)>> {
+     // `build_join` also handles uncorrelated scalar subqueries (as a left
+     // join with `Boolean(true)`) when the
+     // `enable_physical_uncorrelated_scalar_subquery` option is disabled.
+@@ -417,7 +417,7 @@
+                 Column::new(Some(subquery_alias), UN_MATCHED_ROW_INDICATOR);
+             // Qualify with the subquery alias to avoid ambiguity when the
+             // outer table has a column with the same name as the aggregate.
+-            let value_col = Column::new(Some(subquery_alias), name);
++            let value_col = Column::new(Some(subquery_alias), name.clone());
+ 
+             let mut builder = when(Expr::Column(indicator_col).is_null(), result);
+             if let Some((when_expr, then_expr)) = &having_arm {
+@@ -425,7 +425,7 @@
+             }
+             let compensation_expr = builder.otherwise(Expr::Column(value_col.clone()))?;
+             compensation_exprs.insert(
+-                value_col,
++                name,
+                 compensation_expr.rewrite(&mut expr_rewrite).data()?,
+             );
+         }

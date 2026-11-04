@@ -1,0 +1,40 @@
+--- a/datafusion/expr/src/logical_plan/plan.rs
++++ b/datafusion/expr/src/logical_plan/plan.rs
+@@ -3342,16 +3342,6 @@
+     ) -> Result<DFSchemaRef> {
+         let first_schema = inputs[0].schema();
+         let fields_count = first_schema.fields().len();
+-        for input in inputs.iter().skip(1) {
+-            if fields_count != input.schema().fields().len() {
+-                return plan_err!(
+-                    "UNION queries have different number of columns: \
+-                    left has {} columns whereas right has {} columns",
+-                    fields_count,
+-                    input.schema().fields().len()
+-                );
+-            }
+-        }
+ 
+         let mut name_counts: HashMap<String, usize> = HashMap::new();
+         let union_fields = (0..fields_count)
+--- a/datafusion/sql/src/set_expr.rs
++++ b/datafusion/sql/src/set_expr.rs
+@@ -72,18 +72,6 @@
+                             return Err(err);
+                         }
+                     };
+-                    if !(set_quantifier == SetQuantifier::ByName
+-                        || set_quantifier == SetQuantifier::AllByName)
+-                    {
+-                        self.validate_set_expr_num_of_columns(
+-                            op,
+-                            left_span,
+-                            right_span,
+-                            &left_plan,
+-                            &right_plan,
+-                            set_expr_span,
+-                        )?;
+-                    }
+                     self.set_operation_to_plan(op, left_plan, right_plan, set_quantifier)
+                 }
+                 SetExpr::Query(q) => self.query_to_plan(*q, planner_context),

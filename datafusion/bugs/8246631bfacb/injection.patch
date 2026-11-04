@@ -1,0 +1,35 @@
+--- a/datafusion/physical-plan/src/memory.rs
++++ b/datafusion/physical-plan/src/memory.rs
+@@ -366,9 +366,7 @@
+ 
+         let baseline_metrics = BaselineMetrics::new(&self.metrics, partition);
+ 
+-        // Create a fresh generator via reset_state() so that each execute()
+-        // call produces an independent stream starting from the beginning.
+-        let generator = self.batch_generators[partition].read().reset_state();
++        let generator = Arc::clone(&self.batch_generators[partition]);
+ 
+         let stream = LazyMemoryStream {
+             schema: Arc::clone(&self.schema),
+@@ -382,21 +380,6 @@
+     fn metrics(&self) -> Option<MetricsSet> {
+         Some(self.metrics.clone_inner())
+     }
+-
+-    fn reset_state(self: Arc<Self>) -> Result<Arc<dyn ExecutionPlan>> {
+-        let generators = self
+-            .generators()
+-            .iter()
+-            .map(|g| g.read().reset_state())
+-            .collect::<Vec<_>>();
+-        Ok(Arc::new(LazyMemoryExec {
+-            schema: Arc::clone(&self.schema),
+-            batch_generators: generators,
+-            cache: Arc::clone(&self.cache),
+-            metrics: ExecutionPlanMetricsSet::new(),
+-            projection: self.projection.clone(),
+-        }))
+-    }
+ }
+ 
+ /// Stream that generates record batches on demand

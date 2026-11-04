@@ -1,0 +1,38 @@
+--- a/datafusion/expr/src/logical_plan/plan.rs
++++ b/datafusion/expr/src/logical_plan/plan.rs
+@@ -1195,18 +1195,8 @@
+                 options,
+                 ..
+             }) => {
+-                let exec_columns = if expr.is_empty() {
+-                    columns.clone()
+-                } else {
+-                    expr.into_iter()
+-                        .map(|e| match e {
+-                            Expr::Column(c) => Ok(c),
+-                            other => internal_err!(
+-                                "Expected Expr::Column for Unnest exec_columns, got {other:?}"
+-                            ),
+-                        })
+-                        .collect::<Result<Vec<_>>>()?
+-                };
++                self.assert_no_expressions(expr)?;
++                let exec_columns = columns.clone();
+                 let input = self.only_input(inputs)?;
+                 Ok(unnest_with_options(input, exec_columns, options.clone())?)
+             }
+--- a/datafusion/optimizer/src/extract_leaf_expressions.rs
++++ b/datafusion/optimizer/src/extract_leaf_expressions.rs
+@@ -1149,12 +1149,6 @@
+         return Ok(None);
+     }
+ 
+-    // Unnest may output a column with the same name but different value/type
+-    // than its input column. Name-based routing cannot distinguish those.
+-    if matches!(node, LogicalPlan::Unnest(_)) {
+-        return Ok(None);
+-    }
+-
+     // SubqueryAlias remaps qualifiers between input and output.
+     // Rewrite pairs/columns from alias-space to input-space before routing.
+     let remapped = if let LogicalPlan::SubqueryAlias(sa) = node {

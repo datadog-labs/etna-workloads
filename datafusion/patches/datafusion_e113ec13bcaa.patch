@@ -1,0 +1,20 @@
+--- a/datafusion/functions-window/src/nth_value.rs
++++ b/datafusion/functions-window/src/nth_value.rs
+@@ -488,10 +488,13 @@
+         if self.ignore_nulls {
+             // Calculate valid indices, inside the window frame boundaries.
+             let slice = array.slice(range.start, n_range);
+-            if let Some(nulls) = slice.nulls()
+-                && nulls.null_count() > 0
+-            {
+-                return self.valid_index_with_nulls(nulls, range.start);
++            match slice.nulls() {
++                Some(nulls) if nulls.null_count() > 0 => {
++                    return self.valid_index_with_nulls(nulls, range.start);
++                }
++                Some(_) => {}
++                // No null buffer: treated as having no valid indices
++                None => return None,
+             }
+         }
+         // Either no nulls, or nulls are regarded as valid rows

@@ -1,0 +1,2 @@
+Reproducer: copies the first regression query from the fix's unnest.slt, `sum(get_field(s,'c0'))` over a subquery that unnests a list column next to a struct column.
+Clean build: prints `9`. Buggy build: the optimizer's PushDownLeafProjections tries to push through the Unnest node and fails with an internal error ("... should have no exprs ..."). The second query in repro.sql works on both builds.

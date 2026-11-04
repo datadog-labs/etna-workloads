@@ -1,0 +1,1 @@
+SELECT repeat(x, 9223372036854775807) FROM (VALUES ('abc')) AS t(x);

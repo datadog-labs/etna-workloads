@@ -1,0 +1,41 @@
+--- a/datafusion/optimizer/src/push_down_filter.rs
++++ b/datafusion/optimizer/src/push_down_filter.rs
+@@ -833,12 +833,11 @@
+ 
+         match Arc::unwrap_or_clone(filter.input) {
+             LogicalPlan::Filter(mut child_filter) => {
+-                // Child filters first to preserve execution order.
+                 // Use IndexSet to remove duplicates while preserving predicate order.
+                 let new_predicates: IndexSet<Expr> =
+-                    split_conjunction_owned(child_filter.predicate)
++                    split_conjunction_owned(filter.predicate)
+                         .into_iter()
+-                        .chain(split_conjunction_owned(filter.predicate))
++                        .chain(split_conjunction_owned(child_filter.predicate))
+                         .collect();
+ 
+                 let Some(new_predicate) = conjunction(new_predicates) else {
+--- a/datafusion/optimizer/src/simplify_expressions/simplify_predicates.rs
++++ b/datafusion/optimizer/src/simplify_expressions/simplify_predicates.rs
+@@ -196,7 +196,7 @@
+     let mut best_value: Option<&ScalarValue> = None;
+ 
+     for (idx, pred) in predicates.iter().enumerate() {
+-        if let Expr::BinaryExpr(BinaryExpr { left, op, right }) = pred {
++        if let Expr::BinaryExpr(BinaryExpr { left, op: _, right }) = pred {
+             // Extract the literal value based on which side has it
+             let scalar_value = match (right.as_literal(), left.as_literal()) {
+                 (Some(scalar), _) => Some(scalar),
+@@ -209,12 +209,8 @@
+                     let comparison = scalar.try_cmp(current_best)?;
+                     let is_better = if find_greater {
+                         comparison == std::cmp::Ordering::Greater
+-                            || (comparison == std::cmp::Ordering::Equal
+-                                && op == &Operator::Gt)
+                     } else {
+                         comparison == std::cmp::Ordering::Less
+-                            || (comparison == std::cmp::Ordering::Equal
+-                                && op == &Operator::Lt)
+                     };
+ 
+                     if is_better {

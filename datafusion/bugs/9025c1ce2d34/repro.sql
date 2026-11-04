@@ -1,0 +1,4 @@
+SET datafusion.execution.target_partitions = 4;
+CREATE TABLE t AS SELECT * FROM (VALUES (1,0),(2,0),(3,5),(4,5),(5,7),(6,7),(7,9),(8,9)) AS v(a,b);
+SELECT b, sum(a) FROM t GROUP BY b ORDER BY b DESC OFFSET 1 LIMIT 2;
+SELECT * FROM (SELECT a FROM t UNION ALL SELECT b FROM t) ORDER BY 1 DESC LIMIT 10 OFFSET 4;

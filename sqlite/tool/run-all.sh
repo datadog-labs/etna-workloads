@@ -19,7 +19,7 @@ REPRO=tool/repro.py
 [ "${ETNA_KIND:-sqlite}" = valkey ] && REPRO=tool/repro_valkey.py
 [ "${ETNA_KIND:-sqlite}" = cpython ] && REPRO=tool/repro_cpython.py
 [ "${ETNA_KIND:-sqlite}" = go ] && REPRO=tool/repro_go.py
-[ "${ETNA_KIND:-sqlite}" = datafusion ] && REPRO=""    # the .slt file is the reproducer
+[ "${ETNA_KIND:-sqlite}" = datafusion ] && REPRO=tool/repro_datafusion.py
 
 log() { echo "$(date -u +%FT%TZ) $*" | tee -a logs/run-all.log; }
 stage() {   # stage <name> <command...>

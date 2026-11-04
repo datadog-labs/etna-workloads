@@ -1,0 +1,25 @@
+--- a/datafusion/sql/src/planner.rs
++++ b/datafusion/sql/src/planner.rs
+@@ -32,7 +32,7 @@
+     DFSchemaRef, Diagnostic, SchemaError, field_not_found, internal_err,
+     plan_datafusion_err,
+ };
+-use datafusion_expr::Expr;
++use datafusion_expr::{Expr, col};
+ use datafusion_expr::logical_plan::{LogicalPlan, LogicalPlanBuilder};
+ pub use datafusion_expr::planner::ContextProvider;
+ use datafusion_expr::utils::find_column_exprs;
+@@ -591,10 +591,10 @@
+                 idents.len()
+             )
+         } else {
+-            let columns = plan.schema().columns();
++            let fields = plan.schema().fields().clone();
+             LogicalPlanBuilder::from(plan)
+-                .project(columns.into_iter().zip(idents).map(|(col, ident)| {
+-                    Expr::Column(col).alias(self.ident_normalizer.normalize(ident))
++                .project(fields.iter().zip(idents).map(|(field, ident)| {
++                    col(field.name()).alias(self.ident_normalizer.normalize(ident))
+                 }))?
+                 .build()
+         }

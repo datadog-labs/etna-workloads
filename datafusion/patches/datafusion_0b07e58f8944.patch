@@ -1,0 +1,26 @@
+--- a/datafusion/functions-aggregate/src/percentile_cont.rs
++++ b/datafusion/functions-aggregate/src/percentile_cont.rs
+@@ -782,21 +782,8 @@
+ 
+         let arr = values[0].as_primitive::<T>();
+         let mut decrement = |value: T::Native| {
+-            match self.counts.get_mut(&Hashable(value)) {
+-                Some(count) => {
+-                    *count -= 1;
+-                    if *count == 0 {
+-                        self.counts.remove(&Hashable(value));
+-                    }
+-                    Ok(())
+-                }
+-                // Retracting a value that isn't tracked means the accumulator
+-                // state has diverged from the window frame; continuing would
+-                // silently produce wrong results, so surface it as an error.
+-                None => internal_err!(
+-                    "percentile_cont(DISTINCT) retract_batch: retracted a value not present in the window"
+-                ),
+-            }
++            self.counts.remove(&Hashable(value));
++            Ok::<(), datafusion_common::DataFusionError>(())
+         };
+         if arr.null_count() > 0 {
+             for value in arr.iter().flatten() {

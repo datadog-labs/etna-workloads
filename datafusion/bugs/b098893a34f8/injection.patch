@@ -1,0 +1,27 @@
+--- a/datafusion/catalog-listing/src/helpers.rs
++++ b/datafusion/catalog-listing/src/helpers.rs
+@@ -402,12 +402,6 @@
+         .try_filter(|object_meta| futures::future::ready(object_meta.size > 0));
+ 
+     if partition_cols.is_empty() {
+-        assert_or_internal_err!(
+-            filters.is_empty(),
+-            "Got partition filters for unpartitioned table {}",
+-            table_path
+-        );
+-
+         // if no partition col => list all the files
+         Ok(objects
+             .try_filter_map(|object_meta| {
+--- a/datafusion/catalog-listing/src/table.rs
++++ b/datafusion/catalog-listing/src/table.rs
+@@ -471,8 +471,7 @@
+     partition_column_names: &[&str],
+     expr: &Expr,
+ ) -> bool {
+-    !partition_column_names.is_empty()
+-        && expr_applicable_for_cols(partition_column_names, expr)
++    expr_applicable_for_cols(partition_column_names, expr)
+ }
+ 
+ #[async_trait]

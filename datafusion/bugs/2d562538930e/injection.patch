@@ -1,0 +1,110 @@
+--- a/datafusion/spark/src/function/datetime/date_add.rs
++++ b/datafusion/spark/src/function/datetime/date_add.rs
+@@ -20,6 +20,7 @@
+ use arrow::array::ArrayRef;
+ use arrow::compute;
+ use arrow::datatypes::{DataType, Date32Type, Field, FieldRef};
++use arrow::error::ArrowError;
+ use datafusion_common::cast::{
+     as_date32_array, as_int8_array, as_int16_array, as_int32_array,
+ };
+@@ -96,26 +97,38 @@
+     let result = match days_arg.data_type() {
+         DataType::Int8 => {
+             let days_array = as_int8_array(days_arg)?;
+-            compute::binary::<_, _, _, Date32Type>(
++            compute::try_binary::<_, _, _, Date32Type>(
+                 date_array,
+                 days_array,
+-                |date, days| date.wrapping_add(days as i32),
++                |date, days| {
++                    date.checked_add(days as i32).ok_or_else(|| {
++                        ArrowError::ArithmeticOverflow("date_add".to_string())
++                    })
++                },
+             )?
+         }
+         DataType::Int16 => {
+             let days_array = as_int16_array(days_arg)?;
+-            compute::binary::<_, _, _, Date32Type>(
++            compute::try_binary::<_, _, _, Date32Type>(
+                 date_array,
+                 days_array,
+-                |date, days| date.wrapping_add(days as i32),
++                |date, days| {
++                    date.checked_add(days as i32).ok_or_else(|| {
++                        ArrowError::ArithmeticOverflow("date_add".to_string())
++                    })
++                },
+             )?
+         }
+         DataType::Int32 => {
+             let days_array = as_int32_array(days_arg)?;
+-            compute::binary::<_, _, _, Date32Type>(
++            compute::try_binary::<_, _, _, Date32Type>(
+                 date_array,
+                 days_array,
+-                |date, days| date.wrapping_add(days),
++                |date, days| {
++                    date.checked_add(days).ok_or_else(|| {
++                        ArrowError::ArithmeticOverflow("date_add".to_string())
++                    })
++                },
+             )?
+         }
+         _ => {
+--- a/datafusion/spark/src/function/datetime/date_sub.rs
++++ b/datafusion/spark/src/function/datetime/date_sub.rs
+@@ -20,6 +20,7 @@
+ use arrow::array::ArrayRef;
+ use arrow::compute;
+ use arrow::datatypes::{DataType, Date32Type, Field, FieldRef};
++use arrow::error::ArrowError;
+ use datafusion_common::cast::{
+     as_date32_array, as_int8_array, as_int16_array, as_int32_array,
+ };
+@@ -94,26 +95,38 @@
+     let result = match days_arg.data_type() {
+         DataType::Int8 => {
+             let days_array = as_int8_array(days_arg)?;
+-            compute::binary::<_, _, _, Date32Type>(
++            compute::try_binary::<_, _, _, Date32Type>(
+                 date_array,
+                 days_array,
+-                |date, days| date.wrapping_sub(days as i32),
++                |date, days| {
++                    date.checked_sub(days as i32).ok_or_else(|| {
++                        ArrowError::ArithmeticOverflow("date_sub".to_string())
++                    })
++                },
+             )?
+         }
+         DataType::Int16 => {
+             let days_array = as_int16_array(days_arg)?;
+-            compute::binary::<_, _, _, Date32Type>(
++            compute::try_binary::<_, _, _, Date32Type>(
+                 date_array,
+                 days_array,
+-                |date, days| date.wrapping_sub(days as i32),
++                |date, days| {
++                    date.checked_sub(days as i32).ok_or_else(|| {
++                        ArrowError::ArithmeticOverflow("date_sub".to_string())
++                    })
++                },
+             )?
+         }
+         DataType::Int32 => {
+             let days_array = as_int32_array(days_arg)?;
+-            compute::binary::<_, _, _, Date32Type>(
++            compute::try_binary::<_, _, _, Date32Type>(
+                 date_array,
+                 days_array,
+-                |date, days| date.wrapping_sub(days),
++                |date, days| {
++                    date.checked_sub(days).ok_or_else(|| {
++                        ArrowError::ArithmeticOverflow("date_sub".to_string())
++                    })
++                },
+             )?
+         }
+         _ => {

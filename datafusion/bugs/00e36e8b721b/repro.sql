@@ -1,0 +1,6 @@
+CREATE TABLE t1 (k INT, v INT);
+CREATE TABLE t2 (k INT, v INT);
+INSERT INTO t1 SELECT i AS k, i AS v FROM generate_series(1, 100) t(i);
+INSERT INTO t2 VALUES (1, 1);
+WITH t AS (SELECT * FROM t1 LEFT ANTI JOIN t2 ON t1.k = t2.k) SELECT count(*) FROM t;
+WITH t AS (SELECT * FROM t1 LEFT SEMI JOIN t2 ON t1.k = t2.k) SELECT count(*) FROM t;

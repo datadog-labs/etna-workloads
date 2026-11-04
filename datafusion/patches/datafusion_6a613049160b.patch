@@ -1,0 +1,37 @@
+--- a/datafusion/datasource-csv/src/file_format.rs
++++ b/datafusion/datasource-csv/src/file_format.rs
+@@ -639,31 +639,18 @@
+ fn build_schema_helper(
+     names: Vec<String>,
+     types: Vec<HashSet<DataType>>,
+-    disable_inference: bool,
++    _disable_inference: bool,
+ ) -> Schema {
+     let fields = names
+         .into_iter()
+         .zip(types)
+-        .map(|(field_name, mut data_type_possibilities)| {
++        .map(|(field_name, data_type_possibilities)| {
+             // ripped from arrow::csv::reader::infer_reader_schema_with_csv_options
+             // determine data type based on possible types
+             // if there are incompatible types, use DataType::Utf8
+ 
+-            // ignore nulls, to avoid conflicting datatypes (e.g. [nulls, int]) being inferred as Utf8.
+-            data_type_possibilities.remove(&DataType::Null);
+-
+             match data_type_possibilities.len() {
+-                // When no types were inferred (empty HashSet):
+-                // - If schema_infer_max_rec was explicitly set to 0, return Utf8
+-                // - Otherwise return Null (whether from reading null values or empty files)
+-                //   This allows schema merging to work when reading folders with empty files
+-                0 => {
+-                    if disable_inference {
+-                        Field::new(field_name, DataType::Utf8, true)
+-                    } else {
+-                        Field::new(field_name, DataType::Null, true)
+-                    }
+-                }
++                0 => Field::new(field_name, DataType::Utf8, true),
+                 1 => Field::new(
+                     field_name,
+                     data_type_possibilities.iter().next().unwrap().clone(),

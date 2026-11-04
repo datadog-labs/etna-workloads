@@ -1,0 +1,32 @@
+--- a/datafusion/expr/src/expr_rewriter/mod.rs
++++ b/datafusion/expr/src/expr_rewriter/mod.rs
+@@ -343,15 +343,9 @@
+ 
+     pub fn save(&self, expr: &Expr) -> SavedName {
+         if self.use_alias {
+-            match expr {
+-                Expr::Alias(alias) => SavedName::Saved {
+-                    relation: alias.relation.clone(),
+-                    name: alias.name.clone(),
+-                },
+-                _ => {
+-                    let (relation, name) = expr.qualified_name();
+-                    SavedName::Saved { relation, name }
+-                }
++            SavedName::Saved {
++                relation: None,
++                name: expr.schema_name().to_string(),
+             }
+         } else {
+             SavedName::None
+@@ -364,8 +358,8 @@
+     pub fn restore(self, expr: Expr) -> Expr {
+         match self {
+             SavedName::Saved { relation, name } => {
+-                let (new_relation, new_name) = expr.qualified_name();
+-                if new_relation != relation || new_name != name {
++                let new_name = expr.schema_name().to_string();
++                if new_name != name {
+                     expr.alias_qualified(relation, name)
+                 } else {
+                     expr

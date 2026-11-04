@@ -1,0 +1,64 @@
+--- a/datafusion/physical-plan/src/aggregates/grouped_hash_stream.rs
++++ b/datafusion/physical-plan/src/aggregates/grouped_hash_stream.rs
+@@ -536,7 +536,8 @@
+             merging_aggregate_arguments,
+             merging_group_by: PhysicalGroupBy::new_single(merging_group_by_expr),
+             peak_mem_used: MetricBuilder::new(&agg.metrics)
+-                .peak_memory_usage("peak_mem_used", partition),
++                .with_category(MetricCategory::Bytes)
++                .gauge("peak_mem_used", partition),
+             spill_manager,
+         };
+ 
+--- a/datafusion/physical-plan/src/buffer.rs
++++ b/datafusion/physical-plan/src/buffer.rs
+@@ -221,7 +221,8 @@
+         let curr_mem_out = Arc::clone(&curr_mem_in);
+         let mut max_mem_in = 0;
+         let max_mem = MetricBuilder::new(&self.metrics)
+-            .peak_memory_usage("max_mem_used", partition);
++            .with_category(MetricCategory::Bytes)
++            .gauge("max_mem_used", partition);
+ 
+         let curr_queued_in = Arc::new(AtomicUsize::new(0));
+         let curr_queued_out = Arc::clone(&curr_queued_in);
+--- a/datafusion/physical-plan/src/joins/sort_merge_join/bitwise_stream.rs
++++ b/datafusion/physical-plan/src/joins/sort_merge_join/bitwise_stream.rs
+@@ -325,8 +325,7 @@
+             MetricBuilder::new(metrics).counter("input_batches", partition);
+         let input_rows = MetricBuilder::new(metrics).counter("input_rows", partition);
+         let baseline_metrics = BaselineMetrics::new(metrics, partition);
+-        let peak_mem_used =
+-            MetricBuilder::new(metrics).peak_memory_usage("peak_mem_used", partition);
++        let peak_mem_used = MetricBuilder::new(metrics).gauge("peak_mem_used", partition);
+ 
+         let mut state = Self {
+             join_type,
+--- a/datafusion/physical-plan/src/joins/sort_merge_join/metrics.rs
++++ b/datafusion/physical-plan/src/joins/sort_merge_join/metrics.rs
+@@ -46,8 +46,9 @@
+         let input_rows = MetricBuilder::new(metrics)
+             .with_category(MetricCategory::Rows)
+             .counter("input_rows", partition);
+-        let peak_mem_used =
+-            MetricBuilder::new(metrics).peak_memory_usage("peak_mem_used", partition);
++        let peak_mem_used = MetricBuilder::new(metrics)
++            .with_category(MetricCategory::Bytes)
++            .gauge("peak_mem_used", partition);
+ 
+         let baseline_metrics = BaselineMetrics::new(metrics, partition);
+ 
+--- a/datafusion/physical-plan/src/joins/utils.rs
++++ b/datafusion/physical-plan/src/joins/utils.rs
+@@ -1810,8 +1810,9 @@
+             .with_category(MetricCategory::Rows)
+             .counter("build_input_rows", partition);
+ 
+-        let build_mem_used =
+-            MetricBuilder::new(metrics).peak_memory_usage("build_mem_used", partition);
++        let build_mem_used = MetricBuilder::new(metrics)
++            .with_category(MetricCategory::Bytes)
++            .gauge("build_mem_used", partition);
+ 
+         let input_batches = MetricBuilder::new(metrics)
+             .with_category(MetricCategory::Rows)

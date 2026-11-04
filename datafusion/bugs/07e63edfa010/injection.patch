@@ -1,0 +1,72 @@
+--- a/datafusion/physical-optimizer/src/topk_aggregation.rs
++++ b/datafusion/physical-optimizer/src/topk_aggregation.rs
+@@ -20,13 +20,14 @@
+ use std::sync::Arc;
+ 
+ use crate::PhysicalOptimizerRule;
++use arrow::datatypes::DataType;
+ use datafusion_common::Result;
+ use datafusion_common::config::ConfigOptions;
+ use datafusion_common::tree_node::{Transformed, TransformedResult, TreeNode};
+ use datafusion_physical_expr::expressions::Column;
+ use datafusion_physical_plan::ExecutionPlan;
+ use datafusion_physical_plan::aggregates::LimitOptions;
+-use datafusion_physical_plan::aggregates::{AggregateExec, topk_types_supported};
++use datafusion_physical_plan::aggregates::AggregateExec;
+ use datafusion_physical_plan::execution_plan::CardinalityEffect;
+ use datafusion_physical_plan::projection::ProjectionExec;
+ use datafusion_physical_plan::sorts::sort::SortExec;
+@@ -53,12 +54,11 @@
+         let (group_key, group_key_alias) =
+             aggr.group_expr().expr().iter().exactly_one().ok()?;
+         let kt = group_key.data_type(&aggr.input().schema()).ok()?;
+-        let vt = if let Some((field, _)) = aggr.get_minmax_desc() {
+-            field.data_type().clone()
+-        } else {
+-            kt.clone()
+-        };
+-        if !topk_types_supported(&kt, &vt) {
++        if !kt.is_primitive()
++            && kt != DataType::Utf8
++            && kt != DataType::Utf8View
++            && kt != DataType::LargeUtf8
++        {
+             return None;
+         }
+         if aggr.filter_expr().iter().any(|e| e.is_some()) {
+--- a/datafusion/physical-plan/src/aggregates/topk/heap.rs
++++ b/datafusion/physical-plan/src/aggregates/topk/heap.rs
+@@ -608,10 +608,6 @@
+ /// `PriorityMap::supports()` to validate aggregate value type compatibility.
+ pub fn is_supported_heap_type(vt: &DataType) -> bool {
+     vt.is_primitive()
+-        || matches!(
+-            vt,
+-            DataType::Utf8 | DataType::Utf8View | DataType::LargeUtf8
+-        )
+ }
+ 
+ pub fn new_heap(
+@@ -619,13 +615,6 @@
+     desc: bool,
+     vt: DataType,
+ ) -> Result<Box<dyn ArrowHeap + Send>> {
+-    if matches!(
+-        vt,
+-        DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View
+-    ) {
+-        return Ok(Box::new(StringHeap::new(limit, desc, vt)));
+-    }
+-
+     macro_rules! downcast_helper {
+         ($vt:ty, $d:ident) => {
+             return Ok(Box::new(PrimitiveHeap::<$vt>::new(limit, desc, vt)))
+@@ -638,7 +627,7 @@
+     }
+ 
+     Err(exec_datafusion_err!(
+-        "Unsupported TopK aggregate value type: {vt:?}"
++        "Can't group type: {vt:?}"
+     ))
+ }
+ 

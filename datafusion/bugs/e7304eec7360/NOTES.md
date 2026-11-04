@@ -1,0 +1,2 @@
+Reproducer: a CSV table with two UInt8 columns, each declared sorted (`WITH ORDER (a ASC) WITH ORDER (b ASC)`), where a+b wraps (200+10 -> 210, 255+10 -> 9).
+`SELECT a + b ... ORDER BY result` should sort the result. The buggy build derives ordering for a+b, drops the SortExec, and returns 2,5,210,9 (unsorted). The clean build returns 2,5,9,210. The EXPLAIN also differs (SortExec present only in clean).

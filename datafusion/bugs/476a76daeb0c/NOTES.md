@@ -1,0 +1,1 @@
+repro.sql runs array_compact(make_array(NULL, NULL, NULL)) (List(Null), values are a NullArray). Clean returns []; buggy returns [NULL, NULL, NULL] because it uses physical null_count instead of logical_nulls.

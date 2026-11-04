@@ -1,0 +1,24 @@
+--- a/datafusion/sql/src/select.rs
++++ b/datafusion/sql/src/select.rs
+@@ -138,9 +138,18 @@
+         )?;
+ 
+         // Having and group by clause may reference aliases defined in select projection
+-        let projected_plan =
+-            self.project(base_plan.clone(), select_exprs, set_expr_left_schema)?;
+-        let select_exprs = projected_plan.expressions();
++        let projected_plan = self.project(
++            base_plan.clone(),
++            select_exprs.clone(),
++            set_expr_left_schema,
++        )?;
++        let select_exprs = select_exprs
++            .into_iter()
++            .filter_map(|expr| match expr {
++                SelectExpr::Expression(expr) => Some(expr),
++                _ => None,
++            })
++            .collect::<Vec<_>>();
+ 
+         let order_by =
+             to_order_by_exprs_with_select(query_order_by, Some(&select_exprs))?;

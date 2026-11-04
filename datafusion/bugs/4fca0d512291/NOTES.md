@@ -1,0 +1,1 @@
+Unary plus on a non-numeric operand (`SELECT +true`, `SELECT +'a'`). Clean build rejects it with a planning error: Unary operator '+' only supports numeric, interval and timestamp types. Buggy build skips the type check and returns the operand unchanged (true / a).

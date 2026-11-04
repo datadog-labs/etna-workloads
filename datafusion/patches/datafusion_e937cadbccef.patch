@@ -1,0 +1,26 @@
+--- a/datafusion/expr/src/type_coercion/functions.rs
++++ b/datafusion/expr/src/type_coercion/functions.rs
+@@ -1200,7 +1200,7 @@
+             Timestamp(TimeUnit::Nanosecond, None),
+             Null | Timestamp(_, None) | Date32 | Date64 | Utf8 | LargeUtf8 | Utf8View,
+         ) => Some(type_into.clone()),
+-        (Interval(_), Null | Utf8 | LargeUtf8 | Utf8View) => Some(type_into.clone()),
++        (Interval(_), Utf8 | LargeUtf8 | Utf8View) => Some(type_into.clone()),
+         // Any type can be coerced into strings
+         (Utf8 | LargeUtf8 | Utf8View, _) => Some(type_into.clone()),
+         // We can go into a BinaryView from a Binary or LargeBinary
+--- a/datafusion/functions/src/datetime/date_bin.rs
++++ b/datafusion/functions/src/datetime/date_bin.rs
+@@ -504,12 +504,6 @@
+     origin: &ColumnarValue,
+ ) -> Result<ColumnarValue> {
+     let stride = match stride {
+-        ColumnarValue::Scalar(s) if s.is_null() => {
+-            // NULL stride -> NULL result (standard SQL NULL propagation)
+-            return Ok(ColumnarValue::Scalar(ScalarValue::try_from(
+-                array.data_type(),
+-            )?));
+-        }
+         ColumnarValue::Scalar(ScalarValue::IntervalDayTime(Some(v))) => {
+             let (days, ms) = IntervalDayTimeType::to_parts(*v);
+             let nanos = (TimeDelta::try_days(days as i64).unwrap()

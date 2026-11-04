@@ -1,0 +1,87 @@
+--- a/datafusion/functions-aggregate/src/approx_distinct.rs
++++ b/datafusion/functions-aggregate/src/approx_distinct.rs
+@@ -716,14 +716,6 @@
+         Ok(DataType::UInt64)
+     }
+ 
+-    fn default_value(&self, _data_type: &DataType) -> Result<ScalarValue> {
+-        Ok(ScalarValue::UInt64(Some(0)))
+-    }
+-
+-    fn is_nullable(&self) -> bool {
+-        false
+-    }
+-
+     fn state_fields(&self, args: StateFieldsArgs) -> Result<Vec<FieldRef>> {
+         let data_type = args.input_fields[0].data_type();
+         match data_type {
+--- a/datafusion/functions-aggregate/src/regr.rs
++++ b/datafusion/functions-aggregate/src/regr.rs
+@@ -457,18 +457,6 @@
+         }
+     }
+ 
+-    fn default_value(&self, _data_type: &DataType) -> Result<ScalarValue> {
+-        if self.regr_type == RegrType::Count {
+-            Ok(ScalarValue::UInt64(Some(0)))
+-        } else {
+-            Ok(ScalarValue::Float64(None))
+-        }
+-    }
+-
+-    fn is_nullable(&self) -> bool {
+-        self.regr_type != RegrType::Count
+-    }
+-
+     fn accumulator(&self, _acc_args: AccumulatorArgs) -> Result<Box<dyn Accumulator>> {
+         Ok(Box::new(RegrAccumulator::try_new(&self.regr_type)?))
+     }
+--- a/datafusion/optimizer/src/decorrelate.rs
++++ b/datafusion/optimizer/src/decorrelate.rs
+@@ -35,8 +35,8 @@
+     collect_subquery_cols, conjunction, find_join_exprs, split_conjunction,
+ };
+ use datafusion_expr::{
+-    BinaryExpr, Cast, EmptyRelation, Expr, ExprSchemable, FetchType, LogicalPlan,
+-    LogicalPlanBuilder, Operator, expr, lit,
++    BinaryExpr, Cast, EmptyRelation, Expr, FetchType, LogicalPlan, LogicalPlanBuilder,
++    Operator, expr, lit,
+ };
+ 
+ /// This struct rewrite the sub query plan by pull up the correlated
+@@ -512,12 +512,18 @@
+         let result_expr = e
+             .clone()
+             .transform_up(|expr| {
+-                let new_expr = if let Expr::AggregateFunction(agg) = &expr {
+-                    let return_type = expr.get_type(schema.as_ref())?;
+-                    let default_value = agg.func.default_value(&return_type)?;
+-                    Transformed::yes(Expr::Literal(default_value, None))
+-                } else {
+-                    Transformed::no(expr)
++                let new_expr = match expr {
++                    Expr::AggregateFunction(expr::AggregateFunction { func, .. }) => {
++                        if func.name() == "count" {
++                            Transformed::yes(Expr::Literal(
++                                ScalarValue::Int64(Some(0)),
++                                None,
++                            ))
++                        } else {
++                            Transformed::yes(Expr::Literal(ScalarValue::Null, None))
++                        }
++                    }
++                    _ => Transformed::no(expr),
+                 };
+                 Ok(new_expr)
+             })
+--- a/datafusion/optimizer/src/scalar_subquery_to_join.rs
++++ b/datafusion/optimizer/src/scalar_subquery_to_join.rs
+@@ -857,7 +857,7 @@
+         assert_optimized_plan_equal!(
+             plan,
+             @r#"
+-        Projection: customer.c_custkey, CASE WHEN __scalar_sq_1.__always_true IS NULL THEN CASE WHEN CAST(Float64(NULL) AS Boolean) THEN Utf8("a") ELSE Utf8("b") END ELSE __scalar_sq_1.CASE WHEN max(orders.o_totalprice) THEN Utf8("a") ELSE Utf8("b") END END AS CASE WHEN max(orders.o_totalprice) THEN Utf8("a") ELSE Utf8("b") END [c_custkey:Int64, CASE WHEN max(orders.o_totalprice) THEN Utf8("a") ELSE Utf8("b") END:Utf8;N]
++        Projection: customer.c_custkey, CASE WHEN __scalar_sq_1.__always_true IS NULL THEN CASE WHEN CAST(NULL AS Boolean) THEN Utf8("a") ELSE Utf8("b") END ELSE __scalar_sq_1.CASE WHEN max(orders.o_totalprice) THEN Utf8("a") ELSE Utf8("b") END END AS CASE WHEN max(orders.o_totalprice) THEN Utf8("a") ELSE Utf8("b") END [c_custkey:Int64, CASE WHEN max(orders.o_totalprice) THEN Utf8("a") ELSE Utf8("b") END:Utf8;N]
+           Left Join:  Filter: customer.c_custkey = __scalar_sq_1.o_custkey [c_custkey:Int64, c_name:Utf8, CASE WHEN max(orders.o_totalprice) THEN Utf8("a") ELSE Utf8("b") END:Utf8;N, o_custkey:Int64;N, __always_true:Boolean;N]
+             TableScan: customer [c_custkey:Int64, c_name:Utf8]
+             SubqueryAlias: __scalar_sq_1 [CASE WHEN max(orders.o_totalprice) THEN Utf8("a") ELSE Utf8("b") END:Utf8, o_custkey:Int64, __always_true:Boolean]

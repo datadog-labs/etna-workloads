@@ -1,0 +1,57 @@
+--- a/datafusion/physical-optimizer/src/ensure_requirements/enforce_distribution.rs
++++ b/datafusion/physical-optimizer/src/ensure_requirements/enforce_distribution.rs
+@@ -43,7 +43,7 @@
+ use datafusion_common::error::Result;
+ use datafusion_common::stats::Precision;
+ use datafusion_common::tree_node::Transformed;
+-use datafusion_expr::logical_plan::{Aggregate, JoinType};
++use datafusion_expr::logical_plan::JoinType;
+ use datafusion_physical_expr::expressions::{Column, NoOp};
+ use datafusion_physical_expr::utils::map_columns_before_projection;
+ use datafusion_physical_expr::{
+@@ -1242,7 +1242,6 @@
+             // Allow subset satisfaction when:
+             // 1. Current partition count >= threshold
+             // 2. Not a partitioned join since must use exact hash matching for joins
+-            // 3. Not a grouping set aggregate (requires exact hash including __grouping_id)
+             //
+             // Partitioned joins still require exact satisfaction. If that
+             // exact check already passes, preserve_file_partitions can skip
+@@ -1252,19 +1251,6 @@
+                 config.optimizer.preserve_file_partitions > 0
+                     && current_partitions >= config.optimizer.preserve_file_partitions;
+ 
+-            // Check if the hash partitioning requirement includes __grouping_id column.
+-            // Grouping set aggregates (ROLLUP, CUBE, GROUPING SETS) require exact hash
+-            // partitioning on all group columns including __grouping_id to ensure partial
+-            // aggregates from different partitions are correctly combined.
+-            let requires_grouping_id = matches!(&requirement,
+-                Distribution::HashPartitioned(exprs) | Distribution::KeyPartitioned(exprs)
+-                if exprs.iter().any(|expr| {
+-                    (expr.as_ref() as &dyn Any)
+-                        .downcast_ref::<Column>()
+-                        .is_some_and(|col| col.name() == Aggregate::INTERNAL_GROUPING_ID)
+-                })
+-            );
+-
+             let allow_subset_satisfy_partitioning = (current_partitions
+                 >= subset_satisfaction_threshold
+                 // `preserve_file_partitions` exposes existing file-group
+@@ -1273,8 +1259,7 @@
+                 // beyond the preserved file-group count.
+                 || (preserve_file_partition_threshold_met
+                     && current_partitions < target_partitions))
+-                && !is_partitioned_join
+-                && !requires_grouping_id;
++                && !is_partitioned_join;
+ 
+             let increases_partition_count = current_partitions < target_partitions;
+ 
+@@ -1326,7 +1311,6 @@
+                         .is_satisfied();
+                     let preserve_satisfying_file_partitioning =
+                         preserve_file_partition_threshold_met
+-                            && !requires_grouping_id
+                             && partitioning_satisfied
+                             && target_partitions > child_partitions;
+ 
