@@ -1,0 +1,1 @@
+repro.sql runs the new date_bin_errors.slt query: date_bin(interval '3 nanoseconds', i64::MIN ns timestamp). Clean build returns NULL (exit 0); buggy build panics in compute_distance with 'attempt to subtract with overflow' (exit 101).

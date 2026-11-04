@@ -1,0 +1,52 @@
+--- a/datafusion/functions-aggregate/src/correlation.rs
++++ b/datafusion/functions-aggregate/src/correlation.rs
+@@ -281,10 +281,6 @@
+         self.stddev2.retract_batch(&values[1..2])?;
+         Ok(())
+     }
+-
+-    fn supports_retract_batch(&self) -> bool {
+-        true
+-    }
+ }
+ 
+ #[derive(Default)]
+--- a/datafusion/functions-aggregate/src/covariance.rs
++++ b/datafusion/functions-aggregate/src/covariance.rs
+@@ -305,14 +305,6 @@
+                 _ => continue,
+             };
+ 
+-            if self.count <= 1 {
+-                self.count = 0;
+-                self.mean1 = 0.0;
+-                self.mean2 = 0.0;
+-                self.algo_const = 0.0;
+-                continue;
+-            }
+-
+             let new_count = self.count - 1;
+             let delta1 = self.mean1 - value1;
+             let new_mean1 = delta1 / new_count as f64 + self.mean1;
+@@ -381,8 +373,4 @@
+     fn size(&self) -> usize {
+         size_of_val(self)
+     }
+-
+-    fn supports_retract_batch(&self) -> bool {
+-        true
+-    }
+ }
+--- a/datafusion/functions-aggregate/src/variance.rs
++++ b/datafusion/functions-aggregate/src/variance.rs
+@@ -330,10 +330,6 @@
+ /// from a state with one or zero values resets the state to empty.
+ #[inline]
+ fn retract(count: u64, mean: f64, m2: f64, value: f64) -> (u64, f64, f64) {
+-    if count <= 1 {
+-        return (0, 0.0, 0.0);
+-    }
+-
+     let new_count = count - 1;
+     let delta1 = mean - value;
+     let new_mean = delta1 / new_count as f64 + mean;

@@ -1,0 +1,19 @@
+CREATE TABLE t2(b INT) AS VALUES (10), (20);
+
+EXPLAIN COPY (
+  SELECT 2 AS a, b FROM t2
+  UNION ALL
+  SELECT 1 AS a, b FROM t2
+  ORDER BY a, b
+) TO 'sink.parquet';
+
+COPY (
+  SELECT 2 AS a, b FROM t2
+  UNION ALL
+  SELECT 1 AS a, b FROM t2
+  ORDER BY a, b
+) TO 'sink.parquet';
+
+CREATE EXTERNAL TABLE sink STORED AS PARQUET LOCATION 'sink.parquet';
+
+SELECT * FROM sink;

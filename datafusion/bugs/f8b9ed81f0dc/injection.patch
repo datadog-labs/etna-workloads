@@ -1,0 +1,885 @@
+--- a/datafusion/physical-optimizer/src/topk_aggregation.rs
++++ b/datafusion/physical-optimizer/src/topk_aggregation.rs
+@@ -46,7 +46,6 @@
+         aggr: &AggregateExec,
+         order_by: &str,
+         order_desc: bool,
+-        nulls_first: bool,
+         limit: usize,
+     ) -> Option<Arc<dyn ExecutionPlan>> {
+         // Current only support single group key
+@@ -67,26 +66,6 @@
+ 
+         // Check if this is ordering by an aggregate function (MIN/MAX)
+         if let Some((field, desc)) = aggr.get_minmax_desc() {
+-            // A nullable MIN/MAX starts as NULL and becomes non-NULL when the
+-            // group sees its first value. With NULLS FIRST that transition
+-            // worsens the group's rank, so a bounded aggregation cannot safely
+-            // discard other NULL groups. Use regular aggregation for exact
+-            // results. Non-nullable inputs never take this transition and can
+-            // still use TopK.
+-            let input_nullable = aggr
+-                .aggr_expr()
+-                .iter()
+-                .exactly_one()
+-                .ok()?
+-                .expressions()
+-                .into_iter()
+-                .exactly_one()
+-                .ok()?
+-                .nullable(aggr.input_schema.as_ref())
+-                .ok()?;
+-            if nulls_first && input_nullable {
+-                return None;
+-            }
+             // ensure the sort direction matches aggregate function
+             if desc != order_desc {
+                 return None;
+@@ -121,7 +100,6 @@
+         let order = sort.properties().output_ordering()?;
+         let order = order.iter().exactly_one().ok()?;
+         let order_desc = order.options.descending;
+-        let nulls_first = order.options.nulls_first;
+         let order = order.expr.downcast_ref::<Column>()?;
+         let mut cur_col_name = order.name().to_string();
+         let limit = sort.fetch()?;
+@@ -133,13 +111,7 @@
+             }
+             if let Some(aggr) = plan.downcast_ref::<AggregateExec>() {
+                 // either we run into an Aggregate and transform it
+-                match Self::transform_agg(
+-                    aggr,
+-                    &cur_col_name,
+-                    order_desc,
+-                    nulls_first,
+-                    limit,
+-                ) {
++                match Self::transform_agg(aggr, &cur_col_name, order_desc, limit) {
+                     None => cardinality_preserved = false,
+                     Some(plan) => return Ok(Transformed::yes(plan)),
+                 }
+--- a/datafusion/physical-plan/src/aggregates/grouped_topk_stream.rs
++++ b/datafusion/physical-plan/src/aggregates/grouped_topk_stream.rs
+@@ -149,26 +149,11 @@
+         if has_nulls && self.is_group_by_only() {
+             self.null_group_seen = true;
+         }
+-        // Keep the common no-NULL path free of NULL bookkeeping. Once a NULL
+-        // group exists, use the NULL-aware path until it has been resolved.
+-        let track_null_groups = !self.is_group_by_only()
+-            && (has_nulls || self.priority_map.has_null_groups());
+         for row_idx in 0..len {
+             if has_nulls && vals.is_null(row_idx) {
+-                // MIN/MAX ignore NULL inputs, but a group whose values are all
+-                // NULL must still be emitted with a NULL aggregate value, so
+-                // track it. (GROUP BY-only aggregations handle NULL group keys
+-                // via `null_group_seen` instead.)
+-                if !self.is_group_by_only() {
+-                    self.priority_map.insert_null(row_idx);
+-                }
+                 continue;
+             }
+-            if track_null_groups {
+-                self.priority_map.insert_with_null_groups(row_idx)?;
+-            } else {
+-                self.priority_map.insert(row_idx)?;
+-            }
++            self.priority_map.insert(row_idx)?;
+         }
+         Ok(())
+     }
+--- a/datafusion/physical-plan/src/aggregates/topk/hash_table.rs
++++ b/datafusion/physical-plan/src/aggregates/topk/hash_table.rs
+@@ -39,11 +39,6 @@
+ 
+ impl<T> KeyType for T where T: Clone + Comparable + Debug {}
+ 
+-/// `heap_idx` assigned to groups whose aggregate values are all NULL. Such
+-/// groups are tracked in the hash table only (they never enter the heap), so
+-/// they can be emitted with a NULL aggregate value at the end.
+-const NULL_HEAP_IDX: usize = usize::MAX;
+-
+ /// An entry in our hash table that:
+ /// 1. memoizes the hash
+ /// 2. contains the key (ID)
+@@ -62,25 +57,10 @@
+     map: HashTable<usize>,
+     // Store the actual items separately to allow for index-based access
+     store: Vec<Option<HashTableItem<ID>>>,
+-    // Free indexes in the store for reuse
+-    free_indices: Vec<usize>,
++    // Free index in the store for reuse
++    free_index: Option<usize>,
+     // The maximum number of entries allowed
+     limit: usize,
+-    // Number of entries registered as all-NULL (heap_idx == NULL_HEAP_IDX)
+-    null_count: usize,
+-}
+-
+-/// Outcome of [`ArrowHashTable::find_or_insert`], letting the caller keep its
+-/// own all-NULL group accounting in sync without an extra lookup.
+-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+-pub enum InsertKind {
+-    /// The group already existed as a valued group
+-    Existing,
+-    /// The group was newly inserted as a valued group
+-    New,
+-    /// The group was registered as all-NULL and has now been converted into a
+-    /// valued group
+-    ReplacedNull,
+ }
+ 
+ /// An interface to hide the generic type signature of TopKHashTable behind arrow arrays
+@@ -90,20 +70,7 @@
+     fn update_heap_idx(&mut self, mapper: &[(usize, usize)]);
+     fn heap_idx_at(&self, map_idx: usize) -> usize;
+     fn take_all(&mut self, indexes: Vec<usize>) -> ArrayRef;
+-    fn find_or_insert(
+-        &mut self,
+-        row_idx: usize,
+-        replace_idx: usize,
+-    ) -> (usize, InsertKind);
+-    /// Register the group at `row_idx` as all-NULL. Returns true if it was
+-    /// newly registered; false if the group is already tracked or the NULL
+-    /// group limit has been reached.
+-    fn insert_null(&mut self, row_idx: usize) -> bool;
+-    /// Remove the group at `row_idx` if it is registered as all-NULL. Returns
+-    /// true if a NULL registration was removed.
+-    fn remove_if_null(&mut self, row_idx: usize) -> bool;
+-    /// Store indexes of all groups registered as all-NULL
+-    fn null_map_idxs(&self) -> Vec<usize>;
++    fn find_or_insert(&mut self, row_idx: usize, replace_idx: usize) -> (usize, bool);
+ }
+ 
+ /// Returns true if the given data type can be used as a top-K aggregation hash key.
+@@ -183,13 +150,6 @@
+             Some(value.to_string())
+         }
+     }
+-
+-    /// Computes the id and its hash for the given row, for hash table lookups
+-    fn id_and_hash(&self, row_idx: usize) -> (Option<String>, u64) {
+-        let id = self.extract_string_value(row_idx);
+-        let hash = self.rnd.hash_one(id.as_deref());
+-        (id, hash)
+-    }
+ }
+ 
+ impl ArrowHashTable for StringHashTable {
+@@ -219,11 +179,7 @@
+         }
+     }
+ 
+-    fn find_or_insert(
+-        &mut self,
+-        row_idx: usize,
+-        replace_idx: usize,
+-    ) -> (usize, InsertKind) {
++    fn find_or_insert(&mut self, row_idx: usize, replace_idx: usize) -> (usize, bool) {
+         let id = self.extract_string_value(row_idx);
+ 
+         // Compute hash and create equality closure for hash table lookup.
+@@ -234,23 +190,6 @@
+         // Use entry API to avoid double lookup
+         self.map.find_or_insert(hash, id, replace_idx, eq)
+     }
+-
+-    fn insert_null(&mut self, row_idx: usize) -> bool {
+-        let (id, hash) = self.id_and_hash(row_idx);
+-        let id_for_eq = id.clone();
+-        let eq = move |mi: &Option<String>| id_for_eq.as_deref() == mi.as_deref();
+-        self.map.insert_null(hash, id, eq)
+-    }
+-
+-    fn remove_if_null(&mut self, row_idx: usize) -> bool {
+-        let (id, hash) = self.id_and_hash(row_idx);
+-        let eq = move |mi: &Option<String>| id.as_deref() == mi.as_deref();
+-        self.map.remove_if_null(hash, eq)
+-    }
+-
+-    fn null_map_idxs(&self) -> Vec<usize> {
+-        self.map.null_map_idxs()
+-    }
+ }
+ 
+ impl<VAL: ArrowPrimitiveType> PrimitiveHashTable<VAL>
+@@ -271,18 +210,6 @@
+             kt,
+         }
+     }
+-
+-    /// Computes the id and its hash for the given row, for hash table lookups
+-    fn id_and_hash(&self, row_idx: usize) -> (Option<VAL::Native>, u64) {
+-        let ids = self.owned.as_primitive::<VAL>();
+-        let id: Option<VAL::Native> = if ids.is_null(row_idx) {
+-            None
+-        } else {
+-            Some(ids.value(row_idx))
+-        };
+-        let hash: u64 = id.hash(&self.rnd);
+-        (id, hash)
+-    }
+ }
+ 
+ impl<VAL: ArrowPrimitiveType> ArrowHashTable for PrimitiveHashTable<VAL>
+@@ -320,11 +247,7 @@
+         Arc::new(ids)
+     }
+ 
+-    fn find_or_insert(
+-        &mut self,
+-        row_idx: usize,
+-        replace_idx: usize,
+-    ) -> (usize, InsertKind) {
++    fn find_or_insert(&mut self, row_idx: usize, replace_idx: usize) -> (usize, bool) {
+         let ids = self.owned.as_primitive::<VAL>();
+         let id: Option<VAL::Native> = if ids.is_null(row_idx) {
+             None
+@@ -338,22 +261,6 @@
+         // Use entry API to avoid double lookup
+         self.map.find_or_insert(hash, id, replace_idx, eq)
+     }
+-
+-    fn insert_null(&mut self, row_idx: usize) -> bool {
+-        let (id, hash) = self.id_and_hash(row_idx);
+-        let eq = move |mi: &Option<VAL::Native>| id == *mi;
+-        self.map.insert_null(hash, id, eq)
+-    }
+-
+-    fn remove_if_null(&mut self, row_idx: usize) -> bool {
+-        let (id, hash) = self.id_and_hash(row_idx);
+-        let eq = move |mi: &Option<VAL::Native>| id == *mi;
+-        self.map.remove_if_null(hash, eq)
+-    }
+-
+-    fn null_map_idxs(&self) -> Vec<usize> {
+-        self.map.null_map_idxs()
+-    }
+ }
+ 
+ use hashbrown::hash_table::Entry;
+@@ -362,9 +269,8 @@
+         Self {
+             map: HashTable::with_capacity(capacity),
+             store: Vec::with_capacity(capacity),
+-            free_indices: Vec::new(),
++            free_index: None,
+             limit,
+-            null_count: 0,
+         }
+     }
+ 
+@@ -372,33 +278,25 @@
+         self.store[map_idx].as_ref().unwrap().heap_idx
+     }
+ 
+-    /// Remove the entry stored at `map_idx`, freeing its store slot for reuse
+-    fn remove_at(&mut self, map_idx: usize) {
+-        let item_to_remove = self.store[map_idx].as_ref().unwrap();
+-        let hash = item_to_remove.hash;
+-        let id_to_remove = &item_to_remove.id;
+-
+-        let eq = |&idx: &usize| self.store[idx].as_ref().unwrap().id == *id_to_remove;
+-        let hasher = |idx: &usize| self.store[*idx].as_ref().unwrap().hash;
+-        match self.map.entry(hash, eq, hasher) {
+-            Entry::Occupied(entry) => {
+-                let (removed_idx, _) = entry.remove();
+-                self.store[removed_idx] = None;
+-                self.free_indices.push(removed_idx);
+-            }
+-            Entry::Vacant(_) => unreachable!(),
+-        }
+-    }
+-
+     pub fn remove_if_full(&mut self, replace_idx: usize) -> usize {
+-        // All-NULL groups are tracked outside the heap, so only valued
+-        // groups count towards the limit here
+-        let valued_len = self.map.len() - self.null_count;
+-        if valued_len >= self.limit {
+-            self.remove_at(replace_idx);
++        if self.map.len() >= self.limit {
++            let item_to_remove = self.store[replace_idx].as_ref().unwrap();
++            let hash = item_to_remove.hash;
++            let id_to_remove = &item_to_remove.id;
++
++            let eq = |&idx: &usize| self.store[idx].as_ref().unwrap().id == *id_to_remove;
++            let hasher = |idx: &usize| self.store[*idx].as_ref().unwrap().hash;
++            match self.map.entry(hash, eq, hasher) {
++                Entry::Occupied(entry) => {
++                    let (removed_idx, _) = entry.remove();
++                    self.store[removed_idx] = None;
++                    self.free_index = Some(removed_idx);
++                }
++                Entry::Vacant(_) => unreachable!(),
++            }
+             0 // if full, always replace top node
+         } else {
+-            valued_len // if we're not full, always append to end
++            self.map.len() // if we're not full, always append to end
+         }
+     }
+ 
+@@ -409,8 +307,7 @@
+     }
+ 
+     /// Find an existing entry or insert a new one, avoiding double hash table lookup.
+-    /// Returns (map_idx, kind) where kind describes whether the group already
+-    /// existed, was newly inserted, or was converted from an all-NULL group.
++    /// Returns (map_idx, is_new) where is_new indicates if this was a new insertion.
+     /// If inserting a new entry and the table is full, replaces the entry at replace_idx.
+     pub fn find_or_insert(
+         &mut self,
+@@ -418,28 +315,19 @@
+         id: ID,
+         replace_idx: usize,
+         mut eq: impl FnMut(&ID) -> bool,
+-    ) -> (usize, InsertKind) {
++    ) -> (usize, bool) {
+         // Check if entry exists - this is the only hash table lookup
+-        let mut replaced_null = false;
+         {
+             let eq_fn = |idx: &usize| eq(&self.store[*idx].as_ref().unwrap().id);
+             if let Some(&map_idx) = self.map.find(hash, eq_fn) {
+-                if self.store[map_idx].as_ref().unwrap().heap_idx == NULL_HEAP_IDX {
+-                    // This group was registered as all-NULL but now produced a
+-                    // value: unregister it so it is inserted as a valued group
+-                    self.remove_at(map_idx);
+-                    self.null_count -= 1;
+-                    replaced_null = true;
+-                } else {
+-                    return (map_idx, InsertKind::Existing);
+-                }
++                return (map_idx, false);
+             }
+         }
+ 
+         // Entry doesn't exist - compute heap_idx and prepare item
+         let heap_idx = self.remove_if_full(replace_idx);
+         let mi = HashTableItem::new(hash, id, heap_idx);
+-        let store_idx = if let Some(idx) = self.free_indices.pop() {
++        let store_idx = if let Some(idx) = self.free_index.take() {
+             self.store[idx] = Some(mi);
+             idx
+         } else {
+@@ -455,80 +343,7 @@
+ 
+         // Insert without checking again since we already confirmed it doesn't exist
+         self.map.insert_unique(hash, store_idx, hasher);
+-        let kind = if replaced_null {
+-            InsertKind::ReplacedNull
+-        } else {
+-            InsertKind::New
+-        };
+-        (store_idx, kind)
+-    }
+-
+-    /// Register a group whose aggregate values are all NULL, unless it is
+-    /// already tracked. NULL groups are stored with a sentinel `heap_idx` and
+-    /// never enter the heap. At most `limit` NULL groups are tracked: they all
+-    /// tie on the sort key, so any `limit` of them is a valid top-k superset.
+-    /// Returns true if the group was newly registered.
+-    pub fn insert_null(
+-        &mut self,
+-        hash: u64,
+-        id: ID,
+-        mut eq: impl FnMut(&ID) -> bool,
+-    ) -> bool {
+-        {
+-            let eq_fn = |idx: &usize| eq(&self.store[*idx].as_ref().unwrap().id);
+-            if self.map.find(hash, eq_fn).is_some() {
+-                return false;
+-            }
+-        }
+-        if self.null_count >= self.limit {
+-            return false;
+-        }
+-
+-        let mi = HashTableItem::new(hash, id, NULL_HEAP_IDX);
+-        let store_idx = if let Some(idx) = self.free_indices.pop() {
+-            self.store[idx] = Some(mi);
+-            idx
+-        } else {
+-            self.store.push(Some(mi));
+-            self.store.len() - 1
+-        };
+-
+-        let hasher = |idx: &usize| self.store[*idx].as_ref().unwrap().hash;
+-        if self.map.len() == self.map.capacity() {
+-            self.map.reserve(self.limit, hasher);
+-        }
+-        self.map.insert_unique(hash, store_idx, hasher);
+-        self.null_count += 1;
+-        true
+-    }
+-
+-    /// Remove the given group if it is registered as all-NULL. Used when an
+-    /// all-NULL group produces a value that loses to the current top-k: the
+-    /// group can no longer reach the top-k, but it must not be emitted with a
+-    /// NULL value either. Returns true if a NULL registration was removed.
+-    pub fn remove_if_null(&mut self, hash: u64, mut eq: impl FnMut(&ID) -> bool) -> bool {
+-        let eq_fn = |idx: &usize| eq(&self.store[*idx].as_ref().unwrap().id);
+-        if let Some(&map_idx) = self.map.find(hash, eq_fn)
+-            && self.store[map_idx].as_ref().unwrap().heap_idx == NULL_HEAP_IDX
+-        {
+-            self.remove_at(map_idx);
+-            self.null_count -= 1;
+-            return true;
+-        }
+-        false
+-    }
+-
+-    /// Store indexes of all groups registered as all-NULL
+-    pub fn null_map_idxs(&self) -> Vec<usize> {
+-        self.store
+-            .iter()
+-            .enumerate()
+-            .filter_map(|(idx, item)| {
+-                item.as_ref()
+-                    .filter(|item| item.heap_idx == NULL_HEAP_IDX)
+-                    .map(|_| idx)
+-            })
+-            .collect()
++        (store_idx, true)
+     }
+ 
+     pub fn len(&self) -> usize {
+@@ -542,8 +357,7 @@
+             .collect();
+         self.map.clear();
+         self.store.clear();
+-        self.free_indices.clear();
+-        self.null_count = 0;
++        self.free_index = None;
+         ids
+     }
+ }
+@@ -639,9 +453,9 @@
+         for (heap_idx, id) in ["1", "2", "3", "4", "5"].iter().enumerate() {
+             let value = Some(id.to_string());
+             let hash = heap_idx as u64;
+-            let (map_idx, kind) =
++            let (map_idx, is_new) =
+                 map.find_or_insert(hash, value.clone(), heap_idx, |v| *v == value);
+-            assert_eq!(kind, InsertKind::New, "Entry should be new");
++            assert!(is_new, "Entry should be new");
+             heap_to_map.insert(heap_idx, map_idx);
+         }
+ 
+@@ -663,65 +477,4 @@
+ 
+         Ok(())
+     }
+-
+-    #[test]
+-    fn should_track_null_groups() -> Result<()> {
+-        let mut map = TopKHashTable::<Option<String>>::new(2, 10);
+-
+-        let a = Some("a".to_string());
+-        let b = Some("b".to_string());
+-        let c = Some("c".to_string());
+-
+-        // register two all-NULL groups; the third exceeds the NULL group limit
+-        assert!(map.insert_null(100, a.clone(), |v| *v == a));
+-        assert!(map.insert_null(200, b.clone(), |v| *v == b));
+-        assert!(!map.insert_null(300, c.clone(), |v| *v == c));
+-        // re-registering an existing NULL group is a no-op
+-        assert!(!map.insert_null(100, a.clone(), |v| *v == a));
+-        assert_eq!(map.null_count, 2);
+-        assert_eq!(map.null_map_idxs(), vec![0, 1]);
+-
+-        // a valued insert for a NULL group converts it to a valued group
+-        let (map_idx, kind) = map.find_or_insert(200, b.clone(), 0, |v| *v == b);
+-        assert_eq!(kind, InsertKind::ReplacedNull, "NULL group should convert");
+-        assert_eq!(map.heap_idx_at(map_idx), 0, "Heap should append at 0");
+-        assert_eq!(map.null_count, 1);
+-        assert_eq!(map.null_map_idxs(), vec![0]);
+-
+-        // remove the remaining NULL group; removing twice is a no-op
+-        map.remove_if_null(100, |v| *v == a);
+-        assert_eq!(map.null_count, 0);
+-        assert!(map.null_map_idxs().is_empty());
+-        map.remove_if_null(100, |v| *v == a);
+-        // removing a valued group via remove_if_null is a no-op
+-        map.remove_if_null(200, |v| *v == b);
+-        assert_eq!(map.len(), 1);
+-
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn should_reuse_all_freed_store_slots() -> Result<()> {
+-        let mut map = TopKHashTable::<Option<String>>::new(1, 10);
+-
+-        let a = Some("a".to_string());
+-        let b = Some("b".to_string());
+-        let c = Some("c".to_string());
+-
+-        let (b_idx, kind) = map.find_or_insert(100, b.clone(), 0, |v| *v == b);
+-        assert_eq!(kind, InsertKind::New);
+-        assert!(map.insert_null(200, a.clone(), |v| *v == a));
+-
+-        // Converting a NULL group while the valued heap is full frees two
+-        // slots: the NULL registration and the evicted valued group.
+-        let (_, kind) = map.find_or_insert(200, a.clone(), b_idx, |v| *v == a);
+-        assert_eq!(kind, InsertKind::ReplacedNull);
+-
+-        // Both freed slots must remain reusable. Otherwise repeated
+-        // conversions make the backing store grow without bound.
+-        assert!(map.insert_null(300, c.clone(), |v| *v == c));
+-        assert_eq!(map.store.len(), 2);
+-
+-        Ok(())
+-    }
+ }
+--- a/datafusion/physical-plan/src/aggregates/topk/priority_map.rs
++++ b/datafusion/physical-plan/src/aggregates/topk/priority_map.rs
+@@ -17,10 +17,9 @@
+ 
+ //! A `Map<K, V>` / `PriorityQueue` combo that evicts the worst values after reaching `capacity`
+ 
+-use crate::aggregates::topk::hash_table::{ArrowHashTable, InsertKind, new_hash_table};
++use crate::aggregates::topk::hash_table::{ArrowHashTable, new_hash_table};
+ use crate::aggregates::topk::heap::{ArrowHeap, new_heap};
+-use arrow::array::{ArrayRef, new_null_array};
+-use arrow::compute::concat;
++use arrow::array::ArrayRef;
+ use arrow::datatypes::DataType;
+ use datafusion_common::Result;
+ 
+@@ -30,11 +29,6 @@
+     heap: Box<dyn ArrowHeap + Send>,
+     capacity: usize,
+     mapper: Vec<(usize, usize)>,
+-    val_type: DataType,
+-    /// Mirror of the map's all-NULL group count, kept as a plain field so the
+-    /// per-row `insert` path can check it without a `dyn` call (measured to
+-    /// regress the topk_aggregate benchmarks when read through the trait)
+-    null_count: usize,
+ }
+ 
+ impl PriorityMap {
+@@ -46,11 +40,9 @@
+     ) -> Result<Self> {
+         Ok(Self {
+             map: new_hash_table(capacity, key_type)?,
+-            heap: new_heap(capacity, descending, val_type.clone())?,
++            heap: new_heap(capacity, descending, val_type)?,
+             capacity,
+             mapper: Vec::with_capacity(capacity),
+-            val_type,
+-            null_count: 0,
+         })
+     }
+ 
+@@ -61,47 +53,19 @@
+ 
+     pub fn insert(&mut self, row_idx: usize) -> Result<()> {
+         assert!(self.map.len() <= self.capacity, "Overflow");
+-        debug_assert_eq!(self.null_count, 0);
+ 
+         // if we're full, and the new val is worse than all our values, just bail
+         if self.heap.is_worse(row_idx) {
+             return Ok(());
+         }
+-        self.insert_eligible(row_idx)
+-    }
+-
+-    /// Insert a value while all-NULL groups are being tracked. This is kept
+-    /// separate from [`Self::insert`] so the common no-NULL path does not pay
+-    /// for NULL bookkeeping on every row.
+-    pub fn insert_with_null_groups(&mut self, row_idx: usize) -> Result<()> {
+-        // valued groups are capped at `capacity`; up to `capacity` additional
+-        // all-NULL groups may be tracked alongside them
+-        assert!(self.map.len() <= 2 * self.capacity, "Overflow");
+-
+-        if self.heap.is_worse(row_idx) {
+-            // A group that was registered as all-NULL now has a value that
+-            // loses to the current top-k: it can no longer reach the top-k,
+-            // but it must not be emitted with a NULL value either
+-            if self.null_count > 0 && self.map.remove_if_null(row_idx) {
+-                self.null_count -= 1;
+-            }
+-            return Ok(());
+-        }
+-        self.insert_eligible(row_idx)
+-    }
+-
+-    fn insert_eligible(&mut self, row_idx: usize) -> Result<()> {
+         let map = &mut self.mapper;
+ 
+         // handle new groups we haven't seen yet
+         map.clear();
+         let replace_idx = self.heap.worst_map_idx();
+ 
+-        let (map_idx, kind) = self.map.find_or_insert(row_idx, replace_idx);
+-        if kind == InsertKind::ReplacedNull {
+-            self.null_count -= 1;
+-        }
+-        if kind != InsertKind::Existing {
++        let (map_idx, did_insert) = self.map.find_or_insert(row_idx, replace_idx);
++        if did_insert {
+             self.heap.insert(row_idx, map_idx, map);
+             self.map.update_heap_idx(map);
+             return Ok(());
+@@ -116,35 +80,9 @@
+         Ok(())
+     }
+ 
+-    pub fn has_null_groups(&self) -> bool {
+-        self.null_count > 0
+-    }
+-
+-    /// Track a group whose aggregate values are all NULL, so it can be emitted
+-    /// with a NULL value. MIN/MAX ignore NULL inputs, but an all-NULL group
+-    /// must still appear in the aggregation output; such groups all tie on the
+-    /// sort key, so tracking up to `capacity` of them preserves top-k semantics.
+-    pub fn insert_null(&mut self, row_idx: usize) {
+-        assert!(self.map.len() <= 2 * self.capacity, "Overflow");
+-        if self.map.insert_null(row_idx) {
+-            self.null_count += 1;
+-        }
+-    }
+-
+     pub fn emit(&mut self) -> Result<Vec<ArrayRef>> {
+-        let (vals, mut map_idxs) = self.heap.drain();
+-        // Groups whose values are all NULL are tracked in the map only;
+-        // append them with a NULL value so they are not lost from the output
+-        let null_idxs = self.map.null_map_idxs();
+-        let vals = if null_idxs.is_empty() {
+-            vals
+-        } else {
+-            map_idxs.extend(null_idxs.iter().copied());
+-            let nulls = new_null_array(&self.val_type, null_idxs.len());
+-            concat(&[vals.as_ref(), nulls.as_ref()])?
+-        };
++        let (vals, map_idxs) = self.heap.drain();
+         let ids = self.map.take_all(map_idxs);
+-        self.null_count = 0;
+         Ok(vec![ids, vals])
+     }
+ 
+@@ -553,224 +491,6 @@
+         +----------+--------------+
+         "
+         );
+-
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn should_emit_all_null_groups() -> Result<()> {
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1", "2"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![None, None]));
+-        let mut agg = PriorityMap::new(DataType::Utf8, DataType::Int64, 2, true)?;
+-        agg.set_batch(ids, vals);
+-        agg.insert_null(0);
+-        agg.insert_null(1);
+-        // re-registering an existing NULL group is a no-op
+-        agg.insert_null(0);
+-
+-        let cols = agg.emit()?;
+-        let batch = RecordBatch::try_new(test_schema(), cols)?;
+-        let actual = format!("{}", pretty_format_batches(&[batch])?);
+-        assert_snapshot!(actual, @r"
+-        +----------+--------------+
+-        | trace_id | timestamp_ms |
+-        +----------+--------------+
+-        | 1        |              |
+-        | 2        |              |
+-        +----------+--------------+
+-        "
+-        );
+-
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn should_emit_null_groups_alongside_valued_groups() -> Result<()> {
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1", "2", "3"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![Some(7), None, Some(3)]));
+-        let mut agg = PriorityMap::new(DataType::Utf8, DataType::Int64, 3, true)?;
+-        agg.set_batch(ids, vals);
+-        agg.insert(0)?;
+-        agg.insert_null(1);
+-        agg.insert_with_null_groups(2)?;
+-
+-        let cols = agg.emit()?;
+-        let batch = RecordBatch::try_new(test_schema(), cols)?;
+-        let actual = format!("{}", pretty_format_batches(&[batch])?);
+-        assert_snapshot!(actual, @r"
+-        +----------+--------------+
+-        | trace_id | timestamp_ms |
+-        +----------+--------------+
+-        | 1        | 7            |
+-        | 3        | 3            |
+-        | 2        |              |
+-        +----------+--------------+
+-        "
+-        );
+-
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn should_cap_null_groups_at_limit() -> Result<()> {
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1", "2", "3", "4", "5"]));
+-        let vals: ArrayRef =
+-            Arc::new(Int64Array::from(vec![None, None, None, None, None]));
+-        let mut agg = PriorityMap::new(DataType::Utf8, DataType::Int64, 2, false)?;
+-        agg.set_batch(ids, vals);
+-        for row_idx in 0..5 {
+-            agg.insert_null(row_idx);
+-        }
+-
+-        let cols = agg.emit()?;
+-        let batch = RecordBatch::try_new(test_schema(), cols)?;
+-        let actual = format!("{}", pretty_format_batches(&[batch])?);
+-        assert_snapshot!(actual, @r"
+-        +----------+--------------+
+-        | trace_id | timestamp_ms |
+-        +----------+--------------+
+-        | 1        |              |
+-        | 2        |              |
+-        +----------+--------------+
+-        "
+-        );
+-
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn should_convert_null_group_to_valued() -> Result<()> {
+-        let mut agg = PriorityMap::new(DataType::Utf8, DataType::Int64, 2, true)?;
+-
+-        // group "1" only produces NULLs in the first batch
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![None]));
+-        agg.set_batch(ids, vals);
+-        agg.insert_null(0);
+-
+-        // group "1" produces a value in a later batch
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![5]));
+-        agg.set_batch(ids, vals);
+-        agg.insert_with_null_groups(0)?;
+-
+-        let cols = agg.emit()?;
+-        let batch = RecordBatch::try_new(test_schema(), cols)?;
+-        let actual = format!("{}", pretty_format_batches(&[batch])?);
+-        assert_snapshot!(actual, @r"
+-        +----------+--------------+
+-        | trace_id | timestamp_ms |
+-        +----------+--------------+
+-        | 1        | 5            |
+-        +----------+--------------+
+-        "
+-        );
+-
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn should_not_duplicate_valued_group_as_null() -> Result<()> {
+-        let mut agg = PriorityMap::new(DataType::Utf8, DataType::Int64, 2, false)?;
+-
+-        // group "1" produces a value in the first batch
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![5]));
+-        agg.set_batch(ids, vals);
+-        agg.insert(0)?;
+-
+-        // group "1" only produces NULLs in a later batch
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![None]));
+-        agg.set_batch(ids, vals);
+-        agg.insert_null(0);
+-
+-        let cols = agg.emit()?;
+-        let batch = RecordBatch::try_new(test_schema(), cols)?;
+-        let actual = format!("{}", pretty_format_batches(&[batch])?);
+-        assert_snapshot!(actual, @r"
+-        +----------+--------------+
+-        | trace_id | timestamp_ms |
+-        +----------+--------------+
+-        | 1        | 5            |
+-        +----------+--------------+
+-        "
+-        );
+-
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn should_evict_worst_when_converting_null_group() -> Result<()> {
+-        let mut agg = PriorityMap::new(DataType::Utf8, DataType::Int64, 1, true)?;
+-
+-        // group "2" holds the single top-k slot
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["2"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![10]));
+-        agg.set_batch(ids, vals);
+-        agg.insert(0)?;
+-
+-        // group "1" starts out all-NULL
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![None]));
+-        agg.set_batch(ids, vals);
+-        agg.insert_null(0);
+-
+-        // group "1" produces a better value and evicts group "2"
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![20]));
+-        agg.set_batch(ids, vals);
+-        agg.insert_with_null_groups(0)?;
+-
+-        let cols = agg.emit()?;
+-        let batch = RecordBatch::try_new(test_schema(), cols)?;
+-        let actual = format!("{}", pretty_format_batches(&[batch])?);
+-        assert_snapshot!(actual, @r"
+-        +----------+--------------+
+-        | trace_id | timestamp_ms |
+-        +----------+--------------+
+-        | 1        | 20           |
+-        +----------+--------------+
+-        "
+-        );
+-
+-        Ok(())
+-    }
+-
+-    #[test]
+-    fn should_drop_null_group_that_loses_to_topk() -> Result<()> {
+-        let mut agg = PriorityMap::new(DataType::Utf8, DataType::Int64, 1, true)?;
+-
+-        // group "1" starts out all-NULL
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![None]));
+-        agg.set_batch(ids, vals);
+-        agg.insert_null(0);
+-
+-        // group "2" fills the single top-k slot
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["2"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![10]));
+-        agg.set_batch(ids, vals);
+-        agg.insert_with_null_groups(0)?;
+-
+-        // group "1" produces a value that loses to the current top-k: the
+-        // group can no longer reach the top-k and must not be emitted as NULL
+-        let ids: ArrayRef = Arc::new(StringArray::from(vec!["1"]));
+-        let vals: ArrayRef = Arc::new(Int64Array::from(vec![5]));
+-        agg.set_batch(ids, vals);
+-        agg.insert_with_null_groups(0)?;
+-
+-        let cols = agg.emit()?;
+-        let batch = RecordBatch::try_new(test_schema(), cols)?;
+-        let actual = format!("{}", pretty_format_batches(&[batch])?);
+-        assert_snapshot!(actual, @r"
+-        +----------+--------------+
+-        | trace_id | timestamp_ms |
+-        +----------+--------------+
+-        | 2        | 10           |
+-        +----------+--------------+
+-        "
+-        );
+ 
+         Ok(())
+     }

@@ -1,0 +1,8 @@
+SELECT k,
+       SUM(v) OVER w,
+       COUNT(v) OVER w,
+       MIN(v) OVER w,
+       MAX(v) OVER w
+FROM (VALUES (0, 100), (10, 90), (30, 10), (40, 20)) AS t(k, v)
+WINDOW w AS (ORDER BY k RANGE BETWEEN 10 PRECEDING AND 5 PRECEDING)
+ORDER BY k;

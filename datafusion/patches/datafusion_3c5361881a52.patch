@@ -1,0 +1,37 @@
+--- a/datafusion/functions-aggregate-common/src/aggregate/groups_accumulator/accumulate.rs
++++ b/datafusion/functions-aggregate-common/src/aggregate/groups_accumulator/accumulate.rs
+@@ -23,7 +23,6 @@
+ use arrow::buffer::NullBuffer;
+ use arrow::datatypes::ArrowPrimitiveType;
+ 
+-use crate::aggregate::groups_accumulator::nulls::filter_to_validity;
+ use datafusion_expr_common::groups_accumulator::EmitTo;
+ 
+ /// If the input has nulls, then the accumulator must potentially
+@@ -506,7 +505,7 @@
+     // test row validity below.
+     if let Some(filter) = opt_filter {
+         debug_assert_eq!(filter.len(), group_indices.len());
+-        let filter_validity = filter_to_validity(filter);
++        let filter_validity = filter.values().clone();
+         if let Some(valid_indices) = valid_indices.as_mut() {
+             *valid_indices &= &filter_validity;
+         } else {
+@@ -556,7 +555,7 @@
+         (None, Some(filter)) => {
+             debug_assert_eq!(filter.len(), group_indices.len());
+             let group_indices_chunks = group_indices.chunks_exact(64);
+-            let filter_validity = filter_to_validity(filter);
++            let filter_validity = filter.values().clone();
+             let bit_chunks = filter_validity.bit_chunks();
+ 
+             let group_indices_remainder = group_indices_chunks.remainder();
+@@ -631,7 +630,7 @@
+ 
+             let group_indices_chunks = group_indices.chunks_exact(64);
+             let valid_bit_chunks = valids.inner().bit_chunks();
+-            let filter_validity = filter_to_validity(filter);
++            let filter_validity = filter.values().clone();
+             let filter_bit_chunks = filter_validity.bit_chunks();
+ 
+             let group_indices_remainder = group_indices_chunks.remainder();

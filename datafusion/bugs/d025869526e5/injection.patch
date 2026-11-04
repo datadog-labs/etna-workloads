@@ -1,0 +1,87 @@
+--- a/datafusion/physical-plan/src/joins/hash_join/inlist_builder.rs
++++ b/datafusion/physical-plan/src/joins/hash_join/inlist_builder.rs
+@@ -20,6 +20,7 @@
+ use std::sync::Arc;
+ 
+ use arrow::array::{ArrayRef, StructArray};
++use arrow::compute::cast;
+ use arrow::datatypes::{Field, FieldRef, Fields};
+ use arrow_schema::DataType;
+ use datafusion_common::Result;
+@@ -32,6 +33,19 @@
+         .collect()
+ }
+ 
++/// Casts dictionary-encoded arrays to their underlying value type, preserving row count.
++/// Non-dictionary arrays are returned as-is.
++fn flatten_dictionary_array(array: &ArrayRef) -> Result<ArrayRef> {
++    match array.data_type() {
++        DataType::Dictionary(_, value_type) => {
++            let casted = cast(array, value_type)?;
++            // Recursively flatten in case of nested dictionaries
++            flatten_dictionary_array(&casted)
++        }
++        _ => Ok(Arc::clone(array)),
++    }
++}
++
+ /// Builds InList values from join key column arrays.
+ ///
+ /// If `join_key_arrays` is:
+@@ -51,14 +65,20 @@
+ pub(super) fn build_struct_inlist_values(
+     join_key_arrays: &[ArrayRef],
+ ) -> Result<Option<ArrayRef>> {
++    // Flatten any dictionary-encoded arrays
++    let flattened_arrays: Vec<ArrayRef> = join_key_arrays
++        .iter()
++        .map(flatten_dictionary_array)
++        .collect::<Result<Vec<_>>>()?;
++
+     // Build the source array/struct
+-    let source_array: ArrayRef = if join_key_arrays.len() == 1 {
++    let source_array: ArrayRef = if flattened_arrays.len() == 1 {
+         // Single column: use directly
+-        Arc::clone(&join_key_arrays[0])
++        Arc::clone(&flattened_arrays[0])
+     } else {
+         // Multi-column: build StructArray once from all columns
+         let fields = build_struct_fields(
+-            &join_key_arrays
++            &flattened_arrays
+                 .iter()
+                 .map(|arr| arr.data_type().clone())
+                 .collect::<Vec<_>>(),
+@@ -68,7 +88,7 @@
+         let arrays_with_fields: Vec<(FieldRef, ArrayRef)> = fields
+             .iter()
+             .cloned()
+-            .zip(join_key_arrays.iter().cloned())
++            .zip(flattened_arrays.iter().cloned())
+             .collect();
+ 
+         Arc::new(StructArray::from(arrays_with_fields))
+@@ -130,14 +150,7 @@
+         assert_eq!(
+             *result.data_type(),
+             DataType::Struct(
+-                build_struct_fields(&[
+-                    DataType::Dictionary(
+-                        Box::new(DataType::Int8),
+-                        Box::new(DataType::Utf8)
+-                    ),
+-                    DataType::Int32
+-                ])
+-                .unwrap()
++                build_struct_fields(&[DataType::Utf8, DataType::Int32]).unwrap()
+             )
+         );
+     }
+@@ -153,6 +166,6 @@
+             .unwrap();
+ 
+         assert_eq!(result.len(), 3);
+-        assert_eq!(result.data_type(), dict_array.data_type());
++        assert_eq!(*result.data_type(), DataType::Utf8);
+     }
+ }

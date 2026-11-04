@@ -1,0 +1,284 @@
+--- a/datafusion/functions-aggregate/src/count.rs
++++ b/datafusion/functions-aggregate/src/count.rs
+@@ -38,7 +38,8 @@
+     Accumulator, AggregateUDFImpl, Documentation, EmitTo, Expr, GroupsAccumulator,
+     ReversedUDAF, SetMonotonicity, Signature, StatisticsArgs, TypeSignature, Volatility,
+     WindowFunctionDefinition,
+-    expr::WindowFunction,
++    expr::{AggregateFunctionParams, WindowFunction, WindowFunctionParams},
++    udaf_default_schema_name, udaf_default_window_function_schema_name,
+     function::{AccumulatorArgs, StateFieldsArgs},
+     utils::format_state_name,
+ };
+@@ -285,6 +286,31 @@
+         "count"
+     }
+ 
++    fn schema_name(&self, params: &AggregateFunctionParams) -> Result<String> {
++        if is_count_wildcard(&params.args) {
++            let mut params = params.clone();
++            params.args = vec![];
++            // "count()" -> "count(*)"
++            return Ok(udaf_default_schema_name(self, &params)?.replacen(
++                "count()", "count(*)", 1,
++            ));
++        }
++        udaf_default_schema_name(self, params)
++    }
++
++    fn window_function_schema_name(
++        &self,
++        params: &WindowFunctionParams,
++    ) -> Result<String> {
++        if is_count_wildcard(&params.args) {
++            let mut params = params.clone();
++            params.args = vec![];
++            return Ok(udaf_default_window_function_schema_name(self, &params)?
++                .replacen("count()", "count(*)", 1));
++        }
++        udaf_default_window_function_schema_name(self, params)
++    }
++
+     fn signature(&self) -> &Signature {
+         &self.signature
+     }
+@@ -570,6 +596,15 @@
+     }
+ }
+ 
++fn is_count_wildcard(args: &[Expr]) -> bool {
++    match args {
++        [] => true, // count()
++        // All const should be coerced to int64 or rejected by the signature
++        [Expr::Literal(ScalarValue::Int64(Some(_)), _)] => true, // count(1)
++        _ => false, // More than one argument or non-matching cases
++    }
++}
++
+ #[derive(Debug)]
+ struct CountAccumulator {
+     count: i64,
+--- a/datafusion/functions-aggregate/src/planner.rs
++++ b/datafusion/functions-aggregate/src/planner.rs
+@@ -20,8 +20,7 @@
+ use datafusion_common::Result;
+ use datafusion_expr::{
+     Expr,
+-    expr::{AggregateFunction, AggregateFunctionParams},
+-    expr_rewriter::NamePreserver,
++    expr::AggregateFunction,
+     planner::{ExprPlanner, PlannerResult, RawAggregateExpr},
+     utils::COUNT_STAR_EXPANSION,
+ };
+@@ -32,62 +31,14 @@
+ impl ExprPlanner for AggregateFunctionPlanner {
+     fn plan_aggregate(
+         &self,
+-        raw_expr: RawAggregateExpr,
++        expr: RawAggregateExpr,
+     ) -> Result<PlannerResult<RawAggregateExpr>> {
+-        let RawAggregateExpr {
+-            func,
+-            args,
+-            distinct,
+-            filter,
+-            order_by,
+-            null_treatment,
+-        } = raw_expr;
+-
+-        let origin_expr = Expr::AggregateFunction(AggregateFunction {
+-            func,
+-            params: AggregateFunctionParams {
+-                args,
+-                distinct,
+-                filter,
+-                order_by,
+-                null_treatment,
+-            },
+-        });
+-
+-        let saved_name = NamePreserver::new_for_projection().save(&origin_expr);
+-
+-        let Expr::AggregateFunction(AggregateFunction {
+-            func,
+-            params:
+-                AggregateFunctionParams {
+-                    args,
+-                    distinct,
+-                    filter,
+-                    order_by,
+-                    null_treatment,
+-                },
+-        }) = origin_expr
+-        else {
+-            unreachable!("")
+-        };
+-        let raw_expr = RawAggregateExpr {
+-            func,
+-            args,
+-            distinct,
+-            filter,
+-            order_by,
+-            null_treatment,
+-        };
+-
+-        // handle count() and count(*) case
+-        // convert to count(1) as "count()"
+-        // or         count(1) as "count(*)"
+         // TODO: remove the next line after `Expr::Wildcard` is removed
+         #[expect(deprecated)]
+-        if raw_expr.func.name() == "count"
+-            && (raw_expr.args.len() == 1
+-                && matches!(raw_expr.args[0], Expr::Wildcard { .. })
+-                || raw_expr.args.is_empty())
++        if expr.func.name() == "count"
++            && (expr.args.len() == 1
++                && matches!(expr.args[0], Expr::Wildcard { .. })
++                || expr.args.is_empty())
+         {
+             let RawAggregateExpr {
+                 func,
+@@ -96,21 +47,20 @@
+                 filter,
+                 order_by,
+                 null_treatment,
+-            } = raw_expr;
++            } = expr;
+ 
+-            let new_expr = Expr::AggregateFunction(AggregateFunction::new_udf(
+-                func,
+-                vec![Expr::Literal(COUNT_STAR_EXPANSION, None)],
+-                distinct,
+-                filter,
+-                order_by,
+-                null_treatment,
+-            ));
+-
+-            let new_expr = saved_name.restore(new_expr);
+-            return Ok(PlannerResult::Planned(new_expr));
++            return Ok(PlannerResult::Planned(Expr::AggregateFunction(
++                AggregateFunction::new_udf(
++                    func,
++                    vec![Expr::Literal(COUNT_STAR_EXPANSION, None)],
++                    distinct,
++                    filter,
++                    order_by,
++                    null_treatment,
++                ),
++            )));
+         }
+ 
+-        Ok(PlannerResult::Original(raw_expr))
++        Ok(PlannerResult::Original(expr))
+     }
+ }
+--- a/datafusion/functions-window/src/planner.rs
++++ b/datafusion/functions-window/src/planner.rs
+@@ -21,7 +21,6 @@
+ use datafusion_expr::{
+     Expr,
+     expr::{WindowFunction, WindowFunctionParams},
+-    expr_rewriter::NamePreserver,
+     planner::{ExprPlanner, PlannerResult, RawWindowExpr},
+     utils::COUNT_STAR_EXPANSION,
+ };
+@@ -32,67 +31,14 @@
+ impl ExprPlanner for WindowFunctionPlanner {
+     fn plan_window(
+         &self,
+-        raw_expr: RawWindowExpr,
++        expr: RawWindowExpr,
+     ) -> Result<PlannerResult<RawWindowExpr>> {
+-        let RawWindowExpr {
+-            func_def,
+-            args,
+-            partition_by,
+-            order_by,
+-            window_frame,
+-            filter,
+-            null_treatment,
+-            distinct,
+-        } = raw_expr;
+-
+-        let origin_expr = Expr::from(WindowFunction {
+-            fun: func_def,
+-            params: WindowFunctionParams {
+-                args,
+-                partition_by,
+-                order_by,
+-                window_frame,
+-                filter,
+-                null_treatment,
+-                distinct,
+-            },
+-        });
+-
+-        let saved_name = NamePreserver::new_for_projection().save(&origin_expr);
+-
+-        let Expr::WindowFunction(window_fun) = origin_expr else {
+-            unreachable!("")
+-        };
+-        let WindowFunction {
+-            fun,
+-            params:
+-                WindowFunctionParams {
+-                    args,
+-                    partition_by,
+-                    order_by,
+-                    window_frame,
+-                    null_treatment,
+-                    distinct,
+-                    filter,
+-                },
+-        } = *window_fun;
+-        let raw_expr = RawWindowExpr {
+-            func_def: fun,
+-            args,
+-            partition_by,
+-            order_by,
+-            window_frame,
+-            filter,
+-            null_treatment,
+-            distinct,
+-        };
+-
+         // TODO: remove the next line after `Expr::Wildcard` is removed
+         #[expect(deprecated)]
+-        if raw_expr.func_def.name() == "count"
+-            && (raw_expr.args.len() == 1
+-                && matches!(raw_expr.args[0], Expr::Wildcard { .. })
+-                || raw_expr.args.is_empty())
++        if expr.func_def.name() == "count"
++            && (expr.args.len() == 1
++                && matches!(expr.args[0], Expr::Wildcard { .. })
++                || expr.args.is_empty())
+         {
+             let RawWindowExpr {
+                 func_def,
+@@ -103,9 +49,9 @@
+                 filter,
+                 null_treatment,
+                 distinct,
+-            } = raw_expr;
++            } = expr;
+ 
+-            let new_expr = Expr::from(WindowFunction {
++            return Ok(PlannerResult::Planned(Expr::from(WindowFunction {
+                 fun: func_def,
+                 params: WindowFunctionParams {
+                     args: vec![Expr::Literal(COUNT_STAR_EXPANSION, None)],
+@@ -116,12 +62,9 @@
+                     null_treatment,
+                     distinct,
+                 },
+-            });
+-            let new_expr = saved_name.restore(new_expr);
+-
+-            return Ok(PlannerResult::Planned(new_expr));
++            })));
+         }
+ 
+-        Ok(PlannerResult::Original(raw_expr))
++        Ok(PlannerResult::Original(expr))
+     }
+ }

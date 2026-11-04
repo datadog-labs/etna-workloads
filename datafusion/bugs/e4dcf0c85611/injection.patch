@@ -1,0 +1,20 @@
+--- a/datafusion/sql/src/select.rs
++++ b/datafusion/sql/src/select.rs
+@@ -309,16 +309,13 @@
+                 .chain(qualify_expr_opt.iter()),
+         );
+ 
+-        // Find aggregates in ORDER BY
+-        let order_by_aggrs = find_aggregate_exprs(order_by_rex.iter().map(|s| &s.expr));
+-
+         // Find aggregates in DISTINCT ON
+         let on_aggrs = find_aggregate_exprs(on_exprs_pre_aggr.iter());
+ 
+         // Combine: all aggregates from SELECT/HAVING/QUALIFY, plus ORDER BY
+         // and DISTINCT ON aggregates that aren't already covered.
+         let mut aggr_exprs = select_having_qualify_aggrs;
+-        for extra_aggr in order_by_aggrs.into_iter().chain(on_aggrs) {
++        for extra_aggr in on_aggrs {
+             if !aggr_exprs.iter().any(|e| e == &extra_aggr) {
+                 aggr_exprs.push(extra_aggr);
+             }

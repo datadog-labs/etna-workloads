@@ -1,0 +1,50 @@
+--- a/datafusion/optimizer/src/simplify_expressions/expr_simplifier.rs
++++ b/datafusion/optimizer/src/simplify_expressions/expr_simplifier.rs
+@@ -1549,17 +1549,20 @@
+                 let mut out_expr = lit(false);
+ 
+                 for (when, then) in when_then_expr {
+-                    let when = is_exactly_true(*when, info)?;
+-                    let case_expr =
+-                        when.clone().and(filter_expr.clone().not()).and(*then);
++                    let case_expr = when
++                        .as_ref()
++                        .clone()
++                        .and(filter_expr.clone().not())
++                        .and(*then);
+ 
+                     out_expr = out_expr.or(case_expr);
+-                    filter_expr = filter_expr.or(when);
++                    filter_expr = filter_expr.or(*when);
+                 }
+ 
+-                let else_expr = else_expr.map(|b| *b).unwrap_or_else(lit_bool_null);
+-                let case_expr = filter_expr.not().and(else_expr);
+-                out_expr = out_expr.or(case_expr);
++                if let Some(else_expr) = else_expr {
++                    let case_expr = filter_expr.not().and(*else_expr);
++                    out_expr = out_expr.or(case_expr);
++                }
+ 
+                 // Do a first pass at simplification
+                 out_expr.rewrite(self)?
+@@ -2321,19 +2324,6 @@
+     Ok(Expr::InList(l1))
+ }
+ 
+-/// Returns expression testing a boolean `expr` for being exactly `true` (not `false` or NULL).
+-fn is_exactly_true(expr: Expr, info: &SimplifyContext) -> Result<Expr> {
+-    if !info.nullable(&expr)? {
+-        Ok(expr)
+-    } else {
+-        Ok(Expr::BinaryExpr(BinaryExpr {
+-            left: Box::new(expr),
+-            op: Operator::IsNotDistinctFrom,
+-            right: Box::new(lit(true)),
+-        }))
+-    }
+-}
+-
+ // A * 1 -> A
+ // A / 1 -> A
+ //

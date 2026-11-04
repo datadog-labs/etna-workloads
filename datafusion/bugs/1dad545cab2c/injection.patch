@@ -1,0 +1,56 @@
+--- a/datafusion/expr-common/src/interval_arithmetic.rs
++++ b/datafusion/expr-common/src/interval_arithmetic.rs
+@@ -26,9 +26,7 @@
+ 
+ use arrow::compute::{CastOptions, cast_with_options};
+ use arrow::datatypes::{
+-    DataType, IntervalDayTime, IntervalMonthDayNano, IntervalUnit,
+-    MAX_DECIMAL128_FOR_EACH_PRECISION, MAX_DECIMAL256_FOR_EACH_PRECISION,
+-    MIN_DECIMAL128_FOR_EACH_PRECISION, MIN_DECIMAL256_FOR_EACH_PRECISION, TimeUnit,
++    DataType, IntervalDayTime, IntervalMonthDayNano, IntervalUnit, TimeUnit,
+ };
+ use datafusion_common::rounding::{alter_fp_rounding_mode, next_down, next_up};
+ use datafusion_common::{
+@@ -37,7 +35,7 @@
+ };
+ 
+ macro_rules! get_extreme_value {
+-    ($extreme:ident, $DECIMAL128_ARRAY:ident, $DECIMAL256_ARRAY:ident, $value:expr) => {
++    ($extreme:ident, $value:expr) => {
+         match $value {
+             DataType::UInt8 => ScalarValue::UInt8(Some(u8::$extreme)),
+             DataType::UInt16 => ScalarValue::UInt16(Some(u16::$extreme)),
+@@ -84,16 +82,6 @@
+             DataType::Interval(IntervalUnit::MonthDayNano) => {
+                 ScalarValue::IntervalMonthDayNano(Some(IntervalMonthDayNano::$extreme))
+             }
+-            DataType::Decimal128(precision, scale) => ScalarValue::Decimal128(
+-                Some($DECIMAL128_ARRAY[*precision as usize]),
+-                *precision,
+-                *scale,
+-            ),
+-            DataType::Decimal256(precision, scale) => ScalarValue::Decimal256(
+-                Some($DECIMAL256_ARRAY[*precision as usize]),
+-                *precision,
+-                *scale,
+-            ),
+             _ => unreachable!(),
+         }
+     };
+@@ -1213,16 +1201,12 @@
+         (true, false) => {
+             get_extreme_value!(
+                 MIN,
+-                MIN_DECIMAL128_FOR_EACH_PRECISION,
+-                MIN_DECIMAL256_FOR_EACH_PRECISION,
+                 dt
+             )
+         }
+         (false, true) => {
+             get_extreme_value!(
+                 MAX,
+-                MAX_DECIMAL128_FOR_EACH_PRECISION,
+-                MAX_DECIMAL256_FOR_EACH_PRECISION,
+                 dt
+             )
+         }

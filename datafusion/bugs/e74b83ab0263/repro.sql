@@ -1,0 +1,4 @@
+SELECT arrow_cast('2020-01-01', 'Date32') + INTERVAL '999999' YEAR;
+SELECT arrow_cast('2020-01-01', 'Date32') - INTERVAL '999999' YEAR;
+SELECT arrow_cast('2020-01-01', 'Date64') + INTERVAL '999999' YEAR;
+SELECT arrow_cast('2020-01-01', 'Date64') - INTERVAL '999999' YEAR;

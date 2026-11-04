@@ -1,0 +1,79 @@
+--- a/datafusion/optimizer/src/simplify_expressions/expr_simplifier.rs
++++ b/datafusion/optimizer/src/simplify_expressions/expr_simplifier.rs
+@@ -804,6 +804,7 @@
+                 ref op,
+                 ref right,
+             }) if op.returns_null_on_null()
++                && !matches!(op, Multiply | Divide)
+                 && (is_null(left.as_ref()) || is_null(right.as_ref())) =>
+             {
+                 Transformed::yes(Expr::Literal(
+@@ -1122,6 +1123,19 @@
+                 simplify_right_is_one_case(info, right, &Multiply, &left)?
+             }
+ 
++            // A * null --> null
++            Expr::BinaryExpr(BinaryExpr {
++                left: _,
++                op: Multiply,
++                right,
++            }) if is_null(&right) => Transformed::yes(*right),
++            // null * A --> null
++            Expr::BinaryExpr(BinaryExpr {
++                left,
++                op: Multiply,
++                right: _,
++            }) if is_null(&left) => Transformed::yes(*left),
++
+             // A * 0 --> 0 (if A is not null and not floating, since NAN * 0 -> NAN)
+             Expr::BinaryExpr(BinaryExpr {
+                 left,
+@@ -1157,6 +1171,18 @@
+             }) if is_one(&right) => {
+                 simplify_right_is_one_case(info, left, &Divide, &right)?
+             }
++            // null / A --> null
++            Expr::BinaryExpr(BinaryExpr {
++                left,
++                op: Divide,
++                right: _,
++            }) if is_null(&left) => Transformed::yes(*left),
++            // A / null --> null
++            Expr::BinaryExpr(BinaryExpr {
++                left: _,
++                op: Divide,
++                right,
++            }) if is_null(&right) => Transformed::yes(*right),
+ 
+             //
+             // Rules for Modulo
+@@ -2339,25 +2365,12 @@
+ //
+ // Move this function body out of the large match branch avoid stack overflow
+ fn simplify_right_is_one_case(
+-    info: &SimplifyContext,
++    _info: &SimplifyContext,
+     left: Box<Expr>,
+-    op: &Operator,
+-    right: &Expr,
++    _op: &Operator,
++    _right: &Expr,
+ ) -> Result<Transformed<Expr>> {
+-    // Check if resulting type would be different due to coercion
+-    let left_type = info.get_data_type(&left)?;
+-    let right_type = info.get_data_type(right)?;
+-    match BinaryTypeCoercer::new(&left_type, op, &right_type).get_result_type() {
+-        Ok(result_type) => {
+-            // Only cast if the types differ
+-            if left_type != result_type {
+-                Ok(Transformed::yes(Expr::Cast(Cast::new(left, result_type))))
+-            } else {
+-                Ok(Transformed::yes(*left))
+-            }
+-        }
+-        Err(_) => Ok(Transformed::yes(*left)),
+-    }
++    Ok(Transformed::yes(*left))
+ }
+ 
+ #[cfg(test)]

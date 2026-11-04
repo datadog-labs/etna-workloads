@@ -1,0 +1,17 @@
+SET datafusion.execution.target_partitions = 4;
+SET datafusion.optimizer.enable_topk_dynamic_filter_pushdown = true;
+SET datafusion.optimizer.enable_join_dynamic_filter_pushdown = true;
+SET datafusion.execution.parquet.pushdown_filters = true;
+SET datafusion.execution.parquet.reorder_filters = true;
+CREATE TABLE join_left(id INT, data VARCHAR) AS VALUES (1,'left1'),(2,'left2'),(3,'left3'),(4,'left4'),(5,'left5');
+CREATE TABLE join_right(id INT, info VARCHAR) AS VALUES (1,'right1'),(3,'right3'),(5,'right5');
+COPY join_left TO 'join_left.parquet' STORED AS PARQUET;
+COPY join_right TO 'join_right.parquet' STORED AS PARQUET;
+CREATE EXTERNAL TABLE left_parquet(id INT, data VARCHAR) STORED AS PARQUET LOCATION 'join_left.parquet';
+CREATE EXTERNAL TABLE right_parquet(id INT, info VARCHAR) STORED AS PARQUET LOCATION 'join_right.parquet';
+EXPLAIN SELECT l.* FROM left_parquet l WHERE l.id NOT IN (SELECT r.id FROM right_parquet r) ORDER BY l.id LIMIT 2;
+SELECT l.* FROM left_parquet l WHERE l.id NOT IN (SELECT r.id FROM right_parquet r) ORDER BY l.id LIMIT 2;
+SET datafusion.optimizer.max_passes = 0;
+SET datafusion.optimizer.join_reordering = false;
+SELECT count(*) FROM join_left l LEFT ANTI JOIN right_parquet r USING (id) WHERE false;
+SELECT count(*) FROM right_parquet r RIGHT ANTI JOIN join_left l USING (id) WHERE false;

@@ -1,0 +1,30 @@
+--- a/datafusion/datasource-parquet/src/file_format.rs
++++ b/datafusion/datasource-parquet/src/file_format.rs
+@@ -334,18 +334,6 @@
+         store: &Arc<dyn ObjectStore>,
+         objects: &[ObjectMeta],
+     ) -> Result<SchemaRef> {
+-        let coerce_int96 = match self.coerce_int96() {
+-            Some(time_unit) => Some(parse_coerce_int96_string(time_unit.as_str())?),
+-            None => None,
+-        };
+-        let coerce_int96_tz = self
+-            .options
+-            .global
+-            .coerce_int96_tz
+-            .as_ref()
+-            .map(|tz| parse_coerce_int96_tz_string(tz))
+-            .transpose()?;
+-
+         let file_metadata_cache =
+             state.runtime_env().cache_manager.get_file_metadata_cache();
+ 
+@@ -361,8 +349,6 @@
+                     .with_metadata_size_hint(self.metadata_size_hint())
+                     .with_decryption_properties(file_decryption_properties)
+                     .with_file_metadata_cache(Some(Arc::clone(&file_metadata_cache)))
+-                    .with_coerce_int96(coerce_int96)
+-                    .with_coerce_int96_tz(coerce_int96_tz.clone())
+                     .fetch_schema_with_location()
+                     .await?;
+                 Ok::<_, DataFusionError>(result)

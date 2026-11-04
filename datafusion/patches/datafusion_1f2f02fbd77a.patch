@@ -1,0 +1,57 @@
+--- a/datafusion/functions/src/unicode/strpos.rs
++++ b/datafusion/functions/src/unicode/strpos.rs
+@@ -24,11 +24,9 @@
+ use arrow::datatypes::{
+     ArrowNativeType, DataType, Field, FieldRef, Int32Type, Int64Type,
+ };
+-use datafusion_common::types::logical_string;
+-use datafusion_common::{Result, ScalarValue, exec_err, internal_err};
++use datafusion_common::{Result, ScalarValue, exec_err, internal_err, plan_err};
+ use datafusion_expr::{
+-    Coercion, ColumnarValue, Documentation, ScalarFunctionArgs, ScalarUDFImpl, Signature,
+-    TypeSignatureClass, Volatility,
++    ColumnarValue, Documentation, ScalarFunctionArgs, ScalarUDFImpl, Signature, Volatility,
+ };
+ use datafusion_macros::user_doc;
+ use memchr::{memchr, memmem};
+@@ -64,13 +62,7 @@
+ impl StrposFunc {
+     pub fn new() -> Self {
+         Self {
+-            signature: Signature::coercible(
+-                vec![
+-                    Coercion::new_exact(TypeSignatureClass::Native(logical_string())),
+-                    Coercion::new_exact(TypeSignatureClass::Native(logical_string())),
+-                ],
+-                Volatility::Immutable,
+-            ),
++            signature: Signature::user_defined(Volatility::Immutable),
+             aliases: vec![String::from("instr"), String::from("position")],
+         }
+     }
+@@ -121,6 +113,25 @@
+         &self.aliases
+     }
+ 
++    fn coerce_types(&self, arg_types: &[DataType]) -> Result<Vec<DataType>> {
++        match arg_types {
++            [first, second ] => {
++                match (first, second) {
++                    (DataType::LargeUtf8 | DataType::Utf8View | DataType::Utf8, DataType::LargeUtf8 | DataType::Utf8View | DataType::Utf8) => Ok(arg_types.to_vec()),
++                    (DataType::Null, DataType::Null)   => Ok(vec![DataType::Utf8, DataType::Utf8]),
++                    (DataType::Null, _)   => Ok(vec![DataType::Utf8, second.to_owned()]),
++                    (_, DataType::Null) => Ok(vec![first.to_owned(), DataType::Utf8]),
++                    (DataType::Dictionary(_, value_type), DataType::LargeUtf8 | DataType::Utf8View | DataType::Utf8)  => match **value_type {
++                        DataType::LargeUtf8 | DataType::Utf8View | DataType::Utf8 | DataType::Null | DataType::Binary => Ok(vec![*value_type.clone(), second.to_owned()]),
++                        _ => plan_err!("The STRPOS/INSTR/POSITION function can only accept strings, but got {:?}.", **value_type),
++                    },
++                    _ => plan_err!("The STRPOS/INSTR/POSITION function can only accept strings, but got {:?}.", arg_types)
++                }
++            },
++            _ => plan_err!("The STRPOS/INSTR/POSITION function can only accept strings, but got {:?}", arg_types)
++        }
++    }
++
+     fn documentation(&self) -> Option<&Documentation> {
+         self.doc()
+     }

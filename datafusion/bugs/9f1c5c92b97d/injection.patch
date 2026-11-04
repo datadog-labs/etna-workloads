@@ -1,0 +1,30 @@
+--- a/datafusion/sql/src/statement.rs
++++ b/datafusion/sql/src/statement.rs
+@@ -56,7 +56,7 @@
+     LogicalPlan, LogicalPlanBuilder, OperateFunctionArg, PlanType, Prepare,
+     ResetVariable, SetVariable, SortExpr, Statement as PlanStatement, ToStringifiedPlan,
+     TransactionAccessMode, TransactionConclusion, TransactionEnd,
+-    TransactionIsolationLevel, TransactionStart, Volatility, WriteOp, cast,
++    TransactionIsolationLevel, TransactionStart, Volatility, WriteOp, cast, col,
+ };
+ use sqlparser::ast::{
+     self, BeginTransactionKind, CheckConstraint, ForeignKeyConstraint, IndexColumn,
+@@ -558,14 +558,14 @@
+                                     input_schema.fields().len()
+                                 );
+                             }
+-                            let input_columns = input_schema.columns();
++                            let input_fields = input_schema.fields();
+                             let project_exprs = schema
+                                 .fields()
+                                 .iter()
+-                                .zip(input_columns)
+-                                .map(|(field, input_column)| {
++                                .zip(input_fields)
++                                .map(|(field, input_field)| {
+                                     cast(
+-                                        Expr::Column(input_column),
++                                        col(input_field.name()),
+                                         field.data_type().clone(),
+                                     )
+                                     .alias(field.name())

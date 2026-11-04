@@ -1,0 +1,2 @@
+Reproducer: writes two CSV files into `dir/`, creates an external table over that directory (2 files -> 2 partitions, target_partitions=4), and runs `EXPLAIN ... ORDER BY x, y LIMIT 5` with `datafusion.explain.format = 'tree'`.
+The plan contains a SortPreservingMergeExec with a fetch. The clean build renders `limit: 5` first, then the sort expressions. The buggy build prints the limit after the expressions, so the tree box is garbled (`NULLS LASTlimit:` / `5`).

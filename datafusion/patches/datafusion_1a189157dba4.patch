@@ -1,0 +1,276 @@
+--- a/datafusion/physical-plan/src/joins/sort_merge_join/bitwise_stream.rs
++++ b/datafusion/physical-plan/src/joins/sort_merge_join/bitwise_stream.rs
+@@ -127,7 +127,6 @@
+ use crate::metrics::{
+     BaselineMetrics, Count, ExecutionPlanMetricsSet, Gauge, MetricBuilder, Time,
+ };
+-use crate::spill::in_progress_spill_file::InProgressSpillFile;
+ use crate::spill::spill_manager::SpillManager;
+ use crate::stream::{ObservedStream, RecordBatchStreamAdapter};
+ use arrow::array::{Array, ArrayRef, BooleanArray, BooleanBufferBuilder, RecordBatch};
+@@ -235,9 +234,9 @@
+     // Inner key group buffer: all inner rows sharing the current join key.
+     // Only populated when a filter is present. Unbounded — a single key
+     // with many inner rows will buffer them all. See "Degenerate cases"
+-    // in exec.rs. On memory pool overflow the buffered slices move to a
+-    // per-group spill file (see [`Self::buffer_inner_key_group`]).
++    // in exec.rs. Spilled to disk when memory reservation fails.
+     inner_key_buffer: Vec<RecordBatch>,
++    inner_key_spill: Option<Arc<dyn SpillFile>>,
+ 
+     // Join ON expressions, evaluated against each new batch to produce
+     // the key arrays used for sorted key comparisons.
+@@ -340,6 +339,7 @@
+             inner_key_arrays: vec![],
+             matched: BooleanBufferBuilder::new(0),
+             inner_key_buffer: vec![],
++            inner_key_spill: None,
+             on_outer,
+             on_inner,
+             filter,
+@@ -443,24 +443,18 @@
+         Ok(self.inner_self_cmp.as_ref().unwrap())
+     }
+ 
+-    /// Spill the in-memory inner key buffer to disk and clear it. One key
+-    /// group can spill repeatedly; every call appends to `writer` — the
+-    /// group's single open spill file — creating it on first use.
+-    fn spill_inner_key_buffer(
+-        &mut self,
+-        writer: &mut Option<InProgressSpillFile>,
+-    ) -> Result<()> {
+-        if writer.is_none() {
+-            *writer = Some(
+-                self.spill_manager
+-                    .create_in_progress_file("semi_anti_smj_inner_key_spill")?,
+-            );
+-        }
+-        let writer = writer.as_mut().unwrap();
+-        for batch in self.inner_key_buffer.drain(..) {
+-            writer.append_batch(&batch)?;
+-        }
++    /// Spill the in-memory inner key buffer to disk and clear it.
++    fn spill_inner_key_buffer(&mut self) -> Result<()> {
++        let spill_file = self
++            .spill_manager
++            .spill_record_batch_and_finish(
++                &self.inner_key_buffer,
++                "semi_anti_smj_inner_key_spill",
++            )?
++            .expect("inner_key_buffer is non-empty when spilling");
++        self.inner_key_buffer.clear();
+         self.inner_buffer_size = 0;
++        self.inner_key_spill = Some(spill_file);
+         // Should succeed now — inner buffer has been spilled.
+         self.try_resize_reservation()
+     }
+@@ -471,6 +465,7 @@
+     /// pool interactions (see apache/datafusion#20729).
+     fn clear_inner_key_group(&mut self) {
+         self.inner_key_buffer.clear();
++        self.inner_key_spill = None;
+         self.inner_buffer_size = 0;
+     }
+ 
+@@ -644,15 +639,13 @@
+     /// cursor past the group. Collects all inner rows with the current key
+     /// across batch boundaries. Sets `inner_batch` to `None` if inner is
+     /// exhausted.
+-    ///
+-    /// Slices that overflow the memory pool are appended to a single spill
+-    /// file, returned finished — ready for reading — once the whole group
+-    /// has been buffered. `None` means the group fit in memory.
+-    async fn buffer_inner_key_group(&mut self) -> Result<Option<Arc<dyn SpillFile>>> {
++    async fn buffer_inner_key_group(&mut self) -> Result<()> {
+         self.clear_inner_key_group();
+-        let mut writer: Option<InProgressSpillFile> = None;
+ 
+-        while let Some(inner_batch) = &self.inner_batch {
++        loop {
++            let Some(inner_batch) = &self.inner_batch else {
++                return Ok(());
++            };
+             let num_inner = inner_batch.num_rows();
+             let from = self.inner_offset;
+             let group_end =
+@@ -667,7 +660,7 @@
+             // is exhausted, spill the entire buffer to disk.
+             if self.try_resize_reservation().is_err() {
+                 if self.runtime_env.disk_manager.tmp_files_enabled() {
+-                    self.spill_inner_key_buffer(&mut writer)?;
++                    self.spill_inner_key_buffer()?;
+                 } else {
+                     // Re-attempt to get the error message
+                     self.try_resize_reservation().map_err(|e| {
+@@ -680,7 +673,7 @@
+ 
+             if group_end < num_inner {
+                 self.inner_offset = group_end;
+-                break;
++                return Ok(());
+             }
+ 
+             // Key group extends to the end of the batch — it may continue
+@@ -689,7 +682,7 @@
+ 
+             if !self.next_inner_batch().await? {
+                 self.inner_batch = None;
+-                break;
++                return Ok(());
+             }
+             if !keys_match(
+                 &saved_inner_keys,
+@@ -697,30 +690,20 @@
+                 &self.sort_options,
+                 self.null_equality,
+             )? {
+-                break;
++                return Ok(());
+             }
+         }
+-
+-        match writer {
+-            Some(mut writer) => writer.finish(),
+-            None => Ok(None),
+-        }
+     }
+ 
+     /// Process a key match with a filter. For each inner row in the buffered
+-    /// key group — the spilled slices in `spill` plus the in-memory
+-    /// `inner_key_buffer` — evaluates the filter against the outer key group
+-    /// and ORs the results into the matched bitset using u64-chunked bitwise
+-    /// ops.
+-    async fn process_key_match_with_filter(
+-        &mut self,
+-        spill: Option<&Arc<dyn SpillFile>>,
+-    ) -> Result<()> {
++    /// key group, evaluates the filter against the outer key group and ORs
++    /// the results into the matched bitset using u64-chunked bitwise ops.
++    async fn process_key_match_with_filter(&mut self) -> Result<()> {
+         let num_outer = self.outer_batch.as_ref().unwrap().num_rows();
+ 
+         // buffer_inner_key_group must be called before this function
+         debug_assert!(
+-            !self.inner_key_buffer.is_empty() || spill.is_some(),
++            !self.inner_key_buffer.is_empty() || self.inner_key_spill.is_some(),
+             "process_key_match_with_filter called with no inner key data"
+         );
+         debug_assert!(
+@@ -751,7 +734,7 @@
+ 
+         // Process spilled inner batches first asynchronously.
+         if matched_count < outer_group_len
+-            && let Some(spill_file) = spill
++            && let Some(spill_file) = &self.inner_key_spill
+         {
+             let mut spill_stream = self
+                 .spill_manager
+@@ -816,14 +799,10 @@
+ 
+     /// Evaluate the filter for the buffered inner key group against the
+     /// outer key group. If the outer key group continues into subsequent
+-    /// outer batches, keep evaluating there too. Dropping `spill` on return
+-    /// deletes the group's temp file.
+-    async fn process_filtered_match_loop(
+-        &mut self,
+-        spill: Option<Arc<dyn SpillFile>>,
+-    ) -> Result<()> {
++    /// outer batches, keep evaluating there too.
++    async fn process_filtered_match_loop(&mut self) -> Result<()> {
+         loop {
+-            self.process_key_match_with_filter(spill.as_ref()).await?;
++            self.process_key_match_with_filter().await?;
+ 
+             let outer_batch = self.outer_batch.as_ref().unwrap();
+             if self.outer_offset < outer_batch.num_rows() {
+@@ -893,8 +872,8 @@
+             // Buffer the inner key group so each inner row can be evaluated
+             // against the outer key group, OR-ing filter results into the
+             // matched bitset.
+-            let spill = self.buffer_inner_key_group().await?;
+-            self.process_filtered_match_loop(spill).await
++            self.buffer_inner_key_group().await?;
++            self.process_filtered_match_loop().await
+         } else {
+             // Without a filter, key equality alone means every outer row in
+             // the group matches; the inner rows themselves are not needed.
+--- a/datafusion/physical-plan/src/joins/sort_merge_join/tests.rs
++++ b/datafusion/physical-plan/src/joins/sort_merge_join/tests.rs
+@@ -5033,77 +5033,6 @@
+     Ok(())
+ }
+ 
+-/// A single inner key group spanning several inner batches can spill more
+-/// than once under memory pressure. Every spilled slice must still be
+-/// evaluated against the outer rows — an earlier spill file must not be
+-/// dropped when a later slice of the same group spills.
+-#[tokio::test]
+-async fn bitwise_multi_spill_inner_key_group() -> Result<()> {
+-    // Outer: one row with key 1, c1 = 5.
+-    let left = build_table(("a1", &vec![1]), ("b1", &vec![1]), ("c1", &vec![5]));
+-
+-    // Inner: one key group (b2 = 1) spanning two batches. Only the first
+-    // batch satisfies the filter c1 < c2 (5 < 10); the second (5 < 0) does
+-    // not, so dropping the first spilled slice flips the semi-join result.
+-    let right_batches = vec![
+-        build_table_i32(("a2", &vec![10]), ("b2", &vec![1]), ("c2", &vec![10])),
+-        build_table_i32(("a2", &vec![20]), ("b2", &vec![1]), ("c2", &vec![0])),
+-    ];
+-    let right = build_table_from_batches(right_batches);
+-
+-    let on = vec![(
+-        Arc::new(Column::new_with_schema("b1", &left.schema())?) as _,
+-        Arc::new(Column::new_with_schema("b2", &right.schema())?) as _,
+-    )];
+-    let sort_options = vec![SortOptions::default(); on.len()];
+-    let filter = build_c1_lt_c2_filter(left.schema().as_ref(), right.schema().as_ref());
+-
+-    // 100-byte pool: every buffered slice fails its reservation, so each
+-    // inner batch of the key group spills separately.
+-    let runtime = RuntimeEnvBuilder::new()
+-        .with_memory_limit(100, 1.0)
+-        .with_disk_manager_builder(
+-            DiskManagerBuilder::default().with_mode(DiskManagerMode::OsTmpDirectory),
+-        )
+-        .build_arc()?;
+-    let task_ctx = Arc::new(
+-        TaskContext::default()
+-            .with_session_config(SessionConfig::default().with_batch_size(1))
+-            .with_runtime(runtime),
+-    );
+-
+-    let join = SortMergeJoinExec::try_new(
+-        left,
+-        right,
+-        on,
+-        Some(filter),
+-        LeftSemi,
+-        sort_options,
+-        NullEquality::NullEqualsNothing,
+-    )?;
+-    let stream = join.execute(0, task_ctx)?;
+-    let batches = common::collect(stream).await?;
+-
+-    let output_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+-    assert_eq!(
+-        output_rows, 1,
+-        "left row must match the group's first (spilled) inner slice",
+-    );
+-
+-    let metrics = join.metrics().expect("must have metrics");
+-    assert_eq!(
+-        metrics.spill_count(),
+-        Some(1),
+-        "all overflows of one key group must share a single spill file",
+-    );
+-    assert_eq!(
+-        metrics.spilled_rows(),
+-        Some(2),
+-        "both inner slices of the group must be spilled",
+-    );
+-    Ok(())
+-}
+-
+ /// Once the inner key group has spilled, an outer key group spanning a batch
+ /// boundary must still be evaluated against the spilled inner rows — the
+ /// second outer batch's rows must not be treated as having no inner group to

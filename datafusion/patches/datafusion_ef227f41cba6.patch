@@ -1,0 +1,33 @@
+--- a/datafusion/physical-plan/src/aggregates/mod.rs
++++ b/datafusion/physical-plan/src/aggregates/mod.rs
+@@ -601,15 +601,21 @@
+     /// Returns the `PhysicalGroupBy` for a final aggregation if `self` is used for a partial
+     /// aggregation.
+     pub fn as_final(&self) -> PhysicalGroupBy {
+-        let expr: Vec<_> =
+-            self.output_exprs()
+-                .into_iter()
+-                .zip(
+-                    self.expr.iter().map(|t| t.1.clone()).chain(std::iter::once(
+-                        Aggregate::INTERNAL_GROUPING_ID.to_owned(),
+-                    )),
+-                )
+-                .collect();
++        let mut output_exprs = self.output_exprs();
++        if self.has_grouping_set {
++            // the grouping id is not part of the final grouping key
++            let id = ScalarValue::new_zero(&self.grouping_id_data_type())
++                .expect("grouping id type is an unsigned integer");
++            *output_exprs.last_mut().unwrap() = lit(id);
++        }
++        let expr: Vec<_> = output_exprs
++            .into_iter()
++            .zip(
++                self.expr.iter().map(|t| t.1.clone()).chain(std::iter::once(
++                    Aggregate::INTERNAL_GROUPING_ID.to_owned(),
++                )),
++            )
++            .collect();
+         let num_exprs = expr.len();
+         let groups = if self.expr.is_empty() && !self.has_grouping_set {
+             // No GROUP BY expressions - should have no groups

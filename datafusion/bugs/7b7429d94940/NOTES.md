@@ -1,0 +1,1 @@
+`replace(str, '', to)` should return `str` unchanged (PostgreSQL behaviour). repro.sql runs it on Utf8, Utf8View, LargeUtf8 and Dictionary inputs. The clean build returns `abc`. The buggy build returns `xaxbxcx`.

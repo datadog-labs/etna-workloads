@@ -1,0 +1,148 @@
+--- a/datafusion/expr/src/expr.rs
++++ b/datafusion/expr/src/expr.rs
+@@ -410,7 +410,7 @@
+     Placeholder(Placeholder),
+     /// A placeholder which holds a reference to a qualified field
+     /// in the outer query, used for correlated sub queries.
+-    OuterReferenceColumn(FieldRef, Column),
++    OuterReferenceColumn(DataType, Column),
+     /// Unnest expression
+     Unnest(Unnest),
+     /// Call a higher order function with a set of arguments.
+@@ -2908,8 +2908,8 @@
+             Expr::Placeholder(place_holder) => {
+                 place_holder.hash(state);
+             }
+-            Expr::OuterReferenceColumn(field, column) => {
+-                field.hash(state);
++            Expr::OuterReferenceColumn(data_type, column) => {
++                data_type.hash(state);
+                 column.hash(state);
+             }
+             Expr::Unnest(Unnest { expr: _expr, outer }) => {
+--- a/datafusion/expr/src/expr_fn.rs
++++ b/datafusion/expr/src/expr_fn.rs
+@@ -71,22 +71,8 @@
+ 
+ /// Create an out reference column which hold a reference that has been resolved to a field
+ /// outside of the current plan.
+-/// The expression created by this function does not preserve the metadata of the outer column.
+-/// Please use `out_ref_col_with_metadata` if you want to preserve the metadata.
+ pub fn out_ref_col(dt: DataType, ident: impl Into<Column>) -> Expr {
+-    out_ref_col_with_metadata(dt, HashMap::new(), ident)
+-}
+-
+-/// Create an out reference column from an existing field (preserving metadata)
+-pub fn out_ref_col_with_metadata(
+-    dt: DataType,
+-    metadata: HashMap<String, String>,
+-    ident: impl Into<Column>,
+-) -> Expr {
+-    let column = ident.into();
+-    let field: FieldRef =
+-        Arc::new(Field::new(column.name(), dt, true).with_metadata(metadata));
+-    Expr::OuterReferenceColumn(field, column)
++    Expr::OuterReferenceColumn(dt, ident.into())
+ }
+ 
+ /// Create an unqualified column expression from the provided name, without normalizing
+--- a/datafusion/expr/src/expr_schema.rs
++++ b/datafusion/expr/src/expr_schema.rs
+@@ -169,7 +169,7 @@
+             },
+             Expr::Negative(expr) => expr.get_type(schema),
+             Expr::Column(c) => Ok(schema.data_type(c)?.clone()),
+-            Expr::OuterReferenceColumn(field, _) => Ok(field.data_type().clone()),
++            Expr::OuterReferenceColumn(ty, _) => Ok(ty.clone()),
+             Expr::ScalarVariable(field, _) => Ok(field.data_type().clone()),
+             Expr::Literal(l, _) => Ok(l.data_type()),
+             Expr::Case(case) => {
+@@ -310,7 +310,7 @@
+                 || high.nullable(input_schema)?),
+ 
+             Expr::Column(c) => input_schema.nullable(c),
+-            Expr::OuterReferenceColumn(field, _) => Ok(field.is_nullable()),
++            Expr::OuterReferenceColumn(_, _) => Ok(true),
+             Expr::Literal(value, _) => Ok(value.is_null()),
+             Expr::Case(case) => {
+                 let nullable_then = case
+@@ -533,8 +533,8 @@
+             }
+             Expr::Negative(expr) => expr.to_field(schema).map(|(_, f)| f),
+             Expr::Column(c) => schema.field_from_column(c).map(Arc::clone),
+-            Expr::OuterReferenceColumn(field, _) => {
+-                Ok(Arc::clone(field).renamed(&schema_name))
++            Expr::OuterReferenceColumn(ty, _) => {
++                Ok(Arc::new(Field::new(&schema_name, ty.clone(), true)))
+             }
+             Expr::ScalarVariable(field, _) => Ok(Arc::clone(field).renamed(&schema_name)),
+             Expr::Literal(l, metadata) => Ok(Arc::new(
+@@ -830,10 +830,7 @@
+ 
+     use super::*;
+     use crate::logical_plan::builder::LogicalTableSource;
+-    use crate::{
+-        LogicalPlanBuilder, and, col, in_subquery, lit, not, or,
+-        out_ref_col_with_metadata, when,
+-    };
++    use crate::{LogicalPlanBuilder, and, col, in_subquery, lit, not, or, when};
+ 
+     use arrow::datatypes::Schema;
+     use datafusion_common::{DFSchema, assert_or_internal_err};
+@@ -1101,14 +1098,6 @@
+ 
+         // verify to_field method populates metadata
+         assert_eq!(meta, expr.metadata(&schema).unwrap());
+-
+-        // outer ref constructed by `out_ref_col_with_metadata` should be metadata-preserving
+-        let outer_ref = out_ref_col_with_metadata(
+-            DataType::Int32,
+-            meta.to_hashmap(),
+-            Column::from_name("foo"),
+-        );
+-        assert_eq!(meta, outer_ref.metadata(&schema).unwrap());
+     }
+ 
+     #[test]
+--- a/datafusion/optimizer/src/rewrite_set_comparison.rs
++++ b/datafusion/optimizer/src/rewrite_set_comparison.rs
+@@ -172,7 +172,7 @@
+         Expr::Column(col) => {
+             let field = outer_schema.field_from_column(&col)?;
+             Ok(Transformed::yes(Expr::OuterReferenceColumn(
+-                Arc::clone(field),
++                field.data_type().clone(),
+                 col,
+             )))
+         }
+--- a/datafusion/sql/src/expr/identifier.rs
++++ b/datafusion/sql/src/expr/identifier.rs
+@@ -96,7 +96,7 @@
+                 {
+                     // Found an exact match on a qualified name in the outer plan schema, so this is an outer reference column
+                     return Ok(Expr::OuterReferenceColumn(
+-                        Arc::clone(field),
++                        field.data_type().clone(),
+                         Column::from((qualifier, field)),
+                     ));
+                 }
+@@ -205,7 +205,7 @@
+                                 Some((field, qualifier, _nested_names)) => {
+                                     // Found an exact match on a qualified name in the outer plan schema, so this is an outer reference column
+                                     Ok(Expr::OuterReferenceColumn(
+-                                        Arc::clone(field),
++                                        field.data_type().clone(),
+                                         Column::from((qualifier, field)),
+                                     ))
+                                 }
+--- a/datafusion/substrait/src/logical_plan/consumer/expr/field_reference.rs
++++ b/datafusion/substrait/src/logical_plan/consumer/expr/field_reference.rs
+@@ -83,7 +83,7 @@
+     };
+     let (qualifier, field) = outer_schema.qualified_field(field_idx);
+     let col = Column::from((qualifier, field));
+-    Ok(Expr::OuterReferenceColumn(Arc::clone(field), col))
++    Ok(Expr::OuterReferenceColumn(field.data_type().clone(), col))
+ }
+ 
+ #[cfg(test)]

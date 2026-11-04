@@ -1,0 +1,29 @@
+--- a/datafusion/expr-common/src/type_coercion/binary.rs
++++ b/datafusion/expr-common/src/type_coercion/binary.rs
+@@ -785,19 +785,18 @@
+                 None
+             }
+ 
+-            let coerced_types = lhs
++            let types = lhs
+                 .iter()
+                 .map(|lhs_field| search_corresponding_coerced_type(lhs_field, rhs))
+                 .collect::<Option<Vec<_>>>()?;
+ 
+-            // preserve the field name and nullability
+-            let orig_fields = std::iter::zip(lhs.iter(), rhs.iter());
+-
+-            let fields: Vec<FieldRef> = coerced_types
++            let fields = types
+                 .into_iter()
+-                .zip(orig_fields)
+-                .map(|(datatype, (lhs, rhs))| coerce_fields(datatype, lhs, rhs))
+-                .collect();
++                .enumerate()
++                .map(|(i, datatype)| {
++                    Arc::new(Field::new(format!("c{i}"), datatype, true))
++                })
++                .collect::<Vec<FieldRef>>();
+             Some(DataType::Struct(fields.into()))
+         }
+         _ => binary_numeric_coercion(lhs_type, rhs_type)

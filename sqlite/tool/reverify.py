@@ -160,7 +160,7 @@ def reverify_repro_one(rec, R, tier_of):
 
 def cmd_repro(a):
     kind = os.environ.get("ETNA_KIND", "sqlite")
-    R = importlib.import_module({"go": "repro_go", "cpython": "repro_cpython", "valkey": "repro_valkey"}
+    R = importlib.import_module({"go": "repro_go", "cpython": "repro_cpython", "valkey": "repro_valkey", "datafusion": "repro_datafusion"}
                                 .get(kind, "repro"))
     ver = E.latest("verbatim")
     tier_of = lambda cid: "verbatim" if ver.get(cid, {}).get("result") == "confirmed" else "adapted"

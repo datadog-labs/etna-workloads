@@ -1,0 +1,33 @@
+--- a/datafusion/functions-nested/src/extract.rs
++++ b/datafusion/functions-nested/src/extract.rs
+@@ -981,7 +981,7 @@
+ 
+ #[user_doc(
+     doc_section(label = "Array Functions"),
+-    description = "Returns the first non-null element in the array. Returns NULL if the array is empty or NULL.",
++    description = "Returns the first non-null element in the array.",
+     syntax_example = "array_any_value(array)",
+     sql_example = r#"```sql
+ > select array_any_value([NULL, 1, 2, 3]);
+@@ -1073,20 +1073,12 @@
+ 
+     for (row_index, offset_window) in array.offsets().windows(2).enumerate() {
+         let start = offset_window[0];
+-        let end = offset_window[1];
+ 
+-        // the list element is null
++        // array is null
+         if array.is_null(row_index) {
+             mutable.try_extend_nulls(1)?;
+             continue;
+         }
+-
+-        // the list element is empty; there is no value to take, so the result
+-        // is NULL.
+-        if start == end {
+-            mutable.try_extend_nulls(1)?;
+-            continue;
+-        }
+ 
+         let row_value = array.value(row_index);
+         match row_value.nulls() {

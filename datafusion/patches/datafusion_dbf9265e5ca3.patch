@@ -1,0 +1,105 @@
+--- a/datafusion/functions/src/math/power.rs
++++ b/datafusion/functions/src/math/power.rs
+@@ -20,16 +20,15 @@
+ 
+ use crate::utils::calculate_binary_math;
+ use arrow::array::{Array, ArrayRef};
+-use arrow::datatypes::{DataType, Float64Type};
++use arrow::datatypes::{ArrowNativeTypeOp, DataType, Float64Type, Int64Type};
+ use arrow::error::ArrowError;
+-use datafusion_common::types::{NativeType, logical_float64};
+ use datafusion_common::utils::take_function_args;
+-use datafusion_common::{Result, ScalarValue, internal_err};
++use datafusion_common::{Result, ScalarValue, exec_err, internal_err};
+ use datafusion_expr::expr::ScalarFunction;
+ use datafusion_expr::simplify::{ExprSimplifyResult, SimplifyContext};
+ use datafusion_expr::{
+-    Cast, Coercion, ColumnarValue, Documentation, Expr, ScalarFunctionArgs, ScalarUDF,
+-    ScalarUDFImpl, Signature, TypeSignatureClass, Volatility, lit,
++    Cast, ColumnarValue, Documentation, Expr, ScalarFunctionArgs, ScalarUDF,
++    ScalarUDFImpl, Signature, Volatility, lit,
+ };
+ use datafusion_macros::user_doc;
+ 
+@@ -73,13 +72,8 @@
+ 
+ impl PowerFunc {
+     pub fn new() -> Self {
+-        let float = Coercion::new_implicit(
+-            TypeSignatureClass::Native(logical_float64()),
+-            vec![TypeSignatureClass::Numeric],
+-            NativeType::Float64,
+-        );
+         Self {
+-            signature: Signature::coercible(vec![float; 2], Volatility::Immutable),
++            signature: Signature::user_defined(Volatility::Immutable),
+             aliases: vec![String::from("pow")],
+         }
+     }
+@@ -95,8 +89,11 @@
+     }
+ 
+     fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
+-        let [_base, _exponent] = take_function_args(self.name(), arg_types)?;
+-        Ok(DataType::Float64)
++        let [base, _exponent] = take_function_args(self.name(), arg_types)?;
++        match base {
++            DataType::Int64 => Ok(DataType::Int64),
++            _ => Ok(DataType::Float64),
++        }
+     }
+ 
+     fn is_strict(&self) -> bool {
+@@ -107,18 +104,51 @@
+         &self.aliases
+     }
+ 
++    fn coerce_types(&self, arg_types: &[DataType]) -> Result<Vec<DataType>> {
++        let [arg1, arg2] = take_function_args(self.name(), arg_types)?;
++
++        fn coerced_type(name: &str, data_type: &DataType) -> Result<DataType> {
++            match data_type {
++                DataType::Null => Ok(DataType::Int64),
++                d if d.is_floating() => Ok(DataType::Float64),
++                d if d.is_integer() => Ok(DataType::Int64),
++                d if d.is_decimal() => Ok(DataType::Float64),
++                other => {
++                    exec_err!("Unsupported data type {other:?} for {} function", name)
++                }
++            }
++        }
++
++        Ok(vec![
++            coerced_type(self.name(), arg1)?,
++            coerced_type(self.name(), arg2)?,
++        ])
++    }
++
+     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+         let [base, exponent] = take_function_args(self.name(), &args.args)?;
+         let base = base.to_array(args.number_rows)?;
+ 
+         let arr: ArrayRef = match (base.data_type(), exponent.data_type()) {
+-            (DataType::Float64, DataType::Float64) => {
++            (DataType::Float64, _) => {
+                 calculate_binary_math::<Float64Type, Float64Type, Float64Type, _>(
+                     &base,
+                     exponent,
+                     float64_power_checked,
+                 )?
+             }
++            (DataType::Int64, _) => {
++                calculate_binary_math::<Int64Type, Int64Type, Int64Type, _>(
++                    &base,
++                    exponent,
++                    |b, e| match e.try_into() {
++                        Ok(exp_u32) => b.pow_checked(exp_u32),
++                        Err(_) => Err(ArrowError::ArithmeticOverflow(format!(
++                            "Exponent {e} in integer computation is out of bounds."
++                        ))),
++                    },
++                )?
++            }
+             (base_type, exp_type) => {
+                 return internal_err!(
+                     "Unsupported data types for base {base_type:?} and exponent {exp_type:?} for power"

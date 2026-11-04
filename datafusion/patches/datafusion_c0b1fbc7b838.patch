@@ -1,0 +1,69 @@
+--- a/datafusion/sql/src/select.rs
++++ b/datafusion/sql/src/select.rs
+@@ -1398,42 +1398,34 @@
+             .map(|w| (w, self.ident_normalizer.normalize(w.0.clone())))
+             .collect();
+         for proj in projection.iter_mut() {
+-            if let SelectItem::ExprWithAlias { expr, alias: _ }
+-            | SelectItem::UnnamedExpr(expr) = proj
++            if let SelectItem::ExprWithAlias {
++                expr: SQLExpr::Function(f),
++                alias: _,
++            }
++            | SelectItem::UnnamedExpr(SQLExpr::Function(f)) = proj
+             {
+-                let mut err = None;
+-                let _ = visit_expressions_mut(expr, |expr| {
+-                    if let SQLExpr::Function(f) = expr
+-                        && let Some(WindowType::NamedWindow(ident)) = &f.over
++                if let Some(WindowType::NamedWindow(ident)) = &f.over {
++                    let normalized_ident = self.ident_normalizer.normalize(ident.clone());
++                    for (
++                        NamedWindowDefinition(_, window_expr),
++                        normalized_window_ident,
++                    ) in named_windows.iter()
+                     {
+-                        let normalized_ident =
+-                            self.ident_normalizer.normalize(ident.clone());
+-                        for (
+-                            NamedWindowDefinition(_, window_expr),
+-                            normalized_window_ident,
+-                        ) in named_windows.iter()
+-                        {
+-                            if normalized_ident.eq(normalized_window_ident) {
+-                                f.over = Some(match window_expr {
+-                                    NamedWindowExpr::NamedWindow(ident) => {
+-                                        WindowType::NamedWindow(ident.clone())
+-                                    }
+-                                    NamedWindowExpr::WindowSpec(spec) => {
+-                                        WindowType::WindowSpec(spec.clone())
+-                                    }
+-                                })
+-                            }
+-                        }
+-                        // All named windows must be defined with a WindowSpec.
+-                        if let Some(WindowType::NamedWindow(ident)) = &f.over {
+-                            err = Some(plan_err!("The window {ident} is not defined!"));
+-                            return ControlFlow::Break(());
++                        if normalized_ident.eq(normalized_window_ident) {
++                            f.over = Some(match window_expr {
++                                NamedWindowExpr::NamedWindow(ident) => {
++                                    WindowType::NamedWindow(ident.clone())
++                                }
++                                NamedWindowExpr::WindowSpec(spec) => {
++                                    WindowType::WindowSpec(spec.clone())
++                                }
++                            })
+                         }
+                     }
+-                    ControlFlow::Continue(())
+-                });
+-                if let Some(err) = err {
+-                    return err;
++                }
++                // All named windows must be defined with a WindowSpec.
++                if let Some(WindowType::NamedWindow(ident)) = &f.over {
++                    return plan_err!("The window {ident} is not defined!");
+                 }
+             }
+         }

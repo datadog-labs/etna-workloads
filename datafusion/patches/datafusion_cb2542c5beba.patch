@@ -1,0 +1,114 @@
+--- a/datafusion/common/src/scalar/mod.rs
++++ b/datafusion/common/src/scalar/mod.rs
+@@ -4396,14 +4396,7 @@
+             .or_else(|| timestamp_to_timestamp_multiplier(&source_type, target_type))
+             && let Some(value) = self.temporal_scalar_value_as_i64()
+         {
+-            match ensure_timestamp_in_bounds(value, multiplier, &source_type, target_type)
+-            {
+-                Ok(()) => {}
+-                Err(_) if cast_options.safe => {
+-                    return ScalarValue::try_new_null(target_type);
+-                }
+-                Err(e) => return Err(e),
+-            }
++            ensure_timestamp_in_bounds(value, multiplier, &source_type, target_type)?;
+         }
+ 
+         let scalar_array = self.to_array()?;
+@@ -10405,24 +10398,6 @@
+     }
+ 
+     #[test]
+-    fn safe_cast_date_to_timestamp_overflow_returns_null() {
+-        let scalar = ScalarValue::Date32(Some(i32::MAX));
+-        let safe_options = CastOptions {
+-            safe: true,
+-            ..DEFAULT_CAST_OPTIONS
+-        };
+-
+-        let casted = scalar
+-            .cast_to_with_options(
+-                &DataType::Timestamp(TimeUnit::Nanosecond, None),
+-                &safe_options,
+-            )
+-            .expect("expected safe cast to return null");
+-
+-        assert_eq!(casted, ScalarValue::TimestampNanosecond(None, None));
+-    }
+-
+-    #[test]
+     fn cast_timestamp_to_timestamp_overflow_returns_error() {
+         let scalar = ScalarValue::TimestampSecond(Some(i64::MAX), None);
+         let err = scalar
+@@ -10436,24 +10411,6 @@
+     }
+ 
+     #[test]
+-    fn safe_cast_timestamp_to_timestamp_overflow_returns_null() {
+-        let scalar = ScalarValue::TimestampSecond(Some(i64::MAX), None);
+-        let safe_options = CastOptions {
+-            safe: true,
+-            ..DEFAULT_CAST_OPTIONS
+-        };
+-
+-        let casted = scalar
+-            .cast_to_with_options(
+-                &DataType::Timestamp(TimeUnit::Nanosecond, None),
+-                &safe_options,
+-            )
+-            .expect("expected safe cast to return null");
+-
+-        assert_eq!(casted, ScalarValue::TimestampNanosecond(None, None));
+-    }
+-
+-    #[test]
+     fn null_dictionary_scalar_produces_null_dictionary_array() {
+         let dictionary_scalar = ScalarValue::Dictionary(
+             Box::new(DataType::Int32),
+--- a/datafusion/expr-common/src/columnar_value.rs
++++ b/datafusion/expr-common/src/columnar_value.rs
+@@ -325,9 +325,7 @@
+     ) {
+         datafusion_common::nested_struct::cast_column(array, cast_type, cast_options)
+     } else {
+-        if !cast_options.safe {
+-            ensure_temporal_array_timestamp_bounds(array, cast_type)?;
+-        }
++        ensure_temporal_array_timestamp_bounds(array, cast_type)?;
+         Ok(kernels::cast::cast_with_options(
+             array,
+             cast_type,
+@@ -768,32 +766,4 @@
+             "unexpected error: {err}"
+         );
+     }
+-
+-    #[test]
+-    fn safe_cast_timestamp_array_to_timestamp_overflow_returns_null() {
+-        let overflow_value = i64::MAX / 1_000_000_000 + 1;
+-        let array: ArrayRef =
+-            Arc::new(TimestampSecondArray::from(vec![Some(overflow_value)]));
+-        let value = ColumnarValue::Array(array);
+-        let safe_options = CastOptions {
+-            safe: true,
+-            ..DEFAULT_CAST_OPTIONS
+-        };
+-
+-        let casted = value
+-            .cast_to(
+-                &DataType::Timestamp(TimeUnit::Nanosecond, None),
+-                Some(&safe_options),
+-            )
+-            .expect("expected safe cast to return null");
+-
+-        let ColumnarValue::Array(array) = casted else {
+-            panic!("expected array after cast");
+-        };
+-        let array = array
+-            .as_any()
+-            .downcast_ref::<TimestampNanosecondArray>()
+-            .expect("expected TimestampNanosecondArray");
+-        assert!(array.is_null(0));
+-    }
+ }

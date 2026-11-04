@@ -1,0 +1,54 @@
+--- a/datafusion/physical-plan/src/joins/hash_join/exec.rs
++++ b/datafusion/physical-plan/src/joins/hash_join/exec.rs
+@@ -48,7 +48,7 @@
+ use crate::metrics::{Count, MetricBuilder, MetricCategory};
+ use crate::projection::{
+     EmbeddedProjection, JoinData, ProjectionExec, try_embed_projection,
+-    try_pushdown_through_join_with_column_indices,
++    try_pushdown_through_join,
+ };
+ use crate::repartition::REPARTITION_RANDOM_STATE;
+ use crate::statistics::{ChildStats, StatisticsArgs};
+@@ -1644,14 +1644,13 @@
+             projected_right_child,
+             join_filter,
+             join_on,
+-        }) = try_pushdown_through_join_with_column_indices(
++        }) = try_pushdown_through_join(
+             projection,
+             self.left(),
+             self.right(),
+             self.on(),
+             &schema,
+             self.filter(),
+-            self.column_indices.as_slice(),
+         )? {
+             self.builder()
+                 .with_new_children(vec![
+--- a/datafusion/physical-plan/src/joins/nested_loop_join.rs
++++ b/datafusion/physical-plan/src/joins/nested_loop_join.rs
+@@ -40,7 +40,7 @@
+ };
+ use crate::projection::{
+     EmbeddedProjection, JoinData, ProjectionExec, try_embed_projection,
+-    try_pushdown_through_join_with_column_indices,
++    try_pushdown_through_join,
+ };
+ use crate::statistics::{ChildStats, StatisticsArgs};
+ use crate::{
+@@ -777,14 +777,13 @@
+             projected_right_child,
+             join_filter,
+             ..
+-        }) = try_pushdown_through_join_with_column_indices(
++        }) = try_pushdown_through_join(
+             projection,
+             self.left(),
+             self.right(),
+             &[],
+             &schema,
+             self.filter(),
+-            self.column_indices.as_slice(),
+         )? {
+             Ok(Some(Arc::new(NestedLoopJoinExec::try_new(
+                 Arc::new(projected_left_child),

@@ -1,0 +1,33 @@
+--- a/datafusion/expr/src/logical_plan/plan.rs
++++ b/datafusion/expr/src/logical_plan/plan.rs
+@@ -3400,7 +3400,8 @@
+                     fields.iter().map(|field| field.metadata()),
+                 );
+                 field.set_metadata(field_metadata);
+-                Ok((None, Arc::new(field)))
++                let table_reference = first_schema.qualified_field(i).0.cloned();
++                Ok((table_reference, Arc::new(field)))
+             })
+             .collect::<Result<_>>()?;
+         let union_schema_metadata = intersect_metadata_for_union(
+--- a/datafusion/optimizer/src/analyzer/type_coercion.rs
++++ b/datafusion/optimizer/src/analyzer/type_coercion.rs
+@@ -1376,15 +1376,15 @@
+         }
+     }
+     let union_qualified_fields = izip!(
+-        base_schema.fields(),
++        base_schema.iter(),
+         union_datatypes.into_iter(),
+         union_nullabilities,
+         union_field_meta.into_iter()
+     )
+-    .map(|(field, datatype, nullable, metadata)| {
++    .map(|((qualifier, field), datatype, nullable, metadata)| {
+         let mut field = Field::new(field.name().clone(), datatype, nullable);
+         field.set_metadata(metadata);
+-        (None, field.into())
++        (qualifier.cloned(), field.into())
+     })
+     .collect::<Vec<_>>();
+ 

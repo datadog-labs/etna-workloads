@@ -1,0 +1,2 @@
+Reproducer: `repro.sql` builds t1/t2 and runs `t1_id > 40 OR [NOT] EXISTS (correlated subquery)`, which plans as a mark join (RightMark) with a projection on top.
+Clean: both queries return rows. Buggy: the NOT EXISTS query (NestedLoopJoin mark join with a non-equi filter) fails in the ProjectionPushdown physical optimizer with an internal assertion error ("Input field name t2_int does not match ... t1_id").

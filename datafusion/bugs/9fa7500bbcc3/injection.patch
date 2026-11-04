@@ -1,0 +1,56 @@
+--- a/datafusion/core/src/physical_planner.rs
++++ b/datafusion/core/src/physical_planner.rs
+@@ -3049,11 +3049,7 @@
+                     .into_iter()
+                     .map(|(expr, alias)| ProjectionExpr { expr, alias })
+                     .collect();
+-                Ok(Arc::new(ProjectionExec::try_new_with_schema_metadata(
+-                    proj_exprs,
+-                    input_exec,
+-                    output_schema.as_arrow(),
+-                )?))
++                Ok(Arc::new(ProjectionExec::try_new(proj_exprs, input_exec)?))
+             }
+             PlanAsyncExpr::Async(
+                 async_map,
+@@ -3065,11 +3061,8 @@
+                     .into_iter()
+                     .map(|(expr, alias)| ProjectionExpr { expr, alias })
+                     .collect();
+-                let new_proj_exec = ProjectionExec::try_new_with_schema_metadata(
+-                    proj_exprs,
+-                    Arc::new(async_exec),
+-                    output_schema.as_arrow(),
+-                )?;
++                let new_proj_exec =
++                    ProjectionExec::try_new(proj_exprs, Arc::new(async_exec))?;
+                 Ok(Arc::new(new_proj_exec))
+             }
+             _ => internal_err!("Unexpected PlanAsyncExpressions variant"),
+--- a/datafusion/expr/src/expr_schema.rs
++++ b/datafusion/expr/src/expr_schema.rs
+@@ -588,14 +588,22 @@
+                         let new_fields =
+                             verify_function_arguments(udaf.as_ref(), &fields)?;
+                         let return_field = udaf.return_field(&new_fields)?;
+-                        Ok(return_field)
++                        Ok(Arc::new(Field::new(
++                            &schema_name,
++                            return_field.data_type().clone(),
++                            return_field.is_nullable(),
++                        )))
+                     }
+                     WindowFunctionDefinition::WindowUDF(udwf) => {
+                         let new_fields =
+                             verify_function_arguments(udwf.as_ref(), &fields)?;
+                         let return_field = udwf
+                             .field(WindowUDFFieldArgs::new(&new_fields, &schema_name))?;
+-                        Ok(return_field)
++                        Ok(Arc::new(Field::new(
++                            &schema_name,
++                            return_field.data_type().clone(),
++                            return_field.is_nullable(),
++                        )))
+                     }
+                 }
+             }

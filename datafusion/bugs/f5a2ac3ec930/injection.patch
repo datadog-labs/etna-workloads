@@ -1,0 +1,58 @@
+--- a/datafusion/functions-aggregate/src/percentile_cont.rs
++++ b/datafusion/functions-aggregate/src/percentile_cont.rs
+@@ -26,7 +26,9 @@
+ use arrow::buffer::{OffsetBuffer, ScalarBuffer};
+ use arrow::{
+     array::{Array, ArrayRef, AsArray},
+-    datatypes::{DataType, Field, FieldRef, Float16Type, Float32Type, Float64Type},
++    datatypes::{
++        ArrowNativeType, DataType, Field, FieldRef, Float16Type, Float32Type, Float64Type,
++    },
+ };
+ 
+ use num_traits::AsPrimitive;
+@@ -74,7 +76,7 @@
+ ///
+ /// The interpolation arithmetic is performed in f64 and then cast back to the
+ /// native type to avoid overflowing Float16 intermediates.
+-const INTERPOLATION_PRECISION: f64 = 1_000_000.0;
++const INTERPOLATION_PRECISION: usize = 1_000_000;
+ 
+ create_func!(PercentileCont, percentile_cont_udaf);
+ 
+@@ -878,20 +880,22 @@
+             let (_, upper_value, _) = values.select_nth_unstable_by(upper_index, cmp);
+             let upper_value = *upper_value;
+ 
+-            // Linear interpolation.
+-            // We compute a quantized interpolation weight using `INTERPOLATION_PRECISION` because:
+-            // 1. Both values come from the input data, so (upper - lower) is bounded by the value range
+-            // 2. fraction is between 0 and 1; quantizing it provides stable, predictable results
+-            // 3. The result is guaranteed to be between lower_value and upper_value (modulo cast rounding)
+-            // 4. Arithmetic is performed in f64 and cast back to avoid overflowing Float16 intermediates
++            // Linear interpolation using wrapping arithmetic
++            // We use wrapping operations here (matching the approach in median.rs) because:
++            // 1. Both values come from the input data, so diff is bounded by the value range
++            // 2. fraction is between 0 and 1, and INTERPOLATION_PRECISION is small enough
++            //    to prevent overflow when combined with typical numeric ranges
++            // 3. The result is guaranteed to be between lower_value and upper_value
++            // 4. For floating-point types, wrapping ops behave the same as standard ops
+             let fraction = index - (lower_index as f64);
+-            let scaled = (fraction * INTERPOLATION_PRECISION) as usize;
+-            let weight = scaled as f64 / INTERPOLATION_PRECISION;
+-
+-            let lower_f: f64 = lower_value.as_();
+-            let upper_f: f64 = upper_value.as_();
+-            let interpolated_f = lower_f + (upper_f - lower_f) * weight;
+-            Some(interpolated_f.as_())
++            let diff = upper_value.sub_wrapping(lower_value);
++            let interpolated = lower_value.add_wrapping(
++                diff.mul_wrapping(T::Native::usize_as(
++                    (fraction * INTERPOLATION_PRECISION as f64) as usize,
++                ))
++                .div_wrapping(T::Native::usize_as(INTERPOLATION_PRECISION)),
++            );
++            Some(interpolated)
+         }
+     }
+ }

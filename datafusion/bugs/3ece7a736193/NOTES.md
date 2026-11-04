@@ -1,0 +1,1 @@
+repro.sql sets and reads datafusion.execution.parquet.schema_force_view_types and lists it from information_schema.df_settings. The injected bug renames the option to schema_force_string_view. The buggy build rejects SET and SHOW with 'not found' errors, and df_settings shows the old name. The clean build accepts the option and reports false.

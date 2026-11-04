@@ -1,0 +1,4 @@
+SELECT log(2, 100::decimal(10,0));
+SELECT log(10, 12600::decimal(10,0));
+SELECT log(2, 100000000000000000000000000000000000::decimal(38,0));
+SELECT log(10, 12600.5::decimal(10,1));

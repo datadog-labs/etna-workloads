@@ -1,0 +1,43 @@
+--- a/datafusion/optimizer/src/push_down_filter.rs
++++ b/datafusion/optimizer/src/push_down_filter.rs
+@@ -824,13 +824,6 @@
+             filter.predicate = new_predicate;
+         }
+ 
+-        // If the child has a fetch (limit) or skip (offset), pushing a filter
+-        // below it would change semantics: the limit/offset should apply before
+-        // the filter, not after.
+-        if filter.input.fetch()?.is_some() || filter.input.skip()?.is_some() {
+-            return Ok(Transformed::no(LogicalPlan::Filter(filter)));
+-        }
+-
+         match Arc::unwrap_or_clone(filter.input) {
+             LogicalPlan::Filter(mut child_filter) => {
+                 // Child filters first to preserve execution order.
+--- a/datafusion/physical-plan/src/sorts/sort.rs
++++ b/datafusion/physical-plan/src/sorts/sort.rs
+@@ -1521,22 +1521,11 @@
+         config: &datafusion_common::config::ConfigOptions,
+     ) -> Result<FilterDescription> {
+         if phase != FilterPushdownPhase::Post {
+-            if self.fetch.is_some() {
+-                return Ok(FilterDescription::all_unsupported(
+-                    &parent_filters,
+-                    &self.children(),
+-                ));
+-            }
+             return FilterDescription::from_children(parent_filters, &self.children());
+         }
+ 
+-        // In Post phase: block parent filters when fetch is set,
+-        // but still push the TopK dynamic filter (self-filter).
+-        let mut child = if self.fetch.is_some() {
+-            ChildFilterDescription::all_unsupported(&parent_filters)
+-        } else {
+-            ChildFilterDescription::from_child(&parent_filters, self.input())?
+-        };
++        let mut child =
++            ChildFilterDescription::from_child(&parent_filters, self.input())?;
+ 
+         if let Some(filter) = &self.filter
+             && config.optimizer.enable_topk_dynamic_filter_pushdown

@@ -1,0 +1,64 @@
+--- a/datafusion/functions/src/math/log.rs
++++ b/datafusion/functions/src/math/log.rs
+@@ -362,27 +362,23 @@
+         } else {
+             lit(ScalarValue::new_ten(&number_datatype)?)
+         };
+-        let base_nullable = info.nullable(&base)?;
+ 
+         match number {
+             Expr::Literal(value, _)
+-                if value == ScalarValue::new_one(&number_datatype)? && !base_nullable =>
++                if value == ScalarValue::new_one(&number_datatype)? =>
+             {
+                 Ok(ExprSimplifyResult::Simplified(lit(ScalarValue::new_zero(
+                     &info.get_data_type(&base)?,
+                 )?)))
+             }
+             Expr::ScalarFunction(ScalarFunction { func, mut args })
+-                if is_pow(&func)
+-                    && args.len() == 2
+-                    && base == args[0]
+-                    && !base_nullable =>
++                if is_pow(&func) && args.len() == 2 && base == args[0] =>
+             {
+                 let b = args.pop().unwrap(); // length checked above
+                 Ok(ExprSimplifyResult::Simplified(b))
+             }
+             number => {
+-                if number == base && !base_nullable {
++                if number == base {
+                     Ok(ExprSimplifyResult::Simplified(lit(ScalarValue::new_one(
+                         &number_datatype,
+                     )?)))
+--- a/datafusion/functions/src/math/power.rs
++++ b/datafusion/functions/src/math/power.rs
+@@ -140,7 +140,6 @@
+         let [base, exponent] = take_function_args("power", args)?;
+         let base_type = info.get_data_type(&base)?;
+         let exponent_type = info.get_data_type(&exponent)?;
+-        let base_nullable = info.nullable(&base)?;
+         let return_type =
+             self.return_type(&[base_type.clone(), exponent_type.clone()])?;
+ 
+@@ -168,7 +167,7 @@
+ 
+         match exponent {
+             Expr::Literal(value, _)
+-                if value == ScalarValue::new_zero(&exponent_type)? && !base_nullable =>
++                if value == ScalarValue::new_zero(&exponent_type)? =>
+             {
+                 Ok(ExprSimplifyResult::Simplified(lit(ScalarValue::new_one(
+                     &return_type,
+@@ -180,10 +179,7 @@
+                 )))
+             }
+             Expr::ScalarFunction(ScalarFunction { func, mut args })
+-                if is_log(&func)
+-                    && args.len() == 2
+-                    && base == args[0]
+-                    && !base_nullable =>
++                if is_log(&func) && args.len() == 2 && base == args[0] =>
+             {
+                 let b = args.pop().unwrap(); // length checked above
+                 let b_type = info.get_data_type(&b)?;

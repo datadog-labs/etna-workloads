@@ -1,0 +1,36 @@
+--- a/datafusion/functions/src/datetime/date_bin.rs
++++ b/datafusion/functions/src/datetime/date_bin.rs
+@@ -370,17 +370,11 @@
+ // Shift `origin_date` by `month_delta` months, mapping an out-of-range result to
+ // the same error the binning paths reported when this was written inline.
+ fn shift_months(origin_date: DateTime<Utc>, month_delta: i64) -> Result<DateTime<Utc>> {
+-    if month_delta < 0 {
+-        origin_date
+-            .checked_sub_months(Months::new(month_delta.unsigned_abs() as u32))
+-            .ok_or_else(|| {
+-                exec_datafusion_err!("DATE_BIN month subtraction out of range")
+-            })
++    Ok(if month_delta < 0 {
++        origin_date - Months::new(month_delta.unsigned_abs() as u32)
+     } else {
+-        origin_date
+-            .checked_add_months(Months::new(month_delta as u32))
+-            .ok_or_else(|| exec_datafusion_err!("DATE_BIN month addition out of range"))
+-    }
++        origin_date + Months::new(month_delta as u32)
++    })
+ }
+ 
+ // return time in nanoseconds that the source timestamp falls into based on the stride and origin
+@@ -405,10 +399,7 @@
+         let month_delta = month_delta - stride_months;
+         bin_time = shift_months(origin_date, month_delta)?;
+     }
+-    match bin_time.timestamp_nanos_opt() {
+-        Some(nanos) => Ok(nanos),
+-        None => exec_err!("DATE_BIN result timestamp out of range"),
+-    }
++    Ok(bin_time.timestamp_nanos_opt().unwrap())
+ }
+ 
+ fn to_utc_date_time(nanos: i64) -> Result<DateTime<Utc>> {

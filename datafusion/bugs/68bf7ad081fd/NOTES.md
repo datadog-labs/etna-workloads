@@ -1,0 +1,1 @@
+Reproducer: ORDER BY referencing the same missing column (column2) twice. Clean build returns 1,3,5; buggy build fails with a planning error ('Projections require unique expression names ... foo.column2'), because the duplicate missing column is added to the projection twice.

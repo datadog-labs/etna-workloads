@@ -1,0 +1,2 @@
+SELECT +true;
+SELECT +'a';

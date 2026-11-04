@@ -1,0 +1,14 @@
+--- a/datafusion/physical-expr/src/expressions/case.rs
++++ b/datafusion/physical-expr/src/expressions/case.rs
+@@ -1127,10 +1127,7 @@
+                     .downcast_ref::<BooleanArray>()
+                     .expect("predicate should evaluate to a boolean array");
+                 // invert the bitmask
+-                let bit_mask = match bit_mask.null_count() {
+-                    0 => not(bit_mask)?,
+-                    _ => not(&prep_null_mask_filter(bit_mask))?,
+-                };
++                let bit_mask = not(bit_mask)?;
+                 match then_expr.evaluate(batch)? {
+                     ColumnarValue::Array(array) => {
+                         Ok(ColumnarValue::Array(nullif(&array, &bit_mask)?))

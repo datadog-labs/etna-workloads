@@ -1,0 +1,14 @@
+--- a/datafusion/datasource-parquet/src/metadata.rs
++++ b/datafusion/datasource-parquet/src/metadata.rs
+@@ -690,7 +690,10 @@
+     }
+ 
+     accumulators.null_counts_array[logical_schema_index] =
+-        summarize_null_counts(stats_converter, row_groups_metadata)?;
++        match summarize_null_counts(stats_converter, row_groups_metadata)? {
++            Precision::Absent => Precision::Exact(num_rows),
++            null_counts => null_counts,
++        };
+ 
+     accumulators.distinct_counts_array[logical_schema_index] =
+         summarize_distinct_counts(parquet_index, row_groups_metadata);

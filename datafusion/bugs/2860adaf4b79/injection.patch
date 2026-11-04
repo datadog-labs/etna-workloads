@@ -1,0 +1,19 @@
+--- a/datafusion/physical-optimizer/src/limit_pushdown.rs
++++ b/datafusion/physical-optimizer/src/limit_pushdown.rs
+@@ -162,7 +162,6 @@
+         global_state.skip = skip;
+         global_state.fetch = fetch;
+         global_state.preserve_order = limit_info.preserve_order;
+-        global_state.satisfied = false;
+ 
+         if let Some(fetch) = fetch
+             && limit_satisfied_by_input(&limit_info.input, skip, fetch)?
+@@ -199,7 +198,7 @@
+     // If we have a non-limit operator with fetch capability, update global
+     // state as necessary:
+     if pushdown_plan.fetch().is_some() {
+-        if global_state.skip == 0 {
++        if global_state.fetch.is_none() {
+             global_state.satisfied = true;
+         }
+         (global_state.skip, global_state.fetch) = combine_limit(

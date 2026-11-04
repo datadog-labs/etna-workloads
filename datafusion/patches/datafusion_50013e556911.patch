@@ -1,0 +1,31 @@
+--- a/datafusion/optimizer/src/eliminate_outer_join.rs
++++ b/datafusion/optimizer/src/eliminate_outer_join.rs
+@@ -338,20 +338,20 @@
+         Expr::Not(arg) | Expr::Negative(arg) => {
+             extract_null_rejecting_sides(arg, left_schema, right_schema, false)
+         }
+-        // These wrappers return FALSE on NULL input, so they reject NULLs only
+-        // when they are themselves in the root WHERE context. Under another
+-        // expression, that FALSE can be transformed into a NULL-accepting result
+-        // (for example by NOT), so recurse only at the top level.
+-        Expr::IsNotNull(arg)
+-        | Expr::IsTrue(arg)
+-        | Expr::IsFalse(arg)
+-        | Expr::IsNotUnknown(arg) => {
++        // IS NOT NULL returns FALSE on NULL input, so it rejects NULLs only
++        // when it is itself in the root WHERE context.
++        Expr::IsNotNull(arg) => {
+             if top_level {
+                 extract_null_rejecting_sides(arg, left_schema, right_schema, false)
+             } else {
+                 NullRejectingSides::default()
+             }
+         }
++        // IS TRUE, IS FALSE, and IS NOT UNKNOWN are null-rejecting: if the
++        // input is NULL, they return false (filtered out by WHERE).
++        Expr::IsTrue(arg) | Expr::IsFalse(arg) | Expr::IsNotUnknown(arg) => {
++            extract_null_rejecting_sides(arg, left_schema, right_schema, false)
++        }
+         Expr::Cast(Cast { expr, field: _ })
+         | Expr::TryCast(TryCast { expr, field: _ }) => {
+             extract_null_rejecting_sides(expr, left_schema, right_schema, false)

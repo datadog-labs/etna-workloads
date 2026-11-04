@@ -1,0 +1,31 @@
+--- a/datafusion/sql/src/expr/mod.rs
++++ b/datafusion/sql/src/expr/mod.rs
+@@ -30,7 +30,7 @@
+ use sqlparser::ast::{Query, Visit, Visitor};
+ 
+ use datafusion_common::{
+-    DFSchema, Diagnostic, Result, ScalarValue, Span, internal_datafusion_err,
++    DFSchema, Diagnostic, Result, ScalarValue, Span, TableReference, internal_datafusion_err,
+     internal_err, not_impl_err, plan_err,
+ };
+ 
+@@ -728,7 +728,7 @@
+             }),
+             #[expect(deprecated)]
+             SQLExpr::QualifiedWildcard(object_name, _token) => Ok(Expr::Wildcard {
+-                qualifier: Some(self.object_name_to_table_reference(object_name)?),
++                qualifier: Some(TableReference::from(object_name.to_string())),
+                 options: Box::new(WildcardOptions::default()),
+             }),
+             SQLExpr::Tuple(values) => self.parse_tuple(schema, planner_context, values),
+--- a/datafusion/sql/src/select.rs
++++ b/datafusion/sql/src/select.rs
+@@ -1045,7 +1045,7 @@
+                         );
+                     }
+                 };
+-                let qualifier = self.object_name_to_table_reference(object_name)?;
++                let qualifier = crate::planner::object_name_to_table_reference(object_name, false)?;
+                 let planned_options = self.plan_wildcard_options(
+                     plan,
+                     empty_from,

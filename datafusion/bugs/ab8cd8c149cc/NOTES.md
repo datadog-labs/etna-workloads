@@ -1,0 +1,1 @@
+The reproducer groups three identical ('x', NaN) rows by two columns. This uses the multi-column group-by path, where primitive NaN equality is broken in the buggy build. Clean returns one group with count 3. Buggy returns three groups with count 1 each, because NaN != NaN when comparing group values.

@@ -110,12 +110,10 @@ class _Slot:
         self.f.close()
 
 
-def _sync_build(slot, tree):
-    """Make the slot's tree equal to `tree` and build sqllogictests there.
-    Returns (exe or None, log). The runner normalizes paths against the
-    compile-time CARGO_MANIFEST_DIR, so tests must run in this tree."""
+def _sync_tree(slot, tree):
+    """Make the slot's tree equal to `tree`. Returns an error log or ""."""
     E = _E()
-    src, target = slot.dir / "src", slot.dir / "target"
+    src = slot.dir / "src"
     src.mkdir(parents=True, exist_ok=True)
     # Compare by content and do not keep times: Cargo rebuilds a crate only if
     # a source is newer than its last build, and git archive dates files at
@@ -125,8 +123,20 @@ def _sync_build(slot, tree):
               sum((["--exclude", f"/{m}"] for m in TESTDATA), []) + [f"{tree}/", f"{src}/"],
               check=False, timeout=1800)
     if r.returncode:
-        return None, "rsync: " + r.stderr[-1500:]
+        return "rsync: " + r.stderr[-1500:]
     post_export(src)                       # test data links (never synced)
+    return ""
+
+
+def _sync_build(slot, tree):
+    """Make the slot's tree equal to `tree` and build sqllogictests there.
+    Returns (exe or None, log). The runner normalizes paths against the
+    compile-time CARGO_MANIFEST_DIR, so tests must run in this tree."""
+    E = _E()
+    src, target = slot.dir / "src", slot.dir / "target"
+    err = _sync_tree(slot, tree)
+    if err:
+        return None, err
     r = E.run(["cargo", "test", "-p", "datafusion-sqllogictest", "--test", "sqllogictests", "--no-run"],
               cwd=src, check=False, env=_env(target), timeout=7200)
     log = r.stdout + r.stderr

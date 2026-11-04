@@ -1,0 +1,1 @@
+Creates a Parquet external table whose directory location ends in a dotted name (out.v0/), inserts rows, then reads back and re-creates the table with inferred schema. Clean: rows are returned both times. Buggy: the dotted directory name is treated as a file extension, so the SELECT returns no rows and the schema-inferring CREATE fails with 'No files found'.

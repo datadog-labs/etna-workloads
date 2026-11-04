@@ -1,0 +1,35 @@
+--- a/datafusion/functions/src/datetime/now.rs
++++ b/datafusion/functions/src/datetime/now.rs
+@@ -115,7 +115,7 @@
+         Ok(Field::new(
+             self.name(),
+             Timestamp(Nanosecond, self.timezone.clone()),
+-            false,
++            true,
+         )
+         .into())
+     }
+--- a/datafusion/physical-expr/src/expressions/cast.rs
++++ b/datafusion/physical-expr/src/expressions/cast.rs
+@@ -232,19 +232,14 @@
+             ));
+         }
+ 
+-        // Type-only cast: pass through the source metadata and nullability,
+-        // stripping extension type keys (the cast is to a plain storage type).
++        // Type-only cast: pass through the source nullability.
+         source_result.map(|source_field| {
+-            let mut metadata = source_field.metadata().clone();
+-            metadata.remove(EXTENSION_TYPE_NAME_KEY);
+-            metadata.remove(EXTENSION_TYPE_METADATA_KEY);
+-
+             Arc::new(
+                 source_field
+                     .as_ref()
+                     .clone()
+                     .with_data_type(self.cast_type().clone())
+-                    .with_metadata(metadata),
++                    .with_metadata(Default::default()),
+             )
+         })
+     }

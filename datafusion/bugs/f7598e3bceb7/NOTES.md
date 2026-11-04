@@ -1,0 +1,1 @@
+Reproducer: a table with case-sensitive column names ("A", "B.C") is queried through a column-aliased subquery `(select * from t) t_(x, y)`. df-clean returns the row and plan; df-buggy fails with 'Schema error: No field named a' because the alias projection uses col(field.name()), which normalizes the name to lowercase.

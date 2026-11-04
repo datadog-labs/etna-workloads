@@ -1,0 +1,57 @@
+--- a/datafusion/functions/src/datetime/date_bin.rs
++++ b/datafusion/functions/src/datetime/date_bin.rs
+@@ -331,39 +331,20 @@
+     })?;
+ 
+     // distance from origin to bin
+-    let time_delta = compute_distance(time_diff, stride_nanos)?;
++    let time_delta = compute_distance(time_diff, stride_nanos);
+ 
+-    origin.checked_add(time_delta).ok_or_else(|| {
+-        ArrowError::InvalidArgumentError(format!(
+-            "date_bin origin {origin} + delta {time_delta} overflows i64"
+-        ))
+-        .into()
+-    })
++    Ok(origin + time_delta)
+ }
+ 
+ // distance from origin to bin
+-fn compute_distance(time_diff: i64, stride: i64) -> Result<i64> {
+-    let remainder = time_diff.checked_rem(stride).ok_or_else(|| {
+-        ArrowError::InvalidArgumentError(format!(
+-            "date_bin compute_distance time_diff {time_diff} % stride {stride} overflows i64"
+-        ))
+-    })?;
+-    let time_delta = time_diff.checked_sub(remainder).ok_or_else(|| {
+-        ArrowError::InvalidArgumentError(format!(
+-            "date_bin compute_distance time_diff {time_diff} - remainder {remainder} overflows i64"
+-        ))
+-    })?;
++fn compute_distance(time_diff: i64, stride: i64) -> i64 {
++    let time_delta = time_diff - (time_diff % stride);
+ 
+     if time_diff < 0 && stride > 1 && time_delta != time_diff {
+         // The origin is later than the source timestamp, round down to the previous bin
+-        time_delta.checked_sub(stride).ok_or_else(|| {
+-            ArrowError::InvalidArgumentError(format!(
+-                "date_bin compute_distance time_delta {time_delta} - stride {stride} overflows i64"
+-            ))
+-            .into()
+-        })
++        time_delta - stride
+     } else {
+-        Ok(time_delta)
++        time_delta
+     }
+ }
+ 
+@@ -395,7 +376,7 @@
+         - origin_date.month() as i32;
+ 
+     // distance from origin to bin
+-    let month_delta = compute_distance(month_diff as i64, stride_months)?;
++    let month_delta = compute_distance(month_diff as i64, stride_months);
+ 
+     let mut bin_time = shift_months(origin_date, month_delta)?;
+ 

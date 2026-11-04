@@ -1,0 +1,213 @@
+--- a/datafusion/physical-plan/src/sorts/multi_level_merge.rs
++++ b/datafusion/physical-plan/src/sorts/multi_level_merge.rs
+@@ -33,7 +33,7 @@
+ use crate::sorts::builder::try_grow_reservation_to_at_least;
+ use crate::sorts::sort::get_reserved_bytes_for_record_batch_size;
+ use crate::sorts::streaming_merge::{SortedSpillFile, StreamingMergeBuilder};
+-use crate::stream::{ObservedStream, RecordBatchStreamAdapter};
++use crate::stream::RecordBatchStreamAdapter;
+ use datafusion_execution::{RecordBatchStream, SendableRecordBatchStream};
+ use datafusion_physical_expr_common::sort_expr::LexOrdering;
+ use futures::TryStreamExt;
+@@ -271,7 +271,7 @@
+                 let empty_stream =
+                     Box::pin(EmptyRecordBatchStream::new(Arc::clone(&self.schema)));
+                 Ok(MergeStep::Stream {
+-                    stream: self.observe_output(empty_stream),
++                    stream: empty_stream,
+                     batch_size_limit: self.batch_size,
+                 })
+             }
+@@ -280,7 +280,7 @@
+             (0, 1) => {
+                 let output_stream = self.sorted_streams.remove(0);
+                 Ok(MergeStep::Stream {
+-                    stream: self.observe_output(output_stream),
++                    stream: output_stream,
+                     batch_size_limit: self.batch_size,
+                 })
+             }
+@@ -295,7 +295,7 @@
+                     .read_spill_as_stream(spill_file.file, None)?;
+ 
+                 Ok(MergeStep::Stream {
+-                    stream: self.observe_output(output_stream),
++                    stream: output_stream,
+                     batch_size_limit: batch_size,
+                 })
+             }
+@@ -658,13 +658,6 @@
+ 
+         Ok(())
+     }
+-
+-    fn observe_output(
+-        &self,
+-        stream: SendableRecordBatchStream,
+-    ) -> SendableRecordBatchStream {
+-        Box::pin(ObservedStream::new(stream, self.metrics.clone(), None))
+-    }
+ }
+ 
+ /// Outcome of trying to reserve memory for one multi-level merge pass.
+--- a/datafusion/physical-plan/src/sorts/sort.rs
++++ b/datafusion/physical-plan/src/sorts/sort.rs
+@@ -47,8 +47,8 @@
+ use crate::spill::in_progress_spill_file::InProgressSpillFile;
+ use crate::spill::spill_manager::{GetSlicedSize, SpillManager};
+ use crate::statistics::{ChildStats, StatisticsArgs};
++use crate::stream::RecordBatchStreamAdapter;
+ use crate::stream::ReservationStream;
+-use crate::stream::{ObservedStream, RecordBatchStreamAdapter};
+ use crate::topk::TopK;
+ use crate::topk::TopKDynamicFilters;
+ use crate::{
+@@ -376,7 +376,7 @@
+             // allocation. Only needed for the non-spill path; the spill
+             // path transfers the reservation to the merge stream instead.
+             self.merge_reservation.free();
+-            self.in_mem_sort_stream(true, true)
++            self.in_mem_sort_stream(self.metrics.baseline.clone(), true)
+         }
+     }
+ 
+@@ -478,11 +478,9 @@
+         // reserved again for the next spill.
+         self.merge_reservation.free();
+ 
+-        let mut sorted_stream = self.in_mem_sort_stream(
+-            false,
+-            // No coalescing on the spill path: it raises per-run peak memory.
+-            false,
+-        )?;
++        // No coalescing on the spill path: it raises per-run peak memory.
++        let mut sorted_stream =
++            self.in_mem_sort_stream(self.metrics.baseline.intermediate(), false)?;
+         // After `in_mem_sort_stream()` is constructed, all `in_mem_batches` is taken
+         // to construct a globally sorted stream.
+         assert_or_internal_err!(
+@@ -591,18 +589,18 @@
+     /// reduce merge fan-in. Disabled on the spill path to keep peak memory low.
+     fn in_mem_sort_stream(
+         &mut self,
+-        is_output_stream: bool,
++        metrics: BaselineMetrics,
+         coalesce_runs: bool,
+     ) -> Result<SendableRecordBatchStream> {
+         if self.in_mem_batches.is_empty() {
+-            let empty_stream =
+-                Box::pin(EmptyRecordBatchStream::new(Arc::clone(&self.schema)));
+-            return Ok(self.observe_if_output(empty_stream, is_output_stream));
++            return Ok(Box::pin(EmptyRecordBatchStream::new(Arc::clone(
++                &self.schema,
++            ))));
+         }
+ 
+         // The elapsed compute timer is updated when the value is dropped.
+         // There is no need for an explicit call to drop.
+-        let elapsed_compute = self.metrics.baseline.elapsed_compute().clone();
++        let elapsed_compute = metrics.elapsed_compute().clone();
+         let _timer = elapsed_compute.timer();
+ 
+         // Please pay attention that any operation inside of `in_mem_sort_stream` will
+@@ -614,8 +612,7 @@
+         if self.in_mem_batches.len() == 1 {
+             let batch = self.in_mem_batches.swap_remove(0);
+             let reservation = self.reservation.take();
+-            let sorted_stream = self.sort_batch_stream(batch, reservation)?;
+-            return Ok(self.observe_if_output(sorted_stream, is_output_stream));
++            return self.sort_batch_stream(batch, &metrics, reservation);
+         }
+ 
+         // If less than sort_in_place_threshold_bytes, concatenate and sort in place
+@@ -627,8 +624,7 @@
+                 .try_resize(get_reserved_bytes_for_record_batch(&batch)?)
+                 .map_err(Self::err_with_oom_context)?;
+             let reservation = self.reservation.take();
+-            let sorted_stream = self.sort_batch_stream(batch, reservation)?;
+-            return Ok(self.observe_if_output(sorted_stream, is_output_stream));
++            return self.sort_batch_stream(batch, &metrics, reservation);
+         }
+ 
+         // For single-column sorts, coalesce the buffered batches into fewer,
+@@ -646,10 +642,11 @@
+         let streams = runs
+             .into_iter()
+             .map(|batch| {
++                let metrics = self.metrics.baseline.intermediate();
+                 let reservation = self
+                     .reservation
+                     .split(get_reserved_bytes_for_record_batch(&batch)?);
+-                let input = self.sort_batch_stream(batch, reservation)?;
++                let input = self.sort_batch_stream(batch, &metrics, reservation)?;
+                 Ok(spawn_buffered(input, 1))
+             })
+             .collect::<Result<_>>()?;
+@@ -658,11 +655,7 @@
+             .with_streams(streams)
+             .with_schema(Arc::clone(&self.schema))
+             .with_expressions(&self.expr.clone())
+-            .with_metrics(if is_output_stream {
+-                self.metrics.baseline.clone()
+-            } else {
+-                self.metrics.baseline.intermediate()
+-            })
++            .with_metrics(metrics)
+             .with_batch_size(self.batch_size)
+             .with_fetch(None)
+             .with_reservation(self.merge_reservation.new_empty())
+@@ -733,6 +726,7 @@
+     fn sort_batch_stream(
+         &self,
+         batch: RecordBatch,
++        metrics: &BaselineMetrics,
+         reservation: MemoryReservation,
+     ) -> Result<SendableRecordBatchStream> {
+         assert_eq!(
+@@ -743,6 +737,7 @@
+         let schema = batch.schema();
+         let expressions = self.expr.clone();
+         let batch_size = self.batch_size;
++        let output_row_metrics = metrics.output_rows().clone();
+ 
+         let stream = futures::stream::once(async move {
+             let schema = batch.schema();
+@@ -772,7 +767,14 @@
+                 reservation,
+             )) as SendableRecordBatchStream)
+         })
+-        .try_flatten();
++        .try_flatten()
++        .map(move |batch| match batch {
++            Ok(batch) => {
++                output_row_metrics.add(batch.num_rows());
++                Ok(batch)
++            }
++            Err(e) => Err(e),
++        });
+ 
+         Ok(Box::pin(RecordBatchStreamAdapter::new(schema, stream)))
+     }
+@@ -831,22 +833,6 @@
+             _ => e,
+         }
+     }
+-
+-    fn observe_if_output(
+-        &self,
+-        mut stream: SendableRecordBatchStream,
+-        wrap: bool,
+-    ) -> SendableRecordBatchStream {
+-        if wrap {
+-            stream = Box::pin(ObservedStream::new(
+-                stream,
+-                self.metrics.baseline.clone(),
+-                None,
+-            ))
+-        }
+-
+-        stream
+-    }
+ }
+ 
+ /// Estimate how much memory is needed to sort a `RecordBatch`.

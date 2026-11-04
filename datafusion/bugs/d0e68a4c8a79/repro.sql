@@ -1,0 +1,3 @@
+CREATE TABLE users AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 5), (2, 7), (3, 100)) AS t(id, v);
+SELECT id FROM users GROUP BY id QUALIFY SUM(v) > 10 ORDER BY id;
+SELECT id FROM users GROUP BY id QUALIFY RANK() OVER (ORDER BY SUM(v) DESC) = 1;

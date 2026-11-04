@@ -1,0 +1,36 @@
+--- a/datafusion/expr/src/expr.rs
++++ b/datafusion/expr/src/expr.rs
+@@ -648,26 +648,17 @@
+ pub fn intersect_metadata_for_union<'a>(
+     metadatas: impl IntoIterator<Item = &'a SchemaFieldMetadata>,
+ ) -> SchemaFieldMetadata {
+-    let mut intersected: Option<SchemaFieldMetadata> = None;
++    let mut metadatas = metadatas.into_iter();
++    let Some(mut intersected) = metadatas.next().cloned() else {
++        return Default::default();
++    };
+ 
+     for metadata in metadatas {
+-        // Skip empty metadata (e.g. from NULL literals or computed expressions)
+-        // to avoid dropping metadata from branches that have it.
+-        if metadata.is_empty() {
+-            continue;
+-        }
+-        match &mut intersected {
+-            None => {
+-                intersected = Some(metadata.clone());
+-            }
+-            Some(current) => {
+-                // Only keep keys that exist in both with the same value
+-                current.retain(|k, v| metadata.get(k) == Some(&*v));
+-            }
+-        }
++        // Only keep keys that exist in both with the same value
++        intersected.retain(|k, v| metadata.get(k) == Some(v));
+     }
+ 
+-    intersected.unwrap_or_default()
++    intersected
+ }
+ 
+ /// UNNEST expression.

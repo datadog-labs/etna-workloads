@@ -1,0 +1,2 @@
+repro.sql creates tables whose constraint column names differ in case from the column definitions (PRIMARY KEY (COLUMN_NAME) on column COLUMN_NAME, UNIQUE(COLUMN_NAME) on cOlUmn_name) with ident normalization on.
+Clean build: both succeed (names normalized). Buggy build: both fail with "Column for primary key / unique constraint not found in schema: COLUMN_NAME" because constraint idents are not normalized.

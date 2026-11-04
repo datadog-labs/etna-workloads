@@ -1,0 +1,44 @@
+--- a/datafusion/functions/src/math/round.rs
++++ b/datafusion/functions/src/math/round.rs
+@@ -188,7 +188,6 @@
+             vec![TypeSignatureClass::Integer],
+             NativeType::Int32,
+         );
+-        let integer = Coercion::new_exact(TypeSignatureClass::Integer);
+         let float32 = Coercion::new_exact(TypeSignatureClass::Native(logical_float32()));
+         let float64 = Coercion::new_implicit(
+             TypeSignatureClass::Native(logical_float64()),
+@@ -204,11 +203,6 @@
+                     ]),
+                     TypeSignature::Coercible(vec![decimal]),
+                     TypeSignature::Coercible(vec![
+-                        integer.clone(),
+-                        decimal_places.clone(),
+-                    ]),
+-                    TypeSignature::Coercible(vec![integer]),
+-                    TypeSignature::Coercible(vec![
+                         float32.clone(),
+                         decimal_places.clone(),
+                     ]),
+--- a/datafusion/spark/src/function/math/round.rs
++++ b/datafusion/spark/src/function/math/round.rs
+@@ -462,7 +462,18 @@
+                 impl_integer_array_round!(array, UInt32Type, scale, enable_ansi_mode)
+             }
+             DataType::UInt64 => {
+-                impl_integer_array_round!(array, UInt64Type, scale, enable_ansi_mode)
++                let array = array.as_primitive::<UInt64Type>();
++                let result: PrimitiveArray<UInt64Type> = array.try_unary(|x| {
++                    let v_i64 = i64::try_from(x).map_err(|_| {
++                        (exec_err!(
++                            "round: UInt64 value {x} exceeds i64::MAX and cannot be rounded"
++                        ) as Result<(), _>)
++                            .unwrap_err()
++                    })?;
++                    round_integer(v_i64, scale, enable_ansi_mode)
++                        .map(|v| v as u64)
++                })?;
++                Ok(ColumnarValue::Array(Arc::new(result)))
+             }
+ 
+             // Float types

@@ -1,0 +1,1 @@
+repro.sql copies the limit_single_row_batches.slt case (batch_size=1, target_partitions=1, filter + LIMIT 1 over a 2-row table). Clean build prints count 1; buggy build fails with an internal error 'Assertion failed: !self.finished: LimitedBatchCoalescer: cannot push batch after finish' because FilterExec keeps pushing into a finished coalescer.

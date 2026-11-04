@@ -1,0 +1,1 @@
+select array_compact(make_array(NULL, NULL, NULL));

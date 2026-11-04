@@ -1,0 +1,41 @@
+--- a/datafusion/physical-plan/src/filter.rs
++++ b/datafusion/physical-plan/src/filter.rs
+@@ -372,7 +372,6 @@
+                     schema,
+                     &input_stats.column_statistics,
+                     analysis_ctx.boundaries,
+-                    selectivity,
+                     &null_rejecting_columns,
+                     filtered_num_rows,
+                 );
+@@ -1119,7 +1118,6 @@
+     schema: &SchemaRef,
+     input_column_stats: &[ColumnStatistics],
+     analysis_boundaries: Vec<ExprBoundaries>,
+-    selectivity: f64,
+     null_rejecting_columns: &HashSet<usize>,
+     filtered_num_rows: Precision<usize>,
+ ) -> Vec<ColumnStatistics> {
+@@ -1168,20 +1166,15 @@
+                 let capped_null_count = if null_rejecting_columns.contains(&idx) {
+                     Precision::Exact(0)
+                 } else {
+-                    cap_at_rows(input_column_stats[idx].null_count, filtered_num_rows)
++                    input_column_stats[idx].null_count.to_inexact()
+                 };
+-                let byte_size = scale_byte_size_at_rows(
+-                    input_column_stats[idx].byte_size,
+-                    selectivity,
+-                    filtered_num_rows,
+-                );
+                 ColumnStatistics {
+                     null_count: capped_null_count,
+                     max_value,
+                     min_value,
+                     sum_value: Precision::Absent,
+                     distinct_count: capped_distinct_count,
+-                    byte_size,
++                    byte_size: input_column_stats[idx].byte_size,
+                 }
+             },
+         )

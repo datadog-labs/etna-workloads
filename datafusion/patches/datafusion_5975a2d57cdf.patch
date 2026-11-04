@@ -1,0 +1,21 @@
+--- a/datafusion/physical-plan/src/joins/hash_join/exec.rs
++++ b/datafusion/physical-plan/src/joins/hash_join/exec.rs
+@@ -867,18 +867,6 @@
+             return false;
+         }
+ 
+-        // A null-aware anti join emits a build-side NULL only when the probe
+-        // is truly empty. The pushed filter can empty the probe by pruning
+-        // every row, which would surface that NULL wrongly. A NOT NULL build
+-        // key cannot produce such a NULL, so the filter stays there.
+-        if self.null_aware
+-            && self.on.iter().any(|(build_key, _)| {
+-                build_key.nullable(&self.left.schema()).unwrap_or(true)
+-            })
+-        {
+-            return false;
+-        }
+-
+         // `preserve_file_partitions` can report Hive-style file groups as Hash
+         // partitioned even though their partition indexes do not follow the
+         // hash router used by partitioned dynamic filters. Reject Hash inputs

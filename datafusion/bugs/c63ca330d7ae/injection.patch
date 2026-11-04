@@ -1,0 +1,33 @@
+--- a/datafusion/functions/src/math/round.rs
++++ b/datafusion/functions/src/math/round.rs
+@@ -99,28 +99,9 @@
+ fn calculate_new_precision_scale<T: DecimalType>(
+     precision: u8,
+     scale: i8,
+-    decimal_places: Option<i32>,
++    _decimal_places: Option<i32>,
+ ) -> Result<DataType> {
+-    if let Some(decimal_places) = decimal_places {
+-        let new_scale = output_scale_for_decimal(precision, scale, decimal_places);
+-
+-        // When rounding an integer decimal (scale == 0) to a negative `decimal_places`, a carry can
+-        // add an extra digit to the integer part (e.g. 99 -> 100 when rounding to -1). This can
+-        // only happen when the rounding position is within the existing precision.
+-        let abs_decimal_places = decimal_places.unsigned_abs();
+-        let new_precision = if scale == 0
+-            && decimal_places < 0
+-            && abs_decimal_places <= u32::from(precision)
+-        {
+-            precision.saturating_add(1).min(T::MAX_PRECISION)
+-        } else {
+-            precision
+-        };
+-        Ok(T::TYPE_CONSTRUCTOR(new_precision, new_scale))
+-    } else {
+-        let new_precision = precision.saturating_add(1).min(T::MAX_PRECISION);
+-        Ok(T::TYPE_CONSTRUCTOR(new_precision, scale))
+-    }
++    Ok(T::TYPE_CONSTRUCTOR(precision, scale))
+ }
+ 
+ fn decimal_places_from_scalar(scalar: &ScalarValue) -> Result<i32> {

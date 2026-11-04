@@ -1,0 +1,52 @@
+--- a/datafusion/functions/src/core/overlay.rs
++++ b/datafusion/functions/src/core/overlay.rs
+@@ -131,35 +131,20 @@
+     let start_char_idx = start_pos - 1;
+     let end_char_idx = start_char_idx.saturating_add(replace_len);
+ 
+-    if string.is_ascii() {
+-        // ASCII fast path: byte index == codepoint index.
+-        let len = string.len() as i64;
+-        let prefix_end = start_char_idx.clamp(0, len) as usize;
+-        let suffix_start = end_char_idx.clamp(0, len) as usize;
+-        return (prefix_end, suffix_start);
+-    }
+-
+-    let prefix_target = usize::try_from(start_char_idx).unwrap_or(usize::MAX);
+-    let suffix_target = usize::try_from(end_char_idx.max(0)).unwrap_or(usize::MAX);
+-    let target_max = prefix_target.max(suffix_target);
+-
+-    // Single forward pass over codepoint boundaries records both targets.
+-    // Either target falls through to `string.len()` if past the codepoint
+-    // count.
+-    let mut prefix_byte = string.len();
+-    let mut suffix_byte = string.len();
+-    for (count, (byte_idx, _)) in string.char_indices().enumerate() {
+-        if count == prefix_target {
+-            prefix_byte = byte_idx;
+-        }
+-        if count == suffix_target {
+-            suffix_byte = byte_idx;
+-        }
+-        if count == target_max {
+-            break;
+-        }
+-    }
+-    (prefix_byte, suffix_byte)
++    // Character counts are compared against character positions, but the
++    // results are used as byte offsets for slicing.
++    let string_char_len = string.chars().count() as i64;
++    let prefix_end = if start_char_idx < string_char_len {
++        start_char_idx as usize
++    } else {
++        0
++    };
++    let suffix_start = if end_char_idx < string_char_len {
++        end_char_idx.max(0) as usize
++    } else {
++        string.len()
++    };
++    (prefix_end, suffix_start)
+ }
+ 
+ /// Appends the overlay result for one non-null row into `builder`.

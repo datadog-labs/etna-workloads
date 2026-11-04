@@ -1,0 +1,1 @@
+CREATE EXTERNAL TABLE dt STORED AS CSV WITH ORDER (a || b) LOCATION 'file://path/to/table';

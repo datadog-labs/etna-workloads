@@ -1,0 +1,22 @@
+--- a/datafusion/functions/src/string/concat_ws.rs
++++ b/datafusion/functions/src/string/concat_ws.rs
+@@ -28,6 +28,7 @@
+     ColumnarValueRef, ConcatBuilder, ConcatLargeStringBuilder, ConcatStringBuilder,
+     ConcatStringViewBuilder,
+ };
++use datafusion_common::cast::as_string_array;
+ use datafusion_common::{Result, ScalarValue, exec_err, internal_err, plan_err};
+ use datafusion_expr::expr::ScalarFunction;
+ use datafusion_expr::simplify::{ExprSimplifyResult, SimplifyContext};
+@@ -247,6 +248,11 @@
+             return Ok(null_scalar(&return_datatype));
+         }
+ 
++        // Array separators are only handled as Utf8
++        if let ColumnarValue::Array(array) = sep_column {
++            as_string_array(array)?;
++        }
++
+         let sep: ColumnarValueRef = ColumnarValueRef::from_columnar_value(sep_column, &mut data_size, len, args.len() - 2, true)?
+             .map(Ok)
+             .unwrap_or_else(|| plan_err!(

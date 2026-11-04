@@ -1,0 +1,1 @@
+repro.sql runs nested aggregate/window queries (e.g. sum(sum(x))). Clean rejects them at planning time with 'Aggregate function calls cannot be nested' errors; buggy fails late in physical planning with 'Physical plan does not support logical expression ...'.
