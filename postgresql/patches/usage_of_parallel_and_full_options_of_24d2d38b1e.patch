@@ -1,0 +1,33 @@
+diff --git a/src/backend/commands/vacuum.c b/src/backend/commands/vacuum.c
+index 934b645efd6..ff9aaf6f666 100644
+--- a/src/backend/commands/vacuum.c
++++ b/src/backend/commands/vacuum.c
+@@ -169,6 +169,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
+ 	bool		freeze = false;
+ 	bool		full = false;
+ 	bool		disable_page_skipping = false;
++	bool		parallel_option = false;
+ 	bool		process_main = true;
+ 	bool		process_toast = true;
+ 	int			ring_size;
+@@ -268,6 +269,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
+ 			params.truncate = get_vacoptval_from_boolean(opt);
+ 		else if (strcmp(opt->defname, "parallel") == 0)
+ 		{
++			parallel_option = true;
+ 			if (opt->arg == NULL)
+ 			{
+ 				ereport(ERROR,
+@@ -329,10 +331,10 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
+ 	Assert((params.options & VACOPT_VACUUM) ||
+ 		   !(params.options & (VACOPT_FULL | VACOPT_FREEZE)));
+ 
+-	if ((params.options & VACOPT_FULL) && params.nworkers > 0)
++	if ((params.options & VACOPT_FULL) && parallel_option)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-				 errmsg("VACUUM FULL cannot be performed in parallel")));
++				 errmsg("cannot specify both FULL and PARALLEL options")));
+ 
+ 	/*
+ 	 * BUFFER_USAGE_LIMIT does nothing for VACUUM (FULL) so just raise an

@@ -1,0 +1,3 @@
+CREATE FUNCTION tf_int(internal) RETURNS internal LANGUAGE internal AS 'int4recv';
+CREATE TRANSFORM FOR integer LANGUAGE sql (FROM SQL WITH FUNCTION prsd_lextype(internal));
+SELECT identity FROM pg_identify_object_as_address('pg_transform'::regclass, (SELECT oid FROM pg_transform), 0) a, pg_identify_object('pg_transform'::regclass, (SELECT oid FROM pg_transform), 0);

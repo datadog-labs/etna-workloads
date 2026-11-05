@@ -1,0 +1,16 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..fff85769b7d 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -5246,9 +5246,8 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
+ 		case AT_DisableTrigUser:
+ 			ATSimplePermissions(cmd->subtype, rel,
+ 								ATT_TABLE | ATT_PARTITIONED_TABLE | ATT_FOREIGN_TABLE);
+-			/* Set up recursion for phase 2; no other prep needed */
+-			if (recurse)
+-				cmd->recurse = true;
++			if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
++				ATSimpleRecursion(wqueue, rel, cmd, recurse, lockmode, context);
+ 			pass = AT_PASS_MISC;
+ 			break;
+ 		case AT_EnableRule:		/* ENABLE/DISABLE RULE variants */

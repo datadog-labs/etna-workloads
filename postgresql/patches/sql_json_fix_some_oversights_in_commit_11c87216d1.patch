@@ -1,0 +1,78 @@
+diff --git a/src/backend/executor/execExpr.c b/src/backend/executor/execExpr.c
+index 038a93c5cc7..a122589287b 100644
+--- a/src/backend/executor/execExpr.c
++++ b/src/backend/executor/execExpr.c
+@@ -2369,8 +2369,6 @@ ExecInitExprRec(Expr *node, ExprState *state,
+ 			{
+ 				JsonValueExpr *jve = (JsonValueExpr *) node;
+ 
+-				Assert(jve->raw_expr != NULL);
+-				ExecInitExprRec(jve->raw_expr, state, resv, resnull);
+ 				Assert(jve->formatted_expr != NULL);
+ 				ExecInitExprRec(jve->formatted_expr, state, resv, resnull);
+ 				break;
+diff --git a/src/backend/optimizer/util/clauses.c b/src/backend/optimizer/util/clauses.c
+index aa70667c4a5..0d2ff78f79b 100644
+--- a/src/backend/optimizer/util/clauses.c
++++ b/src/backend/optimizer/util/clauses.c
+@@ -2943,25 +2943,13 @@ eval_const_expressions_mutator(Node *node,
+ 		case T_JsonValueExpr:
+ 			{
+ 				JsonValueExpr *jve = (JsonValueExpr *) node;
+-				Node	   *raw_expr = (Node *) jve->raw_expr;
+-				Node	   *formatted_expr = (Node *) jve->formatted_expr;
++				Node	   *formatted;
+ 
+-				/*
+-				 * If we can fold formatted_expr to a constant, we can elide
+-				 * the JsonValueExpr altogether.  Otherwise we must process
+-				 * raw_expr too.  But JsonFormat is a flat node and requires
+-				 * no simplification, only copying.
+-				 */
+-				formatted_expr = eval_const_expressions_mutator(formatted_expr,
+-																context);
+-				if (formatted_expr && IsA(formatted_expr, Const))
+-					return formatted_expr;
+-
+-				raw_expr = eval_const_expressions_mutator(raw_expr, context);
+-
+-				return (Node *) makeJsonValueExpr((Expr *) raw_expr,
+-												  (Expr *) formatted_expr,
+-												  copyObject(jve->format));
++				formatted = eval_const_expressions_mutator((Node *) jve->formatted_expr,
++														   context);
++				if (formatted && IsA(formatted, Const))
++					return formatted;
++				break;
+ 			}
+ 
+ 		case T_SubPlan:
+diff --git a/src/include/nodes/primnodes.h b/src/include/nodes/primnodes.h
+index 6dfca3cb35b..89ce4b61377 100644
+--- a/src/include/nodes/primnodes.h
++++ b/src/include/nodes/primnodes.h
+@@ -1680,19 +1680,15 @@ typedef struct JsonReturning
+  * JsonValueExpr -
+  *		representation of JSON value expression (expr [FORMAT JsonFormat])
+  *
+- * raw_expr is the user-specified value, while formatted_expr is the value
+- * obtained by coercing raw_expr to the type required by either the FORMAT
+- * clause or an enclosing node's RETURNING clause.
+- *
+- * When deparsing a JsonValueExpr, get_rule_expr() prints raw_expr. However,
+- * during the evaluation of a JsonValueExpr, the value of formatted_expr
+- * takes precedence over that of raw_expr.
++ * The actual value is obtained by evaluating formatted_expr.  raw_expr is
++ * only there for displaying the original user-written expression and is not
++ * evaluated by ExecInterpExpr() and eval_const_expressions_mutator().
+  */
+ typedef struct JsonValueExpr
+ {
+ 	NodeTag		type;
+-	Expr	   *raw_expr;		/* user-specified expression */
+-	Expr	   *formatted_expr; /* coerced formatted expression */
++	Expr	   *raw_expr;		/* raw expression */
++	Expr	   *formatted_expr; /* formatted expression */
+ 	JsonFormat *format;			/* FORMAT clause, if specified */
+ } JsonValueExpr;
+ 

@@ -1,0 +1,18 @@
+create table int4_tbl(f1 int); insert into int4_tbl values (0),(1);
+create table inhpar(f1 int, f2 name);
+create table inhcld(f2 name, f1 int);
+alter table inhcld inherit inhpar;
+insert into inhpar select x, x::text from generate_series(1,5) x;
+insert into inhcld select x::text, x from generate_series(6,10) x;
+update inhpar i set (f1, f2) = (select i.f1, i.f2 || '-' from int4_tbl limit 1);
+select * from inhpar order by f1;
+create table pp(f1 int primary key, f2 name) partition by range (f1);
+create table c1(f2 name, f1 int primary key);
+create table c2(f1 int primary key, f2 name);
+alter table pp attach partition c1 for values from (1) to (5);
+alter table pp attach partition c2 for values from (5) to (100);
+insert into pp select x, x::text from generate_series(1,10) x;
+update pp i set (f1, f2) = (select i.f1, i.f2 || '-' from int4_tbl limit 1);
+select * from pp order by f1;
+insert into pp as i values (3), (7) on conflict (f1) do update set (f1, f2) = (select i.f1, i.f2 || '+');
+select * from pp order by f1;

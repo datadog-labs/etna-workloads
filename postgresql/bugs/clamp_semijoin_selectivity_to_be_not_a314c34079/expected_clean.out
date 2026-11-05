@@ -1,0 +1,15 @@
+create table a(x int, y int);
+create table b(x int, y int);
+insert into a select i, i from generate_series(1,1000) i;
+insert into b select i, i from generate_series(1,20) i;
+analyze a; analyze b;
+explain select * from a where x+1 in (select y*2 from b);
+                          QUERY PLAN                          
+--------------------------------------------------------------
+ Hash Semi Join  (cost=1.45..20.66 rows=100 width=8)
+   Hash Cond: ((a.x + 1) = (b.y * 2))
+   ->  Seq Scan on a  (cost=0.00..15.00 rows=1000 width=8)
+   ->  Hash  (cost=1.20..1.20 rows=20 width=4)
+         ->  Seq Scan on b  (cost=0.00..1.20 rows=20 width=4)
+(5 rows)
+

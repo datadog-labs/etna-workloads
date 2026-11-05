@@ -1,0 +1,10 @@
+CREATE ROLE r_leak;
+CREATE TABLE t(a int, b int);
+INSERT INTO t SELECT i, i FROM generate_series(1,1000) i;
+ANALYZE t;
+GRANT SELECT (a) ON t TO r_leak;
+CREATE FUNCTION leak(int, int) RETURNS boolean AS $$begin raise notice 'leak % %',$1,$2; return $1<$2; end$$ LANGUAGE plpgsql IMMUTABLE;
+CREATE OPERATOR >>> (procedure=leak, leftarg=int, rightarg=int, restrict=scalargtsel);
+SET SESSION AUTHORIZATION r_leak;
+EXPLAIN (COSTS OFF) SELECT a FROM t WHERE b >>> 0;
+psql:<REPRO>:9: ERROR:  permission denied for table t

@@ -1,0 +1,76 @@
+diff --git a/src/backend/optimizer/path/equivclass.c b/src/backend/optimizer/path/equivclass.c
+index 441f12f6c50..95b4c972505 100644
+--- a/src/backend/optimizer/path/equivclass.c
++++ b/src/backend/optimizer/path/equivclass.c
+@@ -51,6 +51,7 @@ static EquivalenceMember *add_child_eq_member(PlannerInfo *root,
+ 											  EquivalenceMember *parent_em,
+ 											  Oid datatype,
+ 											  Index child_relid);
++static bool is_exprlist_member(Expr *node, List *exprs);
+ static void generate_base_implied_equalities_const(PlannerInfo *root,
+ 												   EquivalenceClass *ec);
+ static void generate_base_implied_equalities_no_const(PlannerInfo *root,
+@@ -994,22 +995,9 @@ find_computable_ec_member(PlannerInfo *root,
+ 						  Relids relids,
+ 						  bool require_parallel_safe)
+ {
+-	List	   *exprvars;
+ 	EquivalenceMemberIterator it;
+ 	EquivalenceMember *em;
+ 
+-	/*
+-	 * Pull out the Vars and quasi-Vars present in "exprs".  In the typical
+-	 * non-appendrel case, this is just another representation of the same
+-	 * list.  However, it does remove the distinction between the case of a
+-	 * list of plain expressions and a list of TargetEntrys.
+-	 */
+-	exprvars = pull_var_clause((Node *) exprs,
+-							   PVC_INCLUDE_AGGREGATES |
+-							   PVC_INCLUDE_WINDOWFUNCS |
+-							   PVC_INCLUDE_PLACEHOLDERS |
+-							   PVC_INCLUDE_CONVERTROWTYPES);
+-
+ 	setup_eclass_member_iterator(&it, ec, relids);
+ 	while ((em = eclass_member_iterator_next(&it)) != NULL)
+ 	{
+@@ -1039,7 +1027,7 @@ find_computable_ec_member(PlannerInfo *root,
+ 								 PVC_INCLUDE_PLACEHOLDERS);
+ 		foreach(lc2, emvars)
+ 		{
+-			if (!list_member(exprvars, lfirst(lc2)))
++			if (!is_exprlist_member(lfirst(lc2), exprs))
+ 				break;
+ 		}
+ 		list_free(emvars);
+@@ -1060,6 +1048,31 @@ find_computable_ec_member(PlannerInfo *root,
+ 	return NULL;
+ }
+ 
++/*
++ * is_exprlist_member
++ *	  Subroutine for find_computable_ec_member: is "node" in "exprs"?
++ *
++ * Per the requirements of that function, "exprs" might or might not have
++ * TargetEntry superstructure.
++ */
++static bool
++is_exprlist_member(Expr *node, List *exprs)
++{
++	ListCell   *lc;
++
++	foreach(lc, exprs)
++	{
++		Expr	   *expr = (Expr *) lfirst(lc);
++
++		if (expr && IsA(expr, TargetEntry))
++			expr = ((TargetEntry *) expr)->expr;
++
++		if (equal(node, expr))
++			return true;
++	}
++	return false;
++}
++
+ /*
+  * relation_can_be_sorted_early
+  *		Can this relation be sorted on this EC before the final output step?

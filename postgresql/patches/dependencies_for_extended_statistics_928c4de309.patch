@@ -1,0 +1,37 @@
+diff --git a/src/backend/commands/statscmds.c b/src/backend/commands/statscmds.c
+index 536c164caf2..6e2c03df2bc 100644
+--- a/src/backend/commands/statscmds.c
++++ b/src/backend/commands/statscmds.c
+@@ -567,29 +567,9 @@ CreateStatistics(List *relids, CreateStatsStmt *stmt, bool check_rights)
+ 	 */
+ 	ObjectAddressSet(myself, StatisticExtRelationId, statoid);
+ 
+-	/* add dependencies for plain column references */
+-	for (i = 0; i < nattnums; i++)
+-	{
+-		ObjectAddressSubSet(parentobject, RelationRelationId, relid, attnums[i]);
+-		recordDependencyOn(&myself, &parentobject, DEPENDENCY_AUTO);
+-	}
+-
+-	/*
+-	 * If there are no dependencies on a column, give the statistics object an
+-	 * auto dependency on the whole table.  In most cases, this will be
+-	 * redundant, but it might not be if the statistics expressions contain no
+-	 * Vars (which might seem strange but possible). This is consistent with
+-	 * what we do for indexes in index_create.
+-	 *
+-	 * XXX We intentionally don't consider the expressions before adding this
+-	 * dependency, because recordDependencyOnSingleRelExpr may not create any
+-	 * dependencies for whole-row Vars.
+-	 */
+-	if (!nattnums)
+-	{
+-		ObjectAddressSet(parentobject, RelationRelationId, relid);
+-		recordDependencyOn(&myself, &parentobject, DEPENDENCY_AUTO);
+-	}
++	/* add a dependency on the whole table only, not on specific columns */
++	ObjectAddressSet(parentobject, RelationRelationId, relid);
++	recordDependencyOn(&myself, &parentobject, DEPENDENCY_AUTO);
+ 
+ 	/*
+ 	 * Store dependencies on anything mentioned in statistics expressions,

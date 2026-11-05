@@ -1,0 +1,48 @@
+diff --git a/src/interfaces/ecpg/ecpglib/data.c b/src/interfaces/ecpg/ecpglib/data.c
+index a63d465acf4..fa562767585 100644
+--- a/src/interfaces/ecpg/ecpglib/data.c
++++ b/src/interfaces/ecpg/ecpglib/data.c
+@@ -526,13 +526,6 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
+ 									src_size,
+ 									dec_size;
+ 
+-						if (size < 2 || pval[0] != '\\' || pval[1] != 'x')
+-						{
+-							ecpg_raise(lineno, ECPG_BYTEA_FORMAT,
+-									   ECPG_SQLSTATE_DATATYPE_MISMATCH, pval);
+-							return false;
+-						}
+-
+ 						dst_size = ecpg_hex_enc_len(varcharsize);
+ 						src_size = size - 2;	/* exclude backslash + 'x' */
+ 						dec_size = src_size < dst_size ? src_size : dst_size;
+diff --git a/src/interfaces/ecpg/ecpglib/error.c b/src/interfaces/ecpg/ecpglib/error.c
+index fba8b4468dd..26fdcdb69e9 100644
+--- a/src/interfaces/ecpg/ecpglib/error.c
++++ b/src/interfaces/ecpg/ecpglib/error.c
+@@ -130,13 +130,6 @@ ecpg_raise(int line, int code, const char *sqlstate, const char *str)
+ 					 ecpg_gettext("inserting an array of variables is not supported on line %d"), line);
+ 			break;
+ 
+-		case ECPG_BYTEA_FORMAT:
+-			snprintf(sqlca->sqlerrm.sqlerrmc, sizeof(sqlca->sqlerrm.sqlerrmc),
+-			/*------
+-			   translator: this string will be truncated at 149 characters expanded.  */
+-					 ecpg_gettext("invalid input syntax for type bytea: \"%s\", on line %d"), str, line);
+-			break;
+-
+ 		case ECPG_NO_CONN:
+ 			snprintf(sqlca->sqlerrm.sqlerrmc, sizeof(sqlca->sqlerrm.sqlerrmc),
+ 			/*------
+diff --git a/src/interfaces/ecpg/include/ecpgerrno.h b/src/interfaces/ecpg/include/ecpgerrno.h
+index d8216b365b6..c4bc526463d 100644
+--- a/src/interfaces/ecpg/include/ecpgerrno.h
++++ b/src/interfaces/ecpg/include/ecpgerrno.h
+@@ -32,7 +32,6 @@
+ #define ECPG_NO_ARRAY			-214
+ #define ECPG_DATA_NOT_ARRAY		-215
+ #define ECPG_ARRAY_INSERT		-216
+-#define ECPG_BYTEA_FORMAT		-217
+ 
+ #define ECPG_NO_CONN			-220
+ #define ECPG_NOT_CONN			-221

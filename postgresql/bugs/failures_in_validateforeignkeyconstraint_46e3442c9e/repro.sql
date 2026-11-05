@@ -1,0 +1,15 @@
+create table pk(a int, b int, primary key(a,b));
+create role r_other;
+grant create on schema public to r_other;
+grant references on pk to r_other;
+set role r_other;
+create table pf(a int, b int) partition by list (a);
+create table pf_1 partition of pf for values in (2048);
+insert into pf select 2048, x from generate_series(1,10) x;
+alter table pf add foreign key (a, b) references pk(a, b);
+reset role;
+insert into pk select 2048, x from generate_series(1,10) x;
+set role r_other;
+alter table pf add foreign key (a, b) references pk(a, b);
+reset role;
+select count(*) from pf;

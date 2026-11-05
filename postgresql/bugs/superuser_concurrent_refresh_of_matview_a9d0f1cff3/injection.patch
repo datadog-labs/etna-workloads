@@ -1,0 +1,172 @@
+diff --git a/src/backend/commands/matview.c b/src/backend/commands/matview.c
+index 188e26f0e6e..977dc8f7af9 100644
+--- a/src/backend/commands/matview.c
++++ b/src/backend/commands/matview.c
+@@ -60,10 +60,10 @@ static bool transientrel_receive(TupleTableSlot *slot, DestReceiver *self);
+ static void transientrel_shutdown(DestReceiver *self);
+ static void transientrel_destroy(DestReceiver *self);
+ static uint64 refresh_matview_datafill(DestReceiver *dest, Query *query,
+-									   const char *queryString, bool is_create);
++									   const char *queryString, bool is_create,
++									 Oid relowner);
+ static char *make_temptable_name_n(char *tempname, int n);
+-static void refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
+-								   int save_sec_context);
++static void refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner);
+ static void refresh_by_heap_swap(Oid matviewOid, Oid OIDNewHeap, char relpersistence);
+ static bool is_usable_unique_index(Relation indexRel);
+ static void OpenMatViewIncrementalMaintenance(void);
+@@ -175,25 +175,11 @@ RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+ 	Oid			OIDNewHeap;
+ 	uint64		processed = 0;
+ 	char		relpersistence;
+-	Oid			save_userid;
+-	int			save_sec_context;
+-	int			save_nestlevel;
+ 	ObjectAddress address;
+ 
+ 	matviewRel = table_open(matviewOid, NoLock);
+ 	relowner = matviewRel->rd_rel->relowner;
+ 
+-	/*
+-	 * Switch to the owner's userid, so that any functions are run as that
+-	 * user.  Also lock down security-restricted operations and arrange to
+-	 * make GUC variable changes local to this command.
+-	 */
+-	GetUserIdAndSecContext(&save_userid, &save_sec_context);
+-	SetUserIdAndSecContext(relowner,
+-						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
+-	save_nestlevel = NewGUCNestLevel();
+-	RestrictSearchPath();
+-
+ 	/* Make sure it is a materialized view. */
+ 	if (matviewRel->rd_rel->relkind != RELKIND_MATVIEW)
+ 		ereport(ERROR,
+@@ -328,7 +314,7 @@ RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+ 
+ 		dest = CreateTransientRelDestReceiver(OIDNewHeap);
+ 		processed = refresh_matview_datafill(dest, dataQuery, queryString,
+-											 is_create);
++											 is_create, relowner);
+ 	}
+ 
+ 	/* Make the matview match the newly generated data. */
+@@ -338,8 +324,7 @@ RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+ 
+ 		PG_TRY();
+ 		{
+-			refresh_by_match_merge(matviewOid, OIDNewHeap, relowner,
+-								   save_sec_context);
++			refresh_by_match_merge(matviewOid, OIDNewHeap, relowner);
+ 		}
+ 		PG_CATCH();
+ 		{
+@@ -366,12 +351,6 @@ RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+ 
+ 	table_close(matviewRel, NoLock);
+ 
+-	/* Roll back any GUC changes */
+-	AtEOXact_GUC(false, save_nestlevel);
+-
+-	/* Restore userid and security context */
+-	SetUserIdAndSecContext(save_userid, save_sec_context);
+-
+ 	ObjectAddressSet(address, RelationRelationId, matviewOid);
+ 
+ 	/*
+@@ -403,14 +382,24 @@ RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+  */
+ static uint64
+ refresh_matview_datafill(DestReceiver *dest, Query *query,
+-						 const char *queryString, bool is_create)
++						 const char *queryString, bool is_create,
++						 Oid relowner)
+ {
++	Oid			save_userid;
++	int			save_sec_context;
++	int			save_nestlevel;
+ 	List	   *rewritten;
+ 	PlannedStmt *plan;
+ 	QueryDesc  *queryDesc;
+ 	Query	   *copied_query;
+ 	uint64		processed;
+ 
++	GetUserIdAndSecContext(&save_userid, &save_sec_context);
++	SetUserIdAndSecContext(relowner,
++						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
++	save_nestlevel = NewGUCNestLevel();
++	RestrictSearchPath();
++
+ 	/* Lock and rewrite, using a copy to preserve the original query. */
+ 	copied_query = copyObject(query);
+ 	AcquireRewriteLocks(copied_query, true, false);
+@@ -458,6 +447,12 @@ refresh_matview_datafill(DestReceiver *dest, Query *query,
+ 
+ 	PopActiveSnapshot();
+ 
++	/* Roll back any GUC changes */
++	AtEOXact_GUC(false, save_nestlevel);
++
++	/* Restore userid and security context */
++	SetUserIdAndSecContext(save_userid, save_sec_context);
++
+ 	return processed;
+ }
+ 
+@@ -611,9 +606,11 @@ make_temptable_name_n(char *tempname, int n)
+  * this command.
+  */
+ static void
+-refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
+-					   int save_sec_context)
++refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner)
+ {
++	Oid			save_userid;
++	int			save_sec_context;
++	int			save_nestlevel;
+ 	StringInfoData querybuf;
+ 	Relation	matviewRel;
+ 	Relation	tempRel;
+@@ -693,16 +690,12 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
+ 	 * paranoia, add the composite type column only after switching back to
+ 	 * SRO context.
+ 	 */
+-	SetUserIdAndSecContext(relowner,
+-						   save_sec_context | SECURITY_LOCAL_USERID_CHANGE);
+ 	resetStringInfo(&querybuf);
+ 	appendStringInfo(&querybuf,
+ 					 "CREATE TEMP TABLE %s (tid pg_catalog.tid)",
+ 					 diffname);
+ 	if (SPI_exec(querybuf.data, 0) != SPI_OK_UTILITY)
+ 		elog(ERROR, "SPI_exec failed: %s", querybuf.data);
+-	SetUserIdAndSecContext(relowner,
+-						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
+ 	resetStringInfo(&querybuf);
+ 	appendStringInfo(&querybuf,
+ 					 "ALTER TABLE %s ADD COLUMN newdata %s",
+@@ -860,6 +853,12 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
+ 
+ 	OpenMatViewIncrementalMaintenance();
+ 
++	GetUserIdAndSecContext(&save_userid, &save_sec_context);
++	SetUserIdAndSecContext(relowner,
++						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
++	save_nestlevel = NewGUCNestLevel();
++	RestrictSearchPath();
++
+ 	/* Deletes must come before inserts; do them first. */
+ 	resetStringInfo(&querybuf);
+ 	appendStringInfo(&querybuf,
+@@ -880,6 +879,12 @@ refresh_by_match_merge(Oid matviewOid, Oid tempOid, Oid relowner,
+ 	if (SPI_exec(querybuf.data, 0) != SPI_OK_INSERT)
+ 		elog(ERROR, "SPI_exec failed: %s", querybuf.data);
+ 
++	/* Roll back any GUC changes */
++	AtEOXact_GUC(false, save_nestlevel);
++
++	/* Restore userid and security context */
++	SetUserIdAndSecContext(save_userid, save_sec_context);
++
+ 	/* We're done maintaining the materialized view. */
+ 	CloseMatViewIncrementalMaintenance();
+ 	table_close(tempRel, NoLock);

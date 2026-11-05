@@ -1,0 +1,32 @@
+CREATE TABLE t(id int primary key);
+INSERT INTO t VALUES (1);
+CREATE PUBLICATION p FOR TABLE t;
+SELECT 'init' FROM pg_create_logical_replication_slot('s','pgoutput',false,true);
+ ?column? 
+----------
+ init
+(1 row)
+
+BEGIN;
+SELECT * FROM t WHERE id=1 FOR SHARE;
+ id 
+----
+  1
+(1 row)
+
+PREPARE TRANSACTION 'e1';
+COMMIT PREPARED 'e1';
+BEGIN;
+SELECT * FROM t WHERE id=1 FOR SHARE;
+ id 
+----
+  1
+(1 row)
+
+PREPARE TRANSACTION 'e2';
+ROLLBACK PREPARED 'e2';
+SELECT chr(get_byte(data,0)) AS msgtype FROM pg_logical_slot_get_binary_changes('s',NULL,NULL,'proto_version','3','publication_names','p','two_phase','on');
+ msgtype 
+---------
+(0 rows)
+

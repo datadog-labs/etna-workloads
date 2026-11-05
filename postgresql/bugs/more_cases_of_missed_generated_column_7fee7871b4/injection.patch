@@ -1,0 +1,31 @@
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index df99a204e0c..c357894eefc 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -2185,8 +2185,6 @@ ExecUpdateAct(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
+ 	 * BEFORE triggers of the new partition, however.
+ 	 */
+ lreplace:
+-	/* Fill in GENERATEd columns */
+-	ExecUpdatePrepareSlot(resultRelInfo, slot, estate);
+ 
+ 	/* ensure slot is independent, consider e.g. EPQ */
+ 	ExecMaterializeSlot(slot);
+@@ -2534,6 +2532,9 @@ ExecUpdate(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
+ 	{
+ 		ItemPointerData lockedtid;
+ 
++		/* Fill in the slot appropriately */
++		ExecUpdatePrepareSlot(resultRelInfo, slot, estate);
++
+ 		/*
+ 		 * If we generate a new candidate tuple after EvalPlanQual testing, we
+ 		 * must loop back here to try again.  (We don't need to redo triggers,
+@@ -3231,6 +3232,7 @@ lmerge_matched:
+ 					/* checked ri_needLockTagTuple above */
+ 					Assert(oldtuple == NULL);
+ 
++					ExecUpdatePrepareSlot(resultRelInfo, newslot, context->estate);
+ 					result = ExecUpdateAct(context, resultRelInfo, tupleid,
+ 										   NULL, newslot, canSetTag,
+ 										   &updateCxt);

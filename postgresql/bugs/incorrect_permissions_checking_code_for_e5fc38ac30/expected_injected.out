@@ -1,0 +1,12 @@
+CREATE TABLE t (a numeric, b numeric);
+INSERT INTO t SELECT i % 50, i % 7 FROM generate_series(1,1000) i;
+CREATE STATISTICS s ON mod(a,20), mod(b,5) FROM t;
+ANALYZE t;
+DO $$
+BEGIN
+  EXECUTE 'EXPLAIN (COSTS OFF) SELECT * FROM t WHERE mod(a,20) = 1 AND mod(b,5) = 1';
+  RAISE NOTICE 'planned ok';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'planner failed';
+END $$;
+psql:<REPRO>:11: NOTICE:  planner failed

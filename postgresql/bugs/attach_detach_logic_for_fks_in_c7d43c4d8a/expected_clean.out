@@ -1,0 +1,20 @@
+CREATE TABLE pk (a int PRIMARY KEY);
+CREATE TABLE p (a int REFERENCES pk) PARTITION BY LIST (a);
+CREATE TABLE p1 PARTITION OF p FOR VALUES IN (1);
+ALTER TABLE p DETACH PARTITION p1;
+\d p1
+                 Table "public.p1"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+Foreign-key constraints:
+    "p_a_fkey" FOREIGN KEY (a) REFERENCES pk(a)
+
+ALTER TABLE p ATTACH PARTITION p1 FOR VALUES IN (1);
+SELECT conname, conparent <> 0 AS has_parent FROM pg_constraint WHERE conrelid = 'p1'::regclass ORDER BY 1;
+psql:<REPRO>:7: ERROR:  column "conparent" does not exist
+LINE 1: SELECT conname, conparent <> 0 AS has_parent FROM pg_constra...
+                        ^
+HINT:  Perhaps you meant to reference the column "pg_constraint.conparentid".
+ALTER TABLE p DETACH PARTITION p1;
+ALTER TABLE p1 DROP CONSTRAINT p_a_fkey;

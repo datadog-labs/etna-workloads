@@ -1,0 +1,36 @@
+diff --git a/src/backend/libpq/auth-scram.c b/src/backend/libpq/auth-scram.c
+index dcdf0dfbb40..5c9cd2bcff5 100644
+--- a/src/backend/libpq/auth-scram.c
++++ b/src/backend/libpq/auth-scram.c
+@@ -610,8 +610,6 @@ parse_scram_secret(const char *secret, int *iterations,
+ 	char	   *serverkey_str;
+ 	int			decoded_len;
+ 	uint8	   *decoded_salt_buf;
+-	uint8	   *decoded_stored_buf;
+-	uint8	   *decoded_server_buf;
+ 
+ 	/*
+ 	 * The secret is of form:
+@@ -660,20 +658,16 @@ parse_scram_secret(const char *secret, int *iterations,
+ 	 * Decode StoredKey and ServerKey.
+ 	 */
+ 	decoded_len = pg_b64_dec_len(strlen(storedkey_str));
+-	decoded_stored_buf = palloc(decoded_len);
+ 	decoded_len = pg_b64_decode(storedkey_str, strlen(storedkey_str),
+-								decoded_stored_buf, decoded_len);
++								stored_key, decoded_len);
+ 	if (decoded_len != *key_length)
+ 		goto invalid_secret;
+-	memcpy(stored_key, decoded_stored_buf, *key_length);
+ 
+ 	decoded_len = pg_b64_dec_len(strlen(serverkey_str));
+-	decoded_server_buf = palloc(decoded_len);
+ 	decoded_len = pg_b64_decode(serverkey_str, strlen(serverkey_str),
+-								decoded_server_buf, decoded_len);
++								server_key, decoded_len);
+ 	if (decoded_len != *key_length)
+ 		goto invalid_secret;
+-	memcpy(server_key, decoded_server_buf, *key_length);
+ 
+ 	return true;
+ 

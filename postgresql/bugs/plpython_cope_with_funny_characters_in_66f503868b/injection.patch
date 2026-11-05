@@ -1,0 +1,28 @@
+diff --git a/src/pl/plpython/plpy_procedure.c b/src/pl/plpython/plpy_procedure.c
+index c176d24e801..19ca1dcb20a 100644
+--- a/src/pl/plpython/plpy_procedure.c
++++ b/src/pl/plpython/plpy_procedure.c
+@@ -135,7 +135,6 @@ PLy_procedure_create(HeapTuple procTup, Oid fn_oid, bool is_trigger)
+ 	MemoryContext cxt;
+ 	MemoryContext oldcxt;
+ 	int			rv;
+-	char	   *ptr;
+ 
+ 	procStruct = (Form_pg_proc) GETSTRUCT(procTup);
+ 	rv = snprintf(procName, sizeof(procName),
+@@ -145,15 +144,6 @@ PLy_procedure_create(HeapTuple procTup, Oid fn_oid, bool is_trigger)
+ 	if (rv >= sizeof(procName) || rv < 0)
+ 		elog(ERROR, "procedure name would overrun buffer");
+ 
+-	/* Replace any not-legal-in-Python-names characters with '_' */
+-	for (ptr = procName; *ptr; ptr++)
+-	{
+-		if (!((*ptr >= 'A' && *ptr <= 'Z') ||
+-			  (*ptr >= 'a' && *ptr <= 'z') ||
+-			  (*ptr >= '0' && *ptr <= '9')))
+-			*ptr = '_';
+-	}
+-
+ 	/* Create long-lived context that all procedure info will live in */
+ 	cxt = AllocSetContextCreate(TopMemoryContext,
+ 								"PL/Python function",

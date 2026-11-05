@@ -1,0 +1,31 @@
+diff --git a/src/backend/parser/parse_clause.c b/src/backend/parser/parse_clause.c
+index 9f20a70ce13..2b6af9d624f 100644
+--- a/src/backend/parser/parse_clause.c
++++ b/src/backend/parser/parse_clause.c
+@@ -3336,6 +3336,17 @@ transformOnConflictArbiter(ParseState *pstate,
+ 	/* ON CONFLICT DO NOTHING does not require an inference clause */
+ 	if (infer)
+ 	{
++		List	   *save_namespace;
++
++		/*
++		 * While we process the arbiter expressions, accept only non-qualified
++		 * references to the target table. Hide any other relations.
++		 */
++		save_namespace = pstate->p_namespace;
++		pstate->p_namespace = NIL;
++		addNSItemToQuery(pstate, pstate->p_target_nsitem,
++						 false, false, true);
++
+ 		if (infer->indexElems)
+ 			*arbiterExpr = resolve_unique_index_expr(pstate, infer,
+ 													 pstate->p_target_relation);
+@@ -3348,6 +3359,8 @@ transformOnConflictArbiter(ParseState *pstate,
+ 			*arbiterWhere = transformExpr(pstate, infer->whereClause,
+ 										  EXPR_KIND_INDEX_PREDICATE);
+ 
++		pstate->p_namespace = save_namespace;
++
+ 		/*
+ 		 * If the arbiter is specified by constraint name, get the constraint
+ 		 * OID and mark the constrained columns as requiring SELECT privilege,

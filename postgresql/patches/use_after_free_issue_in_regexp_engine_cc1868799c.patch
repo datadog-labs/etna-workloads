@@ -1,0 +1,38 @@
+diff --git a/src/backend/regex/regcomp.c b/src/backend/regex/regcomp.c
+index 4b8eed1b384..735df83e018 100644
+--- a/src/backend/regex/regcomp.c
++++ b/src/backend/regex/regcomp.c
+@@ -1443,9 +1443,19 @@ parseqatom(struct vars *v,
+ 		{
+ 			assert(!MESSY(top->child->flags));
+ 			t = top->child->sibling;
+-			top->child->sibling = NULL;
+-			freesubre(v, top);
+-			top = t;
++			freesubre(v, top->child);
++			top->op = t->op;
++			top->flags = t->flags;
++			top->latype = t->latype;
++			top->id = t->id;
++			top->capno = t->capno;
++			top->backno = t->backno;
++			top->min = t->min;
++			top->max = t->max;
++			top->child = t->child;
++			top->begin = t->begin;
++			top->end = t->end;
++			freesrnode(v, t);
+ 		}
+ 	}
+ 
+@@ -2193,9 +2203,7 @@ freesrnode(struct vars *v,		/* might be NULL */
+ 
+ 	if (!NULLCNFA(sr->cnfa))
+ 		freecnfa(&sr->cnfa);
+-	sr->flags = 0;				/* in particular, not INUSE */
+-	sr->child = sr->sibling = NULL;
+-	sr->begin = sr->end = NULL;
++	sr->flags = 0;
+ 
+ 	if (v != NULL && v->treechain != NULL)
+ 	{

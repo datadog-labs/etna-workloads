@@ -1,0 +1,90 @@
+diff --git a/src/backend/access/heap/heapam.c b/src/backend/access/heap/heapam.c
+index d72b41ef92f..efbc1aa9fbb 100644
+--- a/src/backend/access/heap/heapam.c
++++ b/src/backend/access/heap/heapam.c
+@@ -3022,18 +3022,6 @@ l1:
+ 			result = TM_Deleted;
+ 	}
+ 
+-	/* sanity check the result HeapTupleSatisfiesUpdate() and the logic above */
+-	if (result != TM_Ok)
+-	{
+-		Assert(result == TM_SelfModified ||
+-			   result == TM_Updated ||
+-			   result == TM_Deleted ||
+-			   result == TM_BeingModified);
+-		Assert(!(tp.t_data->t_infomask & HEAP_XMAX_INVALID));
+-		Assert(result != TM_Updated ||
+-			   !ItemPointerEquals(&tp.t_self, &tp.t_data->t_ctid));
+-	}
+-
+ 	if (crosscheck != InvalidSnapshot && result == TM_Ok)
+ 	{
+ 		/* Perform additional check for transaction-snapshot mode RI updates */
+@@ -3043,6 +3031,13 @@ l1:
+ 
+ 	if (result != TM_Ok)
+ 	{
++		Assert(result == TM_SelfModified ||
++			   result == TM_Updated ||
++			   result == TM_Deleted ||
++			   result == TM_BeingModified);
++		Assert(!(tp.t_data->t_infomask & HEAP_XMAX_INVALID));
++		Assert(result != TM_Updated ||
++			   !ItemPointerEquals(&tp.t_self, &tp.t_data->t_ctid));
+ 		tmfd->ctid = tp.t_data->t_ctid;
+ 		tmfd->xmax = HeapTupleHeaderGetUpdateXid(tp.t_data);
+ 		if (result == TM_SelfModified)
+@@ -3740,27 +3735,25 @@ l2:
+ 			result = TM_Deleted;
+ 	}
+ 
+-	/* Sanity check the result HeapTupleSatisfiesUpdate() and the logic above */
+-	if (result != TM_Ok)
+-	{
+-		Assert(result == TM_SelfModified ||
+-			   result == TM_Updated ||
+-			   result == TM_Deleted ||
+-			   result == TM_BeingModified);
+-		Assert(!(oldtup.t_data->t_infomask & HEAP_XMAX_INVALID));
+-		Assert(result != TM_Updated ||
+-			   !ItemPointerEquals(&oldtup.t_self, &oldtup.t_data->t_ctid));
+-	}
+-
+ 	if (crosscheck != InvalidSnapshot && result == TM_Ok)
+ 	{
+ 		/* Perform additional check for transaction-snapshot mode RI updates */
+ 		if (!HeapTupleSatisfiesVisibility(&oldtup, crosscheck, buffer))
++		{
+ 			result = TM_Updated;
++			Assert(!ItemPointerEquals(&oldtup.t_self, &oldtup.t_data->t_ctid));
++		}
+ 	}
+ 
+ 	if (result != TM_Ok)
+ 	{
++		Assert(result == TM_SelfModified ||
++			   result == TM_Updated ||
++			   result == TM_Deleted ||
++			   result == TM_BeingModified);
++		Assert(!(oldtup.t_data->t_infomask & HEAP_XMAX_INVALID));
++		Assert(result != TM_Updated ||
++			   !ItemPointerEquals(&oldtup.t_self, &oldtup.t_data->t_ctid));
+ 		tmfd->ctid = oldtup.t_data->t_ctid;
+ 		tmfd->xmax = HeapTupleHeaderGetUpdateXid(oldtup.t_data);
+ 		if (result == TM_SelfModified)
+diff --git a/src/include/access/tableam.h b/src/include/access/tableam.h
+index 9ecf8fa6027..368748fb376 100644
+--- a/src/include/access/tableam.h
++++ b/src/include/access/tableam.h
+@@ -1449,8 +1449,8 @@ table_multi_insert(Relation rel, TupleTableSlot **slots, int nslots,
+  * TM_BeingModified (the last only possible if wait == false).
+  *
+  * In the failure cases, the routine fills *tmfd with the tuple's t_ctid,
+- * t_xmax, and, if possible, t_cmax.  See comments for struct
+- * TM_FailureData for additional info.
++ * t_xmax, and, if possible, and, if possible, t_cmax.  See comments for
++ * struct TM_FailureData for additional info.
+  */
+ static inline TM_Result
+ table_tuple_delete(Relation rel, ItemPointer tid, CommandId cid,

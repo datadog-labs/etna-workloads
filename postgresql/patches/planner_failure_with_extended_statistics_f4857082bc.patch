@@ -1,0 +1,43 @@
+diff --git a/src/backend/utils/adt/selfuncs.c b/src/backend/utils/adt/selfuncs.c
+index 3abc6c1ca7d..d9308df5d19 100644
+--- a/src/backend/utils/adt/selfuncs.c
++++ b/src/backend/utils/adt/selfuncs.c
+@@ -4239,7 +4239,7 @@ estimate_multivariate_ndistinct(PlannerInfo *root, RelOptInfo *rel,
+ 	Oid			statOid = InvalidOid;
+ 	MVNDistinct *stats;
+ 	StatisticExtInfo *matched_info = NULL;
+-	RangeTblEntry *rte = planner_rt_fetch(rel->relid, root);
++	RangeTblEntry *rte;
+ 
+ 	/* bail out immediately if the table has no extended statistics */
+ 	if (!rel->statlist)
+@@ -4259,10 +4259,6 @@ estimate_multivariate_ndistinct(PlannerInfo *root, RelOptInfo *rel,
+ 		if (info->kind != STATS_EXT_NDISTINCT)
+ 			continue;
+ 
+-		/* skip statistics with mismatching stxdinherit value */
+-		if (info->inherit != rte->inh)
+-			continue;
+-
+ 		/*
+ 		 * Determine how many expressions (and variables in non-matched
+ 		 * expressions) match. We'll then use these numbers to pick the
+@@ -4341,6 +4337,7 @@ estimate_multivariate_ndistinct(PlannerInfo *root, RelOptInfo *rel,
+ 
+ 	Assert(nmatches_vars + nmatches_exprs > 1);
+ 
++	rte = planner_rt_fetch(rel->relid, root);
+ 	stats = statext_ndistinct_load(statOid, rte->inh);
+ 
+ 	/*
+@@ -5575,10 +5572,6 @@ examine_variable(PlannerInfo *root, Node *node, int varRelid,
+ 			if (info->kind != STATS_EXT_EXPRESSIONS)
+ 				continue;
+ 
+-			/* skip stats with mismatching stxdinherit value */
+-			if (info->inherit != rte->inh)
+-				continue;
+-
+ 			pos = 0;
+ 			foreach(expr_item, info->exprs)
+ 			{

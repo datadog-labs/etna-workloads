@@ -1,0 +1,13 @@
+CREATE ROLE rp_u;
+CREATE TYPE rp_t AS (a int, b text);
+REVOKE USAGE ON TYPE rp_t FROM PUBLIC;
+CREATE SCHEMA rp_s AUTHORIZATION rp_u;
+SET SESSION AUTHORIZATION rp_u;
+CREATE TABLE rp_s.t (a int, b text);
+ALTER TABLE rp_s.t OF rp_t;
+psql:<REPRO>:7: ERROR:  permission denied for type rp_t
+RESET SESSION AUTHORIZATION;
+DROP SCHEMA rp_s CASCADE;
+psql:<REPRO>:9: NOTICE:  drop cascades to table rp_s.t
+DROP TYPE rp_t;
+DROP ROLE rp_u;

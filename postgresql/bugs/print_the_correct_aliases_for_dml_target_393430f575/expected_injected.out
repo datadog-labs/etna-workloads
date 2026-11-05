@@ -1,0 +1,34 @@
+create table src(f1 int, f2 int);
+create table lg(f1 int, f2 int);
+create table i4(f1 int);
+create rule r7 as on delete to src do instead
+  with wins as (insert into i4 as trgt values (0) returning f1),
+       wupd as (update i4 trgt set f1 = f1+1 returning f1),
+       wdel as (delete from i4 trgt where f1 = 0 returning f1)
+  insert into lg AS trgt select old.f1, 1 from wins, wupd, wdel
+  returning trgt.f1, trgt.f2;
+select pg_get_ruledef(oid) from pg_rewrite where rulename='r7';
+                     pg_get_ruledef                     
+--------------------------------------------------------
+ CREATE RULE r7 AS                                     +
+     ON DELETE TO public.src DO INSTEAD  WITH wins AS (+
+          INSERT INTO i4 AS trgt (f1)                  +
+           VALUES (0)                                  +
+           RETURNING trgt_1.f1                         +
+         ), wupd AS (                                  +
+          UPDATE i4 trgt SET f1 = (trgt_1.f1 + 1)      +
+           RETURNING trgt_1.f1                         +
+         ), wdel AS (                                  +
+          DELETE FROM i4 trgt                          +
+           WHERE (trgt_1.f1 = 0)                       +
+           RETURNING trgt_1.f1                         +
+         )                                             +
+  INSERT INTO lg AS trgt (f1, f2)  SELECT old.f1,      +
+             1                                         +
+            FROM wins,                                 +
+             wupd,                                     +
+             wdel                                      +
+   RETURNING trgt.f1,                                  +
+     trgt.f2;
+(1 row)
+

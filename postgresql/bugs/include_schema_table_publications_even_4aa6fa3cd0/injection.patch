@@ -1,0 +1,32 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..3db6aec73b5 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -4676,6 +4676,13 @@ getPublicationNamespaces(Archive *fout)
+ 		if (nspinfo == NULL)
+ 			continue;
+ 
++		/*
++		 * We always dump publication namespaces unless the corresponding
++		 * namespace is excluded from the dump.
++		 */
++		if (nspinfo->dobj.dump == DUMP_COMPONENT_NONE)
++			continue;
++
+ 		/* OK, make a DumpableObject for this relationship */
+ 		pubsinfo[j].dobj.objType = DO_PUBLICATION_TABLE_IN_SCHEMA;
+ 		pubsinfo[j].dobj.catId.tableoid =
+@@ -4775,6 +4782,13 @@ getPublicationTables(Archive *fout, TableInfo tblinfo[], int numTables)
+ 		if (tbinfo == NULL)
+ 			continue;
+ 
++		/*
++		 * Ignore publication membership of tables whose definitions are not
++		 * to be dumped.
++		 */
++		if (!(tbinfo->dobj.dump & DUMP_COMPONENT_DEFINITION))
++			continue;
++
+ 		/* OK, make a DumpableObject for this relationship */
+ 		pubrinfo[j].dobj.objType = DO_PUBLICATION_REL;
+ 		pubrinfo[j].dobj.catId.tableoid =

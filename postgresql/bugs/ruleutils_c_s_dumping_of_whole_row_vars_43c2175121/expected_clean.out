@@ -1,0 +1,12 @@
+create table t(a int);
+create table tlog(o t, n t, incr bool);
+create rule r as on update to t do also
+  insert into tlog values(old, new, row(old,old) < row(new,new));
+select pg_get_ruledef(oid) from pg_rewrite where rulename='r';
+                                   pg_get_ruledef                                    
+-------------------------------------------------------------------------------------
+ CREATE RULE r AS                                                                   +
+     ON UPDATE TO public.t DO  INSERT INTO tlog (o, n, incr)                        +
+   VALUES (old.*::t, new.*::t, (ROW(old.*::t, old.*::t) < ROW(new.*::t, new.*::t)));
+(1 row)
+

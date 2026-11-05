@@ -1,0 +1,32 @@
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..91360c7c262 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -8053,27 +8053,6 @@ apply_scanjoin_target_to_paths(PlannerInfo *root,
+ 		}
+ 	}
+ 
+-	/* Likewise adjust the targets for any partial paths. */
+-	foreach(lc, rel->partial_pathlist)
+-	{
+-		Path	   *subpath = (Path *) lfirst(lc);
+-
+-		/* Shouldn't have any parameterized paths anymore */
+-		Assert(subpath->param_info == NULL);
+-
+-		if (tlist_same_exprs)
+-			subpath->pathtarget->sortgrouprefs =
+-				scanjoin_target->sortgrouprefs;
+-		else
+-		{
+-			Path	   *newpath;
+-
+-			newpath = (Path *) create_projection_path(root, rel, subpath,
+-													  scanjoin_target);
+-			lfirst(lc) = newpath;
+-		}
+-	}
+-
+ 	/*
+ 	 * Now, if final scan/join target contains SRFs, insert ProjectSetPath(s)
+ 	 * atop each existing path.  (Note that this function doesn't look at the

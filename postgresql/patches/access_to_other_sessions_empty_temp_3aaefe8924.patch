@@ -1,0 +1,47 @@
+diff --git a/src/backend/storage/buffer/bufmgr.c b/src/backend/storage/buffer/bufmgr.c
+index 9a771c81cb1..5de66fe33ef 100644
+--- a/src/backend/storage/buffer/bufmgr.c
++++ b/src/backend/storage/buffer/bufmgr.c
+@@ -2586,23 +2586,9 @@ ExtendBufferedRelCommon(BufferManagerRelation bmr,
+ 										 extend_by);
+ 
+ 	if (bmr.relpersistence == RELPERSISTENCE_TEMP)
+-	{
+-		/*
+-		 * Reject attempts to extend non-local temporary relations; we have no
+-		 * ability to transfer about-to-be-created local buffers into the
+-		 * owning session's local buffers.  This is the canonical place for
+-		 * the check, covering any attempt to extend a non-local temporary
+-		 * relation.
+-		 */
+-		if (bmr.rel && RELATION_IS_OTHER_TEMP(bmr.rel))
+-			ereport(ERROR,
+-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-					 errmsg("cannot access temporary tables of other sessions")));
+-
+ 		first_block = ExtendBufferedRelLocal(bmr, fork, flags,
+ 											 extend_by, extend_upto,
+ 											 buffers, &extend_by);
+-	}
+ 	else
+ 		first_block = ExtendBufferedRelShared(bmr, fork, strategy, flags,
+ 											  extend_by, extend_upto,
+diff --git a/src/include/utils/rel.h b/src/include/utils/rel.h
+index 09c794239ca..2f86c79a907 100644
+--- a/src/include/utils/rel.h
++++ b/src/include/utils/rel.h
+@@ -668,10 +668,10 @@ RelationCloseSmgr(Relation relation)
+  * the owning session keeps the data in its private local buffer pool,
+  * which we cannot access.  Existing buffer-manager entry points
+  * (ReadBuffer_common(), StartReadBuffersImpl(), read_stream_begin_impl(),
+- * PrefetchBuffer() and ExtendBufferedRelCommon()) already enforce this; any
+- * new buffer-access entry points must do the same.  Command-level code
+- * (TRUNCATE, ALTER TABLE, VACUUM, CLUSTER, REINDEX, ...) additionally uses
+- * this macro for command-specific error messages.
++ * and PrefetchBuffer()) already enforce this; any new buffer-access entry
++ * points must do the same.  Command-level code (TRUNCATE, ALTER TABLE,
++ * VACUUM, CLUSTER, REINDEX, ...) additionally uses this macro for
++ * command-specific error messages.
+  *
+  * Beware of multiple eval of argument
+  */

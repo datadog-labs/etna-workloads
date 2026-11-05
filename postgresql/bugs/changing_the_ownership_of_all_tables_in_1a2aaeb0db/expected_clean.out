@@ -1,0 +1,21 @@
+CREATE ROLE ru NOSUPERUSER;
+CREATE ROLE ru2 NOSUPERUSER;
+GRANT CREATE ON DATABASE postgres TO ru, ru2;
+GRANT ru2 TO ru;
+CREATE SCHEMA s;
+CREATE PUBLICATION p FOR TABLES IN SCHEMA s;
+psql:<REPRO>:6: WARNING:  "wal_level" is insufficient to publish logical changes
+HINT:  Set "wal_level" to "logical" before creating subscriptions.
+ALTER PUBLICATION p OWNER TO ru;
+ALTER SCHEMA s OWNER TO ru;
+SET ROLE ru;
+ALTER PUBLICATION p OWNER TO ru2;
+psql:<REPRO>:10: ERROR:  permission denied to change owner of publication "p"
+HINT:  The owner of a FOR TABLES IN SCHEMA publication must be a superuser.
+RESET ROLE;
+SELECT pubowner::regrole FROM pg_publication WHERE pubname='p';
+ pubowner 
+----------
+ ru
+(1 row)
+

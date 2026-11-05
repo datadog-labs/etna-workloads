@@ -1,0 +1,24 @@
+CREATE EXTENSION plpython3u;
+CREATE TABLE testpk (id int PRIMARY KEY);
+CREATE TABLE testfk (f1 int REFERENCES testpk DEFERRABLE INITIALLY DEFERRED);
+DO LANGUAGE plpython3u $$
+plpy.execute("INSERT INTO testfk VALUES (0)")
+try:
+    plpy.commit()
+except plpy.SPIError as e:
+    print("sqlstate: %s" % e.sqlstate)
+plpy.execute("INSERT INTO testpk VALUES (1)")
+plpy.execute("INSERT INTO testfk VALUES (1)")
+$$;
+psql:<REPRO>:12: WARNING:  resource was not closed: [245] (rel=base/5/16395, blockNum=0, flags=0x93800000, refcount=1 1)
+psql:<REPRO>:12: WARNING:  resource was not closed: relation "testpk"
+psql:<REPRO>:12: WARNING:  resource was not closed: relation "testfk"
+psql:<REPRO>:12: WARNING:  resource was not closed: TupleDesc 0x72db75db1488 (16397,-1)
+psql:<REPRO>:12: WARNING:  snapshot 0x62a436bc0300 still active
+SELECT * FROM testfk;
+ f1 
+----
+  0
+  1
+(2 rows)
+

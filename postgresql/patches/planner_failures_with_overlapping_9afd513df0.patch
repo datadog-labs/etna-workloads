@@ -1,0 +1,81 @@
+diff --git a/src/backend/optimizer/path/pathkeys.c b/src/backend/optimizer/path/pathkeys.c
+index 8b04d40d36d..47f549fd0ec 100644
+--- a/src/backend/optimizer/path/pathkeys.c
++++ b/src/backend/optimizer/path/pathkeys.c
+@@ -1963,61 +1963,30 @@ trim_mergeclauses_for_inner_pathkeys(PlannerInfo *root,
+ 									 List *pathkeys)
+ {
+ 	List	   *new_mergeclauses = NIL;
+-	PathKey    *pathkey;
+-	EquivalenceClass *pathkey_ec;
+-	bool		matched_pathkey;
+ 	ListCell   *lip;
+-	ListCell   *i;
+ 
+-	/* No pathkeys => no mergeclauses (though we don't expect this case) */
+-	if (pathkeys == NIL)
+-		return NIL;
+-	/* Initialize to consider first pathkey */
+-	lip = list_head(pathkeys);
+-	pathkey = (PathKey *) lfirst(lip);
+-	pathkey_ec = pathkey->pk_eclass;
+-	lip = lnext(pathkeys, lip);
+-	matched_pathkey = false;
+-
+-	/* Scan mergeclauses to see how many we can use */
+-	foreach(i, mergeclauses)
++	foreach(lip, pathkeys)
+ 	{
+-		RestrictInfo *rinfo = (RestrictInfo *) lfirst(i);
+-		EquivalenceClass *clause_ec;
+-
+-		/* Assume we needn't do update_mergeclause_eclasses again here */
+-
+-		/* Check clause's inner-rel EC against current pathkey */
+-		clause_ec = rinfo->outer_is_left ?
+-			rinfo->right_ec : rinfo->left_ec;
++		PathKey    *pathkey = (PathKey *) lfirst(lip);
++		EquivalenceClass *pathkey_ec = pathkey->pk_eclass;
++		List	   *matched = NIL;
++		ListCell   *j;
+ 
+-		/* If we don't have a match, attempt to advance to next pathkey */
+-		if (clause_ec != pathkey_ec)
++		foreach(j, mergeclauses)
+ 		{
+-			/* If we had no clauses matching this inner pathkey, must stop */
+-			if (!matched_pathkey)
+-				break;
++			RestrictInfo *rinfo = (RestrictInfo *) lfirst(j);
++			EquivalenceClass *clause_ec;
+ 
+-			/* Advance to next inner pathkey, if any */
+-			if (lip == NULL)
+-				break;
+-			pathkey = (PathKey *) lfirst(lip);
+-			pathkey_ec = pathkey->pk_eclass;
+-			lip = lnext(pathkeys, lip);
+-			matched_pathkey = false;
++			clause_ec = rinfo->outer_is_left ?
++				rinfo->right_ec : rinfo->left_ec;
++			if (clause_ec == pathkey_ec)
++				matched = lappend(matched, rinfo);
+ 		}
+ 
+-		/* If mergeclause matches current inner pathkey, we can use it */
+-		if (clause_ec == pathkey_ec)
+-		{
+-			new_mergeclauses = lappend(new_mergeclauses, rinfo);
+-			matched_pathkey = true;
+-		}
+-		else
+-		{
+-			/* Else, no hope of adding any more mergeclauses */
++		if (matched == NIL)
+ 			break;
+-		}
++
++		new_mergeclauses = list_concat(new_mergeclauses, matched);
+ 	}
+ 
+ 	return new_mergeclauses;

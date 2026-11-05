@@ -1,0 +1,40 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..6b978df7d41 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -2581,6 +2581,17 @@ MergeAttributes(List *columns, const List *supers, char relpersistence,
+ 				 errmsg("tables can have at most %d columns",
+ 						MaxHeapAttributeNumber)));
+ 
++	/*
++	 * In case of a partition, there are no new column definitions, only dummy
++	 * ColumnDefs created for column constraints.  Set them aside for now and
++	 * process them at the end.
++	 */
++	if (is_partition)
++	{
++		saved_columns = columns;
++		columns = NIL;
++	}
++
+ 	/*
+ 	 * Check for duplicate names in the explicit list of attributes.
+ 	 *
+@@ -2643,17 +2654,6 @@ MergeAttributes(List *columns, const List *supers, char relpersistence,
+ 		}
+ 	}
+ 
+-	/*
+-	 * In case of a partition, there are no new column definitions, only dummy
+-	 * ColumnDefs created for column constraints.  Set them aside for now and
+-	 * process them at the end.
+-	 */
+-	if (is_partition)
+-	{
+-		saved_columns = columns;
+-		columns = NIL;
+-	}
+-
+ 	/*
+ 	 * Scan the parents left-to-right, and merge their attributes to form a
+ 	 * list of inherited columns (inh_columns).

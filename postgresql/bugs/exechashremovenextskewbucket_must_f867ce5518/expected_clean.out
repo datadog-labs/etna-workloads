@@ -1,0 +1,13 @@
+create table tenk1 as select i as unique1, (i*7919)%10000 as unique2, i%100 as hundred, i%1000 as thousand, i%5000 as fivethous from generate_series(0,9999) i;
+create index tenk1_hundred on tenk1(hundred);
+vacuum analyze tenk1;
+set work_mem to '64kB';
+set enable_mergejoin to off;
+set enable_nestloop to off;
+select count(*) from tenk1 a, tenk1 b
+  where a.hundred = b.thousand and (b.fivethous % 10) < 10;
+ count  
+--------
+ 100000
+(1 row)
+

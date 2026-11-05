@@ -1,0 +1,24 @@
+diff --git a/src/backend/catalog/pg_proc.c b/src/backend/catalog/pg_proc.c
+index d8854c30a57..2f5235129f8 100644
+--- a/src/backend/catalog/pg_proc.c
++++ b/src/backend/catalog/pg_proc.c
+@@ -634,12 +634,17 @@ ProcedureCreate(const char *procedureName,
+ 	add_exact_object_address(&referenced, addrs);
+ 
+ 	/* dependency on return type */
+-	ObjectAddressSet(referenced, TypeRelationId, returnType);
+-	add_exact_object_address(&referenced, addrs);
++	if (get_typisdefined(returnType))
++	{
++		ObjectAddressSet(referenced, TypeRelationId, returnType);
++		add_exact_object_address(&referenced, addrs);
++	}
+ 
+ 	/* dependency on parameter types */
+ 	for (i = 0; i < allParamCount; i++)
+ 	{
++		if (!get_typisdefined(allParams[i]))
++			continue;
+ 		ObjectAddressSet(referenced, TypeRelationId, allParams[i]);
+ 		add_exact_object_address(&referenced, addrs);
+ 	}

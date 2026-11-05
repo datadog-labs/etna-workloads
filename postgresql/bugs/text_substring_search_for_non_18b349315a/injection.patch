@@ -1,0 +1,42 @@
+diff --git a/src/backend/utils/adt/varlena.c b/src/backend/utils/adt/varlena.c
+index 6a589fc096b..6ae5654f20d 100644
+--- a/src/backend/utils/adt/varlena.c
++++ b/src/backend/utils/adt/varlena.c
+@@ -1469,7 +1469,6 @@ text_position_next_internal(char *start_ptr, TextPositionState *state)
+ 	const char *hptr;
+ 
+ 	Assert(start_ptr >= haystack && start_ptr <= haystack_end);
+-	Assert(needle_len > 0);
+ 
+ 	state->last_match_len_tmp = needle_len;
+ 
+@@ -1500,8 +1499,6 @@ text_position_next_internal(char *start_ptr, TextPositionState *state)
+ 		hptr = start_ptr;
+ 		while (hptr < haystack_end)
+ 		{
+-			const char *test_end;
+-
+ 			/*
+ 			 * First check the common case that there is a match in the
+ 			 * haystack of exactly the length of the needle.
+@@ -1515,10 +1512,8 @@ text_position_next_internal(char *start_ptr, TextPositionState *state)
+ 			 * Else check if any of the non-empty substrings starting at hptr
+ 			 * compare equal to the needle.
+ 			 */
+-			test_end = hptr;
+-			do
++			for (const char *test_end = hptr; test_end < haystack_end; test_end += pg_mblen_range(test_end, haystack_end))
+ 			{
+-				test_end += pg_mblen_range(test_end, haystack_end);
+ 				if (pg_strncoll(hptr, (test_end - hptr), needle, needle_len, state->locale) == 0)
+ 				{
+ 					state->last_match_len_tmp = (test_end - hptr);
+@@ -1526,7 +1521,7 @@ text_position_next_internal(char *start_ptr, TextPositionState *state)
+ 					if (!state->greedy)
+ 						break;
+ 				}
+-			} while (test_end < haystack_end);
++			}
+ 
+ 			if (result_hptr)
+ 				break;

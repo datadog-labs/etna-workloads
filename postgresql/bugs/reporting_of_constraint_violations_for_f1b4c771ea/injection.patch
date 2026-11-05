@@ -1,0 +1,51 @@
+diff --git a/src/backend/executor/execMain.c b/src/backend/executor/execMain.c
+index f4d2f41e28b..d1f7044a97f 100644
+--- a/src/backend/executor/execMain.c
++++ b/src/backend/executor/execMain.c
+@@ -1919,42 +1919,10 @@ ExecPartitionCheckEmitError(ResultRelInfo *resultRelInfo,
+ 	char	   *val_desc;
+ 	Bitmapset  *modifiedCols;
+ 
+-	/*
+-	 * If the tuple has been routed, it's been converted to the partition's
+-	 * rowtype, which might differ from the root table's.  We must convert it
+-	 * back to the root table's rowtype so that val_desc in the error message
+-	 * matches the input tuple.
+-	 */
+-	if (resultRelInfo->ri_RootResultRelInfo)
+-	{
+-		ResultRelInfo *rootrel = resultRelInfo->ri_RootResultRelInfo;
+-		TupleDesc	old_tupdesc;
+-		AttrMap    *map;
+-
+-		root_relid = RelationGetRelid(rootrel->ri_RelationDesc);
+-		tupdesc = RelationGetDescr(rootrel->ri_RelationDesc);
+-
+-		old_tupdesc = RelationGetDescr(resultRelInfo->ri_RelationDesc);
+-		/* a reverse map */
+-		map = build_attrmap_by_name_if_req(old_tupdesc, tupdesc, false);
+-
+-		/*
+-		 * Partition-specific slot's tupdesc can't be changed, so allocate a
+-		 * new one.
+-		 */
+-		if (map != NULL)
+-			slot = execute_attr_map_slot(map, slot,
+-										 MakeTupleTableSlot(tupdesc, &TTSOpsVirtual));
+-		modifiedCols = bms_union(ExecGetInsertedCols(rootrel, estate),
+-								 ExecGetUpdatedCols(rootrel, estate));
+-	}
+-	else
+-	{
+-		root_relid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
+-		tupdesc = RelationGetDescr(resultRelInfo->ri_RelationDesc);
+-		modifiedCols = bms_union(ExecGetInsertedCols(resultRelInfo, estate),
+-								 ExecGetUpdatedCols(resultRelInfo, estate));
+-	}
++	root_relid = RelationGetRelid(resultRelInfo->ri_RelationDesc);
++	tupdesc = RelationGetDescr(resultRelInfo->ri_RelationDesc);
++	modifiedCols = bms_union(ExecGetInsertedCols(resultRelInfo, estate),
++							 ExecGetUpdatedCols(resultRelInfo, estate));
+ 
+ 	val_desc = ExecBuildSlotValueDescription(root_relid,
+ 											 slot,

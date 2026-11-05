@@ -1,0 +1,8 @@
+create table hp (a int, b text) partition by hash (a, b);
+create table hp0 partition of hp for values with (modulus 4, remainder 0);
+create table hp1 partition of hp for values with (modulus 4, remainder 1);
+create table hp2 partition of hp for values with (modulus 4, remainder 2);
+create table hp3 partition of hp for values with (modulus 4, remainder 3);
+prepare q (text) as select * from hp where a is null and b = $1;
+set plan_cache_mode = force_generic_plan;
+explain (costs off) execute q('xxx');

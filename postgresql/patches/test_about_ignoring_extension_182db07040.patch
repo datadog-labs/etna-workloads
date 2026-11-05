@@ -1,0 +1,41 @@
+diff --git a/src/backend/catalog/dependency.c b/src/backend/catalog/dependency.c
+index f5541b9f6b2..aef9767f694 100644
+--- a/src/backend/catalog/dependency.c
++++ b/src/backend/catalog/dependency.c
+@@ -576,19 +576,6 @@ findDependentObjects(const ObjectAddress *object,
+ 				if (flags & PERFORM_DELETION_SKIP_EXTENSIONS)
+ 					break;
+ 
+-				/*
+-				 * If the other object is the extension currently being
+-				 * created/altered, ignore this dependency and continue with
+-				 * the deletion.  This allows dropping of an extension's
+-				 * objects within the extension's scripts, as well as corner
+-				 * cases such as dropping a transient object created within
+-				 * such a script.
+-				 */
+-				if (creating_extension &&
+-					otherObject.classId == ExtensionRelationId &&
+-					otherObject.objectId == CurrentExtensionObject)
+-					break;
+-
+ 				/* Otherwise, treat this like an internal dependency */
+ 				/* FALL THRU */
+ 
+@@ -622,6 +609,16 @@ findDependentObjects(const ObjectAddress *object,
+ 						return;
+ 					}
+ 
++					/*
++					 * If the owning object is the extension currently being
++					 * created/altered, it's okay to continue with the
++					 * deletion.
++					 */
++					if (creating_extension &&
++						otherObject.classId == ExtensionRelationId &&
++						otherObject.objectId == CurrentExtensionObject)
++						break;
++
+ 					/*
+ 					 * We postpone actually issuing the error message until
+ 					 * after this loop, so that we can make the behavior

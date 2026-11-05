@@ -1,0 +1,18 @@
+create table pc (a int, b text) partition by range (a);
+create table pc1 partition of pc for values from (0) to (10) partition by range (a);
+create table pc11 partition of pc1 for values from (0) to (5);
+create table pc12 partition of pc1 for values from (5) to (10);
+create index on pc (a);
+insert into pc values (1,'a'),(6,'b');
+set enable_seqscan=off;
+select * from pc order by a;
+ a | b 
+---+---
+ 1 | a
+ 6 | b
+(2 rows)
+
+create table pu (a int primary key);
+insert into pu values (3);
+select * from (select a from pc union all select a from pu) t order by a;
+psql:<REPRO>:11: ERROR:  could not find pathkey item to sort

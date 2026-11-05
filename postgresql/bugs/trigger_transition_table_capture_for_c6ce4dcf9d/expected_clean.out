@@ -1,0 +1,8 @@
+create table t1(a int);
+create function f() returns trigger language plpgsql as $$
+begin raise notice 'new table = %', (select string_agg(a::text, ',' order by a) from newtab); return null; end$$;
+create trigger t1_trig after insert on t1 referencing new table as newtab for each statement execute function f();
+with w as (insert into t1 values (45))
+  merge into t1 using (values (46)) as v(a) on t1.a = v.a
+    when not matched then insert values (v.a);
+psql:<REPRO>:7: NOTICE:  new table = 45,46

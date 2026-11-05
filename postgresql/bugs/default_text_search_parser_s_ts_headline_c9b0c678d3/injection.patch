@@ -1,0 +1,78 @@
+diff --git a/src/backend/tsearch/wparser_def.c b/src/backend/tsearch/wparser_def.c
+index 471c452ec48..1c29419be98 100644
+--- a/src/backend/tsearch/wparser_def.c
++++ b/src/backend/tsearch/wparser_def.c
+@@ -1947,10 +1947,9 @@ prsd_end(PG_FUNCTION_ARGS)
+ #define INTERESTINGWORD(j) \
+ 	(prs->words[j].item && !prs->words[j].repeated)
+ 
+-/* Don't want to end at a non-word or a short word, unless interesting */
++/* Don't want to end at a non-word or a short word */
+ #define BADENDPOINT(j) \
+-	((NOENDTOKEN(prs->words[j].type) || prs->words[j].len <= shortword) && \
+-	 !INTERESTINGWORD(j))
++	(NOENDTOKEN(prs->words[j].type) || prs->words[j].len <= shortword)
+ 
+ typedef struct
+ {
+@@ -2462,12 +2461,10 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
+ 	int			bestb = -1,
+ 				beste = -1;
+ 	int			bestlen = -1;
+-	bool		bestcover = false;
+ 	int			pose,
+ 				posb,
+ 				poslen,
+ 				curlen;
+-	bool		poscover;
+ 	int			i;
+ 
+ 	if (!highlightall)
+@@ -2547,38 +2544,28 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
+ 					i = q;
+ 				for (; curlen > min_words; i--)
+ 				{
+-					if (!BADENDPOINT(i))
+-						break;
+ 					if (!NONWORDTOKEN(prs->words[i].type))
+ 						curlen--;
+ 					if (INTERESTINGWORD(i))
+ 						poslen--;
+-					pose = i - 1;
++					pose = i;
++					if (!BADENDPOINT(i))
++						break;
+ 				}
+ 			}
+ 
+ 			/*
+-			 * Check whether the proposed headline includes the original
+-			 * cover; it might not if we trimmed it due to max_words.
+-			 */
+-			poscover = (posb <= p && pose >= q);
+-
+-			/*
+-			 * Adopt this headline if it's better than the last one, giving
+-			 * highest priority to headlines including the cover, then to
+-			 * headlines with more interesting words, then to headlines with
+-			 * good stopping points.  (Since bestlen is initially -1, we will
+-			 * certainly adopt the first headline.)
++			 * Adopt this headline if it's the first, or if it has more
++			 * interesting words and isn't ending at a bad endpoint, or if it
++			 * replaces a bad endpoint with a good one.
+ 			 */
+-			if (poscover > bestcover ||
+-				(poscover == bestcover && poslen > bestlen) ||
+-				(poscover == bestcover && poslen == bestlen &&
+-				 !BADENDPOINT(pose) && BADENDPOINT(beste)))
++			if (bestlen < 0 ||
++				(poslen > bestlen && !BADENDPOINT(pose)) ||
++				(!BADENDPOINT(pose) && BADENDPOINT(beste)))
+ 			{
+ 				bestb = posb;
+ 				beste = pose;
+ 				bestlen = poslen;
+-				bestcover = poscover;
+ 			}
+ 		}
+ 

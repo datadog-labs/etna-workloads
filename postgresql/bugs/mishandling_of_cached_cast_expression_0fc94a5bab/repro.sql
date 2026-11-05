@@ -1,0 +1,14 @@
+create type t1 as (a int);
+create function f2(int) returns t1 language sql volatile as $$ select row($1+1)::t1 $$;
+create cast (int as t1) with function f2(int) as assignment;
+create function p(i int) returns int language plpgsql as $$
+declare v t1; begin v := i; return (v).a; end $$;
+create function churn() returns int language plpgsql as $$
+declare r int; begin
+ select count(*) into r from (select g, repeat('x',g%50) s from generate_series(1,20000) g order by s) x; return r; end $$;
+select p(1);
+select churn(), p(2);
+select churn(), p(3);
+select p(4), churn();
+select p(5);
+select p(6);

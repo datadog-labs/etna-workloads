@@ -1,0 +1,46 @@
+diff --git a/src/backend/executor/execExpr.c b/src/backend/executor/execExpr.c
+index 038a93c5cc7..508ddc70459 100644
+--- a/src/backend/executor/execExpr.c
++++ b/src/backend/executor/execExpr.c
+@@ -4926,8 +4926,6 @@ ExecInitJsonExpr(JsonExpr *jsexpr, ExprState *state,
+ 		   ((Const *) jsexpr->on_error->expr)->constisnull) ||
+ 		 returning_domain))
+ 	{
+-		ErrorSaveContext *saved_escontext;
+-
+ 		jsestate->jump_error = state->steps_len;
+ 
+ 		/* JUMP to end if false, that is, skip the ON ERROR expression. */
+@@ -4942,11 +4940,8 @@ ExecInitJsonExpr(JsonExpr *jsexpr, ExprState *state,
+ 		 * Steps to evaluate the ON ERROR expression; handle errors softly to
+ 		 * rethrow them in COERCION_FINISH step that will be added later.
+ 		 */
+-		saved_escontext = state->escontext;
+-		state->escontext = escontext;
+ 		ExecInitExprRec((Expr *) jsexpr->on_error->expr,
+ 						state, resv, resnull);
+-		state->escontext = saved_escontext;
+ 
+ 		/* Step to coerce the ON ERROR expression if needed */
+ 		if (jsexpr->on_error->coerce)
+@@ -4989,8 +4984,6 @@ ExecInitJsonExpr(JsonExpr *jsexpr, ExprState *state,
+ 		   ((Const *) jsexpr->on_empty->expr)->constisnull) ||
+ 		 returning_domain))
+ 	{
+-		ErrorSaveContext *saved_escontext;
+-
+ 		jsestate->jump_empty = state->steps_len;
+ 
+ 		/* JUMP to end if false, that is, skip the ON EMPTY expression. */
+@@ -5005,11 +4998,8 @@ ExecInitJsonExpr(JsonExpr *jsexpr, ExprState *state,
+ 		 * Steps to evaluate the ON EMPTY expression; handle errors softly to
+ 		 * rethrow them in COERCION_FINISH step that will be added later.
+ 		 */
+-		saved_escontext = state->escontext;
+-		state->escontext = escontext;
+ 		ExecInitExprRec((Expr *) jsexpr->on_empty->expr,
+ 						state, resv, resnull);
+-		state->escontext = saved_escontext;
+ 
+ 		/* Step to coerce the ON EMPTY expression if needed */
+ 		if (jsexpr->on_empty->coerce)

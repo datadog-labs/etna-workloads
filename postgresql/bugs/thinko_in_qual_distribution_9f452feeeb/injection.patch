@@ -1,0 +1,36 @@
+diff --git a/src/backend/optimizer/plan/initsplan.c b/src/backend/optimizer/plan/initsplan.c
+index 8112509e872..b8c2a79946a 100644
+--- a/src/backend/optimizer/plan/initsplan.c
++++ b/src/backend/optimizer/plan/initsplan.c
+@@ -1592,8 +1592,12 @@ deconstruct_distribute(PlannerInfo *root, JoinTreeItem *jtitem)
+ 			if (j->jointype == JOIN_SEMI)
+ 				ojscope = NULL;
+ 			else
++			{
+ 				ojscope = bms_union(sjinfo->min_lefthand,
+ 									sjinfo->min_righthand);
++				ojscope = bms_add_members(ojscope, sjinfo->commute_below_l);
++				ojscope = bms_add_members(ojscope, sjinfo->commute_below_r);
++			}
+ 		}
+ 		else
+ 		{
+@@ -1611,18 +1615,6 @@ deconstruct_distribute(PlannerInfo *root, JoinTreeItem *jtitem)
+ 		if (j->jointype == JOIN_LEFT && sjinfo->lhs_strict)
+ 		{
+ 			postponed_oj_qual_list = &jtitem->oj_joinclauses;
+-
+-			/*
+-			 * Add back any commutable lower OJ relids that were removed from
+-			 * min_lefthand or min_righthand, else the ojscope cross-check in
+-			 * distribute_qual_to_rels will complain.  Since we are postponing
+-			 * processing of non-degenerate clauses, this addition doesn't
+-			 * affect anything except that cross-check.  Real clause
+-			 * positioning decisions will be made later, when we revisit the
+-			 * postponed clauses.
+-			 */
+-			ojscope = bms_add_members(ojscope, sjinfo->commute_below_l);
+-			ojscope = bms_add_members(ojscope, sjinfo->commute_below_r);
+ 		}
+ 		else
+ 			postponed_oj_qual_list = NULL;

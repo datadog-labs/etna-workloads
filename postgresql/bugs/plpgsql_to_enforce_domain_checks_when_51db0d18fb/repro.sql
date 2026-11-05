@@ -1,0 +1,3 @@
+CREATE DOMAIN nnint AS int NOT NULL;
+CREATE FUNCTION f(y int) RETURNS nnint AS $$ begin return y; end $$ LANGUAGE plpgsql;
+SELECT * FROM f(null);

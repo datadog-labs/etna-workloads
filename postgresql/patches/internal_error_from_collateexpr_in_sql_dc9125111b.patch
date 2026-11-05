@@ -1,0 +1,58 @@
+diff --git a/src/backend/nodes/nodeFuncs.c b/src/backend/nodes/nodeFuncs.c
+index ede838cd40c..7bc823507f1 100644
+--- a/src/backend/nodes/nodeFuncs.c
++++ b/src/backend/nodes/nodeFuncs.c
+@@ -1274,8 +1274,12 @@ exprSetCollation(Node *expr, Oid collation)
+ 			}
+ 			break;
+ 		case T_JsonBehavior:
+-			Assert(((JsonBehavior *) expr)->expr == NULL ||
+-				   exprCollation(((JsonBehavior *) expr)->expr) == collation);
++			{
++				JsonBehavior *behavior = (JsonBehavior *) expr;
++
++				if (behavior->expr)
++					exprSetCollation(behavior->expr, collation);
++			}
+ 			break;
+ 		case T_NullTest:
+ 			/* NullTest's result is boolean ... */
+diff --git a/src/backend/parser/parse_expr.c b/src/backend/parser/parse_expr.c
+index cf872ce79b5..e4ecf211555 100644
+--- a/src/backend/parser/parse_expr.c
++++ b/src/backend/parser/parse_expr.c
+@@ -4765,9 +4765,6 @@ transformJsonBehavior(ParseState *pstate, JsonExpr *jsexpr,
+ 		location = behavior->location;
+ 		if (btype == JSON_BEHAVIOR_DEFAULT)
+ 		{
+-			Oid			targetcoll = jsexpr->collation;
+-			Oid			exprcoll;
+-
+ 			expr = transformExprRecurse(pstate, behavior->expr);
+ 
+ 			if (!ValidJsonBehaviorDefaultExpr(expr, NULL))
+@@ -4785,24 +4782,6 @@ transformJsonBehavior(ParseState *pstate, JsonExpr *jsexpr,
+ 						(errcode(ERRCODE_DATATYPE_MISMATCH),
+ 						 errmsg("DEFAULT expression must not return a set"),
+ 						 parser_errposition(pstate, exprLocation(expr))));
+-
+-			/*
+-			 * Reject a DEFAULT expression whose collation differs from the
+-			 * enclosing JSON expression's result collation
+-			 * (jsexpr->collation), as chosen by the RETURNING clause.
+-			 */
+-			exprcoll = exprCollation(expr);
+-			if (!OidIsValid(exprcoll))
+-				exprcoll = get_typcollation(exprType(expr));
+-			if (OidIsValid(targetcoll) && OidIsValid(exprcoll) &&
+-				targetcoll != exprcoll)
+-				ereport(ERROR,
+-						errcode(ERRCODE_COLLATION_MISMATCH),
+-						errmsg("collation of DEFAULT expression conflicts with RETURNING clause"),
+-						errdetail("\"%s\" versus \"%s\"",
+-								  get_collation_name(exprcoll),
+-								  get_collation_name(targetcoll)),
+-						parser_errposition(pstate, exprLocation(expr)));
+ 		}
+ 	}
+ 

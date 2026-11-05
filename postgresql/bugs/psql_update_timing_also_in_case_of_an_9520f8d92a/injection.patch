@@ -1,0 +1,39 @@
+diff --git a/src/bin/psql/common.c b/src/bin/psql/common.c
+index 428f965c495..3f2fa43b3ee 100644
+--- a/src/bin/psql/common.c
++++ b/src/bin/psql/common.c
+@@ -1879,16 +1879,6 @@ ExecQueryAndProcessResults(const char *query,
+ 			else
+ 				result = PQgetResult(pset.db);
+ 
+-			/*
+-			 * Get current timing measure in case an error occurs
+-			 */
+-			if (timing)
+-			{
+-				INSTR_TIME_SET_CURRENT(after);
+-				INSTR_TIME_SUBTRACT(after, before);
+-				*elapsed_msec = INSTR_TIME_GET_MILLISEC(after);
+-			}
+-
+ 			continue;
+ 		}
+ 		else if (svpt_gone_p && !*svpt_gone_p)
+@@ -2183,7 +2173,7 @@ ExecQueryAndProcessResults(const char *query,
+ 		last = (next_result == NULL);
+ 
+ 		/*
+-		 * Update current timing measure.
++		 * Get timing measure before printing the last result.
+ 		 *
+ 		 * It will include the display of previous results, if any. This
+ 		 * cannot be helped because the server goes on processing further
+@@ -2194,7 +2184,7 @@ ExecQueryAndProcessResults(const char *query,
+ 		 * With combined queries, timing must be understood as an upper bound
+ 		 * of the time spent processing them.
+ 		 */
+-		if (timing)
++		if (last && timing)
+ 		{
+ 			INSTR_TIME_SET_CURRENT(after);
+ 			INSTR_TIME_SUBTRACT(after, before);

@@ -1,0 +1,45 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..b244f129cd2 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -6949,6 +6949,7 @@ find_composite_type_dependencies(Oid typeOid, Relation origRelation,
+ 	ScanKeyData key[2];
+ 	SysScanDesc depScan;
+ 	HeapTuple	depTup;
++	Oid			arrayOid;
+ 
+ 	/* since this function recurses, it could be driven to stack overflow */
+ 	check_stack_depth();
+@@ -6978,20 +6979,6 @@ find_composite_type_dependencies(Oid typeOid, Relation origRelation,
+ 		TupleDesc	tupleDesc;
+ 		Form_pg_attribute att;
+ 
+-		/* Check for directly dependent types */
+-		if (pg_depend->classid == TypeRelationId)
+-		{
+-			/*
+-			 * This must be an array, domain, or range containing the given
+-			 * type, so recursively check for uses of this type.  Note that
+-			 * any error message will mention the original type not the
+-			 * container; this is intentional.
+-			 */
+-			find_composite_type_dependencies(pg_depend->objid,
+-											 origRelation, origTypeName);
+-			continue;
+-		}
+-
+ 		/* Else, ignore dependees that aren't relations */
+ 		if (pg_depend->classid != RelationRelationId)
+ 			continue;
+@@ -7089,6 +7076,11 @@ find_composite_type_dependencies(Oid typeOid, Relation origRelation,
+ 	systable_endscan(depScan);
+ 
+ 	relation_close(depRel, AccessShareLock);
++
++	/* If there's an array type for the rowtype, must check for uses of it, too. */
++	arrayOid = get_array_type(typeOid);
++	if (OidIsValid(arrayOid))
++		find_composite_type_dependencies(arrayOid, origRelation, origTypeName);
+ }
+ 
+ 

@@ -1,0 +1,43 @@
+diff --git a/src/interfaces/ecpg/ecpglib/data.c b/src/interfaces/ecpg/ecpglib/data.c
+index a63d465acf4..c3507cfe418 100644
+--- a/src/interfaces/ecpg/ecpglib/data.c
++++ b/src/interfaces/ecpg/ecpglib/data.c
+@@ -585,7 +585,7 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
+ 						if (varcharsize == 0 && offset == sizeof(char *))
+ 							str = *(char **) str;
+ 
+-						if (varcharsize > size)
++						if (varcharsize == 0 || varcharsize > size)
+ 						{
+ 							/*
+ 							 * compatibility mode, blank pad and null
+@@ -645,25 +645,16 @@ ecpg_get_data(const PGresult *results, int act_tuple, int act_field, int lineno,
+ 						}
+ 						else
+ 						{
+-							int			charsize = varcharsize;
+-
+-							/*
+-							 * assume that the caller provided storage exactly
+-							 * fit when varcharsize is zero.
+-							 */
+-							if (varcharsize == 0)
+-								charsize = size + 1;
+-
+-							strncpy(str, pval, charsize);
++							strncpy(str, pval, varcharsize);
+ 
+ 							/* compatibility mode, null terminate char array */
+-							if (ORACLE_MODE(compat) && (charsize - 1) < size)
++							if (ORACLE_MODE(compat) && (varcharsize - 1) < size)
+ 							{
+ 								if (type == ECPGt_char || type == ECPGt_unsigned_char)
+-									str[charsize - 1] = '\0';
++									str[varcharsize - 1] = '\0';
+ 							}
+ 
+-							if (charsize < size || (ORACLE_MODE(compat) && (charsize - 1) < size))
++							if (varcharsize < size || (ORACLE_MODE(compat) && (varcharsize - 1) < size))
+ 							{
+ 								/* truncation */
+ 								switch (ind_type)

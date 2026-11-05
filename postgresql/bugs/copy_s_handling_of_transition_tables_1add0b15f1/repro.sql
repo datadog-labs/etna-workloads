@@ -1,0 +1,9 @@
+create table t(a text, b int);
+create function f() returns trigger language plpgsql as $$
+begin raise notice 'new table = %', (select string_agg(a,',') from newtab); return null; end $$;
+create trigger tr after insert on t referencing new table as newtab for each statement execute function f();
+create index on t(b);
+copy t from stdin;
+x	1
+y	2
+\.

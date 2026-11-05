@@ -1,0 +1,26 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..bd05d82168a 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -19083,11 +19083,16 @@ AlterTableNamespaceInternal(Relation rel, Oid oldNspOid, Oid nspOid,
+ 								   objsMoved);
+ 
+ 	/* Fix other dependent stuff */
+-	AlterIndexNamespaces(classRel, rel, oldNspOid, nspOid, objsMoved);
+-	AlterSeqNamespaces(classRel, rel, oldNspOid, nspOid,
+-					   objsMoved, AccessExclusiveLock);
+-	AlterConstraintNamespaces(RelationGetRelid(rel), oldNspOid, nspOid,
+-							  false, objsMoved);
++	if (rel->rd_rel->relkind == RELKIND_RELATION ||
++		rel->rd_rel->relkind == RELKIND_MATVIEW ||
++		rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
++	{
++		AlterIndexNamespaces(classRel, rel, oldNspOid, nspOid, objsMoved);
++		AlterSeqNamespaces(classRel, rel, oldNspOid, nspOid,
++						   objsMoved, AccessExclusiveLock);
++		AlterConstraintNamespaces(RelationGetRelid(rel), oldNspOid, nspOid,
++								  false, objsMoved);
++	}
+ 
+ 	table_close(classRel, RowExclusiveLock);
+ }

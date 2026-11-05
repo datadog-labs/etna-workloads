@@ -1,0 +1,30 @@
+diff --git a/src/backend/executor/nodeSubplan.c b/src/backend/executor/nodeSubplan.c
+index 8e55dcc159b..0da323a3824 100644
+--- a/src/backend/executor/nodeSubplan.c
++++ b/src/backend/executor/nodeSubplan.c
+@@ -978,7 +978,7 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
+ 			righttlist = lappend(righttlist, tle);
+ 
+ 			/* Lookup the equality function (potentially cross-type) */
+-			cross_eq_funcoids[i - 1] = opexpr->opfuncid;
++			sstate->tab_eq_funcoids[i - 1] = opexpr->opfuncid;
+ 			fmgr_info(opexpr->opfuncid, &sstate->cur_eq_funcs[i - 1]);
+ 			fmgr_info_set_expr((Node *) opexpr, &sstate->cur_eq_funcs[i - 1]);
+ 
+@@ -987,7 +987,6 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
+ 											   NULL, &rhs_eq_oper))
+ 				elog(ERROR, "could not find compatible hash operator for operator %u",
+ 					 opexpr->opno);
+-			sstate->tab_eq_funcoids[i - 1] = get_opcode(rhs_eq_oper);
+ 
+ 			/* Lookup the associated hash functions */
+ 			if (!get_op_hash_functions(opexpr->opno,
+@@ -1048,7 +1047,7 @@ ExecInitSubPlan(SubPlan *subplan, PlanState *parent)
+ 													 &TTSOpsVirtual, &TTSOpsMinimalTuple,
+ 													 ncols,
+ 													 sstate->keyColIdx,
+-													 cross_eq_funcoids,
++													 sstate->tab_eq_funcoids,
+ 													 sstate->tab_collations,
+ 													 parent);
+ 	}

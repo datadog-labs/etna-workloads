@@ -1,0 +1,22 @@
+create table t as select g id from generate_series(1,100000) g;
+analyze t;
+set parallel_setup_cost=0; set parallel_tuple_cost=0; set min_parallel_table_scan_size=0;
+set max_parallel_workers_per_gather=1; set parallel_leader_participation=on;
+explain select * from t;
+                              QUERY PLAN                               
+-----------------------------------------------------------------------
+ Gather  (cost=0.00..1036.24 rows=100000 width=4)
+   Workers Planned: 1
+   ->  Parallel Seq Scan on t  (cost=0.00..1036.24 rows=58824 width=4)
+(3 rows)
+
+explain select * from t order by id;
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ Gather Merge  (cost=5696.32..6284.56 rows=58824 width=4)
+   Workers Planned: 1
+   ->  Sort  (cost=5696.31..5843.37 rows=58824 width=4)
+         Sort Key: id
+         ->  Parallel Seq Scan on t  (cost=0.00..1036.24 rows=58824 width=4)
+(5 rows)
+

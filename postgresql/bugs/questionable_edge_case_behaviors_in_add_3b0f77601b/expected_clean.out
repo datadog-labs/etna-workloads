@@ -1,0 +1,25 @@
+create table tenk1 (unique1 int4, unique2 int4);
+insert into tenk1 select (i*7919)%10000, i from generate_series(0,9999) i;
+create unique index tenk1_unique2 on tenk1(unique2);
+create table int4_tbl(f1 int4);
+insert into int4_tbl values (0),(123456),(-123456),(2147483647),(-2147483647);
+vacuum analyze tenk1;
+vacuum analyze int4_tbl;
+explain (costs off)
+select * from
+  (values (0,9998), (1,1000)) v(id,x),
+  lateral (select f1 from int4_tbl
+           where f1 = any (select unique1 from tenk1
+                           where unique2 = v.x offset 0)) ss;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Nested Loop
+   ->  Values Scan on "*VALUES*"
+   ->  Nested Loop Semi Join
+         Join Filter: (int4_tbl.f1 = tenk1.unique1)
+         ->  Seq Scan on int4_tbl
+         ->  Materialize
+               ->  Index Scan using tenk1_unique2 on tenk1
+                     Index Cond: (unique2 = "*VALUES*".column2)
+(8 rows)
+

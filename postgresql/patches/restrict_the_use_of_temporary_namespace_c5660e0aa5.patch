@@ -1,0 +1,80 @@
+diff --git a/src/backend/catalog/namespace.c b/src/backend/catalog/namespace.c
+index a0e4ce24a7c..148d3ec34ed 100644
+--- a/src/backend/catalog/namespace.c
++++ b/src/backend/catalog/namespace.c
+@@ -4364,12 +4364,6 @@ recomputeNamespacePath(void)
+ static void
+ AccessTempTableNamespace(bool force)
+ {
+-	/*
+-	 * Make note that this temporary namespace has been accessed in this
+-	 * transaction.
+-	 */
+-	MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
+-
+ 	/*
+ 	 * If the caller attempting to access a temporary schema expects the
+ 	 * creation of the namespace to be pending and should be enforced, then go
+diff --git a/src/backend/commands/dropcmds.c b/src/backend/commands/dropcmds.c
+index ceb9a229b63..295c88b6b5a 100644
+--- a/src/backend/commands/dropcmds.c
++++ b/src/backend/commands/dropcmds.c
+@@ -105,13 +105,6 @@ RemoveObjects(DropStmt *stmt)
+ 			check_object_ownership(GetUserId(), stmt->removeType, address,
+ 								   object, relation);
+ 
+-		/*
+-		 * Make note if a temporary namespace has been accessed in this
+-		 * transaction.
+-		 */
+-		if (OidIsValid(namespaceId) && isTempNamespace(namespaceId))
+-			MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
+-
+ 		/* Release any relcache reference count, but keep lock until commit. */
+ 		if (relation)
+ 			table_close(relation, NoLock);
+diff --git a/src/backend/commands/extension.c b/src/backend/commands/extension.c
+index f1a54066e32..4282d216d12 100644
+--- a/src/backend/commands/extension.c
++++ b/src/backend/commands/extension.c
+@@ -1941,13 +1941,6 @@ CreateExtensionInternal(char *extensionName,
+ 		list_free(search_path);
+ 	}
+ 
+-	/*
+-	 * Make note if a temporary namespace has been accessed in this
+-	 * transaction.
+-	 */
+-	if (isTempNamespace(schemaOid))
+-		MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
+-
+ 	/*
+ 	 * We don't check creation rights on the target namespace here.  If the
+ 	 * extension script actually creates any objects there, it will fail if
+diff --git a/src/backend/commands/lockcmds.c b/src/backend/commands/lockcmds.c
+index 616da196714..0a0eed258df 100644
+--- a/src/backend/commands/lockcmds.c
++++ b/src/backend/commands/lockcmds.c
+@@ -73,7 +73,6 @@ RangeVarCallbackForLockTable(const RangeVar *rv, Oid relid, Oid oldrelid,
+ {
+ 	LOCKMODE	lockmode = *(LOCKMODE *) arg;
+ 	char		relkind;
+-	char		relpersistence;
+ 	AclResult	aclresult;
+ 
+ 	if (!OidIsValid(relid))
+@@ -92,14 +91,6 @@ RangeVarCallbackForLockTable(const RangeVar *rv, Oid relid, Oid oldrelid,
+ 						rv->relname),
+ 				 errdetail_relkind_not_supported(relkind)));
+ 
+-	/*
+-	 * Make note if a temporary relation has been accessed in this
+-	 * transaction.
+-	 */
+-	relpersistence = get_rel_persistence(relid);
+-	if (relpersistence == RELPERSISTENCE_TEMP)
+-		MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
+-
+ 	/* Check permissions. */
+ 	aclresult = LockTableAclCheck(relid, lockmode, GetUserId());
+ 	if (aclresult != ACLCHECK_OK)

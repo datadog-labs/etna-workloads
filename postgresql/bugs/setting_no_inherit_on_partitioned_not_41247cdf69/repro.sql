@@ -1,0 +1,3 @@
+CREATE TABLE atacc1 (a int, CONSTRAINT a_is_not_null NOT NULL a) PARTITION BY LIST (a);
+ALTER TABLE atacc1 ALTER CONSTRAINT a_is_not_null NO INHERIT;
+DROP TABLE atacc1;

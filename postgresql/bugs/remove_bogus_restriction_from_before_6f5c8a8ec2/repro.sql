@@ -1,0 +1,9 @@
+create table parted (a int, b int) partition by list (a);
+create table p1 partition of parted for values in (1);
+create table p2 partition of parted for values in (2);
+create function tf() returns trigger language plpgsql as $$
+begin new.a = 2; return new; end $$;
+create trigger t before update on parted for each row execute function tf();
+insert into parted values (1, 1);
+update parted set b = 5;
+select tableoid::regclass, * from parted;

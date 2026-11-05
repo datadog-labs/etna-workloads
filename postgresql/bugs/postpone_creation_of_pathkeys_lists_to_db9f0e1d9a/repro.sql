@@ -1,0 +1,3 @@
+create table t1 as select i%4 as four, i%2 as two from generate_series(1,1000) i;
+analyze t1;
+explain (costs off) select distinct four from t1 where four = 0;

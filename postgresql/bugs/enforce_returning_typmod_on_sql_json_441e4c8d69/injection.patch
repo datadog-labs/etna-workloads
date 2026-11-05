@@ -1,0 +1,23 @@
+diff --git a/src/backend/parser/parse_expr.c b/src/backend/parser/parse_expr.c
+index cf872ce79b5..a00b46a25ca 100644
+--- a/src/backend/parser/parse_expr.c
++++ b/src/backend/parser/parse_expr.c
+@@ -4819,17 +4819,8 @@ transformJsonBehavior(ParseState *pstate, JsonExpr *jsexpr,
+ 	 *
+ 	 * For other non-NULL expressions, try to find a cast and error out if one
+ 	 * is not found.
+-	 *
+-	 * The DEFAULT expression's base type may already match the RETURNING type
+-	 * yet still need coercion: when the RETURNING type carries a type
+-	 * modifier (e.g. numeric(4,1)), the cast below is what enforces it, so
+-	 * skipping it here would let the DEFAULT yield a value that violates its
+-	 * declared RETURNING type.  A NULL constant needs no such enforcement.
+ 	 */
+-	if (expr &&
+-		(exprType(expr) != returning->typid ||
+-		 (returning->typmod >= 0 &&
+-		  !(IsA(expr, Const) && ((Const *) expr)->constisnull))))
++	if (expr && exprType(expr) != returning->typid)
+ 	{
+ 		bool		isnull = (IsA(expr, Const) && ((Const *) expr)->constisnull);
+ 

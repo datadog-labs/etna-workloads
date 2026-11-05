@@ -1,0 +1,67 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..a25a2bdc203 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -204,6 +204,7 @@ index_check_primary_key(Relation heapRel,
+ 						bool is_alter_table,
+ 						const IndexStmt *stmt)
+ {
++	List	   *cmds;
+ 	int			i;
+ 
+ 	/*
+@@ -239,6 +240,7 @@ index_check_primary_key(Relation heapRel,
+ 	 * null.  (We don't really expect to see that; it'd mean the parser messed
+ 	 * up.  But it seems wise to check anyway.)
+ 	 */
++	cmds = NIL;
+ 	for (i = 0; i < indexInfo->ii_NumIndexKeyAttrs; i++)
+ 	{
+ 		AttrNumber	attnum = indexInfo->ii_IndexAttrNumbers[i];
+@@ -263,13 +265,29 @@ index_check_primary_key(Relation heapRel,
+ 		attform = (Form_pg_attribute) GETSTRUCT(atttuple);
+ 
+ 		if (!attform->attnotnull)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+-					 errmsg("primary key column \"%s\" is not marked NOT NULL",
+-							NameStr(attform->attname))));
++		{
++			/* Add a subcommand to make this one NOT NULL */
++			AlterTableCmd *cmd = makeNode(AlterTableCmd);
++
++			cmd->subtype = AT_SetNotNull;
++			cmd->name = pstrdup(NameStr(attform->attname));
++			cmds = lappend(cmds, cmd);
++		}
+ 
+ 		ReleaseSysCache(atttuple);
+ 	}
++
++	/*
++	 * XXX: possible future improvement: when being called from ALTER TABLE,
++	 * it would be more efficient to merge this with the outer ALTER TABLE, so
++	 * as to avoid two scans.
++	 */
++	if (cmds)
++	{
++		EventTriggerAlterTableStart((Node *) stmt);
++		AlterTableInternal(RelationGetRelid(heapRel), cmds, true);
++		EventTriggerAlterTableEnd();
++	}
+ }
+ 
+ /*
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..05b60ee2974 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -9512,7 +9512,7 @@ ATPrepAddPrimaryKey(List **wqueue, Relation rel, AlterTableCmd *cmd,
+ 	bool		got_children = false;
+ 
+ 	pkconstr = castNode(Constraint, cmd->def);
+-	if (pkconstr->contype != CONSTR_PRIMARY)
++	if (pkconstr->contype != CONSTR_PRIMARY || true)
+ 		return;
+ 
+ 	/* Verify that columns are not-null, or request that they be made so */

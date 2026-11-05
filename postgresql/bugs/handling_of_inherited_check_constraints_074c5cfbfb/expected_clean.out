@@ -1,0 +1,13 @@
+CREATE TABLE test_inh_check (a float check (a > 10.2), b float);
+CREATE TABLE test_inh_check_child() INHERITS(test_inh_check);
+ALTER TABLE test_inh_check ALTER COLUMN a TYPE numeric;
+select relname, conname, coninhcount, conislocal, connoinherit
+  from pg_constraint c, pg_class r
+  where relname like 'test_inh_check%' and c.conrelid = r.oid
+  order by 1, 2;
+       relname        |        conname         | coninhcount | conislocal | connoinherit 
+----------------------+------------------------+-------------+------------+--------------
+ test_inh_check       | test_inh_check_a_check |           0 | t          | f
+ test_inh_check_child | test_inh_check_a_check |           1 | f          | f
+(2 rows)
+

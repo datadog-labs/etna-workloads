@@ -1,0 +1,51 @@
+diff --git a/src/backend/replication/walsender.c b/src/backend/replication/walsender.c
+index 47aec4cd2b2..b2925578a72 100644
+--- a/src/backend/replication/walsender.c
++++ b/src/backend/replication/walsender.c
+@@ -3452,14 +3452,6 @@ XLogSendLogical(void)
+ 	XLogRecord *record;
+ 	char	   *errm;
+ 
+-	/*
+-	 * We'll use the current flush point to determine whether we've caught up.
+-	 * This variable is static in order to cache it across calls.  Caching is
+-	 * helpful because GetFlushRecPtr() needs to acquire a heavily-contended
+-	 * spinlock.
+-	 */
+-	static XLogRecPtr flushPtr = InvalidXLogRecPtr;
+-
+ 	/*
+ 	 * Don't know whether we've caught up yet. We'll set WalSndCaughtUp to
+ 	 * true in WalSndWaitForWal, if we're actually waiting. We also set to
+@@ -3487,31 +3479,6 @@ XLogSendLogical(void)
+ 		sentPtr = logical_decoding_ctx->reader->EndRecPtr;
+ 	}
+ 
+-	/*
+-	 * If first time through in this session, initialize flushPtr.  Otherwise,
+-	 * we only need to update flushPtr if EndRecPtr is past it.
+-	 */
+-	if (flushPtr == InvalidXLogRecPtr ||
+-		logical_decoding_ctx->reader->EndRecPtr >= flushPtr)
+-	{
+-		/*
+-		 * For cascading logical WAL senders, we use the replay LSN instead of
+-		 * the flush LSN, since logical decoding on a standby only processes
+-		 * WAL that has been replayed.  This distinction becomes particularly
+-		 * important during shutdown, as new WAL is no longer replayed and the
+-		 * last replayed LSN marks the furthest point up to which decoding can
+-		 * proceed.
+-		 */
+-		if (am_cascading_walsender)
+-			flushPtr = GetXLogReplayRecPtr(NULL);
+-		else
+-			flushPtr = GetFlushRecPtr(NULL);
+-	}
+-
+-	/* If EndRecPtr is still past our flushPtr, it means we caught up. */
+-	if (logical_decoding_ctx->reader->EndRecPtr >= flushPtr)
+-		WalSndCaughtUp = true;
+-
+ 	/*
+ 	 * If we're caught up and have been requested to stop, have WalSndLoop()
+ 	 * terminate the connection in an orderly manner, after writing out all

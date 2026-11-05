@@ -1,0 +1,44 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..3b8e2b030d1 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -221,19 +221,6 @@ index_check_primary_key(Relation heapRel,
+ 						RelationGetRelationName(heapRel))));
+ 	}
+ 
+-	/*
+-	 * Indexes created with NULLS NOT DISTINCT cannot be used for primary key
+-	 * constraints. While there is no direct syntax to reach here, it can be
+-	 * done by creating a separate index and attaching it via ALTER TABLE ..
+-	 * USING INDEX.
+-	 */
+-	if (indexInfo->ii_NullsNotDistinct)
+-	{
+-		ereport(ERROR,
+-				(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+-				 errmsg("primary keys cannot use NULLS NOT DISTINCT indexes")));
+-	}
+-
+ 	/*
+ 	 * Check that all of the attributes in a primary key are marked as not
+ 	 * null.  (We don't really expect to see that; it'd mean the parser messed
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..b8240596b87 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -18404,14 +18404,7 @@ dumpConstraint(Archive *fout, const ConstraintInfo *coninfo)
+ 		{
+ 			appendPQExpBufferStr(q,
+ 								 coninfo->contype == 'p' ? "PRIMARY KEY" : "UNIQUE");
+-
+-			/*
+-			 * PRIMARY KEY constraints should not be using NULLS NOT DISTINCT
+-			 * indexes. Being able to create this was fixed, but we need to
+-			 * make the index distinct in order to be able to restore the
+-			 * dump.
+-			 */
+-			if (indxinfo->indnullsnotdistinct && coninfo->contype != 'p')
++			if (indxinfo->indnullsnotdistinct)
+ 				appendPQExpBufferStr(q, " NULLS NOT DISTINCT");
+ 			appendPQExpBufferStr(q, " (");
+ 			for (k = 0; k < indxinfo->indnkeyattrs; k++)

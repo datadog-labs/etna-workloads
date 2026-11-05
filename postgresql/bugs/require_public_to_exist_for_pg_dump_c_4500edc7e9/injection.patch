@@ -1,0 +1,22 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..891bd4fc49d 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -10568,6 +10568,7 @@ collectRoleNames(Archive *fout)
+ static void
+ getAdditionalACLs(Archive *fout)
+ {
++	DumpOptions *dopt = fout->dopt;
+ 	PQExpBuffer query = createPQExpBuffer();
+ 	PGresult   *res;
+ 	int			ntups,
+@@ -10603,6 +10604,9 @@ getAdditionalACLs(Archive *fout)
+ 						  "SELECT objoid, classoid, objsubid, privtype, initprivs "
+ 						  "FROM pg_init_privs");
+ 
++		if (dopt->outputClean)
++			appendPQExpBufferStr(query, " WHERE objoid <> 'public'::regnamespace");
++
+ 		res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
+ 
+ 		ntups = PQntuples(res);

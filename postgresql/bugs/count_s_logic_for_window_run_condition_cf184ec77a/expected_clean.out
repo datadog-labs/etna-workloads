@@ -1,0 +1,17 @@
+CREATE TABLE t AS SELECT g AS x FROM generate_series(1,5) g;
+EXPLAIN (COSTS OFF)
+SELECT * FROM (SELECT x, count(x) OVER (ROWS BETWEEN CURRENT ROW AND CURRENT ROW) c FROM t) s WHERE c > 1;
+                            QUERY PLAN                            
+------------------------------------------------------------------
+ Subquery Scan on s
+   Filter: (s.c > 1)
+   ->  WindowAgg
+         Window: w1 AS (ROWS BETWEEN CURRENT ROW AND CURRENT ROW)
+         ->  Seq Scan on t
+(5 rows)
+
+SELECT * FROM (SELECT x, count(x) OVER (ROWS BETWEEN CURRENT ROW AND CURRENT ROW) c FROM t) s WHERE c > 1;
+ x | c 
+---+---
+(0 rows)
+

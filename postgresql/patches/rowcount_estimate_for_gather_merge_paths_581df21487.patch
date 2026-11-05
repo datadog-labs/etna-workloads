@@ -1,0 +1,120 @@
+diff --git a/src/backend/optimizer/path/allpaths.c b/src/backend/optimizer/path/allpaths.c
+index b53722036cd..33d6db174c7 100644
+--- a/src/backend/optimizer/path/allpaths.c
++++ b/src/backend/optimizer/path/allpaths.c
+@@ -3122,7 +3122,8 @@ generate_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_rows)
+ 	 * of partial_pathlist because of the way add_partial_path works.
+ 	 */
+ 	cheapest_partial_path = linitial(rel->partial_pathlist);
+-	rows = compute_gather_rows(cheapest_partial_path);
++	rows =
++		cheapest_partial_path->rows * cheapest_partial_path->parallel_workers;
+ 	simple_gather_path = (Path *)
+ 		create_gather_path(root, rel, cheapest_partial_path, rel->reltarget,
+ 						   NULL, rowsp);
+@@ -3140,7 +3141,7 @@ generate_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_rows)
+ 		if (subpath->pathkeys == NIL)
+ 			continue;
+ 
+-		rows = compute_gather_rows(subpath);
++		rows = subpath->rows * subpath->parallel_workers;
+ 		path = create_gather_merge_path(root, rel, subpath, rel->reltarget,
+ 										subpath->pathkeys, NULL, rowsp);
+ 		add_path(rel, &path->path);
+@@ -3324,6 +3325,7 @@ generate_useful_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_r
+ 													subpath,
+ 													useful_pathkeys,
+ 													-1.0);
++				rows = subpath->rows * subpath->parallel_workers;
+ 			}
+ 			else
+ 				subpath = (Path *) create_incremental_sort_path(root,
+@@ -3332,7 +3334,6 @@ generate_useful_gather_paths(PlannerInfo *root, RelOptInfo *rel, bool override_r
+ 																useful_pathkeys,
+ 																presorted_keys,
+ 																-1);
+-			rows = compute_gather_rows(subpath);
+ 			path = create_gather_merge_path(root, rel,
+ 											subpath,
+ 											rel->reltarget,
+diff --git a/src/backend/optimizer/path/costsize.c b/src/backend/optimizer/path/costsize.c
+index a290a3e66b6..be290160c2f 100644
+--- a/src/backend/optimizer/path/costsize.c
++++ b/src/backend/optimizer/path/costsize.c
+@@ -6610,21 +6610,3 @@ compute_bitmap_pages(PlannerInfo *root, RelOptInfo *baserel,
+ 
+ 	return pages_fetched;
+ }
+-
+-/*
+- * compute_gather_rows
+- *	  Estimate number of rows for gather (merge) nodes.
+- *
+- * In a parallel plan, each worker's row estimate is determined by dividing the
+- * total number of rows by parallel_divisor, which accounts for the leader's
+- * contribution in addition to the number of workers.  Accordingly, when
+- * estimating the number of rows for gather (merge) nodes, we multiply the rows
+- * per worker by the same parallel_divisor to undo the division.
+- */
+-double
+-compute_gather_rows(Path *path)
+-{
+-	Assert(path->parallel_workers > 0);
+-
+-	return clamp_row_est(path->rows * get_parallel_divisor(path));
+-}
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..6f5f8dc1da0 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -5585,7 +5585,8 @@ create_ordered_paths(PlannerInfo *root,
+ 																	root->sort_pathkeys,
+ 																	presorted_keys,
+ 																	limit_tuples);
+-			total_groups = compute_gather_rows(sorted_path);
++			total_groups = input_path->rows *
++				input_path->parallel_workers;
+ 			sorted_path = (Path *)
+ 				create_gather_merge_path(root, ordered_rel,
+ 										 sorted_path,
+@@ -7880,6 +7881,8 @@ gather_grouping_paths(PlannerInfo *root, RelOptInfo *rel)
+ 			(presorted_keys == 0 || !enable_incremental_sort))
+ 			continue;
+ 
++		total_groups = path->rows * path->parallel_workers;
++
+ 		/*
+ 		 * We've no need to consider both a sort and incremental sort. We'll
+ 		 * just do a sort if there are no presorted keys and an incremental
+@@ -7896,7 +7899,7 @@ gather_grouping_paths(PlannerInfo *root, RelOptInfo *rel)
+ 														 groupby_pathkeys,
+ 														 presorted_keys,
+ 														 -1.0);
+-		total_groups = compute_gather_rows(path);
++
+ 		path = (Path *)
+ 			create_gather_merge_path(root,
+ 									 rel,
+diff --git a/src/backend/optimizer/util/pathnode.c b/src/backend/optimizer/util/pathnode.c
+index e8d8a537061..5d999fb5b84 100644
+--- a/src/backend/optimizer/util/pathnode.c
++++ b/src/backend/optimizer/util/pathnode.c
+@@ -2127,6 +2127,7 @@ create_gather_merge_path(PlannerInfo *root, RelOptInfo *rel, Path *subpath,
+ 	pathnode->num_workers = subpath->parallel_workers;
+ 	pathnode->path.pathkeys = pathkeys;
+ 	pathnode->path.pathtarget = target ? target : rel->reltarget;
++	pathnode->path.rows += subpath->rows;
+ 
+ 	input_disabled_nodes += subpath->disabled_nodes;
+ 	input_startup_cost += subpath->startup_cost;
+diff --git a/src/include/optimizer/cost.h b/src/include/optimizer/cost.h
+index d397fe27dc1..34d440a08f5 100644
+--- a/src/include/optimizer/cost.h
++++ b/src/include/optimizer/cost.h
+@@ -221,6 +221,5 @@ extern PathTarget *set_pathtarget_cost_width(PlannerInfo *root, PathTarget *targ
+ extern double compute_bitmap_pages(PlannerInfo *root, RelOptInfo *baserel,
+ 								   Path *bitmapqual, double loop_count,
+ 								   Cost *cost_p, double *tuples_p);
+-extern double compute_gather_rows(Path *path);
+ 
+ #endif							/* COST_H */

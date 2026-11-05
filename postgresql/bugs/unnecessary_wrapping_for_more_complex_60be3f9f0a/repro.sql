@@ -1,0 +1,7 @@
+create temp table t(q1 int8, q2 int8);
+insert into t values (1,1),(2,2);
+set enable_nestloop=off;
+explain (verbose, costs off)
+select t1.q1, x from t t1 left join
+  (t t2 inner join lateral (select t2.q1+1 as x, * from t t3) t3 on t2.q2 = t3.q2)
+  on t1.q2 = t2.q2 order by 1, 2;

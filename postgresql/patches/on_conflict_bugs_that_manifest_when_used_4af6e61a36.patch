@@ -1,0 +1,57 @@
+diff --git a/src/backend/nodes/nodeFuncs.c b/src/backend/nodes/nodeFuncs.c
+index ede838cd40c..790930660a5 100644
+--- a/src/backend/nodes/nodeFuncs.c
++++ b/src/backend/nodes/nodeFuncs.c
+@@ -2553,8 +2553,6 @@ expression_tree_walker_impl(Node *node,
+ 					return true;
+ 				if (WALK(onconflict->onConflictWhere))
+ 					return true;
+-				if (WALK(onconflict->exclRelTlist))
+-					return true;
+ 			}
+ 			break;
+ 		case T_MergeAction:
+@@ -3592,7 +3590,6 @@ expression_tree_mutator_impl(Node *node,
+ 				MUTATE(newnode->arbiterWhere, oc->arbiterWhere, Node *);
+ 				MUTATE(newnode->onConflictSet, oc->onConflictSet, List *);
+ 				MUTATE(newnode->onConflictWhere, oc->onConflictWhere, Node *);
+-				MUTATE(newnode->exclRelTlist, oc->exclRelTlist, List *);
+ 
+ 				return (Node *) newnode;
+ 			}
+diff --git a/src/backend/optimizer/plan/setrefs.c b/src/backend/optimizer/plan/setrefs.c
+index d706546f332..d53640d302f 100644
+--- a/src/backend/optimizer/plan/setrefs.c
++++ b/src/backend/optimizer/plan/setrefs.c
+@@ -1138,9 +1138,6 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset)
+ 									  rtoffset, NRM_EQUAL, NUM_EXEC_QUAL(plan));
+ 
+ 					pfree(itlist);
+-
+-					splan->exclRelTlist =
+-						fix_scan_list(root, splan->exclRelTlist, rtoffset, 1);
+ 				}
+ 
+ 				/*
+diff --git a/src/backend/rewrite/rewriteManip.c b/src/backend/rewrite/rewriteManip.c
+index 2e75f286b8b..343f4b7d0e4 100644
+--- a/src/backend/rewrite/rewriteManip.c
++++ b/src/backend/rewrite/rewriteManip.c
+@@ -507,8 +507,6 @@ OffsetVarNodes(Node *node, int offset, int sublevels_up)
+ 			if (qry->mergeTargetRelation)
+ 				qry->mergeTargetRelation += offset;
+ 
+-			if (qry->onConflict && qry->onConflict->exclRelIndex)
+-				qry->onConflict->exclRelIndex += offset;
+ 
+ 			foreach(l, qry->rowMarks)
+ 			{
+@@ -712,8 +710,6 @@ ChangeVarNodesExtended(Node *node, int rt_index, int new_index,
+ 				qry->mergeTargetRelation = new_index;
+ 
+ 			/* this is unlikely to ever be used, but ... */
+-			if (qry->onConflict && qry->onConflict->exclRelIndex == rt_index)
+-				qry->onConflict->exclRelIndex = new_index;
+ 
+ 			foreach(l, qry->rowMarks)
+ 			{

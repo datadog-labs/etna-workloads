@@ -1,0 +1,24 @@
+diff --git a/src/interfaces/libpq/fe-exec.c b/src/interfaces/libpq/fe-exec.c
+index 20e1a58a527..563744a2fcb 100644
+--- a/src/interfaces/libpq/fe-exec.c
++++ b/src/interfaces/libpq/fe-exec.c
+@@ -1375,7 +1375,8 @@ pqAppendCmdQueueEntry(PGconn *conn, PGcmdQueueEntry *entry)
+ 			 * READY or READY_MORE); otherwise set us busy to wait for
+ 			 * something to arrive from the server.
+ 			 */
+-			if (conn->asyncStatus == PGASYNC_IDLE)
++			if (conn->pipelineStatus == PQ_PIPELINE_OFF &&
++				conn->asyncStatus == PGASYNC_IDLE)
+ 				conn->asyncStatus = PGASYNC_BUSY;
+ 			break;
+ 
+@@ -3385,6 +3386,9 @@ pqPipelineSyncInternal(PGconn *conn, bool immediate_flush)
+ 	/* OK, it's launched! */
+ 	pqAppendCmdQueueEntry(conn, entry);
+ 
++	/* Let the user start calling PQgetResult */
++	pqPipelineProcessQueue(conn);
++
+ 	return 1;
+ 
+ sendFailed:

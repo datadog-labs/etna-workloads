@@ -1,0 +1,27 @@
+diff --git a/src/backend/utils/adt/date.c b/src/backend/utils/adt/date.c
+index 4227ab1a72b..7dcceaab6ac 100644
+--- a/src/backend/utils/adt/date.c
++++ b/src/backend/utils/adt/date.c
+@@ -2083,10 +2083,19 @@ interval_time(PG_FUNCTION_ARGS)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
+ 				 errmsg("cannot convert infinite interval to time")));
++	int64		days;
+ 
+-	result = span->time % USECS_PER_DAY;
+-	if (result < 0)
+-		result += USECS_PER_DAY;
++	result = span->time;
++	if (result >= USECS_PER_DAY)
++	{
++		days = result / USECS_PER_DAY;
++		result -= days * USECS_PER_DAY;
++	}
++	else if (result < 0)
++	{
++		days = (-result + USECS_PER_DAY - 1) / USECS_PER_DAY;
++		result += days * USECS_PER_DAY;
++	}
+ 
+ 	PG_RETURN_TIMEADT(result);
+ }

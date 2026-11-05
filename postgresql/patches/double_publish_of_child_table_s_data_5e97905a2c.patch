@@ -1,0 +1,53 @@
+diff --git a/src/backend/catalog/pg_publication.c b/src/backend/catalog/pg_publication.c
+index 671eb160f47..0aa50b38474 100644
+--- a/src/backend/catalog/pg_publication.c
++++ b/src/backend/catalog/pg_publication.c
+@@ -196,7 +196,7 @@ is_ancestor_member_tableinfos(Oid ancestor, List *table_infos)
+  * Filter out the partitions whose parent tables are also present in the list.
+  */
+ static void
+-filter_partitions(List *table_infos)
++filter_partitions(List *table_infos, List *schemarelids)
+ {
+ 	ListCell   *lc;
+ 
+@@ -214,7 +214,13 @@ filter_partitions(List *table_infos)
+ 		{
+ 			Oid			ancestor = lfirst_oid(lc2);
+ 
+-			if (is_ancestor_member_tableinfos(ancestor, table_infos))
++			/*
++			 * Only skip when the partition or its ancestor is present in
++			 * schema publication relations.
++			 */
++			if (is_ancestor_member_tableinfos(ancestor, table_infos) &&
++				(list_member_oid(schemarelids, table_info->relid) ||
++				 list_member_oid(schemarelids, ancestor)))
+ 			{
+ 				skip = true;
+ 				break;
+@@ -1147,6 +1153,7 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
+ 		int			nelems,
+ 					i;
+ 		bool		viaroot = false;
++		List	   *all_schemarelids = NIL;
+ 
+ 		/* create a function context for cross-call persistence */
+ 		funcctx = SRF_FIRSTCALL_INIT();
+@@ -1192,6 +1199,7 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
+ 																PUBLICATION_PART_ROOT :
+ 																PUBLICATION_PART_LEAF);
+ 				pub_elem_tables = list_concat_unique_oid(relids, schemarelids);
++				all_schemarelids = list_concat_unique_oid(all_schemarelids, schemarelids);
+ 			}
+ 
+ 			/*
+@@ -1225,7 +1233,7 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
+ 		 * side.
+ 		 */
+ 		if (viaroot)
+-			filter_partitions(table_infos);
++			filter_partitions(table_infos, all_schemarelids);
+ 
+ 		/* Construct a tuple descriptor for the result rows. */
+ 		tupdesc = CreateTemplateTupleDesc(NUM_PUBLICATION_TABLES_ELEM);

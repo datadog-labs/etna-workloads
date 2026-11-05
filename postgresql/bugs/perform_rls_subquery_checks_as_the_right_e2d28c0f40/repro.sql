@@ -1,0 +1,13 @@
+create role r_view; create role r_user;
+create table ref_tbl (a int); insert into ref_tbl values (1);
+create table rls_tbl (a int); insert into rls_tbl values (10);
+alter table rls_tbl enable row level security;
+create policy p1 on rls_tbl using (exists (select 1 from ref_tbl));
+grant select on ref_tbl, rls_tbl to r_view;
+create view rls_view as select * from rls_tbl;
+alter view rls_view owner to r_view;
+grant select on rls_view to r_user;
+set session authorization r_user;
+select * from rls_view;
+reset session authorization;
+drop view rls_view; drop table rls_tbl, ref_tbl; drop role r_view, r_user;

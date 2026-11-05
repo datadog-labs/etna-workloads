@@ -1,0 +1,38 @@
+diff --git a/src/backend/regex/regc_nfa.c b/src/backend/regex/regc_nfa.c
+index 92b11116194..c09298c73db 100644
+--- a/src/backend/regex/regc_nfa.c
++++ b/src/backend/regex/regc_nfa.c
+@@ -1618,7 +1618,6 @@ optimize(struct nfa *nfa,
+ 	if (verbose)
+ 		fprintf(f, "\nconstraints:\n");
+ #endif
+-	fixconstraintloops(nfa, f); /* get rid of constraint loops */
+ 	pullback(nfa, f);			/* pull back constraints backward */
+ 	pushfwd(nfa, f);			/* push fwd constraints forward */
+ #ifdef REG_DEBUG
+@@ -1727,7 +1726,11 @@ pull(struct nfa *nfa,
+ 	struct arc *nexta;
+ 	struct state *s;
+ 
+-	assert(from != to);			/* should have gotten rid of this earlier */
++	if (from == to)
++	{							/* circular constraint is pointless */
++		freearc(nfa, con);
++		return 1;
++	}
+ 	if (from->flag)				/* can't pull back beyond start */
+ 		return 0;
+ 	if (from->nins == 0)
+@@ -1898,7 +1901,11 @@ push(struct nfa *nfa,
+ 	struct arc *nexta;
+ 	struct state *s;
+ 
+-	assert(to != from);			/* should have gotten rid of this earlier */
++	if (to == from)
++	{							/* circular constraint is pointless */
++		freearc(nfa, con);
++		return 1;
++	}
+ 	if (to->flag)				/* can't push forward beyond end */
+ 		return 0;
+ 	if (to->nouts == 0)

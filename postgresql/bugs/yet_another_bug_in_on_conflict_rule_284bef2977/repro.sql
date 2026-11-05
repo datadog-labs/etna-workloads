@@ -1,0 +1,4 @@
+CREATE TABLE hd (a text);
+CREATE TABLE h (a text);
+CREATE RULE r AS ON INSERT TO h DO INSTEAD INSERT INTO hd VALUES (NEW.a) ON CONFLICT DO NOTHING;
+SELECT definition FROM pg_rules WHERE tablename='h';

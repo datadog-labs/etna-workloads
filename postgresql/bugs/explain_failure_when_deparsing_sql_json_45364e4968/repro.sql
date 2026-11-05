@@ -1,0 +1,6 @@
+EXPLAIN (VERBOSE, COSTS OFF)
+SELECT i % 2 AS g,
+	JSON_ARRAYAGG(i ORDER BY i RETURNING jsonb) AS ja,
+	row_number() OVER (ORDER BY i % 2) AS rn
+FROM generate_series(1, 3) i
+GROUP BY i % 2;

@@ -1,0 +1,41 @@
+diff --git a/src/backend/optimizer/path/joinpath.c b/src/backend/optimizer/path/joinpath.c
+index af5aa8aea84..d9480a366da 100644
+--- a/src/backend/optimizer/path/joinpath.c
++++ b/src/backend/optimizer/path/joinpath.c
+@@ -801,8 +801,7 @@ get_memoize_path(PlannerInfo *root, RelOptInfo *innerrel,
+ 	/* Check if we have hash ops for each parameter to the path */
+ 	if (paraminfo_get_equal_hashops(root,
+ 									inner_path->param_info,
+-									outerrel->top_parent ?
+-									outerrel->top_parent : outerrel,
++									outerrel,
+ 									innerrel,
+ 									ph_lateral_vars,
+ 									&param_exprs,
+diff --git a/src/backend/optimizer/util/pathnode.c b/src/backend/optimizer/util/pathnode.c
+index e8d8a537061..dc7c3c8d411 100644
+--- a/src/backend/optimizer/util/pathnode.c
++++ b/src/backend/optimizer/util/pathnode.c
+@@ -4615,7 +4615,6 @@ do { \
+ 				MemoizePath *mpath = (MemoizePath *) path;
+ 
+ 				REPARAMETERIZE_CHILD_PATH(mpath->subpath);
+-				ADJUST_CHILD_ATTRS(mpath->param_exprs);
+ 				new_path = (Path *) mpath;
+ 			}
+ 			break;
+diff --git a/src/include/nodes/pathnodes.h b/src/include/nodes/pathnodes.h
+index 6eef1450e04..2809fb67642 100644
+--- a/src/include/nodes/pathnodes.h
++++ b/src/include/nodes/pathnodes.h
+@@ -2126,8 +2126,8 @@ typedef struct MemoizePath
+ {
+ 	Path		path;
+ 	Path	   *subpath;		/* outerpath to cache tuples from */
+-	List	   *hash_operators; /* OIDs of hash equality ops for cache keys */
+-	List	   *param_exprs;	/* expressions that are cache keys */
++	List	   *hash_operators; /* hash operators for each key */
++	List	   *param_exprs;	/* cache keys */
+ 	bool		singlerow;		/* true if the cache entry is to be marked as
+ 								 * complete after caching the first record. */
+ 	bool		binary_mode;	/* true when cache key should be compared bit

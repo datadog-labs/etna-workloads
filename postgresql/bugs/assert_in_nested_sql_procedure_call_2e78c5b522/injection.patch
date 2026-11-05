@@ -1,0 +1,31 @@
+diff --git a/src/backend/executor/functions.c b/src/backend/executor/functions.c
+index 97455b1ed4a..2ed58d3bbf4 100644
+--- a/src/backend/executor/functions.c
++++ b/src/backend/executor/functions.c
+@@ -1684,8 +1684,11 @@ fmgr_sql(PG_FUNCTION_ARGS)
+ 				CommandCounterIncrement();
+ 				if (!pushed_snapshot)
+ 				{
+-					PushActiveSnapshot(GetTransactionSnapshot());
+-					pushed_snapshot = true;
++					if (ActiveSnapshotSet())
++					{
++						PushActiveSnapshot(GetTransactionSnapshot());
++						pushed_snapshot = true;
++					}
+ 				}
+ 				else
+ 					UpdateActiveSnapshotCommandId();
+diff --git a/src/backend/executor/spi.c b/src/backend/executor/spi.c
+index ecb2e4ccaa1..508ff36617d 100644
+--- a/src/backend/executor/spi.c
++++ b/src/backend/executor/spi.c
+@@ -2598,7 +2598,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
+ 			 * statement list, since COMMIT/ROLLBACK/CALL/DO can't appear
+ 			 * within a multi-statement list.
+ 			 */
+-			EnsurePortalSnapshotExists();
++			/* EnsurePortalSnapshotExists(); */
+ 
+ 			/*
+ 			 * In the default non-read-only case, get a new per-statement-list

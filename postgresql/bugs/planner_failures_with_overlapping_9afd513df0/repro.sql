@@ -1,0 +1,9 @@
+create temp table x as select g a, g b, g c from generate_series(1,1000) g;
+create temp table y as select g u, g h from generate_series(1,1000) g;
+create index on y(u);
+analyze x; analyze y;
+set enable_hashjoin=0; set enable_nestloop=0; set enable_hashagg=0;
+select count(*) from
+  (select * from x order by a, b, c) x
+  left join (select * from y order by u) y
+  on x.a = y.u and x.b = y.h and x.c = y.u;

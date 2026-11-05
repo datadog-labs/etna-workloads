@@ -1,0 +1,120 @@
+diff --git a/src/backend/catalog/dependency.c b/src/backend/catalog/dependency.c
+index f5541b9f6b2..5137c8d0044 100644
+--- a/src/backend/catalog/dependency.c
++++ b/src/backend/catalog/dependency.c
+@@ -2438,11 +2438,7 @@ process_function_rte_ref(RangeTblEntry *rte, AttrNumber attnum,
+ 		{
+ 			TupleDesc	tupdesc;
+ 
+-			/* If it has a coldeflist, it certainly returns RECORD */
+-			if (rtfunc->funccolnames != NIL)
+-				tupdesc = NULL; /* no need to work hard */
+-			else
+-				tupdesc = get_expr_result_tupdesc(rtfunc->funcexpr, true);
++			tupdesc = get_expr_result_tupdesc(rtfunc->funcexpr, true);
+ 			if (tupdesc && tupdesc->tdtypeid != RECORDOID)
+ 			{
+ 				/*
+diff --git a/src/backend/optimizer/prep/prepjointree.c b/src/backend/optimizer/prep/prepjointree.c
+index b150a933aad..1e1ac436ebc 100644
+--- a/src/backend/optimizer/prep/prepjointree.c
++++ b/src/backend/optimizer/prep/prepjointree.c
+@@ -2151,10 +2151,6 @@ pull_up_constant_function(PlannerInfo *root, Node *jtnode,
+ 	if (rtf->funccolcount != 1)
+ 		return jtnode;			/* definitely composite */
+ 
+-	/* If it has a coldeflist, it certainly returns RECORD */
+-	if (rtf->funccolnames != NIL)
+-		return jtnode;			/* must be a one-column RECORD type */
+-
+ 	functypclass = get_expr_result_type(rtf->funcexpr,
+ 										&funcrettype,
+ 										&tupdesc);
+diff --git a/src/backend/optimizer/util/clauses.c b/src/backend/optimizer/util/clauses.c
+index aa70667c4a5..a4da8e7b9de 100644
+--- a/src/backend/optimizer/util/clauses.c
++++ b/src/backend/optimizer/util/clauses.c
+@@ -4474,11 +4474,12 @@ evaluate_function(Oid funcid, Oid result_type, int32 result_typmod,
+ 	 * Can't simplify if it returns RECORD.  The immediate problem is that it
+ 	 * will be needing an expected tupdesc which we can't supply here.
+ 	 *
+-	 * In the case where it has OUT parameters, we could build an expected
+-	 * tupdesc from those, but there may be other gotchas lurking.  In
+-	 * particular, if the function were to return NULL, we would produce a
+-	 * null constant with no remaining indication of which concrete record
+-	 * type it is.  For now, seems best to leave the function call unreduced.
++	 * In the case where it has OUT parameters, it could get by without an
++	 * expected tupdesc, but we still have issues: get_expr_result_type()
++	 * doesn't know how to extract type info from a RECORD constant, and in
++	 * the case of a NULL function result there doesn't seem to be any clean
++	 * way to fix that.  In view of the likelihood of there being still other
++	 * gotchas, seems best to leave the function call unreduced.
+ 	 */
+ 	if (funcform->prorettype == RECORDOID)
+ 		return NULL;
+diff --git a/src/backend/parser/parse_relation.c b/src/backend/parser/parse_relation.c
+index b59df7dcdf3..a0cac3af63d 100644
+--- a/src/backend/parser/parse_relation.c
++++ b/src/backend/parser/parse_relation.c
+@@ -2864,17 +2864,12 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
+ 				{
+ 					RangeTblFunction *rtfunc = (RangeTblFunction *) lfirst(lc);
+ 					TypeFuncClass functypclass;
+-					Oid			funcrettype = InvalidOid;
+-					TupleDesc	tupdesc = NULL;
+-
+-					/* If it has a coldeflist, it returns RECORD */
+-					if (rtfunc->funccolnames != NIL)
+-						functypclass = TYPEFUNC_RECORD;
+-					else
+-						functypclass = get_expr_result_type(rtfunc->funcexpr,
+-															&funcrettype,
+-															&tupdesc);
++					Oid			funcrettype;
++					TupleDesc	tupdesc;
+ 
++					functypclass = get_expr_result_type(rtfunc->funcexpr,
++														&funcrettype,
++														&tupdesc);
+ 					if (functypclass == TYPEFUNC_COMPOSITE ||
+ 						functypclass == TYPEFUNC_COMPOSITE_DOMAIN)
+ 					{
+@@ -3512,10 +3507,6 @@ get_rte_attribute_is_dropped(RangeTblEntry *rte, AttrNumber attnum)
+ 					{
+ 						TupleDesc	tupdesc;
+ 
+-						/* If it has a coldeflist, it returns RECORD */
+-						if (rtfunc->funccolnames != NIL)
+-							return false;	/* can't have any dropped columns */
+-
+ 						tupdesc = get_expr_result_tupdesc(rtfunc->funcexpr,
+ 														  true);
+ 						if (tupdesc)
+diff --git a/src/backend/utils/fmgr/funcapi.c b/src/backend/utils/fmgr/funcapi.c
+index b07dcd51ac8..12d8d231c0a 100644
+--- a/src/backend/utils/fmgr/funcapi.c
++++ b/src/backend/utils/fmgr/funcapi.c
+@@ -287,13 +287,6 @@ get_call_result_type(FunctionCallInfo fcinfo,
+ /*
+  * get_expr_result_type
+  *		As above, but work from a calling expression node tree
+- *
+- * Beware of using this on the funcexpr of a RTE that has a coldeflist.
+- * The correct conclusion in such cases is always that the function returns
+- * RECORD with the columns defined by the coldeflist fields (funccolnames etc).
+- * If it does not, it's the executor's responsibility to catch the discrepancy
+- * at runtime; but code processing the query in advance of that point might
+- * come to inconsistent conclusions if it checks the actual expression.
+  */
+ TypeFuncClass
+ get_expr_result_type(Node *expr,
+@@ -544,8 +537,7 @@ internal_get_result_type(Oid funcid,
+  * if noError is true, else throws error.
+  *
+  * This is a simpler version of get_expr_result_type() for use when the caller
+- * is only interested in determinate rowtype results.  As with that function,
+- * beware of using this on the funcexpr of a RTE that has a coldeflist.
++ * is only interested in determinate rowtype results.
+  */
+ TupleDesc
+ get_expr_result_tupdesc(Node *expr, bool noError)

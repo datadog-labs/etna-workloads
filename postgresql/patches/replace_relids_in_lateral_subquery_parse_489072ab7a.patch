@@ -1,0 +1,17 @@
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..e5a6adc509b 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -1954,6 +1954,12 @@ replace_relid_callback(Node *node, ChangeVarNodes_context *context)
+ 	{
+ 		return true;
+ 	}
++	else if (IsA(node, Query) && context->sublevels_up == 0 &&
++			 context->callback == replace_relid_callback)
++	{
++		/* do not replace relids in lateral subquery parse tree */
++		return true;
++	}
+ 	else if (IsA(node, RestrictInfo))
+ 	{
+ 		RestrictInfo *rinfo = (RestrictInfo *) node;

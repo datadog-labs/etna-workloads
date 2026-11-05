@@ -1,0 +1,9 @@
+\set d `mkdir -p ext7d/extension && cd ext7d && pwd`
+\! printf "comment='t'\ndefault_version='1.0'\nschema='public'\nrelocatable=false\n" > ext7d/extension/test_ext7.control
+\! printf "alter extension test_ext7 add table old_table1;\nalter extension test_ext7 add sequence old_table1_col1_seq;\ncreate table ext7_table1 (col1 serial primary key);\ncreate table ext7_table2 (col2 serial primary key);\n" > ext7d/extension/test_ext7--1.0.sql
+\! printf "drop table ext7_table1;\ndrop table old_table1;\n" > ext7d/extension/test_ext7--1.0--2.0.sql
+SET extension_control_path = :'d';
+create table old_table1 (col1 serial primary key);
+create extension test_ext7;
+alter extension test_ext7 update to '2.0';
+\dx+ test_ext7

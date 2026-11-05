@@ -1,0 +1,16 @@
+create table p (a int, b int) partition by range (a);
+create table p1 (x int, b int, a int);
+alter table p1 drop column x;
+alter table p1 add column z int; alter table p1 drop column z;
+create table p1x (c int, d int, e int, b int, a int) partition by range (b);
+alter table p1x drop column c; alter table p1x drop column d; alter table p1x drop column e;
+drop table p1;
+create table p1 (a int, b int) partition by range (b);
+alter table p attach partition p1 for values from (1) to (10);
+create table p11 (q int, r int, b int, a int);
+alter table p11 drop column q; alter table p11 drop column r;
+alter table p1 attach partition p11 for values from (1) to (5);
+insert into p11 values (100, 2);
+insert into p11 values (2, 100);
+insert into p11 values (1, 2);
+select * from p11;

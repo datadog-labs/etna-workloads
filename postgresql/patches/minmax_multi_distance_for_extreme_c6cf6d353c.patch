@@ -1,0 +1,54 @@
+diff --git a/src/backend/access/brin/brin_minmax_multi.c b/src/backend/access/brin/brin_minmax_multi.c
+index 4755c3d0af3..69115c06bfe 100644
+--- a/src/backend/access/brin/brin_minmax_multi.c
++++ b/src/backend/access/brin/brin_minmax_multi.c
+@@ -2158,20 +2158,45 @@ brin_minmax_multi_distance_interval(PG_FUNCTION_ARGS)
+ 
+ 	Interval   *ia = PG_GETARG_INTERVAL_P(0);
+ 	Interval   *ib = PG_GETARG_INTERVAL_P(1);
++	Interval   *result;
+ 
+ 	int64		dayfraction;
+ 	int64		days;
+ 
++	result = (Interval *) palloc(sizeof(Interval));
++
++	result->month = ib->month - ia->month;
++	/* overflow check copied from int4mi */
++	if (!SAMESIGN(ib->month, ia->month) &&
++		!SAMESIGN(result->month, ib->month))
++		ereport(ERROR,
++				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
++				 errmsg("interval out of range")));
++
++	result->day = ib->day - ia->day;
++	if (!SAMESIGN(ib->day, ia->day) &&
++		!SAMESIGN(result->day, ib->day))
++		ereport(ERROR,
++				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
++				 errmsg("interval out of range")));
++
++	result->time = ib->time - ia->time;
++	if (!SAMESIGN(ib->time, ia->time) &&
++		!SAMESIGN(result->time, ib->time))
++		ereport(ERROR,
++				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
++				 errmsg("interval out of range")));
++
+ 	/*
+ 	 * Delta is (fractional) number of days between the intervals. Assume
+ 	 * months have 30 days for consistency with interval_cmp_internal. We
+ 	 * don't need to be exact, in the worst case we'll build a bit less
+ 	 * efficient ranges. But we should not contradict interval_cmp.
+ 	 */
+-	dayfraction = (ib->time % USECS_PER_DAY) - (ia->time % USECS_PER_DAY);
+-	days = (ib->time / USECS_PER_DAY) - (ia->time / USECS_PER_DAY);
+-	days += (int64) ib->day - (int64) ia->day;
+-	days += ((int64) ib->month - (int64) ia->month) * INT64CONST(30);
++	dayfraction = result->time % USECS_PER_DAY;
++	days = result->time / USECS_PER_DAY;
++	days += result->month * INT64CONST(30);
++	days += result->day;
+ 
+ 	/* convert to double precision */
+ 	delta = (double) days + dayfraction / (double) USECS_PER_DAY;

@@ -1,0 +1,3 @@
+CREATE TABLE t(a int,b int);
+CREATE STATISTICS s1 ON a,b FROM t;
+\dX

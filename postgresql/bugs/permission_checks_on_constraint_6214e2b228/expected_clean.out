@@ -1,0 +1,13 @@
+CREATE ROLE regress_u2;
+CREATE TABLE errtst(a text, b text NOT NULL, c text, secret1 text, secret2 text) PARTITION BY LIST (a);
+CREATE TABLE errtst_part_1(secret2 text, c text, a text, b text NOT NULL, secret1 text);
+ALTER TABLE errtst ATTACH PARTITION errtst_part_1 FOR VALUES IN ('aaa');
+GRANT SELECT (a, b, c), UPDATE (a, b, c), INSERT (a, b, c) ON TABLE errtst TO regress_u2;
+INSERT INTO errtst_part_1 VALUES ('is in the attic', 'ccc', 'aaa', 'bbb', 'the body');
+SET SESSION AUTHORIZATION regress_u2;
+INSERT INTO errtst (a, b) VALUES ('aaa', NULL);
+psql:<REPRO>:8: ERROR:  null value in column "b" of relation "errtst_part_1" violates not-null constraint
+DETAIL:  Failing row contains (a, b, c) = (aaa, null, null).
+UPDATE errtst SET b = NULL;
+psql:<REPRO>:9: ERROR:  null value in column "b" of relation "errtst_part_1" violates not-null constraint
+DETAIL:  Failing row contains (a, b, c) = (aaa, null, ccc).

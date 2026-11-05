@@ -1,0 +1,22 @@
+CREATE TABLE p (c text COLLATE "C") PARTITION BY LIST (c);
+CREATE TABLE p1 PARTITION OF p FOR VALUES IN ('a');
+CREATE TABLE p2 PARTITION OF p FOR VALUES IN ('b');
+SET enable_partitionwise_join TO true;
+EXPLAIN (COSTS OFF)
+SELECT * FROM p t1 JOIN p t2 ON t1.c = t2.c COLLATE "POSIX";
+                 QUERY PLAN                  
+---------------------------------------------
+ Merge Join
+   Merge Cond: ((t1.c)::text = (t2.c)::text)
+   ->  Sort
+         Sort Key: t1.c COLLATE "POSIX"
+         ->  Append
+               ->  Seq Scan on p1 t1_1
+               ->  Seq Scan on p2 t1_2
+   ->  Sort
+         Sort Key: t2.c COLLATE "POSIX"
+         ->  Append
+               ->  Seq Scan on p1 t2_1
+               ->  Seq Scan on p2 t2_2
+(12 rows)
+

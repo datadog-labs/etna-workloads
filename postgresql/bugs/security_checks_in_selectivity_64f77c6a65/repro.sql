@@ -1,0 +1,16 @@
+CREATE ROLE ru1;
+CREATE ROLE ru2;
+CREATE SCHEMA s AUTHORIZATION ru1;
+GRANT USAGE ON SCHEMA s TO ru2;
+SET search_path = s;
+SET SESSION AUTHORIZATION ru1;
+CREATE TABLE t12 AS SELECT x AS a, x AS b FROM generate_series(1,1000) x;
+ANALYZE t12;
+CREATE VIEW t12v AS SELECT * FROM t12 WHERE b > 0;
+CREATE FUNCTION leak2(integer,integer) RETURNS boolean
+  AS $$begin raise notice 'leak % %', $1, $2; return $1 > $2; end$$
+  LANGUAGE plpgsql immutable;
+CREATE OPERATOR >>> (procedure = leak2, leftarg = integer, rightarg = integer,
+                     restrict = scalargtsel);
+SET SESSION AUTHORIZATION ru2;
+EXPLAIN (COSTS OFF) SELECT * FROM t12v WHERE a >>> 0;

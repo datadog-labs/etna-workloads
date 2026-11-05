@@ -1,0 +1,63 @@
+diff --git a/src/backend/optimizer/path/joinrels.c b/src/backend/optimizer/path/joinrels.c
+index aad41b94009..61a50fe18bd 100644
+--- a/src/backend/optimizer/path/joinrels.c
++++ b/src/backend/optimizer/path/joinrels.c
+@@ -552,7 +552,6 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
+ 	{
+ 		bool		lateral_fwd;
+ 		bool		lateral_rev;
+-		Relids		join_lateral_rels;
+ 
+ 		/*
+ 		 * The proposed rels could each contain lateral references to the
+@@ -594,50 +593,6 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
+ 			if (!bms_overlap(rel2->relids, rel1->direct_lateral_relids))
+ 				return false;	/* only indirect refs, so reject */
+ 		}
+-
+-		/*
+-		 * LATERAL references could also cause problems later on if we accept
+-		 * this join: if the join's minimum parameterization includes any rels
+-		 * that would have to be on the inside of an outer join with this join
+-		 * rel, then it's never going to be possible to build the complete
+-		 * query using this join.  We should reject this join not only because
+-		 * it'll save work, but because if we don't, the clauseless-join
+-		 * heuristics might think that legality of this join means that some
+-		 * other join rel need not be formed, and that could lead to failure
+-		 * to find any plan at all.  We have to consider not only rels that
+-		 * are directly on the inner side of an OJ with the joinrel, but also
+-		 * ones that are indirectly so, so search to find all such rels.
+-		 */
+-		join_lateral_rels = min_join_parameterization(root, joinrelids,
+-													  rel1, rel2);
+-		if (join_lateral_rels)
+-		{
+-			Relids		join_plus_rhs = bms_copy(joinrelids);
+-			bool		more;
+-
+-			do
+-			{
+-				more = false;
+-				foreach(l, root->join_info_list)
+-				{
+-					SpecialJoinInfo *sjinfo = (SpecialJoinInfo *) lfirst(l);
+-
+-					/* ignore full joins --- their ordering is predetermined */
+-					if (sjinfo->jointype == JOIN_FULL)
+-						continue;
+-
+-					if (bms_overlap(sjinfo->min_lefthand, join_plus_rhs) &&
+-						!bms_is_subset(sjinfo->min_righthand, join_plus_rhs))
+-					{
+-						join_plus_rhs = bms_add_members(join_plus_rhs,
+-														sjinfo->min_righthand);
+-						more = true;
+-					}
+-				}
+-			} while (more);
+-			if (bms_overlap(join_plus_rhs, join_lateral_rels))
+-				return false;	/* will not be able to join to some RHS rel */
+-		}
+ 	}
+ 
+ 	/* Otherwise, it's a valid join */

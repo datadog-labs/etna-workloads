@@ -1,0 +1,166 @@
+diff --git a/src/backend/utils/adt/timestamp.c b/src/backend/utils/adt/timestamp.c
+index 72775924bb7..62ce26a89ce 100644
+--- a/src/backend/utils/adt/timestamp.c
++++ b/src/backend/utils/adt/timestamp.c
+@@ -6326,6 +6326,69 @@ extract_interval(PG_FUNCTION_ARGS)
+ }
+ 
+ 
++/* timestamp_zone_support()
++ * If the zone argument of a timestamp_zone() or timestamptz_zone() call is a
++ * plan-time constant denoting a zone equivalent to UTC, the call will always
++ * return its second argument unchanged.  Simplify the expression tree
++ * accordingly.
++ */
++Datum
++timestamp_zone_support(PG_FUNCTION_ARGS)
++{
++	Node	   *rawreq = (Node *) PG_GETARG_POINTER(0);
++	Node	   *ret = NULL;
++
++	if (IsA(rawreq, SupportRequestSimplify))
++	{
++		FuncExpr   *expr = ((SupportRequestSimplify *) rawreq)->fcall;
++		Node	   *func_node = (Node *) expr;
++		Node	   *zone_node = (Node *) linitial(expr->args);
++
++		if (IsA(zone_node, Const) && !((Const *) zone_node)->constisnull)
++		{
++			text	   *zone = DatumGetTextPP(((Const *) zone_node)->constvalue);
++			char		tzname[TZ_STRLEN_MAX + 1];
++			int			type,
++						val;
++			pg_tz	   *tzp;
++			bool		noop = false;
++
++			text_to_cstring_buffer(zone, tzname, sizeof(tzname));
++			type = DecodeTimezoneName(tzname, &val, &tzp);
++			if (type == TZNAME_FIXED_OFFSET)
++				noop = (val == 0);
++			else if (type == TZNAME_DYNTZ)
++			{
++				/* don't bother checking */
++			}
++			else
++			{
++				long		tzname_offset;
++
++				if (tzp && pg_get_timezone_offset(tzp, &tzname_offset))
++					noop = (tzname_offset == 0);
++			}
++
++			if (noop)
++			{
++				Node	   *timestamp = (Node *) lsecond(expr->args);
++
++				/* Strip any existing RelabelType node(s) */
++				while (timestamp && IsA(timestamp, RelabelType))
++					timestamp = (Node *) ((RelabelType *) timestamp)->arg;
++
++				ret = (Node *) makeRelabelType((Expr *) timestamp,
++											   exprType(func_node),
++											   exprTypmod(func_node),
++											   exprCollation(func_node),
++											   COERCE_EXPLICIT_CAST);
++			}
++		}
++	}
++
++	PG_RETURN_POINTER(ret);
++}
++
+ /*	timestamp_zone()
+  *	Encode timestamp type with specified time zone.
+  *	This function is just timestamp2timestamptz() except instead of
+@@ -6396,6 +6459,46 @@ timestamp_zone(PG_FUNCTION_ARGS)
+ 	PG_RETURN_TIMESTAMPTZ(result);
+ }
+ 
++/* timestamp_izone_support()
++ * If we deduce at plan time that a particular timestamp_izone() or
++ * timestamptz_izone() call can only compute tz=0, the call will always return
++ * its second argument unchanged.  Simplify the expression tree accordingly.
++ */
++Datum
++timestamp_izone_support(PG_FUNCTION_ARGS)
++{
++	Node	   *rawreq = (Node *) PG_GETARG_POINTER(0);
++	Node	   *ret = NULL;
++
++	if (IsA(rawreq, SupportRequestSimplify))
++	{
++		FuncExpr   *expr = ((SupportRequestSimplify *) rawreq)->fcall;
++		Node	   *func_node = (Node *) expr;
++		Node	   *zone_node = (Node *) linitial(expr->args);
++
++		if (IsA(zone_node, Const) && !((Const *) zone_node)->constisnull)
++		{
++			Interval   *zone = DatumGetIntervalP(((Const *) zone_node)->constvalue);
++
++			if (zone->month == 0 && zone->day == 0 && zone->time == 0)
++			{
++				Node	   *timestamp = (Node *) lsecond(expr->args);
++
++				while (timestamp && IsA(timestamp, RelabelType))
++					timestamp = (Node *) ((RelabelType *) timestamp)->arg;
++
++				ret = (Node *) makeRelabelType((Expr *) timestamp,
++											   exprType(func_node),
++											   exprTypmod(func_node),
++											   exprCollation(func_node),
++											   COERCE_EXPLICIT_CAST);
++			}
++		}
++	}
++
++	PG_RETURN_POINTER(ret);
++}
++
+ /* timestamp_izone()
+  * Encode timestamp type with specified time interval as time zone.
+  */
+diff --git a/src/include/catalog/pg_proc.dat b/src/include/catalog/pg_proc.dat
+index fb4f7f50350..69ba39815c7 100644
+--- a/src/include/catalog/pg_proc.dat
++++ b/src/include/catalog/pg_proc.dat
+@@ -2187,7 +2187,8 @@
+ 
+ { oid => '1026', descr => 'adjust timestamp to new time zone',
+   proname => 'timezone', prorettype => 'timestamp',
+-  proargtypes => 'interval timestamptz', prosrc => 'timestamptz_izone' },
++  proargtypes => 'interval timestamptz',
++  prosupport => 'timestamp_izone_support', prosrc => 'timestamptz_izone' },
+ 
+ { oid => '1031', descr => 'I/O',
+   proname => 'aclitemin', provolatile => 's', prorettype => 'aclitem',
+@@ -2422,7 +2423,8 @@
+   proargtypes => 'float8', prosrc => 'float8_timestamptz' },
+ { oid => '1159', descr => 'adjust timestamp to new time zone',
+   proname => 'timezone', prorettype => 'timestamp',
+-  proargtypes => 'text timestamptz', prosrc => 'timestamptz_zone' },
++  proargtypes => 'text timestamptz',
++  prosupport => 'timestamp_zone_support', prosrc => 'timestamptz_zone' },
+ { oid => '6334', descr => 'adjust timestamp to local time zone',
+   proname => 'timezone', provolatile => 's', prorettype => 'timestamp',
+   proargtypes => 'timestamptz', prosrc => 'timestamptz_at_local' },
+@@ -6464,10 +6466,18 @@
+ 
+ { oid => '2069', descr => 'adjust timestamp to new time zone',
+   proname => 'timezone', prorettype => 'timestamptz',
+-  proargtypes => 'text timestamp', prosrc => 'timestamp_zone' },
++  proargtypes => 'text timestamp',
++  prosupport => 'timestamp_zone_support', prosrc => 'timestamp_zone' },
+ { oid => '2070', descr => 'adjust timestamp to new time zone',
+   proname => 'timezone', prorettype => 'timestamptz',
+-  proargtypes => 'interval timestamp', prosrc => 'timestamp_izone' },
++  proargtypes => 'interval timestamp',
++  prosupport => 'timestamp_izone_support', prosrc => 'timestamp_izone' },
++{ oid => '9252', descr => 'planner support for timestamp_zone',
++  proname => 'timestamp_zone_support', prorettype => 'internal',
++  proargtypes => 'internal', prosrc => 'timestamp_zone_support' },
++{ oid => '9253', descr => 'planner support for timestamp_izone',
++  proname => 'timestamp_izone_support', prorettype => 'internal',
++  proargtypes => 'internal', prosrc => 'timestamp_izone_support' },
+ { oid => '6335', descr => 'adjust timestamp to local time zone',
+   proname => 'timezone', provolatile => 's', prorettype => 'timestamptz',
+   proargtypes => 'timestamp', prosrc => 'timestamp_at_local' },

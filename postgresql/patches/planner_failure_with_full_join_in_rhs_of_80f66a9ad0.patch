@@ -1,0 +1,43 @@
+diff --git a/src/backend/optimizer/plan/initsplan.c b/src/backend/optimizer/plan/initsplan.c
+index 8112509e872..c93b611bb76 100644
+--- a/src/backend/optimizer/plan/initsplan.c
++++ b/src/backend/optimizer/plan/initsplan.c
+@@ -1870,37 +1870,9 @@ make_outerjoininfo(PlannerInfo *root,
+ 		SpecialJoinInfo *otherinfo = (SpecialJoinInfo *) lfirst(l);
+ 		bool		have_unsafe_phvs;
+ 
+-		/*
+-		 * A full join is an optimization barrier: we can't associate into or
+-		 * out of it.  Hence, if it overlaps either LHS or RHS of the current
+-		 * rel, expand that side's min relset to cover the whole full join.
+-		 */
++		/* ignore full joins --- other mechanisms preserve their ordering */
+ 		if (otherinfo->jointype == JOIN_FULL)
+-		{
+-			Assert(otherinfo->ojrelid != 0);
+-			if (bms_overlap(left_rels, otherinfo->syn_lefthand) ||
+-				bms_overlap(left_rels, otherinfo->syn_righthand))
+-			{
+-				min_lefthand = bms_add_members(min_lefthand,
+-											   otherinfo->syn_lefthand);
+-				min_lefthand = bms_add_members(min_lefthand,
+-											   otherinfo->syn_righthand);
+-				min_lefthand = bms_add_member(min_lefthand,
+-											  otherinfo->ojrelid);
+-			}
+-			if (bms_overlap(right_rels, otherinfo->syn_lefthand) ||
+-				bms_overlap(right_rels, otherinfo->syn_righthand))
+-			{
+-				min_righthand = bms_add_members(min_righthand,
+-												otherinfo->syn_lefthand);
+-				min_righthand = bms_add_members(min_righthand,
+-												otherinfo->syn_righthand);
+-				min_righthand = bms_add_member(min_righthand,
+-											   otherinfo->ojrelid);
+-			}
+-			/* Needn't do anything else with the full join */
+ 			continue;
+-		}
+ 
+ 		/*
+ 		 * If our join condition contains any PlaceHolderVars that need to be

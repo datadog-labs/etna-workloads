@@ -1,0 +1,22 @@
+CREATE TABLE t_test (x int);
+INSERT INTO t_test VALUES (0);
+CREATE FUNCTION f_get_x () RETURNS int AS $$
+DECLARE l_result int;
+BEGIN
+  SELECT x INTO l_result FROM t_test;
+  RETURN l_result;
+END
+$$ LANGUAGE plpgsql STABLE;
+CREATE PROCEDURE f_print_x (x int) AS $$
+BEGIN
+  RAISE NOTICE 'f_print_x(%)', x;
+END
+$$ LANGUAGE plpgsql;
+BEGIN;
+DO $$
+BEGIN
+  UPDATE t_test SET x = x + 1;
+  CALL f_print_x(f_get_x());
+END
+$$;
+ROLLBACK;

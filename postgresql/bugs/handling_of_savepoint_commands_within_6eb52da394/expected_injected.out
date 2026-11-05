@@ -1,0 +1,29 @@
+SELECT 1\; SAVEPOINT sp\; SELECT 2;
+ ?column? 
+----------
+        1
+(1 row)
+
+ ?column? 
+----------
+        2
+(1 row)
+
+SELECT 1;
+ ?column? 
+----------
+        1
+(1 row)
+
+SELECT 1\; BEGIN\; SAVEPOINT sp\; ROLLBACK TO SAVEPOINT sp\; COMMIT;
+psql:<REPRO>:3: WARNING:  there is already a transaction in progress
+ ?column? 
+----------
+        1
+(1 row)
+
+psql:<REPRO>:3: FATAL:  EndTransactionBlock: unexpected state IMPLICIT_INPROGRESS
+psql:<REPRO>:3: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:3: error: connection to server was lost

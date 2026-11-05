@@ -1,0 +1,13 @@
+CREATE TABLE p (a int, b int, c int, d int);
+ALTER TABLE p DROP COLUMN b;
+CREATE STATISTICS p_s ON a, c FROM p;
+CREATE TABLE c1 (LIKE p INCLUDING STATISTICS);
+SELECT array_agg(a.attname ORDER BY u.ord) FROM pg_statistic_ext s
+CROSS JOIN LATERAL unnest(s.stxkeys::int2[]) WITH ORDINALITY AS u(attnum, ord)
+JOIN pg_attribute a ON a.attrelid = s.stxrelid AND a.attnum = u.attnum
+WHERE s.stxrelid = 'c1'::regclass;
+ array_agg 
+-----------
+ {a,c}
+(1 row)
+

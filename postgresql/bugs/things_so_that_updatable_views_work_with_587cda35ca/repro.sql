@@ -1,0 +1,5 @@
+create table p (a int, b int) partition by range (a);
+create table p1 partition of p for values from (0) to (10);
+create view pv as select * from p;
+insert into pv values (1, 2);
+select * from p;

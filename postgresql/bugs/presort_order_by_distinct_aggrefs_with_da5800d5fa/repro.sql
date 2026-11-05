@@ -1,0 +1,9 @@
+create table t(unique1 int, two int, four int, ten int);
+insert into t select i, i%2, i%4, i%10 from generate_series(1,10000) i;
+analyze t;
+create function vf() returns int language plpgsql volatile as $$begin return 1; end$$;
+explain (costs off)
+select sum(unique1 order by two), sum(unique1 order by four),
+  sum(unique1 order by four, two), sum(unique1 order by two, vf()),
+  sum(unique1 order by two, vf(), vf() + 1)
+from t group by ten;

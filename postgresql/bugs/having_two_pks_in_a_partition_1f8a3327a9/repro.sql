@@ -1,0 +1,5 @@
+CREATE TABLE idxpart (c1 INT PRIMARY KEY, c2 INT) PARTITION BY RANGE(c1);
+CREATE TABLE idxpart1 (LIKE idxpart);
+ALTER TABLE idxpart1 ADD PRIMARY KEY (c1, c2);
+ALTER TABLE idxpart ATTACH PARTITION idxpart1 FOR VALUES FROM (100) TO (200);
+SELECT count(*) FROM pg_constraint WHERE conrelid='idxpart1'::regclass AND contype='p';

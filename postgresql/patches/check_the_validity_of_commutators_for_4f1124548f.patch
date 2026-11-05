@@ -1,0 +1,57 @@
+diff --git a/src/backend/optimizer/path/joinpath.c b/src/backend/optimizer/path/joinpath.c
+index af5aa8aea84..c66a44c724f 100644
+--- a/src/backend/optimizer/path/joinpath.c
++++ b/src/backend/optimizer/path/joinpath.c
+@@ -26,7 +26,6 @@
+ #include "optimizer/placeholder.h"
+ #include "optimizer/planmain.h"
+ #include "optimizer/restrictinfo.h"
+-#include "utils/lsyscache.h"
+ #include "utils/typcache.h"
+ 
+ /* Hook for plugins to get control in add_paths_to_joinrel() */
+@@ -2259,20 +2258,6 @@ hash_inner_and_outer(PlannerInfo *root,
+ 									 innerrel->relids))
+ 			continue;			/* no good for these input relations */
+ 
+-		/*
+-		 * If clause has the form "inner op outer", check if its operator has
+-		 * valid commutator.  This is necessary because hashclauses in this
+-		 * form will get commuted in createplan.c to put the outer var on the
+-		 * left (see get_switched_clauses).  This probably shouldn't ever
+-		 * fail, since hashable operators ought to have commutators, but be
+-		 * paranoid.
+-		 *
+-		 * The clause being hashjoinable indicates that it's an OpExpr.
+-		 */
+-		if (!restrictinfo->outer_is_left &&
+-			!OidIsValid(get_commutator(castNode(OpExpr, restrictinfo->clause)->opno)))
+-			continue;
+-
+ 		hashclauses = lappend(hashclauses, restrictinfo);
+ 	}
+ 
+@@ -2559,23 +2544,6 @@ select_mergejoin_clauses(PlannerInfo *root,
+ 			continue;			/* no good for these input relations */
+ 		}
+ 
+-		/*
+-		 * If clause has the form "inner op outer", check if its operator has
+-		 * valid commutator.  This is necessary because mergejoin clauses in
+-		 * this form will get commuted in createplan.c to put the outer var on
+-		 * the left (see get_switched_clauses).  This probably shouldn't ever
+-		 * fail, since mergejoinable operators ought to have commutators, but
+-		 * be paranoid.
+-		 *
+-		 * The clause being mergejoinable indicates that it's an OpExpr.
+-		 */
+-		if (!restrictinfo->outer_is_left &&
+-			!OidIsValid(get_commutator(castNode(OpExpr, restrictinfo->clause)->opno)))
+-		{
+-			have_nonmergeable_joinclause = true;
+-			continue;
+-		}
+-
+ 		/*
+ 		 * Insist that each side have a non-redundant eclass.  This
+ 		 * restriction is needed because various bits of the planner expect

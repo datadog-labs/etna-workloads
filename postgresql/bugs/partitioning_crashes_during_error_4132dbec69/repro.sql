@@ -1,0 +1,11 @@
+create table mlparted (a int, b int) partition by range (a, b);
+alter table mlparted add c text;
+create table mlparted5 (c text, a int not null, b int not null) partition by list (c);
+create table mlparted5a (a int not null, c text, b int not null);
+alter table mlparted5 attach partition mlparted5a for values in ('a');
+alter table mlparted attach partition mlparted5 for values from (1, 40) to (1, 50);
+alter table mlparted add constraint check_b check (a = 1 and b < 45);
+insert into mlparted values (1, 45, 'a');
+create function f() returns trigger as $$ begin new.c = 'b'; return new; end; $$ language plpgsql;
+create trigger t before insert on mlparted5a for each row execute procedure f();
+insert into mlparted5 (a, b, c) values (1, 40, 'a');

@@ -1,0 +1,17 @@
+create temp table j1 (id1 int, id2 int);
+create temp table j2 (id1 int, id2 int);
+insert into j1 values (1,1),(2,2);
+insert into j2 values (1,1),(2,2);
+create unique index j1_id2_idx on j1(id2) where id2 is not null;
+analyze j1; analyze j2;
+explain (costs off)
+select * from j1 inner join j2 on j1.id2 = j2.id2;
+            QUERY PLAN            
+----------------------------------
+ Nested Loop
+   Join Filter: (j2.id2 = j1.id2)
+   ->  Seq Scan on j1
+   ->  Materialize
+         ->  Seq Scan on j2
+(5 rows)
+

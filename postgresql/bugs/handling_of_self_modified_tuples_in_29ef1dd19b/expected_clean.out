@@ -1,0 +1,20 @@
+create table t(id int primary key, v text);
+create function trg() returns trigger language plpgsql as $$
+begin
+  if new.v = 'b' then
+    update t set v = 'trig' where id = old.id;
+  end if;
+  return new;
+end $$;
+create trigger t_b before update on t for each row execute function trg();
+insert into t values (1,'a');
+merge into t using (values (1)) as s(id) on t.id = s.id
+  when matched then update set v = 'b';
+psql:<REPRO>:12: ERROR:  tuple to be updated or deleted was already modified by an operation triggered by the current command
+HINT:  Consider using an AFTER trigger instead of a BEFORE trigger to propagate changes to other rows.
+select * from t;
+ id | v 
+----+---
+  1 | a
+(1 row)
+

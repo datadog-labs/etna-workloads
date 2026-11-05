@@ -1,0 +1,16 @@
+set enable_partitionwise_join = on;
+set geqo_threshold = 2;
+create table pa (a int, b int) partition by range (a);
+create table pa1 partition of pa for values from (0) to (10);
+create table pa2 partition of pa for values from (10) to (20);
+create table pa3 partition of pa for values from (20) to (30);
+create table pb (a int, b int) partition by range (a);
+create table pb1 partition of pb for values from (0) to (10);
+create table pb2 partition of pb for values from (10) to (20);
+create table pb3 partition of pb for values from (20) to (30);
+insert into pa select i, i from generate_series(0,29) i;
+insert into pb select i, i from generate_series(0,29) i;
+select count(*) from pa x join pb y on x.a = y.a where x.a < 20 and y.a >= 10;
+select count(*) from pa x left join pb y on x.a = y.a and y.a < 10 where x.a < 20;
+select count(*) from pa x join pb y on x.a = y.a join pa z on z.a=y.a where x.a < 20;
+select count(*) from (select * from pa where a<10) x full join pb y on x.a = y.a;

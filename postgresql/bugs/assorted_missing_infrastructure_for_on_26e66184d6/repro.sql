@@ -1,0 +1,7 @@
+create table t(a int, b int, constraint tc unique(a));
+create rule r as on insert to t where new.b > 100 do also insert into t values (new.a+1000, 0) on conflict on constraint tc do nothing;
+alter table t drop constraint tc;
+select count(*) from pg_rewrite where rulename='r';
+create table u(k text);
+create unique index ui on u((k collate "C")) where k is not null and (k = 'a') is not false;
+insert into u values ('a') on conflict ((k collate "C")) where (k = 'a') is not false do nothing;

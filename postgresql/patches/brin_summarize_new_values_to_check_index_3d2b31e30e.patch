@@ -1,0 +1,24 @@
+diff --git a/src/backend/access/brin/brin.c b/src/backend/access/brin/brin.c
+index 6afd5367c59..7dcdf971c75 100644
+--- a/src/backend/access/brin/brin.c
++++ b/src/backend/access/brin/brin.c
+@@ -1439,19 +1439,6 @@ brin_summarize_range(PG_FUNCTION_ARGS)
+ 
+ 	indexRel = index_open(indexoid, ShareUpdateExclusiveLock);
+ 
+-	/* Must be a BRIN index */
+-	if (indexRel->rd_rel->relkind != RELKIND_INDEX ||
+-		indexRel->rd_rel->relam != BRIN_AM_OID)
+-		ereport(ERROR,
+-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+-				 errmsg("\"%s\" is not a BRIN index",
+-						RelationGetRelationName(indexRel))));
+-
+-	/* User must own the index (comparable to privileges needed for VACUUM) */
+-	if (heapRel != NULL && !object_ownercheck(RelationRelationId, indexoid, save_userid))
+-		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_INDEX,
+-					   RelationGetRelationName(indexRel));
+-
+ 	/*
+ 	 * Since we did the IndexGetRelation call above without any lock, it's
+ 	 * barely possible that a race against an index drop/recreation could have

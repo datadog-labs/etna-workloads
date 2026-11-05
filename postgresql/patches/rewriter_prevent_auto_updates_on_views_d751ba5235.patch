@@ -1,0 +1,28 @@
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 62f54786be4..963ae7fa03b 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -4285,22 +4285,11 @@ RewriteQuery(Query *parsetree, List *rewrite_events, int orig_rt_length,
+ 		 * more detailed information available about why the view isn't
+ 		 * updatable.
+ 		 */
+-		if (!instead &&
++		if (!instead && qual_product == NULL &&
+ 			rt_entry_relation->rd_rel->relkind == RELKIND_VIEW &&
+ 			!view_has_instead_trigger(rt_entry_relation, event,
+ 									  parsetree->mergeActionList))
+ 		{
+-			/*
+-			 * If there were any qualified INSTEAD rules, don't allow the view
+-			 * to be automatically updated (an unqualified INSTEAD rule or
+-			 * INSTEAD OF trigger is required).
+-			 */
+-			if (qual_product != NULL)
+-				error_view_not_updatable(rt_entry_relation,
+-										 parsetree->commandType,
+-										 parsetree->mergeActionList,
+-										 gettext_noop("Views with conditional DO INSTEAD rules are not automatically updatable."));
+-
+ 			/*
+ 			 * Attempt to rewrite the query to automatically update the view.
+ 			 * This throws an error if the view can't be automatically

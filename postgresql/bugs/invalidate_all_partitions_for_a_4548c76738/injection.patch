@@ -1,0 +1,50 @@
+diff --git a/src/backend/catalog/pg_publication.c b/src/backend/catalog/pg_publication.c
+index 671eb160f47..45e08a84ac5 100644
+--- a/src/backend/catalog/pg_publication.c
++++ b/src/backend/catalog/pg_publication.c
+@@ -530,18 +530,8 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
+ 	/* Close the table. */
+ 	table_close(rel, RowExclusiveLock);
+ 
+-	/*
+-	 * Invalidate relcache so that publication info is rebuilt.
+-	 *
+-	 * For the partitioned tables, we must invalidate all partitions contained
+-	 * in the respective partition hierarchies, not just the one explicitly
+-	 * mentioned in the publication. This is required because we implicitly
+-	 * publish the child tables when the parent table is published.
+-	 */
+-	relids = GetPubPartitionOptionRelations(relids, PUBLICATION_PART_ALL,
+-											relid);
+-
+-	InvalidatePublicationRels(relids);
++	/* Invalidate relcache so that publication info is rebuilt. */
++	CacheInvalidateRelcache(targetrel);
+ 
+ 	return myself;
+ }
+diff --git a/src/backend/commands/publicationcmds.c b/src/backend/commands/publicationcmds.c
+index 0feec8b765a..cb0fd934404 100644
+--- a/src/backend/commands/publicationcmds.c
++++ b/src/backend/commands/publicationcmds.c
+@@ -1567,18 +1567,8 @@ RemovePublicationRelById(Oid proid)
+ 
+ 	pubrel = (Form_pg_publication_rel) GETSTRUCT(tup);
+ 
+-	/*
+-	 * Invalidate relcache so that publication info is rebuilt.
+-	 *
+-	 * For the partitioned tables, we must invalidate all partitions contained
+-	 * in the respective partition hierarchies, not just the one explicitly
+-	 * mentioned in the publication. This is required because we implicitly
+-	 * publish the child tables when the parent table is published.
+-	 */
+-	relids = GetPubPartitionOptionRelations(relids, PUBLICATION_PART_ALL,
+-											pubrel->prrelid);
+-
+-	InvalidatePublicationRels(relids);
++	/* Invalidate relcache so that publication info is rebuilt. */
++	CacheInvalidateRelcacheByRelid(pubrel->prrelid);
+ 
+ 	CatalogTupleDelete(rel, &tup->t_self);
+ 

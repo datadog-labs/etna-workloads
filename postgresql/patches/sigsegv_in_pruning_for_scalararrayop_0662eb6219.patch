@@ -1,0 +1,25 @@
+diff --git a/src/backend/partitioning/partprune.c b/src/backend/partitioning/partprune.c
+index 5dae151da0f..f4c5e7eb34e 100644
+--- a/src/backend/partitioning/partprune.c
++++ b/src/backend/partitioning/partprune.c
+@@ -2318,7 +2318,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+ 			 * nodes, one for each array element (excepting nulls).
+ 			 */
+ 			Const	   *arr = (Const *) rightop;
+-			ArrayType  *arrval;
++			ArrayType  *arrval = DatumGetArrayTypeP(arr->constvalue);
+ 			int16		elemlen;
+ 			bool		elembyval;
+ 			char		elemalign;
+@@ -2327,11 +2327,6 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+ 			int			num_elems,
+ 						i;
+ 
+-			/* If the array itself is null, the saop returns null */
+-			if (arr->constisnull)
+-				return PARTCLAUSE_MATCH_CONTRADICT;
+-
+-			arrval = DatumGetArrayTypeP(arr->constvalue);
+ 			get_typlenbyvalalign(ARR_ELEMTYPE(arrval),
+ 								 &elemlen, &elembyval, &elemalign);
+ 			deconstruct_array(arrval,

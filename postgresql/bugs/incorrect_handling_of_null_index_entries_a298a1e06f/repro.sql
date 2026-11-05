@@ -1,0 +1,11 @@
+create table t (a int, b int, c int);
+insert into t select x, y, z from generate_series(1,5) x, generate_series(1,5) y, generate_series(1,5) z;
+create index on t (a, b desc, c);
+analyze t;
+set enable_seqscan = off;
+set enable_bitmapscan = off;
+select count(*) from t where (a,b) > (2,2);
+select count(*) from t where (a,c) > (2,2);
+select count(*) from t where (a,b,c) > (2,2,2);
+select count(*) from t where (a,b,c) < (2,2,2);
+select count(*) from t where (a,c) < (2,2);

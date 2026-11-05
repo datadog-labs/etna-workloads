@@ -1,0 +1,11 @@
+create table pk (a int primary key) partition by range (a);
+create table pk1 partition of pk for values from (0) to (1000);
+create table pk4 (like pk);
+alter table pk attach partition pk4 for values from (3000) to (4000);
+create table pk5 (like pk) partition by range (a);
+create table pk51 partition of pk5 for values from (4000) to (4500);
+alter table pk attach partition pk5 for values from (4000) to (5000);
+create table fk (a int references pk) partition by range (a);
+create table fk3 partition of fk for values from (0) to (5000);
+select conrelid::regclass, conname, conparentid <> 0 as haspar from pg_constraint where contype='p' order by 1;
+select count(*) from pg_depend d join pg_constraint c on d.objid=c.oid where d.deptype='P' and d.refclassid='pg_class'::regclass and c.contype='p';

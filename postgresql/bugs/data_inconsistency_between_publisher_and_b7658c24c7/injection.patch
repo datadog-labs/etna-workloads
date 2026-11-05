@@ -1,0 +1,71 @@
+diff --git a/src/backend/replication/logical/relation.c b/src/backend/replication/logical/relation.c
+index f59046ad620..eaa2a03a9c2 100644
+--- a/src/backend/replication/logical/relation.c
++++ b/src/backend/replication/logical/relation.c
+@@ -557,40 +557,6 @@ logicalrep_partmap_invalidate_cb(Datum arg, Oid reloid)
+ 	}
+ }
+ 
+-/*
+- * Reset the entries in the partition map that refer to remoterel.
+- *
+- * Called when new relation mapping is sent by the publisher to update our
+- * expected view of incoming data from said publisher.
+- *
+- * Note that we don't update the remoterel information in the entry here,
+- * we will update the information in logicalrep_partition_open to avoid
+- * unnecessary work.
+- */
+-void
+-logicalrep_partmap_reset_relmap(LogicalRepRelation *remoterel)
+-{
+-	HASH_SEQ_STATUS status;
+-	LogicalRepPartMapEntry *part_entry;
+-	LogicalRepRelMapEntry *entry;
+-
+-	if (LogicalRepPartMap == NULL)
+-		return;
+-
+-	hash_seq_init(&status, LogicalRepPartMap);
+-	while ((part_entry = (LogicalRepPartMapEntry *) hash_seq_search(&status)) != NULL)
+-	{
+-		entry = &part_entry->relmapentry;
+-
+-		if (entry->remoterel.remoteid != remoterel->remoteid)
+-			continue;
+-
+-		logicalrep_relmap_free_entry(entry);
+-
+-		memset(entry, 0, sizeof(LogicalRepRelMapEntry));
+-	}
+-}
+-
+ /*
+  * Initialize the partition map cache.
+  */
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..57ee1b888d9 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -2334,9 +2334,6 @@ apply_handle_relation(StringInfo s)
+ 
+ 	rel = logicalrep_read_rel(s);
+ 	logicalrep_relmap_update(rel);
+-
+-	/* Also reset all entries in the partition map that refer to remoterel. */
+-	logicalrep_partmap_reset_relmap(rel);
+ }
+ 
+ /*
+diff --git a/src/include/replication/logicalrelation.h b/src/include/replication/logicalrelation.h
+index 7a561a8e8d8..e4b2b9b0233 100644
+--- a/src/include/replication/logicalrelation.h
++++ b/src/include/replication/logicalrelation.h
+@@ -40,7 +40,6 @@ typedef struct LogicalRepRelMapEntry
+ } LogicalRepRelMapEntry;
+ 
+ extern void logicalrep_relmap_update(LogicalRepRelation *remoterel);
+-extern void logicalrep_partmap_reset_relmap(LogicalRepRelation *remoterel);
+ 
+ extern LogicalRepRelMapEntry *logicalrep_rel_open(LogicalRepRelId remoteid,
+ 												  LOCKMODE lockmode);

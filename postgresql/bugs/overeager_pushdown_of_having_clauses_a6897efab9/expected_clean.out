@@ -1,0 +1,21 @@
+create table g2(a int, b int);
+insert into g2 values (1,1),(1,2),(1,3),(2,4);
+select a,count(*) from g2 group by rollup(a) having a is distinct from 1 order by a;
+ a | count 
+---+-------
+ 2 |     1
+   |     4
+(2 rows)
+
+explain (costs off) select a,count(*) from g2 group by rollup(a) having a is distinct from 1 order by a;
+               QUERY PLAN               
+----------------------------------------
+ Sort
+   Sort Key: a
+   ->  MixedAggregate
+         Hash Key: a
+         Group Key: ()
+         Filter: (a IS DISTINCT FROM 1)
+         ->  Seq Scan on g2
+(7 rows)
+

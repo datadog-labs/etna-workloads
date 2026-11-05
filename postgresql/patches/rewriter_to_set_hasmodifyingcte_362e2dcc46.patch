@@ -1,0 +1,31 @@
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 62f54786be4..f0508bc7752 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -597,26 +597,6 @@ rewriteRuleAction(Query *parsetree,
+ 		 */
+ 		sub_action->cteList = list_concat(sub_action->cteList,
+ 										  copyObject(parsetree->cteList));
+-		/* ... and don't forget about the associated flags */
+-		sub_action->hasRecursive |= parsetree->hasRecursive;
+-		sub_action->hasModifyingCTE |= parsetree->hasModifyingCTE;
+-
+-		/*
+-		 * If rule_action is different from sub_action (i.e., the rule action
+-		 * is an INSERT...SELECT), then we might have just added some
+-		 * data-modifying CTEs that are not at the top query level.  This is
+-		 * disallowed by the parser and we mustn't generate such trees here
+-		 * either, so throw an error.
+-		 *
+-		 * Conceivably such cases could be supported by attaching the original
+-		 * query's CTEs to rule_action not sub_action.  But to do that, we'd
+-		 * have to increment ctelevelsup in RTEs and SubLinks copied from the
+-		 * original query.  For now, it doesn't seem worth the trouble.
+-		 */
+-		if (sub_action->hasModifyingCTE && rule_action != sub_action)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-					 errmsg("INSERT ... SELECT rule actions are not supported for queries having data-modifying statements in WITH")));
+ 	}
+ 
+ 	/*

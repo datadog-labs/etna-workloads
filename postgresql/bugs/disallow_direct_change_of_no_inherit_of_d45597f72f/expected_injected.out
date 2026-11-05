@@ -1,0 +1,18 @@
+create table p(a int);
+create table c() inherits(p);
+alter table p add constraint nn not null a no inherit;
+alter table p alter a set not null;
+alter table p add constraint nn2 not null a;
+psql:<REPRO>:5: ERROR:  cannot change NO INHERIT status of NOT NULL constraint "nn" on relation "p"
+HINT:  You might need to make the existing constraint inheritable using ALTER TABLE ... ALTER CONSTRAINT ... INHERIT.
+select conname, connoinherit from pg_constraint where conrelid='p'::regclass order by 1;
+ conname | connoinherit 
+---------+--------------
+ nn      | t
+(1 row)
+
+select conname, connoinherit from pg_constraint where conrelid='c'::regclass order by 1;
+ conname | connoinherit 
+---------+--------------
+(0 rows)
+

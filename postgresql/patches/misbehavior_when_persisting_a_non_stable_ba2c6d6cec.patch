@@ -1,0 +1,47 @@
+diff --git a/src/backend/commands/portalcmds.c b/src/backend/commands/portalcmds.c
+index e7c8171c102..dab6f6c06b1 100644
+--- a/src/backend/commands/portalcmds.c
++++ b/src/backend/commands/portalcmds.c
+@@ -395,23 +395,7 @@ PersistHoldablePortal(Portal portal)
+ 		 * the offset between the holdStore and the cursor's nominal position
+ 		 * explicitly.
+ 		 */
+-		if (portal->cursorOptions & CURSOR_OPT_SCROLL)
+-		{
+-			ExecutorRewind(queryDesc);
+-		}
+-		else
+-		{
+-			/*
+-			 * If we already reached end-of-query, set the direction to
+-			 * NoMovement to avoid trying to fetch any tuples.  (This check
+-			 * exists because not all plan node types are robust about being
+-			 * called again if they've already returned NULL once.)  We'll
+-			 * still set up an empty tuplestore, though, to keep this from
+-			 * being a special case later.
+-			 */
+-			if (portal->atEnd)
+-				direction = NoMovementScanDirection;
+-		}
++		ExecutorRewind(queryDesc);
+ 
+ 		/*
+ 		 * Change the destination to output to the tuplestore.  Note we tell
+@@ -462,13 +446,10 @@ PersistHoldablePortal(Portal portal)
+ 			 * In the no-scroll case, the start of the tuplestore is exactly
+ 			 * where we want to be, so no repositioning is wanted.
+ 			 */
+-			if (portal->cursorOptions & CURSOR_OPT_SCROLL)
+-			{
+-				if (!tuplestore_skiptuples(portal->holdStore,
+-										   portal->portalPos,
+-										   true))
+-					elog(ERROR, "unexpected end of tuple stream");
+-			}
++			if (!tuplestore_skiptuples(portal->holdStore,
++									   portal->portalPos,
++									   true))
++				elog(ERROR, "unexpected end of tuple stream");
+ 		}
+ 	}
+ 	PG_CATCH();

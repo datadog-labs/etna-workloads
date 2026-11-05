@@ -1,0 +1,18 @@
+diff --git a/src/backend/optimizer/util/restrictinfo.c b/src/backend/optimizer/util/restrictinfo.c
+index a80083d2323..3dc4c5ee183 100644
+--- a/src/backend/optimizer/util/restrictinfo.c
++++ b/src/backend/optimizer/util/restrictinfo.c
+@@ -674,5 +674,13 @@ join_clause_is_movable_into(RestrictInfo *rinfo,
+ 	if (bms_overlap(currentrelids, rinfo->outer_relids))
+ 		return false;
+ 
++	/*
++	 * Target rel(s) must not be nullable below the clause.  This is
++	 * approximate, in the safe direction, because the current join might be
++	 * above the join where the nulling would happen.
++	 */
++	if (!bms_is_subset(currentrelids, rinfo->required_relids))
++		return false;
++
+ 	return true;
+ }

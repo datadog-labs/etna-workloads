@@ -1,0 +1,5 @@
+CREATE TABLE t (a int, b int, c int);
+INSERT INTO t SELECT 1,2,3 FROM generate_series(1,1000);
+CREATE STATISTICS s (mcv) ON a,b,c FROM t;
+ANALYZE t;
+SELECT m.* FROM pg_statistic_ext s, pg_statistic_ext_data d, pg_mcv_list_items(d.stxdmcv) m WHERE s.stxname='s' AND d.stxoid=s.oid;

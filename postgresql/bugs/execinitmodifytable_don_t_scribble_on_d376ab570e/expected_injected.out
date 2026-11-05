@@ -1,0 +1,40 @@
+set plan_cache_mode = force_generic_plan;
+create table part_abc (a int, b text, c bool) partition by list (a);
+create table part_abc_1 partition of part_abc for values in (1);
+create table part_abc_2 partition of part_abc for values in (2);
+prepare u as update part_abc set b = $2 where a = $1 returning *;
+explain (verbose, costs off) execute u (1, 'd');
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Update on public.part_abc
+   Output: part_abc_1.a, part_abc_1.b, part_abc_1.c
+   Update on public.part_abc_1
+   ->  Append
+         Subplans Removed: 1
+         ->  Seq Scan on public.part_abc_1
+               Output: $2, part_abc_1.tableoid, part_abc_1.ctid
+               Filter: (part_abc_1.a = $1)
+(8 rows)
+
+explain (verbose, costs off) execute u (2, 'a');
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Update on public.part_abc
+   Output: part_abc_1.a, part_abc_1.b, part_abc_1.c
+   Update on public.part_abc_2 part_abc_1
+   ->  Append
+         Subplans Removed: 1
+         ->  Seq Scan on public.part_abc_2 part_abc_1
+               Output: $2, part_abc_1.tableoid, part_abc_1.ctid
+               Filter: (part_abc_1.a = $1)
+(8 rows)
+
+explain (verbose, costs off) execute u (3, 'a');
+         QUERY PLAN          
+-----------------------------
+ Update on public.part_abc
+   Output: a, b, c
+   ->  Append
+         Subplans Removed: 2
+(4 rows)
+

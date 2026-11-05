@@ -1,0 +1,28 @@
+diff --git a/src/backend/utils/mmgr/dsa.c b/src/backend/utils/mmgr/dsa.c
+index 65189ba764e..4d06b7b97a1 100644
+--- a/src/backend/utils/mmgr/dsa.c
++++ b/src/backend/utils/mmgr/dsa.c
+@@ -2158,23 +2158,6 @@ make_new_segment(dsa_area *area, size_t requested_pages)
+ 			MAXALIGN(sizeof(FreePageManager)) +
+ 			usable_pages * sizeof(dsa_pointer);
+ 
+-		/*
+-		 * We must also account for pagemap entries needed to cover the
+-		 * metadata pages themselves.  The pagemap must track all pages in the
+-		 * segment, including the pages occupied by metadata.
+-		 *
+-		 * This formula uses integer ceiling division to compute the exact
+-		 * number of additional entries needed.  The divisor (FPM_PAGE_SIZE -
+-		 * sizeof(dsa_pointer)) accounts for the fact that each metadata page
+-		 * consumes one pagemap entry of sizeof(dsa_pointer) bytes, leaving
+-		 * only (FPM_PAGE_SIZE - sizeof(dsa_pointer)) net bytes per metadata
+-		 * page.
+-		 */
+-		metadata_bytes +=
+-			((metadata_bytes + (FPM_PAGE_SIZE - sizeof(dsa_pointer)) - 1) /
+-			 (FPM_PAGE_SIZE - sizeof(dsa_pointer))) *
+-			sizeof(dsa_pointer);
+-
+ 		/* Add padding up to next page boundary. */
+ 		if (metadata_bytes % FPM_PAGE_SIZE != 0)
+ 			metadata_bytes += FPM_PAGE_SIZE - (metadata_bytes % FPM_PAGE_SIZE);

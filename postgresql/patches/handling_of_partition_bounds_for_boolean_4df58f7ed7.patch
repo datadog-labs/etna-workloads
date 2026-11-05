@@ -1,0 +1,20 @@
+diff --git a/src/backend/parser/parse_utilcmd.c b/src/backend/parser/parse_utilcmd.c
+index cacb1379e97..e279daf549c 100644
+--- a/src/backend/parser/parse_utilcmd.c
++++ b/src/backend/parser/parse_utilcmd.c
+@@ -4611,6 +4611,15 @@ transformPartitionBoundValue(ParseState *pstate, Node *val,
+ {
+ 	Node	   *value;
+ 
++	/* TRUE and FALSE are not accepted as partition bound values */
++	if (IsA(val, A_Const) && !castNode(A_Const, val)->isnull &&
++		castNode(A_Const, val)->val.node.type == T_Boolean)
++		ereport(ERROR,
++				(errcode(ERRCODE_SYNTAX_ERROR),
++				 errmsg("syntax error at or near \"%s\"",
++						castNode(A_Const, val)->val.boolval.boolval ? "true" : "false"),
++				 parser_errposition(pstate, exprLocation(val))));
++
+ 	/* Transform raw parsetree */
+ 	value = transformExpr(pstate, val, EXPR_KIND_PARTITION_BOUND);
+ 

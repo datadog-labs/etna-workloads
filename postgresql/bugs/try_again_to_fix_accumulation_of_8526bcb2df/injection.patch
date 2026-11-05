@@ -1,0 +1,28 @@
+diff --git a/src/backend/executor/execParallel.c b/src/backend/executor/execParallel.c
+index f3e77bda279..4fdaada28d0 100644
+--- a/src/backend/executor/execParallel.c
++++ b/src/backend/executor/execParallel.c
+@@ -1196,6 +1196,11 @@ ExecParallelFinish(ParallelExecutorInfo *pei)
+ 	for (i = 0; i < nworkers; i++)
+ 		InstrAccumParallelQuery(&pei->buffer_usage[i], &pei->wal_usage[i]);
+ 
++	/* Finally, accumulate instrumentation, if any. */
++	if (pei->instrumentation)
++		ExecParallelRetrieveInstrumentation(pei->planstate,
++											pei->instrumentation);
++
+ 	pei->finished = true;
+ }
+ 
+@@ -1208,11 +1213,6 @@ ExecParallelFinish(ParallelExecutorInfo *pei)
+ void
+ ExecParallelCleanup(ParallelExecutorInfo *pei)
+ {
+-	/* Accumulate instrumentation, if any. */
+-	if (pei->instrumentation)
+-		ExecParallelRetrieveInstrumentation(pei->planstate,
+-											pei->instrumentation);
+-
+ 	/* Accumulate JIT instrumentation, if any. */
+ 	if (pei->jit_instrumentation)
+ 		ExecParallelRetrieveJitInstrumentation(pei->planstate,

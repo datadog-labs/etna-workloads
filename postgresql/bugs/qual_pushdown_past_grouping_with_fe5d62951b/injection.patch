@@ -1,0 +1,980 @@
+diff --git a/src/backend/optimizer/path/allpaths.c b/src/backend/optimizer/path/allpaths.c
+index b53722036cd..53208be5107 100644
+--- a/src/backend/optimizer/path/allpaths.c
++++ b/src/backend/optimizer/path/allpaths.c
+@@ -154,10 +154,6 @@ static bool targetIsInAllPartitionLists(TargetEntry *tle, Query *query);
+ static pushdown_safe_type qual_is_pushdown_safe(Query *subquery, Index rti,
+ 												RestrictInfo *rinfo,
+ 												pushdown_safety_info *safetyInfo);
+-static Oid	pushdown_var_grouping_eqop(Var *var, void *context);
+-static Oid	subquery_column_grouping_eqop(Query *subquery, AttrNumber attno);
+-static Oid	setop_column_grouping_eqop(Node *setop, AttrNumber attno);
+-static bool setop_has_grouping(Node *setop);
+ static void subquery_push_qual(Query *subquery,
+ 							   RangeTblEntry *rte, Index rti, Node *qual);
+ static void recurse_push_qual(Node *setOp, Query *topquery,
+@@ -3924,16 +3920,6 @@ targetIsInAllPartitionLists(TargetEntry *tle, Query *query)
+  *
+  * 5. rinfo's clause must not refer to any subquery output columns that were
+  * found to be unsafe to reference by subquery_is_pushdown_safe().
+- *
+- * 6. If the subquery has a grouping layer (DISTINCT, DISTINCT ON, window
+- * PARTITION BY, or a set operation that groups rows by equality), rinfo's
+- * clause must not apply a different equivalence relation to a grouping column
+- * than the grouping uses; otherwise it would distinguish rows the grouping
+- * considers equal, and pushing such a clause past the grouping would drop
+- * members of a group and change which row becomes the group's representative
+- * (or, for window functions, change per-partition values such as ranks and
+- * counts).  See expression_has_grouping_conflict for the kinds of conflict
+- * detected.
+  */
+ static pushdown_safe_type
+ qual_is_pushdown_safe(Query *subquery, Index rti, RestrictInfo *rinfo,
+@@ -4030,174 +4016,9 @@ qual_is_pushdown_safe(Query *subquery, Index rti, RestrictInfo *rinfo,
+ 
+ 	list_free(vars);
+ 
+-	/* Check point 6 */
+-	if (safe == PUSHDOWN_SAFE &&
+-		(subquery->hasWindowFuncs ||
+-		 subquery->distinctClause != NIL ||
+-		 (subquery->setOperations != NULL &&
+-		  setop_has_grouping(subquery->setOperations))))
+-	{
+-		if (expression_has_grouping_conflict(qual, pushdown_var_grouping_eqop,
+-											 subquery))
+-			safe = PUSHDOWN_UNSAFE;
+-	}
+-
+ 	return safe;
+ }
+ 
+-/*
+- * pushdown_var_grouping_eqop
+- *		grouping_eqop_callback for qual_is_pushdown_safe.
+- *
+- * Returns the grouping equality operator for 'var' if it references a subquery
+- * output column that participates in the subquery's grouping layer; InvalidOid
+- * otherwise.
+- *
+- * 'context' is the subquery Query whose pushdown safety we're checking.
+- */
+-static Oid
+-pushdown_var_grouping_eqop(Var *var, void *context)
+-{
+-	Query	   *subquery = (Query *) context;
+-	Oid			eqop;
+-
+-	if (var->varlevelsup != 0)
+-		return InvalidOid;
+-
+-	eqop = subquery_column_grouping_eqop(subquery, var->varattno);
+-
+-	/*
+-	 * qual_is_pushdown_safe ensures any level-0 subquery Var that reaches us
+-	 * references a grouping column.
+-	 */
+-	Assert(OidIsValid(eqop));
+-
+-	return eqop;
+-}
+-
+-/*
+- * subquery_column_grouping_eqop
+- *		Return the equality operator that the subquery uses to group rows on
+- *		the given output column, or InvalidOid if the column doesn't
+- *		participate in any grouping mechanism.
+- *
+- * A subquery output column is grouping-relevant if it appears in
+- * subquery->distinctClause (covering both DISTINCT and DISTINCT ON), in every
+- * window's PARTITION BY clause, or is grouped by some node in a set-operation
+- * tree.  In all of these cases the parser builds the SortGroupClause with the
+- * column's type-default equality operator via get_sort_group_operators, so any
+- * matching SortGroupClause carries the correct eqop.
+- */
+-static Oid
+-subquery_column_grouping_eqop(Query *subquery, AttrNumber attno)
+-{
+-	TargetEntry *tle;
+-	ListCell   *lc;
+-
+-	if (attno <= 0 || attno > list_length(subquery->targetList))
+-		return InvalidOid;
+-
+-	tle = list_nth_node(TargetEntry, subquery->targetList, attno - 1);
+-
+-	/* DISTINCT or DISTINCT ON */
+-	foreach(lc, subquery->distinctClause)
+-	{
+-		SortGroupClause *sgc = lfirst_node(SortGroupClause, lc);
+-
+-		if (sgc->tleSortGroupRef == tle->ressortgroupref)
+-			return sgc->eqop;
+-	}
+-
+-	/* Window function PARTITION BY: must appear in every window's list. */
+-	if (subquery->hasWindowFuncs && subquery->windowClause != NIL)
+-	{
+-		Oid			eqop = InvalidOid;
+-
+-		foreach(lc, subquery->windowClause)
+-		{
+-			WindowClause *wc = (WindowClause *) lfirst(lc);
+-			ListCell   *lc2;
+-
+-			foreach(lc2, wc->partitionClause)
+-			{
+-				SortGroupClause *sgc = lfirst_node(SortGroupClause, lc2);
+-
+-				if (sgc->tleSortGroupRef == tle->ressortgroupref)
+-					break;
+-			}
+-			if (lc2 == NULL)
+-				break;			/* not present in this window's list */
+-			eqop = lfirst_node(SortGroupClause, lc2)->eqop;
+-		}
+-		if (lc == NULL)
+-			return eqop;		/* matched in every window */
+-	}
+-
+-	/* Set operation */
+-	if (subquery->setOperations != NULL)
+-		return setop_column_grouping_eqop(subquery->setOperations, attno);
+-
+-	return InvalidOid;
+-}
+-
+-/*
+- * setop_column_grouping_eqop
+- *		Recursively search a SetOperationStmt tree for any node that groups
+- *		rows by equality, and return the equality operator used for the given
+- *		output column.  Returns InvalidOid if no node in the tree groups (i.e.,
+- *		an entirely-UNION-ALL tree).
+- *
+- * For any set operation other than UNION ALL, groupClauses is a positional
+- * list of SortGroupClauses, with element N-1 corresponding to output column N
+- * (see makeSortGroupClauseForSetOp).
+- */
+-static Oid
+-setop_column_grouping_eqop(Node *setop, AttrNumber attno)
+-{
+-	SetOperationStmt *op;
+-	Oid			eqop;
+-
+-	if (setop == NULL || !IsA(setop, SetOperationStmt))
+-		return InvalidOid;
+-
+-	op = (SetOperationStmt *) setop;
+-
+-	if (op->groupClauses != NIL &&
+-		attno >= 1 && attno <= list_length(op->groupClauses))
+-	{
+-		SortGroupClause *sgc = list_nth_node(SortGroupClause,
+-											 op->groupClauses, attno - 1);
+-
+-		return sgc->eqop;
+-	}
+-
+-	/* Recurse into children to find any inner grouping */
+-	eqop = setop_column_grouping_eqop(op->larg, attno);
+-	if (OidIsValid(eqop))
+-		return eqop;
+-	return setop_column_grouping_eqop(op->rarg, attno);
+-}
+-
+-/*
+- * setop_has_grouping
+- *		Return true if any node in the SetOperationStmt tree groups rows by
+- *		equality (i.e., has non-NIL groupClauses).
+- */
+-static bool
+-setop_has_grouping(Node *setop)
+-{
+-	SetOperationStmt *op;
+-
+-	if (setop == NULL || !IsA(setop, SetOperationStmt))
+-		return false;
+-
+-	op = (SetOperationStmt *) setop;
+-	if (op->groupClauses != NIL)
+-		return true;
+-
+-	return setop_has_grouping(op->larg) || setop_has_grouping(op->rarg);
+-}
+-
+ /*
+  * subquery_push_qual - push down a qual that we have determined is safe
+  */
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..55fddf804c4 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -129,21 +129,26 @@ typedef struct
+ } standard_qp_extra;
+ 
+ /*
+- * Context for find_having_conflicts.  This is the callback context passed to
+- * expression_has_grouping_conflict in clauses.c.
++ * Context for the find_having_collation_conflicts walker.
++ *
++ * ancestor_collids is a stack of inputcollids contributed by collation-aware
++ * ancestors of the current node.  Entries are pushed before recursing into a
++ * node's children and popped afterwards, so the stack reflects exactly the
++ * inputcollids on the current root-to-node path.
+  */
+ typedef struct
+ {
+-	Query	   *parse;
+ 	Index		group_rtindex;
+-} having_grouping_ctx;
++	List	   *ancestor_collids;
++} having_collation_ctx;
+ 
+ /* Local functions */
+ static Node *preprocess_expression(PlannerInfo *root, Node *expr, int kind);
+ static void preprocess_qual_conditions(PlannerInfo *root, Node *jtnode);
+-static Bitmapset *find_having_conflicts(Query *parse, Index group_rtindex);
+-static Oid	having_var_grouping_eqop(Var *var, void *context);
+-static Oid	group_var_eqop(Query *parse, Var *var);
++static Bitmapset *find_having_collation_conflicts(Query *parse,
++												  Index group_rtindex);
++static bool having_collation_conflict_walker(Node *node,
++											 having_collation_ctx *ctx);
+ static void grouping_planner(PlannerInfo *root, double tuple_fraction,
+ 							 SetOperationStmt *setops);
+ static grouping_sets_data *preprocess_grouping_sets(PlannerInfo *root);
+@@ -668,7 +673,7 @@ subquery_planner(PlannerGlobal *glob, Query *parse, PlannerInfo *parent_root,
+ 	PlannerInfo *root;
+ 	List	   *newWithCheckOptions;
+ 	List	   *newHaving;
+-	Bitmapset  *havingPushdownConflicts;
++	Bitmapset  *havingCollationConflicts;
+ 	int			havingIdx;
+ 	bool		hasOuterJoins;
+ 	bool		hasResultRTEs;
+@@ -1092,14 +1097,25 @@ subquery_planner(PlannerGlobal *glob, Query *parse, PlannerInfo *parent_root,
+ 	}
+ 
+ 	/*
+-	 * Before we flatten GROUP Vars, identify HAVING clauses whose equality
+-	 * semantics disagree with the GROUP BY's.  See find_having_conflicts.
++	 * Before we flatten GROUP Vars, check which HAVING clauses have collation
++	 * conflicts.  When GROUP BY uses a nondeterministic collation, values
++	 * that are "equal" for grouping may be distinguishable under a different
++	 * collation.  If such a HAVING clause were moved to WHERE, it would
++	 * filter individual rows before grouping, potentially eliminating some
++	 * members of a group and thereby changing aggregate results.
++	 *
++	 * We do this check before flatten_group_exprs because we can easily
++	 * identify grouping expressions by checking whether a Var references
++	 * RTE_GROUP, and such Vars directly carry the GROUP BY collation as their
++	 * varcollid.  After flattening, these Vars are replaced by the underlying
++	 * expressions, and we would have to match expressions in the HAVING
++	 * clause back to grouping expressions, which is much more complex.
+ 	 */
+ 	if (parse->hasGroupRTE)
+-		havingPushdownConflicts = find_having_conflicts(parse,
+-														root->group_rtindex);
++		havingCollationConflicts =
++			find_having_collation_conflicts(parse, root->group_rtindex);
+ 	else
+-		havingPushdownConflicts = NULL;
++		havingCollationConflicts = NULL;
+ 
+ 	/*
+ 	 * Replace any Vars in the subquery's targetlist and havingQual that
+@@ -1145,13 +1161,13 @@ subquery_planner(PlannerGlobal *glob, Query *parse, PlannerInfo *parent_root,
+ 	 * but it's okay: it's just an optimization to avoid running pull_varnos
+ 	 * when there cannot be any Vars in the HAVING clause.)
+ 	 *
+-	 * We also cannot do this for HAVING clauses that conflict with GROUP BY
+-	 * on collation or operator family.  Both kinds of conflict are detected
+-	 * before flatten_group_exprs (see find_having_conflicts above) and
+-	 * recorded in the havingPushdownConflicts bitmapset.  The bitmapset
+-	 * indexes remain valid here because flatten_group_exprs uses
+-	 * expression_tree_mutator, which preserves the list length and ordering
+-	 * of havingQual.
++	 * We also cannot do this if the HAVING clause uses a different collation
++	 * than the GROUP BY for any grouping expression whose GROUP BY collation
++	 * is nondeterministic.  This is detected before flatten_group_exprs (see
++	 * find_having_collation_conflicts above) and recorded in the
++	 * havingCollationConflicts bitmapset.  The bitmapset indexes remain valid
++	 * here because flatten_group_exprs uses expression_tree_mutator, which
++	 * preserves the list length and ordering of havingQual.
+ 	 *
+ 	 * Also, it may be that the clause is so expensive to execute that we're
+ 	 * better off doing it only once per group, despite the loss of
+@@ -1193,7 +1209,7 @@ subquery_planner(PlannerGlobal *glob, Query *parse, PlannerInfo *parent_root,
+ 		if (contain_agg_clause(havingclause) ||
+ 			contain_volatile_functions(havingclause) ||
+ 			contain_subplans(havingclause) ||
+-			bms_is_member(havingIdx, havingPushdownConflicts) ||
++			bms_is_member(havingIdx, havingCollationConflicts) ||
+ 			(parse->groupClause && parse->groupingSets &&
+ 			 bms_is_member(root->group_rtindex, pull_varnos(root, havingclause))))
+ 		{
+@@ -1424,99 +1440,192 @@ preprocess_qual_conditions(PlannerInfo *root, Node *jtnode)
+ }
+ 
+ /*
+- * find_having_conflicts
+- *	  Identify HAVING clauses that must not be moved to WHERE because they
+- *	  apply a different equivalence relation than GROUP BY.  Pushing such a
+- *	  clause to WHERE would filter individual rows before grouping happens,
+- *	  eliminating rows that GROUP BY would have merged into a single group
+- *	  and thereby changing aggregate results.
+- *
+- * The actual walking is done by expression_has_grouping_conflict; see that
+- * function for the kinds of conflict it looks for.  We just iterate over
+- * havingQual and supply a HAVING-specific callback that identifies GROUP
+- * Vars.
++ * find_having_collation_conflicts
++ *	  Identify HAVING clauses that must not be moved to WHERE due to collation
++ *	  mismatches with GROUP BY.
+  *
+  * This must be called before flatten_group_exprs, while the HAVING clause
+  * still contains GROUP Vars (Vars referencing RTE_GROUP).  These GROUP Vars
+- * carry the GROUP BY collation as their varcollid and let us recover the
+- * grouping eqop via varattno.  After flattening, those Vars are replaced by
+- * the underlying expressions, and matching back to grouping expressions is
+- * much harder.
++ * carry the GROUP BY collation as their varcollid.  A GROUP Var with a
++ * nondeterministic varcollid conflicts whenever some collation-aware ancestor
++ * on its path applies a different inputcollid: that operator would distinguish
++ * values which the GROUP BY considers equal, so the clause is unsafe to push
++ * to WHERE.
+  *
+  * Returns a Bitmapset of zero-based indexes into the havingQual list for
+- * clauses that conflict and must stay in HAVING.
++ * clauses that have collation conflicts and must stay in HAVING.
+  */
+ static Bitmapset *
+-find_having_conflicts(Query *parse, Index group_rtindex)
++find_having_collation_conflicts(Query *parse, Index group_rtindex)
+ {
+ 	Bitmapset  *result = NULL;
+-	having_grouping_ctx ctx;
++	having_collation_ctx ctx;
+ 	int			idx;
+ 
+ 	if (parse->havingQual == NULL)
+ 		return NULL;
+ 
+-	ctx.parse = parse;
+ 	ctx.group_rtindex = group_rtindex;
++	ctx.ancestor_collids = NIL;
+ 
+ 	idx = 0;
+ 	foreach_ptr(Node, clause, (List *) parse->havingQual)
+ 	{
+-		if (expression_has_grouping_conflict(clause, having_var_grouping_eqop,
+-											 &ctx))
++		if (having_collation_conflict_walker(clause, &ctx))
+ 			result = bms_add_member(result, idx);
+ 		idx++;
++		Assert(ctx.ancestor_collids == NIL);
+ 	}
+ 
+ 	return result;
+ }
+ 
+ /*
+- * having_var_grouping_eqop
+- *	  grouping_eqop_callback for find_having_conflicts.
++ * Walker function for find_having_collation_conflicts.
+  *
+- * Returns the GROUP BY equality operator for 'var' if it references the
+- * query's RTE_GROUP, or InvalidOid otherwise.
++ * Walk the clause top-down, maintaining a stack of inputcollids contributed
++ * by collation-aware ancestors.  At each GROUP Var with a nondeterministic
++ * varcollid, the clause has a conflict if any ancestor's inputcollid differs
++ * from the GROUP Var's varcollid.  Most collation-aware nodes expose their
++ * inputcollid through exprInputCollation().  Two structural exceptions need
++ * special handling:
++ *
++ * - RowCompareExpr carries one inputcollid per column in inputcollids[], so we
++ *   descend into its (largs[i], rargs[i]) pairs explicitly with the matching
++ *   collation pushed onto the stack.
++ *
++ * - A simple CASE (CaseExpr with a non-NULL arg) holds the arg outside the
++ *   WHEN's OpExpr, even though the WHEN's OpExpr is the place where the
++ *   comparison's inputcollid lives.  Parse analysis builds each WHEN as
++ *   "OpExpr(CaseTestExpr op val)" -- the CaseTestExpr is a placeholder for
++ *   the arg.  Before walking cexpr->arg we therefore push every WHEN's
++ *   inputcollid onto the ancestor stack, so a GROUP Var at the arg is
++ *   checked against the same collations the WHEN comparisons would apply.
++ *   The WHEN bodies and defresult are then walked under the unchanged stack
++ *   so their own collation contexts are picked up by the default path.
+  */
+-static Oid
+-having_var_grouping_eqop(Var *var, void *context)
++static bool
++having_collation_conflict_walker(Node *node, having_collation_ctx *ctx)
+ {
+-	having_grouping_ctx *ctx = (having_grouping_ctx *) context;
++	Oid			this_collid;
++	bool		result;
+ 
+-	if (var->varno != ctx->group_rtindex || var->varlevelsup != 0)
+-		return InvalidOid;
++	if (node == NULL)
++		return false;
+ 
+-	return group_var_eqop(ctx->parse, var);
+-}
++	if (IsA(node, Var))
++	{
++		Var		   *var = (Var *) node;
+ 
+-/*
+- * group_var_eqop
+- *	  Return the equality operator that GROUP BY uses for the given GROUP Var.
+- *
+- * A GROUP Var's varattno is its 1-based position in the RTE_GROUP's groupexprs
+- * list, which addRangeTableEntryForGroup built by iterating parse->groupClause
+- * and including every SortGroupClause whose TLE was present in the targetlist.
+- * Replay that traversal here to recover the SortGroupClause for the given
+- * varattno.
+- */
+-static Oid
+-group_var_eqop(Query *parse, Var *var)
+-{
+-	int			counter = 0;
++		/* We should not see any upper-level Vars here */
++		Assert(var->varlevelsup == 0);
+ 
+-	Assert(var->varlevelsup == 0);
++		if (var->varno == ctx->group_rtindex &&
++			OidIsValid(var->varcollid) &&
++			!get_collation_isdeterministic(var->varcollid))
++		{
++			foreach_oid(collid, ctx->ancestor_collids)
++			{
++				if (collid != var->varcollid)
++					return true;
++			}
++		}
++		return false;
++	}
+ 
+-	foreach_node(SortGroupClause, sgc, parse->groupClause)
++	if (IsA(node, RowCompareExpr))
+ 	{
+-		if (get_sortgroupclause_tle(sgc, parse->targetList) == NULL)
+-			continue;
+-		if (++counter == var->varattno)
+-			return sgc->eqop;
++		RowCompareExpr *rcexpr = (RowCompareExpr *) node;
++		ListCell   *lc_l;
++		ListCell   *lc_r;
++		ListCell   *lc_c;
++
++		/*
++		 * Each column of a row comparison is compared under its own
++		 * inputcollids[i].  Walk each (largs[i], rargs[i]) pair with that
++		 * collation pushed, so a Var in column i is checked against the
++		 * collation that actually applies to it.
++		 */
++		forthree(lc_l, rcexpr->largs,
++				 lc_r, rcexpr->rargs,
++				 lc_c, rcexpr->inputcollids)
++		{
++			Oid			collid = lfirst_oid(lc_c);
++			bool		found;
++
++			if (OidIsValid(collid))
++				ctx->ancestor_collids = lappend_oid(ctx->ancestor_collids,
++													collid);
++
++			found = having_collation_conflict_walker((Node *) lfirst(lc_l),
++													 ctx) ||
++				having_collation_conflict_walker((Node *) lfirst(lc_r),
++												 ctx);
++
++			if (OidIsValid(collid))
++				ctx->ancestor_collids =
++					list_delete_last(ctx->ancestor_collids);
++
++			if (found)
++				return true;
++		}
++		return false;
+ 	}
+ 
+-	elog(ERROR, "could not find GROUP clause for GROUP Var attno %d",
+-		 var->varattno);
+-	return InvalidOid;			/* keep compiler quiet */
++	if (IsA(node, CaseExpr) && ((CaseExpr *) node)->arg != NULL)
++	{
++		CaseExpr   *cexpr = (CaseExpr *) node;
++		int			saved_len = list_length(ctx->ancestor_collids);
++		bool		found;
++
++		/*
++		 * Push every WHEN's inputcollid before walking cexpr->arg, since each
++		 * WHEN implicitly compares the arg under that inputcollid.
++		 */
++		foreach_node(CaseWhen, cw, cexpr->args)
++		{
++			Oid			collid = exprInputCollation((Node *) cw->expr);
++
++			if (OidIsValid(collid))
++				ctx->ancestor_collids = lappend_oid(ctx->ancestor_collids,
++													collid);
++		}
++
++		found = having_collation_conflict_walker((Node *) cexpr->arg, ctx);
++
++		ctx->ancestor_collids = list_truncate(ctx->ancestor_collids,
++											  saved_len);
++
++		if (found)
++			return true;
++
++		/*
++		 * Walk the WHEN bodies and defresult under the unchanged ancestor
++		 * stack; any inputcollids inside them are picked up by the default
++		 * path.
++		 */
++		foreach_node(CaseWhen, cw, cexpr->args)
++		{
++			if (having_collation_conflict_walker((Node *) cw->expr, ctx) ||
++				having_collation_conflict_walker((Node *) cw->result, ctx))
++				return true;
++		}
++		return having_collation_conflict_walker((Node *) cexpr->defresult,
++												ctx);
++	}
++
++	this_collid = exprInputCollation(node);
++	if (OidIsValid(this_collid))
++		ctx->ancestor_collids = lappend_oid(ctx->ancestor_collids,
++											this_collid);
++
++	result = expression_tree_walker(node, having_collation_conflict_walker,
++									ctx);
++
++	if (OidIsValid(this_collid))
++		ctx->ancestor_collids = list_delete_last(ctx->ancestor_collids);
++
++	return result;
+ }
+ 
+ /*
+diff --git a/src/backend/optimizer/util/clauses.c b/src/backend/optimizer/util/clauses.c
+index aa70667c4a5..a559f59c83f 100644
+--- a/src/backend/optimizer/util/clauses.c
++++ b/src/backend/optimizer/util/clauses.c
+@@ -94,17 +94,6 @@ typedef struct
+ 	List	   *safe_param_ids; /* PARAM_EXEC Param IDs to treat as safe */
+ } max_parallel_hazard_context;
+ 
+-/*
+- * Walker context for expression_has_grouping_conflict.  get_eqop is a callback
+- * that returns the equality operator used for grouping.  cb_context is opaque
+- * to the walker and is forwarded to get_eqop unchanged.
+- */
+-typedef struct
+-{
+-	grouping_eqop_callback get_eqop;
+-	void	   *cb_context;
+-} grouping_walker_ctx;
+-
+ static bool contain_agg_clause_walker(Node *node, void *context);
+ static bool find_window_functions_walker(Node *node, WindowFuncLists *lists);
+ static bool contain_subplans_walker(Node *node, void *context);
+@@ -122,11 +111,6 @@ static Relids find_nonnullable_rels_walker(Node *node, bool top_level);
+ static List *find_nonnullable_vars_walker(Node *node, bool top_level);
+ static bool is_strict_saop(ScalarArrayOpExpr *expr, bool falseOK);
+ static bool convert_saop_to_hashed_saop_walker(Node *node, void *context);
+-static bool grouping_conflict_walker(Node *node, grouping_walker_ctx *ctx);
+-static bool grouping_check_operands(Oid opno, Oid inputcollid,
+-									List *args, grouping_walker_ctx *ctx);
+-static bool grouping_check_operand(Node *arg, Oid opno, Oid inputcollid,
+-								   grouping_walker_ctx *ctx);
+ static Node *eval_const_expressions_mutator(Node *node,
+ 											eval_const_expressions_context *context);
+ static bool contain_non_const_walker(Node *node, void *context);
+@@ -5468,258 +5452,6 @@ pull_paramids_walker(Node *node, Bitmapset **context)
+ 	return expression_tree_walker(node, pull_paramids_walker, context);
+ }
+ 
+-/*
+- * expression_has_grouping_conflict
+- *	  Detect whether 'expr' would distinguish rows that a grouping mechanism
+- *	  (GROUP BY, DISTINCT, DISTINCT ON, window PARTITION BY, or set operation)
+- *	  considers equal.
+- *
+- * The caller supplies a get_eqop callback (see clauses.h) so the same walker
+- * serves every grouping context.  The callback identifies a grouping column by
+- * returning a valid eqop for its Var.  A grouping column is safe to reference
+- * only if the reference yields the same result for every value the grouping
+- * treats as equal.  Otherwise, pushing the clause past the grouping could
+- * discard rows that the grouping would have combined into a single group.
+- *
+- * The reference is provably safe only when the grouping column is a direct
+- * operand of a comparison that tests the grouping's own equality.  Such an
+- * operand is rejected when the comparison's operator does not have equality
+- * semantics compatible with the grouping eqop, or, for a nondeterministic
+- * collation, when the comparison applies a collation other than the column's.
+- *
+- * For a nondeterministic collation, every other reference is rejected: a
+- * comparison under a different collation, and any function or operator over
+- * the column, because we cannot tell whether the function yields the same
+- * result for values the grouping treats as equal, and many do not.  A column
+- * with a deterministic collation is not restricted this way.
+- *
+- * This leaves one case uncaught: with a deterministic collation, a function
+- * over the column can still feed a finer comparison than the direct-operand
+- * check sees, for example record_image_ops over a rebuilt record, or scale()
+- * over numeric where two equal values differ in scale.  Catching it would
+- * require knowing that a type's equality is bitwise, which we do not test
+- * here.
+- *
+- * Returns true if any such conflict exists.
+- */
+-bool
+-expression_has_grouping_conflict(Node *expr,
+-								 grouping_eqop_callback get_eqop,
+-								 void *context)
+-{
+-	grouping_walker_ctx ctx;
+-
+-	if (expr == NULL)
+-		return false;
+-
+-	ctx.get_eqop = get_eqop;
+-	ctx.cb_context = context;
+-
+-	return grouping_conflict_walker(expr, &ctx);
+-}
+-
+-/*
+- * Walker function for expression_has_grouping_conflict.
+- *
+- * A comparison node checks its direct operands with grouping_check_operand,
+- * which does not recurse into a grouping-column operand.  A grouping column
+- * therefore reaches the Var branch only when it is referenced in some other
+- * way: wrapped in a function or other expression, used as the whole qual (a
+- * bare boolean column), or used as an operand of an operator that is not a
+- * btree/hash member and so is not treated as a comparison here.
+- *
+- * Comparison nodes are OpExpr/ScalarArrayOpExpr whose operator is a btree/hash
+- * member, and RowCompareExpr (one operator and collation per column).  A
+- * simple CASE (CaseExpr with a non-NULL arg) is a comparison in disguise:
+- * parse analysis builds each WHEN as "OpExpr(CaseTestExpr op val)", with the
+- * CaseTestExpr standing in for the arg, so the arg is effectively an operand
+- * of each WHEN's comparison.  Those WHEN operators are always the type-default
+- * "=", matching the grouping eqop, so only a collation conflict is possible
+- * there.
+- */
+-static bool
+-grouping_conflict_walker(Node *node, grouping_walker_ctx *ctx)
+-{
+-	if (node == NULL)
+-		return false;
+-
+-	if (IsA(node, Var))
+-	{
+-		Var		   *var = (Var *) node;
+-
+-		/*
+-		 * A grouping column reaches here when it was not handled as a direct
+-		 * operand by a comparison node above (see the function header).  That
+-		 * is safe for a deterministic collation, but not for a
+-		 * nondeterministic one, where the reference may distinguish values
+-		 * the grouping considers equal.  A bare boolean qual is safe too:
+-		 * boolean is not collatable, so it takes the deterministic path here.
+-		 */
+-		if (OidIsValid(ctx->get_eqop(var, ctx->cb_context)) &&
+-			OidIsValid(var->varcollid) &&
+-			!get_collation_isdeterministic(var->varcollid))
+-			return true;
+-		return false;
+-	}
+-	else if (IsA(node, OpExpr))
+-	{
+-		OpExpr	   *opexpr = (OpExpr *) node;
+-
+-		if (op_is_safe_index_member(opexpr->opno))
+-			return grouping_check_operands(opexpr->opno, opexpr->inputcollid,
+-										   opexpr->args, ctx);
+-		/* fall through */
+-	}
+-	else if (IsA(node, ScalarArrayOpExpr))
+-	{
+-		ScalarArrayOpExpr *saop = (ScalarArrayOpExpr *) node;
+-
+-		if (op_is_safe_index_member(saop->opno))
+-			return grouping_check_operands(saop->opno, saop->inputcollid,
+-										   saop->args, ctx);
+-		/* fall through */
+-	}
+-	else if (IsA(node, RowCompareExpr))
+-	{
+-		RowCompareExpr *rcexpr = (RowCompareExpr *) node;
+-		ListCell   *lc_l;
+-		ListCell   *lc_r;
+-		ListCell   *lc_o;
+-		ListCell   *lc_c;
+-
+-		/* Each column is compared under its own operator and inputcollid. */
+-		forfour(lc_l, rcexpr->largs,
+-				lc_r, rcexpr->rargs,
+-				lc_o, rcexpr->opnos,
+-				lc_c, rcexpr->inputcollids)
+-		{
+-			Oid			opno = lfirst_oid(lc_o);
+-			Oid			collid = lfirst_oid(lc_c);
+-
+-			if (grouping_check_operand((Node *) lfirst(lc_l), opno, collid, ctx) ||
+-				grouping_check_operand((Node *) lfirst(lc_r), opno, collid, ctx))
+-				return true;
+-		}
+-		return false;
+-	}
+-	else if (IsA(node, CaseExpr) && ((CaseExpr *) node)->arg != NULL)
+-	{
+-		CaseExpr   *cexpr = (CaseExpr *) node;
+-		Node	   *arg = (Node *) cexpr->arg;
+-
+-		/* Look through RelabelType to find a direct Var arg. */
+-		while (arg && IsA(arg, RelabelType))
+-			arg = (Node *) ((RelabelType *) arg)->arg;
+-
+-		if (arg && IsA(arg, Var))
+-		{
+-			Var		   *var = (Var *) arg;
+-
+-			/*
+-			 * The arg is a grouping column compared by every WHEN.  For a
+-			 * nondeterministic collation, reject if any WHEN applies a
+-			 * different collation.
+-			 */
+-			if (OidIsValid(ctx->get_eqop(var, ctx->cb_context)) &&
+-				OidIsValid(var->varcollid) &&
+-				!get_collation_isdeterministic(var->varcollid))
+-			{
+-				foreach_node(CaseWhen, cw, cexpr->args)
+-				{
+-					Oid			collid = exprInputCollation((Node *) cw->expr);
+-
+-					if (OidIsValid(collid) && collid != var->varcollid)
+-						return true;
+-				}
+-			}
+-		}
+-		else if (grouping_conflict_walker((Node *) cexpr->arg, ctx))
+-		{
+-			/* arg is a complex expression; walked as a non-operand */
+-			return true;
+-		}
+-
+-		/*
+-		 * Walk the WHEN conditions, their results, and the default result as
+-		 * non-operands.  The WHEN conditions hold a CaseTestExpr in place of
+-		 * the arg, so they contribute no grouping operand of their own, but
+-		 * the condition expression or the substitution result may reference
+-		 * another grouping column.
+-		 */
+-		foreach_node(CaseWhen, cw, cexpr->args)
+-		{
+-			if (grouping_conflict_walker((Node *) cw->expr, ctx) ||
+-				grouping_conflict_walker((Node *) cw->result, ctx))
+-				return true;
+-		}
+-		return grouping_conflict_walker((Node *) cexpr->defresult, ctx);
+-	}
+-
+-	return expression_tree_walker(node, grouping_conflict_walker, ctx);
+-}
+-
+-/*
+- * grouping_check_operands
+- *		Check every argument of a comparison node as a direct operand of the
+- *		comparison's operator 'opno' and collation 'inputcollid'.
+- */
+-static bool
+-grouping_check_operands(Oid opno, Oid inputcollid, List *args,
+-						grouping_walker_ctx *ctx)
+-{
+-	ListCell   *lc;
+-
+-	foreach(lc, args)
+-	{
+-		if (grouping_check_operand((Node *) lfirst(lc), opno, inputcollid, ctx))
+-			return true;
+-	}
+-	return false;
+-}
+-
+-/*
+- * grouping_check_operand
+- *		Handle one operand 'arg' of a comparison with operator 'opno' and
+- *		collation 'inputcollid'.
+- *
+- * If 'arg' is a grouping column (after looking through RelabelType), verify
+- * that comparison's operator has equality semantics compatible with the
+- * grouping eqop and, for a nondeterministic collation, that it uses the same
+- * collation; such a direct operand is then fully handled and is not recursed
+- * into.  Any other operand is walked normally, so a grouping column buried
+- * inside it is seen as a non-operand reference.
+- */
+-static bool
+-grouping_check_operand(Node *arg, Oid opno, Oid inputcollid,
+-					   grouping_walker_ctx *ctx)
+-{
+-	Node	   *node = arg;
+-
+-	while (node && IsA(node, RelabelType))
+-		node = (Node *) ((RelabelType *) node)->arg;
+-
+-	if (node && IsA(node, Var))
+-	{
+-		Var		   *var = (Var *) node;
+-		Oid			grouping_eqop = ctx->get_eqop(var, ctx->cb_context);
+-
+-		if (OidIsValid(grouping_eqop))
+-		{
+-			/* incompatible equality semantics */
+-			if (!equality_ops_are_compatible(opno, grouping_eqop))
+-				return true;
+-			/* nondeterministic collation compared under a different collation */
+-			if (OidIsValid(var->varcollid) &&
+-				!get_collation_isdeterministic(var->varcollid) &&
+-				inputcollid != var->varcollid)
+-				return true;
+-		}
+-		return false;			/* direct operand handled; do not recurse */
+-	}
+-
+-	return grouping_conflict_walker(arg, ctx);
+-}
+-
+ /*
+  * Build ScalarArrayOpExpr on top of 'exprs.' 'haveNonConst' indicates
+  * whether at least one of the expressions is not Const.  When it's false,
+diff --git a/src/backend/utils/cache/lsyscache.c b/src/backend/utils/cache/lsyscache.c
+index 11ccac505db..366031e96c9 100644
+--- a/src/backend/utils/cache/lsyscache.c
++++ b/src/backend/utils/cache/lsyscache.c
+@@ -826,22 +826,15 @@ get_op_index_interpretation(Oid opno)
+ 
+ /*
+  * equality_ops_are_compatible
+- *		Return true if the two given operators have compatible equality
++ *		Return true if the two given equality operators have compatible
+  *		semantics.
+  *
+  * This is trivially true if they are the same operator.  Otherwise,
+- * we look to see if they both belong to an opfamily that guarantees
+- * compatible semantics for equality.  Either finding allows us to assume
+- * that they have compatible notions of equality.
+- *
+- * The typical use is to compare two equality operators (for instance the
+- * cross-type operators int24eq vs int4eq), but the test is meaningful for
+- * any pair of operators in a btree/hash opfamily.  Btree marks its
+- * opfamilies as amconsistentequality, which guarantees that every member
+- * of the family (=, <, <=, >, >=) agrees on the equivalence relation
+- * defined by the family's "=".  So a non-equality operator and an
+- * equality operator from the same opfamily are also "compatible" in this
+- * sense.
++ * Otherwise, we look to see if they both belong to an opfamily that
++ * guarantees compatible semantics for equality.  Either finding allows us to
++ * assume that they have compatible notions of equality.  (The reason we need
++ * to do these pushups is that one might be a cross-type operator; for
++ * instance int24eq vs int4eq.)
+  */
+ bool
+ equality_ops_are_compatible(Oid opno1, Oid opno2)
+@@ -980,48 +973,6 @@ collations_agree_on_equality(Oid coll1, Oid coll2)
+ 	return true;
+ }
+ 
+-/*
+- * op_is_safe_index_member
+- *		Check if the operator is a member of a B-tree or Hash operator family.
+- *
+- * Membership in such an opfamily has several useful implications: the operator
+- * returns non-null for non-null inputs (i.e. "null-safety", required so that
+- * the operator doesn't break index integrity), and it agrees with other
+- * members of the same opfamily on equality semantics.  Callers use this check
+- * as a proxy for any of those properties.
+- */
+-bool
+-op_is_safe_index_member(Oid opno)
+-{
+-	bool		result = false;
+-	CatCList   *catlist;
+-	int			i;
+-
+-	/*
+-	 * Search pg_amop to see if the target operator is registered for any
+-	 * btree or hash opfamily.
+-	 */
+-	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno));
+-
+-	for (i = 0; i < catlist->n_members; i++)
+-	{
+-		HeapTuple	tuple = &catlist->members[i]->tuple;
+-		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple);
+-
+-		/* Check if the AM is B-tree or Hash */
+-		if (aform->amopmethod == BTREE_AM_OID ||
+-			aform->amopmethod == HASH_AM_OID)
+-		{
+-			result = true;
+-			break;
+-		}
+-	}
+-
+-	ReleaseSysCacheList(catlist);
+-
+-	return result;
+-}
+-
+ 
+ /*				---------- AMPROC CACHES ----------						 */
+ 
+diff --git a/src/include/optimizer/clauses.h b/src/include/optimizer/clauses.h
+index 5935c50ffe1..0dffec00ede 100644
+--- a/src/include/optimizer/clauses.h
++++ b/src/include/optimizer/clauses.h
+@@ -23,16 +23,6 @@ typedef struct
+ 	List	  **windowFuncs;	/* lists of WindowFuncs for each winref */
+ } WindowFuncLists;
+ 
+-/*
+- * Callback used by expression_has_grouping_conflict below.  Given a Var, the
+- * callback returns the equality operator that the relevant grouping mechanism
+- * (GROUP BY, DISTINCT, DISTINCT ON, window PARTITION BY, or set operation)
+- * uses for the column the Var references, or InvalidOid if the Var does not
+- * participate in that grouping.  Returning InvalidOid signals "not a grouping
+- * column" to both the opfamily and collation checks.
+- */
+-typedef Oid (*grouping_eqop_callback) (Var *var, void *context);
+-
+ extern bool contain_agg_clause(Node *clause);
+ 
+ extern bool contain_window_function(Node *clause);
+@@ -65,8 +55,4 @@ extern Query *inline_set_returning_function(PlannerInfo *root,
+ 
+ extern Bitmapset *pull_paramids(Expr *expr);
+ 
+-extern bool expression_has_grouping_conflict(Node *expr,
+-											 grouping_eqop_callback get_eqop,
+-											 void *context);
+-
+ #endif							/* CLAUSES_H */
+diff --git a/src/include/utils/lsyscache.h b/src/include/utils/lsyscache.h
+index e0c2fc7f7aa..81b152da421 100644
+--- a/src/include/utils/lsyscache.h
++++ b/src/include/utils/lsyscache.h
+@@ -92,7 +92,6 @@ extern List *get_op_index_interpretation(Oid opno);
+ extern bool equality_ops_are_compatible(Oid opno1, Oid opno2);
+ extern bool comparison_ops_are_compatible(Oid opno1, Oid opno2);
+ extern bool collations_agree_on_equality(Oid coll1, Oid coll2);
+-extern bool op_is_safe_index_member(Oid opno);
+ extern Oid	get_opfamily_proc(Oid opfamily, Oid lefttype, Oid righttype,
+ 							  int16 procnum);
+ extern char *get_attname(Oid relid, AttrNumber attnum, bool missing_ok);

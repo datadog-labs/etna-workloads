@@ -1,0 +1,1 @@
+printf '\\timing on\ndo $$ begin perform pg_sleep(0.3); raise exception $x$boom$x$; end $$;\n' | psql -X -q 2>&1 | sed -E 's/^Time: 0\.000 ms.*/ZERO/; s/^Time: [0-9.]+ ms.*/NONZERO/' | grep -E '^(ZERO|NONZERO)'

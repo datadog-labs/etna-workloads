@@ -1,0 +1,69 @@
+diff --git a/src/backend/utils/activity/pgstat.c b/src/backend/utils/activity/pgstat.c
+index 99e537bc886..b537e6bfb4f 100644
+--- a/src/backend/utils/activity/pgstat.c
++++ b/src/backend/utils/activity/pgstat.c
+@@ -185,7 +185,7 @@ static void pgstat_read_statsfile(void);
+ 
+ static void pgstat_init_snapshot_fixed(void);
+ 
+-static void pgstat_reset_after_failure(void);
++static void pgstat_reset_after_failure(TimestampTz ts);
+ 
+ static bool pgstat_flush_pending_entries(bool nowait);
+ 
+@@ -541,12 +541,6 @@ pgstat_discard_stats(void)
+ 				 errmsg_internal("unlinked permanent statistics file \"%s\"",
+ 								 PGSTAT_STAT_PERMANENT_FILENAME)));
+ 	}
+-
+-	/*
+-	 * Reset stats contents. This will set reset timestamps of fixed-numbered
+-	 * stats to the current time (no variable stats exist).
+-	 */
+-	pgstat_reset_after_failure();
+ }
+ 
+ /*
+@@ -1758,6 +1752,7 @@ pgstat_read_statsfile(void)
+ 	bool		found;
+ 	const char *statfile = PGSTAT_STAT_PERMANENT_FILENAME;
+ 	PgStat_ShmemControl *shmem = pgStatLocal.shmem;
++	TimestampTz ts = GetCurrentTimestamp();
+ 
+ 	/* shouldn't be called from postmaster */
+ 	Assert(IsUnderPostmaster || !IsPostmasterEnvironment);
+@@ -1780,7 +1775,7 @@ pgstat_read_statsfile(void)
+ 					(errcode_for_file_access(),
+ 					 errmsg("could not open statistics file \"%s\": %m",
+ 							statfile)));
+-		pgstat_reset_after_failure();
++		pgstat_reset_after_failure(ts);
+ 		return;
+ 	}
+ 
+@@ -2031,20 +2026,19 @@ error:
+ 	ereport(LOG,
+ 			(errmsg("corrupted statistics file \"%s\"", statfile)));
+ 
+-	pgstat_reset_after_failure();
++	/* Set the current timestamp as reset timestamp */
++	pgstat_reset_after_failure(ts);
+ 
+ 	goto done;
+ }
+ 
+ /*
+- * Helper to reset / drop stats after a crash or after restoring stats from
+- * disk failed, potentially after already loading parts.
++ * Helper to reset / drop stats after restoring stats from disk failed,
++ * potentially after already loading parts.
+  */
+ static void
+-pgstat_reset_after_failure(void)
++pgstat_reset_after_failure(TimestampTz ts)
+ {
+-	TimestampTz ts = GetCurrentTimestamp();
+-
+ 	/* reset fixed-numbered stats */
+ 	for (PgStat_Kind kind = PGSTAT_KIND_MIN; kind <= PGSTAT_KIND_MAX; kind++)
+ 	{

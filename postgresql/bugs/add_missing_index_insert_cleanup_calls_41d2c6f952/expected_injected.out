@@ -1,0 +1,27 @@
+create table t(a int);
+insert into t select g from generate_series(1,1000) g;
+create index concurrently t_brin on t using brin(a);
+psql:<REPRO>:3: WARNING:  resource was not closed: [201] (rel=base/5/16387, blockNum=1, flags=0x93800000, refcount=1 1)
+psql:<REPRO>:3: WARNING:  resource was not closed: [188] (rel=base/5/16387, blockNum=0, flags=0x93800000, refcount=1 1)
+select count(*) from t where a < 10;
+ count 
+-------
+     9
+(1 row)
+
+create table u(a int, b int);
+create index u_brin on u using brin(b);
+create table w(a int);
+insert into w select generate_series(1,100);
+create index concurrently w_brin on w using brin(a) with (pages_per_range=1);
+psql:<REPRO>:9: WARNING:  resource was not closed: [232] (rel=base/5/16395, blockNum=1, flags=0x93800000, refcount=1 1)
+psql:<REPRO>:9: WARNING:  resource was not closed: [231] (rel=base/5/16395, blockNum=0, flags=0x93800000, refcount=1 1)
+reindex index concurrently w_brin;
+psql:<REPRO>:10: WARNING:  resource was not closed: [238] (rel=base/5/16396, blockNum=1, flags=0x93800000, refcount=1 1)
+psql:<REPRO>:10: WARNING:  resource was not closed: [237] (rel=base/5/16396, blockNum=0, flags=0x93800000, refcount=1 1)
+select 1;
+ ?column? 
+----------
+        1
+(1 row)
+

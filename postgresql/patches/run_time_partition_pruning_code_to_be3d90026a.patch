@@ -1,0 +1,29 @@
+diff --git a/src/backend/partitioning/partprune.c b/src/backend/partitioning/partprune.c
+index 5dae151da0f..427218a6f39 100644
+--- a/src/backend/partitioning/partprune.c
++++ b/src/backend/partitioning/partprune.c
+@@ -3503,22 +3503,9 @@ perform_pruning_base_step(PartitionPruneContext *context,
+ 			partkey_datum_from_expr(context, expr, stateidx,
+ 									&datum, &isnull);
+ 
+-			/*
+-			 * Since we only allow strict operators in pruning steps, any
+-			 * null-valued comparison value must cause the comparison to fail,
+-			 * so that no partitions could match.
+-			 */
++			/* Cannot use a NULL value for pruning; skip this key */
+ 			if (isnull)
+-			{
+-				PruneStepResult *result;
+-
+-				result = (PruneStepResult *) palloc(sizeof(PruneStepResult));
+-				result->bound_offsets = NULL;
+-				result->scan_default = false;
+-				result->scan_null = false;
+-
+-				return result;
+-			}
++				continue;
+ 
+ 			/* Set up the stepcmpfuncs entry, unless we already did */
+ 			cmpfn = lfirst_oid(lc2);

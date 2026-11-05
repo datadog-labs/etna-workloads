@@ -1,0 +1,193 @@
+diff --git a/src/backend/utils/adt/tsquery_util.c b/src/backend/utils/adt/tsquery_util.c
+index 56af4e627ad..e7f5f104702 100644
+--- a/src/backend/utils/adt/tsquery_util.c
++++ b/src/backend/utils/adt/tsquery_util.c
+@@ -18,9 +18,6 @@
+ #include "tsearch/ts_utils.h"
+ #include "varatt.h"
+ 
+-/*
+- * Build QTNode tree for a tsquery given in QueryItem array format.
+- */
+ QTNode *
+ QT2QTN(QueryItem *in, char *operand)
+ {
+@@ -54,12 +51,6 @@ QT2QTN(QueryItem *in, char *operand)
+ 	return node;
+ }
+ 
+-/*
+- * Free a QTNode tree.
+- *
+- * Referenced "word" and "valnode" items are freed if marked as transient
+- * by flags.
+- */
+ void
+ QTNFree(QTNode *in)
+ {
+@@ -72,27 +63,26 @@ QTNFree(QTNode *in)
+ 	if (in->valnode->type == QI_VAL && in->word && (in->flags & QTN_WORDFREE) != 0)
+ 		pfree(in->word);
+ 
+-	if (in->valnode->type == QI_OPR)
+-	{
+-		int			i;
+-
+-		for (i = 0; i < in->nchild; i++)
+-			QTNFree(in->child[i]);
+-	}
+ 	if (in->child)
++	{
++		if (in->valnode)
++		{
++			if (in->valnode->type == QI_OPR && in->nchild > 0)
++			{
++				int			i;
++
++				for (i = 0; i < in->nchild; i++)
++					QTNFree(in->child[i]);
++			}
++			if (in->flags & QTN_NEEDFREE)
++				pfree(in->valnode);
++		}
+ 		pfree(in->child);
+-
+-	if (in->flags & QTN_NEEDFREE)
+-		pfree(in->valnode);
++	}
+ 
+ 	pfree(in);
+ }
+ 
+-/*
+- * Sort comparator for QTNodes.
+- *
+- * The sort order is somewhat arbitrary.
+- */
+ int
+ QTNodeCompare(QTNode *an, QTNode *bn)
+ {
+@@ -146,19 +136,12 @@ QTNodeCompare(QTNode *an, QTNode *bn)
+ 	}
+ }
+ 
+-/*
+- * qsort comparator for QTNode pointers.
+- */
+ static int
+ cmpQTN(const void *a, const void *b)
+ {
+ 	return QTNodeCompare(*(QTNode *const *) a, *(QTNode *const *) b);
+ }
+ 
+-/*
+- * Canonicalize a QTNode tree by sorting the children of AND/OR nodes
+- * into an arbitrary but well-defined order.
+- */
+ void
+ QTNSort(QTNode *in)
+ {
+@@ -176,16 +159,13 @@ QTNSort(QTNode *in)
+ 		qsort(in->child, in->nchild, sizeof(QTNode *), cmpQTN);
+ }
+ 
+-/*
+- * Are two QTNode trees equal according to QTNodeCompare?
+- */
+ bool
+ QTNEq(QTNode *a, QTNode *b)
+ {
+ 	uint32		sign = a->sign & b->sign;
+ 
+ 	if (!(sign == a->sign && sign == b->sign))
+-		return false;
++		return 0;
+ 
+ 	return (QTNodeCompare(a, b) == 0);
+ }
+@@ -211,17 +191,14 @@ QTNTernary(QTNode *in)
+ 	for (i = 0; i < in->nchild; i++)
+ 		QTNTernary(in->child[i]);
+ 
+-	/* Only AND and OR are associative, so don't flatten other node types */
+-	if (in->valnode->qoperator.oper != OP_AND &&
+-		in->valnode->qoperator.oper != OP_OR)
+-		return;
+-
+ 	for (i = 0; i < in->nchild; i++)
+ 	{
+ 		QTNode	   *cc = in->child[i];
+ 
++		/* OP_Phrase isn't associative */
+ 		if (cc->valnode->type == QI_OPR &&
+-			in->valnode->qoperator.oper == cc->valnode->qoperator.oper)
++			in->valnode->qoperator.oper == cc->valnode->qoperator.oper &&
++			in->valnode->qoperator.oper != OP_PHRASE)
+ 		{
+ 			int			oldnchild = in->nchild;
+ 
+@@ -260,6 +237,9 @@ QTNBinary(QTNode *in)
+ 	for (i = 0; i < in->nchild; i++)
+ 		QTNBinary(in->child[i]);
+ 
++	if (in->nchild <= 2)
++		return;
++
+ 	while (in->nchild > 2)
+ 	{
+ 		QTNode	   *nn = (QTNode *) palloc0(sizeof(QTNode));
+@@ -284,9 +264,8 @@ QTNBinary(QTNode *in)
+ }
+ 
+ /*
+- * Count the total length of operand strings in tree (including '\0'-
+- * terminators) and the total number of nodes.
+- * Caller must initialize *sumlen and *nnode to zeroes.
++ * Count the total length of operand string in tree, including '\0'-
++ * terminators.
+  */
+ static void
+ cntsize(QTNode *in, size_t *sumlen, size_t *nnode)
+@@ -315,10 +294,6 @@ typedef struct
+ 	char	   *curoperand;
+ } QTN2QTState;
+ 
+-/*
+- * Recursively convert a QTNode tree into flat tsquery format.
+- * Caller must have allocated arrays of the correct size.
+- */
+ static void
+ fillQT(QTN2QTState *state, QTNode *in)
+ {
+@@ -363,9 +338,6 @@ fillQT(QTN2QTState *state, QTNode *in)
+ 	}
+ }
+ 
+-/*
+- * Build flat tsquery from a QTNode tree.
+- */
+ TSQuery
+ QTN2QT(QTNode *in)
+ {
+@@ -394,11 +366,6 @@ QTN2QT(QTNode *in)
+ 	return out;
+ }
+ 
+-/*
+- * Copy a QTNode tree.
+- *
+- * Modifiable copies of the words and valnodes are made, too.
+- */
+ QTNode *
+ QTNCopy(QTNode *in)
+ {
+@@ -434,9 +401,6 @@ QTNCopy(QTNode *in)
+ 	return out;
+ }
+ 
+-/*
+- * Clear the specified flag bit(s) in all nodes of a QTNode tree.
+- */
+ void
+ QTNClearFlags(QTNode *in, uint32 flags)
+ {

@@ -1,0 +1,3 @@
+CREATE TABLE tbl (c1 int, c2 int);
+CREATE INDEX tbl_idx ON tbl (c1, (c1+0)) INCLUDE (c2);
+ALTER INDEX tbl_idx ALTER COLUMN 3 SET STATISTICS 1000;

@@ -1,0 +1,15 @@
+create table cp (id int primary key, val int) partition by range (id);
+create table cpp (val int, id int not null);
+alter table cp attach partition cpp for values from (1) to (1000);
+create function ct4() returns trigger as
+$$begin raise exception 'BOOM!'; end$$ language plpgsql;
+create trigger cpu after update on cp
+ referencing old table as old_rows new table as new_rows
+ for each statement execute procedure ct4();
+insert into cp (id, val) values (1, 2);
+begin;
+savepoint svp;
+update cp set val = 3 where id = 1;
+rollback to savepoint svp;
+rollback;
+select 'done';

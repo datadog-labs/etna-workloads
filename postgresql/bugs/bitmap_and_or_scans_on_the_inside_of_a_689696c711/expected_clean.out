@@ -1,0 +1,102 @@
+create temp table prtx1 (a integer, b integer, c integer) partition by range (a);
+create temp table prtx1_1 partition of prtx1 for values from (1) to (11);
+create temp table prtx1_2 partition of prtx1 for values from (11) to (21);
+create temp table prtx1_3 partition of prtx1 for values from (21) to (31);
+create temp table prtx2 (a integer, b integer, c integer) partition by range (a);
+create temp table prtx2_1 partition of prtx2 for values from (1) to (11);
+create temp table prtx2_2 partition of prtx2 for values from (11) to (21);
+create temp table prtx2_3 partition of prtx2 for values from (21) to (31);
+insert into prtx1 select 1 + i%30, i, i from generate_series(1,1000) i;
+insert into prtx2 select 1 + i%30, i, i from generate_series(1,500) i, generate_series(1,10) j;
+create index on prtx2 (b);
+create index on prtx2 (c);
+analyze prtx1;
+analyze prtx2;
+explain (costs off)
+select * from prtx1
+where not exists (select 1 from prtx2
+                  where prtx2.a=prtx1.a and prtx2.b=prtx1.b and prtx2.c=123)
+  and a<20 and c=120;
+                         QUERY PLAN                         
+------------------------------------------------------------
+ Hash Right Anti Join
+   Hash Cond: ((prtx2.a = prtx1.a) AND (prtx2.b = prtx1.b))
+   ->  Append
+         ->  Bitmap Heap Scan on prtx2_1
+               Recheck Cond: (c = 123)
+               ->  Bitmap Index Scan on prtx2_1_c_idx
+                     Index Cond: (c = 123)
+         ->  Bitmap Heap Scan on prtx2_2
+               Recheck Cond: (c = 123)
+               ->  Bitmap Index Scan on prtx2_2_c_idx
+                     Index Cond: (c = 123)
+         ->  Bitmap Heap Scan on prtx2_3
+               Recheck Cond: (c = 123)
+               ->  Bitmap Index Scan on prtx2_3_c_idx
+                     Index Cond: (c = 123)
+   ->  Hash
+         ->  Append
+               ->  Seq Scan on prtx1_1
+                     Filter: ((a < 20) AND (c = 120))
+               ->  Seq Scan on prtx1_2
+                     Filter: ((a < 20) AND (c = 120))
+(21 rows)
+
+select * from prtx1
+where not exists (select 1 from prtx2
+                  where prtx2.a=prtx1.a and prtx2.b=prtx1.b and prtx2.c=123)
+  and a<20 and c=120;
+ a |  b  |  c  
+---+-----+-----
+ 1 | 120 | 120
+(1 row)
+
+explain (costs off)
+select * from prtx1
+where not exists (select 1 from prtx2
+                  where prtx2.a=prtx1.a and (prtx2.b=prtx1.b+1 or prtx2.c=99))
+  and a<20 and c=91;
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Nested Loop Anti Join
+   ->  Append
+         ->  Seq Scan on prtx1_1
+               Filter: ((a < 20) AND (c = 91))
+         ->  Seq Scan on prtx1_2
+               Filter: ((a < 20) AND (c = 91))
+   ->  Append
+         ->  Bitmap Heap Scan on prtx2_1
+               Recheck Cond: ((b = (prtx1.b + 1)) OR (c = 99))
+               Filter: (a = prtx1.a)
+               ->  BitmapOr
+                     ->  Bitmap Index Scan on prtx2_1_b_idx
+                           Index Cond: (b = (prtx1.b + 1))
+                     ->  Bitmap Index Scan on prtx2_1_c_idx
+                           Index Cond: (c = 99)
+         ->  Bitmap Heap Scan on prtx2_2
+               Recheck Cond: ((b = (prtx1.b + 1)) OR (c = 99))
+               Filter: (a = prtx1.a)
+               ->  BitmapOr
+                     ->  Bitmap Index Scan on prtx2_2_b_idx
+                           Index Cond: (b = (prtx1.b + 1))
+                     ->  Bitmap Index Scan on prtx2_2_c_idx
+                           Index Cond: (c = 99)
+         ->  Bitmap Heap Scan on prtx2_3
+               Recheck Cond: ((b = (prtx1.b + 1)) OR (c = 99))
+               Filter: (a = prtx1.a)
+               ->  BitmapOr
+                     ->  Bitmap Index Scan on prtx2_3_b_idx
+                           Index Cond: (b = (prtx1.b + 1))
+                     ->  Bitmap Index Scan on prtx2_3_c_idx
+                           Index Cond: (c = 99)
+(31 rows)
+
+select * from prtx1
+where not exists (select 1 from prtx2
+                  where prtx2.a=prtx1.a and (prtx2.b=prtx1.b+1 or prtx2.c=99))
+  and a<20 and c=91;
+ a | b  | c  
+---+----+----
+ 2 | 91 | 91
+(1 row)
+

@@ -1,0 +1,78 @@
+diff --git a/src/backend/executor/spi.c b/src/backend/executor/spi.c
+index ecb2e4ccaa1..d0f2926173d 100644
+--- a/src/backend/executor/spi.c
++++ b/src/backend/executor/spi.c
+@@ -258,62 +258,23 @@ _SPI_commit(bool chain)
+ 	if (chain)
+ 		SaveTransactionCharacteristics(&savetc);
+ 
+-	/* Catch any error occurring during the COMMIT */
+-	PG_TRY();
+-	{
+-		/* Protect current SPI stack entry against deletion */
+-		_SPI_current->internal_xact = true;
+-
+-		/*
+-		 * Hold any pinned portals that any PLs might be using.  We have to do
+-		 * this before changing transaction state, since this will run
+-		 * user-defined code that might throw an error.
+-		 */
+-		HoldPinnedPortals();
+-
+-		/* Release snapshots associated with portals */
+-		ForgetPortalSnapshots();
++	/* Protect current SPI stack entry against deletion */
++	_SPI_current->internal_xact = true;
+ 
+-		/* Do the deed */
+-		CommitTransactionCommand();
++	HoldPinnedPortals();
+ 
+-		/* Immediately start a new transaction */
+-		StartTransactionCommand();
+-		if (chain)
+-			RestoreTransactionCharacteristics(&savetc);
++	/* Release snapshots associated with portals */
++	ForgetPortalSnapshots();
+ 
+-		MemoryContextSwitchTo(oldcontext);
++	CommitTransactionCommand();
+ 
+-		_SPI_current->internal_xact = false;
+-	}
+-	PG_CATCH();
+-	{
+-		ErrorData  *edata;
+-
+-		/* Save error info in caller's context */
+-		MemoryContextSwitchTo(oldcontext);
+-		edata = CopyErrorData();
+-		FlushErrorState();
+-
+-		/*
+-		 * Abort the failed transaction.  If this fails too, we'll just
+-		 * propagate the error out ... there's not that much we can do.
+-		 */
+-		AbortCurrentTransaction();
+-
+-		/* ... and start a new one */
+-		StartTransactionCommand();
+-		if (chain)
+-			RestoreTransactionCharacteristics(&savetc);
+-
+-		MemoryContextSwitchTo(oldcontext);
++	StartTransactionCommand();
++	if (chain)
++		RestoreTransactionCharacteristics(&savetc);
+ 
+-		_SPI_current->internal_xact = false;
++	MemoryContextSwitchTo(oldcontext);
+ 
+-		/* Now that we've cleaned up the transaction, re-throw the error */
+-		ReThrowError(edata);
+-	}
+-	PG_END_TRY();
++	_SPI_current->internal_xact = false;
+ }
+ 
+ void

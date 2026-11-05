@@ -1,0 +1,13 @@
+create table p (a int, b int not null) partition by list (a);
+create table p1 (b int not null, a int);
+alter table p attach partition p1 for values in (1);
+create function trg() returns trigger language plpgsql as $$ begin new.b := null; return new; end $$;
+create trigger t before insert on p1 for each row execute function trg();
+insert into p values (1, 5);
+create table q (a int, b int, c int) partition by list (a);
+create table q1 (c int, b int, a int);
+alter table q attach partition q1 for values in (1);
+alter table q1 add constraint ck check (b > 0);
+create function trg2() returns trigger language plpgsql as $$ begin new.b := -1; return new; end $$;
+create trigger t2 before insert on q1 for each row execute function trg2();
+insert into q values (1, 5, 7);

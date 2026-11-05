@@ -1,0 +1,33 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..c3a14446cb4 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -1659,7 +1659,6 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
+ 	HeapTuple	statexttup;
+ 	StringInfoData buf;
+ 	int			colno;
+-	char	   *nsp;
+ 	ArrayType  *arr;
+ 	char	   *enabled;
+ 	Datum		datum;
+@@ -1713,10 +1712,8 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
+ 
+ 	if (!columns_only)
+ 	{
+-		nsp = get_namespace_name_or_temp(statextrec->stxnamespace);
+ 		appendStringInfo(&buf, "CREATE STATISTICS %s",
+-						 quote_qualified_identifier(nsp,
+-													NameStr(statextrec->stxname)));
++						 quote_identifier(NameStr(statextrec->stxname)));
+ 
+ 		/*
+ 		 * Decode the stxkind column so that we know which stats types to
+@@ -1826,7 +1823,7 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
+ 
+ 	if (!columns_only)
+ 		appendStringInfo(&buf, " FROM %s",
+-						 generate_relation_name(statextrec->stxrelid, NIL));
++						 quote_identifier(get_rel_name(statextrec->stxrelid)));
+ 
+ 	ReleaseSysCache(statexttup);
+ 

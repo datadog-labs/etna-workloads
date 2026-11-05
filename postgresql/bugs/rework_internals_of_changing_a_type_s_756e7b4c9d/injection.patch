@@ -1,0 +1,158 @@
+diff --git a/src/backend/catalog/pg_shdepend.c b/src/backend/catalog/pg_shdepend.c
+index 536191284e8..c6d1a351f12 100644
+--- a/src/backend/catalog/pg_shdepend.c
++++ b/src/backend/catalog/pg_shdepend.c
+@@ -1650,7 +1650,7 @@ shdepReassignOwned_Owner(Form_pg_shdepend sdepForm, Oid newrole)
+ 	switch (sdepForm->classid)
+ 	{
+ 		case TypeRelationId:
+-			AlterTypeOwner_oid(sdepForm->objid, newrole, true);
++			AlterTypeOwnerInternal(sdepForm->objid, newrole, true);
+ 			break;
+ 
+ 		case NamespaceRelationId:
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..99d9c15718e 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -16304,7 +16304,8 @@ ATExecChangeOwner(Oid relationOid, Oid newOwnerId, bool recursing, LOCKMODE lock
+ 		 * Also change the ownership of the table's row type, if it has one
+ 		 */
+ 		if (OidIsValid(tuple_class->reltype))
+-			AlterTypeOwnerInternal(tuple_class->reltype, newOwnerId);
++			AlterTypeOwnerInternal(tuple_class->reltype, newOwnerId,
++								   tuple_class->relkind == RELKIND_COMPOSITE_TYPE);
+ 
+ 		/*
+ 		 * If we are operating on a table or materialized view, also change
+diff --git a/src/backend/commands/typecmds.c b/src/backend/commands/typecmds.c
+index 2ed7973d1b4..6d3184c1f03 100644
+--- a/src/backend/commands/typecmds.c
++++ b/src/backend/commands/typecmds.c
+@@ -3954,7 +3954,15 @@ AlterTypeOwner(List *names, Oid newOwnerId, ObjectType objecttype)
+ 							   get_namespace_name(typTup->typnamespace));
+ 		}
+ 
+-		AlterTypeOwner_oid(typeOid, newOwnerId, true);
++		/*
++		 * If it's a composite type, invoke ATExecChangeOwner so that we fix
++		 * up the pg_class entry properly.  That will call back to
++		 * AlterTypeOwnerInternal to take care of the pg_type entry(s).
++		 */
++		if (typTup->typtype == TYPTYPE_COMPOSITE)
++			ATExecChangeOwner(typTup->typrelid, newOwnerId, true, AccessExclusiveLock);
++		else
++			AlterTypeOwnerInternal(typeOid, newOwnerId, true);
+ 	}
+ 
+ 	ObjectAddressSet(address, TypeRelationId, typeOid);
+@@ -3966,58 +3974,18 @@ AlterTypeOwner(List *names, Oid newOwnerId, ObjectType objecttype)
+ }
+ 
+ /*
+- * AlterTypeOwner_oid - change type owner unconditionally
++ * AlterTypeOwnerInternal - change type owner unconditionally
+  *
+- * This function recurses to handle dependent types (arrays and multiranges).
+- * It invokes any necessary access object hooks.  If hasDependEntry is true,
+- * this function modifies the pg_shdepend entry appropriately (this should be
+- * passed as false only for table rowtypes and dependent types).
+- *
+- * This is used by ALTER TABLE/TYPE OWNER commands, as well as by REASSIGN
+- * OWNED BY.  It assumes the caller has done all needed checks.
+- */
+-void
+-AlterTypeOwner_oid(Oid typeOid, Oid newOwnerId, bool hasDependEntry)
+-{
+-	Relation	rel;
+-	HeapTuple	tup;
+-	Form_pg_type typTup;
+-
+-	rel = table_open(TypeRelationId, RowExclusiveLock);
+-
+-	tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typeOid));
+-	if (!HeapTupleIsValid(tup))
+-		elog(ERROR, "cache lookup failed for type %u", typeOid);
+-	typTup = (Form_pg_type) GETSTRUCT(tup);
+-
+-	/*
+-	 * If it's a composite type, invoke ATExecChangeOwner so that we fix up
+-	 * the pg_class entry properly.  That will call back to
+-	 * AlterTypeOwnerInternal to take care of the pg_type entry(s).
+-	 */
+-	if (typTup->typtype == TYPTYPE_COMPOSITE)
+-		ATExecChangeOwner(typTup->typrelid, newOwnerId, true, AccessExclusiveLock);
+-	else
+-		AlterTypeOwnerInternal(typeOid, newOwnerId);
+-
+-	/* Update owner dependency reference */
+-	if (hasDependEntry)
+-		changeDependencyOnOwner(TypeRelationId, typeOid, newOwnerId);
+-
+-	InvokeObjectPostAlterHook(TypeRelationId, typeOid, 0);
+-
+-	ReleaseSysCache(tup);
+-	table_close(rel, RowExclusiveLock);
+-}
+-
+-/*
+- * AlterTypeOwnerInternal - bare-bones type owner change.
++ * This is used to propagate ALTER TABLE/TYPE OWNER to a table's rowtype or
++ * an array type, and to implement REASSIGN OWNED BY.  It assumes the caller
++ * has done all needed checks.  The function will automatically recurse to
++ * dependent types.
+  *
+- * This routine simply modifies the owner of a pg_type entry, and recurses
+- * to handle any dependent types.
++ * hasDependEntry should be true if type is expected to have a pg_shdepend
++ * entry (ie, it's not a table rowtype nor an array type).
+  */
+ void
+-AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId)
++AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId, bool hasDependEntry)
+ {
+ 	Relation	rel;
+ 	HeapTuple	tup;
+@@ -4060,9 +4028,13 @@ AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId)
+ 
+ 	CatalogTupleUpdate(rel, &tup->t_self, tup);
+ 
++	/* Update owner dependency reference, if it has one */
++	if (hasDependEntry)
++		changeDependencyOnOwner(TypeRelationId, typeOid, newOwnerId);
++
+ 	/* If it has an array type, update that too */
+ 	if (OidIsValid(typTup->typarray))
+-		AlterTypeOwnerInternal(typTup->typarray, newOwnerId);
++		AlterTypeOwnerInternal(typTup->typarray, newOwnerId, false);
+ 
+ 	/* If it is a range type, update the associated multirange too */
+ 	if (typTup->typtype == TYPTYPE_RANGE)
+@@ -4074,9 +4046,11 @@ AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId)
+ 					(errcode(ERRCODE_UNDEFINED_OBJECT),
+ 					 errmsg("could not find multirange type for data type %s",
+ 							format_type_be(typeOid))));
+-		AlterTypeOwnerInternal(multirange_typeid, newOwnerId);
++		AlterTypeOwnerInternal(multirange_typeid, newOwnerId, false);
+ 	}
+ 
++	InvokeObjectPostAlterHook(TypeRelationId, typeOid, 0);
++
+ 	/* Clean up */
+ 	table_close(rel, RowExclusiveLock);
+ }
+diff --git a/src/include/commands/typecmds.h b/src/include/commands/typecmds.h
+index b2ffec8c3be..ca5c582a74c 100644
+--- a/src/include/commands/typecmds.h
++++ b/src/include/commands/typecmds.h
+@@ -46,8 +46,8 @@ extern void checkDomainOwner(HeapTuple tup);
+ extern ObjectAddress RenameType(RenameStmt *stmt);
+ 
+ extern ObjectAddress AlterTypeOwner(List *names, Oid newOwnerId, ObjectType objecttype);
+-extern void AlterTypeOwner_oid(Oid typeOid, Oid newOwnerId, bool hasDependEntry);
+-extern void AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId);
++extern void AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId,
++								   bool hasDependEntry);
+ 
+ extern ObjectAddress AlterTypeNamespace(List *names, const char *newschema,
+ 										ObjectType objecttype, Oid *oldschema);

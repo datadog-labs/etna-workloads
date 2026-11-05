@@ -1,0 +1,5 @@
+CREATE TABLE t1 (a text, b text);
+ALTER TABLE t1 ADD CONSTRAINT cc CHECK (length(b) > 100) NOT VALID;
+CREATE TABLE t2 (LIKE t1 INCLUDING ALL);
+CREATE TABLE t3 (LIKE t1 INCLUDING CONSTRAINTS);
+SELECT conrelid::regclass, conname, convalidated FROM pg_constraint WHERE conname='cc' ORDER BY 1;

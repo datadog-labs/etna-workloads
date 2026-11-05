@@ -1,0 +1,17 @@
+create temp table t as select g empno from generate_series(1,5) g;
+EXPLAIN (COSTS OFF)
+SELECT * FROM (SELECT empno, count((SELECT 1)) OVER (ORDER BY empno DESC) c FROM t) e WHERE c = 1;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Subquery Scan on e
+   Filter: (e.c = 1)
+   ->  WindowAgg
+         Window: w1 AS (ORDER BY t.empno)
+         Run Condition: (count((InitPlan 1).col1) OVER w1 <= 1)
+         InitPlan 1
+           ->  Result
+         ->  Sort
+               Sort Key: t.empno DESC
+               ->  Seq Scan on t
+(10 rows)
+

@@ -1,0 +1,63 @@
+diff --git a/src/backend/parser/gram.y b/src/backend/parser/gram.y
+index 03c80eaaf22..c16564cb40a 100644
+--- a/src/backend/parser/gram.y
++++ b/src/backend/parser/gram.y
+@@ -12154,30 +12154,11 @@ ExecuteStmt: EXECUTE name execute_param_clause
+ 					ctas->into = $4;
+ 					ctas->objtype = OBJECT_TABLE;
+ 					ctas->is_select_into = false;
+-					ctas->if_not_exists = false;
+ 					/* cram additional flags into the IntoClause */
+ 					$4->rel->relpersistence = $2;
+ 					$4->skipData = !($9);
+ 					$$ = (Node *) ctas;
+ 				}
+-			| CREATE OptTemp TABLE IF_P NOT EXISTS create_as_target AS
+-				EXECUTE name execute_param_clause opt_with_data
+-				{
+-					CreateTableAsStmt *ctas = makeNode(CreateTableAsStmt);
+-					ExecuteStmt *n = makeNode(ExecuteStmt);
+-
+-					n->name = $10;
+-					n->params = $11;
+-					ctas->query = (Node *) n;
+-					ctas->into = $7;
+-					ctas->objtype = OBJECT_TABLE;
+-					ctas->is_select_into = false;
+-					ctas->if_not_exists = true;
+-					/* cram additional flags into the IntoClause */
+-					$7->rel->relpersistence = $2;
+-					$7->skipData = !($12);
+-					$$ = (Node *) ctas;
+-				}
+ 		;
+ 
+ execute_param_clause: '(' expr_list ')'				{ $$ = $2; }
+diff --git a/src/interfaces/ecpg/preproc/ecpg.addons b/src/interfaces/ecpg/preproc/ecpg.addons
+index b732f1a3551..bb7b881a380 100644
+--- a/src/interfaces/ecpg/preproc/ecpg.addons
++++ b/src/interfaces/ecpg/preproc/ecpg.addons
+@@ -345,10 +345,6 @@ ECPG: block ExecuteStmt CREATE OptTemp TABLE create_as_target AS EXECUTE prepare
+ 	{
+ 		$$.name = @$;
+ 	}
+-ECPG: block ExecuteStmt CREATE OptTemp TABLE IF_P NOT EXISTS create_as_target AS EXECUTE prepared_name execute_param_clause opt_with_data execute_rest
+-	{
+-		$$.name = @$;
+-	}
+ ECPG: block DeclareCursorStmt DECLARE cursor_name cursor_options CURSOR opt_hold FOR SelectStmt
+ 	{
+ 		struct cursor *ptr,
+diff --git a/src/interfaces/ecpg/preproc/parse.pl b/src/interfaces/ecpg/preproc/parse.pl
+index f22ca213c21..ddd7ff7050f 100644
+--- a/src/interfaces/ecpg/preproc/parse.pl
++++ b/src/interfaces/ecpg/preproc/parse.pl
+@@ -111,8 +111,6 @@ my %replace_line = (
+ 	  'EXECUTE prepared_name execute_param_clause execute_rest',
+ 	'ExecuteStmt CREATE OptTemp TABLE create_as_target AS EXECUTE name execute_param_clause opt_with_data'
+ 	  => 'CREATE OptTemp TABLE create_as_target AS EXECUTE prepared_name execute_param_clause opt_with_data execute_rest',
+-	'ExecuteStmt CREATE OptTemp TABLE IF_P NOT EXISTS create_as_target AS EXECUTE name execute_param_clause opt_with_data'
+-	  => 'CREATE OptTemp TABLE IF_P NOT EXISTS create_as_target AS EXECUTE prepared_name execute_param_clause opt_with_data execute_rest',
+ 	'PrepareStmt PREPARE name prep_type_clause AS PreparableStmt' =>
+ 	  'PREPARE prepared_name prep_type_clause AS PreparableStmt',
+ 	'var_name ColId' => 'ECPGColId');

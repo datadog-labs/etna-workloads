@@ -1,0 +1,32 @@
+diff --git a/src/backend/optimizer/util/clauses.c b/src/backend/optimizer/util/clauses.c
+index aa70667c4a5..668d0f7f9ad 100644
+--- a/src/backend/optimizer/util/clauses.c
++++ b/src/backend/optimizer/util/clauses.c
+@@ -914,26 +914,7 @@ max_parallel_hazard_walker(Node *node, max_parallel_hazard_context *context)
+ 	 * to the safe_param_ids list while examining the testexpr.
+ 	 */
+ 	else if (IsA(node, SubPlan))
+-	{
+-		SubPlan    *subplan = (SubPlan *) node;
+-		List	   *save_safe_param_ids;
+-
+-		if (!subplan->parallel_safe &&
+-			max_parallel_hazard_test(PROPARALLEL_RESTRICTED, context))
+-			return true;
+-		save_safe_param_ids = context->safe_param_ids;
+-		context->safe_param_ids = list_concat_copy(context->safe_param_ids,
+-												   subplan->paramIds);
+-		if (max_parallel_hazard_walker(subplan->testexpr, context))
+-			return true;		/* no need to restore safe_param_ids */
+-		list_free(context->safe_param_ids);
+-		context->safe_param_ids = save_safe_param_ids;
+-		/* we must also check args, but no special Param treatment there */
+-		if (max_parallel_hazard_walker((Node *) subplan->args, context))
+-			return true;
+-		/* don't want to recurse normally, so we're done */
+-		return false;
+-	}
++		return !((SubPlan *) node)->parallel_safe;
+ 
+ 	/*
+ 	 * We can't pass Params to workers at the moment either, so they are also

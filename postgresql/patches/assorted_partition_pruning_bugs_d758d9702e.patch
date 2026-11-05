@@ -1,0 +1,34 @@
+diff --git a/src/backend/partitioning/partprune.c b/src/backend/partitioning/partprune.c
+index 5dae151da0f..6674b648ecf 100644
+--- a/src/backend/partitioning/partprune.c
++++ b/src/backend/partitioning/partprune.c
+@@ -2361,7 +2361,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+ 				elem_exprs = lappend(elem_exprs, elem_expr);
+ 			}
+ 		}
+-		else if (IsA(rightop, ArrayExpr))
++		else
+ 		{
+ 			ArrayExpr  *arrexpr = castNode(ArrayExpr, rightop);
+ 
+@@ -2378,11 +2378,6 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+ 			 */
+ 			elem_exprs = arrexpr->elements;
+ 		}
+-		else
+-		{
+-			/* Give up on any other clause types. */
+-			return PARTCLAUSE_UNSUPPORTED;
+-		}
+ 
+ 		/*
+ 		 * Now generate a list of clauses, one for each array element, of the
+@@ -2410,8 +2405,6 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+ 		*clause_steps = gen_partprune_steps_internal(context, elem_clauses);
+ 		if (context->contradictory)
+ 			return PARTCLAUSE_MATCH_CONTRADICT;
+-		else if (*clause_steps == NIL)
+-			return PARTCLAUSE_UNSUPPORTED;	/* step generation failed */
+ 		return PARTCLAUSE_MATCH_STEPS;
+ 	}
+ 	else if (IsA(clause, NullTest))

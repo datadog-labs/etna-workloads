@@ -1,0 +1,104 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..94d2598b258 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -6727,7 +6727,6 @@ getAggregates(Archive *fout)
+ 		else
+ 			agginfo[i].aggfn.argtypes = parseOidArray(PQgetvalue(res, i, i_proargtypes),
+ 													  agginfo[i].aggfn.nargs);
+-		agginfo[i].aggfn.postponed_def = false; /* might get set during sort */
+ 
+ 		/* Decide whether we want to dump it */
+ 		selectDumpableObject(&(agginfo[i].aggfn.dobj), fout);
+@@ -6916,7 +6915,6 @@ getFuncs(Archive *fout)
+ 		else
+ 			finfo[i].argtypes = parseOidArray(PQgetvalue(res, i, i_proargtypes),
+ 											  finfo[i].nargs);
+-		finfo[i].postponed_def = false; /* might get set during sort */
+ 
+ 		/* Decide whether we want to dump it */
+ 		selectDumpableObject(&(finfo[i].dobj), fout);
+@@ -13645,8 +13643,7 @@ dumpFunc(Archive *fout, const FuncInfo *finfo)
+ 								  .namespace = finfo->dobj.namespace->dobj.name,
+ 								  .owner = finfo->rolname,
+ 								  .description = keyword,
+-								  .section = finfo->postponed_def ?
+-								  SECTION_POST_DATA : SECTION_PRE_DATA,
++								  .section = SECTION_PRE_DATA,
+ 								  .createStmt = q->data,
+ 								  .dropStmt = delqry->data));
+ 
+diff --git a/src/bin/pg_dump/pg_dump.h b/src/bin/pg_dump/pg_dump.h
+index 1306792b2ed..5e3f90718f6 100644
+--- a/src/bin/pg_dump/pg_dump.h
++++ b/src/bin/pg_dump/pg_dump.h
+@@ -245,7 +245,6 @@ typedef struct _funcInfo
+ 	int			nargs;
+ 	Oid		   *argtypes;
+ 	Oid			prorettype;
+-	bool		postponed_def;	/* function must be postponed into post-data */
+ } FuncInfo;
+ 
+ /* AggInfo is a superset of FuncInfo */
+diff --git a/src/bin/pg_dump/pg_dump_sort.c b/src/bin/pg_dump/pg_dump_sort.c
+index 297b4dfa500..9e84d4e5e1b 100644
+--- a/src/bin/pg_dump/pg_dump_sort.c
++++ b/src/bin/pg_dump/pg_dump_sort.c
+@@ -1048,28 +1048,6 @@ repairMatViewBoundaryMultiLoop(DumpableObject *boundaryobj,
+ 	}
+ }
+ 
+-/*
+- * If a function is involved in a multi-object loop, we can't currently fix
+- * that by splitting it into two DumpableObjects.  As a stopgap, we try to fix
+- * it by dropping the constraint that the function be dumped in the pre-data
+- * section.  This is sufficient to handle cases where a function depends on
+- * some unique index, as can happen if it has a GROUP BY for example.
+- */
+-static void
+-repairFunctionBoundaryMultiLoop(DumpableObject *boundaryobj,
+-								DumpableObject *nextobj)
+-{
+-	/* remove boundary's dependency on object after it in loop */
+-	removeObjectDependency(boundaryobj, nextobj->dumpId);
+-	/* if that object is a function, mark it as postponed into post-data */
+-	if (nextobj->objType == DO_FUNC)
+-	{
+-		FuncInfo   *nextinfo = (FuncInfo *) nextobj;
+-
+-		nextinfo->postponed_def = true;
+-	}
+-}
+-
+ /*
+  * Because we make tables depend on their CHECK constraints, while there
+  * will be an automatic dependency in the other direction, we need to break
+@@ -1279,28 +1257,6 @@ repairDependencyLoop(DumpableObject **loop,
+ 		}
+ 	}
+ 
+-	/* Indirect loop involving function and data boundary */
+-	if (nLoop > 2)
+-	{
+-		for (i = 0; i < nLoop; i++)
+-		{
+-			if (loop[i]->objType == DO_FUNC)
+-			{
+-				for (j = 0; j < nLoop; j++)
+-				{
+-					if (loop[j]->objType == DO_PRE_DATA_BOUNDARY)
+-					{
+-						DumpableObject *nextobj;
+-
+-						nextobj = (j < nLoop - 1) ? loop[j + 1] : loop[0];
+-						repairFunctionBoundaryMultiLoop(loop[j], nextobj);
+-						return;
+-					}
+-				}
+-			}
+-		}
+-	}
+-
+ 	/* Table and CHECK constraint */
+ 	if (nLoop == 2 &&
+ 		loop[0]->objType == DO_TABLE &&

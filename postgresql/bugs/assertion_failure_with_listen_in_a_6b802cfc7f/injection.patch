@@ -1,0 +1,51 @@
+diff --git a/src/backend/access/transam/xact.c b/src/backend/access/transam/xact.c
+index b885513f765..dee1f2d2d20 100644
+--- a/src/backend/access/transam/xact.c
++++ b/src/backend/access/transam/xact.c
+@@ -2320,14 +2320,6 @@ CommitTransaction(void)
+ 	/* close large objects before lower-level cleanup */
+ 	AtEOXact_LargeObject(true);
+ 
+-	/*
+-	 * Insert notifications sent by NOTIFY commands into the queue.  This
+-	 * should be late in the pre-commit sequence to minimize time spent
+-	 * holding the notify-insertion lock.  However, this could result in
+-	 * creating a snapshot, so we must do it before serializable cleanup.
+-	 */
+-	PreCommit_Notify();
+-
+ 	/*
+ 	 * Mark serializable transaction as complete for predicate locking
+ 	 * purposes.  This should be done as late as we can put it and still allow
+@@ -2338,6 +2330,13 @@ CommitTransaction(void)
+ 	if (!is_parallel_worker)
+ 		PreCommit_CheckForSerializationFailure();
+ 
++	/*
++	 * Insert notifications sent by NOTIFY commands into the queue.  This
++	 * should be late in the pre-commit sequence to minimize time spent
++	 * holding the notify-insertion lock.
++	 */
++	PreCommit_Notify();
++
+ 	/* Prevent cancel/die interrupt while cleaning up */
+ 	HOLD_INTERRUPTS();
+ 
+@@ -2581,8 +2580,6 @@ PrepareTransaction(void)
+ 	/* close large objects before lower-level cleanup */
+ 	AtEOXact_LargeObject(true);
+ 
+-	/* NOTIFY requires no work at this point */
+-
+ 	/*
+ 	 * Mark serializable transaction as complete for predicate locking
+ 	 * purposes.  This should be done as late as we can put it and still allow
+@@ -2590,6 +2587,8 @@ PrepareTransaction(void)
+ 	 */
+ 	PreCommit_CheckForSerializationFailure();
+ 
++	/* NOTIFY will be handled below */
++
+ 	/*
+ 	 * Don't allow PREPARE TRANSACTION if we've accessed a temporary table in
+ 	 * this transaction.  Having the prepared xact hold locks on another

@@ -1,0 +1,13 @@
+CREATE TYPE bogus AS ENUM ('good');
+BEGIN;
+ALTER TYPE bogus ADD VALUE 'new';
+psql:<REPRO>:3: ERROR:  ALTER TYPE ... ADD cannot run inside a transaction block
+SELECT 'new'::bogus;
+psql:<REPRO>:4: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+COMMIT;
+SELECT enum_range(null::bogus);
+ enum_range 
+------------
+ {good}
+(1 row)
+

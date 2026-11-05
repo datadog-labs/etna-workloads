@@ -1,0 +1,22 @@
+diff --git a/src/backend/executor/spi.c b/src/backend/executor/spi.c
+index ecb2e4ccaa1..3e12c30c799 100644
+--- a/src/backend/executor/spi.c
++++ b/src/backend/executor/spi.c
+@@ -2606,7 +2606,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
+ 			 * Skip it when doing non-atomic execution, though (we rely
+ 			 * entirely on the Portal snapshot in that case).
+ 			 */
+-			if (!options->read_only && !allow_nonatomic)
++			if (!options->read_only && !options->allow_nonatomic)
+ 			{
+ 				if (pushed_active_snap)
+ 					PopActiveSnapshot();
+@@ -2709,7 +2709,7 @@ _SPI_execute_plan(SPIPlanPtr plan, const SPIExecuteOptions *options,
+ 				 * If we're not allowing nonatomic operations, tell
+ 				 * ProcessUtility this is an atomic execution context.
+ 				 */
+-				if (allow_nonatomic)
++				if (!_SPI_current->atomic && options->allow_nonatomic)
+ 					context = PROCESS_UTILITY_QUERY_NONATOMIC;
+ 				else
+ 					context = PROCESS_UTILITY_QUERY;

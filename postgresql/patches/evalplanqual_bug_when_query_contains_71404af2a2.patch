@@ -1,0 +1,23 @@
+diff --git a/src/backend/executor/nodeLockRows.c b/src/backend/executor/nodeLockRows.c
+index 5d38bd4095c..00001725d46 100644
+--- a/src/backend/executor/nodeLockRows.c
++++ b/src/backend/executor/nodeLockRows.c
+@@ -259,6 +259,18 @@ lnext:
+ 		/* Initialize EPQ machinery */
+ 		EvalPlanQualBegin(&node->lr_epqstate);
+ 
++		/*
++		 * Make sure test tuples for all other tables are reset to NULL.
++		 */
++		foreach(lc, node->lr_epqstate.arowMarks)
++		{
++			ExecAuxRowMark *aerm = (ExecAuxRowMark *) lfirst(lc);
++
++			ExecClearTuple(EvalPlanQualSlot(&node->lr_epqstate,
++											aerm->rowmark->relation,
++											aerm->rowmark->rti));
++		}
++
+ 		/*
+ 		 * To fetch non-locked source rows the EPQ logic needs to access junk
+ 		 * columns from the tuple being tested.

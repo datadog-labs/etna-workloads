@@ -1,0 +1,41 @@
+diff --git a/src/backend/optimizer/util/inherit.c b/src/backend/optimizer/util/inherit.c
+index 246749309c4..8d2c5e97770 100644
+--- a/src/backend/optimizer/util/inherit.c
++++ b/src/backend/optimizer/util/inherit.c
+@@ -861,7 +861,6 @@ apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
+ 	{
+ 		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+ 		Node	   *childqual;
+-		ListCell   *lc2;
+ 
+ 		Assert(IsA(rinfo, RestrictInfo));
+ 		childqual = adjust_appendrel_attrs(root,
+@@ -880,17 +879,14 @@ apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
+ 			/* Restriction reduces to constant TRUE, so drop it */
+ 			continue;
+ 		}
+-		/* might have gotten an AND clause, if so flatten it */
+-		foreach(lc2, make_ands_implicit((Expr *) childqual))
+ 		{
+-			Node	   *onecq = (Node *) lfirst(lc2);
+ 			bool		pseudoconstant;
+ 			RestrictInfo *childrinfo;
+ 
+ 			/* check for pseudoconstant (no Vars or volatile functions) */
+ 			pseudoconstant =
+-				!contain_vars_of_level(onecq, 0) &&
+-				!contain_volatile_functions(onecq);
++				!contain_vars_of_level(childqual, 0) &&
++				!contain_volatile_functions(childqual);
+ 			if (pseudoconstant)
+ 			{
+ 				/* tell createplan.c to check for gating quals */
+@@ -898,7 +894,7 @@ apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
+ 			}
+ 			/* reconstitute RestrictInfo with appropriate properties */
+ 			childrinfo = make_restrictinfo(root,
+-										   (Expr *) onecq,
++										   (Expr *) childqual,
+ 										   rinfo->is_pushed_down,
+ 										   rinfo->has_clone,
+ 										   rinfo->is_clone,

@@ -1,0 +1,17 @@
+CREATE PROCEDURE p7c(x int, INOUT a int, INOUT b numeric)
+LANGUAGE plpgsql AS $$
+BEGIN
+  a := x / 10;
+  b := x / 2;
+  COMMIT;
+END;
+$$;
+CREATE PROCEDURE p7cc(_x int)
+LANGUAGE plpgsql AS $$
+DECLARE _a int; _b numeric;
+BEGIN
+  CALL p7c(_x, _a, _b);
+  RAISE NOTICE '_x: %,_a: %, _b: %', _x, _a, _b;
+END
+$$;
+CALL p7cc(10);

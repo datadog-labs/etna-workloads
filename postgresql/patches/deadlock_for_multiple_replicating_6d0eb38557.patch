@@ -1,0 +1,47 @@
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..6c210bf9872 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -3263,7 +3263,6 @@ apply_handle_truncate(StringInfo s)
+ 	List	   *relids = NIL;
+ 	List	   *relids_logged = NIL;
+ 	ListCell   *lc;
+-	LOCKMODE	lockmode = AccessExclusiveLock;
+ 
+ 	/*
+ 	 * Quick return if we are skipping data modification changes or handling
+@@ -3282,14 +3281,14 @@ apply_handle_truncate(StringInfo s)
+ 		LogicalRepRelId relid = lfirst_oid(lc);
+ 		LogicalRepRelMapEntry *rel;
+ 
+-		rel = logicalrep_rel_open(relid, lockmode);
++		rel = logicalrep_rel_open(relid, RowExclusiveLock);
+ 		if (!should_apply_changes_for_rel(rel))
+ 		{
+ 			/*
+ 			 * The relation can't become interesting in the middle of the
+ 			 * transaction so it's safe to unlock it.
+ 			 */
+-			logicalrep_rel_close(rel, lockmode);
++			logicalrep_rel_close(rel, RowExclusiveLock);
+ 			continue;
+ 		}
+ 
+@@ -3308,7 +3307,7 @@ apply_handle_truncate(StringInfo s)
+ 		{
+ 			ListCell   *child;
+ 			List	   *children = find_all_inheritors(rel->localreloid,
+-													   lockmode,
++													   RowExclusiveLock,
+ 													   NULL);
+ 
+ 			foreach(child, children)
+@@ -3328,7 +3327,7 @@ apply_handle_truncate(StringInfo s)
+ 				 */
+ 				if (RELATION_IS_OTHER_TEMP(childrel))
+ 				{
+-					table_close(childrel, lockmode);
++					table_close(childrel, RowExclusiveLock);
+ 					continue;
+ 				}
+ 

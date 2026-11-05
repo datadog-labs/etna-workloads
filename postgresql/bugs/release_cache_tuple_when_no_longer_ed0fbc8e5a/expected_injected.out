@@ -1,0 +1,11 @@
+CREATE TABLE pt (a int PRIMARY KEY, b int) PARTITION BY RANGE (a);
+CREATE TABLE pt1 PARTITION OF pt FOR VALUES FROM (0) TO (100);
+CREATE PUBLICATION p FOR TABLE pt WHERE (a > 1) WITH (publish_via_partition_root=true);
+psql:<REPRO>:3: WARNING:  "wal_level" is insufficient to publish logical changes
+HINT:  Set "wal_level" to "logical" before creating subscriptions.
+ALTER PUBLICATION p SET (publish_via_partition_root=0);
+psql:<REPRO>:4: ERROR:  cannot set publish_via_partition_root = false for publication "p"
+DETAIL:  The publication contains a WHERE clause for a partitioned table "pt" which is not allowed when publish_via_partition_root is false.
+ALTER PUBLICATION p SET TABLE pt;
+ALTER PUBLICATION p SET (publish_via_partition_root=0);
+psql:<REPRO>:6: WARNING:  resource was not closed: cache pg_publication_rel (53), tuple 0/2 has count 1

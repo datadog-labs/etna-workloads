@@ -1,0 +1,20 @@
+create type compostype as (x int, y varchar);
+create function compos() returns compostype as $$
+declare x int := 42;
+begin
+  return x;
+end;
+$$ language plpgsql;
+select * from compos();
+psql:<REPRO>:8: ERROR:  cannot return non-composite value from function returning composite type
+CONTEXT:  PL/pgSQL function compos() line 4 at RETURN
+create function compos2() returns int as $$
+declare v compostype;
+begin
+  v := (1, 'hello');
+  return v;
+end;
+$$ language plpgsql;
+select compos2();
+psql:<REPRO>:16: ERROR:  invalid input syntax for type integer: "(1,hello)"
+CONTEXT:  PL/pgSQL function compos2() while casting return value to function's return type

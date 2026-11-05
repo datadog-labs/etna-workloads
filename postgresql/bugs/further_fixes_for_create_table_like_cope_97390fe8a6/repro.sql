@@ -1,0 +1,3 @@
+CREATE TABLE inhx (xx text PRIMARY KEY);
+CREATE TABLE inhz (x text REFERENCES inhz, LIKE inhx INCLUDING INDEXES);
+\d inhz

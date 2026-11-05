@@ -1,0 +1,30 @@
+diff --git a/src/backend/optimizer/util/appendinfo.c b/src/backend/optimizer/util/appendinfo.c
+index 9ef93d466c0..5b3dc0d8653 100644
+--- a/src/backend/optimizer/util/appendinfo.c
++++ b/src/backend/optimizer/util/appendinfo.c
+@@ -237,9 +237,8 @@ adjust_appendrel_attrs_mutator(Node *node,
+ 		 * You might think we need to adjust var->varnullingrels, but that
+ 		 * shouldn't need any changes.  It will contain outer-join relids,
+ 		 * while the transformation we are making affects only baserels.
+-		 * Below, we just merge var->varnullingrels into the translated Var.
+-		 * (We must merge not just copy: the child Var could have some
+-		 * nullingrel bits set already, and we mustn't drop those.)
++		 * Below, we just propagate var->varnullingrels into the translated
++		 * Var.
+ 		 *
+ 		 * If var->varnullingrels isn't empty, and the translation wouldn't be
+ 		 * a Var, we have to fail.  One could imagine wrapping the translated
+@@ -292,11 +291,8 @@ adjust_appendrel_attrs_mutator(Node *node,
+ 						 var->varattno, get_rel_name(appinfo->parent_reloid));
+ 				if (IsA(newnode, Var))
+ 				{
+-					Var		   *newvar = (Var *) newnode;
+-
+-					newvar->varreturningtype = var->varreturningtype;
+-					newvar->varnullingrels = bms_add_members(newvar->varnullingrels,
+-															 var->varnullingrels);
++					((Var *) newnode)->varreturningtype = var->varreturningtype;
++					((Var *) newnode)->varnullingrels = var->varnullingrels;
+ 				}
+ 				else
+ 				{

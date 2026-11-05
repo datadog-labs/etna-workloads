@@ -1,0 +1,5 @@
+CREATE SEQUENCE seq1;
+BEGIN;
+ALTER SEQUENCE seq1 MAXVALUE 10;
+SELECT mode FROM pg_locks WHERE relation = 'seq1'::regclass AND locktype = 'relation';
+ROLLBACK;

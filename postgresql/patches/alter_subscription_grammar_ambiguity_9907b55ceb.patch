@@ -1,0 +1,34 @@
+diff --git a/src/backend/parser/gram.y b/src/backend/parser/gram.y
+index 03c80eaaf22..0145da81e36 100644
+--- a/src/backend/parser/gram.y
++++ b/src/backend/parser/gram.y
+@@ -10892,7 +10892,7 @@ AlterSubscriptionStmt:
+ 					n->options = $7;
+ 					$$ = (Node *) n;
+ 				}
+-			| ALTER SUBSCRIPTION name SET PUBLICATION name_list opt_definition
++			| ALTER SUBSCRIPTION name SET PUBLICATION name_list REFRESH opt_definition
+ 				{
+ 					AlterSubscriptionStmt *n =
+ 						makeNode(AlterSubscriptionStmt);
+@@ -10900,7 +10900,19 @@ AlterSubscriptionStmt:
+ 					n->kind = ALTER_SUBSCRIPTION_SET_PUBLICATION;
+ 					n->subname = $3;
+ 					n->publication = $6;
+-					n->options = $7;
++					n->options = $8;
++					$$ = (Node *) n;
++				}
++			| ALTER SUBSCRIPTION name SET PUBLICATION name_list SKIP REFRESH
++				{
++					AlterSubscriptionStmt *n =
++						makeNode(AlterSubscriptionStmt);
++
++					n->kind = ALTER_SUBSCRIPTION_SET_PUBLICATION;
++					n->subname = $3;
++					n->publication = $6;
++					n->options = list_make1(makeDefElem("refresh",
++											(Node *) makeBoolean(false), @7));
+ 					$$ = (Node *) n;
+ 				}
+ 			| ALTER SUBSCRIPTION name ENABLE_P

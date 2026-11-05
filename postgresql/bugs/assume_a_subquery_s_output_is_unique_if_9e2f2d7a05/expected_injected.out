@@ -1,0 +1,20 @@
+create temp table t(f1 int);
+insert into t values (0),(1),(2);
+analyze t;
+explain (costs off)
+select * from t o where (f1, f1) in
+  (select f1, generate_series(1,50) / 10 g from t i group by f1);
+                       QUERY PLAN                       
+--------------------------------------------------------
+ Nested Loop
+   Join Filter: (o.f1 = "ANY_subquery".f1)
+   ->  Subquery Scan on "ANY_subquery"
+         Filter: ("ANY_subquery".f1 = "ANY_subquery".g)
+         ->  Result
+               ->  ProjectSet
+                     ->  HashAggregate
+                           Group Key: i.f1
+                           ->  Seq Scan on t i
+   ->  Seq Scan on t o
+(10 rows)
+

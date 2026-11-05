@@ -1,0 +1,14 @@
+CREATE ROLE regress_rls_copy_user;
+CREATE TABLE rls_t1 (a int, b int, c int);
+INSERT INTO rls_t1 VALUES (1,4,1),(2,3,2);
+CREATE POLICY p1 ON rls_t1 FOR SELECT USING (a % 2 = 0);
+ALTER TABLE rls_t1 ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON rls_t1 TO regress_rls_copy_user;
+SET SESSION AUTHORIZATION regress_rls_copy_user;
+COPY rls_t1 (a, b) TO stdout;
+2	3
+COPY rls_t1 (b, a) TO stdout;
+3	2
+RESET SESSION AUTHORIZATION;
+DROP TABLE rls_t1;
+DROP ROLE regress_rls_copy_user;

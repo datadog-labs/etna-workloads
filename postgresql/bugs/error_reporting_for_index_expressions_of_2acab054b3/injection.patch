@@ -1,0 +1,42 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..6e80c3102d3 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -324,14 +324,6 @@ ConstructTupleDescriptor(Relation heapRelation,
+ 		to->attislocal = true;
+ 		to->attcollation = (i < numkeyatts) ? collationIds[i] : InvalidOid;
+ 
+-		/*
+-		 * Set the attribute name as specified by caller.
+-		 */
+-		if (colnames_item == NULL)	/* shouldn't happen */
+-			elog(ERROR, "too few entries in colnames list");
+-		namestrcpy(&to->attname, (const char *) lfirst(colnames_item));
+-		colnames_item = lnext(indexColNames, colnames_item);
+-
+ 		/*
+ 		 * For simple index columns, we copy some pg_attribute fields from the
+ 		 * parent relation.  For expressions we have to look at the expression
+@@ -349,6 +341,7 @@ ConstructTupleDescriptor(Relation heapRelation,
+ 			from = TupleDescAttr(heapTupDesc,
+ 								 AttrNumberGetAttrOffset(atnum));
+ 
++			namestrcpy(&to->attname, NameStr(from->attname));
+ 			to->atttypid = from->atttypid;
+ 			to->attlen = from->attlen;
+ 			to->attndims = from->attndims;
+@@ -419,6 +412,14 @@ ConstructTupleDescriptor(Relation heapRelation,
+ 		 */
+ 		to->attrelid = InvalidOid;
+ 
++		/*
++		 * Set the attribute name as specified by caller.
++		 */
++		if (colnames_item == NULL)	/* shouldn't happen */
++			elog(ERROR, "too few entries in colnames list");
++		namestrcpy(&to->attname, (const char *) lfirst(colnames_item));
++		colnames_item = lnext(indexColNames, colnames_item);
++
+ 		/*
+ 		 * Check the opclass and index AM to see if either provides a keytype
+ 		 * (overriding the attribute type).  Opclass (if exists) takes

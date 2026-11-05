@@ -1,0 +1,44 @@
+diff --git a/src/backend/access/heap/heapam.c b/src/backend/access/heap/heapam.c
+index d72b41ef92f..c52df1d70e6 100644
+--- a/src/backend/access/heap/heapam.c
++++ b/src/backend/access/heap/heapam.c
+@@ -4792,7 +4792,6 @@ heap_lock_tuple(Relation relation, HeapTuple tuple,
+ 				new_infomask,
+ 				new_infomask2;
+ 	bool		first_time = true;
+-	bool		skip_tuple_lock = false;
+ 	bool		have_tuple_lock = false;
+ 	bool		cleared_all_frozen = false;
+ 
+@@ -4893,21 +4892,6 @@ l3:
+ 						result = TM_Ok;
+ 						goto out_unlocked;
+ 					}
+-					else
+-					{
+-						/*
+-						 * Disable acquisition of the heavyweight tuple lock.
+-						 * Otherwise, when promoting a weaker lock, we might
+-						 * deadlock with another locker that has acquired the
+-						 * heavyweight tuple lock and is waiting for our
+-						 * transaction to finish.
+-						 *
+-						 * Note that in this case we still need to wait for
+-						 * the multixact if required, to avoid acquiring
+-						 * conflicting locks.
+-						 */
+-						skip_tuple_lock = true;
+-					}
+ 				}
+ 
+ 				if (members)
+@@ -5147,8 +5131,7 @@ l3:
+ 			 * this arranges that we stay at the head of the line while
+ 			 * rechecking tuple state.
+ 			 */
+-			if (!skip_tuple_lock &&
+-				!heap_acquire_tuplock(relation, tid, mode, wait_policy,
++			if (!heap_acquire_tuplock(relation, tid, mode, wait_policy,
+ 									  &have_tuple_lock))
+ 			{
+ 				/*

@@ -1,0 +1,275 @@
+diff --git a/src/backend/replication/logical/logical.c b/src/backend/replication/logical/logical.c
+index 4d3a39f4cd7..53997b6f6ab 100644
+--- a/src/backend/replication/logical/logical.c
++++ b/src/backend/replication/logical/logical.c
+@@ -42,11 +42,9 @@
+ #include "storage/proc.h"
+ #include "storage/procarray.h"
+ #include "utils/builtins.h"
+-#include "utils/guc.h"
+ #include "utils/injection_point.h"
+ #include "utils/inval.h"
+ #include "utils/memutils.h"
+-#include "utils/varlena.h"
+ 
+ /* data for errcontext callback */
+ typedef struct LogicalErrorCallbackState
+@@ -56,9 +54,6 @@ typedef struct LogicalErrorCallbackState
+ 	XLogRecPtr	report_location;
+ } LogicalErrorCallbackState;
+ 
+-/* GUC variables */
+-char	   *output_plugin_libraries_string;
+-
+ /* wrappers around output plugin callbacks */
+ static void output_plugin_error_callback(void *arg);
+ static void startup_cb_wrapper(LogicalDecodingContext *ctx, OutputPluginOptions *opt,
+@@ -186,69 +181,7 @@ StartupDecodingContext(List *output_plugin_options,
+ 	 * now.
+ 	 */
+ 	if (!fast_forward)
+-	{
+-		/*
+-		 * Before loading this library, make sure it's been blessed for
+-		 * logical decoding.
+-		 */
+-		const char *plugin = NameStr(slot->data.plugin);
+-		bool		plugin_allowed = false;
+-
+-		if (output_plugin_libraries_string && output_plugin_libraries_string[0])
+-		{
+-			/* Check this plugin against output_plugin_libraries. */
+-			char	   *rawstring;
+-			List	   *elemlist = NIL;
+-
+-			/* Need a modifiable copy */
+-			rawstring = pstrdup(output_plugin_libraries_string);
+-
+-			if (!SplitGUCList(rawstring, ',', &elemlist))
+-			{
+-				/* syntax error in list */
+-				ereport(LOG,
+-						(errcode(ERRCODE_SYNTAX_ERROR),
+-						 errmsg("invalid list syntax in parameter \"%s\"",
+-								"output_plugin_libraries")));
+-
+-				list_free(elemlist);
+-				elemlist = NIL;
+-			}
+-
+-			foreach_ptr(char, allowed, elemlist)
+-			{
+-				if (strcmp(allowed, plugin) == 0)
+-				{
+-					plugin_allowed = true;
+-					break;
+-				}
+-			}
+-
+-			list_free(elemlist);
+-			pfree(rawstring);
+-		}
+-
+-		if (!plugin_allowed)
+-		{
+-			/*
+-			 * Use the same error message as check_restricted_library_name(),
+-			 * but provide additional context for the DBA in the logs. (The
+-			 * HINT will be sent to the client, but that's not a secret.)
+-			 */
+-			ereport(ERROR,
+-					errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+-					errmsg("library \"%s\" may not be used as an output plugin",
+-						   plugin),
+-			/*- translator: The second %s is the value of the output_plugin_libraries GUC, which may contain whitespace, commas, and double-quotes (") */
+-					errdetail_log("The configuration parameter \"%s\" (currently '%s') does not name this library as a trusted output plugin.",
+-								  "output_plugin_libraries",
+-								  output_plugin_libraries_string),
+-					errhint("If it is safe for all REPLICATION users to use this library as an output plugin, add it to \"%s\" and reload the server configuration.",
+-							"output_plugin_libraries"));
+-		}
+-
+-		LoadOutputPlugin(&ctx->callbacks, plugin);
+-	}
++		LoadOutputPlugin(&ctx->callbacks, NameStr(slot->data.plugin));
+ 
+ 	/*
+ 	 * Now that the slot's xmin has been set, we can announce ourselves as a
+@@ -796,9 +729,7 @@ OutputPluginUpdateProgress(struct LogicalDecodingContext *ctx,
+ 
+ /*
+  * Load the output plugin, lookup its output plugin init function, and check
+- * that it provides the required callbacks. The caller must have checked that
+- * the current user has the necessary privileges to load the given plugin;
+- * standard LOAD restrictions are not applied here.
++ * that it provides the required callbacks.
+  */
+ static void
+ LoadOutputPlugin(OutputPluginCallbacks *callbacks, const char *plugin)
+diff --git a/src/backend/utils/misc/guc_tables.c b/src/backend/utils/misc/guc_tables.c
+index 7cab4c735c2..6b82a23435e 100644
+--- a/src/backend/utils/misc/guc_tables.c
++++ b/src/backend/utils/misc/guc_tables.c
+@@ -72,7 +72,6 @@
+ #include "postmaster/syslogger.h"
+ #include "postmaster/walsummarizer.h"
+ #include "postmaster/walwriter.h"
+-#include "replication/logical.h"
+ #include "replication/logicallauncher.h"
+ #include "replication/slot.h"
+ #include "replication/slotsync.h"
+@@ -4983,18 +4982,6 @@ struct config_string ConfigureNamesString[] =
+ 		NULL, NULL, NULL
+ 	},
+ 
+-	{
+-		{"output_plugin_libraries", PGC_SUSET, REPLICATION_SENDING,
+-			gettext_noop("Lists libraries that may be named as logical decoding output plugins."),
+-			gettext_noop("Users with REPLICATION privileges may only use plugins in this list when creating logical replication slots."),
+-			/* note: src/bin/pg_upgrade/check.c assumes GUC_LIST_QUOTE here */
+-			GUC_LIST_INPUT | GUC_LIST_QUOTE | GUC_SUPERUSER_ONLY
+-		},
+-		&output_plugin_libraries_string,
+-		"pgoutput, test_decoding",
+-		NULL, NULL, NULL
+-	},
+-
+ 	{
+ 		{"log_connections", PGC_SU_BACKEND, LOGGING_WHAT,
+ 			gettext_noop("Logs specified aspects of connection establishment and setup."),
+diff --git a/src/bin/pg_dump/dumputils.c b/src/bin/pg_dump/dumputils.c
+index 17ec9f9b0cc..bd7f6751cf3 100644
+--- a/src/bin/pg_dump/dumputils.c
++++ b/src/bin/pg_dump/dumputils.c
+@@ -731,7 +731,6 @@ variable_is_guc_list_quote(const char *name)
+ {
+ 	if (pg_strcasecmp(name, "local_preload_libraries") == 0 ||
+ 		pg_strcasecmp(name, "oauth_validator_libraries") == 0 ||
+-		pg_strcasecmp(name, "output_plugin_libraries") == 0 ||
+ 		pg_strcasecmp(name, "search_path") == 0 ||
+ 		pg_strcasecmp(name, "session_preload_libraries") == 0 ||
+ 		pg_strcasecmp(name, "shared_preload_libraries") == 0 ||
+diff --git a/src/bin/pg_upgrade/check.c b/src/bin/pg_upgrade/check.c
+index 0c150ad4467..7fd4b3886da 100644
+--- a/src/bin/pg_upgrade/check.c
++++ b/src/bin/pg_upgrade/check.c
+@@ -2058,7 +2058,6 @@ check_new_cluster_logical_replication_slots(void)
+ 	int			nslots_on_old;
+ 	int			nslots_on_new;
+ 	int			max_replication_slots;
+-	char	   *output_plugin_libraries;
+ 	char	   *wal_level;
+ 
+ 	/* Logical slots can be migrated since PG17. */
+@@ -2092,10 +2091,10 @@ check_new_cluster_logical_replication_slots(void)
+ 	PQclear(res);
+ 
+ 	res = executeQueryOrDie(conn, "SELECT setting FROM pg_settings "
+-							"WHERE name IN ('wal_level', 'output_plugin_libraries', 'max_replication_slots') "
++							"WHERE name IN ('wal_level', 'max_replication_slots') "
+ 							"ORDER BY name DESC;");
+ 
+-	if (PQntuples(res) != 3)
++	if (PQntuples(res) != 2)
+ 		pg_fatal("could not determine parameter settings on new cluster");
+ 
+ 	wal_level = PQgetvalue(res, 0, 0);
+@@ -2104,85 +2103,7 @@ check_new_cluster_logical_replication_slots(void)
+ 		pg_fatal("\"wal_level\" must be \"logical\" but is set to \"%s\"",
+ 				 wal_level);
+ 
+-	output_plugin_libraries = PQgetvalue(res, 1, 0);
+-
+-	/*
+-	 * Make sure the output_plugin_libraries setting covers all plugins needed
+-	 * by any migrated slots.
+-	 */
+-	if (nslots_on_old > 0)
+-	{
+-		char	   *guc_copy = pg_strdup(output_plugin_libraries);
+-		char	  **allowed_plugins;
+-		char		output_path[MAXPGPATH];
+-		FILE	   *script = NULL;
+-
+-		if (!SplitGUCList(guc_copy, ',', &allowed_plugins))
+-		{
+-			/*
+-			 * Should not happen. (Frontend and backend GUC_LIST_QUOTE parsing
+-			 * have to remain compatible for pg_dump at minimum.)
+-			 */
+-			pg_fatal("could not parse \"output_plugin_libraries\" setting '%s'",
+-					 output_plugin_libraries);
+-		}
+-
+-		snprintf(output_path, sizeof(output_path), "%s/%s",
+-				 log_opts.basedir,
+-				 "disallowed_output_plugins.txt");
+-
+-		for (int dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++)
+-		{
+-			LogicalSlotInfoArr *slot_arr = &old_cluster.dbarr.dbs[dbnum].slot_arr;
+-
+-			for (int slotnum = 0; slotnum < slot_arr->nslots; slotnum++)
+-			{
+-				LogicalSlotInfo *slot = &slot_arr->slots[slotnum];
+-				bool		allowed = false;
+-
+-				/*
+-				 * We expect the output_plugin_libraries length to be small in
+-				 * practice; O(n*m) shouldn't be a problem here.
+-				 */
+-				for (char **p = allowed_plugins; *p; p++)
+-				{
+-					if (strcmp(slot->plugin, *p) == 0)
+-					{
+-						allowed = true;
+-						break;
+-					}
+-				}
+-
+-				if (!allowed)
+-				{
+-					if (script == NULL &&
+-						(script = fopen_priv(output_path, "w")) == NULL)
+-						pg_fatal("could not open file \"%s\": %m", output_path);
+-
+-					fprintf(script, "The slot \"%s\" uses plugin \"%s\"\n",
+-							slot->slotname, slot->plugin);
+-				}
+-			}
+-		}
+-
+-		if (script)
+-		{
+-			fclose(script);
+-
+-			pg_log(PG_REPORT, "fatal");
+-			pg_fatal("Your installation contains logical replication slots with plugins\n"
+-					 "that are not allowed by the new cluster's output_plugin_libraries\n"
+-					 "setting. You can add trusted plugins to output_plugin_libraries\n"
+-					 "and/or remove affected slots, and then restart the upgrade.\n"
+-					 "A list of the problematic slots is in the file:\n"
+-					 "    %s", output_path);
+-		}
+-
+-		pg_free(allowed_plugins);
+-		pg_free(guc_copy);
+-	}
+-
+-	max_replication_slots = atoi(PQgetvalue(res, 2, 0));
++	max_replication_slots = atoi(PQgetvalue(res, 1, 0));
+ 
+ 	if (nslots_on_old > max_replication_slots)
+ 		pg_fatal("\"max_replication_slots\" (%d) must be greater than or equal to the number of "
+diff --git a/src/include/replication/logical.h b/src/include/replication/logical.h
+index 556a0ef2c48..2e562bee5a9 100644
+--- a/src/include/replication/logical.h
++++ b/src/include/replication/logical.h
+@@ -152,7 +152,4 @@ extern bool LogicalReplicationSlotHasPendingWal(XLogRecPtr end_of_wal);
+ extern XLogRecPtr LogicalSlotAdvanceAndCheckSnapState(XLogRecPtr moveto,
+ 													  bool *found_consistent_snapshot);
+ 
+-/* GUCs */
+-extern PGDLLIMPORT char *output_plugin_libraries_string;
+-
+ #endif

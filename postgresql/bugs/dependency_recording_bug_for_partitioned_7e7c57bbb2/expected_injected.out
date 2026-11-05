@@ -1,0 +1,86 @@
+create table pk (a int primary key) partition by range (a);
+create table pk1 partition of pk for values from (0) to (1000);
+create table pk4 (like pk);
+alter table pk attach partition pk4 for values from (3000) to (4000);
+create table pk5 (like pk) partition by range (a);
+create table pk51 partition of pk5 for values from (4000) to (4500);
+alter table pk attach partition pk5 for values from (4000) to (5000);
+psql:<REPRO>:7: ERROR:  referenced constraint was concurrently dropped
+create table fk (a int references pk) partition by range (a);
+create table fk3 partition of fk for values from (0) to (5000);
+select conrelid::regclass, conname, conparentid <> 0 as haspar from pg_constraint where contype='p' order by 1;
+         conrelid         |                  conname                  | haspar 
+--------------------------+-------------------------------------------+--------
+ pg_default_acl           | pg_default_acl_oid_index                  | f
+ pg_tablespace            | pg_tablespace_oid_index                   | f
+ pg_type                  | pg_type_oid_index                         | f
+ pg_attribute             | pg_attribute_relid_attnum_index           | f
+ pg_proc                  | pg_proc_oid_index                         | f
+ pg_class                 | pg_class_oid_index                        | f
+ pg_authid                | pg_authid_oid_index                       | f
+ pg_auth_members          | pg_auth_members_oid_index                 | f
+ pg_database              | pg_database_oid_index                     | f
+ pg_foreign_server        | pg_foreign_server_oid_index               | f
+ pg_user_mapping          | pg_user_mapping_oid_index                 | f
+ pg_sequence              | pg_sequence_seqrelid_index                | f
+ pg_foreign_data_wrapper  | pg_foreign_data_wrapper_oid_index         | f
+ pg_shdescription         | pg_shdescription_o_c_index                | f
+ pg_aggregate             | pg_aggregate_fnoid_index                  | f
+ pg_am                    | pg_am_oid_index                           | f
+ pg_amop                  | pg_amop_oid_index                         | f
+ pg_amproc                | pg_amproc_oid_index                       | f
+ pg_attrdef               | pg_attrdef_oid_index                      | f
+ pg_cast                  | pg_cast_oid_index                         | f
+ pg_constraint            | pg_constraint_oid_index                   | f
+ pg_conversion            | pg_conversion_oid_index                   | f
+ pg_description           | pg_description_o_c_o_index                | f
+ pg_index                 | pg_index_indexrelid_index                 | f
+ pg_inherits              | pg_inherits_relid_seqno_index             | f
+ pg_language              | pg_language_oid_index                     | f
+ pg_largeobject           | pg_largeobject_loid_pn_index              | f
+ pg_namespace             | pg_namespace_oid_index                    | f
+ pg_opclass               | pg_opclass_oid_index                      | f
+ pg_operator              | pg_operator_oid_index                     | f
+ pg_rewrite               | pg_rewrite_oid_index                      | f
+ pg_statistic             | pg_statistic_relid_att_inh_index          | f
+ pg_trigger               | pg_trigger_oid_index                      | f
+ pg_opfamily              | pg_opfamily_oid_index                     | f
+ pg_db_role_setting       | pg_db_role_setting_databaseid_rol_index   | f
+ pg_largeobject_metadata  | pg_largeobject_metadata_oid_index         | f
+ pg_extension             | pg_extension_oid_index                    | f
+ pg_foreign_table         | pg_foreign_table_relid_index              | f
+ pg_policy                | pg_policy_oid_index                       | f
+ pg_partitioned_table     | pg_partitioned_table_partrelid_index      | f
+ pg_statistic_ext         | pg_statistic_ext_oid_index                | f
+ pg_init_privs            | pg_init_privs_o_c_o_index                 | f
+ pg_statistic_ext_data    | pg_statistic_ext_data_stxoid_inh_index    | f
+ pg_collation             | pg_collation_oid_index                    | f
+ pg_event_trigger         | pg_event_trigger_oid_index                | f
+ pg_enum                  | pg_enum_oid_index                         | f
+ pg_range                 | pg_range_rngtypid_index                   | f
+ pg_transform             | pg_transform_oid_index                    | f
+ pg_shseclabel            | pg_shseclabel_object_index                | f
+ pg_seclabel              | pg_seclabel_object_index                  | f
+ pg_ts_dict               | pg_ts_dict_oid_index                      | f
+ pg_ts_parser             | pg_ts_parser_oid_index                    | f
+ pg_ts_config             | pg_ts_config_oid_index                    | f
+ pg_ts_config_map         | pg_ts_config_map_index                    | f
+ pg_ts_template           | pg_ts_template_oid_index                  | f
+ pg_replication_origin    | pg_replication_origin_roiident_index      | f
+ pg_subscription          | pg_subscription_oid_index                 | f
+ pg_subscription_rel      | pg_subscription_rel_srrelid_srsubid_index | f
+ pg_publication           | pg_publication_oid_index                  | f
+ pg_publication_rel       | pg_publication_rel_oid_index              | f
+ pg_publication_namespace | pg_publication_namespace_oid_index        | f
+ pg_parameter_acl         | pg_parameter_acl_oid_index                | f
+ pk                       | pk_pkey                                   | f
+ pk1                      | pk1_pkey                                  | t
+ pk4                      | pk4_pkey                                  | t
+(65 rows)
+
+select count(*) from pg_depend d join pg_constraint c on d.objid=c.oid where d.deptype='P' and d.refclassid='pg_class'::regclass and c.contype='p';
+ count 
+-------
+     0
+(1 row)
+

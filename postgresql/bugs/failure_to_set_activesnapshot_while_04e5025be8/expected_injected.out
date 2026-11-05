@@ -1,0 +1,18 @@
+begin;
+create function nochange(int) returns int
+  as 'select $1 limit 1' language sql stable;
+declare c cursor for select * from generate_series(1,5) limit nochange(3);
+fetch all from c;
+ generate_series 
+-----------------
+               1
+               2
+               3
+(3 rows)
+
+move backward all in c;
+psql:<REPRO>:6: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:6: error: connection to server was lost
+### server crashed or assertion failed

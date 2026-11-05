@@ -1,0 +1,159 @@
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index df99a204e0c..26867b67be7 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -213,53 +213,33 @@ ExecCheckPlanOutput(Relation resultRel, List *targetList)
+ 		attr = TupleDescAttr(resultDesc, attno);
+ 		attno++;
+ 
+-		/*
+-		 * Special cases here should match planner's expand_insert_targetlist.
+-		 */
+-		if (attr->attisdropped)
++		if (!attr->attisdropped)
+ 		{
+-			/*
+-			 * For a dropped column, we can't check atttypid (it's likely 0).
+-			 * In any case the planner has most likely inserted an INT4 null.
+-			 * What we insist on is just *some* NULL constant.
+-			 */
+-			if (!IsA(tle->expr, Const) ||
+-				!((Const *) tle->expr)->constisnull)
++			/* Normal case: demand type match */
++			if (exprType((Node *) tle->expr) != attr->atttypid)
+ 				ereport(ERROR,
+ 						(errcode(ERRCODE_DATATYPE_MISMATCH),
+ 						 errmsg("table row type and query-specified row type do not match"),
+-						 errdetail("Query provides a value for a dropped column at ordinal position %d.",
+-								   attno)));
++						 errdetail("Table has type %s at ordinal position %d, but query expects %s.",
++								   format_type_be(attr->atttypid),
++								   attno,
++								   format_type_be(exprType((Node *) tle->expr)))));
+ 		}
+-		else if (attr->attgenerated)
++		else
+ 		{
+ 			/*
+-			 * For a generated column, the planner will have inserted a null
+-			 * of the column's base type (to avoid possibly failing on domain
+-			 * not-null constraints).  It doesn't seem worth insisting on that
+-			 * exact type though, since a null value is type-independent.  As
+-			 * above, just insist on *some* NULL constant.
++			 * For a dropped column, we can't check atttypid (it's likely 0).
++			 * In any case the planner has most likely inserted an INT4 null.
++			 * What we insist on is just *some* NULL constant.
+ 			 */
+ 			if (!IsA(tle->expr, Const) ||
+ 				!((Const *) tle->expr)->constisnull)
+ 				ereport(ERROR,
+ 						(errcode(ERRCODE_DATATYPE_MISMATCH),
+ 						 errmsg("table row type and query-specified row type do not match"),
+-						 errdetail("Query provides a value for a generated column at ordinal position %d.",
++						 errdetail("Query provides a value for a dropped column at ordinal position %d.",
+ 								   attno)));
+ 		}
+-		else
+-		{
+-			/* Normal case: demand type match */
+-			if (exprType((Node *) tle->expr) != attr->atttypid)
+-				ereport(ERROR,
+-						(errcode(ERRCODE_DATATYPE_MISMATCH),
+-						 errmsg("table row type and query-specified row type do not match"),
+-						 errdetail("Table has type %s at ordinal position %d, but query expects %s.",
+-								   format_type_be(attr->atttypid),
+-								   attno,
+-								   format_type_be(exprType((Node *) tle->expr)))));
+-		}
+ 	}
+ 	if (attno != resultDesc->natts)
+ 		ereport(ERROR,
+diff --git a/src/backend/optimizer/prep/preptlist.c b/src/backend/optimizer/prep/preptlist.c
+index ffc9d6c3f30..c2a77503d4b 100644
+--- a/src/backend/optimizer/prep/preptlist.c
++++ b/src/backend/optimizer/prep/preptlist.c
+@@ -44,7 +44,6 @@
+ #include "optimizer/tlist.h"
+ #include "parser/parse_coerce.h"
+ #include "parser/parsetree.h"
+-#include "utils/lsyscache.h"
+ #include "utils/rel.h"
+ 
+ static List *expand_insert_targetlist(PlannerInfo *root, List *tlist,
+@@ -420,8 +419,9 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
+ 			 *
+ 			 * INSERTs should insert NULL in this case.  (We assume the
+ 			 * rewriter would have inserted any available non-NULL default
+-			 * value.)  Also, normally we must apply any domain constraints
+-			 * that might exist --- this is to catch domain NOT NULL.
++			 * value.)  Also, if the column isn't dropped, apply any domain
++			 * constraints that might exist --- this is to catch domain NOT
++			 * NULL.
+ 			 *
+ 			 * When generating a NULL constant for a dropped column, we label
+ 			 * it INT4 (any other guaranteed-to-exist datatype would do as
+@@ -431,45 +431,11 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
+ 			 * representation is datatype-independent.  This could perhaps
+ 			 * confuse code comparing the finished plan to the target
+ 			 * relation, however.
+-			 *
+-			 * Another exception is that if the column is generated, the value
+-			 * we produce here will be ignored, and we don't want to risk
+-			 * throwing an error.  So in that case we *don't* want to apply
+-			 * domain constraints, so we must produce a NULL of the base type.
+-			 * Again, code comparing the finished plan to the target relation
+-			 * must account for this.
+ 			 */
+ 			Node	   *new_expr;
+ 
+-			if (att_tup->attisdropped)
+-			{
+-				/* Insert NULL for dropped column */
+-				new_expr = (Node *) makeConst(INT4OID,
+-											  -1,
+-											  InvalidOid,
+-											  sizeof(int32),
+-											  (Datum) 0,
+-											  true, /* isnull */
+-											  true /* byval */ );
+-			}
+-			else if (att_tup->attgenerated)
++			if (!att_tup->attisdropped)
+ 			{
+-				/* Generated column, insert a NULL of the base type */
+-				Oid			baseTypeId = att_tup->atttypid;
+-				int32		baseTypeMod = att_tup->atttypmod;
+-
+-				baseTypeId = getBaseTypeAndTypmod(baseTypeId, &baseTypeMod);
+-				new_expr = (Node *) makeConst(baseTypeId,
+-											  baseTypeMod,
+-											  att_tup->attcollation,
+-											  att_tup->attlen,
+-											  (Datum) 0,
+-											  true, /* isnull */
+-											  att_tup->attbyval);
+-			}
+-			else
+-			{
+-				/* Normal column, insert a NULL of the column datatype */
+ 				new_expr = coerce_null_to_domain(att_tup->atttypid,
+ 												 att_tup->atttypmod,
+ 												 att_tup->attcollation,
+@@ -479,6 +445,17 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
+ 				if (!IsA(new_expr, Const))
+ 					new_expr = eval_const_expressions(root, new_expr);
+ 			}
++			else
++			{
++				/* Insert NULL for dropped column */
++				new_expr = (Node *) makeConst(INT4OID,
++											  -1,
++											  InvalidOid,
++											  sizeof(int32),
++											  (Datum) 0,
++											  true, /* isnull */
++											  true /* byval */ );
++			}
+ 
+ 			new_tle = makeTargetEntry((Expr *) new_expr,
+ 									  attrno,

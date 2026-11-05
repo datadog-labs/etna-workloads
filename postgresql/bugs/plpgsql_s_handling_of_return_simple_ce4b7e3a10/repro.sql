@@ -1,0 +1,10 @@
+create domain ond as int[];
+create type pr as (i int, j int);
+create domain opr as pr check (value is null or (value).i < (value).j);
+create function f() returns opr as $$
+declare v opr;
+begin
+return v;
+end
+$$ language plpgsql;
+select * from f();

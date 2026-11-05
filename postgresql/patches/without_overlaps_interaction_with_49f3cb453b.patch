@@ -1,0 +1,76 @@
+diff --git a/src/backend/executor/execIndexing.c b/src/backend/executor/execIndexing.c
+index 4819d3bf167..ca33a854278 100644
+--- a/src/backend/executor/execIndexing.c
++++ b/src/backend/executor/execIndexing.c
+@@ -114,7 +114,6 @@
+ #include "executor/executor.h"
+ #include "nodes/nodeFuncs.h"
+ #include "storage/lmgr.h"
+-#include "utils/lsyscache.h"
+ #include "utils/multirangetypes.h"
+ #include "utils/rangetypes.h"
+ #include "utils/snapmgr.h"
+@@ -754,18 +753,11 @@ check_exclusion_or_unique_constraint(Relation heap, Relation index,
+ 		{
+ 			TupleDesc	tupdesc = RelationGetDescr(heap);
+ 			Form_pg_attribute att = TupleDescAttr(tupdesc, attno - 1);
+-			TypeCacheEntry *typcache = lookup_type_cache(att->atttypid,
+-														 TYPECACHE_DOMAIN_BASE_INFO);
+-			char		typtype;
+-
+-			if (OidIsValid(typcache->domainBaseType))
+-				typtype = get_typtype(typcache->domainBaseType);
+-			else
+-				typtype = typcache->typtype;
++			TypeCacheEntry *typcache = lookup_type_cache(att->atttypid, 0);
+ 
+ 			ExecWithoutOverlapsNotEmpty(heap, att->attname,
+ 										values[indnkeyatts - 1],
+-										typtype, att->atttypid);
++										typcache->typtype, att->atttypid);
+ 		}
+ 	}
+ 
+diff --git a/src/backend/parser/parse_utilcmd.c b/src/backend/parser/parse_utilcmd.c
+index cacb1379e97..b57a21eca22 100644
+--- a/src/backend/parser/parse_utilcmd.c
++++ b/src/backend/parser/parse_utilcmd.c
+@@ -2772,7 +2772,7 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
+ 
+ 			/*
+ 			 * The WITHOUT OVERLAPS part (if any) must be a range or
+-			 * multirange type, or a domain over such a type.
++			 * multirange type.
+ 			 */
+ 			if (constraint->without_overlaps && lc == list_last_cell(constraint->keys))
+ 			{
+@@ -2790,7 +2790,8 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
+ 						const char *attname;
+ 
+ 						if (attr->attisdropped)
+-							continue;
++							break;
++
+ 						attname = NameStr(attr->attname);
+ 						if (strcmp(attname, key) == 0)
+ 						{
+@@ -2802,16 +2803,10 @@ transformIndexConstraint(Constraint *constraint, CreateStmtContext *cxt)
+ 				}
+ 				if (found)
+ 				{
+-					/* Look up column type if we didn't already */
+ 					if (!OidIsValid(typid) && column)
+-						typid = typenameTypeId(cxt->pstate,
+-											   column->typeName);
+-					/* Look through any domain */
+-					if (OidIsValid(typid))
+-						typid = getBaseType(typid);
+-					/* Complain if not range/multirange */
+-					if (!OidIsValid(typid) ||
+-						!(type_is_range(typid) || type_is_multirange(typid)))
++						typid = typenameTypeId(NULL, column->typeName);
++
++					if (!OidIsValid(typid) || !(type_is_range(typid) || type_is_multirange(typid)))
+ 						ereport(ERROR,
+ 								(errcode(ERRCODE_DATATYPE_MISMATCH),
+ 								 errmsg("column \"%s\" in WITHOUT OVERLAPS is not a range or multirange type", key),

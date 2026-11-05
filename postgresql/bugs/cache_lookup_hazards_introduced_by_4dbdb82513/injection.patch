@@ -1,0 +1,143 @@
+diff --git a/src/backend/commands/cluster.c b/src/backend/commands/cluster.c
+index 94a5aee90b5..28d37651624 100644
+--- a/src/backend/commands/cluster.c
++++ b/src/backend/commands/cluster.c
+@@ -1744,7 +1744,8 @@ get_tables_to_cluster_partitioned(MemoryContext cluster_context, Oid indexOid)
+ static bool
+ cluster_is_permitted_for_relation(Oid relid, Oid userid)
+ {
+-	if (pg_class_aclcheck(relid, userid, ACL_MAINTAIN) == ACLCHECK_OK)
++	if (pg_class_aclcheck(relid, userid, ACL_MAINTAIN) == ACLCHECK_OK ||
++		has_partition_ancestor_privs(relid, userid, ACL_MAINTAIN))
+ 		return true;
+ 
+ 	ereport(WARNING,
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..64d2ce4b7ed 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -3040,7 +3040,8 @@ RangeVarCallbackForReindexIndex(const RangeVar *relation,
+ 		AclResult	aclresult;
+ 
+ 		aclresult = pg_class_aclcheck(table_oid, GetUserId(), ACL_MAINTAIN);
+-		if (aclresult != ACLCHECK_OK)
++		if (aclresult != ACLCHECK_OK &&
++			!has_partition_ancestor_privs(table_oid, GetUserId(), ACL_MAINTAIN))
+ 			aclcheck_error(aclresult, OBJECT_INDEX, relation->relname);
+ 	}
+ 
+@@ -3257,7 +3258,8 @@ ReindexMultipleTables(const ReindexStmt *stmt, const ReindexParams *params)
+ 		 * MAINTAIN privilege on the relation.
+ 		 */
+ 		if (classtuple->relisshared &&
+-			pg_class_aclcheck(relid, GetUserId(), ACL_MAINTAIN) != ACLCHECK_OK)
++			pg_class_aclcheck(relid, GetUserId(), ACL_MAINTAIN) != ACLCHECK_OK &&
++			!has_partition_ancestor_privs(relid, GetUserId(), ACL_MAINTAIN))
+ 			continue;
+ 
+ 		/*
+diff --git a/src/backend/commands/lockcmds.c b/src/backend/commands/lockcmds.c
+index 616da196714..08b7264f61c 100644
+--- a/src/backend/commands/lockcmds.c
++++ b/src/backend/commands/lockcmds.c
+@@ -19,6 +19,7 @@
+ #include "catalog/namespace.h"
+ #include "catalog/pg_inherits.h"
+ #include "commands/lockcmds.h"
++#include "commands/tablecmds.h"
+ #include "miscadmin.h"
+ #include "nodes/nodeFuncs.h"
+ #include "rewrite/rewriteHandler.h"
+@@ -295,5 +296,12 @@ LockTableAclCheck(Oid reloid, LOCKMODE lockmode, Oid userid)
+ 
+ 	aclresult = pg_class_aclcheck(reloid, userid, aclmask);
+ 
++	/*
++	 * If this is a partition, check permissions of its ancestors if needed.
++	 */
++	if (aclresult != ACLCHECK_OK &&
++		has_partition_ancestor_privs(reloid, userid, ACL_MAINTAIN))
++		aclresult = ACLCHECK_OK;
++
+ 	return aclresult;
+ }
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..954343c4695 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -19564,12 +19564,39 @@ RangeVarCallbackMaintainsTable(const RangeVar *relation,
+ 
+ 	/* Check permissions */
+ 	aclresult = pg_class_aclcheck(relId, GetUserId(), ACL_MAINTAIN);
+-	if (aclresult != ACLCHECK_OK)
++	if (aclresult != ACLCHECK_OK &&
++		!has_partition_ancestor_privs(relId, GetUserId(), ACL_MAINTAIN))
+ 		aclcheck_error(aclresult,
+ 					   get_relkind_objtype(get_rel_relkind(relId)),
+ 					   relation->relname);
+ }
+ 
++/*
++ * If relid is a partition, returns whether userid has any of the privileges
++ * specified in acl on any of its ancestors.  Otherwise, returns false.
++ */
++bool
++has_partition_ancestor_privs(Oid relid, Oid userid, AclMode acl)
++{
++	List	   *ancestors;
++	ListCell   *lc;
++
++	if (!get_rel_relispartition(relid))
++		return false;
++
++	ancestors = get_partition_ancestors(relid);
++	foreach(lc, ancestors)
++	{
++		Oid			ancestor = lfirst_oid(lc);
++
++		if (OidIsValid(ancestor) &&
++			pg_class_aclcheck(ancestor, userid, acl) == ACLCHECK_OK)
++			return true;
++	}
++
++	return false;
++}
++
+ /*
+  * Callback to RangeVarGetRelidExtended() for TRUNCATE processing.
+  */
+diff --git a/src/backend/commands/vacuum.c b/src/backend/commands/vacuum.c
+index 934b645efd6..eaaca5fc2e6 100644
+--- a/src/backend/commands/vacuum.c
++++ b/src/backend/commands/vacuum.c
+@@ -41,6 +41,7 @@
+ #include "commands/cluster.h"
+ #include "commands/defrem.h"
+ #include "commands/progress.h"
++#include "commands/tablecmds.h"
+ #include "commands/vacuum.h"
+ #include "miscadmin.h"
+ #include "nodes/makefuncs.h"
+@@ -748,7 +749,8 @@ vacuum_is_permitted_for_relation(Oid relid, Form_pg_class reltuple,
+ 	 */
+ 	if ((object_ownercheck(DatabaseRelationId, MyDatabaseId, GetUserId()) &&
+ 		 !reltuple->relisshared) ||
+-		pg_class_aclcheck(relid, GetUserId(), ACL_MAINTAIN) == ACLCHECK_OK)
++		pg_class_aclcheck(relid, GetUserId(), ACL_MAINTAIN) == ACLCHECK_OK ||
++		has_partition_ancestor_privs(relid, GetUserId(), ACL_MAINTAIN))
+ 		return true;
+ 
+ 	relname = NameStr(reltuple->relname);
+diff --git a/src/include/commands/tablecmds.h b/src/include/commands/tablecmds.h
+index 6832470d387..43b5c68b9e6 100644
+--- a/src/include/commands/tablecmds.h
++++ b/src/include/commands/tablecmds.h
+@@ -102,6 +102,8 @@ extern void RangeVarCallbackMaintainsTable(const RangeVar *relation,
+ 										   Oid relId, Oid oldRelId,
+ 										   void *arg);
+ 
++extern bool has_partition_ancestor_privs(Oid relid, Oid userid, AclMode acl);
++
+ extern void RangeVarCallbackOwnsRelation(const RangeVar *relation,
+ 										 Oid relId, Oid oldRelId, void *arg);
+ extern bool PartConstraintImpliedByRelConstraint(Relation scanrel,

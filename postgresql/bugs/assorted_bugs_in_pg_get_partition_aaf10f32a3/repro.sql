@@ -1,0 +1,5 @@
+select pg_get_partition_constraintdef(0);
+create table p (a int) partition by range (a);
+create index pi on p (a);
+create table p1 partition of p for values from (1) to (2);
+select pg_get_partition_constraintdef('p1_a_idx'::regclass);

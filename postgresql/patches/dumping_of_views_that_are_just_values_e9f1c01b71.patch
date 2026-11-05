@@ -1,0 +1,50 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..66a7a654af9 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -6064,45 +6064,6 @@ get_simple_values_rte(Query *query, TupleDesc resultDesc)
+ 			return NULL;		/* something else -> not simple VALUES */
+ 	}
+ 
+-	/*
+-	 * We don't need to check the targetlist in any great detail, because
+-	 * parser/analyze.c will never generate a "bare" VALUES RTE --- they only
+-	 * appear inside auto-generated sub-queries with very restricted
+-	 * structure.  However, DefineView might have modified the tlist by
+-	 * injecting new column aliases, or we might have some other column
+-	 * aliases forced by a resultDesc.  We can only simplify if the RTE's
+-	 * column names match the names that get_target_list() would select.
+-	 */
+-	if (result)
+-	{
+-		ListCell   *lcn;
+-		int			colno;
+-
+-		if (list_length(query->targetList) != list_length(result->eref->colnames))
+-			return NULL;		/* this probably cannot happen */
+-		colno = 0;
+-		forboth(lc, query->targetList, lcn, result->eref->colnames)
+-		{
+-			TargetEntry *tle = (TargetEntry *) lfirst(lc);
+-			char	   *cname = strVal(lfirst(lcn));
+-			char	   *colname;
+-
+-			if (tle->resjunk)
+-				return NULL;	/* this probably cannot happen */
+-
+-			/* compute name that get_target_list would use for column */
+-			colno++;
+-			if (resultDesc && colno <= resultDesc->natts)
+-				colname = NameStr(TupleDescAttr(resultDesc, colno - 1)->attname);
+-			else
+-				colname = tle->resname;
+-
+-			/* does it match the VALUES RTE? */
+-			if (colname == NULL || strcmp(colname, cname) != 0)
+-				return NULL;	/* column name has been changed */
+-		}
+-	}
+-
+ 	return result;
+ }
+ 

@@ -1,0 +1,17 @@
+CREATE TABLE p (a int) PARTITION BY RANGE (a);
+CREATE TABLE p1 PARTITION OF p FOR VALUES FROM (1) TO (20);
+CREATE PUBLICATION pub1 FOR TABLE p WHERE (a > 15) WITH (publish_via_partition_root);
+CREATE PUBLICATION pub2 FOR TABLE p1 WHERE (a < 15) WITH (publish_via_partition_root);
+SELECT 1 FROM pg_create_logical_replication_slot('s','pgoutput');
+ ?column? 
+----------
+        1
+(1 row)
+
+INSERT INTO p VALUES (14),(15),(16);
+SELECT count(*) AS inserts_replicated FROM pg_logical_slot_get_binary_changes('s',NULL,NULL,'proto_version','1','publication_names','pub1,pub2') WHERE get_byte(data,0)=73;
+ inserts_replicated 
+--------------------
+                  3
+(1 row)
+

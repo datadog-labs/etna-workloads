@@ -1,0 +1,16 @@
+CREATE SUBSCRIPTION s1 CONNECTION 'dbname=nonexistent' PUBLICATION p WITH (connect=false, failover=true);
+psql:<REPRO>:1: WARNING:  subscription was created, but is not connected
+HINT:  To initiate replication, you must manually create the replication slot, enable the subscription, and refresh the subscription.
+BEGIN;
+ALTER SUBSCRIPTION s1 SET (failover = false);
+psql:<REPRO>:3: ERROR:  ALTER SUBSCRIPTION ... SET (failover) cannot run inside a transaction block
+ROLLBACK;
+SELECT subfailover FROM pg_subscription WHERE subname='s1';
+ subfailover 
+-------------
+ t
+(1 row)
+
+DROP SUBSCRIPTION s1;
+psql:<REPRO>:6: ERROR:  could not connect to publisher when attempting to drop replication slot "s1": connection to server on socket "<WORK>/.s.PGSQL.5432" failed: FATAL:  database "nonexistent" does not exist
+HINT:  Use ALTER SUBSCRIPTION ... DISABLE to disable the subscription, and then use ALTER SUBSCRIPTION ... SET (slot_name = NONE) to disassociate it from the slot.

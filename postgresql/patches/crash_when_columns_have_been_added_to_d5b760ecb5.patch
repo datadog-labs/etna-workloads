@@ -1,0 +1,56 @@
+diff --git a/src/backend/parser/parse_relation.c b/src/backend/parser/parse_relation.c
+index b59df7dcdf3..3d241bb9862 100644
+--- a/src/backend/parser/parse_relation.c
++++ b/src/backend/parser/parse_relation.c
+@@ -2816,18 +2816,6 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
+ 					varattno++;
+ 					Assert(varattno == te->resno);
+ 
+-					/*
+-					 * Formerly it was possible for the subquery tlist to have
+-					 * more non-junk entries than the colnames list does (if
+-					 * this RTE has been expanded from a view that has more
+-					 * columns than it did when the current query was parsed).
+-					 * Now that ApplyRetrieveRule cleans up such cases, we
+-					 * shouldn't see that anymore, but let's just check.
+-					 */
+-					if (!aliasp_item)
+-						elog(ERROR, "too few column names for subquery %s",
+-							 rte->eref->aliasname);
+-
+ 					if (colnames)
+ 					{
+ 						char	   *label = strVal(lfirst(aliasp_item));
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 62f54786be4..512690298d4 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -1752,7 +1752,6 @@ ApplyRetrieveRule(Query *parsetree,
+ 	Query	   *rule_action;
+ 	RangeTblEntry *rte;
+ 	RowMarkClause *rc;
+-	int			numCols;
+ 
+ 	if (list_length(rule->actions) != 1)
+ 		elog(ERROR, "expected just one rule action");
+@@ -1893,20 +1892,6 @@ ApplyRetrieveRule(Query *parsetree,
+ 	rte->tablesample = NULL;
+ 	rte->inh = false;			/* must not be set for a subquery */
+ 
+-	/*
+-	 * Since we allow CREATE OR REPLACE VIEW to add columns to a view, the
+-	 * rule_action might emit more columns than we expected when the current
+-	 * query was parsed.  Various places expect rte->eref->colnames to be
+-	 * consistent with the non-junk output columns of the subquery, so patch
+-	 * things up if necessary by adding some dummy column names.
+-	 */
+-	numCols = ExecCleanTargetListLength(rule_action->targetList);
+-	while (list_length(rte->eref->colnames) < numCols)
+-	{
+-		rte->eref->colnames = lappend(rte->eref->colnames,
+-									  makeString(pstrdup("?column?")));
+-	}
+-
+ 	return parsetree;
+ }
+ 

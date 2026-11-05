@@ -1,0 +1,3 @@
+create table t(c1 int, c2 int, c3 int);
+create index ti on t(c1,c2) include (c3);
+select pg_get_indexdef('ti'::regclass, 3, false);

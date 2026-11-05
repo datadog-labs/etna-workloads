@@ -1,0 +1,34 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..f6caf7eece4 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -9008,21 +9008,14 @@ ATExecSetStatistics(Relation rel, const char *colName, int16 colNum, Node *newVa
+ 				 errmsg("cannot alter statistics on virtual generated column \"%s\"",
+ 						colName)));
+ 
+-	if (rel->rd_rel->relkind == RELKIND_INDEX ||
+-		rel->rd_rel->relkind == RELKIND_PARTITIONED_INDEX)
+-	{
+-		if (attnum > rel->rd_index->indnkeyatts)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-					 errmsg("cannot alter statistics on included column \"%s\" of index \"%s\"",
+-							NameStr(attrtuple->attname), RelationGetRelationName(rel))));
+-		else if (rel->rd_index->indkey.values[attnum - 1] != 0)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-					 errmsg("cannot alter statistics on non-expression column \"%s\" of index \"%s\"",
+-							NameStr(attrtuple->attname), RelationGetRelationName(rel)),
+-					 errhint("Alter statistics on table column instead.")));
+-	}
++	if ((rel->rd_rel->relkind == RELKIND_INDEX ||
++		 rel->rd_rel->relkind == RELKIND_PARTITIONED_INDEX) &&
++		rel->rd_index->indkey.values[attnum - 1] != 0)
++		ereport(ERROR,
++				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
++				 errmsg("cannot alter statistics on non-expression column \"%s\" of index \"%s\"",
++						NameStr(attrtuple->attname), RelationGetRelationName(rel)),
++				 errhint("Alter statistics on table column instead.")));
+ 
+ 	/* Build new tuple. */
+ 	memset(repl_null, false, sizeof(repl_null));

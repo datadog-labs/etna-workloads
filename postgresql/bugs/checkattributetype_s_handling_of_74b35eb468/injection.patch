@@ -1,0 +1,63 @@
+diff --git a/src/backend/catalog/heap.c b/src/backend/catalog/heap.c
+index 16a5d6b7b97..7ef7b4d738c 100644
+--- a/src/backend/catalog/heap.c
++++ b/src/backend/catalog/heap.c
+@@ -653,8 +653,7 @@ CheckAttributeType(const char *attname,
+ 		/*
+ 		 * If it's a range, recurse to check its subtype.
+ 		 */
+-		CheckAttributeType(attname, get_range_subtype(atttypid),
+-						   get_range_collation(atttypid),
++		CheckAttributeType(attname, get_range_subtype(atttypid), attcollation,
+ 						   containing_rowtypes,
+ 						   flags);
+ 	}
+diff --git a/src/backend/utils/cache/lsyscache.c b/src/backend/utils/cache/lsyscache.c
+index 11ccac505db..3b8dd45661b 100644
+--- a/src/backend/utils/cache/lsyscache.c
++++ b/src/backend/utils/cache/lsyscache.c
+@@ -3724,32 +3724,6 @@ get_range_subtype(Oid rangeOid)
+ 		return InvalidOid;
+ }
+ 
+-/*
+- * get_range_collation
+- *		Returns the collation of a given range type
+- *
+- * Returns InvalidOid if the type is not a range type,
+- * or if its subtype is not collatable.
+- */
+-Oid
+-get_range_collation(Oid rangeOid)
+-{
+-	HeapTuple	tp;
+-
+-	tp = SearchSysCache1(RANGETYPE, ObjectIdGetDatum(rangeOid));
+-	if (HeapTupleIsValid(tp))
+-	{
+-		Form_pg_range rngtup = (Form_pg_range) GETSTRUCT(tp);
+-		Oid			result;
+-
+-		result = rngtup->rngcollation;
+-		ReleaseSysCache(tp);
+-		return result;
+-	}
+-	else
+-		return InvalidOid;
+-}
+-
+ /*
+  * get_range_multirange
+  *		Returns the multirange type of a given range type
+diff --git a/src/include/utils/lsyscache.h b/src/include/utils/lsyscache.h
+index e0c2fc7f7aa..179360018d2 100644
+--- a/src/include/utils/lsyscache.h
++++ b/src/include/utils/lsyscache.h
+@@ -203,7 +203,6 @@ extern void free_attstatsslot(AttStatsSlot *sslot);
+ extern char *get_namespace_name(Oid nspid);
+ extern char *get_namespace_name_or_temp(Oid nspid);
+ extern Oid	get_range_subtype(Oid rangeOid);
+-extern Oid	get_range_collation(Oid rangeOid);
+ extern Oid	get_range_multirange(Oid rangeOid);
+ extern Oid	get_multirange_range(Oid multirangeOid);
+ extern Oid	get_index_column_opclass(Oid index_oid, int attno);

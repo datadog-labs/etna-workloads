@@ -1,0 +1,56 @@
+diff --git a/src/backend/optimizer/util/pathnode.c b/src/backend/optimizer/util/pathnode.c
+index e8d8a537061..5b2c0abef67 100644
+--- a/src/backend/optimizer/util/pathnode.c
++++ b/src/backend/optimizer/util/pathnode.c
+@@ -225,12 +225,14 @@ compare_path_costs_fuzzily(Path *path1, Path *path2, double fuzz_factor)
+ 		return COSTS_BETTER1;
+ 	}
+ 	/* fuzzily the same on total cost ... */
+-	if (path1->startup_cost > path2->startup_cost * fuzz_factor)
++	if (path1->startup_cost > path2->startup_cost * fuzz_factor &&
++		path2->param_info == NULL)
+ 	{
+ 		/* ... but path1 fuzzily worse on startup, so path2 wins */
+ 		return COSTS_BETTER2;
+ 	}
+-	if (path2->startup_cost > path1->startup_cost * fuzz_factor)
++	if (path2->startup_cost > path1->startup_cost * fuzz_factor &&
++		path1->param_info == NULL)
+ 	{
+ 		/* ... but path2 fuzzily worse on startup, so path1 wins */
+ 		return COSTS_BETTER1;
+@@ -693,15 +695,11 @@ add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
+ 				  List *pathkeys, Relids required_outer)
+ {
+ 	List	   *new_path_pathkeys;
+-	bool		consider_startup;
+ 	ListCell   *p1;
+ 
+ 	/* Pretend parameterized paths have no pathkeys, per add_path policy */
+ 	new_path_pathkeys = required_outer ? NIL : pathkeys;
+ 
+-	/* Decide whether new path's startup cost is interesting */
+-	consider_startup = required_outer ? parent_rel->consider_param_startup : parent_rel->consider_startup;
+-
+ 	foreach(p1, parent_rel->pathlist)
+ 	{
+ 		Path	   *old_path = (Path *) lfirst(p1);
+@@ -718,7 +716,7 @@ add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
+ 			if (disabled_nodes < old_path->disabled_nodes)
+ 				break;
+ 		}
+-		else if (total_cost <= old_path->total_cost * STD_FUZZ_FACTOR)
++		else if (total_cost <= old_path->total_cost)
+ 			break;
+ 
+ 		/*
+@@ -730,8 +728,7 @@ add_path_precheck(RelOptInfo *parent_rel, int disabled_nodes,
+ 		 * Cost comparisons here should match compare_path_costs_fuzzily.
+ 		 */
+ 		/* new path can win on startup cost only if consider_startup */
+-		if (startup_cost > old_path->startup_cost * STD_FUZZ_FACTOR ||
+-			!consider_startup)
++		if (startup_cost >= old_path->startup_cost || required_outer)
+ 		{
+ 			/* new path loses on cost, so check pathkeys... */
+ 			List	   *old_path_pathkeys;

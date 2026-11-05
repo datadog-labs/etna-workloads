@@ -1,0 +1,36 @@
+diff --git a/src/pl/plpgsql/src/pl_exec.c b/src/pl/plpgsql/src/pl_exec.c
+index e2fe0fd4b56..1ec0663f609 100644
+--- a/src/pl/plpgsql/src/pl_exec.c
++++ b/src/pl/plpgsql/src/pl_exec.c
+@@ -3256,14 +3256,28 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
+ 				}
+ 				break;
+ 
+-			case PLPGSQL_DTYPE_ROW:
+ 			case PLPGSQL_DTYPE_REC:
+ 				{
+-					/* exec_eval_datum can handle these cases */
++					PLpgSQL_rec *rec = (PLpgSQL_rec *) retvar;
++
++					/* If record is empty, we return NULL not a row of nulls */
++					if (rec->erh && !ExpandedRecordIsEmpty(rec->erh))
++					{
++						estate->retval = ExpandedRecordGetDatum(rec->erh);
++						estate->retisnull = false;
++						estate->rettype = rec->rectypeid;
++					}
++				}
++				break;
++
++			case PLPGSQL_DTYPE_ROW:
++				{
++					PLpgSQL_row *row = (PLpgSQL_row *) retvar;
+ 					int32		rettypmod;
+ 
++					/* We get here if there are multiple OUT parameters */
+ 					exec_eval_datum(estate,
+-									retvar,
++									(PLpgSQL_datum *) row,
+ 									&estate->rettype,
+ 									&rettypmod,
+ 									&estate->retval,

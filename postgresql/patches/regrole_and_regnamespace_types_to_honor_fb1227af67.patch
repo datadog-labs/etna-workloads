@@ -1,0 +1,70 @@
+diff --git a/src/backend/utils/adt/regproc.c b/src/backend/utils/adt/regproc.c
+index 5ee608a2b39..6bbf82ccf8f 100644
+--- a/src/backend/utils/adt/regproc.c
++++ b/src/backend/utils/adt/regproc.c
+@@ -1543,7 +1543,6 @@ regrolein(PG_FUNCTION_ARGS)
+ 	char	   *role_name_or_oid = PG_GETARG_CSTRING(0);
+ 	Node	   *escontext = fcinfo->context;
+ 	Oid			result;
+-	List	   *names;
+ 
+ 	/* Handle "-" or numeric OID */
+ 	if (parseDashOrOid(role_name_or_oid, &result, escontext))
+@@ -1554,22 +1553,13 @@ regrolein(PG_FUNCTION_ARGS)
+ 		elog(ERROR, "regrole values must be OIDs in bootstrap mode");
+ 
+ 	/* Normal case: see if the name matches any pg_authid entry. */
+-	names = stringToQualifiedNameList(role_name_or_oid, escontext);
+-	if (names == NIL)
+-		PG_RETURN_NULL();
+-
+-	if (list_length(names) != 1)
+-		ereturn(escontext, (Datum) 0,
+-				(errcode(ERRCODE_INVALID_NAME),
+-				 errmsg("invalid name syntax")));
+-
+-	result = get_role_oid(strVal(linitial(names)), true);
++	result = get_role_oid(role_name_or_oid, true);
+ 
+ 	if (!OidIsValid(result))
+ 		ereturn(escontext, (Datum) 0,
+ 				(errcode(ERRCODE_UNDEFINED_OBJECT),
+ 				 errmsg("role \"%s\" does not exist",
+-						strVal(linitial(names)))));
++						role_name_or_oid)));
+ 
+ 	PG_RETURN_OID(result);
+ }
+@@ -1660,7 +1650,6 @@ regnamespacein(PG_FUNCTION_ARGS)
+ 	char	   *nsp_name_or_oid = PG_GETARG_CSTRING(0);
+ 	Node	   *escontext = fcinfo->context;
+ 	Oid			result;
+-	List	   *names;
+ 
+ 	/* Handle "-" or numeric OID */
+ 	if (parseDashOrOid(nsp_name_or_oid, &result, escontext))
+@@ -1671,22 +1660,13 @@ regnamespacein(PG_FUNCTION_ARGS)
+ 		elog(ERROR, "regnamespace values must be OIDs in bootstrap mode");
+ 
+ 	/* Normal case: see if the name matches any pg_namespace entry. */
+-	names = stringToQualifiedNameList(nsp_name_or_oid, escontext);
+-	if (names == NIL)
+-		PG_RETURN_NULL();
+-
+-	if (list_length(names) != 1)
+-		ereturn(escontext, (Datum) 0,
+-				(errcode(ERRCODE_INVALID_NAME),
+-				 errmsg("invalid name syntax")));
+-
+-	result = get_namespace_oid(strVal(linitial(names)), true);
++	result = get_namespace_oid(nsp_name_or_oid, true);
+ 
+ 	if (!OidIsValid(result))
+ 		ereturn(escontext, (Datum) 0,
+ 				(errcode(ERRCODE_UNDEFINED_SCHEMA),
+ 				 errmsg("schema \"%s\" does not exist",
+-						strVal(linitial(names)))));
++						nsp_name_or_oid)));
+ 
+ 	PG_RETURN_OID(result);
+ }

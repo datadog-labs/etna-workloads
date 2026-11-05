@@ -1,0 +1,72 @@
+diff --git a/src/common/jsonapi.c b/src/common/jsonapi.c
+index f0d51c56782..8158345b066 100644
+--- a/src/common/jsonapi.c
++++ b/src/common/jsonapi.c
+@@ -2092,20 +2092,20 @@ json_lex_string(JsonLexContext *lex)
+ 					if (is_utf16_surrogate_first(ch))
+ 					{
+ 						if (hi_surrogate != -1)
+-							FAIL_AT_CHAR_END(JSON_UNICODE_HIGH_SURROGATE);
++							return JSON_UNICODE_HIGH_SURROGATE;
+ 						hi_surrogate = ch;
+ 						continue;
+ 					}
+ 					else if (is_utf16_surrogate_second(ch))
+ 					{
+ 						if (hi_surrogate == -1)
+-							FAIL_AT_CHAR_END(JSON_UNICODE_LOW_SURROGATE);
++							return JSON_UNICODE_LOW_SURROGATE;
+ 						ch = surrogate_pair_to_codepoint(hi_surrogate, ch);
+ 						hi_surrogate = -1;
+ 					}
+ 
+ 					if (hi_surrogate != -1)
+-						FAIL_AT_CHAR_END(JSON_UNICODE_LOW_SURROGATE);
++						return JSON_UNICODE_LOW_SURROGATE;
+ 
+ 					/*
+ 					 * Reject invalid cases.  We can't have a value above
+@@ -2115,7 +2115,7 @@ json_lex_string(JsonLexContext *lex)
+ 					if (ch == 0)
+ 					{
+ 						/* We can't allow this, since our TEXT type doesn't */
+-						FAIL_AT_CHAR_END(JSON_UNICODE_CODE_POINT_ZERO);
++						return JSON_UNICODE_CODE_POINT_ZERO;
+ 					}
+ 
+ 					/*
+@@ -2129,7 +2129,7 @@ json_lex_string(JsonLexContext *lex)
+ 						char		cbuf[MAX_UNICODE_EQUIVALENT_STRING + 1];
+ 
+ 						if (!pg_unicode_to_server_noerror(ch, (unsigned char *) cbuf))
+-							FAIL_AT_CHAR_END(JSON_UNICODE_UNTRANSLATABLE);
++							return JSON_UNICODE_UNTRANSLATABLE;
+ 						appendStringInfoString(lex->strval, cbuf);
+ 					}
+ #else
+@@ -2156,7 +2156,7 @@ json_lex_string(JsonLexContext *lex)
+ 			else if (lex->need_escapes)
+ 			{
+ 				if (hi_surrogate != -1)
+-					FAIL_AT_CHAR_END(JSON_UNICODE_LOW_SURROGATE);
++					return JSON_UNICODE_LOW_SURROGATE;
+ 
+ 				switch (*s)
+ 				{
+@@ -2209,7 +2209,7 @@ json_lex_string(JsonLexContext *lex)
+ 			const char *p = s;
+ 
+ 			if (hi_surrogate != -1)
+-				FAIL_AT_CHAR_END(JSON_UNICODE_LOW_SURROGATE);
++				return JSON_UNICODE_LOW_SURROGATE;
+ 
+ 			/*
+ 			 * Skip to the first byte that requires special handling, so we
+@@ -2250,7 +2250,6 @@ json_lex_string(JsonLexContext *lex)
+ 
+ 	if (hi_surrogate != -1)
+ 	{
+-		lex->token_terminator = s + 1;
+ 		return JSON_UNICODE_LOW_SURROGATE;
+ 	}
+ 

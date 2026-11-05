@@ -1,0 +1,38 @@
+diff --git a/src/backend/catalog/heap.c b/src/backend/catalog/heap.c
+index 16a5d6b7b97..58115a128ed 100644
+--- a/src/backend/catalog/heap.c
++++ b/src/backend/catalog/heap.c
+@@ -400,9 +400,6 @@ heap_create(const char *relname,
+ 		recordDependencyOnTablespace(RelationRelationId, relid,
+ 									 reltablespace);
+ 
+-	/* ensure that stats are dropped if transaction aborts */
+-	pgstat_create_relation(rel);
+-
+ 	return rel;
+ }
+ 
+@@ -1537,6 +1534,9 @@ heap_create_with_catalog(const char *relname,
+ 	if (oncommit != ONCOMMIT_NOOP)
+ 		register_on_commit_action(relid, oncommit);
+ 
++	/* ensure that stats are dropped if transaction aborts */
++	pgstat_create_relation(new_rel_desc);
++
+ 	/*
+ 	 * ok, the relation has been cataloged, so close our relations and return
+ 	 * the OID of the newly created relation.
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..39854ed6dbd 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -2342,9 +2342,6 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
+ 	if (RELKIND_HAS_STORAGE(userIndexRelation->rd_rel->relkind))
+ 		RelationDropStorage(userIndexRelation);
+ 
+-	/* ensure that stats are dropped if transaction commits */
+-	pgstat_drop_relation(userIndexRelation);
+-
+ 	/*
+ 	 * Close and flush the index's relcache entry, to ensure relcache doesn't
+ 	 * try to rebuild it while we're deleting catalog entries. We keep the

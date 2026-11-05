@@ -1,0 +1,9 @@
+CREATE TABLE t (unique1 int, two int, four int, ten int, twenty int, hundred int);
+INSERT INTO t SELECT i, i%2, i%4, i%10, i%20, i%100 FROM generate_series(0,9999) i;
+CREATE INDEX ON t(unique1);
+CREATE INDEX ON t(hundred);
+ANALYZE t;
+SET enable_seqscan=off; SET enable_mergejoin=off; SET enable_hashjoin=off;
+SELECT unique1 FROM t t0 WHERE unique1 < 3 AND EXISTS (
+ SELECT 1 FROM t t1 INNER JOIN t t2 ON t1.unique1 = t2.hundred
+ WHERE t0.ten = t1.twenty AND t0.two <> t2.four OFFSET 0);

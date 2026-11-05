@@ -1,0 +1,11 @@
+CREATE TABLE pk6 (a int PRIMARY KEY);
+CREATE TABLE fk6 (a int, FOREIGN KEY (a) REFERENCES pk6, FOREIGN KEY (a) REFERENCES pk6) PARTITION BY LIST (a);
+CREATE TABLE fk6_1 PARTITION OF fk6 FOR VALUES IN (1);
+ALTER TABLE fk6 DETACH PARTITION fk6_1;
+ALTER TABLE fk6 ATTACH PARTITION fk6_1 FOR VALUES IN (1);
+psql:<REPRO>:5: ERROR:  tuple already updated by self
+DROP TABLE pk6, fk6;
+psql:<REPRO>:6: ERROR:  cannot drop desired object(s) because other objects depend on them
+DETAIL:  constraint fk6_a_fkey on table fk6_1 depends on table pk6
+constraint fk6_a_fkey1 on table fk6_1 depends on table pk6
+HINT:  Use DROP ... CASCADE to drop the dependent objects too.

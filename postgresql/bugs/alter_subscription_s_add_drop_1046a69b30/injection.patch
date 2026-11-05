@@ -1,0 +1,27 @@
+diff --git a/src/backend/commands/subscriptioncmds.c b/src/backend/commands/subscriptioncmds.c
+index 395dcc678c2..4bd6e34d3f4 100644
+--- a/src/backend/commands/subscriptioncmds.c
++++ b/src/backend/commands/subscriptioncmds.c
+@@ -1446,7 +1446,10 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
+ 				List	   *publist;
+ 				bool		isadd = stmt->kind == ALTER_SUBSCRIPTION_ADD_PUBLICATION;
+ 
+-				supported_opts = SUBOPT_REFRESH | SUBOPT_COPY_DATA;
++				supported_opts = SUBOPT_REFRESH;
++				if (isadd)
++					supported_opts |= SUBOPT_COPY_DATA;
++
+ 				parse_subscription_options(pstate, stmt->options,
+ 										   supported_opts, &opts);
+ 
+@@ -1489,8 +1492,8 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
+ 
+ 					PreventInTransactionBlock(isTopLevel, "ALTER SUBSCRIPTION with refresh");
+ 
+-					/* Refresh the new list of publications. */
+-					sub->publications = publist;
++					/* Only refresh the added/dropped list of publications. */
++					sub->publications = stmt->publication;
+ 
+ 					AlterSubscription_refresh(sub, opts.copy_data,
+ 											  validate_publications);

@@ -1,0 +1,67 @@
+diff --git a/src/backend/utils/adt/timestamp.c b/src/backend/utils/adt/timestamp.c
+index 72775924bb7..59d4b50274f 100644
+--- a/src/backend/utils/adt/timestamp.c
++++ b/src/backend/utils/adt/timestamp.c
+@@ -3717,17 +3717,12 @@ interval_mul(PG_FUNCTION_ARGS)
+ 	 */
+ 	if (fabs(sec_remainder) >= SECS_PER_DAY)
+ 	{
+-		if (pg_add_s32_overflow(result->day,
+-								(int) (sec_remainder / SECS_PER_DAY),
+-								&result->day))
+-			goto out_of_range;
++		result->day += (int) (sec_remainder / SECS_PER_DAY);
+ 		sec_remainder -= (int) (sec_remainder / SECS_PER_DAY) * SECS_PER_DAY;
+ 	}
+ 
+ 	/* cascade units down */
+-	if (pg_add_s32_overflow(result->day, (int32) month_remainder_days,
+-							&result->day))
+-		goto out_of_range;
++	result->day += (int32) month_remainder_days;
+ 	result_double = rint(span->time * factor + sec_remainder * USECS_PER_SEC);
+ 	if (isnan(result_double) || !FLOAT8_FITS_IN_INT64(result_double))
+ 		goto out_of_range;
+@@ -3798,15 +3793,8 @@ interval_div(PG_FUNCTION_ARGS)
+ 		PG_RETURN_INTERVAL_P(result);
+ 	}
+ 
+-	result_double = span->month / factor;
+-	if (isnan(result_double) || !FLOAT8_FITS_IN_INT32(result_double))
+-		goto out_of_range;
+-	result->month = (int32) result_double;
+-
+-	result_double = span->day / factor;
+-	if (isnan(result_double) || !FLOAT8_FITS_IN_INT32(result_double))
+-		goto out_of_range;
+-	result->day = (int32) result_double;
++	result->month = (int32) (span->month / factor);
++	result->day = (int32) (span->day / factor);
+ 
+ 	/*
+ 	 * Fractional months full days into days.  See comment in interval_mul().
+@@ -3818,21 +3806,13 @@ interval_div(PG_FUNCTION_ARGS)
+ 	sec_remainder = TSROUND(sec_remainder);
+ 	if (fabs(sec_remainder) >= SECS_PER_DAY)
+ 	{
+-		if (pg_add_s32_overflow(result->day,
+-								(int) (sec_remainder / SECS_PER_DAY),
+-								&result->day))
+-			goto out_of_range;
++		result->day += (int) (sec_remainder / SECS_PER_DAY);
+ 		sec_remainder -= (int) (sec_remainder / SECS_PER_DAY) * SECS_PER_DAY;
+ 	}
+ 
+ 	/* cascade units down */
+-	if (pg_add_s32_overflow(result->day, (int32) month_remainder_days,
+-							&result->day))
+-		goto out_of_range;
+-	result_double = rint(span->time / factor + sec_remainder * USECS_PER_SEC);
+-	if (isnan(result_double) || !FLOAT8_FITS_IN_INT64(result_double))
+-		goto out_of_range;
+-	result->time = (int64) result_double;
++	result->day += (int32) month_remainder_days;
++	result->time = rint(span->time / factor + sec_remainder * USECS_PER_SEC);
+ 
+ 	if (INTERVAL_NOT_FINITE(result))
+ 		goto out_of_range;

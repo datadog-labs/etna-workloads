@@ -1,0 +1,39 @@
+diff --git a/src/backend/parser/scan.l b/src/backend/parser/scan.l
+index 08990831fe8..606a6fd3976 100644
+--- a/src/backend/parser/scan.l
++++ b/src/backend/parser/scan.l
+@@ -992,14 +992,8 @@ other			.
+ 				}
+ 
+ {param}			{
+-					ErrorSaveContext escontext = {T_ErrorSaveContext};
+-					int32		val;
+-
+ 					SET_YYLLOC();
+-					val = pg_strtoint32_safe(yytext + 1, (Node *) &escontext);
+-					if (escontext.error_occurred)
+-						yyerror("parameter number too large");
+-					yylval->ival = val;
++					yylval->ival = atol(yytext + 1);
+ 					return PARAM;
+ 				}
+ {param_junk}	{
+diff --git a/src/interfaces/ecpg/preproc/pgc.l b/src/interfaces/ecpg/preproc/pgc.l
+index 63283a4a1e5..d05fc8db108 100644
+--- a/src/interfaces/ecpg/preproc/pgc.l
++++ b/src/interfaces/ecpg/preproc/pgc.l
+@@ -976,13 +976,7 @@ cppline			{space}*#([^i][A-Za-z]*|{if}|{ifdef}|{ifndef}|{import})((\/\*[^*/]*\*+
+ 				}
+ 
+ {param}			{
+-					int			val;
+-
+-					errno = 0;
+-					val = strtoint(yytext + 1, NULL, 10);
+-					if (errno == ERANGE)
+-						mmfatal(PARSE_ERROR, "parameter number too large");
+-					base_yylval.ival = val;
++					base_yylval.ival = atol(yytext+1);
+ 					return PARAM;
+ 				}
+ {param_junk}	{

@@ -1,0 +1,63 @@
+diff --git a/src/backend/executor/execExpr.c b/src/backend/executor/execExpr.c
+index 038a93c5cc7..5f796211f4e 100644
+--- a/src/backend/executor/execExpr.c
++++ b/src/backend/executor/execExpr.c
+@@ -3725,25 +3725,6 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
+ 		int			argno;
+ 		ListCell   *bail;
+ 
+-		/*
+-		 * If filter present, emit. Do so before evaluating the input, to
+-		 * avoid potentially unneeded computations, or even worse, unintended
+-		 * side-effects.  When combining, all the necessary filtering has
+-		 * already been done.
+-		 */
+-		if (pertrans->aggref->aggfilter && !isCombine)
+-		{
+-			/* evaluate filter expression */
+-			ExecInitExprRec(pertrans->aggref->aggfilter, state,
+-							&state->resvalue, &state->resnull);
+-			/* and jump out if false */
+-			scratch.opcode = EEOP_JUMP_IF_NOT_TRUE;
+-			scratch.d.jump.jumpdone = -1;	/* adjust later */
+-			ExprEvalPushStep(state, &scratch);
+-			adjust_bailout = lappend_int(adjust_bailout,
+-										 state->steps_len - 1);
+-		}
+-
+ 		/*
+ 		 * Evaluate arguments to aggregate/combine function.
+ 		 */
+@@ -3893,6 +3874,32 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
+ 			Assert(pertrans->numInputs == argno);
+ 		}
+ 
++		/*
++		 * If filter present, emit. Do so before evaluating the input, to
++		 * avoid potentially unneeded computations, or even worse, unintended
++		 * side-effects.  When combining, all the necessary filtering has
++		 * already been done.
++		 */
++		if (pertrans->aggref->aggfilter && !isCombine)
++		{
++			/* evaluate filter expression, keeping state->resvalue intact */
++			Datum	   *fval = palloc(sizeof(Datum));
++			bool	   *fnull = palloc(sizeof(bool));
++
++			ExecInitExprRec(pertrans->aggref->aggfilter, state,
++							fval, fnull);
++			scratch.resvalue = fval;
++			scratch.resnull = fnull;
++			/* and jump out if false */
++			scratch.opcode = EEOP_JUMP_IF_NOT_TRUE;
++			scratch.d.jump.jumpdone = -1;	/* adjust later */
++			ExprEvalPushStep(state, &scratch);
++			scratch.resvalue = &state->resvalue;
++			scratch.resnull = &state->resnull;
++			adjust_bailout = lappend_int(adjust_bailout,
++										 state->steps_len - 1);
++		}
++
+ 		/*
+ 		 * For a strict transfn, nothing happens when there's a NULL input; we
+ 		 * just keep the prior transValue. This is true for both plain and

@@ -1,0 +1,19 @@
+diff --git a/src/backend/commands/copyfrom.c b/src/backend/commands/copyfrom.c
+index 12781963b4f..38d23576e94 100644
+--- a/src/backend/commands/copyfrom.c
++++ b/src/backend/commands/copyfrom.c
+@@ -1779,8 +1779,12 @@ BeginCopyFrom(ParseState *pstate,
+ 			 !list_member_int(cstate->attnumlist, attnum)) &&
+ 			!att->attgenerated)
+ 		{
+-			Expr	   *defexpr = (Expr *) build_column_default(cstate->rel,
+-																attnum);
++			Expr	   *defexpr;
++
++			if (att->attidentity)
++				defexpr = NULL;
++			else
++				defexpr = (Expr *) build_column_default(cstate->rel, attnum);
+ 
+ 			if (defexpr != NULL)
+ 			{

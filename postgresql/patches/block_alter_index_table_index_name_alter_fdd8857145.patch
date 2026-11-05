@@ -1,0 +1,42 @@
+diff --git a/src/backend/commands/analyze.c b/src/backend/commands/analyze.c
+index 4fffb76e557..67b09bb7d64 100644
+--- a/src/backend/commands/analyze.c
++++ b/src/backend/commands/analyze.c
+@@ -998,6 +998,9 @@ compute_index_stats(Relation onerel, double totalrows,
+ 			for (i = 0; i < attr_cnt; i++)
+ 			{
+ 				VacAttrStats *stats = thisdata->vacattrstats[i];
++				AttributeOpts *aopt =
++				get_attribute_options(onerel->rd_id,
++									  stats->tupattnum);
+ 
+ 				stats->exprvals = exprvals + i;
+ 				stats->exprnulls = exprnulls + i;
+@@ -1007,6 +1010,14 @@ compute_index_stats(Relation onerel, double totalrows,
+ 									 numindexrows,
+ 									 totalindexrows);
+ 
++				/*
++				 * If the n_distinct option is specified, it overrides the
++				 * above computation.  For indices, we always use just
++				 * n_distinct, not n_distinct_inherited.
++				 */
++				if (aopt != NULL && aopt->n_distinct != 0.0)
++					stats->stadistinct = aopt->n_distinct;
++
+ 				MemoryContextReset(col_context);
+ 			}
+ 		}
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..3aa3ee7fecb 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -5059,7 +5059,7 @@ ATPrepCmd(List **wqueue, Relation rel, AlterTableCmd *cmd,
+ 		case AT_ResetOptions:	/* ALTER COLUMN RESET ( options ) */
+ 			ATSimplePermissions(cmd->subtype, rel,
+ 								ATT_TABLE | ATT_PARTITIONED_TABLE |
+-								ATT_MATVIEW | ATT_FOREIGN_TABLE);
++								ATT_MATVIEW | ATT_FOREIGN_TABLE | ATT_INDEX);
+ 			/* This command never recurses */
+ 			pass = AT_PASS_MISC;
+ 			break;

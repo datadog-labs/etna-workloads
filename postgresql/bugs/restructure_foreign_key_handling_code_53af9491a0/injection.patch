@@ -1,0 +1,100 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..0a17cbccb61 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -21242,38 +21242,13 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
+ 		}
+ 
+ 		/*
+-		 * Lastly, create the action triggers on the referenced table, using
+-		 * addFkRecurseReferenced, which requires some elaborate setup (so put
+-		 * it in a separate block).  While at it, if the table is partitioned,
+-		 * that function will recurse to create the pg_constraint rows and
+-		 * action triggers for each partition.
+-		 *
+-		 * Note there's no need to do addFkConstraint() here, because the
+-		 * pg_constraint row already exists.
++		 * Make the action triggers on the referenced relation.  When this was
++		 * a partition the action triggers pointed to the parent rel (they
++		 * still do), but now we need separate ones of our own.
+ 		 */
+ 		{
+ 			Constraint *fkconstraint;
+-			int			numfks;
+-			AttrNumber	conkey[INDEX_MAX_KEYS];
+-			AttrNumber	confkey[INDEX_MAX_KEYS];
+-			Oid			conpfeqop[INDEX_MAX_KEYS];
+-			Oid			conppeqop[INDEX_MAX_KEYS];
+-			Oid			conffeqop[INDEX_MAX_KEYS];
+-			int			numfkdelsetcols;
+-			AttrNumber	confdelsetcols[INDEX_MAX_KEYS];
+-			Relation	refdRel;
+-
+-			DeconstructFkConstraintRow(contup,
+-									   &numfks,
+-									   conkey,
+-									   confkey,
+-									   conpfeqop,
+-									   conppeqop,
+-									   conffeqop,
+-									   &numfkdelsetcols,
+-									   confdelsetcols);
+-
+-			/* Create a synthetic node we'll use throughout */
++
+ 			fkconstraint = makeNode(Constraint);
+ 			fkconstraint->contype = CONSTRAINT_FOREIGN;
+ 			fkconstraint->conname = pstrdup(NameStr(conform->conname));
+@@ -21282,7 +21257,7 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
+ 			fkconstraint->is_enforced = conform->conenforced;
+ 			fkconstraint->skip_validation = true;
+ 			fkconstraint->initially_valid = conform->convalidated;
+-			/* a few irrelevant fields omitted here */
++			fkconstraint->location = -1;
+ 			fkconstraint->pktable = NULL;
+ 			fkconstraint->fk_attrs = NIL;
+ 			fkconstraint->pk_attrs = NIL;
+@@ -21292,38 +21267,12 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
+ 			fkconstraint->fk_del_set_cols = NIL;
+ 			fkconstraint->old_conpfeqop = NIL;
+ 			fkconstraint->old_pktable_oid = InvalidOid;
+-			fkconstraint->location = -1;
+ 
+-			/* set up colnames, used to generate the constraint name */
+-			for (int i = 0; i < numfks; i++)
+-			{
+-				Form_pg_attribute att;
+-
+-				att = TupleDescAttr(RelationGetDescr(partRel),
+-									conkey[i] - 1);
+-
+-				fkconstraint->fk_attrs = lappend(fkconstraint->fk_attrs,
+-												 makeString(NameStr(att->attname)));
+-			}
+-
+-			refdRel = table_open(fk->confrelid, ShareRowExclusiveLock);
+-
+-			addFkRecurseReferenced(fkconstraint, partRel,
+-								   refdRel,
+-								   conform->conindid,
+-								   fk->conoid,
+-								   numfks,
+-								   confkey,
+-								   conkey,
+-								   conpfeqop,
+-								   conppeqop,
+-								   conffeqop,
+-								   numfkdelsetcols,
+-								   confdelsetcols,
+-								   true,
+-								   InvalidOid, InvalidOid,
+-								   conform->conperiod);
+-			table_close(refdRel, NoLock);	/* keep lock till end of xact */
++			createForeignKeyActionTriggers(partRel, conform->confrelid,
++										   fkconstraint, fk->conoid,
++										   conform->conindid,
++										   InvalidOid, InvalidOid,
++										   NULL, NULL);
+ 		}
+ 
+ 		ReleaseSysCache(contup);

@@ -1,0 +1,3 @@
+CREATE TABLE t(a int);
+INSERT INTO t SELECT generate_series(1,5);
+SELECT a FROM (SELECT a, row_number() OVER (ORDER BY a) rn FROM t) s WHERE rn <= 2 ORDER BY a;

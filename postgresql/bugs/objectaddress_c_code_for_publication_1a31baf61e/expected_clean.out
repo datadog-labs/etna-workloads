@@ -1,0 +1,15 @@
+CREATE SCHEMA s1;
+CREATE TABLE s1.t(a int, c int);
+CREATE PUBLICATION p FOR TABLE s1.t (a, c);
+psql:<REPRO>:3: WARNING:  "wal_level" is insufficient to publish logical changes
+HINT:  Set "wal_level" to "logical" before creating subscriptions.
+ALTER TABLE s1.t DROP COLUMN c;
+psql:<REPRO>:4: ERROR:  cannot drop column c of table s1.t because other objects depend on it
+DETAIL:  publication of table s1.t in publication p depends on column c of table s1.t
+HINT:  Use DROP ... CASCADE to drop the dependent objects too.
+SELECT pg_describe_object(classid,objid,0) FROM pg_depend WHERE classid='pg_publication_rel'::regclass LIMIT 1;
+             pg_describe_object             
+--------------------------------------------
+ publication of table s1.t in publication p
+(1 row)
+

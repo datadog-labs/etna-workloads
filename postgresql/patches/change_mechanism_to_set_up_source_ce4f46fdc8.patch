@@ -1,0 +1,27 @@
+diff --git a/src/backend/parser/parse_merge.c b/src/backend/parser/parse_merge.c
+index 51d7703eff7..e38617ec653 100644
+--- a/src/backend/parser/parse_merge.c
++++ b/src/backend/parser/parse_merge.c
+@@ -17,6 +17,7 @@
+ 
+ #include "access/sysattr.h"
+ #include "nodes/makefuncs.h"
++#include "nodes/nodeFuncs.h"
+ #include "parser/analyze.h"
+ #include "parser/parse_clause.h"
+ #include "parser/parse_collate.h"
+@@ -223,11 +224,9 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
+ 					   pstate->p_target_nsitem->p_names->aliasname),
+ 				errdetail("The name is used both as MERGE target table and data source."));
+ 
+-	/*
+-	 * There's no need for a targetlist here; it'll be set up by
+-	 * preprocess_targetlist later.
+-	 */
+-	qry->targetList = NIL;
++	qry->targetList = expandNSItemAttrs(pstate, nsitem, 0, false,
++										exprLocation(stmt->sourceRelation));
++
+ 	qry->rtable = pstate->p_rtable;
+ 	qry->rteperminfos = pstate->p_rteperminfos;
+ 

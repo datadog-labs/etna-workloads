@@ -1,0 +1,2 @@
+CREATE PROCEDURE p(i int) LANGUAGE sql AS $$ SELECT 1 $$;
+CALL p((SELECT 1));

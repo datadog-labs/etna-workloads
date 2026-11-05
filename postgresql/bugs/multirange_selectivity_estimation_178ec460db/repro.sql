@@ -1,0 +1,6 @@
+create table t(mr int4multirange);
+insert into t select int4multirange(int4range(i,i+10)) from generate_series(1,200) i;
+analyze t;
+select count(*) from t where mr <@ 'empty'::int4range;
+select count(*) from t where mr << 'empty'::int4range;
+select count(*) from t where mr >> 'empty'::int4range;

@@ -1,0 +1,6 @@
+create domain spgist_text as varchar;
+create table spgist_domain_tbl (f1 spgist_text);
+create index spgist_domain_idx on spgist_domain_tbl using spgist(f1);
+insert into spgist_domain_tbl values('fee'), ('fi'), ('fo'), ('fum');
+set enable_seqscan=off;
+select * from spgist_domain_tbl where f1 = 'fo';

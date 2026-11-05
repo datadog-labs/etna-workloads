@@ -1,0 +1,7 @@
+with recursive search_graph(f, t, label) as (
+    select * from (values (1,2,'a'),(2,3,'b')) g(f,t,label)
+    union all
+    select g.* from (values (1,2,'a'),(2,3,'b')) g(f,t,label), search_graph sg where g.f = sg.t
+) search depth first by f, t set foo
+  cycle f, t set is_cycle to true default false using foo
+select * from search_graph;

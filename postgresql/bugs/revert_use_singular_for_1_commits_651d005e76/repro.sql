@@ -1,0 +1,2 @@
+SELECT INTERVAL '-1 +02:03' AS i;
+SELECT INTERVAL '-1 year -2 mons' AS i;

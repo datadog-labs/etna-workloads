@@ -1,0 +1,7 @@
+CREATE TABLE t (c1 int, c2 int);
+INSERT INTO t SELECT i, i FROM generate_series(1,100) i;
+CREATE INDEX t_expr ON t ((c1 + 1));
+ANALYZE t;
+SELECT count(*) FROM pg_statistic WHERE starelid = 't_expr'::regclass;
+REINDEX INDEX CONCURRENTLY t_expr;
+SELECT count(*) FROM pg_statistic WHERE starelid = 't_expr'::regclass;

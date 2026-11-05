@@ -1,0 +1,24 @@
+create table t(v tsvector);
+insert into t values ('foo bar'), ('bar foo'), ('baz'), ('foo baz bar');
+create index t_gin on t using gin(v);
+set enable_seqscan=off;
+select * from t where v @@ '!(foo<->bar)'::tsquery order by v::text;
+         v         
+-------------------
+ 'bar' 'baz' 'foo'
+ 'bar' 'foo'
+ 'bar' 'foo'
+ 'baz'
+(4 rows)
+
+select * from t where v @@ 'foo<->!(foo<->bar)'::tsquery order by v::text;
+ v 
+---
+(0 rows)
+
+select * from t where v @@ '!(foo<->!bar)'::tsquery order by v::text;
+psql:<REPRO>:7: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:7: error: connection to server was lost
+### server crashed or assertion failed

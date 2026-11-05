@@ -1,0 +1,15 @@
+create function g(i int) returns int language plpgsql immutable as $$ begin raise notice 'sp=%', current_setting('search_path'); return i; end $$;
+create table t(a int);
+insert into t values (1);
+create index on t (g(a));
+psql:<REPRO>:4: NOTICE:  sp=pg_catalog, pg_temp
+analyze t;
+psql:<REPRO>:5: NOTICE:  sp="$user", public
+create materialized view mv as select g(a) from t with no data;
+refresh materialized view mv;
+psql:<REPRO>:7: NOTICE:  sp="$user", public
+cluster t using t_g_idx;
+psql:<REPRO>:8: NOTICE:  sp="$user", public
+reindex table t;
+psql:<REPRO>:9: NOTICE:  sp="$user", public
+vacuum t;

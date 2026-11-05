@@ -1,0 +1,20 @@
+CREATE TABLE sl(a int, b int, c int);
+CREATE UNIQUE INDEX ON sl(a, b);
+CREATE UNIQUE INDEX ON sl(c);
+ALTER TABLE sl ADD COLUMN bool_col boolean;
+EXPLAIN (COSTS OFF)
+SELECT 1 AS c1 FROM sl sl1 LEFT JOIN (sl AS sl2 NATURAL JOIN sl AS sl3)
+  ON sl2.bool_col LEFT JOIN sl AS sl4 ON sl2.bool_col;
+                                                          QUERY PLAN                                                           
+-------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join
+   ->  Seq Scan on sl sl1
+   ->  Materialize
+         ->  Nested Loop Left Join
+               Join Filter: sl3.bool_col
+               ->  Seq Scan on sl sl3
+                     Filter: (bool_col AND (a IS NOT NULL) AND (b IS NOT NULL) AND (c IS NOT NULL) AND (bool_col IS NOT NULL))
+               ->  Materialize
+                     ->  Seq Scan on sl sl4
+(9 rows)
+

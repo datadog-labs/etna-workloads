@@ -1,0 +1,26 @@
+diff --git a/src/backend/libpq/crypt.c b/src/backend/libpq/crypt.c
+index 063ac95778d..a69dd7b0fbe 100644
+--- a/src/backend/libpq/crypt.c
++++ b/src/backend/libpq/crypt.c
+@@ -89,19 +89,9 @@ get_role_password(const char *role, const char **logdetail)
+ PasswordType
+ get_password_type(const char *shadow_pass)
+ {
+-	char	   *encoded_salt;
+-	int			iterations;
+-	int			key_length = 0;
+-	pg_cryptohash_type hash_type;
+-	uint8		stored_key[SCRAM_MAX_KEY_LEN];
+-	uint8		server_key[SCRAM_MAX_KEY_LEN];
+-
+-	if (strncmp(shadow_pass, "md5", 3) == 0 &&
+-		strlen(shadow_pass) == MD5_PASSWD_LEN &&
+-		strspn(shadow_pass + 3, MD5_PASSWD_CHARSET) == MD5_PASSWD_LEN - 3)
++	if (strncmp(shadow_pass, "md5", 3) == 0 && strlen(shadow_pass) == MD5_PASSWD_LEN)
+ 		return PASSWORD_TYPE_MD5;
+-	if (parse_scram_secret(shadow_pass, &iterations, &hash_type, &key_length,
+-						   &encoded_salt, stored_key, server_key))
++	if (strncmp(shadow_pass, "SCRAM-SHA-256$", strlen("SCRAM-SHA-256$")) == 0)
+ 		return PASSWORD_TYPE_SCRAM_SHA_256;
+ 	return PASSWORD_TYPE_PLAINTEXT;
+ }

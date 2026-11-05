@@ -1,0 +1,36 @@
+diff --git a/src/backend/commands/extension.c b/src/backend/commands/extension.c
+index f1a54066e32..068945eaa24 100644
+--- a/src/backend/commands/extension.c
++++ b/src/backend/commands/extension.c
+@@ -3194,7 +3194,7 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
+ {
+ 	Oid			extensionOid;
+ 	Oid			nspOid;
+-	Oid			oldNspOid;
++	Oid			oldNspOid = InvalidOid;
+ 	AclResult	aclresult;
+ 	Relation	extRel;
+ 	ScanKeyData key[2];
+@@ -3277,9 +3277,6 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
+ 
+ 	objsMoved = new_object_addresses();
+ 
+-	/* store the OID of the namespace to-be-changed */
+-	oldNspOid = extForm->extnamespace;
+-
+ 	/*
+ 	 * Scan pg_depend to find objects that depend directly on the extension,
+ 	 * and alter each one's schema.
+@@ -3359,6 +3356,12 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
+ 												 nspOid,
+ 												 objsMoved);
+ 
++		/*
++		 * Remember previous namespace of first object that has one
++		 */
++		if (oldNspOid == InvalidOid && dep_oldNspOid != InvalidOid)
++			oldNspOid = dep_oldNspOid;
++
+ 		/*
+ 		 * If not all the objects had the same old namespace (ignoring any
+ 		 * that are not in namespaces or are dependent types), complain.

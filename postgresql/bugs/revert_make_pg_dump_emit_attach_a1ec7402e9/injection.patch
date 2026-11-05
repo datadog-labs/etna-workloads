@@ -1,0 +1,114 @@
+diff --git a/src/bin/pg_dump/common.c b/src/bin/pg_dump/common.c
+index 61af7860184..4ff8fc6040c 100644
+--- a/src/bin/pg_dump/common.c
++++ b/src/bin/pg_dump/common.c
+@@ -343,7 +343,7 @@ flagInhTables(Archive *fout, TableInfo *tblinfo, int numTables,
+ 
+ 		/* Create TableAttachInfo object if needed */
+ 		if ((tblinfo[i].dobj.dump & DUMP_COMPONENT_DEFINITION) &&
+-			tblinfo[i].ispartition)
++			tblinfo[i].ispartition && fout->dopt->binary_upgrade)
+ 		{
+ 			TableAttachInfo *attachinfo;
+ 
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..13702cb003b 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -9957,9 +9957,7 @@ shouldPrintColumn(const DumpOptions *dopt, const TableInfo *tbinfo, int colno)
+ {
+ 	if (dopt->binary_upgrade)
+ 		return true;
+-	if (tbinfo->attisdropped[colno])
+-		return false;
+-	return (tbinfo->attislocal[colno] || tbinfo->ispartition);
++	return (tbinfo->attislocal[colno] && !tbinfo->attisdropped[colno]);
+ }
+ 
+ 
+@@ -16978,6 +16976,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 		char	   *partkeydef = NULL;
+ 		char	   *ftoptions = NULL;
+ 		char	   *srvname = NULL;
++		char	   *partbound = NULL;
+ 		const char *foreign = "";
+ 
+ 		/*
+@@ -17074,6 +17073,35 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 							  getFormattedTypeName(fout, tbinfo->reloftype,
+ 												   zeroIsError));
+ 
++		/*
++		 * If the table is a partition, dump it as such; except in the case of
++		 * a binary upgrade, we dump the table normally and attach it to the
++		 * parent afterward.
++		 */
++		if (tbinfo->ispartition && !dopt->binary_upgrade)
++		{
++			TableInfo  *parentRel = tbinfo->parents[0];
++			PQExpBuffer pbq = createPQExpBuffer();
++			PGresult   *pbres;
++
++			/* With partitions, there can only be one parent */
++			if (tbinfo->numParents != 1)
++				pg_fatal("invalid number of parents %d for table \"%s\"",
++						 tbinfo->numParents, tbinfo->dobj.name);
++
++			appendPQExpBuffer(pbq,
++							  "SELECT pg_get_expr(c.relpartbound, c.oid) "
++							  "FROM pg_class c WHERE c.oid = '%u'",
++							  tbinfo->dobj.catId.oid);
++			pbres = ExecuteSqlQueryForSingleRow(fout, pbq->data);
++			partbound = pg_strdup(PQgetvalue(pbres, 0, 0));
++			PQclear(pbres);
++			destroyPQExpBuffer(pbq);
++
++			appendPQExpBuffer(q, " PARTITION OF %s",
++							  fmtQualifiedDumpable(parentRel));
++		}
++
+ 		if (tbinfo->relkind != RELKIND_MATVIEW)
+ 		{
+ 			/* Dump the attributes */
+@@ -17113,7 +17141,7 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 					 * Skip column if fully defined by reloftype, except in
+ 					 * binary upgrade
+ 					 */
+-					if (OidIsValid(tbinfo->reloftype) &&
++					if ((OidIsValid(tbinfo->reloftype) || tbinfo->ispartition) &&
+ 						!print_default && !print_notnull &&
+ 						!dopt->binary_upgrade)
+ 						continue;
+@@ -17147,7 +17175,8 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 					 * table ('OF type_name'), but in binary-upgrade mode,
+ 					 * print it in that case too.
+ 					 */
+-					if (dopt->binary_upgrade || !OidIsValid(tbinfo->reloftype))
++					if (dopt->binary_upgrade ||
++						(!OidIsValid(tbinfo->reloftype) && !tbinfo->ispartition))
+ 					{
+ 						appendPQExpBuffer(q, " %s",
+ 										  tbinfo->atttypnames[j]);
+@@ -17256,7 +17285,8 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 
+ 			if (actual_atts)
+ 				appendPQExpBufferStr(q, "\n)");
+-			else if (!(OidIsValid(tbinfo->reloftype) && !dopt->binary_upgrade))
++			else if (!((OidIsValid(tbinfo->reloftype) || tbinfo->ispartition) &&
++					   !dopt->binary_upgrade))
+ 			{
+ 				/*
+ 				 * No attributes? we must have a parenthesized attribute list,
+@@ -17265,6 +17295,12 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 				appendPQExpBufferStr(q, " (\n)");
+ 			}
+ 
++			if (tbinfo->ispartition && !dopt->binary_upgrade)
++			{
++				appendPQExpBufferChar(q, '\n');
++				appendPQExpBufferStr(q, partbound);
++			}
++
+ 			/*
+ 			 * Emit the INHERITS clause (not for partitions), except in
+ 			 * binary-upgrade mode.

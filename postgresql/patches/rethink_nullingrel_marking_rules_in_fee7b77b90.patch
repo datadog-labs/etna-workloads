@@ -1,0 +1,52 @@
+diff --git a/src/backend/optimizer/util/relnode.c b/src/backend/optimizer/util/relnode.c
+index ff507331a06..fdbc4b78d6d 100644
+--- a/src/backend/optimizer/util/relnode.c
++++ b/src/backend/optimizer/util/relnode.c
+@@ -1133,10 +1133,7 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
+ 					phv = copyObject(phv);
+ 					/* See comments above to understand this logic */
+ 					if (sjinfo->ojrelid != 0 &&
+-						bms_is_member(sjinfo->ojrelid, relids) &&
+-						(bms_is_subset(phv->phrels, sjinfo->syn_righthand) ||
+-						 (sjinfo->jointype == JOIN_FULL &&
+-						  bms_is_subset(phv->phrels, sjinfo->syn_lefthand))))
++						!bms_overlap(phv->phnullingrels, sjinfo->commute_above_l))
+ 						phv->phnullingrels = bms_add_member(phv->phnullingrels,
+ 															sjinfo->ojrelid);
+ 					foreach(lc, pushed_down_joins)
+@@ -1149,9 +1146,8 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
+ 																othersj->ojrelid);
+ 					}
+ 					phv->phnullingrels =
+-						bms_join(phv->phnullingrels,
+-								 bms_intersect(sjinfo->commute_above_r,
+-											   relids));
++						bms_add_members(phv->phnullingrels,
++										sjinfo->commute_above_r);
+ 				}
+ 
+ 				joinrel->reltarget->exprs = lappend(joinrel->reltarget->exprs,
+@@ -1208,10 +1204,7 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
+ 			var = copyObject(var);
+ 			/* See comments above to understand this logic */
+ 			if (sjinfo->ojrelid != 0 &&
+-				bms_is_member(sjinfo->ojrelid, relids) &&
+-				(bms_is_member(var->varno, sjinfo->syn_righthand) ||
+-				 (sjinfo->jointype == JOIN_FULL &&
+-				  bms_is_member(var->varno, sjinfo->syn_lefthand))))
++				!bms_overlap(var->varnullingrels, sjinfo->commute_above_l))
+ 				var->varnullingrels = bms_add_member(var->varnullingrels,
+ 													 sjinfo->ojrelid);
+ 			foreach(lc, pushed_down_joins)
+@@ -1224,9 +1217,8 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
+ 														 othersj->ojrelid);
+ 			}
+ 			var->varnullingrels =
+-				bms_join(var->varnullingrels,
+-						 bms_intersect(sjinfo->commute_above_r,
+-									   relids));
++				bms_add_members(var->varnullingrels,
++								sjinfo->commute_above_r);
+ 		}
+ 
+ 		joinrel->reltarget->exprs = lappend(joinrel->reltarget->exprs,

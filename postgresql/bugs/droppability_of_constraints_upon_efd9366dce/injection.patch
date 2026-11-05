@@ -1,0 +1,23 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..d6683c166e1 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -14237,18 +14237,6 @@ dropconstraint_internal(Relation rel, HeapTuple constraintTup, DropBehavior beha
+ 	ObjectAddressSet(conobj, ConstraintRelationId, con->oid);
+ 	performDeletion(&conobj, behavior, 0);
+ 
+-	/*
+-	 * For partitioned tables, non-CHECK, non-NOT-NULL inherited constraints
+-	 * are dropped via the dependency mechanism, so we're done here.
+-	 */
+-	if (con->contype != CONSTRAINT_CHECK &&
+-		con->contype != CONSTRAINT_NOTNULL &&
+-		rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
+-	{
+-		table_close(conrel, RowExclusiveLock);
+-		return conobj;
+-	}
+-
+ 	/*
+ 	 * Propagate to children as appropriate.  Unlike most other ALTER
+ 	 * routines, we have to do this one level of recursion at a time; we can't

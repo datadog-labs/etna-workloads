@@ -1,0 +1,4 @@
+create type two_ints as (a int, b int);
+create type two_ints_range as range (subtype = two_ints);
+alter type two_ints add attribute c two_ints_multirange;
+drop type two_ints cascade;

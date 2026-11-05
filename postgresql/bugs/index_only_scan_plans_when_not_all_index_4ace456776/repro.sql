@@ -1,0 +1,6 @@
+create table g(p point);
+insert into g select point(i/20.0,i/20.0) from generate_series(0,200) i;
+create index gi on g using gist (circle(p,1), p);
+set enable_seqscan=off; set enable_bitmapscan=off;
+explain (verbose, costs off) select circle(p,1) from g where p <@ box(point(5,5),point(5.3,5.3));
+select circle(p,1) from g where p <@ box(point(5,5),point(5.3,5.3));

@@ -1,0 +1,54 @@
+diff --git a/src/backend/access/hash/hashfunc.c b/src/backend/access/hash/hashfunc.c
+index adab96b9f13..2d9f1ed28c2 100644
+--- a/src/backend/access/hash/hashfunc.c
++++ b/src/backend/access/hash/hashfunc.c
+@@ -160,16 +160,6 @@ hashfloat4(PG_FUNCTION_ARGS)
+ 	 */
+ 	key8 = key;
+ 
+-	/*
+-	 * Similarly, NaNs can have different bit patterns but they should all
+-	 * compare as equal.  For backwards-compatibility reasons we force them to
+-	 * have the hash value of a standard float8 NaN.  (You'd think we could
+-	 * replace key with a float4 NaN and then widen it; but on some old
+-	 * platforms, that way produces a different bit pattern.)
+-	 */
+-	if (isnan(key8))
+-		key8 = get_float8_nan();
+-
+ 	return hash_any((unsigned char *) &key8, sizeof(key8));
+ }
+ 
+@@ -184,8 +174,6 @@ hashfloat4extended(PG_FUNCTION_ARGS)
+ 	if (key == (float4) 0)
+ 		PG_RETURN_UINT64(seed);
+ 	key8 = key;
+-	if (isnan(key8))
+-		key8 = get_float8_nan();
+ 
+ 	return hash_any_extended((unsigned char *) &key8, sizeof(key8), seed);
+ }
+@@ -203,14 +191,6 @@ hashfloat8(PG_FUNCTION_ARGS)
+ 	if (key == (float8) 0)
+ 		PG_RETURN_UINT32(0);
+ 
+-	/*
+-	 * Similarly, NaNs can have different bit patterns but they should all
+-	 * compare as equal.  For backwards-compatibility reasons we force them to
+-	 * have the hash value of a standard NaN.
+-	 */
+-	if (isnan(key))
+-		key = get_float8_nan();
+-
+ 	return hash_any((unsigned char *) &key, sizeof(key));
+ }
+ 
+@@ -223,8 +203,6 @@ hashfloat8extended(PG_FUNCTION_ARGS)
+ 	/* Same approach as hashfloat8 */
+ 	if (key == (float8) 0)
+ 		PG_RETURN_UINT64(seed);
+-	if (isnan(key))
+-		key = get_float8_nan();
+ 
+ 	return hash_any_extended((unsigned char *) &key, sizeof(key), seed);
+ }

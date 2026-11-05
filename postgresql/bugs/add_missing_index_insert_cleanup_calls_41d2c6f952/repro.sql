@@ -1,0 +1,11 @@
+create table t(a int);
+insert into t select g from generate_series(1,1000) g;
+create index concurrently t_brin on t using brin(a);
+select count(*) from t where a < 10;
+create table u(a int, b int);
+create index u_brin on u using brin(b);
+create table w(a int);
+insert into w select generate_series(1,100);
+create index concurrently w_brin on w using brin(a) with (pages_per_range=1);
+reindex index concurrently w_brin;
+select 1;

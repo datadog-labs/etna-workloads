@@ -1,0 +1,26 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..d78c97361ab 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -3962,7 +3962,7 @@ getLOs(Archive *fout)
+ 		 * pg_largeobject_metadata, after the dump is restored.
+ 		 */
+ 		if (dopt->binary_upgrade)
+-			loinfo->dobj.dump &= ~DUMP_COMPONENT_DATA;
++			loinfo->dobj.dump &= ~(DUMP_COMPONENT_DATA | DUMP_COMPONENT_ACL);
+ 
+ 		/*
+ 		 * Create a "BLOBS" data item for the group, too. This is just a
+diff --git a/src/bin/pg_upgrade/info.c b/src/bin/pg_upgrade/info.c
+index 4b7a56f5b3b..8d91e014045 100644
+--- a/src/bin/pg_upgrade/info.c
++++ b/src/bin/pg_upgrade/info.c
+@@ -498,7 +498,7 @@ get_rel_infos_query(void)
+ 					  "                        'binary_upgrade', 'pg_toast') AND "
+ 					  "      c.oid >= %u::pg_catalog.oid) OR "
+ 					  "     (n.nspname = 'pg_catalog' AND "
+-					  "      relname IN ('pg_largeobject') ))), ",
++					  "      relname IN ('pg_largeobject', 'pg_largeobject_metadata') ))), ",
+ 					  (user_opts.transfer_mode == TRANSFER_MODE_SWAP) ?
+ 					  ", " CppAsString2(RELKIND_SEQUENCE) : "",
+ 					  FirstNormalObjectId);

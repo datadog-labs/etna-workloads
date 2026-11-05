@@ -1,0 +1,39 @@
+diff --git a/src/backend/catalog/heap.c b/src/backend/catalog/heap.c
+index 16a5d6b7b97..89f63d22364 100644
+--- a/src/backend/catalog/heap.c
++++ b/src/backend/catalog/heap.c
+@@ -678,15 +678,6 @@ CheckAttributeType(const char *attname,
+ 						   flags);
+ 	}
+ 
+-	/*
+-	 * For consistency with check_virtual_generated_security().
+-	 */
+-	if ((flags & CHKATYPE_IS_VIRTUAL) && atttypid >= FirstUnpinnedObjectId)
+-		ereport(ERROR,
+-				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-				errmsg("virtual generated column \"%s\" cannot have a user-defined type", attname),
+-				errdetail("Virtual generated columns that make use of user-defined types are not yet supported."));
+-
+ 	/*
+ 	 * This might not be strictly invalid per SQL standard, but it is pretty
+ 	 * useless, and it cannot be dumped, so we must disallow it.
+@@ -3336,7 +3327,7 @@ check_virtual_generated_security_walker(Node *node, void *context)
+ 	return expression_tree_walker(node, check_virtual_generated_security_walker, context);
+ }
+ 
+-static void
++static void pg_attribute_unused()
+ check_virtual_generated_security(ParseState *pstate, Node *node)
+ {
+ 	check_virtual_generated_security_walker(node, pstate);
+@@ -3382,9 +3373,6 @@ cookDefault(ParseState *pstate,
+ 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+ 					 errmsg("generation expression is not immutable")));
+ 
+-		/* Check security of expressions for virtual generated column */
+-		if (attgenerated == ATTRIBUTE_GENERATED_VIRTUAL)
+-			check_virtual_generated_security(pstate, expr);
+ 	}
+ 	else
+ 	{

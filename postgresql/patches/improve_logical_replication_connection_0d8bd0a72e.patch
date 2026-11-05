@@ -1,0 +1,120 @@
+diff --git a/src/backend/commands/subscriptioncmds.c b/src/backend/commands/subscriptioncmds.c
+index 395dcc678c2..59e5cd3baf4 100644
+--- a/src/backend/commands/subscriptioncmds.c
++++ b/src/backend/commands/subscriptioncmds.c
+@@ -741,8 +741,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
+ 		if (!wrconn)
+ 			ereport(ERROR,
+ 					(errcode(ERRCODE_CONNECTION_FAILURE),
+-					 errmsg("subscription \"%s\" could not connect to the publisher: %s",
+-							stmt->subname, err)));
++					 errmsg("could not connect to the publisher: %s", err)));
+ 
+ 		PG_TRY();
+ 		{
+@@ -875,8 +874,7 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
+ 	if (!wrconn)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_CONNECTION_FAILURE),
+-				 errmsg("subscription \"%s\" could not connect to the publisher: %s",
+-						sub->name, err)));
++				 errmsg("could not connect to the publisher: %s", err)));
+ 
+ 	PG_TRY();
+ 	{
+@@ -1617,8 +1615,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
+ 		if (!wrconn)
+ 			ereport(ERROR,
+ 					(errcode(ERRCODE_CONNECTION_FAILURE),
+-					 errmsg("subscription \"%s\" could not connect to the publisher: %s",
+-							sub->name, err)));
++					 errmsg("could not connect to the publisher: %s", err)));
+ 
+ 		PG_TRY();
+ 		{
+diff --git a/src/backend/replication/logical/slotsync.c b/src/backend/replication/logical/slotsync.c
+index c4dda8aa5f1..53aa7a853ac 100644
+--- a/src/backend/replication/logical/slotsync.c
++++ b/src/backend/replication/logical/slotsync.c
+@@ -1588,8 +1588,7 @@ ReplSlotSyncWorkerMain(const void *startup_data, size_t startup_data_len)
+ 	if (!wrconn)
+ 		ereport(ERROR,
+ 				errcode(ERRCODE_CONNECTION_FAILURE),
+-				errmsg("synchronization worker \"%s\" could not connect to the primary server: %s",
+-					   app_name.data, err));
++				errmsg("could not connect to the primary server: %s", err));
+ 
+ 	pfree(app_name.data);
+ 
+diff --git a/src/backend/replication/logical/tablesync.c b/src/backend/replication/logical/tablesync.c
+index 92e4e383d77..2ff96332700 100644
+--- a/src/backend/replication/logical/tablesync.c
++++ b/src/backend/replication/logical/tablesync.c
+@@ -1378,8 +1378,7 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
+ 	if (LogRepWorkerWalRcvConn == NULL)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_CONNECTION_FAILURE),
+-				 errmsg("table synchronization worker for subscription \"%s\" could not connect to the publisher: %s",
+-						MySubscription->name, err)));
++				 errmsg("could not connect to the publisher: %s", err)));
+ 
+ 	Assert(MyLogicalRepWorker->relstate == SUBREL_STATE_INIT ||
+ 		   MyLogicalRepWorker->relstate == SUBREL_STATE_DATASYNC ||
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..da474875a28 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -4604,8 +4604,7 @@ run_apply_worker()
+ 	if (LogRepWorkerWalRcvConn == NULL)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_CONNECTION_FAILURE),
+-				 errmsg("apply worker for subscription \"%s\" could not connect to the publisher: %s",
+-						MySubscription->name, err)));
++				 errmsg("could not connect to the publisher: %s", err)));
+ 
+ 	/*
+ 	 * We don't really use the output identify_system for anything but it does
+diff --git a/src/backend/replication/slotfuncs.c b/src/backend/replication/slotfuncs.c
+index f5b1793c1c5..b185e8cae11 100644
+--- a/src/backend/replication/slotfuncs.c
++++ b/src/backend/replication/slotfuncs.c
+@@ -925,8 +925,7 @@ pg_sync_replication_slots(PG_FUNCTION_ARGS)
+ 	if (!wrconn)
+ 		ereport(ERROR,
+ 				errcode(ERRCODE_CONNECTION_FAILURE),
+-				errmsg("synchronization worker \"%s\" could not connect to the primary server: %s",
+-					   app_name.data, err));
++				errmsg("could not connect to the primary server: %s", err));
+ 
+ 	pfree(app_name.data);
+ 
+diff --git a/src/backend/replication/walreceiver.c b/src/backend/replication/walreceiver.c
+index 49bf48a3064..e29682a4dc6 100644
+--- a/src/backend/replication/walreceiver.c
++++ b/src/backend/replication/walreceiver.c
+@@ -173,7 +173,6 @@ WalReceiverMain(const void *startup_data, size_t startup_data_len)
+ 	char	   *err;
+ 	char	   *sender_host = NULL;
+ 	int			sender_port = 0;
+-	char	   *appname;
+ 
+ 	Assert(startup_data_len == 0);
+ 
+@@ -277,13 +276,13 @@ WalReceiverMain(const void *startup_data, size_t startup_data_len)
+ 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
+ 
+ 	/* Establish the connection to the primary for XLOG streaming */
+-	appname = cluster_name[0] ? cluster_name : "walreceiver";
+-	wrconn = walrcv_connect(conninfo, true, false, false, appname, &err);
++	wrconn = walrcv_connect(conninfo, true, false, false,
++							cluster_name[0] ? cluster_name : "walreceiver",
++							&err);
+ 	if (!wrconn)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_CONNECTION_FAILURE),
+-				 errmsg("streaming replication receiver \"%s\" could not connect to the primary server: %s",
+-						appname, err)));
++				 errmsg("could not connect to the primary server: %s", err)));
+ 
+ 	/*
+ 	 * Save user-visible connection string.  This clobbers the original

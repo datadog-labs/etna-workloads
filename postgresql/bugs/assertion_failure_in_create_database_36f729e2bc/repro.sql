@@ -1,0 +1,3 @@
+CREATE DATABASE db1 TEMPLATE template0 LOCALE 'C' ENCODING 'UTF8';
+CREATE DATABASE db2 TEMPLATE db1 LOCALE 'C';
+SELECT datname, datlocprovider, datlocale IS NULL AS locale_null FROM pg_database WHERE datname IN ('db1','db2') ORDER BY 1;

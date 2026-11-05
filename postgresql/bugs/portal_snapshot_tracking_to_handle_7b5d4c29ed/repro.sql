@@ -1,0 +1,21 @@
+create table test1(a int, b text);
+DO LANGUAGE plpgsql $$
+BEGIN
+    FOR i IN 1..10 LOOP
+      BEGIN
+        INSERT INTO test1 VALUES (i, 'good');
+        INSERT INTO test1 VALUES (i/0, 'bad');
+      EXCEPTION
+        WHEN division_by_zero THEN
+            INSERT INTO test1 VALUES (i, 'exception');
+            IF i % 3 = 0 THEN COMMIT; ELSE ROLLBACK; END IF;
+      END;
+    END LOOP;
+    BEGIN
+      INSERT INTO test1 VALUES (1/0);
+    EXCEPTION WHEN division_by_zero THEN
+      COMMIT;
+    END;
+END;
+$$;
+SELECT * FROM test1;

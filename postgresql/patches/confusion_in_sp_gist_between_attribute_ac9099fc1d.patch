@@ -1,0 +1,37 @@
+diff --git a/src/backend/access/spgist/spgscan.c b/src/backend/access/spgist/spgscan.c
+index 25893050c58..f2af0c7badb 100644
+--- a/src/backend/access/spgist/spgscan.c
++++ b/src/backend/access/spgist/spgscan.c
+@@ -83,10 +83,7 @@ pairingheap_SpGistSearchItem_cmp(const pairingheap_node *a,
+ static void
+ spgFreeSearchItem(SpGistScanOpaque so, SpGistSearchItem *item)
+ {
+-	/* value is of type attType if isLeaf, else of type attLeafType */
+-	/* (no, that is not backwards; yes, it's confusing) */
+-	if (!(item->isLeaf ? so->state.attType.attbyval :
+-		  so->state.attLeafType.attbyval) &&
++	if (!so->state.attLeafType.attbyval &&
+ 		DatumGetPointer(item->value) != NULL)
+ 		pfree(DatumGetPointer(item->value));
+ 
+@@ -329,8 +326,7 @@ spgbeginscan(Relation rel, int keysz, int orderbysz)
+ 	 * (It's rather annoying to do this work when it might be wasted, but for
+ 	 * most opclasses we can re-use the index reldesc instead of making one.)
+ 	 */
+-	so->reconTupDesc = scan->xs_hitupdesc =
+-		getSpGistTupleDesc(rel, &so->state.attType);
++	so->reconTupDesc = scan->xs_hitupdesc = RelationGetDescr(rel);
+ 
+ 	/* Allocate various arrays needed for order-by scans */
+ 	if (scan->numberOfOrderBys > 0)
+@@ -478,8 +474,8 @@ spgNewHeapItem(SpGistScanOpaque so, int level, SpGistLeafTuple leafTuple,
+ 	if (so->want_itup)
+ 	{
+ 		item->value = isnull ? (Datum) 0 :
+-			datumCopy(leafValue, so->state.attType.attbyval,
+-					  so->state.attType.attlen);
++			datumCopy(leafValue, so->state.attLeafType.attbyval,
++					  so->state.attLeafType.attlen);
+ 
+ 		/*
+ 		 * If we're going to need to reconstruct INCLUDE attributes, store the

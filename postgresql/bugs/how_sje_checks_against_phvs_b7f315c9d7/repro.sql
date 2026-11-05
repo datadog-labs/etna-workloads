@@ -1,0 +1,4 @@
+create table emp1 (id int primary key, a int);
+explain (costs off)
+select * from emp1 t1 join emp1 t2 on t1.id = t2.id left join
+    lateral (select t1.id as t1id, * from generate_series(1,1) t3) s on true;

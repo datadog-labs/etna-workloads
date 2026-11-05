@@ -1,0 +1,6 @@
+begin;
+create temp table tp (a int) partition by list (a) on commit delete rows;
+create temp table tp_1 partition of tp for values in (1) on commit delete rows;
+insert into tp values (1);
+commit;
+select * from tp;

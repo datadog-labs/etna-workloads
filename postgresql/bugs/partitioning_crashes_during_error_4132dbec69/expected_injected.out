@@ -1,0 +1,13 @@
+create table mlparted (a int, b int) partition by range (a, b);
+alter table mlparted add c text;
+create table mlparted5 (c text, a int not null, b int not null) partition by list (c);
+create table mlparted5a (a int not null, c text, b int not null);
+alter table mlparted5 attach partition mlparted5a for values in ('a');
+alter table mlparted attach partition mlparted5 for values from (1, 40) to (1, 50);
+alter table mlparted add constraint check_b check (a = 1 and b < 45);
+insert into mlparted values (1, 45, 'a');
+psql:<REPRO>:8: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:8: error: connection to server was lost
+### server crashed or assertion failed

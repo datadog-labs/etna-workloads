@@ -1,0 +1,24 @@
+diff --git a/src/backend/utils/adt/dbsize.c b/src/backend/utils/adt/dbsize.c
+index 3a059f4ace0..a8469594ea9 100644
+--- a/src/backend/utils/adt/dbsize.c
++++ b/src/backend/utils/adt/dbsize.c
+@@ -31,8 +31,8 @@
+ #include "utils/relmapper.h"
+ #include "utils/syscache.h"
+ 
+-/* Divide by two and round away from zero */
+-#define half_rounded(x)   (((x) + ((x) < 0 ? -1 : 1)) / 2)
++/* Divide by two and round towards positive infinity. */
++#define half_rounded(x)   (((x) + ((x) < 0 ? 0 : 1)) / 2)
+ 
+ /* Units used in pg_size_pretty functions.  All units must be powers of 2 */
+ struct size_pretty_unit
+@@ -619,7 +619,7 @@ pg_size_pretty(PG_FUNCTION_ARGS)
+ 		 */
+ 		bits = (unit[1].unitbits - unit->unitbits - (unit[1].round == true)
+ 				+ (unit->round == true));
+-		size /= ((int64) 1) << bits;
++		size >>= bits;
+ 	}
+ 
+ 	PG_RETURN_TEXT_P(cstring_to_text(buf));

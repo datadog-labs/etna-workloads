@@ -1,0 +1,54 @@
+create table p(a int, b int, c int) partition by list (a);
+create table p1 partition of p for values in (1) partition by list (a);
+create table p2 partition of p for values in (2) partition by list (a);
+create table p11 partition of p1 for values in (1);
+create index on p (b);
+create index on p (c);
+create index on p (b, c);
+alter table p drop column c;
+\d p
+           Partitioned table "public.p"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+ b      | integer |           |          | 
+Partition key: LIST (a)
+Indexes:
+    "p_b_idx" btree (b)
+Number of partitions: 2 (Use \d+ to list them.)
+
+\d p1
+           Partitioned table "public.p1"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+ b      | integer |           |          | 
+Partition of: p FOR VALUES IN (1)
+Partition key: LIST (a)
+Indexes:
+    "p1_b_idx" btree (b)
+Number of partitions: 1 (Use \d+ to list them.)
+
+\d p2
+           Partitioned table "public.p2"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+ b      | integer |           |          | 
+Partition of: p FOR VALUES IN (2)
+Partition key: LIST (a)
+Indexes:
+    "p2_b_idx" btree (b)
+Number of partitions: 0
+
+\d p11
+                Table "public.p11"
+ Column |  Type   | Collation | Nullable | Default 
+--------+---------+-----------+----------+---------
+ a      | integer |           |          | 
+ b      | integer |           |          | 
+Partition of: p1 FOR VALUES IN (1)
+Indexes:
+    "p11_b_idx" btree (b)
+
+drop table p;

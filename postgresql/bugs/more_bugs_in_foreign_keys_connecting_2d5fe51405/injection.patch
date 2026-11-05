@@ -1,0 +1,107 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..92102eb2631 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -10952,7 +10952,6 @@ addFkRecurseReferenced(Constraint *fkconstraint, Relation rel,
+ 			Oid			partIndexId;
+ 			ObjectAddress address;
+ 
+-			/* XXX would it be better to acquire these locks beforehand? */
+ 			partRel = table_open(pd->oids[i], ShareRowExclusiveLock);
+ 
+ 			/*
+@@ -11058,8 +11057,6 @@ addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
+ 				updateTriggerOid = InvalidOid;
+ 
+ 	Assert(OidIsValid(parentConstr));
+-	Assert(CheckRelationLockedByMe(rel, ShareRowExclusiveLock, true));
+-	Assert(CheckRelationLockedByMe(pkrel, ShareRowExclusiveLock, true));
+ 
+ 	if (rel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
+ 		ereport(ERROR,
+@@ -11339,8 +11336,13 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
+ 			continue;
+ 		}
+ 
+-		/* We need the same lock level that CreateTrigger will acquire */
+-		fkRel = table_open(constrForm->conrelid, ShareRowExclusiveLock);
++		/*
++		 * Because we're only expanding the key space at the referenced side,
++		 * we don't need to prevent any operation in the referencing table, so
++		 * AccessShareLock suffices (assumes that dropping the constraint
++		 * acquires AccessExclusiveLock).
++		 */
++		fkRel = table_open(constrForm->conrelid, AccessShareLock);
+ 
+ 		indexOid = constrForm->conindid;
+ 		DeconstructFkConstraintRow(tuple,
+@@ -21193,7 +21195,8 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
+ 	foreach(cell, fks)
+ 	{
+ 		ForeignKeyCacheInfo *fk = lfirst(cell);
+-		HeapTuple	contup;
++		HeapTuple	contup,
++					parentConTup;
+ 		Form_pg_constraint conform;
+ 
+ 		contup = SearchSysCache1(CONSTROID, ObjectIdGetDatum(fk->conoid));
+@@ -21213,6 +21216,13 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
+ 			continue;
+ 		}
+ 
++		Assert(OidIsValid(conform->conparentid));
++		parentConTup = SearchSysCache1(CONSTROID,
++									   ObjectIdGetDatum(conform->conparentid));
++		if (!HeapTupleIsValid(parentConTup))
++			elog(ERROR, "cache lookup failed for constraint %u",
++				 conform->conparentid);
++
+ 		/*
+ 		 * The constraint on this table must be marked no longer a child of
+ 		 * the parent's constraint, as do its check triggers.
+@@ -21261,6 +21271,7 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
+ 			Oid			conffeqop[INDEX_MAX_KEYS];
+ 			int			numfkdelsetcols;
+ 			AttrNumber	confdelsetcols[INDEX_MAX_KEYS];
++			AttrMap    *attmap;
+ 			Relation	refdRel;
+ 
+ 			DeconstructFkConstraintRow(contup,
+@@ -21294,19 +21305,20 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
+ 			fkconstraint->old_pktable_oid = InvalidOid;
+ 			fkconstraint->location = -1;
+ 
+-			/* set up colnames, used to generate the constraint name */
++			attmap = build_attrmap_by_name(RelationGetDescr(partRel),
++										   RelationGetDescr(rel),
++										   false);
+ 			for (int i = 0; i < numfks; i++)
+ 			{
+ 				Form_pg_attribute att;
+ 
+ 				att = TupleDescAttr(RelationGetDescr(partRel),
+-									conkey[i] - 1);
+-
++									attmap->attnums[conkey[i] - 1] - 1);
+ 				fkconstraint->fk_attrs = lappend(fkconstraint->fk_attrs,
+ 												 makeString(NameStr(att->attname)));
+ 			}
+ 
+-			refdRel = table_open(fk->confrelid, ShareRowExclusiveLock);
++			refdRel = table_open(fk->confrelid, AccessShareLock);
+ 
+ 			addFkRecurseReferenced(fkconstraint, partRel,
+ 								   refdRel,
+@@ -21323,10 +21335,11 @@ DetachPartitionFinalize(Relation rel, Relation partRel, bool concurrent,
+ 								   true,
+ 								   InvalidOid, InvalidOid,
+ 								   conform->conperiod);
+-			table_close(refdRel, NoLock);	/* keep lock till end of xact */
++			table_close(refdRel, AccessShareLock);
+ 		}
+ 
+ 		ReleaseSysCache(contup);
++		ReleaseSysCache(parentConTup);
+ 	}
+ 	list_free_deep(fks);
+ 	if (trigrel)

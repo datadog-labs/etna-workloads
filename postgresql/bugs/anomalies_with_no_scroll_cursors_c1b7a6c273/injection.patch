@@ -1,0 +1,106 @@
+diff --git a/src/backend/commands/portalcmds.c b/src/backend/commands/portalcmds.c
+index e7c8171c102..e85c96955e5 100644
+--- a/src/backend/commands/portalcmds.c
++++ b/src/backend/commands/portalcmds.c
+@@ -385,15 +385,6 @@ PersistHoldablePortal(Portal portal)
+ 		 * can be processed.  Otherwise, store only the not-yet-fetched rows.
+ 		 * (The latter is not only more efficient, but avoids semantic
+ 		 * problems if the query's output isn't stable.)
+-		 *
+-		 * In the no-scroll case, tuple indexes in the tuplestore will not
+-		 * match the cursor's nominal position (portalPos).  Currently this
+-		 * causes no difficulty because we only navigate in the tuplestore by
+-		 * relative position, except for the tuplestore_skiptuples call below
+-		 * and the tuplestore_rescan call in DoPortalRewind, both of which are
+-		 * disabled for no-scroll cursors.  But someday we might need to track
+-		 * the offset between the holdStore and the cursor's nominal position
+-		 * explicitly.
+ 		 */
+ 		if (portal->cursorOptions & CURSOR_OPT_SCROLL)
+ 		{
+@@ -401,6 +392,10 @@ PersistHoldablePortal(Portal portal)
+ 		}
+ 		else
+ 		{
++			/* Disallow moving backwards from here */
++			portal->atStart = true;
++			portal->portalPos = 0;
++
+ 			/*
+ 			 * If we already reached end-of-query, set the direction to
+ 			 * NoMovement to avoid trying to fetch any tuples.  (This check
+@@ -458,17 +453,10 @@ PersistHoldablePortal(Portal portal)
+ 		{
+ 			tuplestore_rescan(portal->holdStore);
+ 
+-			/*
+-			 * In the no-scroll case, the start of the tuplestore is exactly
+-			 * where we want to be, so no repositioning is wanted.
+-			 */
+-			if (portal->cursorOptions & CURSOR_OPT_SCROLL)
+-			{
+-				if (!tuplestore_skiptuples(portal->holdStore,
+-										   portal->portalPos,
+-										   true))
+-					elog(ERROR, "unexpected end of tuple stream");
+-			}
++			if (!tuplestore_skiptuples(portal->holdStore,
++									   portal->portalPos,
++									   true))
++				elog(ERROR, "unexpected end of tuple stream");
+ 		}
+ 	}
+ 	PG_CATCH();
+diff --git a/src/backend/tcop/pquery.c b/src/backend/tcop/pquery.c
+index 340e2daf222..a566f97fdae 100644
+--- a/src/backend/tcop/pquery.c
++++ b/src/backend/tcop/pquery.c
+@@ -1466,8 +1466,9 @@ PortalRunFetch(Portal portal,
+  * DoPortalRunFetch
+  *		Guts of PortalRunFetch --- the portal context is already set up
+  *
+- * Here, count < 0 typically reverses the direction.  Also, count == FETCH_ALL
+- * is interpreted as "all rows".  (cf FetchStmt.howMany)
++ * count <= 0 is interpreted as a no-op: the destination gets started up
++ * and shut down, but nothing else happens.  Also, count == FETCH_ALL is
++ * interpreted as "all rows".  (cf FetchStmt.howMany)
+  *
+  * Returns number of rows processed (suitable for use in result tag)
+  */
+@@ -1484,15 +1485,6 @@ DoPortalRunFetch(Portal portal,
+ 		   portal->strategy == PORTAL_ONE_MOD_WITH ||
+ 		   portal->strategy == PORTAL_UTIL_SELECT);
+ 
+-	/*
+-	 * Note: we disallow backwards fetch (including re-fetch of current row)
+-	 * for NO SCROLL cursors, but we interpret that very loosely: you can use
+-	 * any of the FetchDirection options, so long as the end result is to move
+-	 * forwards by at least one row.  Currently it's sufficient to check for
+-	 * NO SCROLL in DoPortalRewind() and in the forward == false path in
+-	 * PortalRunSelect(); but someday we might prefer to account for that
+-	 * restriction explicitly here.
+-	 */
+ 	switch (fdirection)
+ 	{
+ 		case FETCH_FORWARD:
+@@ -1670,20 +1662,6 @@ DoPortalRewind(Portal portal)
+ {
+ 	QueryDesc  *queryDesc;
+ 
+-	/*
+-	 * No work is needed if we've not advanced nor attempted to advance the
+-	 * cursor (and we don't want to throw a NO SCROLL error in this case).
+-	 */
+-	if (portal->atStart && !portal->atEnd)
+-		return;
+-
+-	/* Otherwise, cursor must allow scrolling */
+-	if (portal->cursorOptions & CURSOR_OPT_NO_SCROLL)
+-		ereport(ERROR,
+-				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+-				 errmsg("cursor can only scan forward"),
+-				 errhint("Declare it with SCROLL option to enable backward scan.")));
+-
+ 	/* Rewind holdStore, if we have one */
+ 	if (portal->holdStore)
+ 	{

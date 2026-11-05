@@ -1,0 +1,49 @@
+diff --git a/src/backend/commands/opclasscmds.c b/src/backend/commands/opclasscmds.c
+index a6dd8eab518..17e58d0b959 100644
+--- a/src/backend/commands/opclasscmds.c
++++ b/src/backend/commands/opclasscmds.c
+@@ -289,18 +289,14 @@ CreateOpFamily(CreateOpFamilyStmt *stmt, const char *opfname,
+ 	heap_freetuple(tup);
+ 
+ 	/*
+-	 * Create dependencies for the opfamily proper.
++	 * Create dependencies for the opfamily proper.  Note: we do not create a
++	 * dependency link to the AM, because we don't currently support DROP
++	 * ACCESS METHOD.
+ 	 */
+ 	myself.classId = OperatorFamilyRelationId;
+ 	myself.objectId = opfamilyoid;
+ 	myself.objectSubId = 0;
+ 
+-	/* dependency on access method */
+-	referenced.classId = AccessMethodRelationId;
+-	referenced.objectId = amoid;
+-	referenced.objectSubId = 0;
+-	recordDependencyOn(&myself, &referenced, DEPENDENCY_AUTO);
+-
+ 	/* dependency on namespace */
+ 	referenced.classId = NamespaceRelationId;
+ 	referenced.objectId = namespaceoid;
+@@ -715,13 +711,20 @@ DefineOpClass(CreateOpClassStmt *stmt)
+ 	EventTriggerCollectCreateOpClass(stmt, opclassoid, operators, procedures);
+ 
+ 	/*
+-	 * Create dependencies for the opclass proper.  Note: we do not need a
+-	 * dependency link to the AM, because that exists through the opfamily.
++	 * Create dependencies for the opclass proper.  Note: we do not create a
++	 * dependency link to the AM, because we don't currently support DROP
++	 * ACCESS METHOD.
+ 	 */
+ 	myself.classId = OperatorClassRelationId;
+ 	myself.objectId = opclassoid;
+ 	myself.objectSubId = 0;
+ 
++	/* dependency on access method */
++	referenced.classId = AccessMethodRelationId;
++	referenced.objectId = amoid;
++	referenced.objectSubId = 0;
++	recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
++
+ 	/* dependency on namespace */
+ 	referenced.classId = NamespaceRelationId;
+ 	referenced.objectId = namespaceoid;

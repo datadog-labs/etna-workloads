@@ -1,0 +1,18 @@
+create table parent (a int primary key, f int references parent) partition by list (a);
+create table child1 partition of parent for values in (1);
+alter table parent disable trigger all;
+select tgrelid::regclass, rtrim(tgname, '0123456789') as tgname, tgfoid::regproc, tgenabled
+  from pg_trigger where tgrelid in ('parent'::regclass, 'child1'::regclass)
+  order by tgrelid::regclass::text, tgfoid;
+ tgrelid |         tgname          |         tgfoid         | tgenabled 
+---------+-------------------------+------------------------+-----------
+ child1  | RI_ConstraintTrigger_c_ | "RI_FKey_check_ins"    | D
+ child1  | RI_ConstraintTrigger_c_ | "RI_FKey_check_upd"    | D
+ child1  | RI_ConstraintTrigger_a_ | "RI_FKey_noaction_del" | D
+ child1  | RI_ConstraintTrigger_a_ | "RI_FKey_noaction_upd" | D
+ parent  | RI_ConstraintTrigger_c_ | "RI_FKey_check_ins"    | D
+ parent  | RI_ConstraintTrigger_c_ | "RI_FKey_check_upd"    | D
+ parent  | RI_ConstraintTrigger_a_ | "RI_FKey_noaction_del" | D
+ parent  | RI_ConstraintTrigger_a_ | "RI_FKey_noaction_upd" | D
+(8 rows)
+

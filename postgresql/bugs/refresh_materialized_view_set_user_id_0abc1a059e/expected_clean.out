@@ -1,0 +1,31 @@
+CREATE ROLE r_own;
+GRANT ALL ON SCHEMA public TO r_own;
+SET SESSION AUTHORIZATION r_own;
+CREATE FUNCTION f(int) RETURNS int IMMUTABLE LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE NOTICE 'user=%', current_user;
+  EXECUTE 'CREATE TEMP TABLE tt(a int)';
+  RAISE NOTICE 'temp table created';
+  RETURN 1;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'failed: %', sqlerrm;
+  RETURN 2;
+END$$;
+CREATE MATERIALIZED VIEW mv AS SELECT 1 AS c;
+CREATE UNIQUE INDEX ON mv (c) WHERE f(1) > 0;
+psql:<REPRO>:15: NOTICE:  user=r_own
+psql:<REPRO>:15: NOTICE:  failed: CREATE TABLE is not allowed in a non-volatile function
+psql:<REPRO>:15: NOTICE:  user=r_own
+psql:<REPRO>:15: NOTICE:  failed: CREATE TABLE is not allowed in a non-volatile function
+psql:<REPRO>:15: NOTICE:  user=r_own
+psql:<REPRO>:15: NOTICE:  failed: CREATE TABLE is not allowed in a non-volatile function
+RESET SESSION AUTHORIZATION;
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv;
+psql:<REPRO>:17: NOTICE:  user=r_own
+psql:<REPRO>:17: NOTICE:  failed: CREATE TABLE is not allowed in a non-volatile function
+psql:<REPRO>:17: NOTICE:  user=r_own
+psql:<REPRO>:17: NOTICE:  failed: CREATE TABLE is not allowed in a non-volatile function
+psql:<REPRO>:17: NOTICE:  user=r_own
+psql:<REPRO>:17: NOTICE:  failed: CREATE TABLE is not allowed in a non-volatile function
+psql:<REPRO>:17: NOTICE:  user=r_own
+psql:<REPRO>:17: NOTICE:  failed: CREATE TABLE is not allowed in a non-volatile function

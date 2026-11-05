@@ -1,0 +1,53 @@
+diff --git a/src/backend/parser/parse_expr.c b/src/backend/parser/parse_expr.c
+index cf872ce79b5..8b752ad9208 100644
+--- a/src/backend/parser/parse_expr.c
++++ b/src/backend/parser/parse_expr.c
+@@ -1130,6 +1130,7 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
+ 	List	   *rvars;
+ 	List	   *rnonvars;
+ 	bool		useOr;
++	bool		haveRowExpr;
+ 	ListCell   *l;
+ 	bool		has_rvars = false;
+ 
+@@ -1153,11 +1154,13 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
+ 	 * Vars.
+ 	 */
+ 	lexpr = transformExprRecurse(pstate, a->lexpr);
++	haveRowExpr = (lexpr && IsA(lexpr, RowExpr));
+ 	rexprs = rvars = rnonvars = NIL;
+ 	foreach(l, (List *) a->rexpr)
+ 	{
+ 		Node	   *rexpr = transformExprRecurse(pstate, lfirst(l));
+ 
++		haveRowExpr |= (rexpr && IsA(rexpr, RowExpr));
+ 		rexprs = lappend(rexprs, rexpr);
+ 		if (contain_vars_of_level(rexpr, 0))
+ 		{
+@@ -1172,7 +1175,7 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
+ 	 * ScalarArrayOpExpr is only going to be useful if there's more than one
+ 	 * non-Var righthand item.
+ 	 */
+-	if (list_length(rnonvars) > 1)
++	if (!haveRowExpr && list_length(rnonvars) > 1)
+ 	{
+ 		List	   *allexprs;
+ 		Oid			scalar_type;
+@@ -1257,10 +1260,14 @@ transformAExprIn(ParseState *pstate, A_Expr *a)
+ 		Node	   *rexpr = (Node *) lfirst(l);
+ 		Node	   *cmp;
+ 
+-		if (IsA(lexpr, RowExpr) &&
+-			IsA(rexpr, RowExpr))
++		if (haveRowExpr)
+ 		{
+-			/* ROW() op ROW() is handled specially */
++			if (!IsA(lexpr, RowExpr) ||
++				!IsA(rexpr, RowExpr))
++				ereport(ERROR,
++						(errcode(ERRCODE_SYNTAX_ERROR),
++						 errmsg("arguments of row IN must all be row expressions"),
++						 parser_errposition(pstate, a->location)));
+ 			cmp = make_row_comparison_op(pstate,
+ 										 a->name,
+ 										 copyObject(((RowExpr *) lexpr)->args),

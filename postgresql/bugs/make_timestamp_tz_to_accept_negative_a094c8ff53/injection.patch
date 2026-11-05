@@ -1,0 +1,31 @@
+diff --git a/src/backend/utils/adt/timestamp.c b/src/backend/utils/adt/timestamp.c
+index 72775924bb7..6e8734e9584 100644
+--- a/src/backend/utils/adt/timestamp.c
++++ b/src/backend/utils/adt/timestamp.c
+@@ -578,21 +578,17 @@ make_timestamp_internal(int year, int month, int day,
+ 	TimeOffset	date;
+ 	TimeOffset	time;
+ 	int			dterr;
+-	bool		bc = false;
+ 	Timestamp	result;
+ 
+ 	tm.tm_year = year;
+ 	tm.tm_mon = month;
+ 	tm.tm_mday = day;
+ 
+-	/* Handle negative years as BC */
+-	if (tm.tm_year < 0)
+-	{
+-		bc = true;
+-		tm.tm_year = -tm.tm_year;
+-	}
+-
+-	dterr = ValidateDate(DTK_DATE_M, false, false, bc, &tm);
++	/*
++	 * Note: we'll reject zero or negative year values.  Perhaps negatives
++	 * should be allowed to represent BC years?
++	 */
++	dterr = ValidateDate(DTK_DATE_M, false, false, false, &tm);
+ 
+ 	if (dterr != 0)
+ 		ereport(ERROR,

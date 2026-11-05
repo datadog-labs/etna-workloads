@@ -1,0 +1,10 @@
+CREATE AGGREGATE myavg (numeric)
+(
+	stype = internal,
+	sfunc = numeric_avg_accum,
+	finalfunc = numeric_avg,
+	combinefunc = numeric_avg_combine,
+	serialfunc = numeric_avg_serialize,
+	deserialfunc = numeric_avg_deserialize
+);
+SELECT aggfnoid, aggdeserialfn FROM pg_aggregate WHERE aggfnoid = 'myavg'::REGPROC;

@@ -1,0 +1,19 @@
+diff --git a/src/backend/commands/policy.c b/src/backend/commands/policy.c
+index a2e5c486648..2ca797858d7 100644
+--- a/src/backend/commands/policy.c
++++ b/src/backend/commands/policy.c
+@@ -474,10 +474,12 @@ RemoveRoleFromObjectPolicy(Oid roleid, Oid classid, Oid policy_id)
+ 	role_oids = (Datum *) palloc(num_roles * sizeof(Datum));
+ 	for (i = 0, j = 0; i < num_roles; i++)
+ 	{
+-		if (roles[i] != roleid)
++		/* Copy over all of the roles which are not the one being removed */
++		if (roles[i] != roleid || j != i)
+ 			role_oids[j++] = ObjectIdGetDatum(roles[i]);
+ 	}
+-	num_roles = j;
++	/* We assume we removed exactly one entry */
++	num_roles = num_roles - 1;
+ 
+ 	/* If any roles remain, update the policy entry. */
+ 	if (num_roles > 0)

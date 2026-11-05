@@ -1,0 +1,16 @@
+create role ra; create role rb;
+create table rls_t(c text);
+insert into rls_t values ('invisible to bob');
+alter table rls_t enable row level security;
+create policy p1 on rls_t for select to ra using (true);
+create policy p2 on rls_t for select to rb using (false);
+grant select on rls_t to ra, rb;
+create function rls_f() returns setof rls_t stable language sql
+  as $$ with cte as (select * from rls_t) select * from cte $$;
+grant execute on function rls_f() to ra, rb;
+prepare r as select current_user, * from rls_f();
+set role ra;
+execute r;
+set role rb;
+execute r;
+reset role;

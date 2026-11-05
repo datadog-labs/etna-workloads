@@ -1,0 +1,39 @@
+diff --git a/src/backend/catalog/dependency.c b/src/backend/catalog/dependency.c
+index f5541b9f6b2..40c60bb69e8 100644
+--- a/src/backend/catalog/dependency.c
++++ b/src/backend/catalog/dependency.c
+@@ -2166,15 +2166,6 @@ find_expr_references_walker(Node *node,
+ 		add_object_address(RelationRelationId, nve->seqid, 0,
+ 						   context->addrs);
+ 	}
+-	else if (IsA(node, OnConflictExpr))
+-	{
+-		OnConflictExpr *onconflict = (OnConflictExpr *) node;
+-
+-		if (OidIsValid(onconflict->constraint))
+-			add_object_address(ConstraintRelationId, onconflict->constraint, 0,
+-							   context->addrs);
+-		/* fall through to examine arguments */
+-	}
+ 	else if (IsA(node, SortGroupClause))
+ 	{
+ 		SortGroupClause *sgc = (SortGroupClause *) node;
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..9579a24fb56 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -958,14 +958,6 @@ subquery_planner(PlannerGlobal *glob, Query *parse, PlannerInfo *parent_root,
+ 
+ 	if (parse->onConflict)
+ 	{
+-		parse->onConflict->arbiterElems = (List *)
+-			preprocess_expression(root,
+-								  (Node *) parse->onConflict->arbiterElems,
+-								  EXPRKIND_ARBITER_ELEM);
+-		parse->onConflict->arbiterWhere =
+-			preprocess_expression(root,
+-								  parse->onConflict->arbiterWhere,
+-								  EXPRKIND_QUAL);
+ 		parse->onConflict->onConflictSet = (List *)
+ 			preprocess_expression(root,
+ 								  (Node *) parse->onConflict->onConflictSet,

@@ -1,0 +1,5 @@
+CREATE TABLE t (id int4range, valid_at daterange, PRIMARY KEY (id, valid_at WITHOUT OVERLAPS));
+INSERT INTO t VALUES ('[1,2)', daterange('2000-01-01','2010-01-01'));
+INSERT INTO t VALUES ('[1,2)', daterange('2005-01-01','2006-01-01')) ON CONFLICT (id, valid_at) DO NOTHING;
+INSERT INTO t VALUES ('[1,2)', daterange('2005-01-01','2006-01-01')) ON CONFLICT ON CONSTRAINT t_pkey DO UPDATE SET id = EXCLUDED.id;
+SELECT * FROM t ORDER BY 1,2;

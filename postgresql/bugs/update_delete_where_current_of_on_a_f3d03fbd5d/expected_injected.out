@@ -1,0 +1,19 @@
+create table gtest_cursor (id int primary key, a int, b int generated always as (a * 2) virtual);
+insert into gtest_cursor values (1, 10), (2, 20), (3, 30);
+begin;
+declare curs cursor for select * from gtest_cursor order by id for update;
+fetch 1 from curs;
+ id | a  | b  
+----+----+----
+  1 | 10 | 20
+(1 row)
+
+update gtest_cursor set a = 99 where current of curs;
+psql:<REPRO>:6: ERROR:  WHERE CURRENT OF on a view is not implemented
+select * from gtest_cursor order by id;
+psql:<REPRO>:7: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+delete from gtest_cursor where current of curs;
+psql:<REPRO>:8: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+select * from gtest_cursor order by id;
+psql:<REPRO>:9: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+commit;

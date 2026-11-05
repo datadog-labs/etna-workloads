@@ -1,0 +1,17 @@
+create table p (a int, b text) partition by list (a);
+create table p1 (b text, a int);
+alter table p attach partition p1 for values in (1);
+create function t3() returns trigger language plpgsql as
+$$ begin raise notice 'n=%', (select count(*) from new_table); return null; end $$;
+create trigger tr3 after update on p
+referencing new table as new_table for each statement execute function t3();
+create function t4() returns trigger language plpgsql as
+$$ begin raise exception 'BOOM!'; end $$;
+create trigger tr4 after update on p for each statement execute function t4();
+insert into p values (1,'x');
+begin;
+savepoint svp;
+update p set b = 'y';
+rollback to savepoint svp;
+rollback;
+select * from p;

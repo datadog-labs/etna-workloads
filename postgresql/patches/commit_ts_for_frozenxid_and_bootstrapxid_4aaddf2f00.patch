@@ -1,0 +1,25 @@
+diff --git a/src/backend/access/transam/commit_ts.c b/src/backend/access/transam/commit_ts.c
+index 225ff7ca9f2..5624cf89ad4 100644
+--- a/src/backend/access/transam/commit_ts.c
++++ b/src/backend/access/transam/commit_ts.c
+@@ -281,18 +281,11 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
+ 	TransactionId oldestCommitTsXid;
+ 	TransactionId newestCommitTsXid;
+ 
+-	if (!TransactionIdIsValid(xid))
++	/* error if the given Xid doesn't normally commit */
++	if (!TransactionIdIsNormal(xid))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+ 				 errmsg("cannot retrieve commit timestamp for transaction %u", xid)));
+-	else if (!TransactionIdIsNormal(xid))
+-	{
+-		/* frozen and bootstrap xids are always committed far in the past */
+-		*ts = 0;
+-		if (nodeid)
+-			*nodeid = 0;
+-		return false;
+-	}
+ 
+ 	LWLockAcquire(CommitTsLock, LW_SHARED);
+ 

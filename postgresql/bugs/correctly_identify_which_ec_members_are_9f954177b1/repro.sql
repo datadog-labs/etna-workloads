@@ -1,0 +1,9 @@
+create table matest3 (id int);
+create index matest3i on matest3((1-id));
+insert into matest3 select g from generate_series(1,1000) g;
+analyze matest3;
+set enable_seqscan=off;
+set enable_bitmapscan=off;
+select 1 - id as c from
+(select id from matest3 t1 union all select id * 2 from matest3 t2) ss
+order by c limit 3;

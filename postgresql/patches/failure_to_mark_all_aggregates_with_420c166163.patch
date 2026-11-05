@@ -1,0 +1,37 @@
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..d5bec902265 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -1699,19 +1699,6 @@ grouping_planner(PlannerInfo *root, double tuple_fraction,
+ 		 */
+ 		preprocess_targetlist(root);
+ 
+-		/*
+-		 * Mark all the aggregates with resolved aggtranstypes, and detect
+-		 * aggregates that are duplicates or can share transition state.  We
+-		 * must do this before slicing and dicing the tlist into various
+-		 * pathtargets, else some copies of the Aggref nodes might escape
+-		 * being marked.
+-		 */
+-		if (parse->hasAggs)
+-		{
+-			preprocess_aggrefs(root, (Node *) root->processed_tlist);
+-			preprocess_aggrefs(root, (Node *) parse->havingQual);
+-		}
+-
+ 		/*
+ 		 * Locate any window functions in the tlist.  (We don't need to look
+ 		 * anywhere else, since expressions used in ORDER BY will be in there
+@@ -3921,6 +3908,12 @@ create_grouping_paths(PlannerInfo *root,
+ 	RelOptInfo *partially_grouped_rel;
+ 	AggClauseCosts agg_costs;
+ 
++	if (parse->hasAggs)
++	{
++		preprocess_aggrefs(root, (Node *) target->exprs);
++		preprocess_aggrefs(root, parse->havingQual);
++	}
++
+ 	MemSet(&agg_costs, 0, sizeof(AggClauseCosts));
+ 	get_agg_clause_costs(root, AGGSPLIT_SIMPLE, &agg_costs);
+ 

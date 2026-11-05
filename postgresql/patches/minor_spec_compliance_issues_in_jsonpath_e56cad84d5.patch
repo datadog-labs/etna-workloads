@@ -1,0 +1,146 @@
+diff --git a/src/backend/utils/adt/jsonpath_scan.l b/src/backend/utils/adt/jsonpath_scan.l
+index c7aab83eeb4..551e67f9c24 100644
+--- a/src/backend/utils/adt/jsonpath_scan.l
++++ b/src/backend/utils/adt/jsonpath_scan.l
+@@ -77,18 +77,20 @@ fprintf_to_ereport(const char *fmt, const char *msg)
+  *  <xq> - quoted strings
+  *  <xnq> - non-quoted strings
+  *  <xvq> - quoted variable names
++ *  <xsq> - single-quoted strings
+  *  <xc> - C-style comment
+  */
+ 
+ %x xq
+ %x xnq
+ %x xvq
++%x xsq
+ %x xc
+ 
+ special		[\?\%\$\.\[\]\{\}\(\)\|\&\!\=\<\>\@\#\,\*:\-\+\/]
+ blank		[ \t\n\r\f]
+ /* "other" means anything that's not special, blank, or '\' or '"' */
+-other		[^\?\%\$\.\[\]\{\}\(\)\|\&\!\=\<\>\@\#\,\*:\-\+\/\\\" \t\n\r\f]
++other		[^\?\%\$\.\[\]\{\}\(\)\|\&\!\=\<\>\@\#\,\*:\-\+\/\\\"\' \t\n\r\f]
+ 
+ decdigit	[0-9]
+ hexdigit	[0-9A-Fa-f]
+@@ -134,7 +136,7 @@ hex_fail	\\x{hexdigit}{0,1}
+ 									BEGIN xc;
+ 								}
+ 
+-<xnq>({special}|\")				{
++<xnq>({special}|\"|\')				{
+ 									yylval->str = yyextra->scanstring;
+ 									yyless(0);
+ 									BEGIN INITIAL;
+@@ -147,56 +149,62 @@ hex_fail	\\x{hexdigit}{0,1}
+ 									return checkKeyword(yyscanner);
+ 								}
+ 
+-<xnq,xq,xvq>\\b				{ addchar(false, '\b', yyscanner); }
++<xnq,xq,xvq,xsq>\\[\"\'\\]		{ addchar(false, yytext[1], yyscanner); }
+ 
+-<xnq,xq,xvq>\\f				{ addchar(false, '\f', yyscanner); }
++<xnq,xq,xvq,xsq>\\b				{ addchar(false, '\b', yyscanner); }
+ 
+-<xnq,xq,xvq>\\n				{ addchar(false, '\n', yyscanner); }
++<xnq,xq,xvq,xsq>\\f				{ addchar(false, '\f', yyscanner); }
+ 
+-<xnq,xq,xvq>\\r				{ addchar(false, '\r', yyscanner); }
++<xnq,xq,xvq,xsq>\\n				{ addchar(false, '\n', yyscanner); }
+ 
+-<xnq,xq,xvq>\\t				{ addchar(false, '\t', yyscanner); }
++<xnq,xq,xvq,xsq>\\r				{ addchar(false, '\r', yyscanner); }
+ 
+-<xnq,xq,xvq>\\v				{ addchar(false, '\v', yyscanner); }
++<xnq,xq,xvq,xsq>\\t				{ addchar(false, '\t', yyscanner); }
+ 
+-<xnq,xq,xvq>{unicode}+		{
++<xnq,xq,xvq,xsq>\\v				{ addchar(false, '\v', yyscanner); }
++
++<xnq,xq,xvq,xsq>{unicode}+		{
+ 								if (!parseUnicode(yytext, yyleng, escontext, yyscanner))
+ 									yyterminate();
+ 							}
+ 
+-<xnq,xq,xvq>{hex_char}		{
++<xnq,xq,xvq,xsq>{hex_char}		{
+ 								if (!parseHexChar(yytext, escontext, yyscanner))
+ 									yyterminate();
+ 							}
+ 
+-<xnq,xq,xvq>{unicode}*{unicodefail} {
++<xnq,xq,xvq,xsq>{unicode}*{unicodefail} {
+ 								jsonpath_yyerror(NULL, escontext, yyscanner,
+ 												 "invalid Unicode escape sequence");
+ 								yyterminate();
+ 							}
+ 
+-<xnq,xq,xvq>{hex_fail}		{
++<xnq,xq,xvq,xsq>{hex_fail}		{
+ 								jsonpath_yyerror(NULL, escontext, yyscanner,
+ 												 "invalid hexadecimal character sequence");
+ 								yyterminate();
+ 							}
+ 
+-<xnq,xq,xvq>{unicode}+\\	{
++<xnq,xq,xvq,xsq>{unicode}+\\	{
+ 								/* throw back the \\, and treat as unicode */
+ 								yyless(yyleng - 1);
+ 								if (!parseUnicode(yytext, yyleng, escontext, yyscanner))
+ 									yyterminate();
+ 							}
+ 
+-<xnq,xq,xvq>\\.				{ addchar(false, yytext[1], yyscanner); }
++<xnq,xq,xvq,xsq>\\.				{
++								jsonpath_yyerror(NULL, escontext, yyscanner,
++												 "escape sequence is invalid");
++								yyterminate();
++							}
+ 
+-<xnq,xq,xvq>\\				{
++<xnq,xq,xvq,xsq>\\				{
+ 								jsonpath_yyerror(NULL, escontext, yyscanner,
+ 												 "unexpected end after backslash");
+ 								yyterminate();
+ 							}
+ 
+-<xq,xvq><<EOF>>				{
++<xq,xvq,xsq><<EOF>>				{
+ 								jsonpath_yyerror(NULL, escontext, yyscanner,
+ 												 "unterminated quoted string");
+ 								yyterminate();
+@@ -208,6 +216,12 @@ hex_fail	\\x{hexdigit}{0,1}
+ 									return STRING_P;
+ 								}
+ 
++<xsq>\'							{
++									yylval->str = yyextra->scanstring;
++									BEGIN INITIAL;
++									return STRING_P;
++								}
++
+ <xvq>\"							{
+ 									yylval->str = yyextra->scanstring;
+ 									BEGIN INITIAL;
+@@ -216,6 +230,8 @@ hex_fail	\\x{hexdigit}{0,1}
+ 
+ <xq,xvq>[^\\\"]+				{ addstring(false, yytext, yyleng, yyscanner); }
+ 
++<xsq>[^\\\']+					{ addstring(false, yytext, yyleng, yyscanner); }
++
+ <xc>\*\/						{ BEGIN INITIAL; }
+ 
+ <xc>[^\*]+						{ }
+@@ -337,6 +353,11 @@ hex_fail	\\x{hexdigit}{0,1}
+ 									BEGIN xq;
+ 								}
+ 
++\'								{
++									addchar(true, '\0', yyscanner);
++									BEGIN xsq;
++								}
++
+ \\								{
+ 									yyless(0);
+ 									addchar(true, '\0', yyscanner);

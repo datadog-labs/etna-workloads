@@ -1,0 +1,36 @@
+diff --git a/src/backend/access/transam/xlogarchive.c b/src/backend/access/transam/xlogarchive.c
+index 1ef1713c91a..3f33b755106 100644
+--- a/src/backend/access/transam/xlogarchive.c
++++ b/src/backend/access/transam/xlogarchive.c
+@@ -567,24 +567,18 @@ XLogArchiveCheckDone(const char *xlog)
+ 	char		archiveStatusPath[MAXPGPATH];
+ 	struct stat stat_buf;
+ 
+-	/* The file is always deletable if archive_mode is "off". */
+-	if (!XLogArchivingActive())
+-		return true;
++	bool		inRecovery = RecoveryInProgress();
+ 
+ 	/*
+-	 * During archive recovery, the file is deletable if archive_mode is not
+-	 * "always".
++	 * The file is always deletable if archive_mode is "off".  On standbys
++	 * archiving is disabled if archive_mode is "on", and enabled with
++	 * "always".  On a primary, archiving is enabled if archive_mode is "on"
++	 * or "always".
+ 	 */
+-	if (!XLogArchivingAlways() &&
+-		GetRecoveryState() == RECOVERY_STATE_ARCHIVE)
++	if (!((XLogArchivingActive() && !inRecovery) ||
++		  (XLogArchivingAlways() && inRecovery)))
+ 		return true;
+ 
+-	/*
+-	 * At this point of the logic, note that we are either a primary with
+-	 * archive_mode set to "on" or "always", or a standby with archive_mode
+-	 * set to "always".
+-	 */
+-
+ 	/* First check for .done --- this means archiver is done with it */
+ 	StatusFilePath(archiveStatusPath, xlog, ".done");
+ 	if (stat(archiveStatusPath, &stat_buf) == 0)

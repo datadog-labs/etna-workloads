@@ -1,0 +1,28 @@
+SET enable_partitionwise_join TO on;
+CREATE TABLE pht1 (a int, c int) PARTITION BY RANGE(c);
+CREATE TABLE pht1_p1 PARTITION OF pht1 FOR VALUES FROM (0) TO (100);
+CREATE TABLE pht1_p2 PARTITION OF pht1 FOR VALUES FROM (100) TO (200);
+INSERT INTO pht1 SELECT i, i%200 FROM generate_series(0,19999) i;
+CREATE INDEX ON pht1(c);
+ANALYZE pht1;
+EXPLAIN (COSTS OFF) SELECT * FROM pht1 p1 JOIN pht1 p2 USING (c) LIMIT 1000;
+                               QUERY PLAN                               
+------------------------------------------------------------------------
+ Limit
+   ->  Append
+         ->  Nested Loop
+               ->  Seq Scan on pht1_p1 p1_1
+               ->  Memoize
+                     Cache Key: p1_1.c
+                     Cache Mode: logical
+                     ->  Index Scan using pht1_p1_c_idx on pht1_p1 p2_1
+                           Index Cond: (c = p1_1.c)
+         ->  Nested Loop
+               ->  Seq Scan on pht1_p2 p1_2
+               ->  Memoize
+                     Cache Key: p1_2.c
+                     Cache Mode: logical
+                     ->  Index Scan using pht1_p2_c_idx on pht1_p2 p2_2
+                           Index Cond: (c = p1_2.c)
+(16 rows)
+

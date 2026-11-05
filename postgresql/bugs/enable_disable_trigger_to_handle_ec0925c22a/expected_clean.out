@@ -1,0 +1,11 @@
+create table parent (a int) partition by list (a);
+create table child1 partition of parent for values in (1);
+create function f() returns trigger language plpgsql as 'begin return null; end';
+create trigger tg_stmt after insert on parent for each statement execute function f();
+alter table parent enable always trigger tg_stmt;
+select tgname, tgenabled from pg_trigger where tgrelid='parent'::regclass order by 1;
+ tgname  | tgenabled 
+---------+-----------
+ tg_stmt | A
+(1 row)
+

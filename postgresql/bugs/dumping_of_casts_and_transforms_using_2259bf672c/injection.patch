@@ -1,0 +1,45 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..14a39db07b6 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -6814,17 +6814,8 @@ getFuncs(Archive *fout)
+ 						  "\n  AND ("
+ 						  "\n  pronamespace != "
+ 						  "(SELECT oid FROM pg_namespace "
+-						  "WHERE nspname = 'pg_catalog')"
+-						  "\n  OR EXISTS (SELECT 1 FROM pg_cast"
+-						  "\n  WHERE pg_cast.oid > %u "
+-						  "\n  AND p.oid = pg_cast.castfunc)"
+-						  "\n  OR EXISTS (SELECT 1 FROM pg_transform"
+-						  "\n  WHERE pg_transform.oid > %u AND "
+-						  "\n  (p.oid = pg_transform.trffromsql"
+-						  "\n  OR p.oid = pg_transform.trftosql))",
+-						  not_agg_check,
+-						  g_last_builtin_oid,
+-						  g_last_builtin_oid);
++						  "WHERE nspname = 'pg_catalog')",
++						  not_agg_check);
+ 		if (dopt->binary_upgrade)
+ 			appendPQExpBufferStr(query,
+ 								 "\n  OR EXISTS(SELECT 1 FROM pg_depend WHERE "
+@@ -6852,19 +6843,7 @@ getFuncs(Archive *fout)
+ 						  "\n  AND ("
+ 						  "\n  pronamespace != "
+ 						  "(SELECT oid FROM pg_namespace "
+-						  "WHERE nspname = 'pg_catalog')"
+-						  "\n  OR EXISTS (SELECT 1 FROM pg_cast"
+-						  "\n  WHERE pg_cast.oid > '%u'::oid"
+-						  "\n  AND p.oid = pg_cast.castfunc)",
+-						  g_last_builtin_oid);
+-
+-		if (fout->remoteVersion >= 90500)
+-			appendPQExpBuffer(query,
+-							  "\n  OR EXISTS (SELECT 1 FROM pg_transform"
+-							  "\n  WHERE pg_transform.oid > '%u'::oid"
+-							  "\n  AND (p.oid = pg_transform.trffromsql"
+-							  "\n  OR p.oid = pg_transform.trftosql))",
+-							  g_last_builtin_oid);
++						  "WHERE nspname = 'pg_catalog')");
+ 
+ 		if (dopt->binary_upgrade)
+ 			appendPQExpBufferStr(query,

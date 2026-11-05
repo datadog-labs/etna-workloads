@@ -1,0 +1,19 @@
+create table parent (a int primary key, f int references parent) partition by list (a);
+create table child1 partition of parent for values in (1);
+alter table parent disable trigger all;
+psql:<REPRO>:3: ERROR:  trigger "RI_ConstraintTrigger_a_16391" for table "child1" does not exist
+select tgrelid::regclass, rtrim(tgname, '0123456789') as tgname, tgfoid::regproc, tgenabled
+  from pg_trigger where tgrelid in ('parent'::regclass, 'child1'::regclass)
+  order by tgrelid::regclass::text, tgfoid;
+ tgrelid |         tgname          |         tgfoid         | tgenabled 
+---------+-------------------------+------------------------+-----------
+ child1  | RI_ConstraintTrigger_c_ | "RI_FKey_check_ins"    | O
+ child1  | RI_ConstraintTrigger_c_ | "RI_FKey_check_upd"    | O
+ child1  | RI_ConstraintTrigger_a_ | "RI_FKey_noaction_del" | O
+ child1  | RI_ConstraintTrigger_a_ | "RI_FKey_noaction_upd" | O
+ parent  | RI_ConstraintTrigger_c_ | "RI_FKey_check_ins"    | O
+ parent  | RI_ConstraintTrigger_c_ | "RI_FKey_check_upd"    | O
+ parent  | RI_ConstraintTrigger_a_ | "RI_FKey_noaction_del" | O
+ parent  | RI_ConstraintTrigger_a_ | "RI_FKey_noaction_upd" | O
+(8 rows)
+

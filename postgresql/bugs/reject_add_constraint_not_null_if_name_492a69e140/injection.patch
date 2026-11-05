@@ -1,0 +1,70 @@
+diff --git a/src/backend/catalog/heap.c b/src/backend/catalog/heap.c
+index 16a5d6b7b97..75f0a2530a7 100644
+--- a/src/backend/catalog/heap.c
++++ b/src/backend/catalog/heap.c
+@@ -2670,7 +2670,6 @@ AddRelationNewConstraints(Relation rel,
+ 			 * requested validity.
+ 			 */
+ 			if (AdjustNotNullInheritance(RelationGetRelid(rel), colnum,
+-										 cdef->conname,
+ 										 is_local, cdef->is_no_inherit,
+ 										 cdef->skip_validation))
+ 				continue;
+diff --git a/src/backend/catalog/pg_constraint.c b/src/backend/catalog/pg_constraint.c
+index d3fcfa1f6ba..9e682a28c03 100644
+--- a/src/backend/catalog/pg_constraint.c
++++ b/src/backend/catalog/pg_constraint.c
+@@ -734,15 +734,14 @@ extractNotNullColumn(HeapTuple constrTup)
+  * If a constraint exists but the connoinherit flag is not what the caller
+  * wants, throw an error about the incompatibility.  If the desired
+  * constraint is valid but the existing constraint is not valid, also
+- * throw an error about that (the opposite case is acceptable).  If
+- * the proposed constraint has a different name, also throw an error.
++ * throw an error about that (the opposite case is acceptable).
+  *
+  * If everything checks out, we adjust conislocal/coninhcount and return
+  * true.  If is_local is true we flip conislocal true, or do nothing if
+  * it's already true; otherwise we increment coninhcount by 1.
+  */
+ bool
+-AdjustNotNullInheritance(Oid relid, AttrNumber attnum, const char *new_conname,
++AdjustNotNullInheritance(Oid relid, AttrNumber attnum,
+ 						 bool is_local, bool is_no_inherit, bool is_notvalid)
+ {
+ 	HeapTuple	tup;
+@@ -781,22 +780,6 @@ AdjustNotNullInheritance(Oid relid, AttrNumber attnum, const char *new_conname,
+ 					errhint("You might need to validate it using %s.",
+ 							"ALTER TABLE ... VALIDATE CONSTRAINT"));
+ 
+-		/*
+-		 * If, for a new constraint that is being defined locally (i.e., not
+-		 * being passed down via inheritance), a name was specified, then
+-		 * verify that the existing constraint has the same name.  Otherwise
+-		 * throw an error.  Names of inherited constraints are ignored because
+-		 * they are not directly user-specified, so matching is not important.
+-		 */
+-		if (is_local && new_conname &&
+-			strcmp(new_conname, NameStr(conform->conname)) != 0)
+-			ereport(ERROR,
+-					errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+-					errmsg("cannot create not-null constraint \"%s\" on column \"%s\" of table \"%s\"",
+-						   new_conname, get_attname(relid, attnum, false), get_rel_name(relid)),
+-					errdetail("A not-null constraint named \"%s\" already exists for this column.",
+-							  NameStr(conform->conname)));
+-
+ 		if (!is_local)
+ 		{
+ 			if (pg_add_s16_overflow(conform->coninhcount, 1,
+diff --git a/src/include/catalog/pg_constraint.h b/src/include/catalog/pg_constraint.h
+index 3a03b8d801a..4afceb5c692 100644
+--- a/src/include/catalog/pg_constraint.h
++++ b/src/include/catalog/pg_constraint.h
+@@ -263,7 +263,7 @@ extern HeapTuple findNotNullConstraintAttnum(Oid relid, AttrNumber attnum);
+ extern HeapTuple findNotNullConstraint(Oid relid, const char *colname);
+ extern HeapTuple findDomainNotNullConstraint(Oid typid);
+ extern AttrNumber extractNotNullColumn(HeapTuple constrTup);
+-extern bool AdjustNotNullInheritance(Oid relid, AttrNumber attnum, const char *new_conname,
++extern bool AdjustNotNullInheritance(Oid relid, AttrNumber attnum,
+ 									 bool is_local, bool is_no_inherit, bool is_notvalid);
+ extern List *RelationGetNotNullConstraints(Oid relid, bool cooked,
+ 										   bool include_noinh);

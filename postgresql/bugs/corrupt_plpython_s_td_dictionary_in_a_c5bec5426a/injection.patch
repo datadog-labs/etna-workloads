@@ -1,0 +1,109 @@
+diff --git a/src/pl/plpython/plpy_exec.c b/src/pl/plpython/plpy_exec.c
+index 28fbd443b98..37461fc2c40 100644
+--- a/src/pl/plpython/plpy_exec.c
++++ b/src/pl/plpython/plpy_exec.c
+@@ -349,13 +349,6 @@ PLy_exec_trigger(FunctionCallInfo fcinfo, PLyProcedure *proc)
+ 	PLy_output_setup_tuple(&proc->result, rel_descr, proc);
+ 	PLy_input_setup_tuple(&proc->result_in, rel_descr, proc);
+ 
+-	/*
+-	 * If the trigger is called recursively, we must push outer-level
+-	 * arguments into the stack.  This must be immediately before the PG_TRY
+-	 * to ensure that the corresponding pop happens.
+-	 */
+-	PLy_global_args_push(proc);
+-
+ 	PG_TRY();
+ 	{
+ 		int			rc PG_USED_FOR_ASSERTS_ONLY;
+@@ -418,7 +411,6 @@ PLy_exec_trigger(FunctionCallInfo fcinfo, PLyProcedure *proc)
+ 	}
+ 	PG_FINALLY();
+ 	{
+-		PLy_global_args_pop(proc);
+ 		Py_XDECREF(plargs);
+ 		Py_XDECREF(plrv);
+ 	}
+@@ -508,13 +500,6 @@ PLy_function_save_args(PLyProcedure *proc)
+ 	result->args = PyDict_GetItemString(proc->globals, "args");
+ 	Py_XINCREF(result->args);
+ 
+-	/* If it's a trigger, also save "TD" */
+-	if (proc->is_trigger)
+-	{
+-		result->td = PyDict_GetItemString(proc->globals, "TD");
+-		Py_XINCREF(result->td);
+-	}
+-
+ 	/* Fetch all the named arguments */
+ 	if (proc->argnames)
+ 	{
+@@ -564,13 +549,6 @@ PLy_function_restore_args(PLyProcedure *proc, PLySavedArgs *savedargs)
+ 		Py_DECREF(savedargs->args);
+ 	}
+ 
+-	/* Restore the "TD" object, too */
+-	if (savedargs->td)
+-	{
+-		PyDict_SetItemString(proc->globals, "TD", savedargs->td);
+-		Py_DECREF(savedargs->td);
+-	}
+-
+ 	/* And free the PLySavedArgs struct */
+ 	pfree(savedargs);
+ }
+@@ -589,9 +567,8 @@ PLy_function_drop_args(PLySavedArgs *savedargs)
+ 		Py_XDECREF(savedargs->namedargs[i]);
+ 	}
+ 
+-	/* Drop refs to the "args" and "TD" objects, too */
++	/* Drop ref to the "args" object, too */
+ 	Py_XDECREF(savedargs->args);
+-	Py_XDECREF(savedargs->td);
+ 
+ 	/* And free the PLySavedArgs struct */
+ 	pfree(savedargs);
+@@ -600,9 +577,9 @@ PLy_function_drop_args(PLySavedArgs *savedargs)
+ /*
+  * Save away any existing arguments for the given procedure, so that we can
+  * install new values for a recursive call.  This should be invoked before
+- * doing PLy_function_build_args() or PLy_trigger_build_args().
++ * doing PLy_function_build_args().
+  *
+- * NB: callers must ensure that PLy_global_args_pop gets invoked once, and
++ * NB: caller must ensure that PLy_global_args_pop gets invoked once, and
+  * only once, per successful completion of PLy_global_args_push.  Otherwise
+  * we'll end up out-of-sync between the actual call stack and the contents
+  * of proc->argstack.
+diff --git a/src/pl/plpython/plpy_procedure.c b/src/pl/plpython/plpy_procedure.c
+index c176d24e801..59945bbbff2 100644
+--- a/src/pl/plpython/plpy_procedure.c
++++ b/src/pl/plpython/plpy_procedure.c
+@@ -180,7 +180,6 @@ PLy_procedure_create(HeapTuple procTup, Oid fn_oid, bool is_trigger)
+ 		proc->fn_readonly = (procStruct->provolatile != PROVOLATILE_VOLATILE);
+ 		proc->is_setof = procStruct->proretset;
+ 		proc->is_procedure = (procStruct->prokind == PROKIND_PROCEDURE);
+-		proc->is_trigger = is_trigger;
+ 		proc->src = NULL;
+ 		proc->argnames = NULL;
+ 		proc->args = NULL;
+diff --git a/src/pl/plpython/plpy_procedure.h b/src/pl/plpython/plpy_procedure.h
+index 5db854fc8bd..8968b5c92e5 100644
+--- a/src/pl/plpython/plpy_procedure.h
++++ b/src/pl/plpython/plpy_procedure.h
+@@ -16,7 +16,6 @@ typedef struct PLySavedArgs
+ {
+ 	struct PLySavedArgs *next;	/* linked-list pointer */
+ 	PyObject   *args;			/* "args" element of globals dict */
+-	PyObject   *td;				/* "TD" element of globals dict, if trigger */
+ 	int			nargs;			/* length of namedargs array */
+ 	PyObject   *namedargs[FLEXIBLE_ARRAY_MEMBER];	/* named args */
+ } PLySavedArgs;
+@@ -33,7 +32,6 @@ typedef struct PLyProcedure
+ 	bool		fn_readonly;
+ 	bool		is_setof;		/* true, if function returns result set */
+ 	bool		is_procedure;
+-	bool		is_trigger;		/* called as trigger? */
+ 	PLyObToDatum result;		/* Function result output conversion info */
+ 	PLyDatumToOb result_in;		/* For converting input tuples in a trigger */
+ 	char	   *src;			/* textual procedure code, after mangling */

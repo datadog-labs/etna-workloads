@@ -1,0 +1,44 @@
+diff --git a/src/backend/executor/nodeIndexscan.c b/src/backend/executor/nodeIndexscan.c
+index aff3100f6e2..d123b831b07 100644
+--- a/src/backend/executor/nodeIndexscan.c
++++ b/src/backend/executor/nodeIndexscan.c
+@@ -1037,9 +1037,16 @@ ExecInitIndexScan(IndexScan *node, EState *estate, int eflags)
+ 		{
+ 			Oid			orderbyop = lfirst_oid(lco);
+ 			Node	   *orderbyexpr = (Node *) lfirst(lcx);
+-			Oid			orderbyType = exprType(orderbyexpr);
++			Oid			orderbyType;
+ 			Oid			orderbyColl = exprCollation(orderbyexpr);
+ 			SortSupport orderbysort = &indexstate->iss_SortSupport[i];
++			Oid			opfamily;
++			int16		strategy;
++
++			if (!get_ordering_op_properties(orderbyop,
++											&opfamily, &orderbyType, &strategy))
++				elog(ERROR, "operator %u is not a valid ordering operator",
++					 orderbyop);
+ 
+ 			/* Initialize sort support */
+ 			orderbysort->ssup_cxt = CurrentMemoryContext;
+diff --git a/src/backend/optimizer/plan/createplan.c b/src/backend/optimizer/plan/createplan.c
+index 10b7358c28b..67e74391d61 100644
+--- a/src/backend/optimizer/plan/createplan.c
++++ b/src/backend/optimizer/plan/createplan.c
+@@ -3124,10 +3124,15 @@ create_indexscan_plan(PlannerInfo *root,
+ 		forboth(pathkeyCell, best_path->path.pathkeys, exprCell, indexorderbys)
+ 		{
+ 			PathKey    *pathkey = (PathKey *) lfirst(pathkeyCell);
+-			Node	   *expr = (Node *) lfirst(exprCell);
+-			Oid			exprtype = exprType(expr);
++			Expr	   *expr = (Expr *) lfirst(exprCell);
++			EquivalenceMember *em;
++			Oid			exprtype;
+ 			Oid			sortop;
+ 
++			/* Find equivalence member for the order by expression */
++			em = find_ec_member_matching_expr(pathkey->pk_eclass, expr, NULL);
++			exprtype = em->em_datatype;
++
+ 			/* Get sort operator from opfamily */
+ 			sortop = get_opfamily_member_for_cmptype(pathkey->pk_opfamily,
+ 													 exprtype,

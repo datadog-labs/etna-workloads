@@ -1,0 +1,81 @@
+diff --git a/src/backend/commands/createas.c b/src/backend/commands/createas.c
+index dfd2ab8e862..5f31fa410e6 100644
+--- a/src/backend/commands/createas.c
++++ b/src/backend/commands/createas.c
+@@ -277,33 +277,12 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
+ 		into->skipData = true;
+ 	}
+ 
+-	if (into->skipData)
+-	{
+-		/*
+-		 * If WITH NO DATA was specified, do not go through the rewriter,
+-		 * planner and executor.  Just define the relation using a code path
+-		 * similar to CREATE VIEW.  This avoids dump/restore problems stemming
+-		 * from running the planner before all dependencies are set up.
+-		 */
+-		address = create_ctas_nodata(query->targetList, into);
+-
+-		/*
+-		 * For materialized views, reuse the REFRESH logic, which locks down
+-		 * security-restricted operations and restricts the search_path.  This
+-		 * reduces the chance that a subsequent refresh will fail.
+-		 */
+-		if (do_refresh)
+-			RefreshMatViewByOid(address.objectId, true, false, false,
+-								pstate->p_sourcetext, qc);
+-
+-	}
+-	else
+ 	{
+ 		List	   *rewritten;
+ 		PlannedStmt *plan;
+ 		QueryDesc  *queryDesc;
+ 
+-		Assert(!is_matview);
++		ScanDirection dir;
+ 
+ 		/*
+ 		 * Parse analysis was done already, but we still have to run the rule
+@@ -315,7 +294,9 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
+ 
+ 		/* SELECT should never rewrite to more or less than one SELECT query */
+ 		if (list_length(rewritten) != 1)
+-			elog(ERROR, "unexpected rewrite result for CREATE TABLE AS SELECT");
++			elog(ERROR, "unexpected rewrite result for %s",
++				 is_matview ? "CREATE MATERIALIZED VIEW" :
++				 "CREATE TABLE AS SELECT");
+ 		query = linitial_node(Query, rewritten);
+ 		Assert(query->commandType == CMD_SELECT);
+ 
+@@ -341,8 +322,17 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
+ 		/* call ExecutorStart to prepare the plan for execution */
+ 		ExecutorStart(queryDesc, GetIntoRelEFlags(into));
+ 
+-		/* run the plan to completion */
+-		ExecutorRun(queryDesc, ForwardScanDirection, 0);
++		/*
++		 * Normally, we run the plan to completion; but if skipData is
++		 * specified, just do tuple receiver startup and shutdown.
++		 */
++		if (into->skipData)
++			dir = NoMovementScanDirection;
++		else
++			dir = ForwardScanDirection;
++
++		/* run the plan */
++		ExecutorRun(queryDesc, dir, 0);
+ 
+ 		/* save the rowcount if we're given a qc to fill */
+ 		if (qc)
+@@ -358,6 +348,10 @@ ExecCreateTableAs(ParseState *pstate, CreateTableAsStmt *stmt,
+ 		FreeQueryDesc(queryDesc);
+ 
+ 		PopActiveSnapshot();
++
++		if (do_refresh)
++			RefreshMatViewByOid(address.objectId, true, false, false,
++								pstate->p_sourcetext, qc);
+ 	}
+ 
+ 	return address;

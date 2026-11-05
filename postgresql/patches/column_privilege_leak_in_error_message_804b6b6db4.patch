@@ -1,0 +1,50 @@
+diff --git a/src/backend/access/index/genam.c b/src/backend/access/index/genam.c
+index 0cb27af1310..579611257da 100644
+--- a/src/backend/access/index/genam.c
++++ b/src/backend/access/index/genam.c
+@@ -182,10 +182,8 @@ BuildIndexValueDescription(Relation indexRelation,
+ 	Form_pg_index idxrec;
+ 	int			indnkeyatts;
+ 	int			i;
+-	int			keyno;
+ 	Oid			indexrelid = RelationGetRelid(indexRelation);
+ 	Oid			indrelid;
+-	AclResult	aclresult;
+ 
+ 	indnkeyatts = IndexRelationGetNumberOfKeyAttributes(indexRelation);
+ 
+@@ -207,34 +205,6 @@ BuildIndexValueDescription(Relation indexRelation,
+ 	if (check_enable_rls(indrelid, InvalidOid, true) == RLS_ENABLED)
+ 		return NULL;
+ 
+-	/* Table-level SELECT is enough, if the user has it */
+-	aclresult = pg_class_aclcheck(indrelid, GetUserId(), ACL_SELECT);
+-	if (aclresult != ACLCHECK_OK)
+-	{
+-		/*
+-		 * No table-level access, so step through the columns in the index and
+-		 * make sure the user has SELECT rights on all of them.
+-		 */
+-		for (keyno = 0; keyno < indnkeyatts; keyno++)
+-		{
+-			AttrNumber	attnum = idxrec->indkey.values[keyno];
+-
+-			/*
+-			 * Note that if attnum == InvalidAttrNumber, then this is an index
+-			 * based on an expression and we return no detail rather than try
+-			 * to figure out what column(s) the expression includes and if the
+-			 * user has SELECT rights on them.
+-			 */
+-			if (attnum == InvalidAttrNumber ||
+-				pg_attribute_aclcheck(indrelid, attnum, GetUserId(),
+-									  ACL_SELECT) != ACLCHECK_OK)
+-			{
+-				/* No access, so clean up and return */
+-				return NULL;
+-			}
+-		}
+-	}
+-
+ 	initStringInfo(&buf);
+ 	appendStringInfo(&buf, "(%s)=(",
+ 					 pg_get_indexdef_columns(indexrelid, true));

@@ -1,0 +1,18 @@
+CREATE SUBSCRIPTION s1 CONNECTION 'dbname=nonexistent' PUBLICATION p WITH (connect=false);
+psql:<REPRO>:1: WARNING:  subscription was created, but is not connected
+HINT:  To initiate replication, you must manually create the replication slot, enable the subscription, and refresh the subscription.
+SELECT oid AS soid FROM pg_subscription WHERE subname='s1' \gset
+SELECT pg_stat_have_stats('subscription', 0, :soid);
+ pg_stat_have_stats 
+--------------------
+ t
+(1 row)
+
+ALTER SUBSCRIPTION s1 SET (slot_name = NONE);
+DROP SUBSCRIPTION s1;
+SELECT pg_stat_have_stats('subscription', 0, :soid);
+ pg_stat_have_stats 
+--------------------
+ f
+(1 row)
+

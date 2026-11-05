@@ -1,0 +1,118 @@
+CREATE ROLE ru1;
+CREATE ROLE ru2;
+CREATE SCHEMA s AUTHORIZATION ru1;
+GRANT USAGE ON SCHEMA s TO ru2;
+SET search_path = s;
+SET SESSION AUTHORIZATION ru1;
+CREATE TABLE t12 AS SELECT x AS a, x AS b FROM generate_series(1,1000) x;
+ANALYZE t12;
+CREATE VIEW t12v AS SELECT * FROM t12 WHERE b > 0;
+CREATE FUNCTION leak2(integer,integer) RETURNS boolean
+  AS $$begin raise notice 'leak % %', $1, $2; return $1 > $2; end$$
+  LANGUAGE plpgsql immutable;
+CREATE OPERATOR >>> (procedure = leak2, leftarg = integer, rightarg = integer,
+                     restrict = scalargtsel);
+SET SESSION AUTHORIZATION ru2;
+EXPLAIN (COSTS OFF) SELECT * FROM t12v WHERE a >>> 0;
+psql:<REPRO>:16: NOTICE:  leak 1 0
+psql:<REPRO>:16: NOTICE:  leak 10 0
+psql:<REPRO>:16: NOTICE:  leak 20 0
+psql:<REPRO>:16: NOTICE:  leak 30 0
+psql:<REPRO>:16: NOTICE:  leak 40 0
+psql:<REPRO>:16: NOTICE:  leak 50 0
+psql:<REPRO>:16: NOTICE:  leak 60 0
+psql:<REPRO>:16: NOTICE:  leak 70 0
+psql:<REPRO>:16: NOTICE:  leak 80 0
+psql:<REPRO>:16: NOTICE:  leak 90 0
+psql:<REPRO>:16: NOTICE:  leak 100 0
+psql:<REPRO>:16: NOTICE:  leak 110 0
+psql:<REPRO>:16: NOTICE:  leak 120 0
+psql:<REPRO>:16: NOTICE:  leak 130 0
+psql:<REPRO>:16: NOTICE:  leak 140 0
+psql:<REPRO>:16: NOTICE:  leak 150 0
+psql:<REPRO>:16: NOTICE:  leak 160 0
+psql:<REPRO>:16: NOTICE:  leak 170 0
+psql:<REPRO>:16: NOTICE:  leak 180 0
+psql:<REPRO>:16: NOTICE:  leak 190 0
+psql:<REPRO>:16: NOTICE:  leak 200 0
+psql:<REPRO>:16: NOTICE:  leak 210 0
+psql:<REPRO>:16: NOTICE:  leak 220 0
+psql:<REPRO>:16: NOTICE:  leak 230 0
+psql:<REPRO>:16: NOTICE:  leak 240 0
+psql:<REPRO>:16: NOTICE:  leak 250 0
+psql:<REPRO>:16: NOTICE:  leak 260 0
+psql:<REPRO>:16: NOTICE:  leak 270 0
+psql:<REPRO>:16: NOTICE:  leak 280 0
+psql:<REPRO>:16: NOTICE:  leak 290 0
+psql:<REPRO>:16: NOTICE:  leak 300 0
+psql:<REPRO>:16: NOTICE:  leak 310 0
+psql:<REPRO>:16: NOTICE:  leak 320 0
+psql:<REPRO>:16: NOTICE:  leak 330 0
+psql:<REPRO>:16: NOTICE:  leak 340 0
+psql:<REPRO>:16: NOTICE:  leak 350 0
+psql:<REPRO>:16: NOTICE:  leak 360 0
+psql:<REPRO>:16: NOTICE:  leak 370 0
+psql:<REPRO>:16: NOTICE:  leak 380 0
+psql:<REPRO>:16: NOTICE:  leak 390 0
+psql:<REPRO>:16: NOTICE:  leak 400 0
+psql:<REPRO>:16: NOTICE:  leak 410 0
+psql:<REPRO>:16: NOTICE:  leak 420 0
+psql:<REPRO>:16: NOTICE:  leak 430 0
+psql:<REPRO>:16: NOTICE:  leak 440 0
+psql:<REPRO>:16: NOTICE:  leak 450 0
+psql:<REPRO>:16: NOTICE:  leak 460 0
+psql:<REPRO>:16: NOTICE:  leak 470 0
+psql:<REPRO>:16: NOTICE:  leak 480 0
+psql:<REPRO>:16: NOTICE:  leak 490 0
+psql:<REPRO>:16: NOTICE:  leak 500 0
+psql:<REPRO>:16: NOTICE:  leak 510 0
+psql:<REPRO>:16: NOTICE:  leak 520 0
+psql:<REPRO>:16: NOTICE:  leak 530 0
+psql:<REPRO>:16: NOTICE:  leak 540 0
+psql:<REPRO>:16: NOTICE:  leak 550 0
+psql:<REPRO>:16: NOTICE:  leak 560 0
+psql:<REPRO>:16: NOTICE:  leak 570 0
+psql:<REPRO>:16: NOTICE:  leak 580 0
+psql:<REPRO>:16: NOTICE:  leak 590 0
+psql:<REPRO>:16: NOTICE:  leak 600 0
+psql:<REPRO>:16: NOTICE:  leak 610 0
+psql:<REPRO>:16: NOTICE:  leak 620 0
+psql:<REPRO>:16: NOTICE:  leak 630 0
+psql:<REPRO>:16: NOTICE:  leak 640 0
+psql:<REPRO>:16: NOTICE:  leak 650 0
+psql:<REPRO>:16: NOTICE:  leak 660 0
+psql:<REPRO>:16: NOTICE:  leak 670 0
+psql:<REPRO>:16: NOTICE:  leak 680 0
+psql:<REPRO>:16: NOTICE:  leak 690 0
+psql:<REPRO>:16: NOTICE:  leak 700 0
+psql:<REPRO>:16: NOTICE:  leak 710 0
+psql:<REPRO>:16: NOTICE:  leak 720 0
+psql:<REPRO>:16: NOTICE:  leak 730 0
+psql:<REPRO>:16: NOTICE:  leak 740 0
+psql:<REPRO>:16: NOTICE:  leak 750 0
+psql:<REPRO>:16: NOTICE:  leak 760 0
+psql:<REPRO>:16: NOTICE:  leak 770 0
+psql:<REPRO>:16: NOTICE:  leak 780 0
+psql:<REPRO>:16: NOTICE:  leak 790 0
+psql:<REPRO>:16: NOTICE:  leak 800 0
+psql:<REPRO>:16: NOTICE:  leak 810 0
+psql:<REPRO>:16: NOTICE:  leak 820 0
+psql:<REPRO>:16: NOTICE:  leak 830 0
+psql:<REPRO>:16: NOTICE:  leak 840 0
+psql:<REPRO>:16: NOTICE:  leak 850 0
+psql:<REPRO>:16: NOTICE:  leak 860 0
+psql:<REPRO>:16: NOTICE:  leak 870 0
+psql:<REPRO>:16: NOTICE:  leak 880 0
+psql:<REPRO>:16: NOTICE:  leak 890 0
+psql:<REPRO>:16: NOTICE:  leak 900 0
+psql:<REPRO>:16: NOTICE:  leak 910 0
+psql:<REPRO>:16: NOTICE:  leak 920 0
+psql:<REPRO>:16: NOTICE:  leak 930 0
+psql:<REPRO>:16: NOTICE:  leak 940 0
+psql:<REPRO>:16: NOTICE:  leak 950 0
+psql:<REPRO>:16: NOTICE:  leak 960 0
+psql:<REPRO>:16: NOTICE:  leak 970 0
+psql:<REPRO>:16: NOTICE:  leak 980 0
+psql:<REPRO>:16: NOTICE:  leak 990 0
+psql:<REPRO>:16: NOTICE:  leak 1000 0
+psql:<REPRO>:16: ERROR:  permission denied for view t12v

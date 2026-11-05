@@ -1,0 +1,56 @@
+diff --git a/src/backend/commands/copy.c b/src/backend/commands/copy.c
+index 13ca317c991..f5e5d331fb9 100644
+--- a/src/backend/commands/copy.c
++++ b/src/backend/commands/copy.c
+@@ -366,7 +366,7 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
+  * defGetBoolean() but also accepts the special value "match".
+  */
+ static CopyHeaderChoice
+-defGetCopyHeaderChoice(DefElem *def, bool is_from)
++defGetCopyHeaderChoice(DefElem *def)
+ {
+ 	/*
+ 	 * If no parameter value given, assume "true" is meant.
+@@ -408,14 +408,7 @@ defGetCopyHeaderChoice(DefElem *def, bool is_from)
+ 				if (pg_strcasecmp(sval, "off") == 0)
+ 					return COPY_HEADER_FALSE;
+ 				if (pg_strcasecmp(sval, "match") == 0)
+-				{
+-					if (!is_from)
+-						ereport(ERROR,
+-								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-								 errmsg("cannot use \"%s\" with HEADER in COPY TO",
+-										sval)));
+ 					return COPY_HEADER_MATCH;
+-				}
+ 			}
+ 			break;
+ 	}
+@@ -606,7 +599,7 @@ ProcessCopyOptions(ParseState *pstate,
+ 			if (header_specified)
+ 				errorConflictingDefElem(defel, pstate);
+ 			header_specified = true;
+-			opts_out->header_line = defGetCopyHeaderChoice(defel, is_from);
++			opts_out->header_line = defGetCopyHeaderChoice(defel);
+ 		}
+ 		else if (strcmp(defel->defname, "quote") == 0)
+ 		{
+diff --git a/src/backend/commands/copyfromparse.c b/src/backend/commands/copyfromparse.c
+index fedaf78ba5e..e15785f6906 100644
+--- a/src/backend/commands/copyfromparse.c
++++ b/src/backend/commands/copyfromparse.c
+@@ -806,12 +806,11 @@ NextCopyFromRawFieldsInternal(CopyFromState cstate, char ***fields, int *nfields
+ 			foreach(cur, cstate->attnumlist)
+ 			{
+ 				int			attnum = lfirst_int(cur);
+-				char	   *colName;
++				char	   *colName = cstate->raw_fields[attnum - 1];
+ 				Form_pg_attribute attr = TupleDescAttr(tupDesc, attnum - 1);
+ 
+-				Assert(fldnum < cstate->max_fields);
++				fldnum++;
+ 
+-				colName = cstate->raw_fields[fldnum++];
+ 				if (colName == NULL)
+ 					ereport(ERROR,
+ 							(errcode(ERRCODE_BAD_COPY_FILE_FORMAT),

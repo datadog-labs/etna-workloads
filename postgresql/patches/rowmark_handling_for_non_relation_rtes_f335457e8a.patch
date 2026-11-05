@@ -1,0 +1,89 @@
+diff --git a/src/backend/executor/execMain.c b/src/backend/executor/execMain.c
+index f4d2f41e28b..27c9eec697b 100644
+--- a/src/backend/executor/execMain.c
++++ b/src/backend/executor/execMain.c
+@@ -880,25 +880,21 @@ InitPlan(QueryDesc *queryDesc, int eflags)
+ 		foreach(l, plannedstmt->rowMarks)
+ 		{
+ 			PlanRowMark *rc = (PlanRowMark *) lfirst(l);
+-			RangeTblEntry *rte = exec_rt_fetch(rc->rti, estate);
+ 			Oid			relid;
+ 			Relation	relation;
+ 			ExecRowMark *erm;
+ 
+-			/* ignore "parent" rowmarks; they are irrelevant at runtime */
+-			if (rc->isParent)
+-				continue;
+-
+ 			/*
+-			 * Also ignore rowmarks belonging to child tables that have been
+-			 * pruned in ExecDoInitialPruning().
++			 * Ignore "parent" rowmarks, because they are irrelevant at
++			 * runtime.  Also ignore the rowmarks belonging to child tables
++			 * that have been pruned in ExecDoInitialPruning().
+ 			 */
+-			if (rte->rtekind == RTE_RELATION &&
++			if (rc->isParent ||
+ 				!bms_is_member(rc->rti, estate->es_unpruned_relids))
+ 				continue;
+ 
+ 			/* get relation's OID (will produce InvalidOid if subquery) */
+-			relid = rte->relid;
++			relid = exec_rt_fetch(rc->rti, estate)->relid;
+ 
+ 			/* open relation, if we need to access it for this mark type */
+ 			switch (rc->markType)
+diff --git a/src/backend/executor/nodeLockRows.c b/src/backend/executor/nodeLockRows.c
+index 5d38bd4095c..a8afbf93b48 100644
+--- a/src/backend/executor/nodeLockRows.c
++++ b/src/backend/executor/nodeLockRows.c
+@@ -344,19 +344,15 @@ ExecInitLockRows(LockRows *node, EState *estate, int eflags)
+ 	foreach(lc, node->rowMarks)
+ 	{
+ 		PlanRowMark *rc = lfirst_node(PlanRowMark, lc);
+-		RangeTblEntry *rte = exec_rt_fetch(rc->rti, estate);
+ 		ExecRowMark *erm;
+ 		ExecAuxRowMark *aerm;
+ 
+-		/* ignore "parent" rowmarks; they are irrelevant at runtime */
+-		if (rc->isParent)
+-			continue;
+-
+ 		/*
+-		 * Also ignore rowmarks belonging to child tables that have been
++		 * Ignore "parent" rowmarks, because they are irrelevant at runtime.
++		 * Also ignore the rowmarks belonging to child tables that have been
+ 		 * pruned in ExecDoInitialPruning().
+ 		 */
+-		if (rte->rtekind == RTE_RELATION &&
++		if (rc->isParent ||
+ 			!bms_is_member(rc->rti, estate->es_unpruned_relids))
+ 			continue;
+ 
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index df99a204e0c..28989e4facb 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -5138,19 +5138,15 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
+ 	foreach(l, node->rowMarks)
+ 	{
+ 		PlanRowMark *rc = lfirst_node(PlanRowMark, l);
+-		RangeTblEntry *rte = exec_rt_fetch(rc->rti, estate);
+ 		ExecRowMark *erm;
+ 		ExecAuxRowMark *aerm;
+ 
+-		/* ignore "parent" rowmarks; they are irrelevant at runtime */
+-		if (rc->isParent)
+-			continue;
+-
+ 		/*
+-		 * Also ignore rowmarks belonging to child tables that have been
++		 * Ignore "parent" rowmarks, because they are irrelevant at runtime.
++		 * Also ignore the rowmarks belonging to child tables that have been
+ 		 * pruned in ExecDoInitialPruning().
+ 		 */
+-		if (rte->rtekind == RTE_RELATION &&
++		if (rc->isParent ||
+ 			!bms_is_member(rc->rti, estate->es_unpruned_relids))
+ 			continue;
+ 

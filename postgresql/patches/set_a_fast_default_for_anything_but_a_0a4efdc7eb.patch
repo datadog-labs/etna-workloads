@@ -1,0 +1,41 @@
+diff --git a/src/backend/catalog/heap.c b/src/backend/catalog/heap.c
+index 16a5d6b7b97..cda66254490 100644
+--- a/src/backend/catalog/heap.c
++++ b/src/backend/catalog/heap.c
+@@ -2115,13 +2115,6 @@ SetAttrMissing(Oid relid, char *attname, char *value)
+ 	/* lock the table the attribute belongs to */
+ 	tablerel = table_open(relid, AccessExclusiveLock);
+ 
+-	/* Don't do anything unless it's a plain table */
+-	if (tablerel->rd_rel->relkind != RELKIND_RELATION)
+-	{
+-		table_close(tablerel, AccessExclusiveLock);
+-		return;
+-	}
+-
+ 	/* Lock the attribute row and get the data */
+ 	attrrel = table_open(AttributeRelationId, RowExclusiveLock);
+ 	atttup = SearchSysCacheAttName(relid, attname);
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..18c26002292 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -7471,7 +7471,7 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 	 * We can skip this entirely for relations without storage, since Phase 3
+ 	 * is certainly not going to touch them.
+ 	 */
+-	if (RELKIND_HAS_STORAGE(relkind))
++	if (RELKIND_HAS_STORAGE(relkind) || relkind == RELKIND_FOREIGN_TABLE)
+ 	{
+ 		bool		has_domain_constraints;
+ 		bool		has_missing = false;
+@@ -7540,8 +7540,7 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 			 * here we consider that coercion to a domain with constraints is
+ 			 * volatile; else it might fail even when the table is empty.
+ 			 */
+-			if (rel->rd_rel->relkind == RELKIND_RELATION &&
+-				!colDef->generated &&
++			if (!colDef->generated &&
+ 				!has_domain_constraints &&
+ 				!contain_volatile_functions((Node *) defval))
+ 			{

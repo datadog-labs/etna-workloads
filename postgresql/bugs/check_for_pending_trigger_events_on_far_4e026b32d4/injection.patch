@@ -1,0 +1,29 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..96efc4fce9c 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -14213,24 +14213,6 @@ dropconstraint_internal(Relation rel, HeapTuple constraintTup, DropBehavior beha
+ 
+ 	is_no_inherit_constraint = con->connoinherit;
+ 
+-	/*
+-	 * If it's a foreign-key constraint, we'd better lock the referenced table
+-	 * and check that that's not in use, just as we've already done for the
+-	 * constrained table (else we might, eg, be dropping a trigger that has
+-	 * unfired events).  But we can/must skip that in the self-referential
+-	 * case.
+-	 */
+-	if (con->contype == CONSTRAINT_FOREIGN &&
+-		con->confrelid != RelationGetRelid(rel))
+-	{
+-		Relation	frel;
+-
+-		/* Must match lock taken by RemoveTriggerById: */
+-		frel = table_open(con->confrelid, AccessExclusiveLock);
+-		CheckAlterTableIsSafe(frel);
+-		table_close(frel, NoLock);
+-	}
+-
+ 	/*
+ 	 * Perform the actual constraint deletion
+ 	 */

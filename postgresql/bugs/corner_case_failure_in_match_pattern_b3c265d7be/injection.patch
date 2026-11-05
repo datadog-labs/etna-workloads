@@ -1,0 +1,31 @@
+diff --git a/src/backend/utils/adt/like_support.c b/src/backend/utils/adt/like_support.c
+index eb1dcc12dfe..bd0b8703250 100644
+--- a/src/backend/utils/adt/like_support.c
++++ b/src/backend/utils/adt/like_support.c
+@@ -401,7 +401,7 @@ match_pattern_prefix(Node *leftop,
+ 	if (pstatus == Pattern_Prefix_Exact)
+ 	{
+ 		if (!op_in_opfamily(eqopr, opfamily))
+-			return NIL;
++		elog(ERROR, "no = operator for opfamily %u", opfamily);
+ 		if (indexcollation != expr_coll && NONDETERMINISTIC(expr_coll))
+ 			return NIL;
+ 		expr = make_opclause(eqopr, BOOLOID, false,
+@@ -449,7 +449,7 @@ match_pattern_prefix(Node *leftop,
+ 	 * We can always say "x >= prefix".
+ 	 */
+ 	if (!op_in_opfamily(geopr, opfamily))
+-		return NIL;
++		elog(ERROR, "no >= operator for opfamily %u", opfamily);
+ 	expr = make_opclause(geopr, BOOLOID, false,
+ 						 (Expr *) leftop, (Expr *) prefix,
+ 						 InvalidOid, indexcollation);
+@@ -464,7 +464,7 @@ match_pattern_prefix(Node *leftop,
+ 	 *-------
+ 	 */
+ 	if (!op_in_opfamily(ltopr, opfamily))
+-		return result;
++		elog(ERROR, "no < operator for opfamily %u", opfamily);
+ 	fmgr_info(get_opcode(ltopr), &ltproc);
+ 	greaterstr = make_greater_string(prefix, &ltproc, indexcollation);
+ 	if (greaterstr)

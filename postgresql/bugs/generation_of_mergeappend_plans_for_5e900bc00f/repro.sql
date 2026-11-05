@@ -1,0 +1,14 @@
+create table m0(id int primary key);
+create table m1() inherits(m0);
+create table m2() inherits(m0);
+create index m0i on m0((1-id));
+create index m1i on m1((1-id));
+create index m2i on m2((1-id));
+insert into m0 select g from generate_series(1,100) g;
+insert into m1 select g from generate_series(101,200) g;
+insert into m2 select g from generate_series(201,300) g;
+analyze m0; analyze m1; analyze m2;
+set enable_seqscan=off; set enable_bitmapscan=off;
+explain (costs off) select min(1-id) from m0;
+select min(1-id) from m0;
+select max(1-id) from m0;

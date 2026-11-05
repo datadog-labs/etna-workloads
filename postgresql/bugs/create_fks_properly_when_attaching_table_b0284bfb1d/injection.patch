@@ -1,0 +1,58 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..d4212e9a1dc 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -11357,23 +11357,16 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
+ 			mapped_confkey[i] = attmap->attnums[confkey[i] - 1];
+ 
+ 		fkconstraint = makeNode(Constraint);
+-		fkconstraint->contype = CONSTRAINT_FOREIGN;
++		/* for now this is all we need */
+ 		fkconstraint->conname = NameStr(constrForm->conname);
+-		fkconstraint->deferrable = constrForm->condeferrable;
+-		fkconstraint->initdeferred = constrForm->condeferred;
+-		fkconstraint->location = -1;
+-		fkconstraint->pktable = NULL;
+-		/* ->fk_attrs determined below */
+-		fkconstraint->pk_attrs = NIL;
+-		fkconstraint->fk_matchtype = constrForm->confmatchtype;
+ 		fkconstraint->fk_upd_action = constrForm->confupdtype;
+ 		fkconstraint->fk_del_action = constrForm->confdeltype;
+-		fkconstraint->fk_del_set_cols = NIL;
+-		fkconstraint->old_conpfeqop = NIL;
+-		fkconstraint->old_pktable_oid = InvalidOid;
++		fkconstraint->deferrable = constrForm->condeferrable;
++		fkconstraint->initdeferred = constrForm->condeferred;
+ 		fkconstraint->is_enforced = constrForm->conenforced;
+ 		fkconstraint->skip_validation = false;
+ 		fkconstraint->initially_valid = constrForm->convalidated;
++		fkconstraint->fk_matchtype = constrForm->confmatchtype;
+ 
+ 		/* set up colnames that are used to generate the constraint name */
+ 		for (int i = 0; i < numfks; i++)
+@@ -11620,23 +11613,13 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
+ 
+ 		/* No dice.  Set up to create our own constraint */
+ 		fkconstraint = makeNode(Constraint);
+-		fkconstraint->contype = CONSTRAINT_FOREIGN;
+-		/* ->conname determined below */
++		fkconstraint->fk_upd_action = constrForm->confupdtype;
++		fkconstraint->fk_del_action = constrForm->confdeltype;
+ 		fkconstraint->deferrable = constrForm->condeferrable;
+ 		fkconstraint->initdeferred = constrForm->condeferred;
+-		fkconstraint->location = -1;
+-		fkconstraint->pktable = NULL;
+-		/* ->fk_attrs determined below */
+-		fkconstraint->pk_attrs = NIL;
+ 		fkconstraint->fk_matchtype = constrForm->confmatchtype;
+-		fkconstraint->fk_upd_action = constrForm->confupdtype;
+-		fkconstraint->fk_del_action = constrForm->confdeltype;
+-		fkconstraint->fk_del_set_cols = NIL;
+-		fkconstraint->old_conpfeqop = NIL;
+-		fkconstraint->old_pktable_oid = InvalidOid;
+ 		fkconstraint->is_enforced = constrForm->conenforced;
+ 		fkconstraint->skip_validation = false;
+-		fkconstraint->initially_valid = constrForm->convalidated;
+ 		for (int i = 0; i < numfks; i++)
+ 		{
+ 			Form_pg_attribute att;

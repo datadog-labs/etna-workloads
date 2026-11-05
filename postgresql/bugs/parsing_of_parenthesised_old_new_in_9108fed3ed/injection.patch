@@ -1,0 +1,112 @@
+diff --git a/src/backend/parser/parse_coerce.c b/src/backend/parser/parse_coerce.c
+index 19d7aeff75f..e0b8e8d8a52 100644
+--- a/src/backend/parser/parse_coerce.c
++++ b/src/backend/parser/parse_coerce.c
+@@ -1038,12 +1038,13 @@ coerce_record_to_complex(ParseState *pstate, Node *node,
+ 	else if (node && IsA(node, Var) &&
+ 			 ((Var *) node)->varattno == InvalidAttrNumber)
+ 	{
+-		Var		   *var = (Var *) node;
++		int			rtindex = ((Var *) node)->varno;
++		int			sublevels_up = ((Var *) node)->varlevelsup;
++		int			vlocation = ((Var *) node)->location;
+ 		ParseNamespaceItem *nsitem;
+ 
+-		nsitem = GetNSItemByVar(pstate, var);
+-		args = expandNSItemVars(pstate, nsitem, var->varlevelsup,
+-								var->location, NULL);
++		nsitem = GetNSItemByRangeTablePosn(pstate, rtindex, sublevels_up);
++		args = expandNSItemVars(pstate, nsitem, sublevels_up, vlocation, NULL);
+ 	}
+ 	else
+ 		ereport(ERROR,
+diff --git a/src/backend/parser/parse_func.c b/src/backend/parser/parse_func.c
+index a7074c9e2e6..a84b43fb6d3 100644
+--- a/src/backend/parser/parse_func.c
++++ b/src/backend/parser/parse_func.c
+@@ -1985,7 +1985,9 @@ ParseComplexProjection(ParseState *pstate, const char *funcname, Node *first_arg
+ 	{
+ 		ParseNamespaceItem *nsitem;
+ 
+-		nsitem = GetNSItemByVar(pstate, (Var *) first_arg);
++		nsitem = GetNSItemByRangeTablePosn(pstate,
++										   ((Var *) first_arg)->varno,
++										   ((Var *) first_arg)->varlevelsup);
+ 		/* Return a Var if funcname matches a column, else NULL */
+ 		return scanNSItemForColumn(pstate, nsitem,
+ 								   ((Var *) first_arg)->varlevelsup,
+diff --git a/src/backend/parser/parse_relation.c b/src/backend/parser/parse_relation.c
+index b59df7dcdf3..04ecf64b1fc 100644
+--- a/src/backend/parser/parse_relation.c
++++ b/src/backend/parser/parse_relation.c
+@@ -513,9 +513,6 @@ check_lateral_ref_ok(ParseState *pstate, ParseNamespaceItem *nsitem,
+ /*
+  * Given an RT index and nesting depth, find the corresponding
+  * ParseNamespaceItem (there must be one).
+- *
+- * NB: Callers starting from a Var should consider using GetNSItemByVar()
+- * instead, to find the namespace item with matching varreturningtype.
+  */
+ ParseNamespaceItem *
+ GetNSItemByRangeTablePosn(ParseState *pstate,
+@@ -540,35 +537,6 @@ GetNSItemByRangeTablePosn(ParseState *pstate,
+ 	return NULL;				/* keep compiler quiet */
+ }
+ 
+-/*
+- * Given a Var, find the corresponding ParseNamespaceItem (there must be one).
+- *
+- * Like GetNSItemByRangeTablePosn(), but uses the Var's varreturningtype in
+- * addition to its varno and varlevelsup to find the namespace item.
+- */
+-ParseNamespaceItem *
+-GetNSItemByVar(ParseState *pstate, Var *var)
+-{
+-	int			sublevels_up = var->varlevelsup;
+-	ListCell   *lc;
+-
+-	while (sublevels_up-- > 0)
+-	{
+-		pstate = pstate->parentParseState;
+-		Assert(pstate != NULL);
+-	}
+-	foreach(lc, pstate->p_namespace)
+-	{
+-		ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(lc);
+-
+-		if (nsitem->p_rtindex == var->varno &&
+-			nsitem->p_returning_type == var->varreturningtype)
+-			return nsitem;
+-	}
+-	elog(ERROR, "nsitem not found (internal error)");
+-	return NULL;				/* keep compiler quiet */
+-}
+-
+ /*
+  * Given an RT index and nesting depth, find the corresponding RTE.
+  * (Note that the RTE need not be in the query's namespace.)
+diff --git a/src/backend/parser/parse_target.c b/src/backend/parser/parse_target.c
+index 336cf66f224..4aba0d9d4d5 100644
+--- a/src/backend/parser/parse_target.c
++++ b/src/backend/parser/parse_target.c
+@@ -1446,7 +1446,7 @@ ExpandRowReference(ParseState *pstate, Node *expr,
+ 		Var		   *var = (Var *) expr;
+ 		ParseNamespaceItem *nsitem;
+ 
+-		nsitem = GetNSItemByVar(pstate, var);
++		nsitem = GetNSItemByRangeTablePosn(pstate, var->varno, var->varlevelsup);
+ 		return ExpandSingleTable(pstate, nsitem, var->varlevelsup, var->location, make_target_entry);
+ 	}
+ 
+diff --git a/src/include/parser/parse_relation.h b/src/include/parser/parse_relation.h
+index a05f48317b5..d59599cf242 100644
+--- a/src/include/parser/parse_relation.h
++++ b/src/include/parser/parse_relation.h
+@@ -31,7 +31,6 @@ extern void checkNameSpaceConflicts(ParseState *pstate, List *namespace1,
+ extern ParseNamespaceItem *GetNSItemByRangeTablePosn(ParseState *pstate,
+ 													 int varno,
+ 													 int sublevels_up);
+-extern ParseNamespaceItem *GetNSItemByVar(ParseState *pstate, Var *var);
+ extern RangeTblEntry *GetRTEByRangeTablePosn(ParseState *pstate,
+ 											 int varno,
+ 											 int sublevels_up);

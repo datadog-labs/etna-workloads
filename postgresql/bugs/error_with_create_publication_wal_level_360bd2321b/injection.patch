@@ -1,0 +1,26 @@
+diff --git a/src/backend/catalog/pg_publication.c b/src/backend/catalog/pg_publication.c
+index 671eb160f47..c56533730d7 100644
+--- a/src/backend/catalog/pg_publication.c
++++ b/src/backend/catalog/pg_publication.c
+@@ -80,7 +80,7 @@ check_publication_add_relation(Relation targetrel)
+ 				 errmsg("cannot add relation \"%s\" to publication",
+ 						RelationGetRelationName(targetrel)),
+ 				 errdetail("This operation is not supported for temporary tables.")));
+-	else if (targetrel->rd_rel->relpersistence == RELPERSISTENCE_UNLOGGED)
++	else if (!RelationNeedsWAL(targetrel))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+ 				 errmsg("cannot add relation \"%s\" to publication",
+diff --git a/src/backend/optimizer/util/plancat.c b/src/backend/optimizer/util/plancat.c
+index 1d9aaf9146f..42a31c9c422 100644
+--- a/src/backend/optimizer/util/plancat.c
++++ b/src/backend/optimizer/util/plancat.c
+@@ -148,7 +148,7 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
+ 	}
+ 
+ 	/* Temporary and unlogged relations are inaccessible during recovery. */
+-	if (!RelationIsPermanent(relation) && RecoveryInProgress())
++	if (!RelationNeedsWAL(relation) && RecoveryInProgress())
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+ 				 errmsg("cannot access temporary or unlogged relations during recovery")));

@@ -1,0 +1,1 @@
+SELECT initcap('Λλ 1a １a' COLLATE PG_UNICODE_FAST);

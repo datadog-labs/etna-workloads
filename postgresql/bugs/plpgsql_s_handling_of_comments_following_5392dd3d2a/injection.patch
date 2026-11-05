@@ -1,0 +1,33 @@
+diff --git a/src/pl/plpgsql/src/pl_gram.y b/src/pl/plpgsql/src/pl_gram.y
+index 5612e66d023..1aa0f134d29 100644
+--- a/src/pl/plpgsql/src/pl_gram.y
++++ b/src/pl/plpgsql/src/pl_gram.y
+@@ -2833,7 +2833,7 @@ read_sql_construct(int until,
+ 		*endtoken = tok;
+ 
+ 	/* give helpful complaint about empty input */
+-	if (startlocation >= endlocation)
++	if (startlocation >= *yyllocp)
+ 	{
+ 		if (isexpression)
+ 			yyerror(yyllocp, NULL, yyscanner, "missing expression");
+@@ -2841,14 +2841,11 @@ read_sql_construct(int until,
+ 			yyerror(yyllocp, NULL, yyscanner, "missing SQL statement");
+ 	}
+ 
+-	/*
+-	 * We save only the text from startlocation to endlocation-1.  This
+-	 * suppresses the "until" token as well as any whitespace or comments
+-	 * following the last accepted token.  (We used to strip such trailing
+-	 * whitespace by hand, but that causes problems if there's a "-- comment"
+-	 * in front of said whitespace.)
+-	 */
+-	plpgsql_append_source_text(&ds, startlocation, endlocation, yyscanner);
++	plpgsql_append_source_text(&ds, startlocation, *yyllocp, yyscanner);
++
++	/* trim any trailing whitespace, for neatness */
++	while (ds.len > 0 && scanner_isspace(ds.data[ds.len - 1]))
++		ds.data[--ds.len] = '\0';
+ 
+ 	expr = make_plpgsql_expr(ds.data, parsemode);
+ 	pfree(ds.data);

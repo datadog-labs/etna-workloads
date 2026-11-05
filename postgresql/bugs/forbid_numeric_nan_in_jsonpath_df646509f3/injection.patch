@@ -1,0 +1,44 @@
+diff --git a/src/backend/utils/adt/jsonb_util.c b/src/backend/utils/adt/jsonb_util.c
+index 136952861e1..3f0dde7eac3 100644
+--- a/src/backend/utils/adt/jsonb_util.c
++++ b/src/backend/utils/adt/jsonb_util.c
+@@ -1843,6 +1843,14 @@ convertJsonbScalar(StringInfo buffer, JEntry *header, JsonbValue *scalarVal)
+ 			break;
+ 
+ 		case jbvNumeric:
++			/* replace numeric NaN with string "NaN" */
++			if (numeric_is_nan(scalarVal->val.numeric))
++			{
++				appendToBuffer(buffer, "NaN", 3);
++				*header = JENTRY_ISSTRING | 3;
++				break;
++			}
++
+ 			numlen = VARSIZE_ANY(scalarVal->val.numeric);
+ 			padlen = padBufferToInt(buffer);
+ 
+diff --git a/src/backend/utils/adt/jsonpath_exec.c b/src/backend/utils/adt/jsonpath_exec.c
+index 4be288c23eb..b2cba7d56fc 100644
+--- a/src/backend/utils/adt/jsonpath_exec.c
++++ b/src/backend/utils/adt/jsonpath_exec.c
+@@ -1164,11 +1164,6 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
+ 											 (errcode(ERRCODE_NON_NUMERIC_SQL_JSON_ITEM),
+ 											  errmsg("argument \"%s\" of jsonpath item method .%s() is invalid for type %s",
+ 													 tmp, jspOperationName(jsp->type), "double precision"))));
+-					if (isinf(val) || isnan(val))
+-						RETURN_ERROR(ereport(ERROR,
+-											 (errcode(ERRCODE_NON_NUMERIC_SQL_JSON_ITEM),
+-											  errmsg("NaN or Infinity is not allowed for jsonpath item method .%s()",
+-													 jspOperationName(jsp->type)))));
+ 					res = jperOk;
+ 				}
+ 				else if (jb->type == jbvString)
+@@ -1190,7 +1185,7 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
+ 											 (errcode(ERRCODE_NON_NUMERIC_SQL_JSON_ITEM),
+ 											  errmsg("argument \"%s\" of jsonpath item method .%s() is invalid for type %s",
+ 													 tmp, jspOperationName(jsp->type), "double precision"))));
+-					if (isinf(val) || isnan(val))
++					if (isinf(val))
+ 						RETURN_ERROR(ereport(ERROR,
+ 											 (errcode(ERRCODE_NON_NUMERIC_SQL_JSON_ITEM),
+ 											  errmsg("NaN or Infinity is not allowed for jsonpath item method .%s()",

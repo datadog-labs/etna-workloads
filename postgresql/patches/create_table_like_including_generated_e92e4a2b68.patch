@@ -1,0 +1,32 @@
+diff --git a/src/backend/parser/parse_utilcmd.c b/src/backend/parser/parse_utilcmd.c
+index cacb1379e97..cd4a0c59d9a 100644
+--- a/src/backend/parser/parse_utilcmd.c
++++ b/src/backend/parser/parse_utilcmd.c
+@@ -1389,6 +1389,8 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
+ 		 (CREATE_TABLE_LIKE_DEFAULTS | CREATE_TABLE_LIKE_GENERATED)) &&
+ 		constr != NULL)
+ 	{
++		AttrMap    *defmap = make_attrmap(tupleDesc->natts);
++
+ 		for (parent_attno = 1; parent_attno <= tupleDesc->natts;
+ 			 parent_attno++)
+ 		{
+@@ -1401,6 +1403,9 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
+ 			if (attribute->attisdropped)
+ 				continue;
+ 
++			/* map is filled incrementally as columns are processed */
++			defmap->attnums[parent_attno - 1] = attmap->attnums[parent_attno - 1];
++
+ 			/*
+ 			 * Copy default, if present and it should be copied.  We have
+ 			 * separate options for plain default expressions and GENERATED
+@@ -1425,7 +1430,7 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
+ 				atsubcmd->num = attmap->attnums[parent_attno - 1];
+ 				atsubcmd->def = map_variable_attnos(this_default,
+ 													1, 0,
+-													attmap,
++													defmap,
+ 													InvalidOid,
+ 													&found_whole_row);
+ 

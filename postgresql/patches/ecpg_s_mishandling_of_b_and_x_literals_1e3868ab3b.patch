@@ -1,0 +1,38 @@
+diff --git a/src/interfaces/ecpg/preproc/pgc.l b/src/interfaces/ecpg/preproc/pgc.l
+index 63283a4a1e5..fc08b600a0d 100644
+--- a/src/interfaces/ecpg/preproc/pgc.l
++++ b/src/interfaces/ecpg/preproc/pgc.l
+@@ -548,6 +548,7 @@ cppline			{space}*#([^i][A-Za-z]*|{if}|{ifdef}|{ifndef}|{import})((\/\*[^*/]*\*+
+ 					state_before_str_start = YYSTATE;
+ 					BEGIN(xb);
+ 					startlit();
++					addlitchar('b');
+ 				}
+ } /* <SQL> */
+ 
+@@ -564,6 +565,7 @@ cppline			{space}*#([^i][A-Za-z]*|{if}|{ifdef}|{ifndef}|{import})((\/\*[^*/]*\*+
+ 					state_before_str_start = YYSTATE;
+ 					BEGIN(xh);
+ 					startlit();
++					addlitchar('x');
+ 				}
+ <xh><<EOF>>		{
+ 					mmfatal(PARSE_ERROR, "unterminated hexadecimal string literal");
+@@ -639,14 +641,12 @@ cppline			{space}*#([^i][A-Za-z]*|{if}|{ifdef}|{ifndef}|{import})((\/\*[^*/]*\*+
+ 					switch (state_before_str_stop)
+ 					{
+ 						case xb:
+-							if (literalbuf[strspn(literalbuf, "01")] != '\0')
++							if (literalbuf[strspn(literalbuf, "01") + 1] != '\0')
+ 								mmerror(PARSE_ERROR, ET_ERROR, "invalid bit string literal");
+-							base_yylval.str = make3_str("b'", literalbuf, "'");
++							base_yylval.str = mm_strdup(literalbuf);
+ 							return BCONST;
+ 						case xh:
+-							if (literalbuf[strspn(literalbuf, "0123456789abcdefABCDEF")] != '\0')
+-								mmerror(PARSE_ERROR, ET_ERROR, "invalid hexadecimal string literal");
+-							base_yylval.str = make3_str("x'", literalbuf, "'");
++							base_yylval.str = mm_strdup(literalbuf);
+ 							return XCONST;
+ 						case xq:
+ 							/* fallthrough */

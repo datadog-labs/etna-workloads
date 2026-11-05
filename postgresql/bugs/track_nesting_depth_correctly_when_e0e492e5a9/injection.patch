@@ -1,0 +1,127 @@
+diff --git a/src/backend/parser/parse_target.c b/src/backend/parser/parse_target.c
+index 336cf66f224..45b26844412 100644
+--- a/src/backend/parser/parse_target.c
++++ b/src/backend/parser/parse_target.c
+@@ -1515,8 +1515,7 @@ ExpandRowReference(ParseState *pstate, Node *expr,
+  * drill down to find the ultimate defining expression and attempt to infer
+  * the tupdesc from it.  We ereport if we can't determine the tupdesc.
+  *
+- * levelsup is an extra offset to interpret the Var's varlevelsup correctly
+- * when recursing.  Outside callers should pass zero.
++ * levelsup is an extra offset to interpret the Var's varlevelsup correctly.
+  */
+ TupleDesc
+ expandRecordVariable(ParseState *pstate, Var *var, int levelsup)
+@@ -1604,17 +1603,10 @@ expandRecordVariable(ParseState *pstate, Var *var, int levelsup)
+ 					/*
+ 					 * Recurse into the sub-select to see what its Var refers
+ 					 * to.  We have to build an additional level of ParseState
+-					 * to keep in step with varlevelsup in the subselect;
+-					 * furthermore, the subquery RTE might be from an outer
+-					 * query level, in which case the ParseState for the
+-					 * subselect must have that outer level as parent.
++					 * to keep in step with varlevelsup in the subselect.
+ 					 */
+ 					ParseState	mypstate = {0};
+-					Index		levelsup;
+ 
+-					/* this loop must work, since GetRTEByRangeTablePosn did */
+-					for (levelsup = 0; levelsup < netlevelsup; levelsup++)
+-						pstate = pstate->parentParseState;
+ 					mypstate.parentParseState = pstate;
+ 					mypstate.p_rtable = rte->subquery->rtable;
+ 					/* don't bother filling the rest of the fake pstate */
+@@ -1665,11 +1657,12 @@ expandRecordVariable(ParseState *pstate, Var *var, int levelsup)
+ 					 * Recurse into the CTE to see what its Var refers to. We
+ 					 * have to build an additional level of ParseState to keep
+ 					 * in step with varlevelsup in the CTE; furthermore it
+-					 * could be an outer CTE (compare SUBQUERY case above).
++					 * could be an outer CTE.
+ 					 */
+-					ParseState	mypstate = {0};
++					ParseState	mypstate;
+ 					Index		levelsup;
+ 
++					MemSet(&mypstate, 0, sizeof(mypstate));
+ 					/* this loop must work, since GetCTEForRTE did */
+ 					for (levelsup = 0;
+ 						 levelsup < rte->ctelevelsup + netlevelsup;
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..ac6f9020eb0 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -8221,28 +8221,22 @@ get_name_for_var_field(Var *var, int fieldno,
+ 						 * Recurse into the sub-select to see what its Var
+ 						 * refers to. We have to build an additional level of
+ 						 * namespace to keep in step with varlevelsup in the
+-						 * subselect; furthermore, the subquery RTE might be
+-						 * from an outer query level, in which case the
+-						 * namespace for the subselect must have that outer
+-						 * level as parent namespace.
++						 * subselect.
+ 						 */
+-						List	   *save_nslist = context->namespaces;
+-						List	   *parent_namespaces;
+ 						deparse_namespace mydpns;
+ 						const char *result;
+ 
+-						parent_namespaces = list_copy_tail(context->namespaces,
+-														   netlevelsup);
+-
+ 						set_deparse_for_query(&mydpns, rte->subquery,
+-											  parent_namespaces);
++											  context->namespaces);
+ 
+-						context->namespaces = lcons(&mydpns, parent_namespaces);
++						context->namespaces = lcons(&mydpns,
++													context->namespaces);
+ 
+ 						result = get_name_for_var_field((Var *) expr, fieldno,
+ 														0, context);
+ 
+-						context->namespaces = save_nslist;
++						context->namespaces =
++							list_delete_first(context->namespaces);
+ 
+ 						return result;
+ 					}
+@@ -8348,7 +8342,7 @@ get_name_for_var_field(Var *var, int fieldno,
+ 														attnum);
+ 
+ 					if (ste == NULL || ste->resjunk)
+-						elog(ERROR, "CTE %s does not have attribute %d",
++						elog(ERROR, "subquery %s does not have attribute %d",
+ 							 rte->eref->aliasname, attnum);
+ 					expr = (Node *) ste->expr;
+ 					if (IsA(expr, Var))
+@@ -8356,22 +8350,21 @@ get_name_for_var_field(Var *var, int fieldno,
+ 						/*
+ 						 * Recurse into the CTE to see what its Var refers to.
+ 						 * We have to build an additional level of namespace
+-						 * to keep in step with varlevelsup in the CTE;
+-						 * furthermore it could be an outer CTE (compare
+-						 * SUBQUERY case above).
++						 * to keep in step with varlevelsup in the CTE.
++						 * Furthermore it could be an outer CTE, so we may
++						 * have to delete some levels of namespace.
+ 						 */
+ 						List	   *save_nslist = context->namespaces;
+-						List	   *parent_namespaces;
++						List	   *new_nslist;
+ 						deparse_namespace mydpns;
+ 						const char *result;
+ 
+-						parent_namespaces = list_copy_tail(context->namespaces,
+-														   ctelevelsup);
+-
+ 						set_deparse_for_query(&mydpns, ctequery,
+-											  parent_namespaces);
++											  context->namespaces);
+ 
+-						context->namespaces = lcons(&mydpns, parent_namespaces);
++						new_nslist = list_copy_tail(context->namespaces,
++													ctelevelsup);
++						context->namespaces = lcons(&mydpns, new_nslist);
+ 
+ 						result = get_name_for_var_field((Var *) expr, fieldno,
+ 														0, context);

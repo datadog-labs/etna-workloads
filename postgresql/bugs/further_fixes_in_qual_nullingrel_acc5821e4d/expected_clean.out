@@ -1,0 +1,28 @@
+create table t1 as select g q1, g q2 from generate_series(1,1000) g;
+create table t2 as select g q1, g q2 from generate_series(1,1000) g;
+create table t3 as select g unique1, g unique2 from generate_series(1,1000) g;
+create table t4 as select g unique1, g unique2 from generate_series(1,1000) g;
+analyze;
+explain (costs off)
+select * from t1
+  left join (t2 left join t3 on t2.q1 > t3.unique1)
+    on t1.q2 = t2.q2
+  left join t4
+    on t2.q2 < t3.unique2;
+                QUERY PLAN                 
+-------------------------------------------
+ Nested Loop Left Join
+   Join Filter: (t2.q2 < t3.unique2)
+   ->  Nested Loop Left Join
+         Join Filter: (t2.q1 > t3.unique1)
+         ->  Hash Left Join
+               Hash Cond: (t1.q2 = t2.q2)
+               ->  Seq Scan on t1
+               ->  Hash
+                     ->  Seq Scan on t2
+         ->  Materialize
+               ->  Seq Scan on t3
+   ->  Materialize
+         ->  Seq Scan on t4
+(13 rows)
+

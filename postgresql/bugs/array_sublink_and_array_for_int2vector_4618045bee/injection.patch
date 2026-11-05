@@ -1,0 +1,57 @@
+diff --git a/src/backend/parser/parse_expr.c b/src/backend/parser/parse_expr.c
+index cf872ce79b5..bbc7dffc812 100644
+--- a/src/backend/parser/parse_expr.c
++++ b/src/backend/parser/parse_expr.c
+@@ -2065,18 +2065,10 @@ transformArrayExpr(ParseState *pstate, A_ArrayExpr *a,
+ 
+ 			/*
+ 			 * Check for sub-array expressions, if we haven't already found
+-			 * one.  Note we don't accept domain-over-array as a sub-array,
+-			 * nor int2vector nor oidvector; those have constraints that don't
+-			 * map well to being treated as a sub-array.
++			 * one.
+ 			 */
+-			if (!newa->multidims)
+-			{
+-				Oid			newetype = exprType(newe);
+-
+-				if (newetype != INT2VECTOROID && newetype != OIDVECTOROID &&
+-					type_is_array(newetype))
+-					newa->multidims = true;
+-			}
++			if (!newa->multidims && type_is_array(exprType(newe)))
++				newa->multidims = true;
+ 		}
+ 
+ 		newelems = lappend(newelems, newe);
+diff --git a/src/backend/utils/adt/arrayfuncs.c b/src/backend/utils/adt/arrayfuncs.c
+index d36ce4999af..f517bf7b584 100644
+--- a/src/backend/utils/adt/arrayfuncs.c
++++ b/src/backend/utils/adt/arrayfuncs.c
+@@ -5795,14 +5795,9 @@ ArrayBuildStateAny *
+ initArrayResultAny(Oid input_type, MemoryContext rcontext, bool subcontext)
+ {
+ 	ArrayBuildStateAny *astate;
++	Oid			element_type = get_element_type(input_type);
+ 
+-	/*
+-	 * int2vector and oidvector will satisfy both get_element_type and
+-	 * get_array_type.  We prefer to treat them as scalars, to be consistent
+-	 * with get_promoted_array_type.  Hence, check get_array_type not
+-	 * get_element_type.
+-	 */
+-	if (!OidIsValid(get_array_type(input_type)))
++	if (OidIsValid(element_type))
+ 	{
+ 		/* Array case */
+ 		ArrayBuildStateArr *arraystate;
+@@ -5819,6 +5814,9 @@ initArrayResultAny(Oid input_type, MemoryContext rcontext, bool subcontext)
+ 		/* Scalar case */
+ 		ArrayBuildState *scalarstate;
+ 
++		/* Let's just check that we have a type that can be put into arrays */
++		Assert(OidIsValid(get_array_type(input_type)));
++
+ 		scalarstate = initArrayResult(input_type, rcontext, subcontext);
+ 		astate = (ArrayBuildStateAny *)
+ 			MemoryContextAlloc(scalarstate->mcontext,

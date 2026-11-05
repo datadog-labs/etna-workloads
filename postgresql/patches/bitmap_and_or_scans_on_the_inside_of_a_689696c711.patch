@@ -1,0 +1,62 @@
+diff --git a/src/backend/optimizer/util/pathnode.c b/src/backend/optimizer/util/pathnode.c
+index e8d8a537061..61633c669a7 100644
+--- a/src/backend/optimizer/util/pathnode.c
++++ b/src/backend/optimizer/util/pathnode.c
+@@ -1136,27 +1136,11 @@ create_bitmap_and_path(PlannerInfo *root,
+ 					   List *bitmapquals)
+ {
+ 	BitmapAndPath *pathnode = makeNode(BitmapAndPath);
+-	Relids		required_outer = NULL;
+-	ListCell   *lc;
+ 
+ 	pathnode->path.pathtype = T_BitmapAnd;
+ 	pathnode->path.parent = rel;
+ 	pathnode->path.pathtarget = rel->reltarget;
+-
+-	/*
+-	 * Identify the required outer rels as the union of what the child paths
+-	 * depend on.  (Alternatively, we could insist that the caller pass this
+-	 * in, but it's more convenient and reliable to compute it here.)
+-	 */
+-	foreach(lc, bitmapquals)
+-	{
+-		Path	   *bitmapqual = (Path *) lfirst(lc);
+-
+-		required_outer = bms_add_members(required_outer,
+-										 PATH_REQ_OUTER(bitmapqual));
+-	}
+-	pathnode->path.param_info = get_baserel_parampathinfo(root, rel,
+-														  required_outer);
++	pathnode->path.param_info = NULL;	/* not used in bitmap trees */
+ 
+ 	/*
+ 	 * Currently, a BitmapHeapPath, BitmapAndPath, or BitmapOrPath will be
+@@ -1188,27 +1172,11 @@ create_bitmap_or_path(PlannerInfo *root,
+ 					  List *bitmapquals)
+ {
+ 	BitmapOrPath *pathnode = makeNode(BitmapOrPath);
+-	Relids		required_outer = NULL;
+-	ListCell   *lc;
+ 
+ 	pathnode->path.pathtype = T_BitmapOr;
+ 	pathnode->path.parent = rel;
+ 	pathnode->path.pathtarget = rel->reltarget;
+-
+-	/*
+-	 * Identify the required outer rels as the union of what the child paths
+-	 * depend on.  (Alternatively, we could insist that the caller pass this
+-	 * in, but it's more convenient and reliable to compute it here.)
+-	 */
+-	foreach(lc, bitmapquals)
+-	{
+-		Path	   *bitmapqual = (Path *) lfirst(lc);
+-
+-		required_outer = bms_add_members(required_outer,
+-										 PATH_REQ_OUTER(bitmapqual));
+-	}
+-	pathnode->path.param_info = get_baserel_parampathinfo(root, rel,
+-														  required_outer);
++	pathnode->path.param_info = NULL;	/* not used in bitmap trees */
+ 
+ 	/*
+ 	 * Currently, a BitmapHeapPath, BitmapAndPath, or BitmapOrPath will be

@@ -1,0 +1,2 @@
+SELECT * FROM XMLTABLE('/r' PASSING ('<r><a>hello</a><b><![CDATA[cd]]></b></r>'::xml)
+ COLUMNS a text PATH 'a/text()', b text PATH 'b/text()', d text PATH 'a');

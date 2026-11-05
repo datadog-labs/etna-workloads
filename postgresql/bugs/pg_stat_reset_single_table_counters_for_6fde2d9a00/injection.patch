@@ -1,0 +1,32 @@
+diff --git a/src/backend/utils/adt/pgstatfuncs.c b/src/backend/utils/adt/pgstatfuncs.c
+index 9ac3b18cb16..8e3b1586bbf 100644
+--- a/src/backend/utils/adt/pgstatfuncs.c
++++ b/src/backend/utils/adt/pgstatfuncs.c
+@@ -17,7 +17,6 @@
+ #include "access/htup_details.h"
+ #include "access/xlog.h"
+ #include "access/xlogprefetcher.h"
+-#include "catalog/catalog.h"
+ #include "catalog/pg_authid.h"
+ #include "catalog/pg_type.h"
+ #include "common/ip.h"
+@@ -1924,17 +1923,13 @@ pg_stat_reset_shared(PG_FUNCTION_ARGS)
+ 	PG_RETURN_VOID();
+ }
+ 
+-/*
+- * Reset a statistics for a single object, which may be of current
+- * database or shared across all databases in the cluster.
+- */
++/* Reset a single counter in the current database */
+ Datum
+ pg_stat_reset_single_table_counters(PG_FUNCTION_ARGS)
+ {
+ 	Oid			taboid = PG_GETARG_OID(0);
+-	Oid			dboid = (IsSharedRelation(taboid) ? InvalidOid : MyDatabaseId);
+ 
+-	pgstat_reset(PGSTAT_KIND_RELATION, dboid, taboid);
++	pgstat_reset(PGSTAT_KIND_RELATION, MyDatabaseId, taboid);
+ 
+ 	PG_RETURN_VOID();
+ }

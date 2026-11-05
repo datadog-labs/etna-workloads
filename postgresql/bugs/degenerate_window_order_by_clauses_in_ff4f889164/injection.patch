@@ -1,0 +1,63 @@
+diff --git a/src/backend/executor/nodeWindowAgg.c b/src/backend/executor/nodeWindowAgg.c
+index e61c84ba617..a2eebd2a150 100644
+--- a/src/backend/executor/nodeWindowAgg.c
++++ b/src/backend/executor/nodeWindowAgg.c
+@@ -1168,16 +1168,13 @@ prepare_tuplestore(WindowAggState *winstate)
+ 	 */
+ 	winstate->framehead_ptr = winstate->frametail_ptr = -1; /* if not used */
+ 
+-	if (frameOptions & (FRAMEOPTION_RANGE | FRAMEOPTION_GROUPS))
++	if ((frameOptions & (FRAMEOPTION_RANGE | FRAMEOPTION_GROUPS)) &&
++		node->ordNumCols != 0)
+ 	{
+-		if (((frameOptions & FRAMEOPTION_START_CURRENT_ROW) &&
+-			 node->ordNumCols != 0) ||
+-			(frameOptions & FRAMEOPTION_START_OFFSET))
++		if (!(frameOptions & FRAMEOPTION_START_UNBOUNDED_PRECEDING))
+ 			winstate->framehead_ptr =
+ 				tuplestore_alloc_read_pointer(winstate->buffer, 0);
+-		if (((frameOptions & FRAMEOPTION_END_CURRENT_ROW) &&
+-			 node->ordNumCols != 0) ||
+-			(frameOptions & FRAMEOPTION_END_OFFSET))
++		if (!(frameOptions & FRAMEOPTION_END_UNBOUNDED_FOLLOWING))
+ 			winstate->frametail_ptr =
+ 				tuplestore_alloc_read_pointer(winstate->buffer, 0);
+ 	}
+@@ -2613,14 +2610,10 @@ ExecInitWindowAgg(WindowAgg *node, EState *estate, int eflags)
+ 
+ 	if (frameOptions & (FRAMEOPTION_RANGE | FRAMEOPTION_GROUPS))
+ 	{
+-		if (((frameOptions & FRAMEOPTION_START_CURRENT_ROW) &&
+-			 node->ordNumCols != 0) ||
+-			(frameOptions & FRAMEOPTION_START_OFFSET))
++		if (!(frameOptions & FRAMEOPTION_START_UNBOUNDED_PRECEDING))
+ 			winstate->framehead_slot = ExecInitExtraTupleSlot(estate, scanDesc,
+ 															  &TTSOpsMinimalTuple);
+-		if (((frameOptions & FRAMEOPTION_END_CURRENT_ROW) &&
+-			 node->ordNumCols != 0) ||
+-			(frameOptions & FRAMEOPTION_END_OFFSET))
++		if (!(frameOptions & FRAMEOPTION_END_UNBOUNDED_FOLLOWING))
+ 			winstate->frametail_slot = ExecInitExtraTupleSlot(estate, scanDesc,
+ 															  &TTSOpsMinimalTuple);
+ 	}
+diff --git a/src/backend/parser/parse_clause.c b/src/backend/parser/parse_clause.c
+index 9f20a70ce13..8f1567d6d84 100644
+--- a/src/backend/parser/parse_clause.c
++++ b/src/backend/parser/parse_clause.c
+@@ -2937,16 +2937,6 @@ transformWindowDefinitions(ParseState *pstate,
+ 			wc->inRangeNullsFirst = sortcl->nulls_first;
+ 		}
+ 
+-		/* Per spec, GROUPS mode requires an ORDER BY clause */
+-		if (wc->frameOptions & FRAMEOPTION_GROUPS)
+-		{
+-			if (wc->orderClause == NIL)
+-				ereport(ERROR,
+-						(errcode(ERRCODE_WINDOWING_ERROR),
+-						 errmsg("GROUPS mode requires an ORDER BY clause"),
+-						 parser_errposition(pstate, windef->location)));
+-		}
+-
+ 		/* Process frame offset expressions */
+ 		wc->startOffset = transformFrameOffset(pstate, wc->frameOptions,
+ 											   rangeopfamily, rangeopcintype,

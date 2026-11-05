@@ -1,0 +1,98 @@
+diff --git a/src/backend/access/transam/xact.c b/src/backend/access/transam/xact.c
+index b885513f765..72d5f3e81cd 100644
+--- a/src/backend/access/transam/xact.c
++++ b/src/backend/access/transam/xact.c
+@@ -2249,10 +2249,9 @@ CommitTransaction(void)
+ 
+ 	/*
+ 	 * Do pre-commit processing that involves calling user-defined code, such
+-	 * as triggers.  SECURITY_RESTRICTED_OPERATION contexts must not queue an
+-	 * action that would run here, because that would bypass the sandbox.
+-	 * Since closing cursors could queue trigger actions, triggers could open
+-	 * cursors, etc, we have to keep looping until there's nothing left to do.
++	 * as triggers.  Since closing cursors could queue trigger actions,
++	 * triggers could open cursors, etc, we have to keep looping until there's
++	 * nothing left to do.
+ 	 */
+ 	for (;;)
+ 	{
+@@ -2270,6 +2269,9 @@ CommitTransaction(void)
+ 			break;
+ 	}
+ 
++	CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_PRE_COMMIT
++					  : XACT_EVENT_PRE_COMMIT);
++
+ 	/*
+ 	 * The remaining actions cannot call any user-defined code, so it's safe
+ 	 * to start shutting down within-transaction services.  But note that most
+@@ -2277,9 +2279,6 @@ CommitTransaction(void)
+ 	 * the transaction-abort path.
+ 	 */
+ 
+-	CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_PRE_COMMIT
+-					  : XACT_EVENT_PRE_COMMIT);
+-
+ 	/*
+ 	 * If this xact has started any unfinished parallel operation, clean up
+ 	 * its workers, warning about leaked resources.  (But we don't actually
+diff --git a/src/backend/commands/portalcmds.c b/src/backend/commands/portalcmds.c
+index e7c8171c102..0d95928b922 100644
+--- a/src/backend/commands/portalcmds.c
++++ b/src/backend/commands/portalcmds.c
+@@ -27,7 +27,6 @@
+ #include "commands/portalcmds.h"
+ #include "executor/executor.h"
+ #include "executor/tstoreReceiver.h"
+-#include "miscadmin.h"
+ #include "nodes/queryjumble.h"
+ #include "parser/analyze.h"
+ #include "rewrite/rewriteHandler.h"
+@@ -69,10 +68,6 @@ PerformCursorOpen(ParseState *pstate, DeclareCursorStmt *cstmt, ParamListInfo pa
+ 	 */
+ 	if (!(cstmt->options & CURSOR_OPT_HOLD))
+ 		RequireTransactionBlock(isTopLevel, "DECLARE CURSOR");
+-	else if (InSecurityRestrictedOperation())
+-		ereport(ERROR,
+-				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+-				 errmsg("cannot create a cursor WITH HOLD within security-restricted operation")));
+ 
+ 	/* Query contained by DeclareCursor needs to be jumbled if requested */
+ 	if (IsQueryIdEnabled())
+diff --git a/src/backend/commands/trigger.c b/src/backend/commands/trigger.c
+index 7ae6557d897..4906760b707 100644
+--- a/src/backend/commands/trigger.c
++++ b/src/backend/commands/trigger.c
+@@ -4621,7 +4621,6 @@ afterTriggerMarkEvents(AfterTriggerEventList *events,
+ 					   bool immediate_only)
+ {
+ 	bool		found = false;
+-	bool		deferred_found = false;
+ 	AfterTriggerEvent event;
+ 	AfterTriggerEventChunk *chunk;
+ 
+@@ -4657,7 +4656,6 @@ afterTriggerMarkEvents(AfterTriggerEventList *events,
+ 		 */
+ 		if (defer_it && move_list != NULL)
+ 		{
+-			deferred_found = true;
+ 			/* add it to move_list */
+ 			afterTriggerAddEvent(move_list, event, evtshared);
+ 			/* mark original copy "done" so we don't do it again */
+@@ -4665,16 +4663,6 @@ afterTriggerMarkEvents(AfterTriggerEventList *events,
+ 		}
+ 	}
+ 
+-	/*
+-	 * We could allow deferred triggers if, before the end of the
+-	 * security-restricted operation, we were to verify that a SET CONSTRAINTS
+-	 * ... IMMEDIATE has fired all such triggers.  For now, don't bother.
+-	 */
+-	if (deferred_found && InSecurityRestrictedOperation())
+-		ereport(ERROR,
+-				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+-				 errmsg("cannot fire deferred trigger within security-restricted operation")));
+-
+ 	return found;
+ }
+ 

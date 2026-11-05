@@ -1,0 +1,20 @@
+CREATE TABLE t (a int PRIMARY KEY, b int, c int);
+CREATE PUBLICATION p FOR TABLE t (a, b);
+INSERT INTO t VALUES (1,2,3);
+SELECT slot_name FROM pg_create_logical_replication_slot('s','pgoutput');
+ slot_name 
+-----------
+ s
+(1 row)
+
+UPDATE t SET a = 2;
+DELETE FROM t;
+SELECT get_byte(data,0) AS typ, substr(data,7,2) = int2send(2::smallint) AS two_cols
+FROM pg_logical_slot_peek_binary_changes('s',NULL,NULL,'proto_version','1','publication_names','p')
+WHERE get_byte(data,0) IN (85,68);
+ typ | two_cols 
+-----+----------
+  85 | t
+  68 | t
+(2 rows)
+

@@ -1,0 +1,6 @@
+CREATE TABLE t(i int);
+INSERT INTO t SELECT generate_series(1,100);
+ANALYZE t;
+BEGIN;
+ANALYZE t, t;
+COMMIT;

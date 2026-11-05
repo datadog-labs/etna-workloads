@@ -1,0 +1,34 @@
+diff --git a/src/backend/catalog/objectaddress.c b/src/backend/catalog/objectaddress.c
+index 76d5955e5ed..0751cdf3bf2 100644
+--- a/src/backend/catalog/objectaddress.c
++++ b/src/backend/catalog/objectaddress.c
+@@ -3729,8 +3729,6 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
+ 				HeapTuple	tup;
+ 				Oid			useid;
+ 				char	   *usename;
+-				Form_pg_user_mapping umform;
+-				ForeignServer *srv;
+ 
+ 				tup = SearchSysCache1(USERMAPPINGOID,
+ 									  ObjectIdGetDatum(object->objectId));
+@@ -3742,9 +3740,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
+ 					break;
+ 				}
+ 
+-				umform = (Form_pg_user_mapping) GETSTRUCT(tup);
+-				useid = umform->umuser;
+-				srv = GetForeignServer(umform->umserver);
++				useid = ((Form_pg_user_mapping) GETSTRUCT(tup))->umuser;
+ 
+ 				ReleaseSysCache(tup);
+ 
+@@ -3753,8 +3749,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
+ 				else
+ 					usename = "public";
+ 
+-				appendStringInfo(&buffer, _("user mapping for %s on server %s"), usename,
+-								 srv->servername);
++				appendStringInfo(&buffer, _("user mapping for %s"), usename);
+ 				break;
+ 			}
+ 

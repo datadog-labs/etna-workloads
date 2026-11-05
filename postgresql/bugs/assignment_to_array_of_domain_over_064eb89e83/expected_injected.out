@@ -1,0 +1,18 @@
+create type comptype as (cf1 int, cf2 int);
+create domain dcomptype as comptype check (value is null or (value).cf1 > 0);
+create table dcomptable (f1 dcomptype[]);
+insert into dcomptable values (null);
+update dcomptable set f1[1].cf1 = 1;
+table dcomptable;
+    f1    
+----------
+ {"(1,)"}
+(1 row)
+
+alter domain dcomptype drop constraint dcomptype_check;
+update dcomptable set f1[1].cf1 = -1;
+psql:<REPRO>:8: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:8: error: connection to server was lost
+### server crashed or assertion failed

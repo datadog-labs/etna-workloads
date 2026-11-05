@@ -1,0 +1,31 @@
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..c1716d03ba6 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -2623,22 +2623,10 @@ apply_handle_update(StringInfo s)
+ 	target_perminfo = list_nth(estate->es_rteperminfos, 0);
+ 	for (int i = 0; i < remoteslot->tts_tupleDescriptor->natts; i++)
+ 	{
+-		Form_pg_attribute att = TupleDescAttr(remoteslot->tts_tupleDescriptor, i);
+-		int			remoteattnum = rel->attrmap->attnums[i];
+-
+-		if (!att->attisdropped && remoteattnum >= 0)
+-		{
+-			if (remoteattnum >= newtup.ncols)
+-				ereport(ERROR,
+-						(errcode(ERRCODE_PROTOCOL_VIOLATION),
+-						 errmsg("logical replication column %d not found in tuple: only %d column(s) received",
+-								remoteattnum + 1, newtup.ncols)));
+-
+-			if (newtup.colstatus[remoteattnum] != LOGICALREP_COLUMN_UNCHANGED)
+-				target_perminfo->updatedCols =
+-					bms_add_member(target_perminfo->updatedCols,
+-								   i + 1 - FirstLowInvalidHeapAttributeNumber);
+-		}
++		if (newtup.colstatus[i] != LOGICALREP_COLUMN_UNCHANGED)
++			target_perminfo->updatedCols =
++				bms_add_member(target_perminfo->updatedCols,
++							   i + 1 - FirstLowInvalidHeapAttributeNumber);
+ 	}
+ 
+ 	/* Build the search tuple. */

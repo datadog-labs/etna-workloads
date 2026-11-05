@@ -1,0 +1,24 @@
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..0d57add7f60 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -3517,8 +3517,6 @@ ReindexMultipleInternal(const ReindexStmt *stmt, const List *relids, const Reind
+ 
+ 			newparams.options |= REINDEXOPT_MISSING_OK;
+ 			(void) ReindexRelationConcurrently(stmt, relid, &newparams);
+-			if (ActiveSnapshotSet())
+-				PopActiveSnapshot();
+ 			/* ReindexRelationConcurrently() does the verbose output */
+ 		}
+ 		else if (relkind == RELKIND_INDEX)
+@@ -3872,7 +3870,10 @@ ReindexRelationConcurrently(const ReindexStmt *stmt, Oid relationOid, const Rein
+ 	 * session until this operation completes.
+ 	 */
+ 	if (indexIds == NIL)
++	{
++		PopActiveSnapshot();
+ 		return false;
++	}
+ 
+ 	/* It's not a shared catalog, so refuse to move it to shared tablespace */
+ 	if (params->tablespaceOid == GLOBALTABLESPACE_OID)

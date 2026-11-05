@@ -1,0 +1,9 @@
+CREATE COLLATION ci (provider = icu, deterministic = false, locale = 'und-u-ks-level2');
+CREATE TABLE pk (x text COLLATE "C" PRIMARY KEY);
+CREATE TABLE fk (x text COLLATE ci REFERENCES pk (x));
+psql:<REPRO>:3: ERROR:  foreign key constraint "fk_x_fkey" cannot be implemented
+DETAIL:  Key columns "x" of the referencing table and "x" of the referenced table have incompatible collations: "ci" and "C".  If either collation is nondeterministic, then both collations have to be the same.
+CREATE TABLE pk2 (x text COLLATE ci PRIMARY KEY);
+CREATE TABLE fk2 (x text COLLATE "C" REFERENCES pk2 (x));
+psql:<REPRO>:5: ERROR:  foreign key constraint "fk2_x_fkey" cannot be implemented
+DETAIL:  Key columns "x" of the referencing table and "x" of the referenced table have incompatible collations: "C" and "ci".  If either collation is nondeterministic, then both collations have to be the same.

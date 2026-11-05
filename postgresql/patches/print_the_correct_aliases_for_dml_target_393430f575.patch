@@ -1,0 +1,49 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..4d1f70c0cc9 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -6987,14 +6987,12 @@ get_insert_query_def(Query *query, deparse_context *context)
+ 		context->indentLevel += PRETTYINDENT_STD;
+ 		appendStringInfoChar(buf, ' ');
+ 	}
+-	appendStringInfo(buf, "INSERT INTO %s",
++	appendStringInfo(buf, "INSERT INTO %s ",
+ 					 generate_relation_name(rte->relid, NIL));
+-
+-	/* Print the relation alias, if needed; INSERT requires explicit AS */
+-	get_rte_alias(rte, query->resultRelation, true, context);
+-
+-	/* always want a space here */
+-	appendStringInfoChar(buf, ' ');
++	/* INSERT requires AS keyword for target alias */
++	if (rte->alias != NULL)
++		appendStringInfo(buf, "AS %s ",
++						 quote_identifier(rte->alias->aliasname));
+ 
+ 	/*
+ 	 * Add the insert-column-names list.  Any indirection decoration needed on
+@@ -7172,9 +7170,9 @@ get_update_query_def(Query *query, deparse_context *context)
+ 					 only_marker(rte),
+ 					 generate_relation_name(rte->relid, NIL));
+ 
+-	/* Print the relation alias, if needed */
+-	get_rte_alias(rte, query->resultRelation, false, context);
+-
++	if (rte->alias != NULL)
++		appendStringInfo(buf, " %s",
++						 quote_identifier(rte->alias->aliasname));
+ 	appendStringInfoString(buf, " SET ");
+ 
+ 	/* Deparse targetlist */
+@@ -7376,8 +7374,9 @@ get_delete_query_def(Query *query, deparse_context *context)
+ 					 only_marker(rte),
+ 					 generate_relation_name(rte->relid, NIL));
+ 
+-	/* Print the relation alias, if needed */
+-	get_rte_alias(rte, query->resultRelation, false, context);
++	if (rte->alias != NULL)
++		appendStringInfo(buf, " %s",
++						 quote_identifier(rte->alias->aliasname));
+ 
+ 	/* Add the USING clause if given */
+ 	get_from_clause(query, " USING ", context);

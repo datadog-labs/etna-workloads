@@ -1,0 +1,22 @@
+diff --git a/src/backend/parser/parse_clause.c b/src/backend/parser/parse_clause.c
+index 9f20a70ce13..fe3dda92f47 100644
+--- a/src/backend/parser/parse_clause.c
++++ b/src/backend/parser/parse_clause.c
+@@ -179,13 +179,12 @@ setTargetTable(ParseState *pstate, RangeVar *relation,
+ 			   bool inh, bool alsoSource, AclMode requiredPerms)
+ {
+ 	ParseNamespaceItem *nsitem;
++	Index		levelsup;
+ 
+-	/*
+-	 * ENRs hide tables of the same name, so we need to check for them first.
+-	 * In contrast, CTEs don't hide tables (for this purpose).
+-	 */
++	/* So far special relations are immutable; so they cannot be targets. */
+ 	if (relation->schemaname == NULL &&
+-		scanNameSpaceForENR(pstate, relation->relname))
++		(scanNameSpaceForCTE(pstate, relation->relname, &levelsup) ||
++		 scanNameSpaceForENR(pstate, relation->relname)))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+ 				 errmsg("relation \"%s\" cannot be the target of a modifying statement",

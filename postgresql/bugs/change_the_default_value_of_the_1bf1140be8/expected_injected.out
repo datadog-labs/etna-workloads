@@ -1,0 +1,12 @@
+CREATE SUBSCRIPTION regress_sub CONNECTION 'dbname=regress_doesnotexist' PUBLICATION p WITH (connect = false);
+psql:<REPRO>:1: WARNING:  subscription was created, but is not connected
+HINT:  To initiate replication, you must manually create the replication slot, enable the subscription, and refresh the subscription.
+SELECT subname, substream FROM pg_subscription;
+   subname   | substream 
+-------------+-----------
+ regress_sub | f
+(1 row)
+
+DROP SUBSCRIPTION regress_sub;
+psql:<REPRO>:3: ERROR:  could not connect to publisher when attempting to drop replication slot "regress_sub": connection to server on socket "<WORK>/.s.PGSQL.5432" failed: FATAL:  database "regress_doesnotexist" does not exist
+HINT:  Use ALTER SUBSCRIPTION ... DISABLE to disable the subscription, and then use ALTER SUBSCRIPTION ... SET (slot_name = NONE) to disassociate it from the slot.

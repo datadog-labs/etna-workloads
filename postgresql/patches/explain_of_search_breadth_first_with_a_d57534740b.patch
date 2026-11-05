@@ -1,0 +1,59 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..c73c94af3c7 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -8030,8 +8030,7 @@ get_name_for_var_field(Var *var, int fieldno,
+ 
+ 	/*
+ 	 * If it's a RowExpr that was expanded from a whole-row Var, use the
+-	 * column names attached to it.  (We could let get_expr_result_tupdesc()
+-	 * handle this, but it's much cheaper to just pull out the name we need.)
++	 * column names attached to it.
+ 	 */
+ 	if (IsA(var, RowExpr))
+ 	{
+diff --git a/src/backend/utils/fmgr/funcapi.c b/src/backend/utils/fmgr/funcapi.c
+index b07dcd51ac8..727806a4272 100644
+--- a/src/backend/utils/fmgr/funcapi.c
++++ b/src/backend/utils/fmgr/funcapi.c
+@@ -346,40 +346,6 @@ get_expr_result_type(Node *expr,
+ 			*resultTupleDesc = BlessTupleDesc(tupdesc);
+ 		return TYPEFUNC_COMPOSITE;
+ 	}
+-	else if (expr && IsA(expr, Const) &&
+-			 ((Const *) expr)->consttype == RECORDOID &&
+-			 !((Const *) expr)->constisnull)
+-	{
+-		/*
+-		 * When EXPLAIN'ing some queries with SEARCH/CYCLE clauses, we may
+-		 * need to resolve field names of a RECORD-type Const.  The datum
+-		 * should contain a typmod that will tell us that.
+-		 */
+-		HeapTupleHeader rec;
+-		Oid			tupType;
+-		int32		tupTypmod;
+-
+-		rec = DatumGetHeapTupleHeader(((Const *) expr)->constvalue);
+-		tupType = HeapTupleHeaderGetTypeId(rec);
+-		tupTypmod = HeapTupleHeaderGetTypMod(rec);
+-		if (resultTypeId)
+-			*resultTypeId = tupType;
+-		if (tupType != RECORDOID || tupTypmod >= 0)
+-		{
+-			/* Should be able to look it up */
+-			if (resultTupleDesc)
+-				*resultTupleDesc = lookup_rowtype_tupdesc_copy(tupType,
+-															   tupTypmod);
+-			return TYPEFUNC_COMPOSITE;
+-		}
+-		else
+-		{
+-			/* This shouldn't really happen ... */
+-			if (resultTupleDesc)
+-				*resultTupleDesc = NULL;
+-			return TYPEFUNC_RECORD;
+-		}
+-	}
+ 	else
+ 	{
+ 		/* handle as a generic expression; no chance to resolve RECORD */

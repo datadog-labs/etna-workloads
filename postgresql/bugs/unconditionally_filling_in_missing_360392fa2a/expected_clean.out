@@ -1,0 +1,23 @@
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+CREATE TABLE t (a int);
+ALTER TABLE t REPLICA IDENTITY FULL;
+INSERT INTO t VALUES (1);
+ALTER TABLE t ADD COLUMN b bool DEFAULT false NOT NULL;
+CREATE PUBLICATION pub FOR TABLE t;
+SELECT 1 FROM pg_create_logical_replication_slot('s','pgoutput');
+ ?column? 
+----------
+        1
+(1 row)
+
+UPDATE t SET a = a + 1;
+SELECT get_byte(data,0) = 85 AS is_update, position('\x4b'::bytea in data) > 0 AS has_old,
+  encode(substring(data from 8),'hex') AS tuples
+FROM pg_logical_slot_get_binary_changes('s', NULL, NULL, 'proto_version','1','publication_names','pub')
+WHERE get_byte(data,0)=85;
+ is_update | has_old |                          tuples                          
+-----------+---------+----------------------------------------------------------
+ t         | f       | 027400000001317400000001664e0002740000000132740000000166
+(1 row)
+

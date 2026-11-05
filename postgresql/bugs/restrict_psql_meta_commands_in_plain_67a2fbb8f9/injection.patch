@@ -1,0 +1,38 @@
+diff --git a/src/bin/pg_dump/pg_backup_archiver.c b/src/bin/pg_dump/pg_backup_archiver.c
+index efcb5924935..d2680f05936 100644
+--- a/src/bin/pg_dump/pg_backup_archiver.c
++++ b/src/bin/pg_dump/pg_backup_archiver.c
+@@ -469,8 +469,6 @@ RestoreArchive(Archive *AHX)
+ 	 * can block psql meta-commands so that the client machine that runs psql
+ 	 * with the dump output remains unaffected.
+ 	 */
+-	if (ropt->restrict_key)
+-		ahprintf(AH, "\\restrict %s\n\n", ropt->restrict_key);
+ 
+ 	if (AH->archiveRemoteVersion)
+ 		ahprintf(AH, "-- Dumped from database version %s\n",
+@@ -817,8 +815,6 @@ RestoreArchive(Archive *AHX)
+ 	 * of the script. This is not pro forma; in particular, pg_dumpall
+ 	 * requires this when transitioning from one database to another.
+ 	 */
+-	if (ropt->restrict_key)
+-		ahprintf(AH, "\\unrestrict %s\n\n", ropt->restrict_key);
+ 
+ 	/*
+ 	 * Clean up & we're done.
+@@ -3540,14 +3536,11 @@ _reconnectToDB(ArchiveHandle *AH, const char *dbname)
+ 		 * Anything added between this line and the following \restrict must
+ 		 * be careful to avoid any possible meta-command injection vectors.
+ 		 */
+-		ahprintf(AH, "\\unrestrict %s\n", ropt->restrict_key);
+ 
+ 		initPQExpBuffer(&connectbuf);
+ 		appendPsqlMetaConnect(&connectbuf, dbname);
+-		ahprintf(AH, "%s", connectbuf.data);
++		ahprintf(AH, "%s\n", connectbuf.data);
+ 		termPQExpBuffer(&connectbuf);
+-
+-		ahprintf(AH, "\\restrict %s\n\n", ropt->restrict_key);
+ 	}
+ 
+ 	/*

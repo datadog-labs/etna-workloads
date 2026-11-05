@@ -1,0 +1,24 @@
+diff --git a/src/backend/statistics/mcv.c b/src/backend/statistics/mcv.c
+index d98cda698d9..2c603bfe6ec 100644
+--- a/src/backend/statistics/mcv.c
++++ b/src/backend/statistics/mcv.c
+@@ -1662,15 +1662,11 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
+ 				Assert(idx >= 0);
+ 
+ 				/*
+-				 * When the MCV item or the Const value is NULL we can treat
+-				 * this as a mismatch. We must not call the operator because
+-				 * of strictness.
++				 * For AND-lists, we can also mark NULL items as 'no match'
++				 * (and then skip them). For OR-lists this is not possible.
+ 				 */
+-				if (item->isnull[idx] || cst->constisnull)
+-				{
+-					matches[i] = RESULT_MERGE(matches[i], is_or, false);
+-					continue;
+-				}
++				if (!is_or && item->isnull[idx])
++					matches[i] = false;
+ 
+ 				/*
+ 				 * Skip MCV items that can't change result in the bitmap. Once

@@ -1,0 +1,18 @@
+create collation ci (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+create table t (a text collate ci);
+insert into t values ('a'),('A');
+explain (costs off) select a, count(*) from t group by a having a = 'a' collate "C";
+              QUERY PLAN               
+---------------------------------------
+ HashAggregate
+   Group Key: a
+   Filter: (a = 'a'::text COLLATE "C")
+   ->  Seq Scan on t
+(4 rows)
+
+select count(*) from t group by a having a = 'a' collate "C";
+ count 
+-------
+     2
+(1 row)
+

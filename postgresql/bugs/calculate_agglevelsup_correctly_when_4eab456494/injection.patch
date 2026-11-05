@@ -1,0 +1,43 @@
+diff --git a/src/backend/parser/parse_agg.c b/src/backend/parser/parse_agg.c
+index 9ba2690b3db..1cf6e34a90a 100644
+--- a/src/backend/parser/parse_agg.c
++++ b/src/backend/parser/parse_agg.c
+@@ -821,29 +821,6 @@ check_agg_arguments_walker(Node *node,
+ 										((WindowFunc *) node)->location)));
+ 	}
+ 
+-	if (IsA(node, RangeTblEntry))
+-	{
+-		RangeTblEntry *rte = (RangeTblEntry *) node;
+-
+-		if (rte->rtekind == RTE_CTE)
+-		{
+-			int			ctelevelsup = rte->ctelevelsup;
+-
+-			/* convert levelsup to frame of reference of original query */
+-			ctelevelsup -= context->sublevels_up;
+-			/* ignore local CTEs of subqueries */
+-			if (ctelevelsup >= 0)
+-			{
+-				if (context->min_ctelevel < 0 ||
+-					context->min_ctelevel > ctelevelsup)
+-				{
+-					context->min_ctelevel = ctelevelsup;
+-					context->min_cte = rte;
+-				}
+-			}
+-		}
+-		return false;			/* allow range_table_walker to continue */
+-	}
+ 	if (IsA(node, Query))
+ 	{
+ 		/* Recurse into subselects */
+@@ -853,7 +830,7 @@ check_agg_arguments_walker(Node *node,
+ 		result = query_tree_walker((Query *) node,
+ 								   check_agg_arguments_walker,
+ 								   context,
+-								   QTW_EXAMINE_RTES_BEFORE);
++								   0);
+ 		context->sublevels_up--;
+ 		return result;
+ 	}

@@ -1,0 +1,6 @@
+SET enable_seqscan = off;
+CREATE TABLE brin_hot_3 (a int, filler text) WITH (fillfactor = 10);
+INSERT INTO brin_hot_3 SELECT 1, repeat(' ', 500) FROM generate_series(1, 20);
+CREATE INDEX ON brin_hot_3 USING brin (a) WITH (pages_per_range = 1);
+UPDATE brin_hot_3 SET a = 2;
+SELECT COUNT(*) FROM brin_hot_3 WHERE a = 2;

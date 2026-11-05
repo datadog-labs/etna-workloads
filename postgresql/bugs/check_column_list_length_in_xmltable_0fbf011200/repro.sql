@@ -1,0 +1,3 @@
+SELECT * FROM XMLTABLE (ROW () PASSING null COLUMNS v1 timestamp) AS f (v1, v2);
+WITH x(n, b) AS (SELECT 1)
+SELECT * FROM x;

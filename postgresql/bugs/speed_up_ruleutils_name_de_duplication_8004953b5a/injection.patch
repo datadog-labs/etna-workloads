@@ -1,0 +1,54 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..4de6cacbf32 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -3983,22 +3983,13 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
+ 			{
+ 				/* Name already in use, must choose a new one */
+ 				int			refnamelen = strlen(refname);
+-				char	   *modname = (char *) palloc(refnamelen + 16);
++				char	   *modname = (char *) palloc(refnamelen + 32);
+ 				NameHashEntry *hentry2;
+ 
+ 				do
+ 				{
+ 					hentry->counter++;
+-					for (;;)
+-					{
+-						memcpy(modname, refname, refnamelen);
+-						sprintf(modname + refnamelen, "_%d", hentry->counter);
+-						if (strlen(modname) < NAMEDATALEN)
+-							break;
+-						/* drop chars from refname to keep all the digits */
+-						refnamelen = pg_mbcliplen(refname, refnamelen,
+-												  refnamelen - 1);
+-					}
++					sprintf(modname, "%s_%d", refname, hentry->counter);
+ 					hentry2 = (NameHashEntry *) hash_search(names_hash,
+ 															modname,
+ 															HASH_ENTER,
+@@ -4933,22 +4924,13 @@ make_colname_unique(char *colname, deparse_namespace *dpns,
+ 	if (!colname_is_unique(colname, dpns, colinfo))
+ 	{
+ 		int			colnamelen = strlen(colname);
+-		char	   *modname = (char *) palloc(colnamelen + 16);
++		char	   *modname = (char *) palloc(colnamelen + 32);
+ 		int			i = 0;
+ 
+ 		do
+ 		{
+ 			i++;
+-			for (;;)
+-			{
+-				memcpy(modname, colname, colnamelen);
+-				sprintf(modname + colnamelen, "_%d", i);
+-				if (strlen(modname) < NAMEDATALEN)
+-					break;
+-				/* drop chars from colname to keep all the digits */
+-				colnamelen = pg_mbcliplen(colname, colnamelen,
+-										  colnamelen - 1);
+-			}
++			sprintf(modname, "%s_%d", colname, i);
+ 		} while (!colname_is_unique(modname, dpns, colinfo));
+ 		colname = modname;
+ 	}

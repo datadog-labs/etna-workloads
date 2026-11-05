@@ -1,0 +1,2 @@
+psql -X -q -c "CREATE FUNCTION wgo() RETURNS int LANGUAGE SQL AS 'SELECT 1'" -c "GRANT ALL ON FUNCTION wgo() TO pg_signal_backend WITH GRANT OPTION" -c "INSERT INTO pg_init_privs SELECT 'wgo'::regproc::oid, 'pg_proc'::regclass::oid, 0, 'e', proacl FROM pg_proc WHERE proname='wgo'" -c "REVOKE ALL ON FUNCTION wgo() FROM pg_signal_backend, public"
+pg_dump -s --binary-upgrade | grep -i -A1 'revoke.*wgo'

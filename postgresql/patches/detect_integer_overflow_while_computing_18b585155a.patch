@@ -1,0 +1,112 @@
+diff --git a/src/backend/utils/adt/arrayfuncs.c b/src/backend/utils/adt/arrayfuncs.c
+index d36ce4999af..ec8664cdf78 100644
+--- a/src/backend/utils/adt/arrayfuncs.c
++++ b/src/backend/utils/adt/arrayfuncs.c
+@@ -2332,29 +2332,16 @@ array_set_element(Datum arraydatum,
+ 	{
+ 		if (indx[0] < lb[0])
+ 		{
+-			/* addedbefore = lb[0] - indx[0]; */
+-			/* dim[0] += addedbefore; */
+-			if (pg_sub_s32_overflow(lb[0], indx[0], &addedbefore) ||
+-				pg_add_s32_overflow(dim[0], addedbefore, &dim[0]))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+-						 errmsg("array size exceeds the maximum allowed (%d)",
+-								(int) MaxArraySize)));
++			addedbefore = lb[0] - indx[0];
++			dim[0] += addedbefore;
+ 			lb[0] = indx[0];
+ 			if (addedbefore > 1)
+ 				newhasnulls = true; /* will insert nulls */
+ 		}
+ 		if (indx[0] >= (dim[0] + lb[0]))
+ 		{
+-			/* addedafter = indx[0] - (dim[0] + lb[0]) + 1; */
+-			/* dim[0] += addedafter; */
+-			if (pg_sub_s32_overflow(indx[0], dim[0] + lb[0], &addedafter) ||
+-				pg_add_s32_overflow(addedafter, 1, &addedafter) ||
+-				pg_add_s32_overflow(dim[0], addedafter, &dim[0]))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+-						 errmsg("array size exceeds the maximum allowed (%d)",
+-								(int) MaxArraySize)));
++			addedafter = indx[0] - (dim[0] + lb[0]) + 1;
++			dim[0] += addedafter;
+ 			if (addedafter > 1)
+ 				newhasnulls = true; /* will insert nulls */
+ 		}
+@@ -2609,14 +2596,8 @@ array_set_element_expanded(Datum arraydatum,
+ 	{
+ 		if (indx[0] < lb[0])
+ 		{
+-			/* addedbefore = lb[0] - indx[0]; */
+-			/* dim[0] += addedbefore; */
+-			if (pg_sub_s32_overflow(lb[0], indx[0], &addedbefore) ||
+-				pg_add_s32_overflow(dim[0], addedbefore, &dim[0]))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+-						 errmsg("array size exceeds the maximum allowed (%d)",
+-								(int) MaxArraySize)));
++			addedbefore = lb[0] - indx[0];
++			dim[0] += addedbefore;
+ 			lb[0] = indx[0];
+ 			dimschanged = true;
+ 			if (addedbefore > 1)
+@@ -2624,15 +2605,8 @@ array_set_element_expanded(Datum arraydatum,
+ 		}
+ 		if (indx[0] >= (dim[0] + lb[0]))
+ 		{
+-			/* addedafter = indx[0] - (dim[0] + lb[0]) + 1; */
+-			/* dim[0] += addedafter; */
+-			if (pg_sub_s32_overflow(indx[0], dim[0] + lb[0], &addedafter) ||
+-				pg_add_s32_overflow(addedafter, 1, &addedafter) ||
+-				pg_add_s32_overflow(dim[0], addedafter, &dim[0]))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+-						 errmsg("array size exceeds the maximum allowed (%d)",
+-								(int) MaxArraySize)));
++			addedafter = indx[0] - (dim[0] + lb[0]) + 1;
++			dim[0] += addedafter;
+ 			dimschanged = true;
+ 			if (addedafter > 1)
+ 				newhasnulls = true; /* will insert nulls */
+@@ -2940,31 +2914,18 @@ array_set_slice(Datum arraydatum,
+ 					 errmsg("upper bound cannot be less than lower bound")));
+ 		if (lowerIndx[0] < lb[0])
+ 		{
+-			/* addedbefore = lb[0] - lowerIndx[0]; */
+-			/* dim[0] += addedbefore; */
+-			if (pg_sub_s32_overflow(lb[0], lowerIndx[0], &addedbefore) ||
+-				pg_add_s32_overflow(dim[0], addedbefore, &dim[0]))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+-						 errmsg("array size exceeds the maximum allowed (%d)",
+-								(int) MaxArraySize)));
+-			lb[0] = lowerIndx[0];
+-			if (addedbefore > 1)
++			if (upperIndx[0] < lb[0] - 1)
+ 				newhasnulls = true; /* will insert nulls */
++			addedbefore = lb[0] - lowerIndx[0];
++			dim[0] += addedbefore;
++			lb[0] = lowerIndx[0];
+ 		}
+ 		if (upperIndx[0] >= (dim[0] + lb[0]))
+ 		{
+-			/* addedafter = upperIndx[0] - (dim[0] + lb[0]) + 1; */
+-			/* dim[0] += addedafter; */
+-			if (pg_sub_s32_overflow(upperIndx[0], dim[0] + lb[0], &addedafter) ||
+-				pg_add_s32_overflow(addedafter, 1, &addedafter) ||
+-				pg_add_s32_overflow(dim[0], addedafter, &dim[0]))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+-						 errmsg("array size exceeds the maximum allowed (%d)",
+-								(int) MaxArraySize)));
+-			if (addedafter > 1)
++			if (lowerIndx[0] > (dim[0] + lb[0]))
+ 				newhasnulls = true; /* will insert nulls */
++			addedafter = upperIndx[0] - (dim[0] + lb[0]) + 1;
++			dim[0] += addedafter;
+ 		}
+ 	}
+ 	else

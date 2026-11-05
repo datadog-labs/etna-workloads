@@ -1,0 +1,69 @@
+diff --git a/src/backend/parser/analyze.c b/src/backend/parser/analyze.c
+index 2fec9ce8106..8e4bdef2e77 100644
+--- a/src/backend/parser/analyze.c
++++ b/src/backend/parser/analyze.c
+@@ -3483,22 +3483,13 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
+ 
+ 	if (lockedRels == NIL)
+ 	{
+-		/*
+-		 * Lock all regular tables used in query and its subqueries.  We
+-		 * examine inFromCl to exclude auto-added RTEs, particularly NEW/OLD
+-		 * in rules.  This is a bit of an abuse of a mostly-obsolete flag, but
+-		 * it's convenient.  We can't rely on the namespace mechanism that has
+-		 * largely replaced inFromCl, since for example we need to lock
+-		 * base-relation RTEs even if they are masked by upper joins.
+-		 */
++		/* all regular tables used in query */
+ 		i = 0;
+ 		foreach(rt, qry->rtable)
+ 		{
+ 			RangeTblEntry *rte = (RangeTblEntry *) lfirst(rt);
+ 
+ 			++i;
+-			if (!rte->inFromCl)
+-				continue;
+ 			switch (rte->rtekind)
+ 			{
+ 				case RTE_RELATION:
+@@ -3535,11 +3526,7 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
+ 	}
+ 	else
+ 	{
+-		/*
+-		 * Lock just the named tables.  As above, we allow locking any base
+-		 * relation regardless of alias-visibility rules, so we need to
+-		 * examine inFromCl to exclude OLD/NEW.
+-		 */
++		/* just the named tables */
+ 		foreach(l, lockedRels)
+ 		{
+ 			RangeVar   *thisrel = (RangeVar *) lfirst(l);
+@@ -3561,8 +3548,6 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
+ 				char	   *rtename = rte->eref->aliasname;
+ 
+ 				++i;
+-				if (!rte->inFromCl)
+-					continue;
+ 
+ 				/*
+ 				 * A join RTE without an alias is not visible as a relation
+diff --git a/src/include/nodes/parsenodes.h b/src/include/nodes/parsenodes.h
+index c94398c0b05..d60cfefbec4 100644
+--- a/src/include/nodes/parsenodes.h
++++ b/src/include/nodes/parsenodes.h
+@@ -1023,10 +1023,10 @@ typedef struct PartitionCmd
+  *	  inFromCl marks those range variables that are listed in the FROM clause.
+  *	  It's false for RTEs that are added to a query behind the scenes, such
+  *	  as the NEW and OLD variables for a rule, or the subqueries of a UNION.
+- *	  This flag is not used during parsing (except in transformLockingClause,
+- *	  q.v.); the parser now uses a separate "namespace" data structure to
+- *	  control visibility.  But it is needed by ruleutils.c to determine
+- *	  whether RTEs should be shown in decompiled queries.
++ *	  This flag is not used anymore during parsing, since the parser now uses
++ *	  a separate "namespace" data structure to control visibility, but it is
++ *	  needed by ruleutils.c to determine whether RTEs should be shown in
++ *	  decompiled queries.
+  *
+  *	  securityQuals is a list of security barrier quals (boolean expressions),
+  *	  to be tested in the listed order before returning a row from the

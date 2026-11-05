@@ -1,0 +1,15 @@
+CREATE ROLE rp_u;
+CREATE TABLE t5(one int, four int unique);
+GRANT INSERT, UPDATE(one), SELECT(one) ON t5 TO rp_u;
+SET SESSION AUTHORIZATION rp_u;
+INSERT INTO t5(four) VALUES (4) ON CONFLICT ON CONSTRAINT t5_four_key DO UPDATE SET one = 3;
+psql:<REPRO>:5: ERROR:  permission denied for table t5
+RESET SESSION AUTHORIZATION;
+SELECT count(*) FROM t5;
+ count 
+-------
+     0
+(1 row)
+
+DROP TABLE t5;
+DROP ROLE rp_u;

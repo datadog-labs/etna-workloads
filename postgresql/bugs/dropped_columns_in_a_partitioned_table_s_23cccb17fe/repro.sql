@@ -1,0 +1,14 @@
+create table d (a int) partition by list (a);
+create table d1 partition of d for values in (1);
+create table dd (b int, a int);
+alter table dd drop b;
+insert into dd values (2);
+alter table d attach partition dd default;
+create table d2 (a int);
+alter table d attach partition d2 for values in (2);
+create table defcheck (a int, b int) partition by list (b);
+create table defcheck_def (a int, c int, b int);
+alter table defcheck_def drop c;
+alter table defcheck attach partition defcheck_def default;
+alter table defcheck_def add check (b <= 0 and b is not null);
+create table defcheck_1 partition of defcheck for values in (1, null);

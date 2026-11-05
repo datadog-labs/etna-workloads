@@ -1,0 +1,18 @@
+create table p(a int);
+create table c() inherits (p);
+alter table c add constraint k check (a > 0) not valid;
+alter table p add constraint k check (a > 0);
+psql:<REPRO>:4: ERROR:  constraint "k" conflicts with NOT VALID constraint on relation "c"
+create table p2(a int);
+create table c2() inherits (p2);
+alter table p2 add constraint k check (a > 0);
+alter table c2 add constraint k check (a > 0);
+psql:<REPRO>:8: NOTICE:  merging constraint "k" with inherited definition
+select conrelid::regclass, conislocal, coninhcount from pg_constraint where conname='k' order by 1::text;
+ conrelid | conislocal | coninhcount 
+----------+------------+-------------
+ c        | t          |           0
+ p2       | t          |           0
+ c2       | t          |           1
+(3 rows)
+

@@ -1,0 +1,30 @@
+create table pp1 (f1 int);
+create table cc1 (f2 text, f3 int) inherits (pp1);
+create table cc2(f4 float) inherits(pp1,cc1);
+psql:<REPRO>:3: NOTICE:  merging multiple inherited definitions of column "f1"
+create table cc3() inherits(pp1,cc1,cc2);
+psql:<REPRO>:4: NOTICE:  merging multiple inherited definitions of column "f1"
+psql:<REPRO>:4: NOTICE:  merging multiple inherited definitions of column "f1"
+psql:<REPRO>:4: NOTICE:  merging multiple inherited definitions of column "f2"
+psql:<REPRO>:4: NOTICE:  merging multiple inherited definitions of column "f3"
+alter table pp1 alter f1 set not null;
+\d+ cc3
+                                                Table "public.cc3"
+ Column |       Type       | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+--------+------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+ f1     | integer          |           | not null |         | plain    |             |              | 
+ f2     | text             |           |          |         | extended |             |              | 
+ f3     | integer          |           |          |         | plain    |             |              | 
+ f4     | double precision |           |          |         | plain    |             |              | 
+Not-null constraints:
+    "pp1_f1_not_null" NOT NULL "f1" (inherited)
+Inherits: pp1,
+          cc1,
+          cc2
+Access method: heap
+
+drop table pp1 cascade;
+psql:<REPRO>:7: NOTICE:  drop cascades to 3 other objects
+DETAIL:  drop cascades to table cc1
+drop cascades to table cc2
+drop cascades to table cc3

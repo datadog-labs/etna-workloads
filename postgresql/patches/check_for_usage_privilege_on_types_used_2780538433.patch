@@ -1,0 +1,584 @@
+diff --git a/src/backend/catalog/dependency.c b/src/backend/catalog/dependency.c
+index f5541b9f6b2..49d7cc10037 100644
+--- a/src/backend/catalog/dependency.c
++++ b/src/backend/catalog/dependency.c
+@@ -1684,87 +1684,6 @@ recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
+ 	free_object_addresses(context.addrs);
+ }
+ 
+-/*
+- * We require USAGE on a type to store a dependency on it.  This helper
+- * function does the appropriate privilege checks.
+- *
+- * NB: Other objects have privileges of their own, but recording those
+- * dependencies doesn't require holding them.  For example, an expression may
+- * reference a function for which the user lacks EXECUTE.  Instead, EXECUTE is
+- * checked when the function is executed.
+- */
+-static void
+-check_usage_on_types(ObjectAddresses *addrs, Oid roleid)
+-{
+-	for (int i = 0; i < addrs->numrefs; i++)
+-	{
+-		ObjectAddress *ref = &addrs->refs[i];
+-		AclResult	aclresult;
+-
+-		if (ref->classId != TypeRelationId)
+-			continue;
+-
+-		/* we don't record dependencies on pinned types */
+-		if (IsPinnedObject(ref->classId, ref->objectId))
+-			continue;
+-
+-		aclresult = object_aclcheck(ref->classId, ref->objectId,
+-									roleid, ACL_USAGE);
+-		if (aclresult != ACLCHECK_OK)
+-			aclcheck_error_type(aclresult, ref->objectId);
+-	}
+-}
+-
+-/*
+- * CheckUsageOnTypesInExpr - require USAGE on all types named by an expression
+- *
+- * rtable is the rangetable for interpreting Vars (or NIL if none are
+- * expected).  roleid is the role whose USAGE is required.
+- */
+-void
+-CheckUsageOnTypesInExpr(Node *expr, List *rtable, Oid roleid)
+-{
+-	find_expr_references_context context;
+-
+-	context.addrs = new_object_addresses();
+-
+-	/* Set up interpretation for Vars at varlevelsup = 0 */
+-	context.rtables = list_make1(rtable);
+-
+-	find_expr_references_walker(expr, &context);
+-	eliminate_duplicate_dependencies(context.addrs);
+-	check_usage_on_types(context.addrs, roleid);
+-	free_object_addresses(context.addrs);
+-}
+-
+-/*
+- * CheckUsageOnTypesInSingleRelExpr - as above, for a single-rel expression
+- *
+- * Like recordDependencyOnSingleRelExpr(), this handles expressions whose Vars
+- * all refer to one relation.  roleid is the role whose USAGE is required.
+- */
+-void
+-CheckUsageOnTypesInSingleRelExpr(Node *expr, Oid relId, Oid roleid)
+-{
+-	find_expr_references_context context;
+-	RangeTblEntry rte = {0};
+-
+-	context.addrs = new_object_addresses();
+-
+-	/* We gin up a rather bogus rangetable list to handle Vars */
+-	rte.type = T_RangeTblEntry;
+-	rte.rtekind = RTE_RELATION;
+-	rte.relid = relId;
+-	rte.relkind = RELKIND_RELATION;
+-	rte.rellockmode = AccessShareLock;
+-	context.rtables = list_make1(list_make1(&rte));
+-
+-	find_expr_references_walker(expr, &context);
+-	eliminate_duplicate_dependencies(context.addrs);
+-	check_usage_on_types(context.addrs, roleid);
+-	free_object_addresses(context.addrs);
+-}
+-
+ /*
+  * Recursively search an expression tree for object references.
+  *
+diff --git a/src/backend/catalog/heap.c b/src/backend/catalog/heap.c
+index 16a5d6b7b97..5df95ddde61 100644
+--- a/src/backend/catalog/heap.c
++++ b/src/backend/catalog/heap.c
+@@ -2159,9 +2159,6 @@ SetAttrMissing(Oid relid, char *attname, char *value)
+  * in the pg_class entry for the relation.
+  *
+  * The OID of the new constraint is returned.
+- *
+- * NB: Caller is responsible for ensuring the user has USAGE on all types expr
+- * depends on.
+  */
+ static Oid
+ StoreRelCheck(Relation rel, const char *ccname, Node *expr,
+@@ -2477,13 +2474,6 @@ AddRelationNewConstraints(Relation rel,
+ 			 castNode(Const, expr)->constisnull))
+ 			continue;
+ 
+-		/*
+-		 * The below call to StoreAttrDefault() adds the dependencies on
+-		 * types.  We are responsible for checking USAGE.
+-		 */
+-		if (!is_internal)
+-			CheckUsageOnTypesInSingleRelExpr(expr, RelationGetRelid(rel), GetUserId());
+-
+ 		defOid = StoreAttrDefault(rel, colDef->attnum, expr, is_internal);
+ 
+ 		cooked = (CookedConstraint *) palloc(sizeof(CookedConstraint));
+@@ -2524,14 +2514,6 @@ AddRelationNewConstraints(Relation rel,
+ 				 */
+ 				expr = cookConstraint(pstate, cdef->raw_expr,
+ 									  RelationGetRelationName(rel));
+-
+-				/*
+-				 * The below call to StoreRelCheck() calls
+-				 * CreateConstraintEntry(), which adds the dependencies on
+-				 * types.  We are responsible for checking USAGE.
+-				 */
+-				if (!is_internal)
+-					CheckUsageOnTypesInSingleRelExpr(expr, RelationGetRelid(rel), GetUserId());
+ 			}
+ 			else
+ 			{
+@@ -4034,16 +4016,12 @@ StorePartitionKey(Relation rel,
+ 	 * columns, i.e. they become internally dependent on the whole table.
+ 	 */
+ 	if (partexprs)
+-	{
+-		CheckUsageOnTypesInSingleRelExpr((Node *) partexprs, RelationGetRelid(rel),
+-										 GetUserId());
+ 		recordDependencyOnSingleRelExpr(&myself,
+ 										(Node *) partexprs,
+ 										RelationGetRelid(rel),
+ 										DEPENDENCY_NORMAL,
+ 										DEPENDENCY_INTERNAL,
+ 										true /* reverse the self-deps */ );
+-	}
+ 
+ 	/*
+ 	 * We must invalidate the relcache so that the next
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..5f9ebc158b9 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -725,9 +725,6 @@ UpdateIndexRelation(Oid indexoid,
+  * constraintId: if not NULL, receives OID of created constraint
+  *
+  * Returns the OID of the created index.
+- *
+- * NB: Caller is responsible for ensuring the user has USAGE on all types
+- * indexInfo->ii_{Expressions,Predicate} depend on.
+  */
+ Oid
+ index_create(Relation heapRelation,
+diff --git a/src/backend/catalog/pg_attrdef.c b/src/backend/catalog/pg_attrdef.c
+index fdaa67230f9..1b6270b1213 100644
+--- a/src/backend/catalog/pg_attrdef.c
++++ b/src/backend/catalog/pg_attrdef.c
+@@ -30,9 +30,6 @@
+  * Store a default expression for column attnum of relation rel.
+  *
+  * Returns the OID of the new pg_attrdef tuple.
+- *
+- * NB: Caller is responsible for ensuring the user has USAGE on all types expr
+- * depends on.
+  */
+ Oid
+ StoreAttrDefault(Relation rel, AttrNumber attnum,
+diff --git a/src/backend/catalog/pg_constraint.c b/src/backend/catalog/pg_constraint.c
+index d3fcfa1f6ba..afdfac8eca6 100644
+--- a/src/backend/catalog/pg_constraint.c
++++ b/src/backend/catalog/pg_constraint.c
+@@ -46,9 +46,6 @@
+  * from the constraint to the things it depends on.
+  *
+  * The new constraint's OID is returned.
+- *
+- * NB: Caller is responsible for ensuring the user has USAGE on all types
+- * conExpr depends on.
+  */
+ Oid
+ CreateConstraintEntry(const char *constraintName,
+diff --git a/src/backend/catalog/pg_proc.c b/src/backend/catalog/pg_proc.c
+index d8854c30a57..9d8c02847de 100644
+--- a/src/backend/catalog/pg_proc.c
++++ b/src/backend/catalog/pg_proc.c
+@@ -663,18 +663,12 @@ ProcedureCreate(const char *procedureName,
+ 
+ 	/* dependency on SQL routine body */
+ 	if (languageObjectId == SQLlanguageId && prosqlbody)
+-	{
+-		CheckUsageOnTypesInExpr(prosqlbody, NIL, GetUserId());
+ 		recordDependencyOnExpr(&myself, prosqlbody, NIL, DEPENDENCY_NORMAL);
+-	}
+ 
+ 	/* dependency on parameter default expressions */
+ 	if (parameterDefaults)
+-	{
+-		CheckUsageOnTypesInExpr((Node *) parameterDefaults, NIL, GetUserId());
+ 		recordDependencyOnExpr(&myself, (Node *) parameterDefaults,
+ 							   NIL, DEPENDENCY_NORMAL);
+-	}
+ 
+ 	/* dependency on owner */
+ 	if (!is_update)
+diff --git a/src/backend/catalog/pg_publication.c b/src/backend/catalog/pg_publication.c
+index 671eb160f47..259ecab1688 100644
+--- a/src/backend/catalog/pg_publication.c
++++ b/src/backend/catalog/pg_publication.c
+@@ -32,7 +32,6 @@
+ #include "catalog/pg_type.h"
+ #include "commands/publicationcmds.h"
+ #include "funcapi.h"
+-#include "miscadmin.h"
+ #include "utils/array.h"
+ #include "utils/builtins.h"
+ #include "utils/catcache.h"
+@@ -512,12 +511,9 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
+ 
+ 	/* Add dependency on the objects mentioned in the qualifications */
+ 	if (pri->whereClause)
+-	{
+-		CheckUsageOnTypesInSingleRelExpr(pri->whereClause, relid, GetUserId());
+ 		recordDependencyOnSingleRelExpr(&myself, pri->whereClause, relid,
+ 										DEPENDENCY_NORMAL, DEPENDENCY_NORMAL,
+ 										false);
+-	}
+ 
+ 	/* Add dependency on the columns, if any are listed */
+ 	i = -1;
+diff --git a/src/backend/catalog/pg_type.c b/src/backend/catalog/pg_type.c
+index a59a7d5541c..bf15c603a82 100644
+--- a/src/backend/catalog/pg_type.c
++++ b/src/backend/catalog/pg_type.c
+@@ -189,9 +189,6 @@ TypeShellMake(const char *typeName, Oid typeNamespace, Oid ownerId)
+  *		Returns the ObjectAddress assigned to the new type.
+  *		If newTypeOid is zero (the normal case), a new OID is created;
+  *		otherwise we use exactly that OID.
+- *
+- *		NB: Caller is responsible for ensuring the user has USAGE
+- *		on all types defaultTypeBin depends on.
+  * ----------------------------------------------------------------
+  */
+ ObjectAddress
+@@ -555,9 +552,6 @@ TypeCreate(Oid newTypeOid,
+  * type already belongs to the current extension.  That's the behavior we
+  * want when replacing a shell type, which is the only case where both flags
+  * are true.
+- *
+- * NB: Caller is responsible for ensuring the user has USAGE on all types
+- * defaultExpr depends on.
+  */
+ void
+ GenerateTypeDependencies(HeapTuple typeTuple,
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..faf74bfe200 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -944,22 +944,6 @@ DefineIndex(Oid tableId,
+ 					  root_save_userid, root_save_sec_context,
+ 					  &root_save_nestlevel);
+ 
+-	/*
+-	 * The below call to index_create() creates the dependencies on types.  We
+-	 * are responsible for checking USAGE.
+-	 */
+-	if (check_rights)
+-	{
+-		if (indexInfo->ii_Expressions)
+-			CheckUsageOnTypesInSingleRelExpr((Node *) indexInfo->ii_Expressions,
+-											 tableId,
+-											 root_save_userid);
+-		if (indexInfo->ii_Predicate)
+-			CheckUsageOnTypesInSingleRelExpr((Node *) indexInfo->ii_Predicate,
+-											 tableId,
+-											 root_save_userid);
+-	}
+-
+ 	/*
+ 	 * Extra checks when creating a PRIMARY KEY index.
+ 	 */
+diff --git a/src/backend/commands/policy.c b/src/backend/commands/policy.c
+index a2e5c486648..83056960fe4 100644
+--- a/src/backend/commands/policy.c
++++ b/src/backend/commands/policy.c
+@@ -724,12 +724,9 @@ CreatePolicy(CreatePolicyStmt *stmt)
+ 
+ 	recordDependencyOn(&myself, &target, DEPENDENCY_AUTO);
+ 
+-	CheckUsageOnTypesInExpr(qual, qual_pstate->p_rtable, GetUserId());
+ 	recordDependencyOnExpr(&myself, qual, qual_pstate->p_rtable,
+ 						   DEPENDENCY_NORMAL);
+ 
+-	CheckUsageOnTypesInExpr(with_check_qual, with_check_pstate->p_rtable,
+-							GetUserId());
+ 	recordDependencyOnExpr(&myself, with_check_qual,
+ 						   with_check_pstate->p_rtable, DEPENDENCY_NORMAL);
+ 
+@@ -1058,13 +1055,8 @@ AlterPolicy(AlterPolicyStmt *stmt)
+ 
+ 	recordDependencyOn(&myself, &target, DEPENDENCY_AUTO);
+ 
+-	if (stmt->qual)
+-		CheckUsageOnTypesInExpr(qual, qual_parse_rtable, GetUserId());
+ 	recordDependencyOnExpr(&myself, qual, qual_parse_rtable, DEPENDENCY_NORMAL);
+ 
+-	if (stmt->with_check)
+-		CheckUsageOnTypesInExpr(with_check_qual, with_check_parse_rtable,
+-								GetUserId());
+ 	recordDependencyOnExpr(&myself, with_check_qual, with_check_parse_rtable,
+ 						   DEPENDENCY_NORMAL);
+ 
+diff --git a/src/backend/commands/statscmds.c b/src/backend/commands/statscmds.c
+index 536c164caf2..af608f3db98 100644
+--- a/src/backend/commands/statscmds.c
++++ b/src/backend/commands/statscmds.c
+@@ -596,16 +596,11 @@ CreateStatistics(List *relids, CreateStatsStmt *stmt, bool check_rights)
+ 	 * just like we do for index expressions.
+ 	 */
+ 	if (stxexprs)
+-	{
+-		if (check_rights)
+-			CheckUsageOnTypesInSingleRelExpr((Node *) stxexprs, relid, GetUserId());
+-
+ 		recordDependencyOnSingleRelExpr(&myself,
+ 										(Node *) stxexprs,
+ 										relid,
+ 										DEPENDENCY_NORMAL,
+ 										DEPENDENCY_AUTO, false);
+-	}
+ 
+ 	/*
+ 	 * Also add dependencies on namespace and owner.  These are required
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..7b17274b0e7 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -970,14 +970,6 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
+ 						stmt->partbound != NULL,
+ 						&old_constraints, &old_notnulls);
+ 
+-	/*
+-	 * NB: The defaults and constraints we just inherited are already cooked,
+-	 * so they don't get the USAGE checks that AddRelationNewConstraints()
+-	 * applies to raw ones.  That's intentional: the parent's own catalog
+-	 * entries already depend on those types, so copying them pins nothing
+-	 * new, and creating a child requires owning the parent, anyway.
+-	 */
+-
+ 	/*
+ 	 * Create a tuple descriptor from the relation schema.  Note that this
+ 	 * deals with column names, types, and in-descriptor NOT NULL flags, but
+@@ -5488,7 +5480,7 @@ ATExecCmd(List **wqueue, AlteredTableInfo *tab,
+ 			address =
+ 				AlterDomainAddConstraint(((AlterDomainStmt *) cmd->def)->typeName,
+ 										 ((AlterDomainStmt *) cmd->def)->def,
+-										 NULL, true);
++										 NULL);
+ 			break;
+ 		case AT_ReAddComment:	/* Re-add existing comment */
+ 			address = CommentObject((CommentStmt *) cmd->def);
+@@ -8218,14 +8210,7 @@ ATExecCookedColumnDefault(Relation rel, AttrNumber attnum,
+ {
+ 	ObjectAddress address;
+ 
+-	/*
+-	 * This is used for a cooked default copied by CREATE TABLE ... LIKE,
+-	 * which adds new type dependencies.  Such a default doesn't go through
+-	 * AddRelationNewConstraints(), and StoreAttrDefault() leaves the
+-	 * privilege checks to its caller, so we must check for USAGE on the types
+-	 * here.
+-	 */
+-	CheckUsageOnTypesInSingleRelExpr(newDefault, RelationGetRelid(rel), GetUserId());
++	/* We assume no checking is required */
+ 
+ 	/*
+ 	 * Remove any old default for the column.  We use RESTRICT here for
+diff --git a/src/backend/commands/trigger.c b/src/backend/commands/trigger.c
+index 7ae6557d897..17f1e224f91 100644
+--- a/src/backend/commands/trigger.c
++++ b/src/backend/commands/trigger.c
+@@ -1131,13 +1131,8 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
+ 	 * expression (eg, functions, as well as any columns used).
+ 	 */
+ 	if (whenRtable != NIL)
+-	{
+-		if (!isInternal)
+-			CheckUsageOnTypesInExpr(whenClause, whenRtable, GetUserId());
+-
+ 		recordDependencyOnExpr(&myself, whenClause, whenRtable,
+ 							   DEPENDENCY_NORMAL);
+-	}
+ 
+ 	/* Post creation hook for new trigger */
+ 	InvokeObjectPostCreateHookArg(TriggerRelationId, trigoid, 0,
+diff --git a/src/backend/commands/typecmds.c b/src/backend/commands/typecmds.c
+index 2ed7973d1b4..a91185ae858 100644
+--- a/src/backend/commands/typecmds.c
++++ b/src/backend/commands/typecmds.c
+@@ -133,8 +133,7 @@ static void checkEnumOwner(HeapTuple tup);
+ static char *domainAddCheckConstraint(Oid domainOid, Oid domainNamespace,
+ 									  Oid baseTypeOid,
+ 									  int typMod, Constraint *constr,
+-									  const char *domainName, ObjectAddress *constrAddr,
+-									  bool is_readd);
++									  const char *domainName, ObjectAddress *constrAddr);
+ static Node *replace_domain_constraint_value(ParseState *pstate,
+ 											 ColumnRef *cref);
+ static void domainAddNotNullConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
+@@ -1049,13 +1048,6 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
+ 		}
+ 	}
+ 
+-	/*
+-	 * The below call to TypeCreate() calls GenerateTypeDependencies(), which
+-	 * adds the dependencies on types.  We are responsible for checking USAGE.
+-	 */
+-	if (defaultValueBin)
+-		CheckUsageOnTypesInExpr(stringToNode(defaultValueBin), NIL, GetUserId());
+-
+ 	/* Allocate OID for array type */
+ 	domainArrayOid = AssignTypeArrayOid();
+ 
+@@ -1153,7 +1145,7 @@ DefineDomain(ParseState *pstate, CreateDomainStmt *stmt)
+ 			case CONSTR_CHECK:
+ 				domainAddCheckConstraint(address.objectId, domainNamespace,
+ 										 basetypeoid, basetypeMod,
+-										 constr, domainName, NULL, false);
++										 constr, domainName, NULL);
+ 				break;
+ 
+ 			case CONSTR_NOTNULL:
+@@ -2696,12 +2688,6 @@ AlterDomainDefault(List *names, Node *defaultRaw)
+ 		}
+ 		else
+ 		{
+-			/*
+-			 * The below call to GenerateTypeDependencies() creates the
+-			 * dependencies on types.  We are responsible for checking USAGE.
+-			 */
+-			CheckUsageOnTypesInExpr(defaultExpr, NIL, GetUserId());
+-
+ 			/*
+ 			 * Expression must be stored as a nodeToString result, but we also
+ 			 * require a valid textual representation (mainly to make life
+@@ -2958,7 +2944,7 @@ AlterDomainDropConstraint(List *names, const char *constrName,
+  */
+ ObjectAddress
+ AlterDomainAddConstraint(List *names, Node *newConstraint,
+-						 ObjectAddress *constrAddr, bool is_readd)
++						 ObjectAddress *constrAddr)
+ {
+ 	TypeName   *typename;
+ 	Oid			domainoid;
+@@ -3002,8 +2988,7 @@ AlterDomainAddConstraint(List *names, Node *newConstraint,
+ 
+ 		ccbin = domainAddCheckConstraint(domainoid, typTup->typnamespace,
+ 										 typTup->typbasetype, typTup->typtypmod,
+-										 constr, NameStr(typTup->typname), constrAddr,
+-										 is_readd);
++										 constr, NameStr(typTup->typname), constrAddr);
+ 
+ 
+ 		/*
+@@ -3530,8 +3515,7 @@ checkDomainOwner(HeapTuple tup)
+ static char *
+ domainAddCheckConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
+ 						 int typMod, Constraint *constr,
+-						 const char *domainName, ObjectAddress *constrAddr,
+-						 bool is_readd)
++						 const char *domainName, ObjectAddress *constrAddr)
+ {
+ 	Node	   *expr;
+ 	char	   *ccbin;
+@@ -3594,13 +3578,6 @@ domainAddCheckConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
+ 	 */
+ 	assign_expr_collations(pstate, expr);
+ 
+-	/*
+-	 * The below call to CreateConstraintEntry() creates the dependencies on
+-	 * types.  We are responsible for checking USAGE.
+-	 */
+-	if (!is_readd)
+-		CheckUsageOnTypesInExpr(expr, NIL, GetUserId());
+-
+ 	/*
+ 	 * Domains don't allow variables (this is probably dead code now that
+ 	 * add_missing_from is history, but let's be sure).
+diff --git a/src/backend/parser/parse_utilcmd.c b/src/backend/parser/parse_utilcmd.c
+index cacb1379e97..bddda2543d1 100644
+--- a/src/backend/parser/parse_utilcmd.c
++++ b/src/backend/parser/parse_utilcmd.c
+@@ -1486,16 +1486,6 @@ expandTableLikeClause(RangeVar *heapRel, TableLikeClause *table_like_clause)
+ 								   ccname,
+ 								   RelationGetRelationName(relation))));
+ 
+-			/*
+-			 * Copying a CHECK constraint adds new references.  Since the
+-			 * constraint arrives pre-cooked, it bypasses the checks in
+-			 * AddRelationNewConstraints(), so we must check for USAGE on
+-			 * types here.
+-			 */
+-			CheckUsageOnTypesInSingleRelExpr(stringToNode(ccbin),
+-											 RelationGetRelid(relation),
+-											 GetUserId());
+-
+ 			n = makeNode(Constraint);
+ 			n->contype = CONSTR_CHECK;
+ 			n->conname = pstrdup(ccname);
+diff --git a/src/backend/rewrite/rewriteDefine.c b/src/backend/rewrite/rewriteDefine.c
+index 49ce335146d..5dbe27f01a9 100644
+--- a/src/backend/rewrite/rewriteDefine.c
++++ b/src/backend/rewrite/rewriteDefine.c
+@@ -161,7 +161,6 @@ InsertRule(const char *rulname,
+ 	/*
+ 	 * Also install dependencies on objects referenced in action and qual.
+ 	 */
+-	CheckUsageOnTypesInExpr((Node *) action, NIL, GetUserId());
+ 	recordDependencyOnExpr(&myself, (Node *) action, NIL,
+ 						   DEPENDENCY_NORMAL);
+ 
+@@ -171,7 +170,6 @@ InsertRule(const char *rulname,
+ 		Query	   *qry = linitial_node(Query, action);
+ 
+ 		qry = getInsertSelectQuery(qry, NULL);
+-		CheckUsageOnTypesInExpr(event_qual, qry->rtable, GetUserId());
+ 		recordDependencyOnExpr(&myself, event_qual, qry->rtable,
+ 							   DEPENDENCY_NORMAL);
+ 	}
+diff --git a/src/backend/tcop/utility.c b/src/backend/tcop/utility.c
+index 6dabd7e1560..d0f57d71660 100644
+--- a/src/backend/tcop/utility.c
++++ b/src/backend/tcop/utility.c
+@@ -1367,8 +1367,7 @@ ProcessUtilitySlow(ParseState *pstate,
+ 							address =
+ 								AlterDomainAddConstraint(stmt->typeName,
+ 														 stmt->def,
+-														 &secondaryObject,
+-														 false);
++														 &secondaryObject);
+ 							break;
+ 						case 'X':	/* DROP CONSTRAINT */
+ 							address =
+diff --git a/src/include/catalog/dependency.h b/src/include/catalog/dependency.h
+index ddcd977f355..4b9fcec0e5d 100644
+--- a/src/include/catalog/dependency.h
++++ b/src/include/catalog/dependency.h
+@@ -120,10 +120,6 @@ extern void recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
+ 											DependencyType self_behavior,
+ 											bool reverse_self);
+ 
+-extern void CheckUsageOnTypesInExpr(Node *expr, List *rtable, Oid roleid);
+-
+-extern void CheckUsageOnTypesInSingleRelExpr(Node *expr, Oid relId, Oid roleid);
+-
+ extern ObjectAddresses *new_object_addresses(void);
+ 
+ extern void add_exact_object_address(const ObjectAddress *object,
+diff --git a/src/include/commands/typecmds.h b/src/include/commands/typecmds.h
+index b2ffec8c3be..6cc387e3337 100644
+--- a/src/include/commands/typecmds.h
++++ b/src/include/commands/typecmds.h
+@@ -35,8 +35,7 @@ extern Oid	AssignTypeMultirangeArrayOid(void);
+ extern ObjectAddress AlterDomainDefault(List *names, Node *defaultRaw);
+ extern ObjectAddress AlterDomainNotNull(List *names, bool notNull);
+ extern ObjectAddress AlterDomainAddConstraint(List *names, Node *newConstraint,
+-											  ObjectAddress *constrAddr,
+-											  bool is_readd);
++											  ObjectAddress *constrAddr);
+ extern ObjectAddress AlterDomainValidateConstraint(List *names, const char *constrName);
+ extern ObjectAddress AlterDomainDropConstraint(List *names, const char *constrName,
+ 											   DropBehavior behavior, bool missing_ok);

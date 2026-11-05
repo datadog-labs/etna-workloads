@@ -1,0 +1,19 @@
+CREATE ROLE u; GRANT ALL ON SCHEMA public TO u; SET ROLE u;
+CREATE TABLE pa_target (tid integer, balance float, val text) PARTITION BY LIST (tid);
+CREATE TABLE part1 PARTITION OF pa_target FOR VALUES IN (1,4);
+CREATE TABLE part2 PARTITION OF pa_target FOR VALUES IN (2,5,6);
+CREATE TABLE part3 PARTITION OF pa_target FOR VALUES IN (3,8,9);
+CREATE TABLE part4 PARTITION OF pa_target DEFAULT;
+CREATE TABLE pa_source (sid integer, delta float);
+INSERT INTO pa_source SELECT g, 10 FROM generate_series(1,14) g;
+INSERT INTO pa_target SELECT g, 100, 'x' FROM generate_series(1,14,2) g;
+ALTER TABLE pa_target ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pa_target FORCE ROW LEVEL SECURITY;
+CREATE POLICY pa_target_pol ON pa_target USING (tid != 0);
+MERGE INTO pa_target t USING pa_source s ON t.tid = s.sid AND t.tid IN (1,2,3,4)
+  WHEN MATCHED THEN UPDATE SET tid = tid - 1;
+psql:<REPRO>:14: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:14: error: connection to server was lost
+### server crashed or assertion failed

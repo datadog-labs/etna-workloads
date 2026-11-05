@@ -1,0 +1,68 @@
+diff --git a/src/backend/utils/adt/uuid.c b/src/backend/utils/adt/uuid.c
+index c910836da06..6b62ae43c9a 100644
+--- a/src/backend/utils/adt/uuid.c
++++ b/src/backend/utils/adt/uuid.c
+@@ -89,7 +89,7 @@ static bool uuid_abbrev_abort(int memtupcount, SortSupport ssup);
+ static Datum uuid_abbrev_convert(Datum original, SortSupport ssup);
+ static inline void uuid_set_version(pg_uuid_t *uuid, unsigned char version);
+ static inline int64 get_real_time_ns_ascending();
+-static pg_uuid_t *generate_uuidv7(uint64 unix_ts_ms, uint32 sub_ms);
++static pg_uuid_t *generate_uuidv7(int64 ns);
+ 
+ Datum
+ uuid_in(PG_FUNCTION_ARGS)
+@@ -619,10 +619,13 @@ get_real_time_ns_ascending()
+  * NB: all numbers here are unsigned, unix_ts_ms cannot be negative per RFC.
+  */
+ static pg_uuid_t *
+-generate_uuidv7(uint64 unix_ts_ms, uint32 sub_ms)
++generate_uuidv7(int64 ns)
+ {
+ 	pg_uuid_t  *uuid = palloc(UUID_LEN);
+-	uint32		increased_clock_precision;
++	int64		unix_ts_ms;
++	int32		increased_clock_precision;
++
++	unix_ts_ms = ns / NS_PER_MS;
+ 
+ 	/* Fill in time part */
+ 	uuid->data[0] = (unsigned char) (unix_ts_ms >> 40);
+@@ -636,7 +639,7 @@ generate_uuidv7(uint64 unix_ts_ms, uint32 sub_ms)
+ 	 * sub-millisecond timestamp fraction (SUBMS_BITS bits, not
+ 	 * SUBMS_MINIMAL_STEP_BITS)
+ 	 */
+-	increased_clock_precision = (sub_ms * (1 << SUBMS_BITS)) / NS_PER_MS;
++	increased_clock_precision = ((ns % NS_PER_MS) * (1 << SUBMS_BITS)) / NS_PER_MS;
+ 
+ 	/* Fill the increased clock precision to "rand_a" bits */
+ 	uuid->data[6] = (unsigned char) (increased_clock_precision >> 8);
+@@ -676,7 +679,7 @@ Datum
+ uuidv7(PG_FUNCTION_ARGS)
+ {
+ 	int64		ns = get_real_time_ns_ascending();
+-	pg_uuid_t  *uuid = generate_uuidv7(ns / NS_PER_MS, ns % NS_PER_MS);
++	pg_uuid_t  *uuid = generate_uuidv7(get_real_time_ns_ascending());
+ 
+ 	PG_RETURN_UUID_P(uuid);
+ }
+@@ -691,7 +694,6 @@ uuidv7_interval(PG_FUNCTION_ARGS)
+ 	TimestampTz ts;
+ 	pg_uuid_t  *uuid;
+ 	int64		ns = get_real_time_ns_ascending();
+-	int64		us;
+ 
+ 	/* Reject infinite intervals before any arithmetic */
+ 	if (INTERVAL_NOT_FINITE(shift))
+@@ -726,10 +728,10 @@ uuidv7_interval(PG_FUNCTION_ARGS)
+ 				 errdetail("UUID version 7 supports timestamps from 1970-01-01 to approximately year 10889.")));
+ 
+ 	/* Convert the TimestampTz value to a Unix-epoch timestamp in usec */
+-	us = ts + PG_UNIX_EPOCH_OFFSET_US;
++	ns = (ts + PG_UNIX_EPOCH_OFFSET_US) * NS_PER_US + ns % NS_PER_US;
+ 
+ 	/* Generate an UUIDv7 */
+-	uuid = generate_uuidv7(us / US_PER_MS, (us % US_PER_MS) * NS_PER_US + ns % NS_PER_US);
++	uuid = generate_uuidv7(ns);
+ 
+ 	PG_RETURN_UUID_P(uuid);
+ }

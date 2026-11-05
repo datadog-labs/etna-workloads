@@ -1,0 +1,4 @@
+CREATE TABLE notnull_tbl1 (a INTEGER NOT NULL NOT NULL);
+ALTER TABLE notnull_tbl1 ADD CONSTRAINT notnull_tbl1_a_not_null NOT NULL a;
+ALTER TABLE notnull_tbl1 ADD CONSTRAINT nn NOT NULL a;
+SELECT conname FROM pg_constraint WHERE conrelid='notnull_tbl1'::regclass;

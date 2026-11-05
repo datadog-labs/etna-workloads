@@ -1,0 +1,60 @@
+diff --git a/src/backend/commands/dbcommands.c b/src/backend/commands/dbcommands.c
+index 5eb6caffe6d..178101ead9e 100644
+--- a/src/backend/commands/dbcommands.c
++++ b/src/backend/commands/dbcommands.c
+@@ -1142,12 +1142,6 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
+ 	}
+ 	else if (dblocprovider == COLLPROVIDER_ICU)
+ 	{
+-		if (!(is_encoding_supported_by_icu(encoding)))
+-			ereport(ERROR,
+-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+-					 errmsg("encoding \"%s\" is not supported with ICU provider",
+-							pg_encoding_to_char(encoding))));
+-
+ 		/*
+ 		 * This would happen if template0 uses the libc provider but the new
+ 		 * database uses icu.
+diff --git a/src/bin/initdb/initdb.c b/src/bin/initdb/initdb.c
+index f1a6db1a532..e92e389ca81 100644
+--- a/src/bin/initdb/initdb.c
++++ b/src/bin/initdb/initdb.c
+@@ -2291,27 +2291,6 @@ check_locale_encoding(const char *locale, int user_enc)
+ 	return true;
+ }
+ 
+-/*
+- * check if the chosen encoding matches is supported by ICU
+- *
+- * this should match the similar check in the backend createdb() function
+- */
+-static bool
+-check_icu_locale_encoding(int user_enc)
+-{
+-	if (!(is_encoding_supported_by_icu(user_enc)))
+-	{
+-		pg_log_error("encoding mismatch");
+-		pg_log_error_detail("The encoding you selected (%s) is not supported with the ICU provider.",
+-							pg_encoding_to_char(user_enc));
+-		pg_log_error_hint("Rerun %s and either do not specify an encoding explicitly, "
+-						  "or choose a matching combination.",
+-						  progname);
+-		return false;
+-	}
+-	return true;
+-}
+-
+ /*
+  * Convert to canonical BCP47 language tag. Must be consistent with
+  * icu_language_tag().
+@@ -2781,10 +2760,6 @@ setup_locale_encoding(void)
+ 			pg_fatal("builtin provider locale \"%s\" requires encoding \"%s\"",
+ 					 datlocale, "UTF-8");
+ 	}
+-
+-	if (locale_provider == COLLPROVIDER_ICU &&
+-		!check_icu_locale_encoding(encodingid))
+-		exit(1);
+ }
+ 
+ 

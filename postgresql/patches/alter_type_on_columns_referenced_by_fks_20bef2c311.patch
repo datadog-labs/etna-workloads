@@ -1,0 +1,54 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..1dcdb4cc769 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -15526,9 +15526,6 @@ ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab, LOCKMODE lockmode)
+ 		conislocal = con->conislocal;
+ 		ReleaseSysCache(tup);
+ 
+-		ObjectAddressSet(obj, ConstraintRelationId, oldId);
+-		add_exact_object_address(&obj, objects);
+-
+ 		/*
+ 		 * If the constraint is inherited (only), we don't want to inject a
+ 		 * new definition here; it'll get recreated when
+@@ -15570,9 +15567,6 @@ ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab, LOCKMODE lockmode)
+ 		ATPostAlterTypeParse(oldId, relid, InvalidOid, InvalidOid,
+ 							 (char *) lfirst(def_item),
+ 							 wqueue, lockmode, tab->rewrite);
+-
+-		ObjectAddressSet(obj, RelationRelationId, oldId);
+-		add_exact_object_address(&obj, objects);
+ 	}
+ 
+ 	/* add dependencies for new statistics */
+@@ -15640,9 +15634,27 @@ ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab, LOCKMODE lockmode)
+ 	}
+ 
+ 	/*
+-	 * It should be okay to use DROP_RESTRICT here, since nothing else should
+-	 * be depending on these objects.
++	 * Now we can drop the existing constraints and indexes --- constraints
++	 * first, since some of them might depend on the indexes.  It should be
++	 * okay to use DROP_RESTRICT here, since nothing else should be depending
++	 * on these objects.
+ 	 */
++	foreach(oid_item, tab->changedConstraintOids)
++	{
++		obj.classId = ConstraintRelationId;
++		obj.objectId = lfirst_oid(oid_item);
++		obj.objectSubId = 0;
++		performDeletion(&obj, DROP_RESTRICT, PERFORM_DELETION_INTERNAL);
++	}
++
++	foreach(oid_item, tab->changedIndexOids)
++	{
++		obj.classId = RelationRelationId;
++		obj.objectId = lfirst_oid(oid_item);
++		obj.objectSubId = 0;
++		performDeletion(&obj, DROP_RESTRICT, PERFORM_DELETION_INTERNAL);
++	}
++
+ 	performMultipleDeletions(objects, DROP_RESTRICT, PERFORM_DELETION_INTERNAL);
+ 
+ 	free_object_addresses(objects);

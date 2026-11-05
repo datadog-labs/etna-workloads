@@ -1,0 +1,3 @@
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' ERROR ON ERROR);
+SELECT JSON_QUERY(jsonb '[]', '$[*]' ERROR ON ERROR);
+SELECT JSON_VALUE(jsonb '1', 'lax $.a' DEFAULT 2 ON ERROR);

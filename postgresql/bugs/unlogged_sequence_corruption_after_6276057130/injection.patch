@@ -1,0 +1,137 @@
+diff --git a/src/backend/access/hash/hash_xlog.c b/src/backend/access/hash/hash_xlog.c
+index d4cb6246b48..8d97067fe54 100644
+--- a/src/backend/access/hash/hash_xlog.c
++++ b/src/backend/access/hash/hash_xlog.c
+@@ -29,6 +29,7 @@ hash_xlog_init_meta_page(XLogReaderState *record)
+ 	XLogRecPtr	lsn = record->EndRecPtr;
+ 	Page		page;
+ 	Buffer		metabuf;
++	ForkNumber	forknum;
+ 
+ 	xl_hash_init_meta_page *xlrec = (xl_hash_init_meta_page *) XLogRecGetData(record);
+ 
+@@ -40,7 +41,16 @@ hash_xlog_init_meta_page(XLogReaderState *record)
+ 	page = (Page) BufferGetPage(metabuf);
+ 	PageSetLSN(page, lsn);
+ 	MarkBufferDirty(metabuf);
+-	XLogFlushBufferForRedoIfInit(record, 0, metabuf);
++
++	/*
++	 * Force the on-disk state of init forks to always be in sync with the
++	 * state in shared buffers.  See XLogReadBufferForRedoExtended.  We need
++	 * special handling for init forks as create index operations don't log a
++	 * full page image of the metapage.
++	 */
++	XLogRecGetBlockTag(record, 0, NULL, &forknum, NULL);
++	if (forknum == INIT_FORKNUM)
++		FlushOneBuffer(metabuf);
+ 
+ 	/* all done */
+ 	UnlockReleaseBuffer(metabuf);
+@@ -58,6 +68,7 @@ hash_xlog_init_bitmap_page(XLogReaderState *record)
+ 	Page		page;
+ 	HashMetaPage metap;
+ 	uint32		num_buckets;
++	ForkNumber	forknum;
+ 
+ 	xl_hash_init_bitmap_page *xlrec = (xl_hash_init_bitmap_page *) XLogRecGetData(record);
+ 
+@@ -68,7 +79,16 @@ hash_xlog_init_bitmap_page(XLogReaderState *record)
+ 	_hash_initbitmapbuffer(bitmapbuf, xlrec->bmsize, true);
+ 	PageSetLSN(BufferGetPage(bitmapbuf), lsn);
+ 	MarkBufferDirty(bitmapbuf);
+-	XLogFlushBufferForRedoIfInit(record, 0, bitmapbuf);
++
++	/*
++	 * Force the on-disk state of init forks to always be in sync with the
++	 * state in shared buffers.  See XLogReadBufferForRedoExtended.  We need
++	 * special handling for init forks as create index operations don't log a
++	 * full page image of the metapage.
++	 */
++	XLogRecGetBlockTag(record, 0, NULL, &forknum, NULL);
++	if (forknum == INIT_FORKNUM)
++		FlushOneBuffer(bitmapbuf);
+ 	UnlockReleaseBuffer(bitmapbuf);
+ 
+ 	/* add the new bitmap page to the metapage's list of bitmaps */
+@@ -89,7 +109,10 @@ hash_xlog_init_bitmap_page(XLogReaderState *record)
+ 
+ 		PageSetLSN(page, lsn);
+ 		MarkBufferDirty(metabuf);
+-		XLogFlushBufferForRedoIfInit(record, 1, metabuf);
++
++		XLogRecGetBlockTag(record, 1, NULL, &forknum, NULL);
++		if (forknum == INIT_FORKNUM)
++			FlushOneBuffer(metabuf);
+ 	}
+ 	if (BufferIsValid(metabuf))
+ 		UnlockReleaseBuffer(metabuf);
+diff --git a/src/backend/access/transam/xlogutils.c b/src/backend/access/transam/xlogutils.c
+index 0d67f256afe..db5a314edf8 100644
+--- a/src/backend/access/transam/xlogutils.c
++++ b/src/backend/access/transam/xlogutils.c
+@@ -321,28 +321,6 @@ XLogInitBufferForRedo(XLogReaderState *record, uint8 block_id)
+ 	return buf;
+ }
+ 
+-/*
+- * If a redo routine modified an init fork, flush the buffer immediately.
+- *
+- * At the end of crash recovery the init forks of unlogged relations are
+- * copied to the main fork directly from disk, without going through shared
+- * buffers. Therefore, redo routines that update init forks without
+- * restoring a full-page image must call this after setting the page LSN and
+- * marking the buffer dirty.
+- */
+-void
+-XLogFlushBufferForRedoIfInit(XLogReaderState *record, uint8 block_id,
+-							 Buffer buffer)
+-{
+-	ForkNumber	forknum;
+-
+-	Assert(BufferIsValid(buffer));
+-
+-	XLogRecGetBlockTag(record, block_id, NULL, &forknum, NULL);
+-	if (forknum == INIT_FORKNUM)
+-		FlushOneBuffer(buffer);
+-}
+-
+ /*
+  * XLogReadBufferForRedoExtended
+  *		Like XLogReadBufferForRedo, but with extra options.
+@@ -420,9 +398,7 @@ XLogReadBufferForRedoExtended(XLogReaderState *record,
+ 		 * At the end of crash recovery the init forks of unlogged relations
+ 		 * are copied, without going through shared buffers. So we need to
+ 		 * force the on-disk state of init forks to always be in sync with the
+-		 * state in shared buffers. Use XLogFlushBufferForRedoIfInit() for
+-		 * redo routines that dirty init-fork buffers without restoring a
+-		 * full-page image.
++		 * state in shared buffers.
+ 		 */
+ 		if (forknum == INIT_FORKNUM)
+ 			FlushOneBuffer(*buf);
+diff --git a/src/backend/commands/sequence.c b/src/backend/commands/sequence.c
+index c1ad656397a..a79ef0651a9 100644
+--- a/src/backend/commands/sequence.c
++++ b/src/backend/commands/sequence.c
+@@ -1933,7 +1933,6 @@ seq_redo(XLogReaderState *record)
+ 
+ 	memcpy(page, localpage, BufferGetPageSize(buffer));
+ 	MarkBufferDirty(buffer);
+-	XLogFlushBufferForRedoIfInit(record, 0, buffer);
+ 	UnlockReleaseBuffer(buffer);
+ 
+ 	pfree(localpage);
+diff --git a/src/include/access/xlogutils.h b/src/include/access/xlogutils.h
+index 7639bd523e1..a1870d8e5aa 100644
+--- a/src/include/access/xlogutils.h
++++ b/src/include/access/xlogutils.h
+@@ -87,8 +87,6 @@ typedef struct ReadLocalXLogPageNoWaitPrivate
+ extern XLogRedoAction XLogReadBufferForRedo(XLogReaderState *record,
+ 											uint8 block_id, Buffer *buf);
+ extern Buffer XLogInitBufferForRedo(XLogReaderState *record, uint8 block_id);
+-extern void XLogFlushBufferForRedoIfInit(XLogReaderState *record,
+-										 uint8 block_id, Buffer buffer);
+ extern XLogRedoAction XLogReadBufferForRedoExtended(XLogReaderState *record,
+ 													uint8 block_id,
+ 													ReadBufferMode mode, bool get_cleanup_lock,

@@ -1,0 +1,45 @@
+diff --git a/src/backend/commands/trigger.c b/src/backend/commands/trigger.c
+index 7ae6557d897..eabe93eac9c 100644
+--- a/src/backend/commands/trigger.c
++++ b/src/backend/commands/trigger.c
+@@ -4355,12 +4355,8 @@ AfterTriggerExecute(EState *estate,
+ 	bool		should_free_new = false;
+ 
+ 	/*
+-	 * Locate trigger in trigdesc.  It might not be present, and in fact the
+-	 * trigdesc could be NULL, if the trigger was dropped since the event was
+-	 * queued.  In that case, silently do nothing.
++	 * Locate trigger in trigdesc.
+ 	 */
+-	if (trigdesc == NULL)
+-		return;
+ 	for (tgindx = 0; tgindx < trigdesc->numtriggers; tgindx++)
+ 	{
+ 		if (trigdesc->triggers[tgindx].tgoid == tgoid)
+@@ -4370,7 +4366,7 @@ AfterTriggerExecute(EState *estate,
+ 		}
+ 	}
+ 	if (LocTriggerData.tg_trigger == NULL)
+-		return;
++		elog(ERROR, "could not find trigger %u", tgoid);
+ 
+ 	/*
+ 	 * If doing EXPLAIN ANALYZE, start charging time to this trigger. We want
+@@ -4760,7 +4756,6 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
+ 					/* Catch calls with insufficient relcache refcounting */
+ 					Assert(!RelationHasReferenceCountZero(rel));
+ 					trigdesc = rInfo->ri_TrigDesc;
+-					/* caution: trigdesc could be NULL here */
+ 					finfo = rInfo->ri_TrigFunctions;
+ 					instr = rInfo->ri_TrigInstrument;
+ 					if (slot1 != NULL)
+@@ -4776,6 +4771,9 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
+ 						slot2 = MakeSingleTupleTableSlot(rel->rd_att,
+ 														 &TTSOpsMinimalTuple);
+ 					}
++					if (trigdesc == NULL)	/* should not happen */
++						elog(ERROR, "relation %u has no triggers",
++							 evtshared->ats_relid);
+ 				}
+ 
+ 				/*

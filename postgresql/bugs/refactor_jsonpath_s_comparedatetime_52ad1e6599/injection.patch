@@ -1,0 +1,123 @@
+diff --git a/src/backend/utils/adt/jsonpath_exec.c b/src/backend/utils/adt/jsonpath_exec.c
+index 4be288c23eb..203f663253c 100644
+--- a/src/backend/utils/adt/jsonpath_exec.c
++++ b/src/backend/utils/adt/jsonpath_exec.c
+@@ -3670,35 +3670,62 @@ castTimeToTimeTz(Datum time, bool useTz)
+ }
+ 
+ /*
+- * Compare date to timestamp.
+- * Note that this doesn't involve any timezone considerations.
++ * Compare date to timestamp.  Overflow during cast is reported as cast error.
+  */
+ static int
+-cmpDateToTimestamp(DateADT date1, Timestamp ts2, bool useTz)
++cmpDateToTimestamp(DateADT date1, Timestamp ts2, bool useTz, bool *have_error)
+ {
+-	return date_cmp_timestamp_internal(date1, ts2);
++	int			overflow = 0;
++	Timestamp	ts1 = date2timestamp_opt_overflow(date1, &overflow);
++
++	if (overflow)
++	{
++		*have_error = true;
++		return 0;
++	}
++	return timestamp_cmp_internal(ts1, ts2);
+ }
+ 
+ /*
+  * Compare date to timestamptz.
+  */
+ static int
+-cmpDateToTimestampTz(DateADT date1, TimestampTz tstz2, bool useTz)
++cmpDateToTimestampTz(DateADT date1, TimestampTz tstz2, bool useTz,
++					 bool *have_error)
+ {
++	int			overflow = 0;
++	TimestampTz tstz1;
++
+ 	checkTimezoneIsUsedForCast(useTz, "date", "timestamptz");
+ 
+-	return date_cmp_timestamptz_internal(date1, tstz2);
++	tstz1 = date2timestamptz_opt_overflow(date1, &overflow);
++	if (overflow)
++	{
++		*have_error = true;
++		return 0;
++	}
++	return timestamp_cmp_internal(tstz1, tstz2);
+ }
+ 
+ /*
+  * Compare timestamp to timestamptz.
+  */
+ static int
+-cmpTimestampToTimestampTz(Timestamp ts1, TimestampTz tstz2, bool useTz)
++cmpTimestampToTimestampTz(Timestamp ts1, TimestampTz tstz2, bool useTz,
++						  bool *have_error)
+ {
++	int			overflow = 0;
++	TimestampTz tstz1;
++
+ 	checkTimezoneIsUsedForCast(useTz, "timestamp", "timestamptz");
+ 
+-	return timestamp_cmp_timestamptz_internal(ts1, tstz2);
++	tstz1 = timestamp2timestamptz_opt_overflow(ts1, &overflow);
++	if (overflow)
++	{
++		*have_error = true;
++		return 0;
++	}
++	return timestamp_cmp_internal(tstz1, tstz2);
+ }
+ 
+ /*
+@@ -3727,12 +3754,12 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
+ 				case TIMESTAMPOID:
+ 					return cmpDateToTimestamp(DatumGetDateADT(val1),
+ 											  DatumGetTimestamp(val2),
+-											  useTz);
++											  useTz, cast_error);
+ 
+ 				case TIMESTAMPTZOID:
+ 					return cmpDateToTimestampTz(DatumGetDateADT(val1),
+ 												DatumGetTimestampTz(val2),
+-												useTz);
++												useTz, cast_error);
+ 
+ 				case TIMEOID:
+ 				case TIMETZOID:
+@@ -3803,7 +3830,7 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
+ 				case DATEOID:
+ 					return -cmpDateToTimestamp(DatumGetDateADT(val2),
+ 											   DatumGetTimestamp(val1),
+-											   useTz);
++											   useTz, cast_error);
+ 
+ 				case TIMESTAMPOID:
+ 					cmpfunc = timestamp_cmp;
+@@ -3813,7 +3840,7 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
+ 				case TIMESTAMPTZOID:
+ 					return cmpTimestampToTimestampTz(DatumGetTimestamp(val1),
+ 													 DatumGetTimestampTz(val2),
+-													 useTz);
++													 useTz, cast_error);
+ 
+ 				case TIMEOID:
+ 				case TIMETZOID:
+@@ -3832,12 +3859,12 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
+ 				case DATEOID:
+ 					return -cmpDateToTimestampTz(DatumGetDateADT(val2),
+ 												 DatumGetTimestampTz(val1),
+-												 useTz);
++												 useTz, cast_error);
+ 
+ 				case TIMESTAMPOID:
+ 					return -cmpTimestampToTimestampTz(DatumGetTimestamp(val2),
+ 													  DatumGetTimestampTz(val1),
+-													  useTz);
++													  useTz, cast_error);
+ 
+ 				case TIMESTAMPTZOID:
+ 					cmpfunc = timestamp_cmp;

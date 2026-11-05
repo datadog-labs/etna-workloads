@@ -1,0 +1,37 @@
+diff --git a/src/backend/access/common/toast_internals.c b/src/backend/access/common/toast_internals.c
+index b03196fdf3e..744e33d6e86 100644
+--- a/src/backend/access/common/toast_internals.c
++++ b/src/backend/access/common/toast_internals.c
+@@ -358,12 +358,10 @@ toast_save_datum(Relation rel, Datum value,
+ 	}
+ 
+ 	/*
+-	 * Done - close toast relation and its indexes but keep the lock until
+-	 * commit, so as a concurrent reindex done directly on the toast relation
+-	 * would be able to wait for this transaction.
++	 * Done - close toast relation and its indexes
+ 	 */
+-	toast_close_indexes(toastidxs, num_indexes, NoLock);
+-	table_close(toastrel, NoLock);
++	toast_close_indexes(toastidxs, num_indexes, RowExclusiveLock);
++	table_close(toastrel, RowExclusiveLock);
+ 
+ 	/*
+ 	 * Create the TOAST pointer value that we'll return
+@@ -438,13 +436,11 @@ toast_delete_datum(Relation rel, Datum value, bool is_speculative)
+ 	}
+ 
+ 	/*
+-	 * End scan and close relations but keep the lock until commit, so as a
+-	 * concurrent reindex done directly on the toast relation would be able to
+-	 * wait for this transaction.
++	 * End scan and close relations
+ 	 */
+ 	systable_endscan_ordered(toastscan);
+-	toast_close_indexes(toastidxs, num_indexes, NoLock);
+-	table_close(toastrel, NoLock);
++	toast_close_indexes(toastidxs, num_indexes, RowExclusiveLock);
++	table_close(toastrel, RowExclusiveLock);
+ }
+ 
+ /* ----------

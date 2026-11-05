@@ -1,0 +1,14 @@
+CREATE TABLE pt (a int, b int GENERATED ALWAYS AS IDENTITY) PARTITION BY RANGE (a);
+CREATE TABLE pt1 (b int NOT NULL, a int);
+ALTER TABLE pt ATTACH PARTITION pt1 FOR VALUES FROM (0) TO (100);
+INSERT INTO pt1 (a) VALUES (1);
+psql:<REPRO>:4: ERROR:  no owned sequence found
+INSERT INTO pt (a) VALUES (2);
+SELECT a, b FROM pt ORDER BY a;
+ a | b 
+---+---
+ 2 | 1
+(1 row)
+
+CREATE TABLE pt1_like (LIKE pt1 INCLUDING IDENTITY);
+psql:<REPRO>:7: ERROR:  no owned sequence found

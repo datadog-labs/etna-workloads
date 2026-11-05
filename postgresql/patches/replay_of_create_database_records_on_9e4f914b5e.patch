@@ -1,0 +1,63 @@
+diff --git a/src/backend/commands/dbcommands.c b/src/backend/commands/dbcommands.c
+index 5eb6caffe6d..57937b02ecf 100644
+--- a/src/backend/commands/dbcommands.c
++++ b/src/backend/commands/dbcommands.c
+@@ -3320,7 +3320,6 @@ dbase_redo(XLogReaderState *record)
+ 			(xl_dbase_create_file_copy_rec *) XLogRecGetData(record);
+ 		char	   *src_path;
+ 		char	   *dst_path;
+-		char	   *parent_path;
+ 		struct stat st;
+ 
+ 		src_path = GetDatabasePath(xlrec->src_db_id, xlrec->src_tablespace_id);
+@@ -3340,33 +3339,6 @@ dbase_redo(XLogReaderState *record)
+ 								dst_path)));
+ 		}
+ 
+-		/*
+-		 * If the parent of the target path doesn't exist, create it now. This
+-		 * enables us to create the target underneath later.
+-		 */
+-		parent_path = pstrdup(dst_path);
+-		get_parent_directory(parent_path);
+-		if (stat(parent_path, &st) < 0)
+-		{
+-			if (errno != ENOENT)
+-				ereport(FATAL,
+-						errmsg("could not stat directory \"%s\": %m",
+-							   dst_path));
+-
+-			/* create the parent directory if needed and valid */
+-			recovery_create_dbdir(parent_path, true);
+-		}
+-		pfree(parent_path);
+-
+-		/*
+-		 * There's a case where the copy source directory is missing for the
+-		 * same reason above.  Create the empty source directory so that
+-		 * copydir below doesn't fail.  The directory will be dropped soon by
+-		 * recovery.
+-		 */
+-		if (stat(src_path, &st) < 0 && errno == ENOENT)
+-			recovery_create_dbdir(src_path, false);
+-
+ 		/*
+ 		 * Force dirty buffers out to disk, to ensure source database is
+ 		 * up-to-date for the copy.
+@@ -3391,16 +3363,9 @@ dbase_redo(XLogReaderState *record)
+ 		xl_dbase_create_wal_log_rec *xlrec =
+ 			(xl_dbase_create_wal_log_rec *) XLogRecGetData(record);
+ 		char	   *dbpath;
+-		char	   *parent_path;
+ 
+ 		dbpath = GetDatabasePath(xlrec->db_id, xlrec->tablespace_id);
+ 
+-		/* create the parent directory if needed and valid */
+-		parent_path = pstrdup(dbpath);
+-		get_parent_directory(parent_path);
+-		recovery_create_dbdir(parent_path, true);
+-		pfree(parent_path);
+-
+ 		/* Create the database directory with the version file. */
+ 		CreateDirAndVersionFile(dbpath, xlrec->db_id, xlrec->tablespace_id,
+ 								true);

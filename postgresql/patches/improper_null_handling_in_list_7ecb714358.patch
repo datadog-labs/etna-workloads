@@ -1,0 +1,31 @@
+diff --git a/src/backend/executor/execPartition.c b/src/backend/executor/execPartition.c
+index 1f2da072632..3c2e1184605 100644
+--- a/src/backend/executor/execPartition.c
++++ b/src/backend/executor/execPartition.c
+@@ -1437,23 +1437,10 @@ get_partition_for_tuple(PartitionDispatch pd, Datum *values, bool *isnull)
+ 			}
+ 
+ 		case PARTITION_STRATEGY_LIST:
+-			if (isnull[0])
++			if (isnull[0] && partition_bound_accepts_nulls(boundinfo))
+ 			{
+-				/* this is far too cheap to bother doing any caching */
+-				if (partition_bound_accepts_nulls(boundinfo))
+-				{
+-					/*
+-					 * When there is a NULL partition we just return that
+-					 * directly.  We don't have a bound_offset so it's not
+-					 * valid to drop into the code after the switch which
+-					 * checks and updates the cache fields.  We perhaps should
+-					 * be invalidating the details of the last cached
+-					 * partition but there's no real need to.  Keeping those
+-					 * fields set gives a chance at matching to the cached
+-					 * partition on the next lookup.
+-					 */
+-					return boundinfo->null_index;
+-				}
++				/* Tuple maps to the null-accepting list partition */
++				return boundinfo->null_index;
+ 			}
+ 			else
+ 			{

@@ -1,0 +1,48 @@
+diff --git a/src/backend/access/transam/commit_ts.c b/src/backend/access/transam/commit_ts.c
+index 225ff7ca9f2..4542ba7bd48 100644
+--- a/src/backend/access/transam/commit_ts.c
++++ b/src/backend/access/transam/commit_ts.c
+@@ -646,9 +646,10 @@ CompleteCommitTsInitialization(void)
+ 	 * any leftover data.
+ 	 *
+ 	 * Conversely, we activate the module if the feature is enabled.  This is
+-	 * necessary for primary and standby as the activation depends on the
+-	 * control file contents at the beginning of recovery or when a
+-	 * XLOG_PARAMETER_CHANGE is replayed.
++	 * not necessary in a master system because we already did it earlier, but
++	 * if we're in a standby server that got promoted which had the feature
++	 * enabled and was following a master that had the feature disabled, this
++	 * is where we turn it on locally.
+ 	 */
+ 	if (!track_commit_timestamp)
+ 		DeactivateCommitTs();
+@@ -658,7 +659,7 @@ CompleteCommitTsInitialization(void)
+ 
+ /*
+  * Activate or deactivate CommitTs' upon reception of a XLOG_PARAMETER_CHANGE
+- * XLog record during recovery.
++ * XLog record in a standby.
+  */
+ void
+ CommitTsParameterChange(bool newvalue, bool oldvalue)
+diff --git a/src/backend/access/transam/xlog.c b/src/backend/access/transam/xlog.c
+index 2fd06e37999..9d74a51c673 100644
+--- a/src/backend/access/transam/xlog.c
++++ b/src/backend/access/transam/xlog.c
+@@ -5657,12 +5657,11 @@ StartupXLOG(void)
+ 	StartupMultiXact();
+ 
+ 	/*
+-	 * Ditto for commit timestamps.  Activate the facility if the setting is
+-	 * enabled in the control file, as there should be no tracking of commit
+-	 * timestamps done when the setting was disabled.  This facility can be
+-	 * started or stopped when replaying a XLOG_PARAMETER_CHANGE record.
++	 * Ditto commit timestamps.  In a standby, we do it if setting is enabled
++	 * in ControlFile; in a master we base the decision on the GUC itself.
+ 	 */
+-	if (ControlFile->track_commit_timestamp)
++	if (ArchiveRecoveryRequested ?
++		ControlFile->track_commit_timestamp : track_commit_timestamp)
+ 		StartupCommitTs();
+ 
+ 	/*

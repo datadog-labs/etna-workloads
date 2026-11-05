@@ -1,0 +1,38 @@
+diff --git a/src/backend/utils/adt/geo_ops.c b/src/backend/utils/adt/geo_ops.c
+index 377a1b3f3ad..6a7f28ac9a7 100644
+--- a/src/backend/utils/adt/geo_ops.c
++++ b/src/backend/utils/adt/geo_ops.c
+@@ -4604,8 +4604,8 @@ poly_path(PG_FUNCTION_ARGS)
+ /*		circle_in		-		convert a string to internal form.
+  *
+  *		External format: (center and radius of circle)
+- *				"<(f8,f8),f8>"
+- *				also supports quick entry style "f8,f8,f8"
++ *				"((f8,f8)<f8>)"
++ *				also supports quick entry style "(f8,f8,f8)"
+  */
+ Datum
+ circle_in(PG_FUNCTION_ARGS)
+@@ -4620,19 +4620,16 @@ circle_in(PG_FUNCTION_ARGS)
+ 	s = str;
+ 	while (isspace((unsigned char) *s))
+ 		s++;
+-	if (*s == LDELIM_C)
+-		depth++, s++;
+-	else if (*s == LDELIM)
++	if ((*s == LDELIM_C) || (*s == LDELIM))
+ 	{
+-		/* If there are two left parens, consume the first one */
++		depth++;
+ 		cp = (s + 1);
+ 		while (isspace((unsigned char) *cp))
+ 			cp++;
+ 		if (*cp == LDELIM)
+-			depth++, s = cp;
++			s = cp;
+ 	}
+ 
+-	/* pair_decode will consume parens around the pair, if any */
+ 	if (!pair_decode(s, &circle->center.x, &circle->center.y, &s, "circle", str,
+ 					 escontext))
+ 		PG_RETURN_NULL();

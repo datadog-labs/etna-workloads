@@ -1,0 +1,10 @@
+CREATE FOREIGN DATA WRAPPER dummy;
+CREATE SERVER s0 FOREIGN DATA WRAPPER dummy;
+CREATE TABLE lt1 (a INT) PARTITION BY RANGE (a);
+CREATE TABLE lt1_part1 PARTITION OF lt1 FOR VALUES FROM (0) TO (1000) PARTITION BY RANGE (a);
+CREATE FOREIGN TABLE ft_part_1_2 (a INT) SERVER s0;
+ALTER TABLE lt1_part1 ATTACH PARTITION ft_part_1_2 FOR VALUES FROM (100) TO (200);
+CREATE UNIQUE INDEX ON lt1 (a);
+psql:<REPRO>:7: ERROR:  cannot create unique index on partitioned table "lt1"
+DETAIL:  Table "lt1" contains partitions that are foreign tables.
+CREATE INDEX ON lt1 (a);

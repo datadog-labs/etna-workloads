@@ -1,0 +1,48 @@
+diff --git a/src/backend/tcop/backend_startup.c b/src/backend/tcop/backend_startup.c
+index 8ad4808e537..0066d408bdf 100644
+--- a/src/backend/tcop/backend_startup.c
++++ b/src/backend/tcop/backend_startup.c
+@@ -496,7 +496,6 @@ ProcessStartupPacket(Port *port, bool ssl_done, bool gss_done)
+ 	ProtocolVersion proto;
+ 	MemoryContext oldcontext;
+ 
+-retry:
+ 	pq_startmsgread();
+ 
+ 	/*
+@@ -633,16 +632,7 @@ retry:
+ 		 * another SSL negotiation request, and a GSS request should only
+ 		 * follow if SSL was rejected (client may negotiate in either order)
+ 		 */
+-		ssl_done = true;
+-		if (SSLok == 'S')
+-		{
+-			/*
+-			 * We are done with SSL and negotiated correctly, so consider the
+-			 * same for GSS.
+-			 */
+-			gss_done = true;
+-		}
+-		goto retry;
++		return ProcessStartupPacket(port, true, SSLok == 'S');
+ 	}
+ 	else if (proto == NEGOTIATE_GSS_CODE && !gss_done)
+ 	{
+@@ -701,16 +691,7 @@ retry:
+ 		 * another GSS negotiation request, and an SSL request should only
+ 		 * follow if GSS was rejected (client may negotiate in either order)
+ 		 */
+-		gss_done = true;
+-		if (GSSok == 'G')
+-		{
+-			/*
+-			 * We are done with GSS and negotiated correctly, so consider the
+-			 * same for SSL.
+-			 */
+-			ssl_done = true;
+-		}
+-		goto retry;
++		return ProcessStartupPacket(port, GSSok == 'G', true);
+ 	}
+ 
+ 	/* Could add additional special packet types here */

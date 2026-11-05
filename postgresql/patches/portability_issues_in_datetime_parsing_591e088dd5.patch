@@ -1,0 +1,14 @@
+diff --git a/src/backend/utils/adt/datetime.c b/src/backend/utils/adt/datetime.c
+index 680fee2a844..16aa057504a 100644
+--- a/src/backend/utils/adt/datetime.c
++++ b/src/backend/utils/adt/datetime.c
+@@ -3902,6 +3902,9 @@ ParseISO8601Number(char *str, char **endptr, int64 *ipart, double *fpart)
+ 	/* did we not see anything that looks like a double? */
+ 	if (*endptr == str || errno != 0)
+ 		return DTERR_BAD_FORMAT;
++	/* emulate strtod implementations that insist on digits after '.' */
++	if ((*endptr)[-1] == '.' && *endptr - str > 1)
++		return DTERR_BAD_FORMAT;
+ 	/* watch out for overflow, including infinities; reject NaN too */
+ 	if (isnan(val) || val < -1.0e15 || val > 1.0e15)
+ 		return DTERR_FIELD_OVERFLOW;

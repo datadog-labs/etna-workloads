@@ -1,0 +1,28 @@
+set enable_seqscan=off;
+create temp table t(a int, b int);
+create index on t(a);
+explain (verbose, costs off)
+select a from t union all select 42 order by 1;
+                    QUERY PLAN                    
+--------------------------------------------------
+ Merge Append
+   Sort Key: t.a
+   ->  Index Only Scan using t_a_idx on pg_temp.t
+         Output: t.a
+   ->  Sort
+         Output: 42
+         Sort Key: 42
+         ->  Result
+               Output: 42
+(9 rows)
+
+explain (verbose, costs off)
+select * from (select 1 as x offset 0) s limit 5;
+    QUERY PLAN     
+-------------------
+ Limit
+   Output: (1)
+   ->  Result
+         Output: 1
+(4 rows)
+

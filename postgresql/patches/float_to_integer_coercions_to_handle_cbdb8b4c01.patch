@@ -1,0 +1,150 @@
+diff --git a/src/backend/utils/adt/float.c b/src/backend/utils/adt/float.c
+index ba66a9c4ce6..6cda27c60ea 100644
+--- a/src/backend/utils/adt/float.c
++++ b/src/backend/utils/adt/float.c
+@@ -1215,20 +1215,12 @@ dtoi4(PG_FUNCTION_ARGS)
+ {
+ 	float8		num = PG_GETARG_FLOAT8(0);
+ 
+-	/*
+-	 * Get rid of any fractional part in the input.  This is so we don't fail
+-	 * on just-out-of-range values that would round into range.  Note
+-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+-	 */
+-	num = rint(num);
+-
+-	/* Range check */
+-	if (unlikely(isnan(num) || !FLOAT8_FITS_IN_INT32(num)))
++	if (num < INT_MIN || num > INT_MAX || isnan(num))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+ 				 errmsg("integer out of range")));
+ 
+-	PG_RETURN_INT32((int32) num);
++	PG_RETURN_INT32((int32) rint(num));
+ }
+ 
+ 
+@@ -1240,20 +1232,12 @@ dtoi2(PG_FUNCTION_ARGS)
+ {
+ 	float8		num = PG_GETARG_FLOAT8(0);
+ 
+-	/*
+-	 * Get rid of any fractional part in the input.  This is so we don't fail
+-	 * on just-out-of-range values that would round into range.  Note
+-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+-	 */
+-	num = rint(num);
+-
+-	/* Range check */
+-	if (unlikely(isnan(num) || !FLOAT8_FITS_IN_INT16(num)))
++	if (num < SHRT_MIN || num > SHRT_MAX || isnan(num))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+ 				 errmsg("smallint out of range")));
+ 
+-	PG_RETURN_INT16((int16) num);
++	PG_RETURN_INT16((int16) rint(num));
+ }
+ 
+ 
+@@ -1289,20 +1273,12 @@ ftoi4(PG_FUNCTION_ARGS)
+ {
+ 	float4		num = PG_GETARG_FLOAT4(0);
+ 
+-	/*
+-	 * Get rid of any fractional part in the input.  This is so we don't fail
+-	 * on just-out-of-range values that would round into range.  Note
+-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+-	 */
+-	num = rint(num);
+-
+-	/* Range check */
+-	if (unlikely(isnan(num) || !FLOAT4_FITS_IN_INT32(num)))
++	if (num < INT_MIN || num > INT_MAX || isnan(num))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+ 				 errmsg("integer out of range")));
+ 
+-	PG_RETURN_INT32((int32) num);
++	PG_RETURN_INT32((int32) rint(num));
+ }
+ 
+ 
+@@ -1314,20 +1290,12 @@ ftoi2(PG_FUNCTION_ARGS)
+ {
+ 	float4		num = PG_GETARG_FLOAT4(0);
+ 
+-	/*
+-	 * Get rid of any fractional part in the input.  This is so we don't fail
+-	 * on just-out-of-range values that would round into range.  Note
+-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+-	 */
+-	num = rint(num);
+-
+-	/* Range check */
+-	if (unlikely(isnan(num) || !FLOAT4_FITS_IN_INT16(num)))
++	if (num < SHRT_MIN || num > SHRT_MAX || isnan(num))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+ 				 errmsg("smallint out of range")));
+ 
+-	PG_RETURN_INT16((int16) num);
++	PG_RETURN_INT16((int16) rint(num));
+ }
+ 
+ 
+diff --git a/src/backend/utils/adt/int8.c b/src/backend/utils/adt/int8.c
+index ad6a56b4688..aa3add777d9 100644
+--- a/src/backend/utils/adt/int8.c
++++ b/src/backend/utils/adt/int8.c
+@@ -1328,20 +1328,14 @@ dtoi8(PG_FUNCTION_ARGS)
+ {
+ 	float8		num = PG_GETARG_FLOAT8(0);
+ 
+-	/*
+-	 * Get rid of any fractional part in the input.  This is so we don't fail
+-	 * on just-out-of-range values that would round into range.  Note
+-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+-	 */
+-	num = rint(num);
+-
+-	/* Range check */
+-	if (unlikely(isnan(num) || !FLOAT8_FITS_IN_INT64(num)))
++	if (unlikely(num < (double) PG_INT64_MIN) ||
++		unlikely(num > (double) PG_INT64_MAX) ||
++		unlikely(isnan(num)))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+ 				 errmsg("bigint out of range")));
+ 
+-	PG_RETURN_INT64((int64) num);
++	PG_RETURN_INT64((int64) rint(num));
+ }
+ 
+ Datum
+@@ -1363,20 +1357,14 @@ ftoi8(PG_FUNCTION_ARGS)
+ {
+ 	float4		num = PG_GETARG_FLOAT4(0);
+ 
+-	/*
+-	 * Get rid of any fractional part in the input.  This is so we don't fail
+-	 * on just-out-of-range values that would round into range.  Note
+-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+-	 */
+-	num = rint(num);
+-
+-	/* Range check */
+-	if (unlikely(isnan(num) || !FLOAT4_FITS_IN_INT64(num)))
++	if (unlikely(num < (float4) PG_INT64_MIN) ||
++		unlikely(num > (float4) PG_INT64_MAX) ||
++		unlikely(isnan(num)))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+ 				 errmsg("bigint out of range")));
+ 
+-	PG_RETURN_INT64((int64) num);
++	PG_RETURN_INT64((int64) rint(num));
+ }
+ 
+ Datum

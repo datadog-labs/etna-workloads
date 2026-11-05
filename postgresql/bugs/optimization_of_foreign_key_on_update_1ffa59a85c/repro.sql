@@ -1,0 +1,7 @@
+create table pk(a float8 primary key);
+create table fk(a float8 references pk on update cascade);
+insert into pk values (0);
+insert into fk values (0);
+update pk set a = '-0';
+select a::text from fk;
+select a::text from pk;

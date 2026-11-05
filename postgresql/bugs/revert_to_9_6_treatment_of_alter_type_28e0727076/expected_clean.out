@@ -1,0 +1,15 @@
+CREATE TYPE bogus AS ENUM ('good');
+BEGIN;
+ALTER TYPE bogus ADD VALUE 'new';
+SELECT 'new'::bogus;
+psql:<REPRO>:4: ERROR:  unsafe use of new value "new" of enum type bogus
+LINE 1: SELECT 'new'::bogus;
+               ^
+HINT:  New enum values must be committed before they can be used.
+COMMIT;
+SELECT enum_range(null::bogus);
+ enum_range 
+------------
+ {good}
+(1 row)
+

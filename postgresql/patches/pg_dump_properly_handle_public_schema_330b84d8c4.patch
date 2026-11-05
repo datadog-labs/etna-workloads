@@ -1,0 +1,24 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..c177b3a3223 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -5908,7 +5908,8 @@ getNamespaces(Archive *fout)
+ 		 * public schema depart from that, because changing its ACL so easily
+ 		 * breaks applications.
+ 		 */
+-		if (strcmp(nsinfo[i].dobj.name, "public") == 0)
++		if (!fout->dopt->outputClean &&
++			strcmp(nsinfo[i].dobj.name, "public") == 0)
+ 		{
+ 			PQExpBuffer aclarray = createPQExpBuffer();
+ 			PQExpBuffer aclitem = createPQExpBuffer();
+@@ -10641,7 +10642,8 @@ getAdditionalACLs(Archive *fout)
+ 				 * We ignore any pg_init_privs.initprivs entry for the public
+ 				 * schema, as explained in getNamespaces().
+ 				 */
+-				if (dobj->objType == DO_NAMESPACE &&
++				if (!fout->dopt->outputClean &&
++					dobj->objType == DO_NAMESPACE &&
+ 					strcmp(dobj->name, "public") == 0)
+ 					continue;
+ 

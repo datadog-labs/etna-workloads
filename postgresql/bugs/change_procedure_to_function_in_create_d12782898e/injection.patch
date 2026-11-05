@@ -1,0 +1,88 @@
+diff --git a/src/backend/commands/operatorcmds.c b/src/backend/commands/operatorcmds.c
+index 6274edcd1a9..7037b8f76b7 100644
+--- a/src/backend/commands/operatorcmds.c
++++ b/src/backend/commands/operatorcmds.c
+@@ -21,7 +21,7 @@
+  * NOTES
+  *	  These things must be defined and committed in the following order:
+  *		"create function":
+- *				input/output, recv/send functions
++ *				input/output, recv/send procedures
+  *		"create type":
+  *				type
+  *		"create operator":
+@@ -79,8 +79,8 @@ DefineOperator(List *names, List *parameters)
+ 	Oid			rettype;
+ 	List	   *commutatorName = NIL;	/* optional commutator operator name */
+ 	List	   *negatorName = NIL;	/* optional negator operator name */
+-	List	   *restrictionName = NIL;	/* optional restrict. sel. function */
+-	List	   *joinName = NIL; /* optional join sel. function */
++	List	   *restrictionName = NIL;	/* optional restrict. sel. procedure */
++	List	   *joinName = NIL; /* optional join sel. procedure */
+ 	Oid			functionOid;	/* functions converted to OID */
+ 	Oid			restrictionOid;
+ 	Oid			joinOid;
+@@ -120,9 +120,6 @@ DefineOperator(List *names, List *parameters)
+ 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
+ 						 errmsg("SETOF type not allowed for operator argument")));
+ 		}
+-		/* "function" and "procedure" are equivalent here */
+-		else if (strcmp(defel->defname, "function") == 0)
+-			functionName = defGetQualifiedName(defel);
+ 		else if (strcmp(defel->defname, "procedure") == 0)
+ 			functionName = defGetQualifiedName(defel);
+ 		else if (strcmp(defel->defname, "commutator") == 0)
+@@ -162,7 +159,7 @@ DefineOperator(List *names, List *parameters)
+ 	if (functionName == NIL)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
+-				 errmsg("operator function must be specified")));
++				 errmsg("operator procedure must be specified")));
+ 
+ 	/* Transform type names to type OIDs */
+ 	if (typeName1)
+@@ -260,8 +257,8 @@ DefineOperator(List *names, List *parameters)
+ 					   functionOid, /* function for operator */
+ 					   commutatorName,	/* optional commutator operator name */
+ 					   negatorName, /* optional negator operator name */
+-					   restrictionOid,	/* optional restrict. sel. function */
+-					   joinOid, /* optional join sel. function name */
++					   restrictionOid,	/* optional restrict. sel. procedure */
++					   joinOid, /* optional join sel. procedure name */
+ 					   canMerge,	/* operator merges */
+ 					   canHash);	/* operator hashes */
+ }
+@@ -504,10 +501,10 @@ AlterOperator(AlterOperatorStmt *stmt)
+ 	Datum		values[Natts_pg_operator];
+ 	bool		nulls[Natts_pg_operator];
+ 	bool		replaces[Natts_pg_operator];
+-	List	   *restrictionName = NIL;	/* optional restrict. sel. function */
++	List	   *restrictionName = NIL;	/* optional restrict. sel. procedure */
+ 	bool		updateRestriction = false;
+ 	Oid			restrictionOid;
+-	List	   *joinName = NIL; /* optional join sel. function */
++	List	   *joinName = NIL; /* optional join sel. procedure */
+ 	bool		updateJoin = false;
+ 	Oid			joinOid;
+ 	List	   *commutatorName = NIL;	/* optional commutator operator name */
+@@ -573,7 +570,6 @@ AlterOperator(AlterOperatorStmt *stmt)
+ 		 */
+ 		else if (strcmp(defel->defname, "leftarg") == 0 ||
+ 				 strcmp(defel->defname, "rightarg") == 0 ||
+-				 strcmp(defel->defname, "function") == 0 ||
+ 				 strcmp(defel->defname, "procedure") == 0)
+ 		{
+ 			ereport(ERROR,
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..af2cdec9a0c 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -14026,7 +14026,7 @@ dumpOpr(Archive *fout, const OprInfo *oprinfo)
+ 	oprregproc = convertRegProcReference(oprcode);
+ 	if (oprregproc)
+ 	{
+-		appendPQExpBuffer(details, "    FUNCTION = %s", oprregproc);
++		appendPQExpBuffer(details, "    PROCEDURE = %s", oprregproc);
+ 		free(oprregproc);
+ 	}
+ 

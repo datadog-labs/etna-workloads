@@ -1,0 +1,15 @@
+\set VERBOSITY default
+select '{ "a":  "\ud83d\ud83d" }'::json -> 'a';
+psql:<REPRO>:2: ERROR:  invalid input syntax for type json
+DETAIL:  Unicode high surrogate must not follow a high surrogate.
+CONTEXT:  JSON data, line 1: { "a":...
+select '{ "a":  "\ude04X" }'::jsonb;
+psql:<REPRO>:3: ERROR:  invalid input syntax for type json
+LINE 1: select '{ "a":  "\ude04X" }'::jsonb;
+               ^
+DETAIL:  Unicode low surrogate must follow a high surrogate.
+CONTEXT:  JSON data, line 1: { "a":...
+select '{ "a":  "null \u0000 escape" }'::json ->> 'a';
+psql:<REPRO>:4: ERROR:  unsupported Unicode escape sequence
+DETAIL:  \u0000 cannot be converted to text.
+CONTEXT:  JSON data, line 1: { "a":...

@@ -1,0 +1,38 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..016134e17a0 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -14640,33 +14640,6 @@ ATPrepAlterColumnType(List **wqueue,
+ 
+ 			ReleaseSysCache(childtuple);
+ 
+-			/*
+-			 * Remap the attribute numbers.  If no USING expression was
+-			 * specified, there is no need for this step.
+-			 */
+-			if (def->cooked_default)
+-			{
+-				AttrMap    *attmap;
+-				bool		found_whole_row;
+-
+-				/* create a copy to scribble on */
+-				cmd = copyObject(cmd);
+-
+-				attmap = build_attrmap_by_name(RelationGetDescr(childrel),
+-											   RelationGetDescr(rel),
+-											   false);
+-				((ColumnDef *) cmd->def)->cooked_default =
+-					map_variable_attnos(def->cooked_default,
+-										1, 0,
+-										attmap,
+-										InvalidOid, &found_whole_row);
+-				if (found_whole_row)
+-					ereport(ERROR,
+-							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-							 errmsg("cannot convert whole-row table reference"),
+-							 errdetail("USING expression contains a whole-row table reference.")));
+-				pfree(attmap);
+-			}
+ 			ATPrepCmd(wqueue, childrel, cmd, false, true, lockmode, context);
+ 			relation_close(childrel, NoLock);
+ 		}

@@ -1,0 +1,23 @@
+SELECT 'seed' AS g, flags FROM (SELECT pg_settings_get_flags('transaction_isolation') AS flags) s;
+  g   |                 flags                 
+------+---------------------------------------
+ seed | {NO_RESET,NO_RESET_ALL,NOT_IN_SAMPLE}
+(1 row)
+
+BEGIN;
+SELECT 1;
+ ?column? 
+----------
+        1
+(1 row)
+
+RESET transaction_isolation;
+ROLLBACK;
+CREATE FUNCTION f() RETURNS int LANGUAGE sql SET transaction_read_only = on AS 'select 1';
+SELECT f();
+ f 
+---
+ 1
+(1 row)
+
+RESET seed;

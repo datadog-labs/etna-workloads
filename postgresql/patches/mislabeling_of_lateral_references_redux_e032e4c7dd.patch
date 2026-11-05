@@ -1,0 +1,39 @@
+diff --git a/src/backend/optimizer/prep/prepjointree.c b/src/backend/optimizer/prep/prepjointree.c
+index b150a933aad..c7ef38ae909 100644
+--- a/src/backend/optimizer/prep/prepjointree.c
++++ b/src/backend/optimizer/prep/prepjointree.c
+@@ -2921,34 +2921,6 @@ pullup_replace_vars_callback(Var *var,
+ 			 * the nullingrels of a lateral reference.  However, we might
+ 			 * relax those restrictions someday, so let's do this right.)
+ 			 */
+-			if (rcon->target_rte->lateral)
+-			{
+-				nullingrel_info *nullinfo = rcon->nullinfo;
+-				Relids		lvarnos;
+-				int			lvarno;
+-
+-				/*
+-				 * Identify lateral varnos used within newnode.  We must do
+-				 * this before injecting var->varnullingrels into the tree.
+-				 */
+-				lvarnos = pull_varnos(rcon->root, newnode);
+-				lvarnos = bms_del_members(lvarnos, rcon->relids);
+-				/* For each one, add relevant nullingrels if any */
+-				lvarno = -1;
+-				while ((lvarno = bms_next_member(lvarnos, lvarno)) >= 0)
+-				{
+-					Relids		lnullingrels;
+-
+-					Assert(lvarno > 0 && lvarno <= nullinfo->rtlength);
+-					lnullingrels = bms_intersect(var->varnullingrels,
+-												 nullinfo->nullingrels[lvarno]);
+-					if (!bms_is_empty(lnullingrels))
+-						newnode = add_nulling_relids(newnode,
+-													 bms_make_singleton(lvarno),
+-													 lnullingrels);
+-				}
+-			}
+-
+ 			/* Finally, deal with Vars/PHVs of the subquery itself */
+ 			newnode = add_nulling_relids(newnode,
+ 										 rcon->relids,

@@ -1,0 +1,78 @@
+diff --git a/src/backend/executor/execExpr.c b/src/backend/executor/execExpr.c
+index 038a93c5cc7..adcaae1a8cd 100644
+--- a/src/backend/executor/execExpr.c
++++ b/src/backend/executor/execExpr.c
+@@ -1788,24 +1788,6 @@ ExecInitExprRec(Expr *node, ExprState *state,
+ 
+ 					ExecInitExprRec(caseExpr->arg, state,
+ 									caseval, casenull);
+-
+-					/*
+-					 * Since value might be read multiple times, force to R/O
+-					 * - but only if it could be an expanded datum.
+-					 */
+-					if (get_typlen(exprType((Node *) caseExpr->arg)) == -1)
+-					{
+-						/* change caseval in-place */
+-						scratch.opcode = EEOP_MAKE_READONLY;
+-						scratch.resvalue = caseval;
+-						scratch.resnull = casenull;
+-						scratch.d.make_readonly.value = caseval;
+-						scratch.d.make_readonly.isnull = casenull;
+-						ExprEvalPushStep(state, &scratch);
+-						/* restore normal settings of scratch fields */
+-						scratch.resvalue = resv;
+-						scratch.resnull = resnull;
+-					}
+ 				}
+ 
+ 				/*
+@@ -3601,32 +3583,8 @@ ExecInitCoerceToDomain(ExprEvalStep *scratch, CoerceToDomain *ctest,
+ 				 */
+ 				if (domainval == NULL)
+ 				{
+-					/*
+-					 * Since value might be read multiple times, force to R/O
+-					 * - but only if it could be an expanded datum.
+-					 */
+-					if (get_typlen(ctest->resulttype) == -1)
+-					{
+-						ExprEvalStep scratch2 = {0};
+-
+-						/* Yes, so make output workspace for MAKE_READONLY */
+-						domainval = (Datum *) palloc(sizeof(Datum));
+-						domainnull = (bool *) palloc(sizeof(bool));
+-
+-						/* Emit MAKE_READONLY */
+-						scratch2.opcode = EEOP_MAKE_READONLY;
+-						scratch2.resvalue = domainval;
+-						scratch2.resnull = domainnull;
+-						scratch2.d.make_readonly.value = resv;
+-						scratch2.d.make_readonly.isnull = resnull;
+-						ExprEvalPushStep(state, &scratch2);
+-					}
+-					else
+-					{
+-						/* No, so it's fine to read from resv/resnull */
+-						domainval = resv;
+-						domainnull = resnull;
+-					}
++					domainval = resv;
++					domainnull = resnull;
+ 				}
+ 
+ 				/*
+diff --git a/src/backend/utils/adt/domains.c b/src/backend/utils/adt/domains.c
+index e755b70e17e..c23e1097298 100644
+--- a/src/backend/utils/adt/domains.c
++++ b/src/backend/utils/adt/domains.c
+@@ -185,8 +185,7 @@ domain_check_input(Datum value, bool isnull, DomainIOData *my_extra,
+ 					 * domain_check().)
+ 					 */
+ 					econtext->domainValue_datum =
+-						MakeExpandedObjectReadOnly(value, isnull,
+-												   my_extra->constraint_ref.tcache->typlen);
++						value;
+ 					econtext->domainValue_isNull = isnull;
+ 
+ 					if (!ExecCheck(con->check_exprstate, econtext))

@@ -1,0 +1,2 @@
+CREATE VIEW v0 AS SELECT;
+SELECT count(*) FROM v0;

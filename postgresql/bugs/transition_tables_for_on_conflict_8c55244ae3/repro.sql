@@ -1,0 +1,19 @@
+create table t(a int primary key, b int);
+create function f() returns trigger language plpgsql as $$
+declare r text;
+begin
+  select string_agg(n::text, ',') into r from newt n;
+  raise notice '% new: %', tg_op, r;
+  return null;
+end $$;
+create function g() returns trigger language plpgsql as $$
+declare r text;
+begin
+  select string_agg(n::text, ',') into r from newt n;
+  raise notice '% new: %', tg_op, r;
+  return null;
+end $$;
+create trigger ti after insert on t referencing new table as newt for each statement execute function f();
+create trigger tu after update on t referencing new table as newt for each statement execute function g();
+insert into t values (1,1);
+insert into t values (1,2),(2,2) on conflict (a) do update set b = excluded.b + 10;

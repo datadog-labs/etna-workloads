@@ -1,0 +1,8 @@
+CREATE TABLE emp1 (id SERIAL PRIMARY KEY NOT NULL, code int);
+INSERT INTO emp1 VALUES (1,1);
+select 1 from emp1 full join
+    (select * from emp1 t1 join
+        emp1 t2 join emp1 t3 on t2.id = t3.id
+        on true
+    where false) s on true
+where false;

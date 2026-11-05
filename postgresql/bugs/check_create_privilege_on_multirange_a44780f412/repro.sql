@@ -1,0 +1,10 @@
+create role regress_mr;
+create schema mr_sch;
+grant create on schema public to regress_mr;
+set role regress_mr;
+create type mytype as range (subtype=int4, multirange_type_name=mr_sch.mr_type);
+reset role;
+select typname, typnamespace::regnamespace from pg_type where typname='mr_type';
+drop type if exists mytype;
+drop schema mr_sch;
+drop role regress_mr;

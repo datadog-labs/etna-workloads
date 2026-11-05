@@ -1,0 +1,44 @@
+diff --git a/src/backend/catalog/objectaddress.c b/src/backend/catalog/objectaddress.c
+index 76d5955e5ed..3c7fc14139e 100644
+--- a/src/backend/catalog/objectaddress.c
++++ b/src/backend/catalog/objectaddress.c
+@@ -1689,7 +1689,7 @@ get_object_address_opf_member(ObjectType objtype,
+ 	ObjectAddress address;
+ 	ListCell   *cell;
+ 	List	   *copy;
+-	TypeName   *typenames[2];
++	char	   *typenames[2];
+ 	Oid			typeoids[2];
+ 	int			membernum;
+ 	int			i;
+@@ -1713,8 +1713,8 @@ get_object_address_opf_member(ObjectType objtype,
+ 	{
+ 		ObjectAddress typaddr;
+ 
+-		typenames[i] = lfirst_node(TypeName, cell);
+-		typaddr = get_object_address_type(OBJECT_TYPE, typenames[i], missing_ok);
++		typenames[i] = strVal(lfirst(cell));
++		typaddr = get_object_address_type(OBJECT_TYPE, lfirst_node(TypeName, cell), missing_ok);
+ 		typeoids[i] = typaddr.objectId;
+ 		if (++i >= 2)
+ 			break;
+@@ -1741,8 +1741,7 @@ get_object_address_opf_member(ObjectType objtype,
+ 								(errcode(ERRCODE_UNDEFINED_OBJECT),
+ 								 errmsg("operator %d (%s, %s) of %s does not exist",
+ 										membernum,
+-										TypeNameToString(typenames[0]),
+-										TypeNameToString(typenames[1]),
++										typenames[0], typenames[1],
+ 										getObjectDescription(&famaddr, false))));
+ 				}
+ 				else
+@@ -1772,8 +1771,7 @@ get_object_address_opf_member(ObjectType objtype,
+ 								(errcode(ERRCODE_UNDEFINED_OBJECT),
+ 								 errmsg("function %d (%s, %s) of %s does not exist",
+ 										membernum,
+-										TypeNameToString(typenames[0]),
+-										TypeNameToString(typenames[1]),
++										typenames[0], typenames[1],
+ 										getObjectDescription(&famaddr, false))));
+ 				}
+ 				else

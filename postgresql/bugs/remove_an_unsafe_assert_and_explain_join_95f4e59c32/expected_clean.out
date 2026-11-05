@@ -1,0 +1,30 @@
+analyze pg_enum;
+explain (costs off)
+select anname, outname, enumtypid
+from
+  (select pa.proname as anname, coalesce(po.proname, typname) as outname
+   from pg_type t
+     left join pg_proc po on po.oid = t.typoutput
+     join pg_proc pa on pa.oid = t.typanalyze) ss,
+  pg_enum,
+  pg_type t2
+where anname = enumlabel and outname = t2.typname and enumtypid = t2.oid;
+                                         QUERY PLAN                                          
+---------------------------------------------------------------------------------------------
+ Nested Loop
+   Join Filter: (pg_enum.enumtypid = t2.oid)
+   ->  Nested Loop Left Join
+         ->  Hash Join
+               Hash Cond: ((t.typanalyze)::oid = pa.oid)
+               ->  Seq Scan on pg_type t
+               ->  Hash
+                     ->  Nested Loop
+                           ->  Seq Scan on pg_enum
+                           ->  Index Scan using pg_proc_proname_args_nsp_index on pg_proc pa
+                                 Index Cond: (proname = pg_enum.enumlabel)
+         ->  Index Scan using pg_proc_oid_index on pg_proc po
+               Index Cond: (oid = (t.typoutput)::oid)
+   ->  Index Scan using pg_type_typname_nsp_index on pg_type t2
+         Index Cond: (typname = COALESCE(po.proname, t.typname))
+(15 rows)
+

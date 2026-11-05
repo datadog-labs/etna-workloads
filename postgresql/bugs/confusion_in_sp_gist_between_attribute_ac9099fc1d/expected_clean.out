@@ -1,0 +1,57 @@
+\i ./spgn_load.sql
+/* src/test/modules/spgist_name_ops/spgist_name_ops--1.0.sql */
+-- complain if script is sourced in psql, rather than via CREATE EXTENSION
+CREATE FUNCTION spgist_name_config(internal, internal)
+RETURNS void IMMUTABLE PARALLEL SAFE STRICT
+AS '<WORK>/spgn' LANGUAGE C;
+CREATE FUNCTION spgist_name_choose(internal, internal)
+RETURNS void IMMUTABLE PARALLEL SAFE STRICT
+AS '<WORK>/spgn' LANGUAGE C;
+CREATE FUNCTION spgist_name_inner_consistent(internal, internal)
+RETURNS void IMMUTABLE PARALLEL SAFE STRICT
+AS '<WORK>/spgn' LANGUAGE C;
+CREATE FUNCTION spgist_name_leaf_consistent(internal, internal)
+RETURNS boolean IMMUTABLE PARALLEL SAFE STRICT
+AS '<WORK>/spgn' LANGUAGE C;
+CREATE FUNCTION spgist_name_compress(name)
+RETURNS text IMMUTABLE PARALLEL SAFE STRICT
+AS '<WORK>/spgn' LANGUAGE C;
+CREATE OPERATOR CLASS name_ops DEFAULT FOR TYPE name
+USING spgist AS
+	OPERATOR	1	< ,
+	OPERATOR	2	<= ,
+	OPERATOR	3	= ,
+	OPERATOR	4	>= ,
+	OPERATOR	5	> ,
+	FUNCTION	1	spgist_name_config(internal, internal),
+	FUNCTION	2	spgist_name_choose(internal, internal),
+	FUNCTION	3	spg_text_picksplit(internal, internal),
+	FUNCTION	4	spgist_name_inner_consistent(internal, internal),
+	FUNCTION	5	spgist_name_leaf_consistent(internal, internal),
+	FUNCTION	6	spgist_name_compress(name),
+	STORAGE text;
+-- Also test old-style where the STORAGE clause is disallowed
+CREATE OPERATOR CLASS name_ops_old FOR TYPE name
+USING spgist AS
+	OPERATOR	1	< ,
+	OPERATOR	2	<= ,
+	OPERATOR	3	= ,
+	OPERATOR	4	>= ,
+	OPERATOR	5	> ,
+	FUNCTION	1	spgist_name_config(internal, internal),
+	FUNCTION	2	spgist_name_choose(internal, internal),
+	FUNCTION	3	spg_text_picksplit(internal, internal),
+	FUNCTION	4	spgist_name_inner_consistent(internal, internal),
+	FUNCTION	5	spgist_name_leaf_consistent(internal, internal),
+	FUNCTION	6	spgist_name_compress(name);
+create table t(f1 name, f2 integer, f3 text);
+create index on t using spgist(f1) include(f2, f3);
+insert into t select proname, case when length(proname)%2=0 then pronargs end, prosrc from pg_proc;
+vacuum analyze t;
+set enable_seqscan=off; set enable_bitmapscan=off;
+select count(*), min(f1), max(f1) from t where f1 > 'binary_upgrade_set_n' and f1 < 'binary_upgrade_set_p';
+ count |                    min                    |                    max                    
+-------+-------------------------------------------+-------------------------------------------
+    13 | binary_upgrade_set_next_array_pg_type_oid | binary_upgrade_set_next_toast_relfilenode
+(1 row)
+

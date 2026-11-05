@@ -1,0 +1,58 @@
+diff --git a/src/backend/parser/parse_utilcmd.c b/src/backend/parser/parse_utilcmd.c
+index cacb1379e97..ae106d18fe0 100644
+--- a/src/backend/parser/parse_utilcmd.c
++++ b/src/backend/parser/parse_utilcmd.c
+@@ -336,20 +336,6 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
+ 	 */
+ 	transformIndexConstraints(&cxt);
+ 
+-	/*
+-	 * Re-consideration of LIKE clauses should happen after creation of
+-	 * indexes, but before creation of foreign keys.  This order is critical
+-	 * because a LIKE clause may attempt to create a primary key.  If there's
+-	 * also a pkey in the main CREATE TABLE list, creation of that will not
+-	 * check for a duplicate at runtime (since index_check_primary_key()
+-	 * expects that we rejected dups here).  Creation of the LIKE-generated
+-	 * pkey behaves like ALTER TABLE ADD, so it will check, but obviously that
+-	 * only works if it happens second.  On the other hand, we want to make
+-	 * pkeys before foreign key constraints, in case the user tries to make a
+-	 * self-referential FK.
+-	 */
+-	cxt.alist = list_concat(cxt.alist, cxt.likeclauses);
+-
+ 	/*
+ 	 * Postprocess foreign-key constraints.
+ 	 */
+@@ -1321,7 +1307,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
+ 		 CREATE_TABLE_LIKE_STATISTICS))
+ 	{
+ 		table_like_clause->relationOid = RelationGetRelid(relation);
+-		cxt->likeclauses = lappend(cxt->likeclauses, table_like_clause);
++		cxt->alist = lappend(cxt->alist, table_like_clause);
+ 	}
+ 
+ 	/*
+diff --git a/src/backend/tcop/utility.c b/src/backend/tcop/utility.c
+index 6dabd7e1560..6615b3cba54 100644
+--- a/src/backend/tcop/utility.c
++++ b/src/backend/tcop/utility.c
+@@ -1218,8 +1218,8 @@ ProcessUtilitySlow(ParseState *pstate,
+ 							/*
+ 							 * Do delayed processing of LIKE options.  This
+ 							 * will result in additional sub-statements for us
+-							 * to process.  Those should get done before any
+-							 * remaining actions, so prepend them to "stmts".
++							 * to process.  We can just tack those onto the
++							 * to-do list.
+ 							 */
+ 							TableLikeClause *like = (TableLikeClause *) stmt;
+ 							List	   *morestmts;
+@@ -1227,7 +1227,7 @@ ProcessUtilitySlow(ParseState *pstate,
+ 							Assert(table_rv != NULL);
+ 
+ 							morestmts = expandTableLikeClause(table_rv, like);
+-							stmts = list_concat(morestmts, stmts);
++							stmts = list_concat(stmts, morestmts);
+ 						}
+ 						else
+ 						{

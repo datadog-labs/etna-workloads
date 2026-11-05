@@ -1,0 +1,47 @@
+diff --git a/src/backend/executor/execPartition.c b/src/backend/executor/execPartition.c
+index 1f2da072632..d6e67b3332d 100644
+--- a/src/backend/executor/execPartition.c
++++ b/src/backend/executor/execPartition.c
+@@ -442,42 +442,6 @@ ExecFindPartition(ModifyTableState *mtstate,
+ 					ExecClearTuple(tempslot);
+ 			}
+ 		}
+-
+-		/*
+-		 * If this partition is the default one, we must check its partition
+-		 * constraint now, which may have changed concurrently due to
+-		 * partitions being added to the parent.
+-		 *
+-		 * (We do this here, and do not rely on ExecInsert doing it, because
+-		 * we don't want to miss doing it for non-leaf partitions.)
+-		 */
+-		if (partidx == partdesc->boundinfo->default_index)
+-		{
+-			/*
+-			 * The tuple must match the partition's layout for the constraint
+-			 * expression to be evaluated successfully.  If the partition is
+-			 * sub-partitioned, that would already be the case due to the code
+-			 * above, but for a leaf partition the tuple still matches the
+-			 * parent's layout.
+-			 *
+-			 * Note that we have a map to convert from root to current
+-			 * partition, but not from immediate parent to current partition.
+-			 * So if we have to convert, do it from the root slot; if not, use
+-			 * the root slot as-is.
+-			 */
+-			if (is_leaf)
+-			{
+-				TupleConversionMap *map = ExecGetRootToChildMap(rri, estate);
+-
+-				if (map)
+-					slot = execute_attr_map_slot(map->attrMap, rootslot,
+-												 rri->ri_PartitionTupleSlot);
+-				else
+-					slot = rootslot;
+-			}
+-
+-			ExecPartitionCheck(rri, slot, estate, true);
+-		}
+ 	}
+ 
+ 	/* Release the tuple in the lowest parent's dedicated slot. */

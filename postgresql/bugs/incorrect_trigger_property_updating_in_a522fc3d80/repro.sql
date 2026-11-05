@@ -1,0 +1,5 @@
+CREATE TEMP TABLE pk (a int primary key);
+CREATE TEMP TABLE fk (a int);
+ALTER TABLE fk ADD CONSTRAINT c FOREIGN KEY(a) REFERENCES pk ON DELETE CASCADE ON UPDATE NO ACTION NOT DEFERRABLE;
+ALTER TABLE fk ALTER CONSTRAINT c DEFERRABLE INITIALLY DEFERRED;
+SELECT tgfoid::regproc, tgdeferrable, tginitdeferred FROM pg_trigger JOIN pg_constraint con ON con.oid = tgconstraint WHERE tgrelid = 'pk'::regclass ORDER BY 1;

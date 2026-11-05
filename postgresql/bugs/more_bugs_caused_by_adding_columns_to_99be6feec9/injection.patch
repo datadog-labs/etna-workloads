@@ -1,0 +1,69 @@
+diff --git a/src/backend/parser/parse_relation.c b/src/backend/parser/parse_relation.c
+index b59df7dcdf3..6e4e5499cda 100644
+--- a/src/backend/parser/parse_relation.c
++++ b/src/backend/parser/parse_relation.c
+@@ -2817,16 +2817,15 @@ expandRTE(RangeTblEntry *rte, int rtindex, int sublevels_up,
+ 					Assert(varattno == te->resno);
+ 
+ 					/*
+-					 * Formerly it was possible for the subquery tlist to have
+-					 * more non-junk entries than the colnames list does (if
+-					 * this RTE has been expanded from a view that has more
+-					 * columns than it did when the current query was parsed).
+-					 * Now that ApplyRetrieveRule cleans up such cases, we
+-					 * shouldn't see that anymore, but let's just check.
++					 * In scenarios where columns have been added to a view
++					 * since the outer query was originally parsed, there can
++					 * be more items in the subquery tlist than the outer
++					 * query expects.  We should ignore such extra column(s)
++					 * --- compare the behavior for composite-returning
++					 * functions, in the RTE_FUNCTION case below.
+ 					 */
+ 					if (!aliasp_item)
+-						elog(ERROR, "too few column names for subquery %s",
+-							 rte->eref->aliasname);
++						break;
+ 
+ 					if (colnames)
+ 					{
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 62f54786be4..bb6685b4bea 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -25,7 +25,6 @@
+ #include "access/table.h"
+ #include "catalog/dependency.h"
+ #include "commands/trigger.h"
+-#include "executor/executor.h"
+ #include "foreign/fdwapi.h"
+ #include "miscadmin.h"
+ #include "nodes/makefuncs.h"
+@@ -1752,7 +1751,6 @@ ApplyRetrieveRule(Query *parsetree,
+ 	Query	   *rule_action;
+ 	RangeTblEntry *rte;
+ 	RowMarkClause *rc;
+-	int			numCols;
+ 
+ 	if (list_length(rule->actions) != 1)
+ 		elog(ERROR, "expected just one rule action");
+@@ -1893,20 +1891,6 @@ ApplyRetrieveRule(Query *parsetree,
+ 	rte->tablesample = NULL;
+ 	rte->inh = false;			/* must not be set for a subquery */
+ 
+-	/*
+-	 * Since we allow CREATE OR REPLACE VIEW to add columns to a view, the
+-	 * rule_action might emit more columns than we expected when the current
+-	 * query was parsed.  Various places expect rte->eref->colnames to be
+-	 * consistent with the non-junk output columns of the subquery, so patch
+-	 * things up if necessary by adding some dummy column names.
+-	 */
+-	numCols = ExecCleanTargetListLength(rule_action->targetList);
+-	while (list_length(rte->eref->colnames) < numCols)
+-	{
+-		rte->eref->colnames = lappend(rte->eref->colnames,
+-									  makeString(pstrdup("?column?")));
+-	}
+-
+ 	return parsetree;
+ }
+ 

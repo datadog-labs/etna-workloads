@@ -1,0 +1,2 @@
+CREATE TABLE p (a int, b int) PARTITION BY LIST (a, b);
+SELECT count(*) FROM pg_class WHERE relname = 'p';

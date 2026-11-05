@@ -1,0 +1,18 @@
+CREATE TABLE t(i int, v text);
+INSERT INTO t VALUES (1,'a'),(2,'b');
+CREATE MATERIALIZED VIEW mv AS SELECT * FROM t;
+CREATE UNIQUE INDEX ON mv(i);
+DELETE FROM t WHERE i=2;
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv;
+psql:<REPRO>:6: ERROR:  column _$diff._$newdata does not exist
+LINE 1: ...p_16389_2 _$diff WHERE _$diff.tid IS NOT NULL AND _$diff._$n...
+                                                             ^
+HINT:  Perhaps you meant to reference the column "_$diff.newdata".
+QUERY:  DELETE FROM public.mv _$mv WHERE ctid OPERATOR(pg_catalog.=) ANY (SELECT _$diff.tid FROM pg_temp_0.pg_temp_16389_2 _$diff WHERE _$diff.tid IS NOT NULL AND _$diff._$newdata IS NULL)
+SELECT * FROM mv ORDER BY i;
+ i | v 
+---+---
+ 1 | a
+ 2 | b
+(2 rows)
+

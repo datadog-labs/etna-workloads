@@ -1,0 +1,55 @@
+diff --git a/src/backend/access/gist/gistproc.c b/src/backend/access/gist/gistproc.c
+index 392163cb229..7ac56ff88e1 100644
+--- a/src/backend/access/gist/gistproc.c
++++ b/src/backend/access/gist/gistproc.c
+@@ -856,10 +856,9 @@ gist_box_same(PG_FUNCTION_ARGS)
+ 	bool	   *result = (bool *) PG_GETARG_POINTER(2);
+ 
+ 	if (b1 && b2)
+-		*result = (float8_eq(b1->low.x, b2->low.x) &&
+-				   float8_eq(b1->low.y, b2->low.y) &&
+-				   float8_eq(b1->high.x, b2->high.x) &&
+-				   float8_eq(b1->high.y, b2->high.y));
++		*result = DatumGetBool(DirectFunctionCall2(box_same,
++												   PointerGetDatum(b1),
++												   PointerGetDatum(b2)));
+ 	else
+ 		*result = (b1 == NULL && b2 == NULL);
+ 	PG_RETURN_POINTER(result);
+@@ -1362,31 +1361,11 @@ gist_point_consistent(PG_FUNCTION_ARGS)
+ 			*recheck = false;
+ 			break;
+ 		case BoxStrategyNumberGroup:
+-			{
+-				/*
+-				 * The only operator in this group is point <@ box (on_pb), so
+-				 * we needn't examine strategy again.
+-				 *
+-				 * For historical reasons, on_pb uses exact rather than fuzzy
+-				 * comparisons.  We could use box_overlap when at an internal
+-				 * page, but that would lead to possibly visiting child pages
+-				 * uselessly, because box_overlap uses fuzzy comparisons.
+-				 * Instead we write a non-fuzzy overlap test.  The same code
+-				 * will also serve for leaf-page tests, since leaf keys have
+-				 * high == low.
+-				 */
+-				BOX		   *query,
+-						   *key;
+-
+-				query = PG_GETARG_BOX_P(1);
+-				key = DatumGetBoxP(entry->key);
+-
+-				result = (key->high.x >= query->low.x &&
+-						  key->low.x <= query->high.x &&
+-						  key->high.y >= query->low.y &&
+-						  key->low.y <= query->high.y);
+-				*recheck = false;
+-			}
++			result = DatumGetBool(DirectFunctionCall5(gist_box_consistent,
++													  PointerGetDatum(entry),
++													  PG_GETARG_DATUM(1),
++													  Int16GetDatum(RTOverlapStrategyNumber),
++													  0, PointerGetDatum(recheck)));
+ 			break;
+ 		case PolygonStrategyNumberGroup:
+ 			{

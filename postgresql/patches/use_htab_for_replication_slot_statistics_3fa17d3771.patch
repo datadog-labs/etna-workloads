@@ -1,0 +1,117 @@
+diff --git a/src/backend/catalog/system_views.sql b/src/backend/catalog/system_views.sql
+index 08f780a2e63..0ca26d150dd 100644
+--- a/src/backend/catalog/system_views.sql
++++ b/src/backend/catalog/system_views.sql
+@@ -1054,9 +1054,7 @@ CREATE VIEW pg_stat_replication_slots AS
+             s.total_txns,
+             s.total_bytes,
+             s.stats_reset
+-    FROM pg_replication_slots as r,
+-        LATERAL pg_stat_get_replication_slot(slot_name) as s
+-    WHERE r.datoid IS NOT NULL; -- excluding physical slots
++    FROM pg_stat_get_replication_slots() AS s;
+ 
+ CREATE VIEW pg_stat_database AS
+     SELECT
+diff --git a/src/backend/utils/adt/pgstatfuncs.c b/src/backend/utils/adt/pgstatfuncs.c
+index 9ac3b18cb16..bf33cd345ad 100644
+--- a/src/backend/utils/adt/pgstatfuncs.c
++++ b/src/backend/utils/adt/pgstatfuncs.c
+@@ -26,6 +26,7 @@
+ #include "pgstat.h"
+ #include "postmaster/bgworker.h"
+ #include "replication/logicallauncher.h"
++#include "replication/slot.h"
+ #include "storage/proc.h"
+ #include "storage/procarray.h"
+ #include "utils/acl.h"
+@@ -2176,6 +2177,63 @@ pg_stat_get_replication_slot(PG_FUNCTION_ARGS)
+ 	PG_RETURN_DATUM(HeapTupleGetDatum(heap_form_tuple(tupdesc, values, nulls)));
+ }
+ 
++/*
++ * Returns statistics of all replication slots.
++ */
++Datum
++pg_stat_get_replication_slots(PG_FUNCTION_ARGS)
++{
++#define PG_STAT_GET_REPLICATION_SLOTS_COLS 10
++	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
++	NameData   *names;
++	int			nnames = 0;
++
++	InitMaterializedSRF(fcinfo, 0);
++
++	names = palloc(sizeof(NameData) * max_replication_slots);
++	LWLockAcquire(ReplicationSlotControlLock, LW_SHARED);
++	for (int i = 0; i < max_replication_slots; i++)
++	{
++		ReplicationSlot *slot = &ReplicationSlotCtl->replication_slots[i];
++
++		if (!slot->in_use || SlotIsPhysical(slot))
++			continue;
++		namestrcpy(&names[nnames++], NameStr(slot->data.name));
++	}
++	LWLockRelease(ReplicationSlotControlLock);
++
++	for (int i = 0; i < nnames; i++)
++	{
++		Datum		values[PG_STAT_GET_REPLICATION_SLOTS_COLS] = {0};
++		bool		nulls[PG_STAT_GET_REPLICATION_SLOTS_COLS] = {0};
++		PgStat_StatReplSlotEntry *slotent;
++		PgStat_StatReplSlotEntry allzero;
++
++		slotent = pgstat_fetch_replslot(names[i]);
++		if (!slotent)
++		{
++			memset(&allzero, 0, sizeof(allzero));
++			slotent = &allzero;
++		}
++		values[0] = CStringGetTextDatum(NameStr(names[i]));
++		values[1] = Int64GetDatum(slotent->spill_txns);
++		values[2] = Int64GetDatum(slotent->spill_count);
++		values[3] = Int64GetDatum(slotent->spill_bytes);
++		values[4] = Int64GetDatum(slotent->stream_txns);
++		values[5] = Int64GetDatum(slotent->stream_count);
++		values[6] = Int64GetDatum(slotent->stream_bytes);
++		values[7] = Int64GetDatum(slotent->total_txns);
++		values[8] = Int64GetDatum(slotent->total_bytes);
++		if (slotent->stat_reset_timestamp == 0)
++			nulls[9] = true;
++		else
++			values[9] = TimestampTzGetDatum(slotent->stat_reset_timestamp);
++		tuplestore_putvalues(rsinfo->setResult, rsinfo->setDesc, values, nulls);
++	}
++
++	return (Datum) 0;
++}
++
+ /*
+  * Get the subscription statistics for the given subscription. If the
+  * subscription statistics is not available, return all-zeros stats.
+diff --git a/src/include/catalog/pg_proc.dat b/src/include/catalog/pg_proc.dat
+index fb4f7f50350..1a3edce7660 100644
+--- a/src/include/catalog/pg_proc.dat
++++ b/src/include/catalog/pg_proc.dat
+@@ -5672,13 +5672,14 @@
+   proargmodes => '{o,o,o,o,o,o,o,o,o,o,o,o,o,o,o}',
+   proargnames => '{pid,status,receive_start_lsn,receive_start_tli,written_lsn,flushed_lsn,received_tli,last_msg_send_time,last_msg_receipt_time,latest_end_lsn,latest_end_time,slot_name,sender_host,sender_port,conninfo}',
+   prosrc => 'pg_stat_get_wal_receiver' },
+-{ oid => '6169', descr => 'statistics: information about replication slot',
+-  proname => 'pg_stat_get_replication_slot', provolatile => 's',
+-  proparallel => 'r', prorettype => 'record', proargtypes => 'text',
+-  proallargtypes => '{text,text,int8,int8,int8,int8,int8,int8,int8,int8,timestamptz}',
+-  proargmodes => '{i,o,o,o,o,o,o,o,o,o,o}',
+-  proargnames => '{slot_name,slot_name,spill_txns,spill_count,spill_bytes,stream_txns,stream_count,stream_bytes,total_txns,total_bytes,stats_reset}',
+-  prosrc => 'pg_stat_get_replication_slot' },
++{ oid => '6169', descr => 'statistics: information about replication slots',
++  proname => 'pg_stat_get_replication_slots', prorows => '10',
++  proisstrict => 'f', proretset => 't', provolatile => 's', proparallel => 'r',
++  prorettype => 'record', proargtypes => '',
++  proallargtypes => '{text,int8,int8,int8,int8,int8,int8,int8,int8,timestamptz}',
++  proargmodes => '{o,o,o,o,o,o,o,o,o,o}',
++  proargnames => '{slot_name,spill_txns,spill_count,spill_bytes,stream_txns,stream_count,stream_bytes,total_txns,total_bytes,stats_reset}',
++  prosrc => 'pg_stat_get_replication_slots' },
+ 
+ { oid => '6230', descr => 'statistics: check if a stats object exists',
+   proname => 'pg_stat_have_stats', provolatile => 'v', proparallel => 'r',

@@ -1,0 +1,4 @@
+PREPARE select1 AS SELECT 1 as a;
+CREATE TABLE as_select1 AS EXECUTE select1;
+CREATE TABLE IF NOT EXISTS as_select1 AS EXECUTE select1;
+DROP TABLE as_select1;

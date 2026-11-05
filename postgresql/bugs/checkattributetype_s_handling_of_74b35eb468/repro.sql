@@ -1,0 +1,4 @@
+create type textrange2 as range (subtype = text, collation = "C");
+create table tr_t (tr textrange2);
+insert into tr_t values ('[a,c)');
+select * from tr_t;

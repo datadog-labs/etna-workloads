@@ -1,0 +1,42 @@
+diff --git a/src/backend/utils/misc/guc.c b/src/backend/utils/misc/guc.c
+index ce5449f2878..914d1c621f1 100644
+--- a/src/backend/utils/misc/guc.c
++++ b/src/backend/utils/misc/guc.c
+@@ -1075,7 +1075,7 @@ add_guc_variable(struct config_generic *var, int elevel)
+ static bool
+ valid_custom_variable_name(const char *name)
+ {
+-	bool		saw_sep = false;
++	int			num_sep = 0;
+ 	bool		name_start = true;
+ 
+ 	for (const char *p = name; *p; p++)
+@@ -1084,7 +1084,7 @@ valid_custom_variable_name(const char *name)
+ 		{
+ 			if (name_start)
+ 				return false;	/* empty name component */
+-			saw_sep = true;
++			num_sep++;
+ 			name_start = true;
+ 		}
+ 		else if (strchr("ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+@@ -1101,8 +1101,8 @@ valid_custom_variable_name(const char *name)
+ 	}
+ 	if (name_start)
+ 		return false;			/* empty name component */
+-	/* OK if we found at least one separator */
+-	return saw_sep;
++	/* OK if we had exactly one separator */
++	return (num_sep == 1);
+ }
+ 
+ /*
+@@ -1136,7 +1136,7 @@ assignable_custom_variable_name(const char *name, bool skip_errors, int elevel)
+ 						(errcode(ERRCODE_INVALID_NAME),
+ 						 errmsg("invalid configuration parameter name \"%s\"",
+ 								name),
+-						 errdetail("Custom parameter names must be two or more simple identifiers separated by dots.")));
++						 errdetail("Custom parameter names must be of the form \"identifier.identifier\".")));
+ 			return false;
+ 		}
+ 		/* ... and it must not match any previously-reserved prefix */

@@ -1,0 +1,41 @@
+diff --git a/src/backend/catalog/pg_shdepend.c b/src/backend/catalog/pg_shdepend.c
+index 536191284e8..22114e694d5 100644
+--- a/src/backend/catalog/pg_shdepend.c
++++ b/src/backend/catalog/pg_shdepend.c
+@@ -1462,26 +1462,18 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
+ 
+ 				case SHARED_DEPENDENCY_OWNER:
+ 
+-					/*
+-					 * Save it for deletion below, if it's a local object or a
+-					 * role grant. Other shared objects, such as databases,
+-					 * should not be removed here.
+-					 */
+-					if (sdepForm->dbid == MyDatabaseId ||
+-						sdepForm->classid == AuthMemRelationId)
++					/* Save it for deletion below */
++					obj.classId = sdepForm->classid;
++					obj.objectId = sdepForm->objid;
++					obj.objectSubId = sdepForm->objsubid;
++					/* as above */
++					AcquireDeletionLock(&obj, 0);
++					if (!systable_recheck_tuple(scan, tuple))
+ 					{
+-						obj.classId = sdepForm->classid;
+-						obj.objectId = sdepForm->objid;
+-						obj.objectSubId = sdepForm->objsubid;
+-						/* as above */
+-						AcquireDeletionLock(&obj, 0);
+-						if (!systable_recheck_tuple(scan, tuple))
+-						{
+-							ReleaseDeletionLock(&obj);
+-							break;
+-						}
+-						add_exact_object_address(&obj, deleteobjs);
++						ReleaseDeletionLock(&obj);
++						break;
+ 					}
++					add_exact_object_address(&obj, deleteobjs);
+ 					break;
+ 				case SHARED_DEPENDENCY_INITACL:
+ 

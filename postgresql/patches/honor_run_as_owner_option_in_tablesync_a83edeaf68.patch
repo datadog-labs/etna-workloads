@@ -1,0 +1,29 @@
+diff --git a/src/backend/replication/logical/tablesync.c b/src/backend/replication/logical/tablesync.c
+index 92e4e383d77..31e12612efc 100644
+--- a/src/backend/replication/logical/tablesync.c
++++ b/src/backend/replication/logical/tablesync.c
+@@ -1509,14 +1509,6 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
+ 	replorigin_session_setup(originid, 0);
+ 	replorigin_session_origin = originid;
+ 
+-	/*
+-	 * Make sure that the copy command runs as the table owner, unless the
+-	 * user has opted out of that behaviour.
+-	 */
+-	run_as_owner = MySubscription->runasowner;
+-	if (!run_as_owner)
+-		SwitchToUntrustedUser(rel->rd_rel->relowner, &ucxt);
+-
+ 	/*
+ 	 * Check that our table sync worker has permission to insert into the
+ 	 * target table.
+@@ -1555,9 +1547,6 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
+ 						res->err)));
+ 	walrcv_clear_result(res);
+ 
+-	if (!run_as_owner)
+-		RestoreUserContext(&ucxt);
+-
+ 	table_close(rel, NoLock);
+ 
+ 	/* Make the copy visible. */

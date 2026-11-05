@@ -1,0 +1,367 @@
+# Verbatim injection
+
+This injection is the reverse of the implementation hunks of upstream commit a70f2a57f233244c0a780829baf48c624187d456 ("Don't try to dump RLS policies or security labels for extension objects."), applied to REL_18_6 (exactly). It restores the code the fix replaced.
+
+Files: src/bin/pg_dump/pg_dump.c
+
+Failing oracle cases:
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should dump SETVAL SEQUENCE regress_seq_dumpable`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|privileged_internals: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|schema_only: should not dump SETVAL SEQUENCE regress_seq_dumpable`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should dump SETVAL SEQUENCE regress_seq_dumpable`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_data: should not dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_post_data: should not dump SETVAL SEQUENCE regress_seq_dumpable`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|section_pre_data: should not dump SETVAL SEQUENCE regress_seq_dumpable`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should dump SETVAL SEQUENCE regress_seq_dumpable`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|with_extension: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension: should not dump SETVAL SEQUENCE regress_seq_dumpable`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_explicit_schema: should not dump SETVAL SEQUENCE regress_seq_dumpable`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: pg_dump runs`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should dump ALTER INDEX idx DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should dump ALTER INDEX pkey DEPENDS ON extension`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should dump CREATE TABLE regress_pg_dump_schema.external_tab`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump ALTER EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump COMMENT ON EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump COPY public.regress_table_dumpable (col1)`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE ACCESS METHOD regress_test_am`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE AGGREGATE regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE EXTENSION test_pg_dump`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE FUNCTION regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE ROLE regress_dump_login_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE ROLE regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE SCHEMA public`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE SEQUENCE regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE SEQUENCE regress_pg_dump_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE SEQUENCE regress_pg_dump_table_col1_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE TABLE regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE TABLE regress_pg_dump_table_added`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump CREATE TYPE regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT ALL ON PARAMETER Custom.Knob TO regress_dump_test_role WITH GRANT OPTION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT ALL ON PARAMETER DateStyle TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT ALL ON regress_pg_dump_schema.test_agg`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT ALL ON regress_pg_dump_schema.test_func`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT ALTER SYSTEM ON PARAMETER full_page_writes TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT SELECT ON TABLE regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT SELECT ON regress_pg_dump_schema.test_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT SELECT regress_pg_dump_table_added pre-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT SELECT(col2) ON regress_pg_dump_table TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT USAGE ON regress_pg_dump_schema.test_seq`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT USAGE ON regress_pg_dump_schema.test_type`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT USAGE ON regress_pg_dump_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump GRANT USAGE ON regress_pg_dump_table_col1_seq TO regress_dump_test_role`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump REVOKE ALL ON FUNCTION wgo_then_no_access`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump REVOKE GRANT OPTION FOR UPDATE ON SEQUENCE wgo_then_regular`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump REVOKE SELECT regress_pg_dump_table_added post-ALTER EXTENSION`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump REVOKE SELECT(col1) ON regress_pg_dump_table`
+- `src/test/modules/test_pg_dump|t/001_base.pl|without_extension_internal_schema: should not dump SETVAL SEQUENCE regress_seq_dumpable`

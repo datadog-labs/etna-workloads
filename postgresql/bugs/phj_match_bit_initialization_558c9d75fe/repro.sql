@@ -1,0 +1,11 @@
+SET enable_parallel_hash = on;
+SET min_parallel_table_scan_size = 0;
+SET parallel_setup_cost = 0;
+SET parallel_tuple_cost = 0;
+SET max_parallel_workers_per_gather = 2;
+CREATE TABLE t1(id int);
+CREATE TABLE t2(id int);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t2 VALUES (2);
+UPDATE t2 set id = 2;
+SELECT * FROM t1 FULL JOIN t2 ON t1.id = t2.id ORDER BY 1,2;

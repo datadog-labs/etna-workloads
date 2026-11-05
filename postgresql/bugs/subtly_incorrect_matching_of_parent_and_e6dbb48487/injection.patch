@@ -1,0 +1,46 @@
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..662492e8dc5 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -1325,6 +1325,7 @@ DefineIndex(Oid tableId,
+ 			bool		invalidate_parent = false;
+ 			Relation	parentIndex;
+ 			TupleDesc	parentDesc;
++			Oid		   *opfamOids;
+ 
+ 			/*
+ 			 * Report the total number of partitions at the start of the
+@@ -1360,18 +1361,12 @@ DefineIndex(Oid tableId,
+ 			/* Make a local copy of partdesc->oids[], just for safety */
+ 			memcpy(part_oids, partdesc->oids, sizeof(Oid) * nparts);
+ 
+-			/*
+-			 * We'll need an IndexInfo describing the parent index.  The one
+-			 * built above is almost good enough, but not quite, because (for
+-			 * example) its predicate expression if any hasn't been through
+-			 * expression preprocessing.  The most reliable way to get an
+-			 * IndexInfo that will match those for child indexes is to build
+-			 * it the same way, using BuildIndexInfo().
+-			 */
+ 			parentIndex = index_open(indexRelationId, lockmode);
+-			indexInfo = BuildIndexInfo(parentIndex);
+ 
+ 			parentDesc = RelationGetDescr(rel);
++			opfamOids = palloc_array(Oid, numberOfKeyAttributes);
++			for (int j = 0; j < numberOfKeyAttributes; j++)
++				opfamOids[j] = get_opclass_family(opclassIds[j]);
+ 
+ 			/*
+ 			 * For each partition, scan all existing indexes; if one matches
+@@ -1444,9 +1439,9 @@ DefineIndex(Oid tableId,
+ 					cldIdxInfo = BuildIndexInfo(cldidx);
+ 					if (CompareIndexInfo(cldIdxInfo, indexInfo,
+ 										 cldidx->rd_indcollation,
+-										 parentIndex->rd_indcollation,
++										 collationIds,
+ 										 cldidx->rd_opfamily,
+-										 parentIndex->rd_opfamily,
++										 opfamOids,
+ 										 attmap))
+ 					{
+ 						Oid			cldConstrOid = InvalidOid;

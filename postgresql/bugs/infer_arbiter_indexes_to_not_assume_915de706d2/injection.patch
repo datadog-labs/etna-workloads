@@ -1,0 +1,41 @@
+diff --git a/src/backend/optimizer/util/plancat.c b/src/backend/optimizer/util/plancat.c
+index 1d9aaf9146f..6bba3cd9937 100644
+--- a/src/backend/optimizer/util/plancat.c
++++ b/src/backend/optimizer/util/plancat.c
+@@ -715,7 +715,6 @@ infer_arbiter_indexes(PlannerInfo *root)
+ 	OnConflictExpr *onconflict = root->parse->onConflict;
+ 
+ 	/* Iteration state */
+-	Index		varno;
+ 	RangeTblEntry *rte;
+ 	Relation	relation;
+ 	Oid			indexOidFromConstraint = InvalidOid;
+@@ -744,8 +743,7 @@ infer_arbiter_indexes(PlannerInfo *root)
+ 	 * the rewriter or when expand_inherited_rtentry() added it to the query's
+ 	 * rangetable.
+ 	 */
+-	varno = root->parse->resultRelation;
+-	rte = rt_fetch(varno, root->parse->rtable);
++	rte = rt_fetch(root->parse->resultRelation, root->parse->rtable);
+ 
+ 	relation = table_open(rte->relid, NoLock);
+ 
+@@ -886,9 +884,6 @@ infer_arbiter_indexes(PlannerInfo *root)
+ 
+ 		/* Expression attributes (if any) must match */
+ 		idxExprs = RelationGetIndexExpressions(idxRel);
+-		if (idxExprs && varno != 1)
+-			ChangeVarNodes((Node *) idxExprs, 1, varno, 0);
+-
+ 		foreach(el, onconflict->arbiterElems)
+ 		{
+ 			InferenceElem *elem = (InferenceElem *) lfirst(el);
+@@ -940,8 +935,6 @@ infer_arbiter_indexes(PlannerInfo *root)
+ 		 * CONFLICT's WHERE clause.
+ 		 */
+ 		predExprs = RelationGetIndexPredicate(idxRel);
+-		if (predExprs && varno != 1)
+-			ChangeVarNodes((Node *) predExprs, 1, varno, 0);
+ 
+ 		if (!predicate_implied_by(predExprs, (List *) onconflict->arbiterWhere, false))
+ 			goto next;

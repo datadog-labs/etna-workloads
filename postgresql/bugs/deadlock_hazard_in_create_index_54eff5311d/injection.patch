@@ -1,0 +1,22 @@
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..b8176410e93 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -1784,17 +1784,6 @@ DefineIndex(Oid tableId,
+ 	PopActiveSnapshot();
+ 	UnregisterSnapshot(snapshot);
+ 
+-	/*
+-	 * The snapshot subsystem could still contain registered snapshots that
+-	 * are holding back our process's advertised xmin; in particular, if
+-	 * default_transaction_isolation = serializable, there is a transaction
+-	 * snapshot that is still active.  The CatalogSnapshot is likewise a
+-	 * hazard.  To ensure no deadlocks, we must commit and start yet another
+-	 * transaction, and do our wait before any snapshot has been taken in it.
+-	 */
+-	CommitTransactionCommand();
+-	StartTransactionCommand();
+-
+ 	/* Tell concurrent index builds to ignore us, if index qualifies */
+ 	if (safe_index)
+ 		set_indexsafe_procflags();

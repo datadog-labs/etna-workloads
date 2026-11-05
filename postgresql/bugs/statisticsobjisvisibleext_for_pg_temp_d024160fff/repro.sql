@@ -1,0 +1,6 @@
+CREATE TABLE ab1 (a int, b int);
+CREATE STATISTICS pg_temp.stats_ext_temp ON a, b FROM ab1;
+SELECT regexp_replace(pg_describe_object(tableoid, oid, 0),
+ 'pg_temp_[0-9]*', 'pg_temp_REDACTED') AS descr,
+ pg_statistics_obj_is_visible(oid) AS visible
+ FROM pg_statistic_ext WHERE stxname = 'stats_ext_temp';

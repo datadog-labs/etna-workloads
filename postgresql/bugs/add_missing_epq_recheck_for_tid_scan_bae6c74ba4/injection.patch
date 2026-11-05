@@ -1,0 +1,32 @@
+diff --git a/src/backend/executor/nodeTidscan.c b/src/backend/executor/nodeTidscan.c
+index d50c6600358..5e56e29a15f 100644
+--- a/src/backend/executor/nodeTidscan.c
++++ b/src/backend/executor/nodeTidscan.c
+@@ -402,23 +402,12 @@ TidNext(TidScanState *node)
+ static bool
+ TidRecheck(TidScanState *node, TupleTableSlot *slot)
+ {
+-	ItemPointer match;
+-
+-	/* WHERE CURRENT OF always intends to resolve to the latest tuple */
+-	if (node->tss_isCurrentOf)
+-		return true;
+-
+-	if (node->tss_TidList == NULL)
+-		TidListEval(node);
+-
+ 	/*
+-	 * Binary search the TidList to see if this ctid is mentioned and return
+-	 * true if it is.
++	 * XXX shouldn't we check here to make sure tuple matches TID list? In
++	 * runtime-key case this is not certain, is it?  However, in the WHERE
++	 * CURRENT OF case it might not match anyway ...
+ 	 */
+-	match = (ItemPointer) bsearch(&slot->tts_tid, node->tss_TidList,
+-								  node->tss_NumTids, sizeof(ItemPointerData),
+-								  itemptr_comparator);
+-	return match != NULL;
++	return true;
+ }
+ 
+ 

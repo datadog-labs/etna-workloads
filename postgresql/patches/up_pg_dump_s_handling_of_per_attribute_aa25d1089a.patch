@@ -1,0 +1,70 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..66b3c37806d 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -17153,6 +17153,31 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 										  tbinfo->atttypnames[j]);
+ 					}
+ 
++					/*
++					 * Attribute compression
++					 */
++					if (!dopt->no_toast_compression &&
++						tbinfo->attcompression != NULL)
++					{
++						char	   *cmname;
++
++						switch (tbinfo->attcompression[j])
++						{
++							case 'p':
++								cmname = "pglz";
++								break;
++							case 'l':
++								cmname = "lz4";
++								break;
++							default:
++								cmname = NULL;
++								break;
++						}
++
++						if (cmname != NULL)
++							appendPQExpBuffer(q, " COMPRESSION %s", cmname);
++					}
++
+ 					if (print_default)
+ 					{
+ 						if (tbinfo->attgenerated[j] == ATTRIBUTE_GENERATED_STORED)
+@@ -17710,33 +17735,6 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 									  storage);
+ 			}
+ 
+-			/*
+-			 * Dump per-column compression, if it's been set.
+-			 */
+-			if (!dopt->no_toast_compression)
+-			{
+-				const char *cmname;
+-
+-				switch (tbinfo->attcompression[j])
+-				{
+-					case 'p':
+-						cmname = "pglz";
+-						break;
+-					case 'l':
+-						cmname = "lz4";
+-						break;
+-					default:
+-						cmname = NULL;
+-						break;
+-				}
+-
+-				if (cmname != NULL)
+-					appendPQExpBuffer(q, "ALTER %sTABLE ONLY %s ALTER COLUMN %s SET COMPRESSION %s;\n",
+-									  foreign, qualrelname,
+-									  fmtId(tbinfo->attnames[j]),
+-									  cmname);
+-			}
+-
+ 			/*
+ 			 * Dump per-column attributes.
+ 			 */

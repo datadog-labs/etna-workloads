@@ -1,0 +1,63 @@
+diff --git a/src/backend/access/heap/heapam.c b/src/backend/access/heap/heapam.c
+index d72b41ef92f..693980051e5 100644
+--- a/src/backend/access/heap/heapam.c
++++ b/src/backend/access/heap/heapam.c
+@@ -1721,7 +1721,6 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
+ {
+ 	Page		page = BufferGetPage(buffer);
+ 	TransactionId prev_xmax = InvalidTransactionId;
+-	BlockNumber blkno;
+ 	OffsetNumber offnum;
+ 	bool		at_chain_start;
+ 	bool		valid;
+@@ -1732,14 +1731,15 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
+ 	if (all_dead)
+ 		*all_dead = first_call;
+ 
+-	blkno = ItemPointerGetBlockNumber(tid);
+ 	offnum = ItemPointerGetOffsetNumber(tid);
+ 	at_chain_start = first_call;
+ 	skip = !first_call;
+ 
+ 	/* XXX: we should assert that a snapshot is pushed or registered */
+ 	Assert(TransactionIdIsValid(RecentXmin));
+-	Assert(BufferGetBlockNumber(buffer) == blkno);
++	Assert(ItemPointerGetBlockNumber(tid) == BufferGetBlockNumber(buffer));
++
++	heapTuple->t_self = *tid;
+ 
+ 	/* Scan through possible multiple members of HOT-chain */
+ 	for (;;)
+@@ -1776,7 +1776,7 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
+ 		heapTuple->t_data = (HeapTupleHeader) PageGetItem(page, lp);
+ 		heapTuple->t_len = ItemIdGetLength(lp);
+ 		heapTuple->t_tableOid = RelationGetRelid(relation);
+-		ItemPointerSet(&heapTuple->t_self, blkno, offnum);
++		ItemPointerSetOffsetNumber(&heapTuple->t_self, offnum);
+ 
+ 		/*
+ 		 * Shouldn't see a HEAP_ONLY tuple at chain start.
+@@ -1802,10 +1802,14 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
+ 		 */
+ 		if (!skip)
+ 		{
++			ItemPointerSet(&(heapTuple->t_self), BufferGetBlockNumber(buffer), offnum);
++
+ 			/* If it's visible per the snapshot, we must return it */
+ 			valid = HeapTupleSatisfiesVisibility(heapTuple, snapshot, buffer);
+ 			HeapCheckForSerializableConflictOut(valid, relation, heapTuple,
+ 												buffer, snapshot);
++			/* reset to original, non-redirected, tid */
++			heapTuple->t_self = *tid;
+ 
+ 			if (valid)
+ 			{
+@@ -1843,7 +1847,7 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
+ 		if (HeapTupleIsHotUpdated(heapTuple))
+ 		{
+ 			Assert(ItemPointerGetBlockNumber(&heapTuple->t_data->t_ctid) ==
+-				   blkno);
++				   ItemPointerGetBlockNumber(tid));
+ 			offnum = ItemPointerGetOffsetNumber(&heapTuple->t_data->t_ctid);
+ 			at_chain_start = false;
+ 			prev_xmax = HeapTupleHeaderGetUpdateXid(heapTuple->t_data);

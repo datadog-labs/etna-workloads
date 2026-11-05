@@ -1,0 +1,14 @@
+create table t1 as select g unique1 from generate_series(1,20000) g;
+create index on t1(unique1);
+create table i4 as select g f1 from generate_series(1,5) g;
+vacuum analyze t1;
+set min_parallel_table_scan_size to 0;
+set min_parallel_index_scan_size to 0;
+set parallel_setup_cost=0; set parallel_tuple_cost=0;
+create view v with (security_barrier) as select * from t1;
+explain (costs off) select 1 from v where (select sum(f1) from i4 where f1 < unique1) < 100;
+psql:<REPRO>:9: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:9: error: connection to server was lost
+### server crashed or assertion failed

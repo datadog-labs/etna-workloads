@@ -1,0 +1,55 @@
+diff --git a/src/backend/parser/parse_expr.c b/src/backend/parser/parse_expr.c
+index cf872ce79b5..e8047801d9d 100644
+--- a/src/backend/parser/parse_expr.c
++++ b/src/backend/parser/parse_expr.c
+@@ -4711,40 +4711,6 @@ transformJsonPassingArgs(ParseState *pstate, const char *constructName,
+ 	}
+ }
+ 
+-/*
+- * Recursively checks if the given expression, or its sub-node in some cases,
+- * is valid for using as an ON ERROR / ON EMPTY DEFAULT expression.
+- */
+-static bool
+-ValidJsonBehaviorDefaultExpr(Node *expr, void *context)
+-{
+-	if (expr == NULL)
+-		return false;
+-
+-	switch (nodeTag(expr))
+-	{
+-			/* Acceptable expression nodes */
+-		case T_Const:
+-		case T_FuncExpr:
+-		case T_OpExpr:
+-			return true;
+-
+-			/* Acceptable iff arg of the following nodes is one of the above */
+-		case T_CoerceViaIO:
+-		case T_CoerceToDomain:
+-		case T_ArrayCoerceExpr:
+-		case T_ConvertRowtypeExpr:
+-		case T_RelabelType:
+-		case T_CollateExpr:
+-			return expression_tree_walker(expr, ValidJsonBehaviorDefaultExpr,
+-										  context);
+-		default:
+-			break;
+-	}
+-
+-	return false;
+-}
+-
+ /*
+  * Transform a JSON BEHAVIOR clause.
+  */
+@@ -4770,7 +4736,8 @@ transformJsonBehavior(ParseState *pstate, JsonExpr *jsexpr,
+ 
+ 			expr = transformExprRecurse(pstate, behavior->expr);
+ 
+-			if (!ValidJsonBehaviorDefaultExpr(expr, NULL))
++			if (!IsA(expr, Const) && !IsA(expr, FuncExpr) &&
++				!IsA(expr, OpExpr))
+ 				ereport(ERROR,
+ 						(errcode(ERRCODE_DATATYPE_MISMATCH),
+ 						 errmsg("can only specify a constant, non-aggregate function, or operator expression for DEFAULT"),

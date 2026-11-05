@@ -1,0 +1,14 @@
+CREATE TABLE r (a int, b int, c int GENERATED ALWAYS AS (a + b) STORED) PARTITION BY LIST (a);
+CREATE TABLE n PARTITION OF r FOR VALUES IN (1) PARTITION BY LIST (b);
+CREATE TABLE l PARTITION OF n FOR VALUES IN (1);
+ALTER TABLE r ALTER COLUMN c DROP EXPRESSION;
+psql:<REPRO>:4: ERROR:  ALTER TABLE / DROP EXPRESSION must be applied to child tables too
+\d l
+                               Table "public.l"
+ Column |  Type   | Collation | Nullable |              Default               
+--------+---------+-----------+----------+------------------------------------
+ a      | integer |           |          | 
+ b      | integer |           |          | 
+ c      | integer |           |          | generated always as (a + b) stored
+Partition of: n FOR VALUES IN (1)
+

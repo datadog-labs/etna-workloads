@@ -1,0 +1,56 @@
+diff --git a/src/backend/commands/trigger.c b/src/backend/commands/trigger.c
+index 7ae6557d897..85670d39dba 100644
+--- a/src/backend/commands/trigger.c
++++ b/src/backend/commands/trigger.c
+@@ -1798,34 +1798,25 @@ EnableDisableTrigger(Relation rel, const char *tgname, Oid tgparent,
+ 			heap_freetuple(newtup);
+ 
+ 			changed = true;
+-		}
+-
+-		/*
+-		 * When altering FOR EACH ROW triggers on a partitioned table, do the
+-		 * same on the partitions as well, unless ONLY is specified.
+-		 *
+-		 * Note that we recurse even if we didn't change the trigger above,
+-		 * because the partitions' copy of the trigger may have a different
+-		 * value of tgenabled than the parent's trigger and thus might need to
+-		 * be changed.
+-		 */
+-		if (recurse &&
+-			rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE &&
+-			(TRIGGER_FOR_ROW(oldtrig->tgtype)))
+-		{
+-			PartitionDesc partdesc = RelationGetPartitionDesc(rel, true);
+-			int			i;
+ 
+-			for (i = 0; i < partdesc->nparts; i++)
++			if (recurse &&
++				rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE &&
++				(TRIGGER_FOR_ROW(oldtrig->tgtype)))
+ 			{
+-				Relation	part;
+-
+-				part = relation_open(partdesc->oids[i], lockmode);
+-				/* Match on child triggers' tgparentid, not their name */
+-				EnableDisableTrigger(part, NULL, oldtrig->oid,
+-									 fires_when, skip_system, recurse,
+-									 lockmode);
+-				table_close(part, NoLock);	/* keep lock till commit */
++				PartitionDesc partdesc = RelationGetPartitionDesc(rel, true);
++				int			i;
++
++				for (i = 0; i < partdesc->nparts; i++)
++				{
++					Relation	part;
++
++					part = relation_open(partdesc->oids[i], lockmode);
++					/* Match on child triggers' tgparentid, not their name */
++					EnableDisableTrigger(part, NULL, oldtrig->oid,
++										 fires_when, skip_system, recurse,
++										 lockmode);
++					table_close(part, NoLock);	/* keep lock till commit */
++				}
+ 			}
+ 		}
+ 

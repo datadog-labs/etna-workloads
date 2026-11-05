@@ -1,0 +1,62 @@
+diff --git a/src/backend/executor/execExpr.c b/src/backend/executor/execExpr.c
+index 038a93c5cc7..f1569879b52 100644
+--- a/src/backend/executor/execExpr.c
++++ b/src/backend/executor/execExpr.c
+@@ -2833,13 +2833,12 @@ ExecInitSubPlanExpr(SubPlan *subplan,
+ 	/*
+ 	 * Generate steps to evaluate input arguments for the subplan.
+ 	 *
+-	 * We evaluate the argument expressions into resv/resnull, and then use
+-	 * PARAM_SET to update the parameter. We do that, instead of evaluating
+-	 * directly into the param, to avoid depending on the pointer value
+-	 * remaining stable / being included in the generated expression. It's ok
+-	 * to use resv/resnull for multiple params, as each parameter evaluation
+-	 * is immediately followed by an EEOP_PARAM_SET (and thus are saved before
+-	 * they could be overwritten again).
++	 * We evaluate the argument expressions into ExprState's resvalue/resnull,
++	 * and then use PARAM_SET to update the parameter. We do that, instead of
++	 * evaluating directly into the param, to avoid depending on the pointer
++	 * value remaining stable / being included in the generated expression. No
++	 * danger of conflicts with other uses of resvalue/resnull as storing and
++	 * using the value always is in subsequent steps.
+ 	 *
+ 	 * Any calculation we have to do can be done in the parent econtext, since
+ 	 * the Param values don't need to have per-query lifetime.
+@@ -2850,11 +2849,10 @@ ExecInitSubPlanExpr(SubPlan *subplan,
+ 		int			paramid = lfirst_int(l);
+ 		Expr	   *arg = (Expr *) lfirst(pvar);
+ 
+-		ExecInitExprRec(arg, state, resv, resnull);
++		ExecInitExprRec(arg, state,
++						&state->resvalue, &state->resnull);
+ 
+ 		scratch.opcode = EEOP_PARAM_SET;
+-		scratch.resvalue = resv;
+-		scratch.resnull = resnull;
+ 		scratch.d.param.paramid = paramid;
+ 		/* paramtype's not actually used, but we might as well fill it */
+ 		scratch.d.param.paramtype = exprType((Node *) arg);
+diff --git a/src/backend/executor/execExprInterp.c b/src/backend/executor/execExprInterp.c
+index 80ac19baa25..9956f79298e 100644
+--- a/src/backend/executor/execExprInterp.c
++++ b/src/backend/executor/execExprInterp.c
+@@ -3115,7 +3115,7 @@ ExecEvalParamExtern(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
+ 
+ /*
+  * Set value of a param (currently always PARAM_EXEC) from
+- * op->res{value,null}.
++ * state->res{value,null}.
+  */
+ void
+ ExecEvalParamSet(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
+@@ -3127,8 +3127,8 @@ ExecEvalParamSet(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
+ 	/* Shouldn't have a pending evaluation anymore */
+ 	Assert(prm->execPlan == NULL);
+ 
+-	prm->value = *op->resvalue;
+-	prm->isnull = *op->resnull;
++	prm->value = state->resvalue;
++	prm->isnull = state->resnull;
+ }
+ 
+ /*

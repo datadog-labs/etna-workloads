@@ -1,0 +1,46 @@
+diff --git a/src/backend/utils/adt/jsonb_gin.c b/src/backend/utils/adt/jsonb_gin.c
+index c1950792b5a..2222fd0ec90 100644
+--- a/src/backend/utils/adt/jsonb_gin.c
++++ b/src/backend/utils/adt/jsonb_gin.c
+@@ -968,19 +968,19 @@ gin_consistent_jsonb(PG_FUNCTION_ARGS)
+ 		 * we could look at the query key to see if it's hashed and not
+ 		 * recheck if not, but the index lacks enough info to tell about (2).
+ 		 */
+-		*recheck = true;
++		*recheck = false;
+ 		res = true;
+ 	}
+ 	else if (strategy == JsonbExistsAnyStrategyNumber)
+ 	{
+ 		/* As for plain exists, we must recheck */
+-		*recheck = true;
++		*recheck = false;
+ 		res = true;
+ 	}
+ 	else if (strategy == JsonbExistsAllStrategyNumber)
+ 	{
+ 		/* As for plain exists, we must recheck */
+-		*recheck = true;
++		*recheck = false;
+ 		/* ... but unless all the keys are present, we can say "false" */
+ 		for (i = 0; i < nkeys; i++)
+ 		{
+@@ -1046,12 +1046,15 @@ gin_triconsistent_jsonb(PG_FUNCTION_ARGS)
+ 		res = GIN_FALSE;
+ 		for (i = 0; i < nkeys; i++)
+ 		{
+-			if (check[i] == GIN_TRUE ||
+-				check[i] == GIN_MAYBE)
++			if (check[i] == GIN_TRUE)
+ 			{
+-				res = GIN_MAYBE;
++				res = GIN_TRUE;
+ 				break;
+ 			}
++			if (check[i] == GIN_MAYBE)
++			{
++				res = GIN_MAYBE;
++			}
+ 		}
+ 	}
+ 	else if (strategy == JsonbJsonpathPredicateStrategyNumber ||

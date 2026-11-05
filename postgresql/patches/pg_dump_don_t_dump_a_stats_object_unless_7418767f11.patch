@@ -1,0 +1,90 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..4bc3c21f4ec 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -2274,26 +2274,6 @@ selectDumpablePublicationObject(DumpableObject *dobj, Archive *fout)
+ 		DUMP_COMPONENT_ALL : DUMP_COMPONENT_NONE;
+ }
+ 
+-/*
+- * selectDumpableStatisticsObject: policy-setting subroutine
+- *		Mark an extended statistics object as to be dumped or not
+- *
+- * We dump an extended statistics object if the schema it's in and the table
+- * it's for are being dumped.  (This'll need more thought if statistics
+- * objects ever support cross-table stats.)
+- */
+-static void
+-selectDumpableStatisticsObject(StatsExtInfo *sobj, Archive *fout)
+-{
+-	if (checkExtensionMembership(&sobj->dobj, fout))
+-		return;					/* extension membership overrides all else */
+-
+-	sobj->dobj.dump = sobj->dobj.namespace->dobj.dump_contains;
+-	if (sobj->stattable == NULL ||
+-		!(sobj->stattable->dobj.dump & DUMP_COMPONENT_DEFINITION))
+-		sobj->dobj.dump = DUMP_COMPONENT_NONE;
+-}
+-
+ /*
+  * selectDumpableObject: policy-setting subroutine
+  *		Mark a generic dumpable object as to be dumped or not
+@@ -8053,7 +8033,6 @@ getExtendedStatistics(Archive *fout)
+ 	int			i_stxname;
+ 	int			i_stxnamespace;
+ 	int			i_stxowner;
+-	int			i_stxrelid;
+ 	int			i_stattarget;
+ 	int			i;
+ 
+@@ -8065,11 +8044,11 @@ getExtendedStatistics(Archive *fout)
+ 
+ 	if (fout->remoteVersion < 130000)
+ 		appendPQExpBufferStr(query, "SELECT tableoid, oid, stxname, "
+-							 "stxnamespace, stxowner, stxrelid, NULL AS stxstattarget "
++							 "stxnamespace, stxowner, NULL AS stxstattarget "
+ 							 "FROM pg_catalog.pg_statistic_ext");
+ 	else
+ 		appendPQExpBufferStr(query, "SELECT tableoid, oid, stxname, "
+-							 "stxnamespace, stxowner, stxrelid, stxstattarget "
++							 "stxnamespace, stxowner, stxstattarget "
+ 							 "FROM pg_catalog.pg_statistic_ext");
+ 
+ 	res = ExecuteSqlQuery(fout, query->data, PGRES_TUPLES_OK);
+@@ -8081,7 +8060,6 @@ getExtendedStatistics(Archive *fout)
+ 	i_stxname = PQfnumber(res, "stxname");
+ 	i_stxnamespace = PQfnumber(res, "stxnamespace");
+ 	i_stxowner = PQfnumber(res, "stxowner");
+-	i_stxrelid = PQfnumber(res, "stxrelid");
+ 	i_stattarget = PQfnumber(res, "stxstattarget");
+ 
+ 	statsextinfo = (StatsExtInfo *) pg_malloc(ntups * sizeof(StatsExtInfo));
+@@ -8096,15 +8074,13 @@ getExtendedStatistics(Archive *fout)
+ 		statsextinfo[i].dobj.namespace =
+ 			findNamespace(atooid(PQgetvalue(res, i, i_stxnamespace)));
+ 		statsextinfo[i].rolname = getRoleName(PQgetvalue(res, i, i_stxowner));
+-		statsextinfo[i].stattable =
+-			findTableByOid(atooid(PQgetvalue(res, i, i_stxrelid)));
+ 		if (PQgetisnull(res, i, i_stattarget))
+ 			statsextinfo[i].stattarget = -1;
+ 		else
+ 			statsextinfo[i].stattarget = atoi(PQgetvalue(res, i, i_stattarget));
+ 
+ 		/* Decide whether we want to dump it */
+-		selectDumpableStatisticsObject(&(statsextinfo[i]), fout);
++		selectDumpableObject(&(statsextinfo[i].dobj), fout);
+ 	}
+ 
+ 	PQclear(res);
+diff --git a/src/bin/pg_dump/pg_dump.h b/src/bin/pg_dump/pg_dump.h
+index 1306792b2ed..1bdce41c946 100644
+--- a/src/bin/pg_dump/pg_dump.h
++++ b/src/bin/pg_dump/pg_dump.h
+@@ -467,7 +467,6 @@ typedef struct _statsExtInfo
+ {
+ 	DumpableObject dobj;
+ 	const char *rolname;		/* owner */
+-	TableInfo  *stattable;		/* link to table the stats are for */
+ 	int			stattarget;		/* statistics target */
+ } StatsExtInfo;
+ 

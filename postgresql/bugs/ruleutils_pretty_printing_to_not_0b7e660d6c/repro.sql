@@ -1,0 +1,3 @@
+create view v1 as select a.relname, b.relkind from pg_class a join pg_class b on a.oid=b.oid where a.relkind='r' order by 1;
+select count(*) filter (where l ~ ' $') as trailing from regexp_split_to_table(pg_get_viewdef('v1'::regclass, true), E'\n') l;
+select count(*) filter (where l ~ ' $') as trailing from regexp_split_to_table(pg_get_viewdef('v1'::regclass, 80), E'\n') l;

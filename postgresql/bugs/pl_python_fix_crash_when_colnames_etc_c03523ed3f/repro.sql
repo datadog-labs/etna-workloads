@@ -1,0 +1,9 @@
+CREATE EXTENSION IF NOT EXISTS plpython3u;
+CREATE FUNCTION t(cmd text) RETURNS text AS $$
+r = plpy.execute(cmd)
+try:
+    return str(r.colnames())
+except plpy.Error as e:
+    return "err"
+$$ LANGUAGE plpython3u;
+SELECT t($$CREATE TEMPORARY TABLE foo1 (a int)$$);

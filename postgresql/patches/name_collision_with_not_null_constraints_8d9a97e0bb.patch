@@ -1,0 +1,91 @@
+diff --git a/src/backend/catalog/heap.c b/src/backend/catalog/heap.c
+index 16a5d6b7b97..6facb95bf7b 100644
+--- a/src/backend/catalog/heap.c
++++ b/src/backend/catalog/heap.c
+@@ -2921,16 +2921,14 @@ MergeWithExistingConstraint(Relation rel, const char *ccname, Node *expr,
+  * for each column, giving priority to user-specified ones, and setting
+  * inhcount according to how many parents cause each column to get a
+  * not-null constraint.  If a user-specified name clashes with another
+- * user-specified name, an error is raised.  'existing_constraints'
+- * is a list of already defined constraint names, which should be avoided
+- * when generating further ones.
++ * user-specified name, an error is raised.
+  *
+  * Returns a list of AttrNumber for columns that need to have the attnotnull
+  * flag set.
+  */
+ List *
+ AddRelationNotNullConstraints(Relation rel, List *constraints,
+-							  List *old_notnulls, List *existing_constraints)
++							  List *old_notnulls)
+ {
+ 	List	   *givennames;
+ 	List	   *nnnames;
+@@ -2942,7 +2940,7 @@ AddRelationNotNullConstraints(Relation rel, List *constraints,
+ 	 * because we must raise error for user-generated name conflicts, but for
+ 	 * system-generated name conflicts we just generate another.
+ 	 */
+-	nnnames = list_copy(existing_constraints);	/* don't scribble on input */
++	nnnames = NIL;
+ 	givennames = NIL;
+ 
+ 	/*
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..80d23265155 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -777,7 +777,6 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
+ 	List	   *rawDefaults;
+ 	List	   *cookedDefaults;
+ 	List	   *nncols;
+-	List	   *connames = NIL;
+ 	Datum		reloptions;
+ 	ListCell   *listptr;
+ 	AttrNumber	attnum;
+@@ -1339,20 +1338,11 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
+ 	/*
+ 	 * Now add any newly specified CHECK constraints to the new relation. Same
+ 	 * as for defaults above, but these need to come after partitioning is set
+-	 * up.  We save the constraint names that were used, to avoid dupes below.
++	 * up.
+ 	 */
+ 	if (stmt->constraints)
+-	{
+-		List	   *conlist;
+-
+-		conlist = AddRelationNewConstraints(rel, NIL, stmt->constraints,
+-											true, true, false, queryString);
+-		foreach_ptr(CookedConstraint, cons, conlist)
+-		{
+-			if (cons->name != NULL)
+-				connames = lappend(connames, cons->name);
+-		}
+-	}
++		AddRelationNewConstraints(rel, NIL, stmt->constraints,
++								  true, true, false, queryString);
+ 
+ 	/*
+ 	 * Finally, merge the not-null constraints that are declared directly with
+@@ -1361,7 +1351,7 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
+ 	 * columns that don't yet have it.
+ 	 */
+ 	nncols = AddRelationNotNullConstraints(rel, stmt->nnconstraints,
+-										   old_notnulls, connames);
++										   old_notnulls);
+ 	foreach_int(attrnum, nncols)
+ 		set_attnotnull(NULL, rel, attrnum, false);
+ 
+diff --git a/src/include/catalog/heap.h b/src/include/catalog/heap.h
+index 7f3a0ef5c6d..dbd339e9df4 100644
+--- a/src/include/catalog/heap.h
++++ b/src/include/catalog/heap.h
+@@ -117,8 +117,7 @@ extern List *AddRelationNewConstraints(Relation rel,
+ 									   const char *queryString);
+ extern List *AddRelationNotNullConstraints(Relation rel,
+ 										   List *constraints,
+-										   List *old_notnulls,
+-										   List *existing_constraints);
++										   List *old_notnulls);
+ 
+ extern void RelationClearMissing(Relation rel);
+ 

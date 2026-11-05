@@ -1,0 +1,32 @@
+diff --git a/src/backend/catalog/pg_depend.c b/src/backend/catalog/pg_depend.c
+index 48f0ec7ed27..89b285237ff 100644
+--- a/src/backend/catalog/pg_depend.c
++++ b/src/backend/catalog/pg_depend.c
+@@ -113,13 +113,6 @@ recordMultipleDependencies(const ObjectAddress *depender,
+ 		if (isObjectPinned(referenced))
+ 			continue;
+ 
+-		/*
+-		 * Make sure the new referenced object doesn't go away while we record
+-		 * the dependency.  DROP routines should lock the object exclusively
+-		 * before they check dependencies.
+-		 */
+-		dependencyLockAndCheckObject(referenced->classId, referenced->objectId);
+-
+ 		if (slot_init_count < max_slots)
+ 		{
+ 			slot[slot_stored_count] = MakeSingleTupleTableSlot(RelationGetDescr(dependDesc),
+@@ -518,13 +511,6 @@ changeDependencyFor(Oid classId, Oid objectId,
+ 		return 1;
+ 	}
+ 
+-	/*
+-	 * Make sure the new referenced object doesn't go away while we record the
+-	 * dependency.
+-	 */
+-	if (!newIsPinned)
+-		dependencyLockAndCheckObject(refClassId, newRefObjectId);
+-
+ 	depRel = table_open(DependRelationId, RowExclusiveLock);
+ 
+ 	/* There should be existing dependency record(s), so search. */

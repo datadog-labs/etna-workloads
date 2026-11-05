@@ -1,0 +1,37 @@
+diff --git a/src/backend/executor/spi.c b/src/backend/executor/spi.c
+index ecb2e4ccaa1..8736e8d8f15 100644
+--- a/src/backend/executor/spi.c
++++ b/src/backend/executor/spi.c
+@@ -2077,8 +2077,6 @@ SPI_plan_get_cached_plan(SPIPlanPtr plan)
+ {
+ 	CachedPlanSource *plansource;
+ 	CachedPlan *cplan;
+-	SPICallbackArg spicallbackarg;
+-	ErrorContextCallback spierrcontext;
+ 
+ 	Assert(plan->magic == _SPI_PLAN_MAGIC);
+ 
+@@ -2091,23 +2089,12 @@ SPI_plan_get_cached_plan(SPIPlanPtr plan)
+ 		return NULL;
+ 	plansource = (CachedPlanSource *) linitial(plan->plancache_list);
+ 
+-	/* Setup error traceback support for ereport() */
+-	spicallbackarg.query = plansource->query_string;
+-	spicallbackarg.mode = plan->parse_mode;
+-	spierrcontext.callback = _SPI_error_callback;
+-	spierrcontext.arg = &spicallbackarg;
+-	spierrcontext.previous = error_context_stack;
+-	error_context_stack = &spierrcontext;
+-
+ 	/* Get the generic plan for the query */
+ 	cplan = GetCachedPlan(plansource, NULL,
+ 						  plan->saved ? CurrentResourceOwner : NULL,
+ 						  _SPI_current->queryEnv);
+ 	Assert(cplan == plansource->gplan);
+ 
+-	/* Pop the error context stack */
+-	error_context_stack = spierrcontext.previous;
+-
+ 	return cplan;
+ }
+ 

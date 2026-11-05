@@ -1,0 +1,40 @@
+diff --git a/src/backend/executor/execIndexing.c b/src/backend/executor/execIndexing.c
+index 4819d3bf167..5d2ea6f2b3b 100644
+--- a/src/backend/executor/execIndexing.c
++++ b/src/backend/executor/execIndexing.c
+@@ -218,7 +218,7 @@ ExecOpenIndices(ResultRelInfo *resultRelInfo, bool speculative)
+ 		 * If the indexes are to be used for speculative insertion, add extra
+ 		 * information required by unique index entries.
+ 		 */
+-		if (speculative && ii->ii_Unique && !indexDesc->rd_index->indisexclusion)
++		if (speculative && ii->ii_Unique)
+ 			BuildSpeculativeIndexInfo(indexDesc, ii);
+ 
+ 		relationDescs[i] = indexDesc;
+diff --git a/src/backend/optimizer/util/plancat.c b/src/backend/optimizer/util/plancat.c
+index 1d9aaf9146f..d1ca12e4d6a 100644
+--- a/src/backend/optimizer/util/plancat.c
++++ b/src/backend/optimizer/util/plancat.c
+@@ -837,7 +837,7 @@ infer_arbiter_indexes(PlannerInfo *root)
+ 		 */
+ 		if (indexOidFromConstraint == idxForm->indexrelid)
+ 		{
+-			if (idxForm->indisexclusion && onconflict->action == ONCONFLICT_UPDATE)
++			if (!idxForm->indisunique && onconflict->action == ONCONFLICT_UPDATE)
+ 				ereport(ERROR,
+ 						(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+ 						 errmsg("ON CONFLICT DO UPDATE not supported with exclusion constraints")));
+@@ -862,13 +862,6 @@ infer_arbiter_indexes(PlannerInfo *root)
+ 		if (!idxForm->indisunique)
+ 			goto next;
+ 
+-		/*
+-		 * So-called unique constraints with WITHOUT OVERLAPS are really
+-		 * exclusion constraints, so skip those too.
+-		 */
+-		if (idxForm->indisexclusion)
+-			goto next;
+-
+ 		/* Build BMS representation of plain (non expression) index attrs */
+ 		indexedAttrs = NULL;
+ 		for (natt = 0; natt < idxForm->indnkeyatts; natt++)

@@ -1,0 +1,5 @@
+create table t(pk int primary key);
+begin isolation level repeatable read;
+insert into t values (1),(1) on conflict do nothing;
+commit;
+select * from t;

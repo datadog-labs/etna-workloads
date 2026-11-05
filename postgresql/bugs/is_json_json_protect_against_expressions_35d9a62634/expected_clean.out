@@ -1,0 +1,16 @@
+CREATE FUNCTION s_in(cstring) RETURNS s_t AS 'textin' LANGUAGE internal IMMUTABLE STRICT;
+psql:<REPRO>:1: NOTICE:  type "s_t" is not yet defined
+DETAIL:  Creating a shell type definition.
+CREATE FUNCTION s_out(s_t) RETURNS cstring AS 'textout' LANGUAGE internal IMMUTABLE STRICT;
+psql:<REPRO>:2: NOTICE:  argument type s_t is only a shell
+LINE 1: CREATE FUNCTION s_out(s_t) RETURNS cstring AS 'textout' LANG...
+                              ^
+CREATE TYPE s_t (INPUT = s_in, OUTPUT = s_out, LIKE = text, CATEGORY = 'S');
+SELECT '{"a":1}'::s_t IS JSON;
+psql:<REPRO>:4: ERROR:  cannot cast type s_t to text
+LINE 1: SELECT '{"a":1}'::s_t IS JSON;
+               ^
+SELECT JSON('{"a":1}'::s_t WITH UNIQUE KEYS);
+psql:<REPRO>:5: ERROR:  cannot cast type s_t to text
+LINE 1: SELECT JSON('{"a":1}'::s_t WITH UNIQUE KEYS);
+                    ^

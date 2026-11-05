@@ -1,0 +1,29 @@
+diff --git a/src/backend/catalog/objectaddress.c b/src/backend/catalog/objectaddress.c
+index 76d5955e5ed..f9944f3fd3a 100644
+--- a/src/backend/catalog/objectaddress.c
++++ b/src/backend/catalog/objectaddress.c
+@@ -5817,7 +5817,10 @@ getObjectIdentityParts(const ObjectAddress *object,
+ 			{
+ 				HeapTuple	tup;
+ 				Form_pg_event_trigger trigForm;
+-				char	   *evtname;
++
++				/* no objname support here */
++				if (objname)
++					*objname = NIL;
+ 
+ 				tup = SearchSysCache1(EVENTTRIGGEROID,
+ 									  ObjectIdGetDatum(object->objectId));
+@@ -5829,10 +5832,8 @@ getObjectIdentityParts(const ObjectAddress *object,
+ 					break;
+ 				}
+ 				trigForm = (Form_pg_event_trigger) GETSTRUCT(tup);
+-				evtname = pstrdup(NameStr(trigForm->evtname));
+-				appendStringInfoString(&buffer, quote_identifier(evtname));
+-				if (objname)
+-					*objname = list_make1(evtname);
++				appendStringInfoString(&buffer,
++									   quote_identifier(NameStr(trigForm->evtname)));
+ 				ReleaseSysCache(tup);
+ 				break;
+ 			}

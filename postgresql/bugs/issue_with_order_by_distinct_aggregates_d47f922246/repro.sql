@@ -1,0 +1,4 @@
+create temp table v(f1 varchar(5));
+insert into v values ('a'),('bcdef');
+explain (costs off)
+select string_agg(distinct f1::varchar(2), ',') filter (where length(f1) > 1) from v;

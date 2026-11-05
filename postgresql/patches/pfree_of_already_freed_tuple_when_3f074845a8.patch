@@ -1,0 +1,42 @@
+diff --git a/src/backend/access/gist/gistget.c b/src/backend/access/gist/gistget.c
+index 387d9972345..59370927900 100644
+--- a/src/backend/access/gist/gistget.c
++++ b/src/backend/access/gist/gistget.c
+@@ -395,7 +395,6 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
+ 	}
+ 
+ 	so->nPageData = so->curPageData = 0;
+-	scan->xs_hitup = NULL;		/* might point into pageDataCxt */
+ 	if (so->pageDataCxt)
+ 		MemoryContextReset(so->pageDataCxt);
+ 
+@@ -630,7 +629,6 @@ gistgettuple(IndexScanDesc scan, ScanDirection dir)
+ 
+ 		so->firstCall = false;
+ 		so->curPageData = so->nPageData = 0;
+-		scan->xs_hitup = NULL;
+ 		if (so->pageDataCxt)
+ 			MemoryContextReset(so->pageDataCxt);
+ 
+@@ -757,7 +755,6 @@ gistgetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 
+ 	/* Begin the scan by processing the root page */
+ 	so->curPageData = so->nPageData = 0;
+-	scan->xs_hitup = NULL;
+ 	if (so->pageDataCxt)
+ 		MemoryContextReset(so->pageDataCxt);
+ 
+diff --git a/src/backend/access/gist/gistscan.c b/src/backend/access/gist/gistscan.c
+index 700fa959d03..0033afbe033 100644
+--- a/src/backend/access/gist/gistscan.c
++++ b/src/backend/access/gist/gistscan.c
+@@ -338,9 +338,6 @@ gistrescan(IndexScanDesc scan, ScanKey key, int nkeys,
+ 		if (!first_time)
+ 			pfree(fn_extras);
+ 	}
+-
+-	/* any previous xs_hitup will have been pfree'd in context resets above */
+-	scan->xs_hitup = NULL;
+ }
+ 
+ void

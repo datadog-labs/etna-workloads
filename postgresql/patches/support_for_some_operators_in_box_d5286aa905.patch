@@ -1,0 +1,70 @@
+diff --git a/src/backend/utils/adt/geo_spgist.c b/src/backend/utils/adt/geo_spgist.c
+index fec33e95372..684a808ca88 100644
+--- a/src/backend/utils/adt/geo_spgist.c
++++ b/src/backend/utils/adt/geo_spgist.c
+@@ -289,14 +289,6 @@ lower2D(RangeBox *range_box, Range *query)
+ 		FPlt(range_box->right.low, query->low);
+ }
+ 
+-/* Can any range from range_box not extend to the right side of the query? */
+-static bool
+-overLower2D(RangeBox *range_box, Range *query)
+-{
+-	return FPle(range_box->left.low, query->high) &&
+-		FPle(range_box->right.low, query->high);
+-}
+-
+ /* Can any range from range_box to be higher than this argument? */
+ static bool
+ higher2D(RangeBox *range_box, Range *query)
+@@ -305,14 +297,6 @@ higher2D(RangeBox *range_box, Range *query)
+ 		FPgt(range_box->right.high, query->high);
+ }
+ 
+-/* Can any range from range_box not extend to the left side of the query? */
+-static bool
+-overHigher2D(RangeBox *range_box, Range *query)
+-{
+-	return FPge(range_box->left.high, query->low) &&
+-		FPge(range_box->right.high, query->low);
+-}
+-
+ /* Can any rectangle from rect_box be left of this argument? */
+ static bool
+ left4D(RectBox *rect_box, RangeBox *query)
+@@ -324,7 +308,7 @@ left4D(RectBox *rect_box, RangeBox *query)
+ static bool
+ overLeft4D(RectBox *rect_box, RangeBox *query)
+ {
+-	return overLower2D(&rect_box->range_box_x, &query->left);
++	return lower2D(&rect_box->range_box_x, &query->right);
+ }
+ 
+ /* Can any rectangle from rect_box be right of this argument? */
+@@ -338,7 +322,7 @@ right4D(RectBox *rect_box, RangeBox *query)
+ static bool
+ overRight4D(RectBox *rect_box, RangeBox *query)
+ {
+-	return overHigher2D(&rect_box->range_box_x, &query->left);
++	return higher2D(&rect_box->range_box_x, &query->right);
+ }
+ 
+ /* Can any rectangle from rect_box be below of this argument? */
+@@ -352,7 +336,7 @@ below4D(RectBox *rect_box, RangeBox *query)
+ static bool
+ overBelow4D(RectBox *rect_box, RangeBox *query)
+ {
+-	return overLower2D(&rect_box->range_box_y, &query->right);
++	return lower2D(&rect_box->range_box_y, &query->left);
+ }
+ 
+ /* Can any rectangle from rect_box be above of this argument? */
+@@ -366,7 +350,7 @@ above4D(RectBox *rect_box, RangeBox *query)
+ static bool
+ overAbove4D(RectBox *rect_box, RangeBox *query)
+ {
+-	return overHigher2D(&rect_box->range_box_y, &query->right);
++	return higher2D(&rect_box->range_box_y, &query->right);
+ }
+ 
+ /* Lower bound for the distance between point and rect_box */

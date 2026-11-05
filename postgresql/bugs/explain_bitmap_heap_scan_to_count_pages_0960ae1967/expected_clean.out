@@ -1,0 +1,32 @@
+create table t(a int, b int);
+create index on t(a);
+insert into t values (1,1);
+begin;
+delete from t;
+set local enable_seqscan=off; set local enable_indexscan=off;
+set local enable_indexonlyscan=off;
+explain (analyze, costs off, timing off, summary off, buffers off) select * from t where a=1;
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Bitmap Heap Scan on t (actual rows=0.00 loops=1)
+   Recheck Cond: (a = 1)
+   Heap Blocks: exact=1
+   ->  Bitmap Index Scan on t_a_idx (actual rows=1.00 loops=1)
+         Index Cond: (a = 1)
+         Index Searches: 1
+(6 rows)
+
+rollback;
+set enable_seqscan=off; set enable_indexscan=off;
+delete from t;
+explain (analyze, costs off, timing off, summary off, buffers off) select * from t where a=1;
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Bitmap Heap Scan on t (actual rows=0.00 loops=1)
+   Recheck Cond: (a = 1)
+   Heap Blocks: exact=1
+   ->  Bitmap Index Scan on t_a_idx (actual rows=1.00 loops=1)
+         Index Cond: (a = 1)
+         Index Searches: 1
+(6 rows)
+

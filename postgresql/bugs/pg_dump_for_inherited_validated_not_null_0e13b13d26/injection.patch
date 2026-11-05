@@ -1,0 +1,41 @@
+diff --git a/src/bin/pg_dump/common.c b/src/bin/pg_dump/common.c
+index 61af7860184..1721acaad84 100644
+--- a/src/bin/pg_dump/common.c
++++ b/src/bin/pg_dump/common.c
+@@ -517,8 +517,6 @@ flagInhAttrs(Archive *fout, DumpOptions *dopt, TableInfo *tblinfo, int numTables
+ 			bool		foundDefault;	/* Found a default in a parent */
+ 			bool		foundSameGenerated; /* Found matching GENERATED */
+ 			bool		foundDiffGenerated; /* Found non-matching GENERATED */
+-			bool		allNotNullsInvalid = true;	/* is NOT NULL NOT VALID
+-													 * on all parents? */
+ 
+ 			/* no point in examining dropped columns */
+ 			if (tbinfo->attisdropped[j])
+@@ -549,18 +547,6 @@ flagInhAttrs(Archive *fout, DumpOptions *dopt, TableInfo *tblinfo, int numTables
+ 						parent->notnull_constrs[inhAttrInd] != NULL)
+ 						foundNotNull = true;
+ 
+-					/*
+-					 * Keep track of whether all the parents that have a
+-					 * not-null constraint on this column have it as NOT
+-					 * VALID; if they all are, arrange to have it printed for
+-					 * this column.  If at least one parent has it as valid,
+-					 * there's no need.
+-					 */
+-					if (fout->remoteVersion >= 180000 &&
+-						parent->notnull_constrs[inhAttrInd] &&
+-						!parent->notnull_invalid[inhAttrInd])
+-						allNotNullsInvalid = false;
+-
+ 					foundDefault |= (parentDef != NULL &&
+ 									 strcmp(parentDef->adef_expr, "NULL") != 0 &&
+ 									 !parent->attgenerated[inhAttrInd]);
+@@ -591,8 +577,6 @@ flagInhAttrs(Archive *fout, DumpOptions *dopt, TableInfo *tblinfo, int numTables
+ 			 * for this table even if it isn't really locally defined, but is
+ 			 * valid for the child and no parent has it as valid.
+ 			 */
+-			if (fout->remoteVersion >= 180000 && allNotNullsInvalid)
+-				tbinfo->notnull_islocal[j] = true;
+ 
+ 			/*
+ 			 * Manufacture a DEFAULT NULL clause if necessary.  This breaks

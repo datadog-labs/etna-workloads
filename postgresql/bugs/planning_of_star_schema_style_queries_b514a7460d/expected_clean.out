@@ -1,0 +1,21 @@
+create table t1 as select i/10 as thousand, i as tenthous, i/10 as u from generate_series(0,99999) i;
+create index t1i on t1(thousand, tenthous);
+create table a as select i q1, case when i=5 then 1 else 0 end q2 from generate_series(1,1000) i;
+create table b as select i*10 q1, case when i=5 then 2 else 0 end q2 from generate_series(1,1000) i;
+analyze t1; analyze a; analyze b;
+set enable_hashjoin=off; set enable_mergejoin=off; set enable_bitmapscan=off;
+explain (costs off)
+select * from t1, a, b
+where thousand = a.q1 and tenthous = b.q1 and a.q2 = 1 and b.q2 = 2;
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Nested Loop
+   ->  Seq Scan on b
+         Filter: (q2 = 2)
+   ->  Nested Loop
+         ->  Seq Scan on a
+               Filter: (q2 = 1)
+         ->  Index Scan using t1i on t1
+               Index Cond: ((thousand = a.q1) AND (tenthous = b.q1))
+(8 rows)
+

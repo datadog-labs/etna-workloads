@@ -1,0 +1,4 @@
+CREATE TABLE t (f1 TEXT);
+CREATE INDEX i ON t ((f1 || 'x'));
+INSERT INTO t VALUES ((SELECT array_agg(md5(g::TEXT))::TEXT FROM generate_series(1, 50) g));
+SELECT count(*) FROM t WHERE f1 || 'x' > 'a';

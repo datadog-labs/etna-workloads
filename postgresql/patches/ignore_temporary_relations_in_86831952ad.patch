@@ -1,0 +1,40 @@
+diff --git a/src/backend/utils/adt/dbsize.c b/src/backend/utils/adt/dbsize.c
+index 3a059f4ace0..25865b660ef 100644
+--- a/src/backend/utils/adt/dbsize.c
++++ b/src/backend/utils/adt/dbsize.c
+@@ -938,9 +938,6 @@ pg_relation_filenode(PG_FUNCTION_ARGS)
+  *
+  * We don't fail but return NULL if we cannot find a mapping.
+  *
+- * Temporary relations are not detected, returning NULL (see
+- * RelidByRelfilenumber() for the reasons).
+- *
+  * InvalidOid can be passed instead of the current database's default
+  * tablespace.
+  */
+diff --git a/src/backend/utils/cache/relfilenumbermap.c b/src/backend/utils/cache/relfilenumbermap.c
+index 0b6f9cf3fa1..8a2f6f8c693 100644
+--- a/src/backend/utils/cache/relfilenumbermap.c
++++ b/src/backend/utils/cache/relfilenumbermap.c
+@@ -130,11 +130,6 @@ InitializeRelfilenumberMap(void)
+  * Map a relation's (tablespace, relfilenumber) to a relation's oid and cache
+  * the result.
+  *
+- * A temporary relation may share its relfilenumber with a permanent relation
+- * or temporary relations created in other backends.  Being able to uniquely
+- * identify a temporary relation would require a backend's proc number, which
+- * we do not know about.  Hence, this function ignores this case.
+- *
+  * Returns InvalidOid if no relation matching the criteria could be found.
+  */
+ Oid
+@@ -213,9 +208,6 @@ RelidByRelfilenumber(Oid reltablespace, RelFileNumber relfilenumber)
+ 		{
+ 			Form_pg_class classform = (Form_pg_class) GETSTRUCT(ntp);
+ 
+-			if (classform->relpersistence == RELPERSISTENCE_TEMP)
+-				continue;
+-
+ 			if (found)
+ 				elog(ERROR,
+ 					 "unexpected duplicate for tablespace %u, relfilenumber %u",

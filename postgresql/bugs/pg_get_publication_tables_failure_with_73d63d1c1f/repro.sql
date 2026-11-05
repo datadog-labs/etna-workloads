@@ -1,0 +1,10 @@
+create table t1(a int);
+create table t2(a int);
+create publication p for all tables;
+begin;
+declare d cursor for select pg_get_publication_tables('p') is not null;
+fetch 1 from d;
+drop table t1;
+drop table t2;
+fetch all from d;
+commit;

@@ -1,0 +1,44 @@
+diff --git a/src/backend/utils/adt/json.c b/src/backend/utils/adt/json.c
+index c1d3de602ae..e10560b2a27 100644
+--- a/src/backend/utils/adt/json.c
++++ b/src/backend/utils/adt/json.c
+@@ -954,6 +954,20 @@ json_unique_builder_init(JsonUniqueBuilderState *cxt)
+ 	cxt->skipped_keys.data = NULL;
+ }
+ 
++static void
++json_unique_builder_clean(JsonUniqueBuilderState *cxt)
++{
++	if (cxt->skipped_keys.data)
++		resetStringInfo(&cxt->skipped_keys);
++
++	/* release the duplicate-key hash, as the original cleanup did */
++	if (cxt->check)
++	{
++		hash_destroy(cxt->check);
++		cxt->check = NULL;
++	}
++}
++
+ static bool
+ json_unique_check_key(JsonUniqueCheckState *cxt, const char *key, int object_id)
+ {
+@@ -1196,6 +1210,8 @@ json_object_agg_finalfn(PG_FUNCTION_ARGS)
+ 	if (state == NULL)
+ 		PG_RETURN_NULL();
+ 
++	json_unique_builder_clean(&state->unique_check);
++
+ 	/* Else return state with appropriate object terminator added */
+ 	PG_RETURN_TEXT_P(catenate_stringinfo_string(state->str, " }"));
+ }
+@@ -1308,6 +1324,9 @@ json_build_object_worker(int nargs, const Datum *args, const bool *nulls, const
+ 
+ 	appendStringInfoChar(result, '}');
+ 
++	if (unique_keys)
++		json_unique_builder_clean(&unique_check);
++
+ 	return PointerGetDatum(cstring_to_text_with_len(result->data, result->len));
+ }
+ 

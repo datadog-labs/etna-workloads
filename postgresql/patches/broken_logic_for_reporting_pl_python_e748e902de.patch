@@ -1,0 +1,52 @@
+diff --git a/src/pl/plpython/plpy_main.c b/src/pl/plpython/plpy_main.c
+index f36eadbadc6..8bb67e419c7 100644
+--- a/src/pl/plpython/plpy_main.c
++++ b/src/pl/plpython/plpy_main.c
+@@ -214,22 +214,16 @@ plpython3_call_handler(PG_FUNCTION_ARGS)
+ 	 */
+ 	exec_ctx = PLy_push_execution_context(!nonatomic);
+ 
++	/* Setup error traceback support for ereport() */
++	plerrcontext.callback = plpython_error_callback;
++	plerrcontext.previous = error_context_stack;
++	error_context_stack = &plerrcontext;
++
+ 	PG_TRY();
+ 	{
+ 		Oid			funcoid = fcinfo->flinfo->fn_oid;
+ 		PLyProcedure *proc;
+ 
+-		/*
+-		 * Setup error traceback support for ereport().  Note that the PG_TRY
+-		 * structure pops this for us again at exit, so we needn't do that
+-		 * explicitly, nor do we risk the callback getting called after we've
+-		 * destroyed the exec_ctx.
+-		 */
+-		plerrcontext.callback = plpython_error_callback;
+-		plerrcontext.arg = exec_ctx;
+-		plerrcontext.previous = error_context_stack;
+-		error_context_stack = &plerrcontext;
+-
+ 		if (CALLED_AS_TRIGGER(fcinfo))
+ 		{
+ 			Relation	tgrel = ((TriggerData *) fcinfo->context)->tg_relation;
+@@ -255,7 +249,9 @@ plpython3_call_handler(PG_FUNCTION_ARGS)
+ 	}
+ 	PG_END_TRY();
+ 
+-	/* Destroy the execution context */
++	/* Pop the error context stack */
++	error_context_stack = plerrcontext.previous;
++	/* ... and then the execution context */
+ 	PLy_pop_execution_context();
+ 
+ 	return retval;
+@@ -345,7 +341,7 @@ PLy_procedure_is_trigger(Form_pg_proc procStruct)
+ static void
+ plpython_error_callback(void *arg)
+ {
+-	PLyExecutionContext *exec_ctx = (PLyExecutionContext *) arg;
++	PLyExecutionContext *exec_ctx = PLy_current_execution_context();
+ 
+ 	if (exec_ctx->curr_proc)
+ 	{

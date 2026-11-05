@@ -1,0 +1,20 @@
+create table gist_tbl (p point);
+insert into gist_tbl select point(i,i) from generate_series(1,1000) i;
+create index gist_tbl_multi_index on gist_tbl using gist (p, circle(p,1));
+vacuum analyze gist_tbl;
+set enable_seqscan=off; set enable_bitmapscan=off;
+explain (verbose, costs off) select count(*) from gist_tbl;
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Aggregate
+   Output: count(*)
+   ->  Index Only Scan using gist_tbl_multi_index on public.gist_tbl
+         Output: p, circle(p, '1'::double precision)
+(4 rows)
+
+select count(*) from gist_tbl;
+ count 
+-------
+  1000
+(1 row)
+

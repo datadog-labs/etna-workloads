@@ -1,0 +1,56 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..337d730c389 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -7288,14 +7288,6 @@ get_update_query_targetlist_def(Query *query, List *targetList,
+ 
+ 					expr = (Node *) sbsref->refassgnexpr;
+ 				}
+-				else if (IsA(expr, CoerceToDomain))
+-				{
+-					CoerceToDomain *cdomain = (CoerceToDomain *) expr;
+-
+-					if (cdomain->coercionformat != COERCE_IMPLICIT_CAST)
+-						break;
+-					expr = (Node *) cdomain->arg;
+-				}
+ 				else
+ 					break;
+ 			}
+@@ -12954,7 +12946,6 @@ static Node *
+ processIndirection(Node *node, deparse_context *context)
+ {
+ 	StringInfo	buf = context->buf;
+-	CoerceToDomain *cdomain = NULL;
+ 
+ 	for (;;)
+ 	{
+@@ -13003,28 +12994,10 @@ processIndirection(Node *node, deparse_context *context)
+ 			 */
+ 			node = (Node *) sbsref->refassgnexpr;
+ 		}
+-		else if (IsA(node, CoerceToDomain))
+-		{
+-			cdomain = (CoerceToDomain *) node;
+-			/* If it's an explicit domain coercion, we're done */
+-			if (cdomain->coercionformat != COERCE_IMPLICIT_CAST)
+-				break;
+-			/* Tentatively descend past the CoerceToDomain */
+-			node = (Node *) cdomain->arg;
+-		}
+ 		else
+ 			break;
+ 	}
+ 
+-	/*
+-	 * If we descended past a CoerceToDomain whose argument turned out not to
+-	 * be a FieldStore or array assignment, back up to the CoerceToDomain.
+-	 * (This is not enough to be fully correct if there are nested implicit
+-	 * CoerceToDomains, but such cases shouldn't ever occur.)
+-	 */
+-	if (cdomain && node == (Node *) cdomain->arg)
+-		node = (Node *) cdomain;
+-
+ 	return node;
+ }
+ 

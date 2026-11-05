@@ -1,0 +1,62 @@
+diff --git a/src/backend/commands/explain.c b/src/backend/commands/explain.c
+index 15ef3304863..1c52a661a7f 100644
+--- a/src/backend/commands/explain.c
++++ b/src/backend/commands/explain.c
+@@ -2319,30 +2319,6 @@ ExplainNode(PlanState *planstate, List *ancestors,
+ 		(*explain_per_node_hook) (planstate, ancestors, relationship,
+ 								  plan_name, es);
+ 
+-	/*
+-	 * If partition pruning was done during executor initialization, the
+-	 * number of child plans we'll display below will be less than the number
+-	 * of subplans that was specified in the plan.  To make this a bit less
+-	 * mysterious, emit an indication that this happened.  Note that this
+-	 * field is emitted now because we want it to be a property of the parent
+-	 * node; it *cannot* be emitted within the Plans sub-node we'll open next.
+-	 */
+-	switch (nodeTag(plan))
+-	{
+-		case T_Append:
+-			ExplainMissingMembers(((AppendState *) planstate)->as_nplans,
+-								  list_length(((Append *) plan)->appendplans),
+-								  es);
+-			break;
+-		case T_MergeAppend:
+-			ExplainMissingMembers(((MergeAppendState *) planstate)->ms_nplans,
+-								  list_length(((MergeAppend *) plan)->mergeplans),
+-								  es);
+-			break;
+-		default:
+-			break;
+-	}
+-
+ 	/* Get ready to display the child plans */
+ 	haschildren = planstate->initPlan ||
+ 		outerPlanState(planstate) ||
+@@ -2380,11 +2356,17 @@ ExplainNode(PlanState *planstate, List *ancestors,
+ 	switch (nodeTag(plan))
+ 	{
+ 		case T_Append:
++			ExplainMissingMembers(((AppendState *) planstate)->as_nplans,
++								  list_length(((Append *) plan)->appendplans),
++								  es);
+ 			ExplainMemberNodes(((AppendState *) planstate)->appendplans,
+ 							   ((AppendState *) planstate)->as_nplans,
+ 							   ancestors, es);
+ 			break;
+ 		case T_MergeAppend:
++			ExplainMissingMembers(((MergeAppendState *) planstate)->ms_nplans,
++								  list_length(((MergeAppend *) plan)->mergeplans),
++								  es);
+ 			ExplainMemberNodes(((MergeAppendState *) planstate)->mergeplans,
+ 							   ((MergeAppendState *) planstate)->ms_nplans,
+ 							   ancestors, es);
+@@ -4793,7 +4775,7 @@ ExplainMemberNodes(PlanState **planstates, int nplans,
+ static void
+ ExplainMissingMembers(int nplans, int nchildren, ExplainState *es)
+ {
+-	if (nplans < nchildren || es->format != EXPLAIN_FORMAT_TEXT)
++	if (nplans < nchildren)
+ 		ExplainPropertyInteger("Subplans Removed", NULL,
+ 							   nchildren - nplans, es);
+ }

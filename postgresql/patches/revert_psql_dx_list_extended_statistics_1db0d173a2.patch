@@ -1,0 +1,169 @@
+diff --git a/src/bin/psql/command.c b/src/bin/psql/command.c
+index 09a1e79a6a7..9d7e1c2d0f9 100644
+--- a/src/bin/psql/command.c
++++ b/src/bin/psql/command.c
+@@ -1276,9 +1276,6 @@ exec_command_d(PsqlScanState scan_state, bool active_branch, const char *cmd)
+ 				else
+ 					success = listExtensions(pattern);
+ 				break;
+-			case 'X':			/* Extended Statistics */
+-				success = listExtendedStats(pattern);
+-				break;
+ 			case 'y':			/* Event Triggers */
+ 				success = listEventTriggers(pattern, show_verbose);
+ 				break;
+diff --git a/src/bin/psql/describe.c b/src/bin/psql/describe.c
+index 31f12f89439..2063d2a15e7 100644
+--- a/src/bin/psql/describe.c
++++ b/src/bin/psql/describe.c
+@@ -4854,102 +4854,6 @@ listEventTriggers(const char *pattern, bool verbose)
+ 	return true;
+ }
+ 
+-/*
+- * \dX
+- *
+- * Describes extended statistics.
+- */
+-bool
+-listExtendedStats(const char *pattern)
+-{
+-	PQExpBufferData buf;
+-	PGresult   *res;
+-	printQueryOpt myopt = pset.popt;
+-
+-	if (pset.sversion < 100000)
+-	{
+-		char		sverbuf[32];
+-
+-		pg_log_error("The server (version %s) does not support extended statistics.",
+-					 formatPGVersionNumber(pset.sversion, false,
+-										   sverbuf, sizeof(sverbuf)));
+-		return true;
+-	}
+-
+-	initPQExpBuffer(&buf);
+-	printfPQExpBuffer(&buf,
+-					  "SELECT \n"
+-					  "es.stxnamespace::pg_catalog.regnamespace::pg_catalog.text AS \"%s\", \n"
+-					  "es.stxname AS \"%s\", \n",
+-					  gettext_noop("Schema"),
+-					  gettext_noop("Name"));
+-
+-	if (pset.sversion >= 140000)
+-		appendPQExpBuffer(&buf,
+-						  "pg_catalog.format('%%s FROM %%s', \n"
+-						  "  pg_catalog.pg_get_statisticsobjdef_columns(es.oid), \n"
+-						  "  es.stxrelid::pg_catalog.regclass) AS \"%s\"",
+-						  gettext_noop("Definition"));
+-	else
+-		appendPQExpBuffer(&buf,
+-						  "pg_catalog.format('%%s FROM %%s', \n"
+-						  "  (SELECT pg_catalog.string_agg(pg_catalog.quote_ident(a.attname),', ') \n"
+-						  "   FROM pg_catalog.unnest(es.stxkeys) s(attnum) \n"
+-						  "   JOIN pg_catalog.pg_attribute a \n"
+-						  "   ON (es.stxrelid = a.attrelid \n"
+-						  "   AND a.attnum = s.attnum \n"
+-						  "   AND NOT a.attisdropped)), \n"
+-						  "es.stxrelid::pg_catalog.regclass) AS \"%s\"",
+-						  gettext_noop("Definition"));
+-
+-	appendPQExpBuffer(&buf,
+-					  ",\nCASE WHEN " CppAsString2(STATS_EXT_NDISTINCT) " = any(es.stxkind) THEN 'defined' \n"
+-					  "END AS \"%s\", \n"
+-					  "CASE WHEN " CppAsString2(STATS_EXT_DEPENDENCIES) " = any(es.stxkind) THEN 'defined' \n"
+-					  "END AS \"%s\"",
+-					  gettext_noop("Ndistinct"),
+-					  gettext_noop("Dependencies"));
+-
+-	/*
+-	 * Include the MCV statistics kind.
+-	 */
+-	if (pset.sversion >= 120000)
+-	{
+-		appendPQExpBuffer(&buf,
+-						  ",\nCASE WHEN " CppAsString2(STATS_EXT_MCV) " = any(es.stxkind) THEN 'defined' \n"
+-						  "END AS \"%s\" ",
+-						  gettext_noop("MCV"));
+-	}
+-
+-	appendPQExpBufferStr(&buf,
+-						 " \nFROM pg_catalog.pg_statistic_ext es \n");
+-
+-	if (!validateSQLNamePattern(&buf, pattern,
+-								false, false,
+-								"es.stxnamespace::pg_catalog.regnamespace::pg_catalog.text", "es.stxname",
+-								NULL, "pg_catalog.pg_statistics_obj_is_visible(es.oid)",
+-								NULL, 3))
+-	{
+-		termPQExpBuffer(&buf);
+-		return false;
+-	}
+-
+-	appendPQExpBufferStr(&buf, "ORDER BY 1, 2;");
+-
+-	res = PSQLexec(buf.data);
+-	termPQExpBuffer(&buf);
+-	if (!res)
+-		return false;
+-
+-	myopt.title = _("List of extended statistics");
+-	myopt.translate_header = true;
+-
+-	printQuery(res, &myopt, pset.queryFout, false, pset.logfile);
+-
+-	PQclear(res);
+-	return true;
+-}
+-
+ /*
+  * \dC
+  *
+diff --git a/src/bin/psql/describe.h b/src/bin/psql/describe.h
+index 18ecaa60949..a306516d174 100644
+--- a/src/bin/psql/describe.h
++++ b/src/bin/psql/describe.h
+@@ -113,9 +113,6 @@ extern bool listExtensions(const char *pattern);
+ /* \dx+ */
+ extern bool listExtensionContents(const char *pattern);
+ 
+-/* \dX */
+-extern bool listExtendedStats(const char *pattern);
+-
+ /* \dy */
+ extern bool listEventTriggers(const char *pattern, bool verbose);
+ 
+diff --git a/src/bin/psql/help.c b/src/bin/psql/help.c
+index 9c15cb679fd..60459241595 100644
+--- a/src/bin/psql/help.c
++++ b/src/bin/psql/help.c
+@@ -267,7 +267,6 @@ slashUsage(unsigned short int pager)
+ 	HELP0("  \\du[Sx+] [PATTERN]     list roles\n");
+ 	HELP0("  \\dv[Sx+] [PATTERN]     list views\n");
+ 	HELP0("  \\dx[x+]  [PATTERN]     list extensions\n");
+-	HELP0("  \\dX[x]   [PATTERN]     list extended statistics\n");
+ 	HELP0("  \\dy[x+]  [PATTERN]     list event triggers\n");
+ 	HELP0("  \\l[x+]   [PATTERN]     list databases\n");
+ 	HELP0("  \\sf[+]   FUNCNAME      show a function's definition\n");
+diff --git a/src/bin/psql/tab-complete.in.c b/src/bin/psql/tab-complete.in.c
+index 81b9e203b5c..40894a12ec7 100644
+--- a/src/bin/psql/tab-complete.in.c
++++ b/src/bin/psql/tab-complete.in.c
+@@ -1899,7 +1899,7 @@ psql_completion(const char *text, int start, int end)
+ 		"\\dF", "\\dFd", "\\dFp", "\\dFt", "\\dg", "\\di", "\\dl", "\\dL",
+ 		"\\dm", "\\dn", "\\do", "\\dO", "\\dp", "\\dP", "\\dPi", "\\dPt",
+ 		"\\drds", "\\drg", "\\dRs", "\\dRp", "\\ds",
+-		"\\dt", "\\dT", "\\dv", "\\du", "\\dx", "\\dX", "\\dy",
++		"\\dt", "\\dT", "\\dv", "\\du", "\\dx", "\\dy",
+ 		"\\echo", "\\edit", "\\ef", "\\elif", "\\else", "\\encoding",
+ 		"\\endif", "\\endpipeline", "\\errverbose", "\\ev",
+ 		"\\f", "\\flush", "\\flushrequest",
+@@ -5349,8 +5349,6 @@ match_previous_words(int pattern_id,
+ 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_views);
+ 	else if (TailMatchesCS("\\dx*"))
+ 		COMPLETE_WITH_QUERY(Query_for_list_of_extensions);
+-	else if (TailMatchesCS("\\dX*"))
+-		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_statistics);
+ 	else if (TailMatchesCS("\\dm*"))
+ 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_matviews);
+ 	else if (TailMatchesCS("\\dE*"))

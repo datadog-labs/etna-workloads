@@ -1,0 +1,2 @@
+SELECT normalize(U&'\AC00\11A7', NFC) = U&'\AC00\11A7' COLLATE "C" AS hangul_tbase_not_combined;
+SELECT normalize(U&'\1100\1161\11A7', NFC) = U&'\AC00\11A7' COLLATE "C" AS hangul_lv_tbase_separate;

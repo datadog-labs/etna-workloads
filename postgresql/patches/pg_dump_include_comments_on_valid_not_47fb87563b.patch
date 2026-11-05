@@ -1,0 +1,61 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..94fc11d9017 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -17839,56 +17839,6 @@ dumpTableSchema(Archive *fout, const TableInfo *tbinfo)
+ 	if (tbinfo->dobj.dump & DUMP_COMPONENT_SECLABEL)
+ 		dumpTableSecLabel(fout, tbinfo, reltypename);
+ 
+-	/*
+-	 * Dump comments for not-null constraints that aren't to be dumped
+-	 * separately (those are processed by collectComments/dumpComment).
+-	 */
+-	if (!fout->dopt->no_comments && dopt->dumpSchema &&
+-		fout->remoteVersion >= 180000)
+-	{
+-		PQExpBuffer comment = NULL;
+-		PQExpBuffer tag = NULL;
+-
+-		for (j = 0; j < tbinfo->numatts; j++)
+-		{
+-			if (tbinfo->notnull_constrs[j] != NULL &&
+-				tbinfo->notnull_comment[j] != NULL)
+-			{
+-				if (comment == NULL)
+-				{
+-					comment = createPQExpBuffer();
+-					tag = createPQExpBuffer();
+-				}
+-				else
+-				{
+-					resetPQExpBuffer(comment);
+-					resetPQExpBuffer(tag);
+-				}
+-
+-				appendPQExpBuffer(comment, "COMMENT ON CONSTRAINT %s ON %s IS ",
+-								  fmtId(tbinfo->notnull_constrs[j]), qualrelname);
+-				appendStringLiteralAH(comment, tbinfo->notnull_comment[j], fout);
+-				appendPQExpBufferStr(comment, ";\n");
+-
+-				appendPQExpBuffer(tag, "CONSTRAINT %s ON %s",
+-								  fmtId(tbinfo->notnull_constrs[j]), qrelname);
+-
+-				ArchiveEntry(fout, nilCatalogId, createDumpId(),
+-							 ARCHIVE_OPTS(.tag = tag->data,
+-										  .namespace = tbinfo->dobj.namespace->dobj.name,
+-										  .owner = tbinfo->rolname,
+-										  .description = "COMMENT",
+-										  .section = SECTION_NONE,
+-										  .createStmt = comment->data,
+-										  .deps = &(tbinfo->dobj.dumpId),
+-										  .nDeps = 1));
+-			}
+-		}
+-
+-		destroyPQExpBuffer(comment);
+-		destroyPQExpBuffer(tag);
+-	}
+-
+ 	/* Dump comments on inlined table constraints */
+ 	for (j = 0; j < tbinfo->ncheck; j++)
+ 	{

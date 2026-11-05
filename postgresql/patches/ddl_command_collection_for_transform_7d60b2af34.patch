@@ -1,0 +1,48 @@
+diff --git a/src/backend/commands/functioncmds.c b/src/backend/commands/functioncmds.c
+index 0335e982b31..d30d48cbd47 100644
+--- a/src/backend/commands/functioncmds.c
++++ b/src/backend/commands/functioncmds.c
+@@ -1828,7 +1828,7 @@ check_transform_function(Form_pg_proc procstruct)
+ /*
+  * CREATE TRANSFORM
+  */
+-ObjectAddress
++Oid
+ CreateTransform(CreateTransformStmt *stmt)
+ {
+ 	Oid			typeid;
+@@ -2023,7 +2023,7 @@ CreateTransform(CreateTransformStmt *stmt)
+ 
+ 	table_close(relation, RowExclusiveLock);
+ 
+-	return myself;
++	return transformid;
+ }
+ 
+ 
+diff --git a/src/backend/tcop/utility.c b/src/backend/tcop/utility.c
+index 6dabd7e1560..37952e6f3ab 100644
+--- a/src/backend/tcop/utility.c
++++ b/src/backend/tcop/utility.c
+@@ -1741,7 +1741,7 @@ ProcessUtilitySlow(ParseState *pstate,
+ 				break;
+ 
+ 			case T_CreateTransformStmt:
+-				address = CreateTransform((CreateTransformStmt *) parsetree);
++				CreateTransform((CreateTransformStmt *) parsetree);
+ 				break;
+ 
+ 			case T_AlterOpFamilyStmt:
+diff --git a/src/include/commands/defrem.h b/src/include/commands/defrem.h
+index fff772a720d..f8d8940cd0a 100644
+--- a/src/include/commands/defrem.h
++++ b/src/include/commands/defrem.h
+@@ -58,7 +58,7 @@ extern ObjectAddress CreateFunction(ParseState *pstate, CreateFunctionStmt *stmt
+ extern void RemoveFunctionById(Oid funcOid);
+ extern ObjectAddress AlterFunction(ParseState *pstate, AlterFunctionStmt *stmt);
+ extern ObjectAddress CreateCast(CreateCastStmt *stmt);
+-extern ObjectAddress CreateTransform(CreateTransformStmt *stmt);
++extern Oid	CreateTransform(CreateTransformStmt *stmt);
+ extern void IsThereFunctionInNamespace(const char *proname, int pronargs,
+ 									   oidvector *proargtypes, Oid nspOid);
+ extern void ExecuteDoStmt(ParseState *pstate, DoStmt *stmt, bool atomic);

@@ -1,0 +1,297 @@
+diff --git a/src/backend/statistics/attribute_stats.c b/src/backend/statistics/attribute_stats.c
+index 50f89ff0ac3..f4e9a17de1d 100644
+--- a/src/backend/statistics/attribute_stats.c
++++ b/src/backend/statistics/attribute_stats.c
+@@ -145,7 +145,6 @@ attribute_statistics_update(FunctionCallInfo fcinfo)
+ 	char	   *attname;
+ 	AttrNumber	attnum;
+ 	bool		inherited;
+-	Oid			locked_table = InvalidOid;
+ 
+ 	Relation	starel;
+ 	HeapTuple	statup;
+@@ -185,6 +184,8 @@ attribute_statistics_update(FunctionCallInfo fcinfo)
+ 	nspname = TextDatumGetCString(PG_GETARG_DATUM(ATTRELSCHEMA_ARG));
+ 	relname = TextDatumGetCString(PG_GETARG_DATUM(ATTRELNAME_ARG));
+ 
++	reloid = stats_lookup_relid(nspname, relname);
++
+ 	if (RecoveryInProgress())
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+@@ -192,9 +193,7 @@ attribute_statistics_update(FunctionCallInfo fcinfo)
+ 				 errhint("Statistics cannot be modified during recovery.")));
+ 
+ 	/* lock before looking up attribute */
+-	reloid = RangeVarGetRelidExtended(makeRangeVar(nspname, relname, -1),
+-									  ShareUpdateExclusiveLock, 0,
+-									  RangeVarCallbackForStats, &locked_table);
++	stats_lock_check_privileges(reloid);
+ 
+ 	/* user can specify either attname or attnum, but not both */
+ 	if (!PG_ARGISNULL(ATTNAME_ARG))
+@@ -947,7 +946,6 @@ pg_clear_attribute_stats(PG_FUNCTION_ARGS)
+ 	char	   *attname;
+ 	AttrNumber	attnum;
+ 	bool		inherited;
+-	Oid			locked_table = InvalidOid;
+ 
+ 	stats_check_required_arg(fcinfo, cleararginfo, C_ATTRELSCHEMA_ARG);
+ 	stats_check_required_arg(fcinfo, cleararginfo, C_ATTRELNAME_ARG);
+@@ -957,15 +955,15 @@ pg_clear_attribute_stats(PG_FUNCTION_ARGS)
+ 	nspname = TextDatumGetCString(PG_GETARG_DATUM(C_ATTRELSCHEMA_ARG));
+ 	relname = TextDatumGetCString(PG_GETARG_DATUM(C_ATTRELNAME_ARG));
+ 
++	reloid = stats_lookup_relid(nspname, relname);
++
+ 	if (RecoveryInProgress())
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+ 				 errmsg("recovery is in progress"),
+ 				 errhint("Statistics cannot be modified during recovery.")));
+ 
+-	reloid = RangeVarGetRelidExtended(makeRangeVar(nspname, relname, -1),
+-									  ShareUpdateExclusiveLock, 0,
+-									  RangeVarCallbackForStats, &locked_table);
++	stats_lock_check_privileges(reloid);
+ 
+ 	attname = TextDatumGetCString(PG_GETARG_DATUM(C_ATTNAME_ARG));
+ 	attnum = get_attnum(reloid, attname);
+diff --git a/src/backend/statistics/relation_stats.c b/src/backend/statistics/relation_stats.c
+index 4b85207260b..970fc05b2ba 100644
+--- a/src/backend/statistics/relation_stats.c
++++ b/src/backend/statistics/relation_stats.c
+@@ -85,7 +85,6 @@ relation_statistics_update(FunctionCallInfo fcinfo)
+ 	Datum		values[4] = {0};
+ 	bool		nulls[4] = {0};
+ 	int			nreplaces = 0;
+-	Oid			locked_table = InvalidOid;
+ 
+ 	stats_check_required_arg(fcinfo, relarginfo, RELSCHEMA_ARG);
+ 	stats_check_required_arg(fcinfo, relarginfo, RELNAME_ARG);
+@@ -93,15 +92,15 @@ relation_statistics_update(FunctionCallInfo fcinfo)
+ 	nspname = TextDatumGetCString(PG_GETARG_DATUM(RELSCHEMA_ARG));
+ 	relname = TextDatumGetCString(PG_GETARG_DATUM(RELNAME_ARG));
+ 
++	reloid = stats_lookup_relid(nspname, relname);
++
+ 	if (RecoveryInProgress())
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+ 				 errmsg("recovery is in progress"),
+ 				 errhint("Statistics cannot be modified during recovery.")));
+ 
+-	reloid = RangeVarGetRelidExtended(makeRangeVar(nspname, relname, -1),
+-									  ShareUpdateExclusiveLock, 0,
+-									  RangeVarCallbackForStats, &locked_table);
++	stats_lock_check_privileges(reloid);
+ 
+ 	if (!PG_ARGISNULL(RELPAGES_ARG))
+ 	{
+diff --git a/src/backend/statistics/stat_utils.c b/src/backend/statistics/stat_utils.c
+index 0c139bf43a7..3fac3be15e4 100644
+--- a/src/backend/statistics/stat_utils.c
++++ b/src/backend/statistics/stat_utils.c
+@@ -122,84 +122,46 @@ stats_check_arg_pair(FunctionCallInfo fcinfo,
+ }
+ 
+ /*
++ * Lock relation in ShareUpdateExclusive mode, check privileges, and close the
++ * relation (but retain the lock).
++ *
+  * A role has privileges to set statistics on the relation if any of the
+  * following are true:
+  *   - the role owns the current database and the relation is not shared
+  *   - the role has the MAINTAIN privilege on the relation
+  */
+ void
+-RangeVarCallbackForStats(const RangeVar *relation,
+-						 Oid relId, Oid oldRelId, void *arg)
++stats_lock_check_privileges(Oid reloid)
+ {
+-	Oid		   *locked_oid = (Oid *) arg;
+-	Oid			table_oid = relId;
+-	HeapTuple	tuple;
+-	Form_pg_class form;
+-	char		relkind;
++	Relation	table;
++	Oid			table_oid = reloid;
++	Oid			index_oid = InvalidOid;
++	LOCKMODE	index_lockmode = NoLock;
+ 
+ 	/*
+-	 * If we previously locked some other index's heap, and the name we're
+-	 * looking up no longer refers to that relation, release the now-useless
+-	 * lock.
++	 * For indexes, lock the table first in ShareUpdateExclusive mode and then
++	 * the index; partitioned indexes get ShareUpdateExclusive too.
+ 	 */
+-	if (relId != oldRelId && OidIsValid(*locked_oid))
++	switch (get_rel_relkind(reloid))
+ 	{
+-		UnlockRelationOid(*locked_oid, ShareUpdateExclusiveLock);
+-		*locked_oid = InvalidOid;
+-	}
+-
+-	/* If the relation does not exist, there's nothing more to do. */
+-	if (!OidIsValid(relId))
+-		return;
+-
+-	/* If the relation does exist, check whether it's an index. */
+-	relkind = get_rel_relkind(relId);
+-	if (relkind == RELKIND_INDEX ||
+-		relkind == RELKIND_PARTITIONED_INDEX)
+-		table_oid = IndexGetRelation(relId, false);
+-
+-	/*
+-	 * If retrying yields the same OID, there are a couple of extremely
+-	 * unlikely scenarios we need to handle.
+-	 */
+-	if (relId == oldRelId)
+-	{
+-		/*
+-		 * If a previous lookup found an index, but the current lookup did
+-		 * not, the index was dropped and the OID was reused for something
+-		 * else between lookups.  In theory, we could simply drop our lock on
+-		 * the index's parent table and proceed, but in the interest of
+-		 * avoiding complexity, we just error.
+-		 */
+-		if (table_oid == relId && OidIsValid(*locked_oid))
+-			ereport(ERROR,
+-					(errcode(ERRCODE_UNDEFINED_OBJECT),
+-					 errmsg("index \"%s\" was concurrently dropped",
+-							relation->relname)));
+-
+-		/*
+-		 * If the current lookup found an index but a previous lookup either
+-		 * did not find an index or found one with a different parent
+-		 * relation, the relation was dropped and the OID was reused for an
+-		 * index between lookups.  RangeVarGetRelidExtended() will have
+-		 * already locked the index at this point, so we can't just lock the
+-		 * newly discovered parent table OID without risking deadlock.  As
+-		 * above, we just error in this case.
+-		 */
+-		if (table_oid != relId && table_oid != *locked_oid)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_UNDEFINED_OBJECT),
+-					 errmsg("index \"%s\" was concurrently created",
+-							relation->relname)));
++		case RELKIND_INDEX:
++			index_oid = reloid;
++			table_oid = IndexGetRelation(index_oid, false);
++			index_lockmode = AccessShareLock;
++			break;
++		case RELKIND_PARTITIONED_INDEX:
++			index_oid = reloid;
++			table_oid = IndexGetRelation(index_oid, false);
++			index_lockmode = ShareUpdateExclusiveLock;
++			break;
++		default:
++			break;
+ 	}
+ 
+-	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(table_oid));
+-	if (!HeapTupleIsValid(tuple))
+-		elog(ERROR, "cache lookup failed for OID %u", table_oid);
+-	form = (Form_pg_class) GETSTRUCT(tuple);
++	table = relation_open(table_oid, ShareUpdateExclusiveLock);
+ 
+ 	/* the relkinds that can be used with ANALYZE */
+-	switch (form->relkind)
++	switch (table->rd_rel->relkind)
+ 	{
+ 		case RELKIND_RELATION:
+ 		case RELKIND_MATVIEW:
+@@ -210,36 +172,62 @@ RangeVarCallbackForStats(const RangeVar *relation,
+ 			ereport(ERROR,
+ 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+ 					 errmsg("cannot modify statistics for relation \"%s\"",
+-							NameStr(form->relname)),
+-					 errdetail_relkind_not_supported(form->relkind)));
++							RelationGetRelationName(table)),
++					 errdetail_relkind_not_supported(table->rd_rel->relkind)));
+ 	}
+ 
+-	if (form->relisshared)
++	if (OidIsValid(index_oid))
++	{
++		Relation	index;
++
++		Assert(index_lockmode != NoLock);
++		index = relation_open(index_oid, index_lockmode);
++
++		Assert(index->rd_index && index->rd_index->indrelid == table_oid);
++
++		/* retain lock on index */
++		relation_close(index, NoLock);
++	}
++
++	if (table->rd_rel->relisshared)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+ 				 errmsg("cannot modify statistics for shared relation")));
+ 
+-	/* Check permissions */
+ 	if (!object_ownercheck(DatabaseRelationId, MyDatabaseId, GetUserId()))
+ 	{
+-		AclResult	aclresult = pg_class_aclcheck(table_oid,
++		AclResult	aclresult = pg_class_aclcheck(RelationGetRelid(table),
+ 												  GetUserId(),
+ 												  ACL_MAINTAIN);
+ 
+ 		if (aclresult != ACLCHECK_OK)
+ 			aclcheck_error(aclresult,
+-						   get_relkind_objtype(form->relkind),
+-						   NameStr(form->relname));
++						   get_relkind_objtype(table->rd_rel->relkind),
++						   NameStr(table->rd_rel->relname));
+ 	}
+ 
+-	ReleaseSysCache(tuple);
++	/* retain lock on table */
++	relation_close(table, NoLock);
++}
+ 
+-	/* Lock heap before index to avoid deadlock. */
+-	if (relId != oldRelId && table_oid != relId)
+-	{
+-		LockRelationOid(table_oid, ShareUpdateExclusiveLock);
+-		*locked_oid = table_oid;
+-	}
++/*
++ * Lookup relation oid from schema and relation name.
++ */
++Oid
++stats_lookup_relid(const char *nspname, const char *relname)
++{
++	Oid			nspoid;
++	Oid			reloid;
++
++	nspoid = LookupExplicitNamespace(nspname, false);
++	reloid = get_relname_relid(relname, nspoid);
++	if (!OidIsValid(reloid))
++		ereport(ERROR,
++				(errcode(ERRCODE_UNDEFINED_TABLE),
++				 errmsg("relation \"%s.%s\" does not exist",
++						nspname, relname)));
++
++	return reloid;
+ }
+ 
+ 
+diff --git a/src/include/statistics/stat_utils.h b/src/include/statistics/stat_utils.h
+index 4283d2c4053..f6a0d8b1e6a 100644
+--- a/src/include/statistics/stat_utils.h
++++ b/src/include/statistics/stat_utils.h
+@@ -33,8 +33,9 @@ extern bool stats_check_arg_pair(FunctionCallInfo fcinfo,
+ 								 struct StatsArgInfo *arginfo,
+ 								 int argnum1, int argnum2);
+ 
+-extern void RangeVarCallbackForStats(const struct RangeVar *relation,
+-									 Oid relId, Oid oldRelid, void *arg);
++extern void stats_lock_check_privileges(Oid reloid);
++
++extern Oid	stats_lookup_relid(const char *nspname, const char *relname);
+ 
+ extern bool stats_fill_fcinfo_from_arg_pairs(FunctionCallInfo pairs_fcinfo,
+ 											 FunctionCallInfo positional_fcinfo,

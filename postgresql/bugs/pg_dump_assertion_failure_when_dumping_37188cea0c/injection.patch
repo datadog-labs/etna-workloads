@@ -1,0 +1,89 @@
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..b0e7535a065 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -14938,69 +14938,35 @@ dumpCollation(Archive *fout, const CollInfo *collinfo)
+ 	if (strcmp(PQgetvalue(res, 0, i_collisdeterministic), "f") == 0)
+ 		appendPQExpBufferStr(q, ", deterministic = false");
+ 
+-	if (collprovider[0] == 'd')
++	if (colllocale != NULL)
+ 	{
+-		if (collcollate || collctype || colllocale || collicurules)
+-			pg_log_warning("invalid collation \"%s\"", qcollname);
+-
+-		/* no locale -- the default collation cannot be reloaded anyway */
+-	}
+-	else if (collprovider[0] == 'b')
+-	{
+-		if (collcollate || collctype || !colllocale || collicurules)
+-			pg_log_warning("invalid collation \"%s\"", qcollname);
+-
+ 		appendPQExpBufferStr(q, ", locale = ");
+-		appendStringLiteralAH(q, colllocale ? colllocale : "",
+-							  fout);
+-	}
+-	else if (collprovider[0] == 'i')
+-	{
+-		if (fout->remoteVersion >= 150000)
+-		{
+-			if (collcollate || collctype || !colllocale)
+-				pg_log_warning("invalid collation \"%s\"", qcollname);
+-
+-			appendPQExpBufferStr(q, ", locale = ");
+-			appendStringLiteralAH(q, colllocale ? colllocale : "",
+-								  fout);
+-		}
+-		else
+-		{
+-			if (!collcollate || !collctype || colllocale ||
+-				strcmp(collcollate, collctype) != 0)
+-				pg_log_warning("invalid collation \"%s\"", qcollname);
+-
+-			appendPQExpBufferStr(q, ", locale = ");
+-			appendStringLiteralAH(q, collcollate ? collcollate : "", fout);
+-		}
+-
+-		if (collicurules)
+-		{
+-			appendPQExpBufferStr(q, ", rules = ");
+-			appendStringLiteralAH(q, collicurules ? collicurules : "", fout);
+-		}
++		appendStringLiteralAH(q, colllocale, fout);
+ 	}
+-	else if (collprovider[0] == 'c')
++	else
+ 	{
+-		if (colllocale || collicurules || !collcollate || !collctype)
+-			pg_log_warning("invalid collation \"%s\"", qcollname);
++		Assert(collcollate != NULL);
++		Assert(collctype != NULL);
+ 
+-		if (collcollate && collctype && strcmp(collcollate, collctype) == 0)
++		if (strcmp(collcollate, collctype) == 0)
+ 		{
+ 			appendPQExpBufferStr(q, ", locale = ");
+-			appendStringLiteralAH(q, collcollate ? collcollate : "", fout);
++			appendStringLiteralAH(q, collcollate, fout);
+ 		}
+ 		else
+ 		{
+ 			appendPQExpBufferStr(q, ", lc_collate = ");
+-			appendStringLiteralAH(q, collcollate ? collcollate : "", fout);
++			appendStringLiteralAH(q, collcollate, fout);
+ 			appendPQExpBufferStr(q, ", lc_ctype = ");
+-			appendStringLiteralAH(q, collctype ? collctype : "", fout);
++			appendStringLiteralAH(q, collctype, fout);
+ 		}
+ 	}
+-	else
+-		pg_fatal("unrecognized collation provider: %s", collprovider);
++
++	if (collicurules)
++	{
++		appendPQExpBufferStr(q, ", rules = ");
++		appendStringLiteralAH(q, collicurules, fout);
++	}
+ 
+ 	/*
+ 	 * For binary upgrade, carry over the collation version.  For normal

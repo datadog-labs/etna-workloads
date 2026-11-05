@@ -1,0 +1,41 @@
+diff --git a/src/backend/utils/adt/regexp.c b/src/backend/utils/adt/regexp.c
+index 894d9bc0de9..c174de8797f 100644
+--- a/src/backend/utils/adt/regexp.c
++++ b/src/backend/utils/adt/regexp.c
+@@ -921,35 +921,7 @@ similar_escape_internal(text *pat_text, text *esc_text)
+ 		{
+ 			if (pchar == '"' && bracket_depth < 1)	/* escape-double-quote? */
+ 			{
+-				/* emit appropriate part separator, per notes above */
+-				if (nquotes == 0)
+-				{
+-					*r++ = ')';
+-					*r++ = '{';
+-					*r++ = '1';
+-					*r++ = ',';
+-					*r++ = '1';
+-					*r++ = '}';
+-					*r++ = '?';
+-					*r++ = '(';
+-				}
+-				else if (nquotes == 1)
+-				{
+-					*r++ = ')';
+-					*r++ = '{';
+-					*r++ = '1';
+-					*r++ = ',';
+-					*r++ = '1';
+-					*r++ = '}';
+-					*r++ = '(';
+-					*r++ = '?';
+-					*r++ = ':';
+-				}
+-				else
+-					ereport(ERROR,
+-							(errcode(ERRCODE_INVALID_USE_OF_ESCAPE_CHARACTER),
+-							 errmsg("SQL regular expression may not contain more than two escape-double-quote separators")));
+-				nquotes++;
++				*r++ = ((nquotes++ % 2) == 0) ? '(' : ')';
+ 			}
+ 			else
+ 			{

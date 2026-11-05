@@ -1,0 +1,5 @@
+SET statement_timeout = '2s';
+CREATE TABLE u (i int UNIQUE NULLS NOT DISTINCT, t text);
+INSERT INTO u (t) VALUES ('six');
+INSERT INTO u (t) VALUES ('eight') ON CONFLICT DO NOTHING;
+SELECT * FROM u;

@@ -1,0 +1,12 @@
+create table int8_tbl(q1 int8, q2 int8);
+insert into int8_tbl values (123,456),(123,4567890123456789);
+begin;
+set local from_collapse_limit to 2;
+explain (costs off)
+select * from int8_tbl t1
+  left join
+    (select coalesce(t2.q1 + x, 0) from int8_tbl t2,
+       lateral (select t3.q1 as x from int8_tbl t3,
+                  lateral (select t2.q1, t3.q1 offset 0) s))
+  on true;
+rollback;

@@ -1,0 +1,39 @@
+diff --git a/src/backend/statistics/attribute_stats.c b/src/backend/statistics/attribute_stats.c
+index 50f89ff0ac3..357466456ff 100644
+--- a/src/backend/statistics/attribute_stats.c
++++ b/src/backend/statistics/attribute_stats.c
+@@ -492,19 +492,11 @@ attribute_statistics_update(FunctionCallInfo fcinfo)
+ 	{
+ 		bool		converted = false;
+ 		Datum		stavalues;
+-		Oid			bounds_typid = atttypid;
+-
+-		/*
+-		 * If it's a multirange, step down to the range type, as is done by
+-		 * multirange_typanalyze().
+-		 */
+-		if (type_is_multirange(atttypid))
+-			bounds_typid = get_multirange_range(atttypid);
+ 
+ 		stavalues = text_to_stavalues("range_bounds_histogram",
+ 									  &array_in_fn,
+ 									  PG_GETARG_DATUM(RANGE_BOUNDS_HISTOGRAM_ARG),
+-									  bounds_typid, atttypmod,
++									  atttypid, atttypmod,
+ 									  &converted);
+ 
+ 		if (converted)
+@@ -655,6 +647,13 @@ get_attr_stat_type(Oid reloid, AttrNumber attnum,
+ 	}
+ 	ReleaseSysCache(atup);
+ 
++	/*
++	 * If it's a multirange, step down to the range type, as is done by
++	 * multirange_typanalyze().
++	 */
++	if (type_is_multirange(*atttypid))
++		*atttypid = get_multirange_range(*atttypid);
++
+ 	/* finds the right operators even if atttypid is a domain */
+ 	typcache = lookup_type_cache(*atttypid, TYPECACHE_LT_OPR | TYPECACHE_EQ_OPR);
+ 	*atttyptype = typcache->typtype;

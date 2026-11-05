@@ -1,0 +1,20 @@
+BEGIN;
+CREATE TYPE e1 AS ENUM ('a','b');
+ALTER TYPE e1 ADD VALUE 'c';
+SELECT 'a'::e1;
+psql:<REPRO>:4: ERROR:  unsafe use of new value "a" of enum type e1
+LINE 1: SELECT 'a'::e1;
+               ^
+HINT:  New enum values must be committed before they can be used.
+SELECT 'c'::e1;
+psql:<REPRO>:5: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ROLLBACK;
+CREATE TYPE e2 AS ENUM ('x','y');
+BEGIN;
+ALTER TYPE e2 RENAME VALUE 'x' TO 'z';
+SELECT 'z'::e2;
+psql:<REPRO>:10: ERROR:  unsafe use of new value "z" of enum type e2
+LINE 1: SELECT 'z'::e2;
+               ^
+HINT:  New enum values must be committed before they can be used.
+ROLLBACK;
