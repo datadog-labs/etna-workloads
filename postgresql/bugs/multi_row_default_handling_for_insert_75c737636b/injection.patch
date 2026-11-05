@@ -1,0 +1,78 @@
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 62f54786be4..286bd42605b 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -1635,6 +1635,7 @@ rewriteValuesRTEToNulls(Query *parsetree, RangeTblEntry *rte)
+ 	List	   *newValues;
+ 	ListCell   *lc;
+ 
++	Assert(rte->rtekind == RTE_VALUES);
+ 	newValues = NIL;
+ 	foreach(lc, rte->values_lists)
+ 	{
+@@ -4232,39 +4233,12 @@ RewriteQuery(Query *parsetree, List *rewrite_events, int orig_rt_length,
+ 			/*
+ 			 * Each product query has its own copy of the VALUES RTE at the
+ 			 * same index in the rangetable, so we must finalize each one.
+-			 *
+-			 * Note that if the product query is an INSERT ... SELECT, then
+-			 * the VALUES RTE will be at the same index in the SELECT part of
+-			 * the product query rather than the top-level product query
+-			 * itself.
+ 			 */
+ 			foreach(n, product_queries)
+ 			{
+ 				Query	   *pt = (Query *) lfirst(n);
+-				RangeTblEntry *values_rte;
+-
+-				if (pt->commandType == CMD_INSERT &&
+-					pt->jointree && IsA(pt->jointree, FromExpr) &&
+-					list_length(pt->jointree->fromlist) == 1)
+-				{
+-					Node	   *jtnode = (Node *) linitial(pt->jointree->fromlist);
+-
+-					if (IsA(jtnode, RangeTblRef))
+-					{
+-						int			rtindex = ((RangeTblRef *) jtnode)->rtindex;
+-						RangeTblEntry *src_rte = rt_fetch(rtindex, pt->rtable);
+-
+-						if (src_rte->rtekind == RTE_SUBQUERY &&
+-							src_rte->subquery &&
+-							IsA(src_rte->subquery, Query) &&
+-							src_rte->subquery->commandType == CMD_SELECT)
+-							pt = src_rte->subquery;
+-					}
+-				}
+-
+-				values_rte = rt_fetch(values_rte_index, pt->rtable);
+-				if (values_rte->rtekind != RTE_VALUES)
+-					elog(ERROR, "failed to find VALUES RTE in product query");
++				RangeTblEntry *values_rte = rt_fetch(values_rte_index,
++													 pt->rtable);
+ 
+ 				rewriteValuesRTEToNulls(pt, values_rte);
+ 			}
+diff --git a/src/backend/rewrite/rewriteManip.c b/src/backend/rewrite/rewriteManip.c
+index 2e75f286b8b..765398d7bc3 100644
+--- a/src/backend/rewrite/rewriteManip.c
++++ b/src/backend/rewrite/rewriteManip.c
+@@ -1128,15 +1128,12 @@ getInsertSelectQuery(Query *parsetree, Query ***subquery_ptr)
+ 	if (list_length(parsetree->jointree->fromlist) != 1)
+ 		elog(ERROR, "expected to find SELECT subquery");
+ 	rtr = (RangeTblRef *) linitial(parsetree->jointree->fromlist);
+-	if (!IsA(rtr, RangeTblRef))
+-		elog(ERROR, "expected to find SELECT subquery");
++	Assert(IsA(rtr, RangeTblRef));
+ 	selectrte = rt_fetch(rtr->rtindex, parsetree->rtable);
+-	if (!(selectrte->rtekind == RTE_SUBQUERY &&
+-		  selectrte->subquery &&
+-		  IsA(selectrte->subquery, Query) &&
+-		  selectrte->subquery->commandType == CMD_SELECT))
+-		elog(ERROR, "expected to find SELECT subquery");
+ 	selectquery = selectrte->subquery;
++	if (!(selectquery && IsA(selectquery, Query) &&
++		  selectquery->commandType == CMD_SELECT))
++		elog(ERROR, "expected to find SELECT subquery");
+ 	if (list_length(selectquery->rtable) >= 2 &&
+ 		strcmp(rt_fetch(PRS2_OLD_VARNO, selectquery->rtable)->eref->aliasname,
+ 			   "old") == 0 &&

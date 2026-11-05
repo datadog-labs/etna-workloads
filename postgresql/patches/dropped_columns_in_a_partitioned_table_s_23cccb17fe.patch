@@ -1,0 +1,83 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..a0895408cac 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -20569,14 +20569,6 @@ ATExecAttachPartition(List **wqueue, Relation rel, PartitionCmd *cmd,
+ 		defaultrel = table_open(defaultPartOid, NoLock);
+ 		defPartConstraint =
+ 			get_proposed_default_constraint(partBoundConstraint);
+-
+-		/*
+-		 * Map the Vars in the constraint expression from rel's attnos to
+-		 * defaultrel's.
+-		 */
+-		defPartConstraint =
+-			map_partition_varattnos(defPartConstraint,
+-									1, defaultrel, rel);
+ 		QueuePartitionConstraintValidation(wqueue, defaultrel,
+ 										   defPartConstraint, true);
+ 
+diff --git a/src/backend/partitioning/partbounds.c b/src/backend/partitioning/partbounds.c
+index a0a1363d5be..17f15d4148a 100644
+--- a/src/backend/partitioning/partbounds.c
++++ b/src/backend/partitioning/partbounds.c
+@@ -3262,13 +3262,6 @@ check_default_partition_contents(Relation parent, Relation default_rel,
+ 	def_part_constraints =
+ 		get_proposed_default_constraint(new_part_constraints);
+ 
+-	/*
+-	 * Map the Vars in the constraint expression from parent's attnos to
+-	 * default_rel's.
+-	 */
+-	def_part_constraints =
+-		map_partition_varattnos(def_part_constraints, 1, default_rel,
+-								parent);
+ 
+ 	/*
+ 	 * If the existing constraints on the default partition imply that it will
+@@ -3297,6 +3290,7 @@ check_default_partition_contents(Relation parent, Relation default_rel,
+ 	{
+ 		Oid			part_relid = lfirst_oid(lc);
+ 		Relation	part_rel;
++		Expr	   *constr;
+ 		Expr	   *partition_constraint;
+ 		EState	   *estate;
+ 		ExprState  *partqualstate = NULL;
+@@ -3311,15 +3305,6 @@ check_default_partition_contents(Relation parent, Relation default_rel,
+ 		{
+ 			part_rel = table_open(part_relid, NoLock);
+ 
+-			/*
+-			 * Map the Vars in the constraint expression from default_rel's
+-			 * the sub-partition's.
+-			 */
+-			partition_constraint = make_ands_explicit(def_part_constraints);
+-			partition_constraint = (Expr *)
+-				map_partition_varattnos((List *) partition_constraint, 1,
+-										part_rel, default_rel);
+-
+ 			/*
+ 			 * If the partition constraints on default partition child imply
+ 			 * that it will not contain any row that would belong to the new
+@@ -3337,10 +3322,7 @@ check_default_partition_contents(Relation parent, Relation default_rel,
+ 			}
+ 		}
+ 		else
+-		{
+ 			part_rel = default_rel;
+-			partition_constraint = make_ands_explicit(def_part_constraints);
+-		}
+ 
+ 		/*
+ 		 * Only RELKIND_RELATION relations (i.e. leaf partitions) need to be
+@@ -3361,6 +3343,10 @@ check_default_partition_contents(Relation parent, Relation default_rel,
+ 			continue;
+ 		}
+ 
++		constr = linitial(def_part_constraints);
++		partition_constraint = (Expr *)
++			map_partition_varattnos((List *) constr,
++									1, part_rel, parent);
+ 		estate = CreateExecutorState();
+ 
+ 		/* Build expression execution states for partition check quals */

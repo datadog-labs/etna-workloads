@@ -1,0 +1,36 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..e67b78db8f7 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -15742,8 +15742,6 @@ ATPostAlterTypeParse(Oid oldId, Oid oldRelId, Oid refRelId, Oid ownerId,
+ 			if (!rewrite)
+ 				TryReuseIndex(oldId, stmt);
+ 			stmt->reset_default_tblspc = true;
+-			/* keep the index's comment */
+-			stmt->idxcomment = GetComment(oldId, RelationRelationId, 0);
+ 
+ 			newcmd = makeNode(AlterTableCmd);
+ 			newcmd->subtype = AT_ReAddIndex;
+@@ -15770,22 +15768,11 @@ ATPostAlterTypeParse(Oid oldId, Oid oldRelId, Oid refRelId, Oid ownerId,
+ 
+ 					if (!rewrite)
+ 						TryReuseIndex(indoid, indstmt);
+-					/* keep any comment on the index */
+-					indstmt->idxcomment = GetComment(indoid,
+-													 RelationRelationId, 0);
+ 					indstmt->reset_default_tblspc = true;
+ 
+ 					cmd->subtype = AT_ReAddIndex;
+ 					tab->subcmds[AT_PASS_OLD_INDEX] =
+ 						lappend(tab->subcmds[AT_PASS_OLD_INDEX], cmd);
+-
+-					/* recreate any comment on the constraint */
+-					RebuildConstraintComment(tab,
+-											 AT_PASS_OLD_INDEX,
+-											 oldId,
+-											 rel,
+-											 NIL,
+-											 indstmt->idxname);
+ 				}
+ 				else if (cmd->subtype == AT_AddConstraint)
+ 				{

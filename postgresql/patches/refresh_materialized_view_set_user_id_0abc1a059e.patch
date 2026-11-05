@@ -1,0 +1,55 @@
+diff --git a/src/backend/commands/matview.c b/src/backend/commands/matview.c
+index 188e26f0e6e..5c962ee5f5a 100644
+--- a/src/backend/commands/matview.c
++++ b/src/backend/commands/matview.c
+@@ -181,17 +181,6 @@ RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+ 	ObjectAddress address;
+ 
+ 	matviewRel = table_open(matviewOid, NoLock);
+-	relowner = matviewRel->rd_rel->relowner;
+-
+-	/*
+-	 * Switch to the owner's userid, so that any functions are run as that
+-	 * user.  Also lock down security-restricted operations and arrange to
+-	 * make GUC variable changes local to this command.
+-	 */
+-	GetUserIdAndSecContext(&save_userid, &save_sec_context);
+-	SetUserIdAndSecContext(relowner,
+-						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
+-	save_nestlevel = NewGUCNestLevel();
+ 	RestrictSearchPath();
+ 
+ 	/* Make sure it is a materialized view. */
+@@ -299,6 +288,19 @@ RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+ 	 */
+ 	SetMatViewPopulatedState(matviewRel, !skipData);
+ 
++	relowner = matviewRel->rd_rel->relowner;
++
++	/*
++	 * Switch to the owner's userid, so that any functions are run as that
++	 * user.  Also arrange to make GUC variable changes local to this command.
++	 * Don't lock it down too tight to create a temporary table just yet.  We
++	 * will switch modes when we are about to execute user code.
++	 */
++	GetUserIdAndSecContext(&save_userid, &save_sec_context);
++	SetUserIdAndSecContext(relowner,
++						   save_sec_context | SECURITY_LOCAL_USERID_CHANGE);
++	save_nestlevel = NewGUCNestLevel();
++
+ 	/* Concurrent refresh builds new data in temp tablespace, and does diff. */
+ 	if (concurrent)
+ 	{
+@@ -321,6 +323,12 @@ RefreshMatViewByOid(Oid matviewOid, bool is_create, bool skipData,
+ 							   relpersistence, ExclusiveLock);
+ 	Assert(CheckRelationOidLockedByMe(OIDNewHeap, AccessExclusiveLock, false));
+ 
++	/*
++	 * Now lock down security-restricted operations.
++	 */
++	SetUserIdAndSecContext(relowner,
++						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
++
+ 	/* Generate the data, if wanted. */
+ 	if (!skipData)
+ 	{

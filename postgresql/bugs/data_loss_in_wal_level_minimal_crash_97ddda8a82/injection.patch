@@ -1,0 +1,64 @@
+diff --git a/src/backend/commands/tablespace.c b/src/backend/commands/tablespace.c
+index a9005cc7212..d6900b2f706 100644
+--- a/src/backend/commands/tablespace.c
++++ b/src/backend/commands/tablespace.c
+@@ -618,36 +618,40 @@ create_tablespace_directories(const char *location, const Oid tablespaceoid)
+ 							location)));
+ 	}
+ 
++	if (InRecovery)
++	{
++		/*
++		 * Our theory for replaying a CREATE is to forcibly drop the target
++		 * subdirectory if present, and then recreate it. This may be more
++		 * work than needed, but it is simple to implement.
++		 */
++		if (stat(location_with_version_dir, &st) == 0 && S_ISDIR(st.st_mode))
++		{
++			if (!rmtree(location_with_version_dir, true))
++				/* If this failed, MakePGDirectory() below is going to error. */
++				ereport(WARNING,
++						(errmsg("some useless files may be left behind in old database directory \"%s\"",
++								location_with_version_dir)));
++		}
++	}
++
+ 	/*
+ 	 * The creation of the version directory prevents more than one tablespace
+-	 * in a single location.  This imitates TablespaceCreateDbspace(), but it
+-	 * ignores concurrency and missing parent directories.  The chmod() would
+-	 * have failed in the absence of a parent.  pg_tablespace_spcname_index
+-	 * prevents concurrency.
++	 * in a single location.
+ 	 */
+-	if (stat(location_with_version_dir, &st) < 0)
++	if (MakePGDirectory(location_with_version_dir) < 0)
+ 	{
+-		if (errno != ENOENT)
++		if (errno == EEXIST)
+ 			ereport(ERROR,
+-					(errcode_for_file_access(),
+-					 errmsg("could not stat directory \"%s\": %m",
++					(errcode(ERRCODE_OBJECT_IN_USE),
++					 errmsg("directory \"%s\" already in use as a tablespace",
+ 							location_with_version_dir)));
+-		else if (MakePGDirectory(location_with_version_dir) < 0)
++		else
+ 			ereport(ERROR,
+ 					(errcode_for_file_access(),
+ 					 errmsg("could not create directory \"%s\": %m",
+ 							location_with_version_dir)));
+ 	}
+-	else if (!S_ISDIR(st.st_mode))
+-		ereport(ERROR,
+-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+-				 errmsg("\"%s\" exists but is not a directory",
+-						location_with_version_dir)));
+-	else if (!InRecovery)
+-		ereport(ERROR,
+-				(errcode(ERRCODE_OBJECT_IN_USE),
+-				 errmsg("directory \"%s\" already in use as a tablespace",
+-						location_with_version_dir)));
+ 
+ 	/*
+ 	 * In recovery, remove old symlink, in case it points to the wrong place.

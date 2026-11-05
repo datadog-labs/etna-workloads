@@ -1,0 +1,56 @@
+diff --git a/src/backend/libpq/be-fsstubs.c b/src/backend/libpq/be-fsstubs.c
+index e5a34c61931..b05347717a1 100644
+--- a/src/backend/libpq/be-fsstubs.c
++++ b/src/backend/libpq/be-fsstubs.c
+@@ -105,6 +105,19 @@ be_lo_open(PG_FUNCTION_ARGS)
+ 	fd = newLOfd();
+ 
+ 	lobjDesc = inv_open(lobjId, mode, fscxt);
++
++	/* Permission check for write access */
++	if ((mode & INV_WRITE) &&
++		!lo_compat_privileges &&
++		pg_largeobject_aclcheck_snapshot(lobjDesc->id,
++										 GetUserId(),
++										 ACL_UPDATE,
++										 lobjDesc->snapshot) != ACLCHECK_OK)
++		ereport(ERROR,
++				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
++				 errmsg("permission denied for large object %u",
++						lobjDesc->id)));
++
+ 	lobjDesc->subid = GetCurrentSubTransactionId();
+ 
+ 	/*
+diff --git a/src/backend/storage/large_object/inv_api.c b/src/backend/storage/large_object/inv_api.c
+index 68b76f2cc18..19252382533 100644
+--- a/src/backend/storage/large_object/inv_api.c
++++ b/src/backend/storage/large_object/inv_api.c
+@@ -247,7 +247,7 @@ inv_open(Oid lobjId, int flags, MemoryContext mcxt)
+ 				 errmsg("large object %u does not exist", lobjId)));
+ 
+ 	/* Apply permission checks, again specifying snapshot */
+-	if ((descflags & IFS_RDLOCK) != 0)
++	if ((flags & INV_READ) != 0)
+ 	{
+ 		if (!lo_compat_privileges &&
+ 			pg_largeobject_aclcheck_snapshot(lobjId,
+@@ -259,18 +259,6 @@ inv_open(Oid lobjId, int flags, MemoryContext mcxt)
+ 					 errmsg("permission denied for large object %u",
+ 							lobjId)));
+ 	}
+-	if ((descflags & IFS_WRLOCK) != 0)
+-	{
+-		if (!lo_compat_privileges &&
+-			pg_largeobject_aclcheck_snapshot(lobjId,
+-											 GetUserId(),
+-											 ACL_UPDATE,
+-											 snapshot) != ACLCHECK_OK)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+-					 errmsg("permission denied for large object %u",
+-							lobjId)));
+-	}
+ 
+ 	/* OK to create a descriptor */
+ 	retval = (LargeObjectDesc *) MemoryContextAlloc(mcxt,

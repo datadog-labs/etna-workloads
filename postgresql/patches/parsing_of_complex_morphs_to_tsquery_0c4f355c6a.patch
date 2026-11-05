@@ -1,0 +1,83 @@
+diff --git a/src/backend/tsearch/to_tsany.c b/src/backend/tsearch/to_tsany.c
+index 6b1b1c0ea36..db74d050d14 100644
+--- a/src/backend/tsearch/to_tsany.c
++++ b/src/backend/tsearch/to_tsany.c
+@@ -19,20 +19,10 @@
+ #include "utils/jsonfuncs.h"
+ 
+ 
+-/*
+- * Opaque data structure, which is passed by parse_tsquery() to pushval_morph().
+- */
+ typedef struct MorphOpaque
+ {
+ 	Oid			cfg_id;
+-
+-	/*
+-	 * Single tsquery morph could be parsed into multiple words.  When these
+-	 * words reside in adjacent positions, they are connected using this
+-	 * operator.  Usually, that is OP_PHRASE, which requires word positions of
+-	 * a complex morph to exactly match the tsvector.
+-	 */
+-	int			qoperator;
++	int			qoperator;		/* query operator */
+ } MorphOpaque;
+ 
+ typedef struct TSVectorBuildState
+@@ -596,14 +586,7 @@ to_tsquery_byid(PG_FUNCTION_ARGS)
+ 	MorphOpaque data;
+ 
+ 	data.cfg_id = PG_GETARG_OID(0);
+-
+-	/*
+-	 * Passing OP_PHRASE as a qoperator makes tsquery require matching of word
+-	 * positions of a complex morph exactly match the tsvector.  Also, when
+-	 * the complex morphs are connected with OP_PHRASE operator, we connect
+-	 * all their words into the OP_PHRASE sequence.
+-	 */
+-	data.qoperator = OP_PHRASE;
++	data.qoperator = OP_AND;
+ 
+ 	query = parse_tsquery(text_to_cstring(in),
+ 						  pushval_morph,
+@@ -634,12 +617,6 @@ plainto_tsquery_byid(PG_FUNCTION_ARGS)
+ 	MorphOpaque data;
+ 
+ 	data.cfg_id = PG_GETARG_OID(0);
+-
+-	/*
+-	 * parse_tsquery() with P_TSQ_PLAIN flag takes the whole input text as a
+-	 * single morph.  Passing OP_PHRASE as a qoperator makes tsquery require
+-	 * matching of all words independently on their positions.
+-	 */
+ 	data.qoperator = OP_AND;
+ 
+ 	query = parse_tsquery(text_to_cstring(in),
+@@ -672,12 +649,6 @@ phraseto_tsquery_byid(PG_FUNCTION_ARGS)
+ 	MorphOpaque data;
+ 
+ 	data.cfg_id = PG_GETARG_OID(0);
+-
+-	/*
+-	 * parse_tsquery() with P_TSQ_PLAIN flag takes the whole input text as a
+-	 * single morph.  Passing OP_PHRASE as a qoperator makes tsquery require
+-	 * matching of word positions.
+-	 */
+ 	data.qoperator = OP_PHRASE;
+ 
+ 	query = parse_tsquery(text_to_cstring(in),
+@@ -710,13 +681,7 @@ websearch_to_tsquery_byid(PG_FUNCTION_ARGS)
+ 
+ 	data.cfg_id = PG_GETARG_OID(0);
+ 
+-	/*
+-	 * Passing OP_PHRASE as a qoperator makes tsquery require matching of word
+-	 * positions of a complex morph exactly match the tsvector.  Also, when
+-	 * the complex morphs are given in quotes, we connect all their words into
+-	 * the OP_PHRASE sequence.
+-	 */
+-	data.qoperator = OP_PHRASE;
++	data.qoperator = OP_AND;
+ 
+ 	query = parse_tsquery(text_to_cstring(in),
+ 						  pushval_morph,

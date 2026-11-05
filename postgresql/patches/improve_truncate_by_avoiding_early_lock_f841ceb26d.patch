@@ -1,0 +1,33 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..847ae7b6669 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -1885,21 +1885,18 @@ ExecuteTruncate(TruncateStmt *stmt)
+ 		Oid			myrelid;
+ 		LOCKMODE	lockmode = AccessExclusiveLock;
+ 
+-		myrelid = RangeVarGetRelidExtended(rv, lockmode,
+-										   0, RangeVarCallbackForTruncate,
+-										   NULL);
++		rel = table_openrv(rv, lockmode);
++		myrelid = RelationGetRelid(rel);
+ 
+ 		/* don't throw error for "TRUNCATE foo, foo" */
+ 		if (list_member_oid(relids, myrelid))
++		{
++			table_close(rel, lockmode);
+ 			continue;
++		}
+ 
+-		/* open the relation, we already hold a lock on it */
+-		rel = table_open(myrelid, NoLock);
+-
+-		/*
+-		 * RangeVarGetRelidExtended() has done most checks with its callback,
+-		 * but other checks with the now-opened Relation remain.
+-		 */
++		truncate_check_rel(myrelid, rel->rd_rel);
++		truncate_check_perms(myrelid, rel->rd_rel);
+ 		truncate_check_activity(rel);
+ 
+ 		rels = lappend(rels, rel);

@@ -1,0 +1,12 @@
+begin;
+create temp table t_oncommit_p (a int) on commit drop;
+create temp table t_oncommit_c () inherits(t_oncommit_p) on commit delete rows;
+insert into t_oncommit_c values (1);
+commit;
+psql:<REPRO>:5: NOTICE:  drop cascades to table t_oncommit_c
+psql:<REPRO>:5: ERROR:  could not open relation with OID 16389
+select relname from pg_class where relname like 't_oncommit_%';
+ relname 
+---------
+(0 rows)
+

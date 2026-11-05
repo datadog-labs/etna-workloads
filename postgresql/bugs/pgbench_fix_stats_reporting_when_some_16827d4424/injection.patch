@@ -1,0 +1,37 @@
+diff --git a/src/bin/pgbench/pgbench.c b/src/bin/pgbench/pgbench.c
+index 6d3b67cdede..8ac394232b6 100644
+--- a/src/bin/pgbench/pgbench.c
++++ b/src/bin/pgbench/pgbench.c
+@@ -6392,14 +6392,12 @@ printProgressReport(TState *threads, int64 test_start, pg_time_usec_t now,
+ static void
+ printSimpleStats(const char *prefix, SimpleStats *ss)
+ {
+-	if (ss->count > 0)
+-	{
+-		double		latency = ss->sum / ss->count;
+-		double		stddev = sqrt(ss->sum2 / ss->count - latency * latency);
++	/* print NaN if no transactions where executed */
++	double		latency = ss->sum / ss->count;
++	double		stddev = sqrt(ss->sum2 / ss->count - latency * latency);
+ 
+-		printf("%s average = %.3f ms\n", prefix, 0.001 * latency);
+-		printf("%s stddev = %.3f ms\n", prefix, 0.001 * stddev);
+-	}
++	printf("%s average = %.3f ms\n", prefix, 0.001 * latency);
++	printf("%s stddev = %.3f ms\n", prefix, 0.001 * stddev);
+ }
+ 
+ /* print version banner */
+@@ -6508,9 +6506,9 @@ printResults(StatsData *total,
+ 			   total->skipped, 100.0 * total->skipped / total_cnt);
+ 
+ 	if (latency_limit)
+-		printf("number of transactions above the %.1f ms latency limit: " INT64_FORMAT "/" INT64_FORMAT " (%.3f%%)\n",
+-			   latency_limit / 1000.0, latency_late, total->cnt,
+-			   (total->cnt > 0) ? 100.0 * latency_late / total->cnt : 0.0);
++		printf("number of transactions above the %.1f ms latency limit: " INT64_FORMAT " (%.3f%%)\n",
++			   latency_limit / 1000.0, latency_late,
++			   100.0 * latency_late / total_cnt);
+ 
+ 	if (throttle_delay || progress || latency_limit)
+ 		printSimpleStats("latency", &total->latency);

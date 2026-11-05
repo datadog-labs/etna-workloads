@@ -1,0 +1,38 @@
+diff --git a/src/backend/executor/execIndexing.c b/src/backend/executor/execIndexing.c
+index 4819d3bf167..71e89030cee 100644
+--- a/src/backend/executor/execIndexing.c
++++ b/src/backend/executor/execIndexing.c
+@@ -770,19 +770,13 @@ check_exclusion_or_unique_constraint(Relation heap, Relation index,
+ 	}
+ 
+ 	/*
+-	 * If any of the input values are NULL, and the index uses the default
+-	 * nulls-are-distinct mode, the constraint check is assumed to pass (i.e.,
+-	 * we assume the operators are strict).  Otherwise, we interpret the
+-	 * constraint as specifying IS NULL for each column whose input value is
+-	 * NULL.
++	 * If any of the input values are NULL, the constraint check is assumed to
++	 * pass (i.e., we assume the operators are strict).
+ 	 */
+-	if (!indexInfo->ii_NullsNotDistinct)
++	for (i = 0; i < indnkeyatts; i++)
+ 	{
+-		for (i = 0; i < indnkeyatts; i++)
+-		{
+-			if (isnull[i])
+-				return true;
+-		}
++		if (isnull[i])
++			return true;
+ 	}
+ 
+ 	/*
+@@ -794,7 +788,7 @@ check_exclusion_or_unique_constraint(Relation heap, Relation index,
+ 	for (i = 0; i < indnkeyatts; i++)
+ 	{
+ 		ScanKeyEntryInitialize(&scankeys[i],
+-							   isnull[i] ? SK_ISNULL | SK_SEARCHNULL : 0,
++							   0,
+ 							   i + 1,
+ 							   constr_strats[i],
+ 							   InvalidOid,

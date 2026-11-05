@@ -1,0 +1,21 @@
+create table t1(unique1 int, tenthous int);
+create table t2(hundred int, tenthous int);
+create index on t2(hundred);
+insert into t1 select i,i from generate_series(1,1000) i;
+insert into t2 select i%100,i from generate_series(1,10000) i;
+analyze t1; analyze t2;
+explain (costs off)
+select * from t1
+left join lateral
+  (select t1.tenthous from t2 union all (values(1)))
+on true limit 1;
+            QUERY PLAN            
+----------------------------------
+ Limit
+   ->  Nested Loop Left Join
+         ->  Seq Scan on t1
+         ->  Append
+               ->  Seq Scan on t2
+               ->  Result
+(6 rows)
+

@@ -1,0 +1,73 @@
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index df99a204e0c..93ca22bfb2b 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -5130,9 +5130,9 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
+ 
+ 	/*
+ 	 * If we have any secondary relations in an UPDATE or DELETE, they need to
+-	 * be treated like non-locked relations in SELECT FOR UPDATE, i.e., the
+-	 * EvalPlanQual mechanism needs to be told about them.  This also goes for
+-	 * the source relations in a MERGE.  Locate the relevant ExecRowMarks.
++	 * be treated like non-locked relations in SELECT FOR UPDATE, ie, the
++	 * EvalPlanQual mechanism needs to be told about them.  Locate the
++	 * relevant ExecRowMarks.
+ 	 */
+ 	arowmarks = NIL;
+ 	foreach(l, node->rowMarks)
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..f2cbe8f69ac 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -2551,12 +2551,11 @@ preprocess_rowmarks(PlannerInfo *root)
+ 	else
+ 	{
+ 		/*
+-		 * We only need rowmarks for UPDATE, DELETE, MERGE, or FOR [KEY]
++		 * We only need rowmarks for UPDATE, DELETE, or FOR [KEY]
+ 		 * UPDATE/SHARE.
+ 		 */
+ 		if (parse->commandType != CMD_UPDATE &&
+-			parse->commandType != CMD_DELETE &&
+-			parse->commandType != CMD_MERGE)
++			parse->commandType != CMD_DELETE)
+ 			return;
+ 	}
+ 
+diff --git a/src/include/nodes/execnodes.h b/src/include/nodes/execnodes.h
+index 409e172bfb6..6b5f025ce60 100644
+--- a/src/include/nodes/execnodes.h
++++ b/src/include/nodes/execnodes.h
+@@ -772,8 +772,8 @@ typedef struct EState
+  * ExecRowMark -
+  *	   runtime representation of FOR [KEY] UPDATE/SHARE clauses
+  *
+- * When doing UPDATE/DELETE/MERGE/SELECT FOR [KEY] UPDATE/SHARE, we will have
+- * an ExecRowMark for each non-target relation in the query (except inheritance
++ * When doing UPDATE, DELETE, or SELECT FOR [KEY] UPDATE/SHARE, we will have an
++ * ExecRowMark for each non-target relation in the query (except inheritance
+  * parent RTEs, which can be ignored at runtime).  Virtual relations such as
+  * subqueries-in-FROM will have an ExecRowMark with relation == NULL.  See
+  * PlanRowMark for details about most of the fields.  In addition to fields
+diff --git a/src/include/nodes/plannodes.h b/src/include/nodes/plannodes.h
+index 4f59e30d62d..cc9fd4bb9e4 100644
+--- a/src/include/nodes/plannodes.h
++++ b/src/include/nodes/plannodes.h
+@@ -1461,7 +1461,7 @@ typedef struct Limit
+  * doing a separate remote query to lock each selected row is usually pretty
+  * unappealing, so early locking remains a credible design choice for FDWs.
+  *
+- * When doing UPDATE/DELETE/MERGE/SELECT FOR UPDATE/SHARE, we have to uniquely
++ * When doing UPDATE, DELETE, or SELECT FOR UPDATE/SHARE, we have to uniquely
+  * identify all the source rows, not only those from the target relations, so
+  * that we can perform EvalPlanQual rechecking at need.  For plain tables we
+  * can just fetch the TID, much as for a target relation; this case is
+@@ -1490,7 +1490,7 @@ typedef enum RowMarkType
+  * PlanRowMark -
+  *	   plan-time representation of FOR [KEY] UPDATE/SHARE clauses
+  *
+- * When doing UPDATE/DELETE/MERGE/SELECT FOR UPDATE/SHARE, we create a separate
++ * When doing UPDATE, DELETE, or SELECT FOR UPDATE/SHARE, we create a separate
+  * PlanRowMark node for each non-target relation in the query.  Relations that
+  * are not specified as FOR UPDATE/SHARE are marked ROW_MARK_REFERENCE (if
+  * regular tables or supported foreign tables) or ROW_MARK_COPY (if not).

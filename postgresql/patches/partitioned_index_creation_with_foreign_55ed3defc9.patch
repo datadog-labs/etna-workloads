@@ -1,0 +1,33 @@
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..89690d51a6d 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -1402,28 +1402,6 @@ DefineIndex(Oid tableId,
+ 				child_save_nestlevel = NewGUCNestLevel();
+ 				RestrictSearchPath();
+ 
+-				/*
+-				 * Don't try to create indexes on foreign tables, though. Skip
+-				 * those if a regular index, or fail if trying to create a
+-				 * constraint index.
+-				 */
+-				if (childrel->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
+-				{
+-					if (stmt->unique || stmt->primary)
+-						ereport(ERROR,
+-								(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+-								 errmsg("cannot create unique index on partitioned table \"%s\"",
+-										RelationGetRelationName(rel)),
+-								 errdetail("Table \"%s\" contains partitions that are foreign tables.",
+-										   RelationGetRelationName(rel))));
+-
+-					AtEOXact_GUC(false, child_save_nestlevel);
+-					SetUserIdAndSecContext(child_save_userid,
+-										   child_save_sec_context);
+-					table_close(childrel, lockmode);
+-					continue;
+-				}
+-
+ 				childidxs = RelationGetIndexList(childrel);
+ 				attmap =
+ 					build_attrmap_by_name(RelationGetDescr(childrel),

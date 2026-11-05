@@ -1,0 +1,53 @@
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..39ea1402dc8 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -114,7 +114,6 @@ static void ReindexMultipleInternal(const ReindexStmt *stmt, const List *relids,
+ static bool ReindexRelationConcurrently(const ReindexStmt *stmt,
+ 										Oid relationOid,
+ 										const ReindexParams *params);
+-static void update_relispartition(Oid relationId, bool newval);
+ static inline void set_indexsafe_procflags(void);
+ 
+ /*
+@@ -4547,9 +4546,6 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
+ 		SetRelationHasSubclass(parentOid, true);
+ 	}
+ 
+-	/* set relispartition correctly on the partition */
+-	update_relispartition(partRelid, OidIsValid(parentOid));
+-
+ 	if (fix_dependencies)
+ 	{
+ 		/*
+@@ -4587,30 +4583,6 @@ IndexSetParentIndex(Relation partitionIdx, Oid parentOid)
+ 	}
+ }
+ 
+-/*
+- * Subroutine of IndexSetParentIndex to update the relispartition flag of the
+- * given index to the given value.
+- */
+-static void
+-update_relispartition(Oid relationId, bool newval)
+-{
+-	HeapTuple	tup;
+-	Relation	classRel;
+-	ItemPointerData otid;
+-
+-	classRel = table_open(RelationRelationId, RowExclusiveLock);
+-	tup = SearchSysCacheLockedCopy1(RELOID, ObjectIdGetDatum(relationId));
+-	if (!HeapTupleIsValid(tup))
+-		elog(ERROR, "cache lookup failed for relation %u", relationId);
+-	otid = tup->t_self;
+-	Assert(((Form_pg_class) GETSTRUCT(tup))->relispartition != newval);
+-	((Form_pg_class) GETSTRUCT(tup))->relispartition = newval;
+-	CatalogTupleUpdate(classRel, &otid, tup);
+-	UnlockTuple(classRel, &otid, InplaceUpdateTupleLock);
+-	heap_freetuple(tup);
+-	table_close(classRel, RowExclusiveLock);
+-}
+-
+ /*
+  * Set the PROC_IN_SAFE_IC flag in MyProc->statusFlags.
+  *

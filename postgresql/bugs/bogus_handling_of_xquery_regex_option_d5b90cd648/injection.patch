@@ -1,0 +1,47 @@
+diff --git a/src/backend/utils/adt/jsonpath_gram.y b/src/backend/utils/adt/jsonpath_gram.y
+index f7233c98a18..259432e505d 100644
+--- a/src/backend/utils/adt/jsonpath_gram.y
++++ b/src/backend/utils/adt/jsonpath_gram.y
+@@ -653,32 +653,20 @@ jspConvertRegexFlags(uint32 xflags, int *result, struct Node *escontext)
+ 	if (xflags & JSP_REGEX_ICASE)
+ 		cflags |= REG_ICASE;
+ 
+-	/* Per XQuery spec, if 'q' is specified then 'm', 's', 'x' are ignored */
+-	if (xflags & JSP_REGEX_QUOTE)
++	if (xflags & JSP_REGEX_MLINE)
++		cflags |= REG_NEWLINE;
++	if (xflags & JSP_REGEX_DOTALL)
++		cflags &= ~REG_NEWLINE;
++	if (xflags & JSP_REGEX_WSPACE)
++		cflags |= REG_EXPANDED;
++
++	/* 'q' works only together with 'i' */
++	if ((xflags & JSP_REGEX_QUOTE) &&
++		!(xflags & (JSP_REGEX_MLINE | JSP_REGEX_DOTALL | JSP_REGEX_WSPACE)))
+ 	{
+ 		cflags &= ~REG_ADVANCED;
+ 		cflags |= REG_QUOTE;
+ 	}
+-	else
+-	{
+-		/* Note that dotall mode is the default in POSIX */
+-		if (!(xflags & JSP_REGEX_DOTALL))
+-			cflags |= REG_NLSTOP;
+-		if (xflags & JSP_REGEX_MLINE)
+-			cflags |= REG_NLANCH;
+-
+-		/*
+-		 * XQuery's 'x' mode is related to Spencer's expanded mode, but it's
+-		 * not really enough alike to justify treating JSP_REGEX_WSPACE as
+-		 * REG_EXPANDED.  For now we treat 'x' as unimplemented; perhaps in
+-		 * future we'll modify the regex library to have an option for
+-		 * XQuery-style ignore-whitespace mode.
+-		 */
+-		if (xflags & JSP_REGEX_WSPACE)
+-			ereturn(escontext, false,
+-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-					 errmsg("XQuery \"x\" flag (expanded regular expressions) is not implemented")));
+-	}
+ 
+ 	*result = cflags;
+ 

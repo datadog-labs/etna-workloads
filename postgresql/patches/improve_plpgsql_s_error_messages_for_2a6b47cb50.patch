@@ -1,0 +1,186 @@
+diff --git a/src/pl/plpgsql/src/pl_comp.c b/src/pl/plpgsql/src/pl_comp.c
+index b80c59447fb..3611744427e 100644
+--- a/src/pl/plpgsql/src/pl_comp.c
++++ b/src/pl/plpgsql/src/pl_comp.c
+@@ -1507,7 +1507,7 @@ plpgsql_parse_tripword(char *word1, char *word2, char *word3,
+  * plpgsql_parse_wordtype	The scanner found word%TYPE. word should be
+  *				a pre-existing variable name.
+  *
+- * Returns datatype struct.  Throws error if no match found for word.
++ * Returns datatype struct, or NULL if no match found for word.
+  * ----------
+  */
+ PLpgSQL_type *
+@@ -1531,15 +1531,15 @@ plpgsql_parse_wordtype(char *ident)
+ 			case PLPGSQL_NSTYPE_REC:
+ 				return ((PLpgSQL_rec *) (plpgsql_Datums[nse->itemno]))->datatype;
+ 			default:
+-				break;
++				return NULL;
+ 		}
+ 	}
+ 
+-	/* No match, complain */
+-	ereport(ERROR,
+-			(errcode(ERRCODE_UNDEFINED_OBJECT),
+-			 errmsg("variable \"%s\" does not exist", ident)));
+-	return NULL;				/* keep compiler quiet */
++	/*
++	 * Nothing found - up to now it's a word without any special meaning for
++	 * us.
++	 */
++	return NULL;
+ }
+ 
+ 
+@@ -1547,8 +1547,7 @@ plpgsql_parse_wordtype(char *ident)
+  * plpgsql_parse_cwordtype		Same lookup for compositeword%TYPE
+  *
+  * Here, we allow either a block-qualified variable name, or a reference
+- * to a column of some table.  (If we must throw error, we assume that the
+- * latter case was intended.)
++ * to a column of some table.
+  * ----------
+  */
+ PLpgSQL_type *
+@@ -1557,11 +1556,12 @@ plpgsql_parse_cwordtype(List *idents)
+ 	PLpgSQL_type *dtype = NULL;
+ 	PLpgSQL_nsitem *nse;
+ 	int			nnames;
+-	RangeVar   *relvar = NULL;
+-	const char *fldname = NULL;
++	const char *fldname;
+ 	Oid			classOid;
++	HeapTuple	classtup = NULL;
+ 	HeapTuple	attrtup = NULL;
+ 	HeapTuple	typetup = NULL;
++	Form_pg_class classStruct;
+ 	Form_pg_attribute attrStruct;
+ 	MemoryContext oldCxt;
+ 
+@@ -1596,39 +1596,57 @@ plpgsql_parse_cwordtype(List *idents)
+ 		/*
+ 		 * First word could also be a table name
+ 		 */
+-		relvar = makeRangeVar(NULL,
+-							  strVal(linitial(idents)),
+-							  -1);
++		classOid = RelnameGetRelid(strVal(linitial(idents)));
++		if (!OidIsValid(classOid))
++			goto done;
+ 		fldname = strVal(lsecond(idents));
+ 	}
+-	else
++	else if (list_length(idents) == 3)
+ 	{
++		RangeVar   *relvar;
++
+ 		/*
+ 		 * We could check for a block-qualified reference to a field of a
+ 		 * record variable, but %TYPE is documented as applying to variables,
+ 		 * not fields of variables.  Things would get rather ambiguous if we
+ 		 * allowed either interpretation.
+ 		 */
+-		List	   *rvnames;
+-
+-		Assert(list_length(idents) > 2);
+-		rvnames = list_delete_last(list_copy(idents));
+-		relvar = makeRangeVarFromNameList(rvnames);
+-		fldname = strVal(llast(idents));
++		relvar = makeRangeVar(strVal(linitial(idents)),
++							  strVal(lsecond(idents)),
++							  -1);
++		/* Can't lock relation - we might not have privileges. */
++		classOid = RangeVarGetRelid(relvar, NoLock, true);
++		if (!OidIsValid(classOid))
++			goto done;
++		fldname = strVal(lthird(idents));
+ 	}
++	else
++		goto done;
+ 
+-	/* Look up relation name.  Can't lock it - we might not have privileges. */
+-	classOid = RangeVarGetRelid(relvar, NoLock, false);
++	classtup = SearchSysCache1(RELOID, ObjectIdGetDatum(classOid));
++	if (!HeapTupleIsValid(classtup))
++		goto done;
++	classStruct = (Form_pg_class) GETSTRUCT(classtup);
++
++	/*
++	 * It must be a relation, sequence, view, materialized view, composite
++	 * type, or foreign table
++	 */
++	if (classStruct->relkind != RELKIND_RELATION &&
++		classStruct->relkind != RELKIND_SEQUENCE &&
++		classStruct->relkind != RELKIND_VIEW &&
++		classStruct->relkind != RELKIND_MATVIEW &&
++		classStruct->relkind != RELKIND_COMPOSITE_TYPE &&
++		classStruct->relkind != RELKIND_FOREIGN_TABLE &&
++		classStruct->relkind != RELKIND_PARTITIONED_TABLE)
++		goto done;
+ 
+ 	/*
+ 	 * Fetch the named table field and its type
+ 	 */
+ 	attrtup = SearchSysCacheAttName(classOid, fldname);
+ 	if (!HeapTupleIsValid(attrtup))
+-		ereport(ERROR,
+-				(errcode(ERRCODE_UNDEFINED_COLUMN),
+-				 errmsg("column \"%s\" of relation \"%s\" does not exist",
+-						fldname, relvar->relname)));
++		goto done;
+ 	attrStruct = (Form_pg_attribute) GETSTRUCT(attrtup);
+ 
+ 	typetup = SearchSysCache1(TYPEOID,
+@@ -1649,6 +1667,8 @@ plpgsql_parse_cwordtype(List *idents)
+ 	MemoryContextSwitchTo(plpgsql_compile_tmp_cxt);
+ 
+ done:
++	if (HeapTupleIsValid(classtup))
++		ReleaseSysCache(classtup);
+ 	if (HeapTupleIsValid(attrtup))
+ 		ReleaseSysCache(attrtup);
+ 	if (HeapTupleIsValid(typetup))
+@@ -1712,12 +1732,16 @@ plpgsql_parse_cwordrowtype(List *idents)
+ 	 * As above, this is a relation lookup but could be a type lookup if we
+ 	 * weren't being backwards-compatible about error wording.
+ 	 */
++	if (list_length(idents) != 2)
++		return NULL;
+ 
+ 	/* Avoid memory leaks in long-term function context */
+ 	oldCxt = MemoryContextSwitchTo(plpgsql_compile_tmp_cxt);
+ 
+ 	/* Look up relation name.  Can't lock it - we might not have privileges. */
+-	relvar = makeRangeVarFromNameList(idents);
++	relvar = makeRangeVar(strVal(linitial(idents)),
++						  strVal(lsecond(idents)),
++						  -1);
+ 	classOid = RangeVarGetRelid(relvar, NoLock, false);
+ 
+ 	/* Some relkinds lack type OIDs */
+@@ -1726,7 +1750,7 @@ plpgsql_parse_cwordrowtype(List *idents)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+ 				 errmsg("relation \"%s\" does not have a composite type",
+-						relvar->relname)));
++						strVal(lsecond(idents)))));
+ 
+ 	MemoryContextSwitchTo(oldCxt);
+ 
+diff --git a/src/pl/plpgsql/src/pl_gram.y b/src/pl/plpgsql/src/pl_gram.y
+index 5612e66d023..4110ec8943c 100644
+--- a/src/pl/plpgsql/src/pl_gram.y
++++ b/src/pl/plpgsql/src/pl_gram.y
+@@ -2884,7 +2884,10 @@ read_datatype(int tok, YYSTYPE *yylvalp, YYLTYPE *yyllocp, yyscan_t yyscanner)
+ 
+ 	/*
+ 	 * If we have a simple or composite identifier, check for %TYPE and
+-	 * %ROWTYPE constructs.
++	 * %ROWTYPE constructs.  (Note that if plpgsql_parse_wordtype et al fail
++	 * to recognize the identifier, we'll fall through and pass the whole
++	 * string to parse_datatype, which will assuredly give an unhelpful
++	 * "syntax error".  Should we try to give a more specific error?)
+ 	 */
+ 	if (tok == T_WORD)
+ 	{

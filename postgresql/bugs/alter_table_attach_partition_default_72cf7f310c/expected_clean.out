@@ -1,0 +1,12 @@
+create table d (a int) partition by list (a);
+create table d1 partition of d for values in (1);
+create table dd (like d);
+insert into dd values (1), (2);
+alter table d attach partition dd default;
+psql:<REPRO>:5: ERROR:  partition constraint of relation "dd" is violated by some row
+select count(*) from pg_inherits where inhparent='d'::regclass;
+ count 
+-------
+     1
+(1 row)
+

@@ -1,0 +1,64 @@
+diff --git a/src/backend/parser/analyze.c b/src/backend/parser/analyze.c
+index 2fec9ce8106..0bcdeabd9ab 100644
+--- a/src/backend/parser/analyze.c
++++ b/src/backend/parser/analyze.c
+@@ -573,14 +573,6 @@ transformDeleteStmt(ParseState *pstate, DeleteStmt *stmt)
+ 										 ACL_DELETE);
+ 	nsitem = pstate->p_target_nsitem;
+ 
+-	/* disallow DELETE ... WHERE CURRENT OF on a view */
+-	if (stmt->whereClause &&
+-		IsA(stmt->whereClause, CurrentOfExpr) &&
+-		pstate->p_target_relation->rd_rel->relkind == RELKIND_VIEW)
+-		ereport(ERROR,
+-				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-				errmsg("WHERE CURRENT OF on a view is not implemented"));
+-
+ 	/* there's no DISTINCT in DELETE */
+ 	qry->distinctClause = NIL;
+ 
+@@ -2492,14 +2484,6 @@ transformUpdateStmt(ParseState *pstate, UpdateStmt *stmt)
+ 										 ACL_UPDATE);
+ 	nsitem = pstate->p_target_nsitem;
+ 
+-	/* disallow UPDATE ... WHERE CURRENT OF on a view */
+-	if (stmt->whereClause &&
+-		IsA(stmt->whereClause, CurrentOfExpr) &&
+-		pstate->p_target_relation->rd_rel->relkind == RELKIND_VIEW)
+-		ereport(ERROR,
+-				errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-				errmsg("WHERE CURRENT OF on a view is not implemented"));
+-
+ 	/* subqueries in FROM cannot access the result relation */
+ 	nsitem->p_lateral_only = true;
+ 	nsitem->p_lateral_ok = false;
+diff --git a/src/backend/rewrite/rewriteManip.c b/src/backend/rewrite/rewriteManip.c
+index 2e75f286b8b..781ab862b67 100644
+--- a/src/backend/rewrite/rewriteManip.c
++++ b/src/backend/rewrite/rewriteManip.c
+@@ -1513,6 +1513,25 @@ replace_rte_variables_mutator(Node *node,
+ 		}
+ 		/* otherwise fall through to copy the var normally */
+ 	}
++	else if (IsA(node, CurrentOfExpr))
++	{
++		CurrentOfExpr *cexpr = (CurrentOfExpr *) node;
++
++		if (cexpr->cvarno == context->target_varno &&
++			context->sublevels_up == 0)
++		{
++			/*
++			 * We get here if a WHERE CURRENT OF expression turns out to apply
++			 * to a view.  Someday we might be able to translate the
++			 * expression to apply to an underlying table of the view, but
++			 * right now it's not implemented.
++			 */
++			ereport(ERROR,
++					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
++					 errmsg("WHERE CURRENT OF on a view is not implemented")));
++		}
++		/* otherwise fall through to copy the expr normally */
++	}
+ 	else if (IsA(node, Query))
+ 	{
+ 		/* Recurse into RTE subquery or not-yet-planned sublink subquery */

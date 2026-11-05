@@ -1,0 +1,6 @@
+create temp table t1(f1 text);
+create temp table i8(q1 int8, q2 int8);
+create temp table t2(f1 text);
+select * from t1 left join i8 on i8.q2 = 123,
+  lateral (select i8.q1, t2.f1 from t2 limit 1) as ss
+where t1.f1 = ss.f1;

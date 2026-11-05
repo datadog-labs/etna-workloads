@@ -1,0 +1,15 @@
+CREATE ROLE ru1;
+CREATE TABLE pt (a int) PARTITION BY RANGE (a);
+CREATE TABLE pt1 PARTITION OF pt FOR VALUES FROM (0) TO (10);
+CREATE INDEX ON pt (a);
+GRANT MAINTAIN ON pt TO ru1;
+SET ROLE ru1;
+VACUUM pt1;
+psql:<REPRO>:7: WARNING:  permission denied to vacuum "pt1", skipping it
+ANALYZE pt1;
+psql:<REPRO>:8: WARNING:  permission denied to analyze "pt1", skipping it
+CLUSTER pt USING pt1_a_idx;
+psql:<REPRO>:9: ERROR:  "pt1_a_idx" is not an index for table "pt"
+LOCK TABLE pt1;
+psql:<REPRO>:10: ERROR:  LOCK TABLE can only be used in transaction blocks
+RESET ROLE;

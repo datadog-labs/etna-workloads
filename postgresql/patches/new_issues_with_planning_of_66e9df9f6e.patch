@@ -1,0 +1,290 @@
+diff --git a/src/backend/optimizer/plan/createplan.c b/src/backend/optimizer/plan/createplan.c
+index 10b7358c28b..fad9242f795 100644
+--- a/src/backend/optimizer/plan/createplan.c
++++ b/src/backend/optimizer/plan/createplan.c
+@@ -4344,7 +4344,6 @@ create_nestloop_plan(PlannerInfo *root,
+ 	NestLoop   *join_plan;
+ 	Plan	   *outer_plan;
+ 	Plan	   *inner_plan;
+-	Relids		outerrelids;
+ 	List	   *tlist = build_path_tlist(root, &best_path->jpath.path);
+ 	List	   *joinrestrictclauses = best_path->jpath.joinrestrictinfo;
+ 	List	   *joinclauses;
+@@ -4375,8 +4374,8 @@ create_nestloop_plan(PlannerInfo *root,
+ 	outer_plan = create_plan_recurse(root, best_path->jpath.outerjoinpath, 0);
+ 
+ 	/* For a nestloop, include outer relids in curOuterRels for inner side */
+-	outerrelids = best_path->jpath.outerjoinpath->parent->relids;
+-	root->curOuterRels = bms_union(root->curOuterRels, outerrelids);
++	root->curOuterRels = bms_union(root->curOuterRels,
++								   best_path->jpath.outerjoinpath->parent->relids);
+ 
+ 	inner_plan = create_plan_recurse(root, best_path->jpath.innerjoinpath, 0);
+ 
+@@ -4416,8 +4415,7 @@ create_nestloop_plan(PlannerInfo *root,
+ 	 * node, and remove them from root->curOuterParams.
+ 	 */
+ 	nestParams = identify_current_nestloop_params(root,
+-												  outerrelids,
+-												  PATH_REQ_OUTER((Path *) best_path));
++												  best_path->jpath.outerjoinpath);
+ 
+ 	/*
+ 	 * While nestloop parameters that are Vars had better be available from
+@@ -4425,50 +4423,32 @@ create_nestloop_plan(PlannerInfo *root,
+ 	 * that are PHVs won't be.  In such cases we must add them to the
+ 	 * outer_plan's tlist, since the executor's NestLoopParam machinery
+ 	 * requires the params to be simple outer-Var references to that tlist.
+-	 * (This is cheating a little bit, because the outer path's required-outer
+-	 * relids might not be enough to allow evaluating such a PHV.  But in
+-	 * practice, if we could have evaluated the PHV at the nestloop node, we
+-	 * can do so in the outer plan too.)
+ 	 */
+ 	outer_tlist = outer_plan->targetlist;
+ 	outer_parallel_safe = outer_plan->parallel_safe;
+ 	foreach(lc, nestParams)
+ 	{
+ 		NestLoopParam *nlp = (NestLoopParam *) lfirst(lc);
+-		PlaceHolderVar *phv;
+ 		TargetEntry *tle;
+ 
+ 		if (IsA(nlp->paramval, Var))
+ 			continue;			/* nothing to do for simple Vars */
+-		/* Otherwise it must be a PHV */
+-		phv = castNode(PlaceHolderVar, nlp->paramval);
+-
+-		if (tlist_member((Expr *) phv, outer_tlist))
++		if (tlist_member((Expr *) nlp->paramval, outer_tlist))
+ 			continue;			/* already available */
+ 
+-		/*
+-		 * It's possible that nestloop parameter PHVs selected to evaluate
+-		 * here contain references to surviving root->curOuterParams items
+-		 * (that is, they reference values that will be supplied by some
+-		 * higher-level nestloop).  Those need to be converted to Params now.
+-		 * Note: it's safe to do this after the tlist_member() check, because
+-		 * equal() won't pay attention to phv->phexpr.
+-		 */
+-		phv->phexpr = (Expr *) replace_nestloop_params(root,
+-													   (Node *) phv->phexpr);
+-
+ 		/* Make a shallow copy of outer_tlist, if we didn't already */
+ 		if (outer_tlist == outer_plan->targetlist)
+ 			outer_tlist = list_copy(outer_tlist);
+ 		/* ... and add the needed expression */
+-		tle = makeTargetEntry((Expr *) copyObject(phv),
++		tle = makeTargetEntry((Expr *) copyObject(nlp->paramval),
+ 							  list_length(outer_tlist) + 1,
+ 							  NULL,
+ 							  true);
+ 		outer_tlist = lappend(outer_tlist, tle);
+ 		/* ... and track whether tlist is (still) parallel-safe */
+ 		if (outer_parallel_safe)
+-			outer_parallel_safe = is_parallel_safe(root, (Node *) phv);
++			outer_parallel_safe = is_parallel_safe(root,
++												   (Node *) nlp->paramval);
+ 	}
+ 	if (outer_tlist != outer_plan->targetlist)
+ 		outer_plan = change_plan_targetlist(outer_plan, outer_tlist,
+diff --git a/src/backend/optimizer/util/paramassign.c b/src/backend/optimizer/util/paramassign.c
+index 4c13c5931b4..9836abf9479 100644
+--- a/src/backend/optimizer/util/paramassign.c
++++ b/src/backend/optimizer/util/paramassign.c
+@@ -599,31 +599,38 @@ process_subquery_nestloop_params(PlannerInfo *root, List *subplan_params)
+ }
+ 
+ /*
+- * Identify any NestLoopParams that should be supplied by a NestLoop
+- * plan node with the specified lefthand rels and required-outer rels.
+- * Remove them from the active root->curOuterParams list and return
+- * them as the result list.
++ * Identify any NestLoopParams that should be supplied by a NestLoop plan
++ * node with the specified lefthand input path.  Remove them from the active
++ * root->curOuterParams list and return them as the result list.
+  *
+- * Vars and PHVs appearing in the result list must have nullingrel sets
+- * that could validly appear in the lefthand rel's output.  Ordinarily that
+- * would be true already, but if we have applied outer join identity 3,
+- * there could be more or fewer nullingrel bits in the nodes appearing in
+- * curOuterParams than are in the nominal leftrelids.  We deal with that by
+- * forcing their nullingrel sets to include exactly the outer-join relids
+- * that appear in leftrelids and can null the respective Var or PHV.
+- * This fix is a bit ad-hoc and intellectually unsatisfactory, because it's
+- * essentially jumping to the conclusion that we've placed evaluation of
+- * the nestloop parameters correctly, and thus it defeats the intent of the
+- * subsequent nullingrel cross-checks in setrefs.c.  But the alternative
++ * XXX Here we also hack up the returned Vars and PHVs so that they do not
++ * contain nullingrel sets exceeding what is available from the outer side.
++ * This is needed if we have applied outer join identity 3,
++ *		(A leftjoin B on (Pab)) leftjoin C on (Pb*c)
++ *		= A leftjoin (B leftjoin C on (Pbc)) on (Pab)
++ * and C contains lateral references to B.  It's still safe to apply the
++ * identity, but the parser will have created those references in the form
++ * "b*" (i.e., with varnullingrels listing the A/B join), while what we will
++ * have available from the nestloop's outer side is just "b".  We deal with
++ * that here by stripping the nullingrels down to what is available from the
++ * outer side according to leftrelids.
++ *
++ * That fixes matters for the case of forward application of identity 3.
++ * If the identity was applied in the reverse direction, we will have
++ * parameter Vars containing too few nullingrel bits rather than too many.
++ * Currently, that causes no problems because setrefs.c applies only a
++ * subset check to nullingrels in NestLoopParams, but we'd have to work
++ * harder if we ever want to tighten that check.  This is all pretty annoying
++ * because it greatly weakens setrefs.c's cross-check, but the alternative
+  * seems to be to generate multiple versions of each laterally-parameterized
+  * subquery, which'd be unduly expensive.
+  */
+ List *
+-identify_current_nestloop_params(PlannerInfo *root,
+-								 Relids leftrelids,
+-								 Relids outerrelids)
++identify_current_nestloop_params(PlannerInfo *root, Path *leftpath)
+ {
+ 	List	   *result;
++	Relids		leftrelids = leftpath->parent->relids;
++	Relids		outerrelids = PATH_REQ_OUTER(leftpath);
+ 	Relids		allleftrelids;
+ 	ListCell   *cell;
+ 
+@@ -654,58 +661,25 @@ identify_current_nestloop_params(PlannerInfo *root,
+ 			bms_is_member(nlp->paramval->varno, leftrelids))
+ 		{
+ 			Var		   *var = (Var *) nlp->paramval;
+-			RelOptInfo *rel = root->simple_rel_array[var->varno];
+ 
+ 			root->curOuterParams = foreach_delete_current(root->curOuterParams,
+ 														  cell);
+-			var->varnullingrels = bms_intersect(rel->nulling_relids,
++			var->varnullingrels = bms_intersect(var->varnullingrels,
+ 												leftrelids);
+ 			result = lappend(result, nlp);
+ 		}
+ 		else if (IsA(nlp->paramval, PlaceHolderVar))
+ 		{
+ 			PlaceHolderVar *phv = (PlaceHolderVar *) nlp->paramval;
+-			PlaceHolderInfo *phinfo = find_placeholder_info(root, phv);
+-			Relids		eval_at = phinfo->ph_eval_at;
++			Relids		eval_at = find_placeholder_info(root, phv)->ph_eval_at;
+ 
+ 			if (bms_is_subset(eval_at, allleftrelids) &&
+ 				bms_overlap(eval_at, leftrelids))
+ 			{
+ 				root->curOuterParams = foreach_delete_current(root->curOuterParams,
+ 															  cell);
+-
+-				/*
+-				 * Deal with an edge case: if the PHV was pulled up out of a
+-				 * subquery and it contains a subquery that was originally
+-				 * pushed down from this query level, then that will still be
+-				 * represented as a SubLink, because SS_process_sublinks won't
+-				 * recurse into outer PHVs, so it didn't get transformed
+-				 * during expression preprocessing in the subquery.  We need a
+-				 * version of the PHV that has a SubPlan, which we can get
+-				 * from the current query level's placeholder_list.  This is
+-				 * quite grotty of course, but dealing with it earlier in the
+-				 * handling of subplan params would be just as grotty, and it
+-				 * might end up being a waste of cycles if we don't decide to
+-				 * treat the PHV as a NestLoopParam.  (Perhaps that whole
+-				 * mechanism should be redesigned someday, but today is not
+-				 * that day.)
+-				 */
+-				if (root->parse->hasSubLinks)
+-				{
+-					phv = copyObject(phinfo->ph_var);
+-
+-					/*
+-					 * The ph_var will have empty nullingrels, but that
+-					 * doesn't matter since we're about to overwrite
+-					 * phv->phnullingrels.  Other fields should be OK already.
+-					 */
+-					nlp->paramval = (Var *) phv;
+-				}
+-
+-				phv->phnullingrels =
+-					bms_intersect(get_placeholder_nulling_relids(root, phinfo),
+-								  leftrelids);
+-
++				phv->phnullingrels = bms_intersect(phv->phnullingrels,
++												   leftrelids);
+ 				result = lappend(result, nlp);
+ 			}
+ 		}
+diff --git a/src/backend/optimizer/util/placeholder.c b/src/backend/optimizer/util/placeholder.c
+index 86e3c1e751f..47160359ec3 100644
+--- a/src/backend/optimizer/util/placeholder.c
++++ b/src/backend/optimizer/util/placeholder.c
+@@ -548,46 +548,6 @@ contain_placeholder_references_walker(Node *node,
+ 								  context);
+ }
+ 
+-/*
+- * Compute the set of outer-join relids that can null a placeholder.
+- *
+- * This is analogous to RelOptInfo.nulling_relids for Vars, but we compute it
+- * on-the-fly rather than saving it somewhere.  Currently the value is needed
+- * at most once per query, so there's little value in doing otherwise.  If it
+- * ever gains more widespread use, perhaps we should cache the result in
+- * PlaceHolderInfo.
+- */
+-Relids
+-get_placeholder_nulling_relids(PlannerInfo *root, PlaceHolderInfo *phinfo)
+-{
+-	Relids		result = NULL;
+-	int			relid = -1;
+-
+-	/*
+-	 * Form the union of all potential nulling OJs for each baserel included
+-	 * in ph_eval_at.
+-	 */
+-	while ((relid = bms_next_member(phinfo->ph_eval_at, relid)) > 0)
+-	{
+-		RelOptInfo *rel = root->simple_rel_array[relid];
+-
+-		/* ignore the RTE_GROUP RTE */
+-		if (relid == root->group_rtindex)
+-			continue;
+-
+-		if (rel == NULL)		/* must be an outer join */
+-		{
+-			Assert(bms_is_member(relid, root->outer_join_rels));
+-			continue;
+-		}
+-		result = bms_add_members(result, rel->nulling_relids);
+-	}
+-
+-	/* Now remove any OJs already included in ph_eval_at, and we're done. */
+-	result = bms_del_members(result, phinfo->ph_eval_at);
+-	return result;
+-}
+-
+ /*
+  * strip_noop_phvs
+  *	  Strip no-op PlaceHolderVar nodes from the given expression tree.
+diff --git a/src/include/optimizer/paramassign.h b/src/include/optimizer/paramassign.h
+index bbf7214289b..d30d20de299 100644
+--- a/src/include/optimizer/paramassign.h
++++ b/src/include/optimizer/paramassign.h
+@@ -30,8 +30,7 @@ extern Param *replace_nestloop_param_placeholdervar(PlannerInfo *root,
+ extern void process_subquery_nestloop_params(PlannerInfo *root,
+ 											 List *subplan_params);
+ extern List *identify_current_nestloop_params(PlannerInfo *root,
+-											  Relids leftrelids,
+-											  Relids outerrelids);
++											  Path *leftpath);
+ extern Param *generate_new_exec_param(PlannerInfo *root, Oid paramtype,
+ 									  int32 paramtypmod, Oid paramcollation);
+ extern int	assign_special_exec_param(PlannerInfo *root);
+diff --git a/src/include/optimizer/placeholder.h b/src/include/optimizer/placeholder.h
+index 0186f18bb06..e895f3149c8 100644
+--- a/src/include/optimizer/placeholder.h
++++ b/src/include/optimizer/placeholder.h
+@@ -30,8 +30,6 @@ extern void add_placeholders_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
+ 										SpecialJoinInfo *sjinfo);
+ extern bool contain_placeholder_references_to(PlannerInfo *root, Node *clause,
+ 											  int relid);
+-extern Relids get_placeholder_nulling_relids(PlannerInfo *root,
+-											 PlaceHolderInfo *phinfo);
+ extern Node *strip_noop_phvs(Node *node);
+ 
+ #endif							/* PLACEHOLDER_H */

@@ -1,0 +1,18 @@
+CREATE TABLE pk (a int PRIMARY KEY) PARTITION BY RANGE (a);
+CREATE TABLE pk_1 PARTITION OF pk FOR VALUES FROM (0) TO (1000);
+CREATE TABLE pk_2 PARTITION OF pk FOR VALUES FROM (1000) TO (2000);
+INSERT INTO pk VALUES (100);
+CREATE TABLE fk (a int);
+INSERT INTO fk VALUES (100);
+ALTER TABLE fk ADD CONSTRAINT fk_fkey FOREIGN KEY (a) REFERENCES pk NOT ENFORCED;
+ALTER TABLE fk ALTER CONSTRAINT fk_fkey ENFORCED;
+psql:<REPRO>:8: ERROR:  insert or update on table "fk" violates foreign key constraint "fk_fkey_2"
+DETAIL:  Key (a)=(100) is not present in table "pk_2".
+SELECT conname, conenforced FROM pg_constraint WHERE conrelid='fk'::regclass ORDER BY 1;
+  conname  | conenforced 
+-----------+-------------
+ fk_fkey   | f
+ fk_fkey_1 | f
+ fk_fkey_2 | f
+(3 rows)
+

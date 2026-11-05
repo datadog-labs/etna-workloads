@@ -1,0 +1,10 @@
+CREATE TEMP TABLE t(f1 point);
+INSERT INTO t SELECT '(0,0)' FROM generate_series(0,1000);
+CREATE INDEX ti ON t USING gist (f1);
+INSERT INTO t VALUES ('(0.0000009,0.0000009)');
+SET enable_seqscan TO false;
+SET enable_indexscan TO true;
+SET enable_bitmapscan TO false;
+SELECT COUNT(*) FROM t WHERE f1 ~= '(0.0000009,0.0000009)'::point;
+SELECT COUNT(*) FROM t WHERE f1 <@ '(0.0000009,0.0000009),(0.0000009,0.0000009)'::box;
+SELECT COUNT(*) FROM t WHERE f1 ~= '(0.0000009,0.0000009)'::point;

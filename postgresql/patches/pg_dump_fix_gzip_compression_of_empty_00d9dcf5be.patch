@@ -1,0 +1,33 @@
+diff --git a/src/bin/pg_dump/compress_gzip.c b/src/bin/pg_dump/compress_gzip.c
+index be31209f811..0a1a7ae2d02 100644
+--- a/src/bin/pg_dump/compress_gzip.c
++++ b/src/bin/pg_dump/compress_gzip.c
+@@ -161,7 +161,12 @@ static void
+ WriteDataToArchiveGzip(ArchiveHandle *AH, CompressorState *cs,
+ 					   const void *data, size_t dLen)
+ {
+-	GzipCompressorState *gzipcs = (GzipCompressorState *) cs->private_data;
++	GzipCompressorState *gzipcs;
++
++	/* Initialize deflation lazily, on the first Write */
++	if (!cs->private_data)
++		DeflateCompressorInit(cs);
++	gzipcs = (GzipCompressorState *) cs->private_data;
+ 
+ 	gzipcs->zp->next_in = data;
+ 	gzipcs->zp->avail_in = dLen;
+@@ -244,14 +249,6 @@ InitCompressorGzip(CompressorState *cs,
+ 	cs->end = EndCompressorGzip;
+ 
+ 	cs->compression_spec = compression_spec;
+-
+-	/*
+-	 * If the caller has defined a write function, prepare the necessary
+-	 * state.  Note that if the data is empty, End may be called immediately
+-	 * after Init, without ever calling Write.
+-	 */
+-	if (cs->writeF)
+-		DeflateCompressorInit(cs);
+ }
+ 
+ 

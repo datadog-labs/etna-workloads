@@ -1,0 +1,30 @@
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..3093ce77287 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -612,10 +612,7 @@ DefineIndex(Oid tableId,
+ 	 * is more efficient.  Do this before any use of the concurrent option is
+ 	 * done.
+ 	 */
+-	if (stmt->concurrent && get_rel_persistence(tableId) != RELPERSISTENCE_TEMP)
+-		concurrent = true;
+-	else
+-		concurrent = false;
++	concurrent = stmt->concurrent;
+ 
+ 	/*
+ 	 * Start progress report.  If we're building a partition, this was already
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..7efe3d5d717 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -1657,8 +1657,7 @@ RemoveRelations(DropStmt *drop)
+ 		 * Decide if concurrent mode needs to be used here or not.  The
+ 		 * callback retrieved the rel's persistence for us.
+ 		 */
+-		if (drop->concurrent &&
+-			state.actual_relpersistence != RELPERSISTENCE_TEMP)
++		if (drop->concurrent)
+ 		{
+ 			Assert(list_length(drop->objects) == 1 &&
+ 				   drop->removeType == OBJECT_INDEX);

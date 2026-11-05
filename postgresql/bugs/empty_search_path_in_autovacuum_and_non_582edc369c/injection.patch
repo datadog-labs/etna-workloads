@@ -1,0 +1,75 @@
+diff --git a/src/backend/postmaster/autovacuum.c b/src/backend/postmaster/autovacuum.c
+index de43a87f74d..c2144fbf25b 100644
+--- a/src/backend/postmaster/autovacuum.c
++++ b/src/backend/postmaster/autovacuum.c
+@@ -510,12 +510,6 @@ AutoVacLauncherMain(const void *startup_data, size_t startup_data_len)
+ 	/* must unblock signals before calling rebuild_database_list */
+ 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
+ 
+-	/*
+-	 * Set always-secure search path.  Launcher doesn't connect to a database,
+-	 * so this has no effect.
+-	 */
+-	SetConfigOption("search_path", "", PGC_SUSET, PGC_S_OVERRIDE);
+-
+ 	/*
+ 	 * Force zero_damaged_pages OFF in the autovac process, even if it is set
+ 	 * in postgresql.conf.  We don't really want such a dangerous option being
+@@ -1461,14 +1455,6 @@ AutoVacWorkerMain(const void *startup_data, size_t startup_data_len)
+ 
+ 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
+ 
+-	/*
+-	 * Set always-secure search path, so malicious users can't redirect user
+-	 * code (e.g. pg_index.indexprs).  (That code runs in a
+-	 * SECURITY_RESTRICTED_OPERATION sandbox, so malicious users could not
+-	 * take control of the entire autovacuum worker in any case.)
+-	 */
+-	SetConfigOption("search_path", "", PGC_SUSET, PGC_S_OVERRIDE);
+-
+ 	/*
+ 	 * Force zero_damaged_pages OFF in the autovac process, even if it is set
+ 	 * in postgresql.conf.  We don't really want such a dangerous option being
+diff --git a/src/bin/scripts/clusterdb.c b/src/bin/scripts/clusterdb.c
+index a0aa950b784..fe1f697b385 100644
+--- a/src/bin/scripts/clusterdb.c
++++ b/src/bin/scripts/clusterdb.c
+@@ -201,10 +201,7 @@ cluster_one_database(const ConnParams *cparams, const char *table,
+ 	if (verbose)
+ 		appendPQExpBufferStr(&sql, " VERBOSE");
+ 	if (table)
+-	{
+-		appendPQExpBufferChar(&sql, ' ');
+-		appendQualifiedRelation(&sql, table, conn, echo);
+-	}
++		appendPQExpBuffer(&sql, " %s", table);
+ 	appendPQExpBufferChar(&sql, ';');
+ 
+ 	if (!executeMaintenanceCommand(conn, sql.data, echo))
+diff --git a/src/bin/scripts/reindexdb.c b/src/bin/scripts/reindexdb.c
+index 8ddcc5312f7..e37ec54da7b 100644
+--- a/src/bin/scripts/reindexdb.c
++++ b/src/bin/scripts/reindexdb.c
+@@ -563,7 +563,7 @@ gen_reindex_command(PGconn *conn, ReindexType type, const char *name,
+ 			break;
+ 		case REINDEX_INDEX:
+ 		case REINDEX_TABLE:
+-			appendQualifiedRelation(sql, name, conn, echo);
++			appendPQExpBufferStr(sql, name);
+ 			break;
+ 		case REINDEX_SCHEMA:
+ 			appendPQExpBufferStr(sql, name);
+diff --git a/src/fe_utils/connect_utils.c b/src/fe_utils/connect_utils.c
+index cda1c110997..79b2129c31e 100644
+--- a/src/fe_utils/connect_utils.c
++++ b/src/fe_utils/connect_utils.c
+@@ -116,9 +116,6 @@ connectDatabase(const ConnParams *cparams, const char *progname,
+ 		pg_fatal("%s", PQerrorMessage(conn));
+ 	}
+ 
+-	/* Start strict; callers may override this. */
+-	PQclear(executeQuery(conn, ALWAYS_SECURE_SEARCH_PATH_SQL, echo));
+-
+ 	return conn;
+ }
+ 

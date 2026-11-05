@@ -1,0 +1,32 @@
+diff --git a/src/backend/replication/logical/relation.c b/src/backend/replication/logical/relation.c
+index f59046ad620..d374f4a8f0c 100644
+--- a/src/backend/replication/logical/relation.c
++++ b/src/backend/replication/logical/relation.c
+@@ -740,8 +740,7 @@ logicalrep_partition_open(LogicalRepRelMapEntry *root,
+ 			   attrmap->maplen * sizeof(AttrNumber));
+ 	}
+ 
+-	/* Set if the table's replica identity is enough to apply update/delete. */
+-	logicalrep_rel_mark_updatable(entry);
++	entry->updatable = root->updatable;
+ 
+ 	/* state and statelsn are left set to 0. */
+ 	MemoryContextSwitchTo(oldctx);
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..a0014803d05 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -2513,13 +2513,6 @@ apply_handle_insert_internal(ApplyExecutionData *edata,
+ static void
+ check_relation_updatable(LogicalRepRelMapEntry *rel)
+ {
+-	/*
+-	 * For partitioned tables, we only need to care if the target partition is
+-	 * updatable (aka has PK or RI defined for it).
+-	 */
+-	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
+-		return;
+-
+ 	/* Updatable, no error. */
+ 	if (rel->updatable)
+ 		return;

@@ -1,0 +1,23 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..d97816016a3 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -1676,18 +1676,6 @@ RemoveRelations(DropStmt *drop)
+ 					 errmsg("cannot drop partitioned index \"%s\" concurrently",
+ 							rel->relname)));
+ 
+-		/*
+-		 * If we're told to drop a partitioned index, we must acquire lock on
+-		 * all the children of its parent partitioned table before proceeding.
+-		 * Otherwise we'd try to lock the child index partitions before their
+-		 * tables, leading to potential deadlock against other sessions that
+-		 * will lock those objects in the other order.
+-		 */
+-		if (state.actual_relkind == RELKIND_PARTITIONED_INDEX)
+-			(void) find_all_inheritors(state.heapOid,
+-									   state.heap_lockmode,
+-									   NULL);
+-
+ 		/* OK, we're ready to delete this one */
+ 		obj.classId = RelationRelationId;
+ 		obj.objectId = relOid;

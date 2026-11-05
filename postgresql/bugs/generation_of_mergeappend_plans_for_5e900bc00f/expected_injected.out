@@ -1,0 +1,40 @@
+create table m0(id int primary key);
+create table m1() inherits(m0);
+create table m2() inherits(m0);
+create index m0i on m0((1-id));
+create index m1i on m1((1-id));
+create index m2i on m2((1-id));
+insert into m0 select g from generate_series(1,100) g;
+insert into m1 select g from generate_series(101,200) g;
+insert into m2 select g from generate_series(201,300) g;
+analyze m0; analyze m1; analyze m2;
+set enable_seqscan=off; set enable_bitmapscan=off;
+explain (costs off) select min(1-id) from m0;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Result
+   InitPlan 1
+     ->  Limit
+           ->  Result
+                 ->  Merge Append
+                       Sort Key: ((1 - m0.id))
+                       ->  Index Scan using m0i on m0 m0_1
+                             Index Cond: ((1 - id) IS NOT NULL)
+                       ->  Index Scan using m1i on m1 m0_2
+                             Index Cond: ((1 - id) IS NOT NULL)
+                       ->  Index Scan using m2i on m2 m0_3
+                             Index Cond: ((1 - id) IS NOT NULL)
+(12 rows)
+
+select min(1-id) from m0;
+ min 
+-----
+ 300
+(1 row)
+
+select max(1-id) from m0;
+ max 
+-----
+   1
+(1 row)
+

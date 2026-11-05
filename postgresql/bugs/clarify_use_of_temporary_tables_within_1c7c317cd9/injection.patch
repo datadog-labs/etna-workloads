@@ -1,0 +1,39 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..f01b74961ee 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -2706,19 +2706,6 @@ MergeAttributes(List *columns, const List *supers, char relpersistence,
+ 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+ 					 errmsg("inherited relation \"%s\" is not a table or foreign table",
+ 							RelationGetRelationName(relation))));
+-
+-		/*
+-		 * If the parent is permanent, so must be all of its partitions.  Note
+-		 * that inheritance allows that case.
+-		 */
+-		if (is_partition &&
+-			relation->rd_rel->relpersistence != RELPERSISTENCE_TEMP &&
+-			relpersistence == RELPERSISTENCE_TEMP)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+-					 errmsg("cannot create a temporary relation as partition of permanent relation \"%s\"",
+-							RelationGetRelationName(relation))));
+-
+ 		/* Permanent rels cannot inherit from temporary ones */
+ 		if (relpersistence != RELPERSISTENCE_TEMP &&
+ 			relation->rd_rel->relpersistence == RELPERSISTENCE_TEMP)
+@@ -20406,14 +20393,6 @@ ATExecAttachPartition(List **wqueue, Relation rel, PartitionCmd *cmd,
+ 						   RelationGetRelationName(rel),
+ 						   RelationGetRelationName(attachrel))));
+ 
+-	/* If the parent is permanent, so must be all of its partitions. */
+-	if (rel->rd_rel->relpersistence != RELPERSISTENCE_TEMP &&
+-		attachrel->rd_rel->relpersistence == RELPERSISTENCE_TEMP)
+-		ereport(ERROR,
+-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+-				 errmsg("cannot attach a temporary relation as partition of permanent relation \"%s\"",
+-						RelationGetRelationName(rel))));
+-
+ 	/* Temp parent cannot have a partition that is itself not a temp */
+ 	if (rel->rd_rel->relpersistence == RELPERSISTENCE_TEMP &&
+ 		attachrel->rd_rel->relpersistence != RELPERSISTENCE_TEMP)

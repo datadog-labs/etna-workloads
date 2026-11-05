@@ -1,0 +1,41 @@
+diff --git a/src/backend/access/transam/xact.c b/src/backend/access/transam/xact.c
+index b885513f765..8a6b05bc419 100644
+--- a/src/backend/access/transam/xact.c
++++ b/src/backend/access/transam/xact.c
+@@ -4389,6 +4389,7 @@ DefineSavepoint(const char *name)
+ 	switch (s->blockState)
+ 	{
+ 		case TBLOCK_INPROGRESS:
++		case TBLOCK_IMPLICIT_INPROGRESS:
+ 		case TBLOCK_SUBINPROGRESS:
+ 			/* Normal subtransaction start */
+ 			PushTransaction();
+@@ -4402,28 +4403,6 @@ DefineSavepoint(const char *name)
+ 				s->name = MemoryContextStrdup(TopTransactionContext, name);
+ 			break;
+ 
+-			/*
+-			 * We disallow savepoint commands in implicit transaction blocks.
+-			 * There would be no great difficulty in allowing them so far as
+-			 * this module is concerned, but a savepoint seems inconsistent
+-			 * with exec_simple_query's behavior of abandoning the whole query
+-			 * string upon error.  Also, the point of an implicit transaction
+-			 * block (as opposed to a regular one) is to automatically close
+-			 * after an error, so it's hard to see how a savepoint would fit
+-			 * into that.
+-			 *
+-			 * The error messages for this are phrased as if there were no
+-			 * active transaction block at all, which is historical but
+-			 * perhaps could be improved.
+-			 */
+-		case TBLOCK_IMPLICIT_INPROGRESS:
+-			ereport(ERROR,
+-					(errcode(ERRCODE_NO_ACTIVE_SQL_TRANSACTION),
+-			/* translator: %s represents an SQL statement name */
+-					 errmsg("%s can only be used in transaction blocks",
+-							"SAVEPOINT")));
+-			break;
+-
+ 			/* These cases are invalid. */
+ 		case TBLOCK_DEFAULT:
+ 		case TBLOCK_STARTED:

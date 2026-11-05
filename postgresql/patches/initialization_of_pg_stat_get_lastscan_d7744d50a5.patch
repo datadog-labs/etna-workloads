@@ -1,0 +1,23 @@
+diff --git a/src/backend/utils/adt/pgstatfuncs.c b/src/backend/utils/adt/pgstatfuncs.c
+index 9ac3b18cb16..b5a0b1cad33 100644
+--- a/src/backend/utils/adt/pgstatfuncs.c
++++ b/src/backend/utils/adt/pgstatfuncs.c
+@@ -166,7 +166,17 @@ PG_STAT_GET_RELENTRY_TIMESTAMPTZ(last_autovacuum_time)
+ PG_STAT_GET_RELENTRY_TIMESTAMPTZ(last_vacuum_time)
+ 
+ /* pg_stat_get_lastscan */
+-PG_STAT_GET_RELENTRY_TIMESTAMPTZ(lastscan)
++Datum
++pg_stat_get_lastscan(PG_FUNCTION_ARGS)
++{
++	Oid			relid = PG_GETARG_OID(0);
++	PgStat_StatTabEntry *tabentry;
++
++	if ((tabentry = pgstat_fetch_stat_tabentry(relid)) == NULL)
++		PG_RETURN_NULL();
++	else
++		PG_RETURN_TIMESTAMPTZ(tabentry->lastscan);
++}
+ 
+ Datum
+ pg_stat_get_function_calls(PG_FUNCTION_ARGS)

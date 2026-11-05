@@ -1,0 +1,2 @@
+SELECT '92233720368547758.07'::money::numeric;
+SELECT '-92233720368547758.08'::money::numeric;

@@ -1,0 +1,104 @@
+diff --git a/src/backend/utils/adt/varlena.c b/src/backend/utils/adt/varlena.c
+index 6a589fc096b..f88da72443f 100644
+--- a/src/backend/utils/adt/varlena.c
++++ b/src/backend/utils/adt/varlena.c
+@@ -5689,41 +5689,6 @@ concat_internal(const char *sepstr, int argidx,
+ 	bool		first_arg = true;
+ 	int			i;
+ 
+-	/*
+-	 * concat(VARIADIC some-array) is essentially equivalent to
+-	 * array_to_text(), ie concat the array elements with the given separator.
+-	 * So we just pass the case off to that code.
+-	 */
+-	if (get_fn_expr_variadic(fcinfo->flinfo))
+-	{
+-		ArrayType  *arr;
+-
+-		/* Should have just the one argument */
+-		Assert(argidx == PG_NARGS() - 1);
+-
+-		/* concat(VARIADIC NULL) is defined as NULL */
+-		if (PG_ARGISNULL(argidx))
+-			return NULL;
+-
+-		/*
+-		 * Non-null argument had better be an array.  We assume that any call
+-		 * context that could let get_fn_expr_variadic return true will have
+-		 * checked that a VARIADIC-labeled parameter actually is an array.  So
+-		 * it should be okay to just Assert that it's an array rather than
+-		 * doing a full-fledged error check.
+-		 */
+-		Assert(OidIsValid(get_base_element_type(get_fn_expr_argtype(fcinfo->flinfo, argidx))));
+-
+-		/* OK, safe to fetch the array value */
+-		arr = PG_GETARG_ARRAYTYPE_P(argidx);
+-
+-		/*
+-		 * And serialize the array.  We tell array_to_text to ignore null
+-		 * elements, which matches the behavior of the loop below.
+-		 */
+-		return array_to_text_internal(fcinfo, arr, sepstr, NULL);
+-	}
+-
+ 	/* Normal case without explicit VARIADIC marker */
+ 	initStringInfo(&str);
+ 
+@@ -5919,54 +5884,9 @@ text_format(PG_FUNCTION_ARGS)
+ 	if (PG_ARGISNULL(0))
+ 		PG_RETURN_NULL();
+ 
+-	/* If argument is marked VARIADIC, expand array into elements */
+-	if (get_fn_expr_variadic(fcinfo->flinfo))
+-	{
+-		ArrayType  *arr;
+-		int16		elmlen;
+-		bool		elmbyval;
+-		char		elmalign;
+-		int			nitems;
+-
+-		/* Should have just the one argument */
+-		Assert(PG_NARGS() == 2);
+-
+-		/* If argument is NULL, we treat it as zero-length array */
+-		if (PG_ARGISNULL(1))
+-			nitems = 0;
+-		else
+-		{
+-			/*
+-			 * Non-null argument had better be an array.  We assume that any
+-			 * call context that could let get_fn_expr_variadic return true
+-			 * will have checked that a VARIADIC-labeled parameter actually is
+-			 * an array.  So it should be okay to just Assert that it's an
+-			 * array rather than doing a full-fledged error check.
+-			 */
+-			Assert(OidIsValid(get_base_element_type(get_fn_expr_argtype(fcinfo->flinfo, 1))));
+-
+-			/* OK, safe to fetch the array value */
+-			arr = PG_GETARG_ARRAYTYPE_P(1);
+-
+-			/* Get info about array element type */
+-			element_type = ARR_ELEMTYPE(arr);
+-			get_typlenbyvalalign(element_type,
+-								 &elmlen, &elmbyval, &elmalign);
+-
+-			/* Extract all array elements */
+-			deconstruct_array(arr, element_type, elmlen, elmbyval, elmalign,
+-							  &elements, &nulls, &nitems);
+-		}
+-
+-		nargs = nitems + 1;
+-		funcvariadic = true;
+-	}
+-	else
+-	{
+-		/* Non-variadic case, we'll process the arguments individually */
+-		nargs = PG_NARGS();
+-		funcvariadic = false;
+-	}
++	/* Process the arguments individually */
++	nargs = PG_NARGS();
++	funcvariadic = false;
+ 
+ 	/* Setup for main loop. */
+ 	fmt = PG_GETARG_TEXT_PP(0);

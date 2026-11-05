@@ -1,0 +1,5 @@
+create table sj (a int unique not null, b int, c int);
+explain (verbose, costs off)
+select t3.a from sj t1
+	join sj t2 on t1.a = t2.a
+	join lateral (select t1.a offset 0) t3 on true;

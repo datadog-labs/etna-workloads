@@ -1,0 +1,39 @@
+diff --git a/src/backend/catalog/partition.c b/src/backend/catalog/partition.c
+index 93d72157a46..046d1649dd4 100644
+--- a/src/backend/catalog/partition.c
++++ b/src/backend/catalog/partition.c
+@@ -386,7 +386,7 @@ get_proposed_default_constraint(List *new_part_constraints)
+ 	defPartConstraint =
+ 		(Expr *) eval_const_expressions(NULL,
+ 										(Node *) defPartConstraint);
+-	defPartConstraint = canonicalize_qual(defPartConstraint, true);
++	defPartConstraint = canonicalize_qual(defPartConstraint, false);
+ 
+ 	return make_ands_implicit(defPartConstraint);
+ }
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..bcfd47d5032 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -20192,7 +20192,7 @@ ConstraintImpliedByRelConstraint(Relation scanrel, List *testConstraint, List *p
+ 		 * fail to detect valid matches without this.
+ 		 */
+ 		cexpr = eval_const_expressions(NULL, cexpr);
+-		cexpr = (Node *) canonicalize_qual((Expr *) cexpr, true);
++		cexpr = (Node *) canonicalize_qual((Expr *) cexpr, false);
+ 
+ 		existConstraint = list_concat(existConstraint,
+ 									  make_ands_implicit((Expr *) cexpr));
+diff --git a/src/backend/optimizer/util/plancat.c b/src/backend/optimizer/util/plancat.c
+index 1d9aaf9146f..01f71937666 100644
+--- a/src/backend/optimizer/util/plancat.c
++++ b/src/backend/optimizer/util/plancat.c
+@@ -1339,7 +1339,7 @@ get_relation_constraints(PlannerInfo *root,
+ 			 */
+ 			cexpr = eval_const_expressions(root, cexpr);
+ 
+-			cexpr = (Node *) canonicalize_qual((Expr *) cexpr, true);
++			cexpr = (Node *) canonicalize_qual((Expr *) cexpr, false);
+ 
+ 			/* Fix Vars to have the desired varno */
+ 			if (varno != 1)

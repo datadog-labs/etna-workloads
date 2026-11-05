@@ -1,0 +1,24 @@
+diff --git a/src/backend/utils/adt/ri_triggers.c b/src/backend/utils/adt/ri_triggers.c
+index 6239900fa28..c6d0b576b56 100644
+--- a/src/backend/utils/adt/ri_triggers.c
++++ b/src/backend/utils/adt/ri_triggers.c
+@@ -3015,17 +3015,8 @@ ri_KeysEqual(Relation rel, TupleTableSlot *oldslot, TupleTableSlot *newslot,
+ 
+ 		if (rel_is_pk)
+ 		{
+-			/*
+-			 * If we are looking at the PK table, then do a bytewise
+-			 * comparison.  We must propagate PK changes if the value is
+-			 * changed to one that "looks" different but would compare as
+-			 * equal using the equality operator.  This only makes a
+-			 * difference for ON UPDATE CASCADE, but for consistency we treat
+-			 * all changes to the PK the same.
+-			 */
+-			CompactAttribute *att = TupleDescCompactAttr(oldslot->tts_tupleDescriptor, attnums[i] - 1);
+-
+-			if (!datum_image_eq(oldvalue, newvalue, att->attbyval, att->attlen))
++			if (!ri_CompareWithCast(riinfo->pp_eq_oprs[i], RIAttType(rel, attnums[i]), RIAttCollation(rel, attnums[i]),
++									newvalue, oldvalue))
+ 				return false;
+ 		}
+ 		else

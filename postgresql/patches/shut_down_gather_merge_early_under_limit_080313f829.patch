@@ -1,0 +1,19 @@
+diff --git a/src/backend/executor/nodeLimit.c b/src/backend/executor/nodeLimit.c
+index f957da4470e..183a953cabf 100644
+--- a/src/backend/executor/nodeLimit.c
++++ b/src/backend/executor/nodeLimit.c
+@@ -156,6 +156,14 @@ ExecLimit(PlanState *pstate)
+ 					if (node->limitOption == LIMIT_OPTION_COUNT)
+ 					{
+ 						node->lstate = LIMIT_WINDOWEND;
++
++						/*
++						 * If we know we won't need to back up, we can release
++						 * resources at this point.
++						 */
++						if (!(node->ps.state->es_top_eflags & EXEC_FLAG_BACKWARD))
++							(void) ExecShutdownNode(outerPlan);
++
+ 						return NULL;
+ 					}
+ 					else

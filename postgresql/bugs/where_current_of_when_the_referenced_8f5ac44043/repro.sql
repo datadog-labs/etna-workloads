@@ -1,0 +1,11 @@
+create table t(a int primary key, b int);
+insert into t select g,g from generate_series(1,1000) g;
+vacuum t;
+set enable_seqscan=off; set enable_bitmapscan=off;
+begin;
+declare c cursor for select a from t where a=5;
+explain (costs off) declare c2 cursor for select a from t where a=5;
+fetch c;
+delete from t where current of c;
+select count(*) from t where a=5;
+rollback;

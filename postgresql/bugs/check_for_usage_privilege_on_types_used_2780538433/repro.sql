@@ -1,0 +1,11 @@
+CREATE TYPE ty AS (a int, b int);
+REVOKE USAGE ON TYPE ty FROM PUBLIC;
+CREATE ROLE u1;
+GRANT CREATE ON SCHEMA public TO u1;
+SET ROLE u1;
+CREATE VIEW v AS SELECT ('(0,1)'::ty).a;
+CREATE TABLE t (a int);
+CREATE INDEX ON t ((a + ('(0,1)'::ty).a));
+CREATE DOMAIN d AS int CHECK (VALUE > ('(0,1)'::ty).a);
+SELECT count(*) FROM pg_class WHERE relname='v';
+RESET ROLE;

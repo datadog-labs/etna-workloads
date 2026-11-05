@@ -1,0 +1,72 @@
+diff --git a/src/backend/optimizer/prep/prepjointree.c b/src/backend/optimizer/prep/prepjointree.c
+index b150a933aad..c4a442e777b 100644
+--- a/src/backend/optimizer/prep/prepjointree.c
++++ b/src/backend/optimizer/prep/prepjointree.c
+@@ -1878,62 +1878,14 @@ is_simple_subquery(PlannerInfo *root, Query *subquery, RangeTblEntry *rte,
+ 	/*
+ 	 * If the subquery is LATERAL, check for pullup restrictions from that.
+ 	 */
+-	if (rte->lateral)
++	if (rte->lateral && lowest_outer_join != NULL)
+ 	{
+-		bool		restricted;
+-		Relids		safe_upper_varnos;
+-
+-		/*
+-		 * The subquery's WHERE and JOIN/ON quals mustn't contain any lateral
+-		 * references to rels outside a higher outer join (including the case
+-		 * where the outer join is within the subquery itself).  In such a
+-		 * case, pulling up would result in a situation where we need to
+-		 * postpone quals from below an outer join to above it, which is
+-		 * probably completely wrong and in any case is a complication that
+-		 * doesn't seem worth addressing at the moment.
+-		 */
+-		if (lowest_outer_join != NULL)
+-		{
+-			restricted = true;
+-			safe_upper_varnos = get_relids_in_jointree((Node *) lowest_outer_join,
+-													   true, true);
+-		}
+-		else
+-		{
+-			restricted = false;
+-			safe_upper_varnos = NULL;	/* doesn't matter */
+-		}
++		Relids		lvarnos = pull_varnos_of_level(root, (Node *) subquery, 1);
++		Relids		jvarnos = get_relids_in_jointree((Node *) lowest_outer_join,
++													 true, true);
+ 
+-		if (jointree_contains_lateral_outer_refs(root,
+-												 (Node *) subquery->jointree,
+-												 restricted, safe_upper_varnos))
++		if (!bms_is_subset(lvarnos, jvarnos))
+ 			return false;
+-
+-		/*
+-		 * If there's an outer join above the LATERAL subquery, also disallow
+-		 * pullup if the subquery's targetlist has any references to rels
+-		 * outside the outer join, since these might get pulled into quals
+-		 * above the subquery (but in or below the outer join) and then lead
+-		 * to qual-postponement issues similar to the case checked for above.
+-		 * (We wouldn't need to prevent pullup if no such references appear in
+-		 * outer-query quals, but we don't have enough info here to check
+-		 * that.  Also, maybe this restriction could be removed if we forced
+-		 * such refs to be wrapped in PlaceHolderVars, even when they're below
+-		 * the nearest outer join?	But it's a pretty hokey usage, so not
+-		 * clear this is worth sweating over.)
+-		 *
+-		 * If you change this, see also the comments about lateral references
+-		 * in pullup_replace_vars_callback().
+-		 */
+-		if (lowest_outer_join != NULL)
+-		{
+-			Relids		lvarnos = pull_varnos_of_level(root,
+-													   (Node *) subquery->targetList,
+-													   1);
+-
+-			if (!bms_is_subset(lvarnos, safe_upper_varnos))
+-				return false;
+-		}
+ 	}
+ 
+ 	/*

@@ -1,0 +1,15 @@
+CREATE ACCESS METHOD heap2 TYPE TABLE HANDLER heap_tableam_handler;
+CREATE TABLE heaptable (a int);
+ALTER TABLE heaptable SET ACCESS METHOD heap2;
+SELECT pg_describe_object(refclassid, refobjid, refobjsubid) AS objref
+  FROM pg_depend WHERE classid='pg_class'::regclass AND objid='heaptable'::regclass ORDER BY 1;
+       objref        
+---------------------
+ access method heap2
+ schema public
+(2 rows)
+
+DROP ACCESS METHOD heap2;
+psql:<REPRO>:6: ERROR:  cannot drop access method heap2 because other objects depend on it
+DETAIL:  table heaptable depends on access method heap2
+HINT:  Use DROP ... CASCADE to drop the dependent objects too.

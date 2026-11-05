@@ -1,0 +1,52 @@
+diff --git a/src/backend/utils/adt/numeric.c b/src/backend/utils/adt/numeric.c
+index a372237cf65..c42868aa6a0 100644
+--- a/src/backend/utils/adt/numeric.c
++++ b/src/backend/utils/adt/numeric.c
+@@ -7880,14 +7880,13 @@ get_str_from_var_sci(const NumericVar *var, int rscale)
+ static void
+ numericvar_serialize(StringInfo buf, const NumericVar *var)
+ {
+-	int			i;
++	Datum		temp;
++	bytea	   *sumX;
+ 
+-	pq_sendint32(buf, var->ndigits);
+-	pq_sendint32(buf, var->weight);
+-	pq_sendint32(buf, var->sign);
+-	pq_sendint32(buf, var->dscale);
+-	for (i = 0; i < var->ndigits; i++)
+-		pq_sendint16(buf, var->digits[i]);
++	temp = DirectFunctionCall1(numeric_send,
++							   NumericGetDatum(make_result(var)));
++	sumX = DatumGetByteaPP(temp);
++	pq_sendbytes(buf, VARDATA_ANY(sumX), VARSIZE_ANY_EXHDR(sumX));
+ }
+ 
+ /*
+@@ -7896,18 +7895,15 @@ numericvar_serialize(StringInfo buf, const NumericVar *var)
+ static void
+ numericvar_deserialize(StringInfo buf, NumericVar *var)
+ {
+-	int			len,
+-				i;
+-
+-	len = pq_getmsgint(buf, sizeof(int32));
+-
+-	alloc_var(var, len);		/* sets var->ndigits */
++	Datum		temp;
++	NumericVar	tmp;
+ 
+-	var->weight = pq_getmsgint(buf, sizeof(int32));
+-	var->sign = pq_getmsgint(buf, sizeof(int32));
+-	var->dscale = pq_getmsgint(buf, sizeof(int32));
+-	for (i = 0; i < len; i++)
+-		var->digits[i] = pq_getmsgint(buf, sizeof(int16));
++	temp = DirectFunctionCall3(numeric_recv,
++							   PointerGetDatum(buf),
++							   ObjectIdGetDatum(InvalidOid),
++							   Int32GetDatum(-1));
++	init_var_from_num(DatumGetNumeric(temp), &tmp);
++	set_var_from_var(&tmp, var);
+ }
+ 
+ 

@@ -1,0 +1,30 @@
+set check_function_bodies = off;
+create function sillyaddtwo(int) returns int language plpgsql as
+$$ declare r mutable2; begin r.f1 := $1; return r.f1 + 2; end $$;
+reset check_function_bodies;
+select sillyaddtwo(42);
+psql:<REPRO>:5: ERROR:  type "mutable2" does not exist
+LINE 1:  declare r mutable2; begin r.f1 := $1; return r.f1 + 2; end 
+                   ^
+QUERY:   declare r mutable2; begin r.f1 := $1; return r.f1 + 2; end 
+CONTEXT:  compilation of PL/pgSQL function "sillyaddtwo" near line 1
+create table mutable2(f1 int, f2 text);
+select sillyaddtwo(42);
+ sillyaddtwo 
+-------------
+          44
+(1 row)
+
+drop table mutable2;
+\set SHOW_CONTEXT never
+select sillyaddtwo(42);
+psql:<REPRO>:10: ERROR:  type "mutable2" does not exist
+create table mutable2(f0 text, f1 int, f2 text);
+select sillyaddtwo(42);
+ sillyaddtwo 
+-------------
+          44
+(1 row)
+
+select sillyaddtwo(43);
+psql:<REPRO>:13: ERROR:  type with OID 16387 does not exist

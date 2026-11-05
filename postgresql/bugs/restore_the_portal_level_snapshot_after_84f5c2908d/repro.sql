@@ -1,0 +1,17 @@
+create table test1 (a int, b text);
+alter table test1 alter column b set storage external;
+insert into test1 values (1, repeat('foo', 2000));
+do $$
+  declare
+    r record;
+    t text;
+  begin
+    insert into test1 values (2, repeat('bar', 3000));
+    insert into test1 values (3, repeat('baz', 4000));
+    for r in select test1.a from test1 loop
+      commit;
+      select b into t from test1 where a = r.a;
+      raise notice 'length(t) = %', length(t);
+    end loop;
+  end;
+$$;

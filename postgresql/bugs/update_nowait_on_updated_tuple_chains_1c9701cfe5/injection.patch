@@ -1,0 +1,34 @@
+diff --git a/src/backend/access/heap/heapam_handler.c b/src/backend/access/heap/heapam_handler.c
+index cb4bc35c93e..ba3cf827a84 100644
+--- a/src/backend/access/heap/heapam_handler.c
++++ b/src/backend/access/heap/heapam_handler.c
+@@ -451,26 +451,9 @@ tuple_lock_retry:
+ 					if (TransactionIdIsValid(SnapshotDirty.xmax))
+ 					{
+ 						ReleaseBuffer(buffer);
+-						switch (wait_policy)
+-						{
+-							case LockWaitBlock:
+-								XactLockTableWait(SnapshotDirty.xmax,
+-												  relation, &tuple->t_self,
+-												  XLTW_FetchUpdated);
+-								break;
+-							case LockWaitSkip:
+-								if (!ConditionalXactLockTableWait(SnapshotDirty.xmax, false))
+-									/* skip instead of waiting */
+-									return TM_WouldBlock;
+-								break;
+-							case LockWaitError:
+-								if (!ConditionalXactLockTableWait(SnapshotDirty.xmax, log_lock_failures))
+-									ereport(ERROR,
+-											(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
+-											 errmsg("could not obtain lock on row in relation \"%s\"",
+-													RelationGetRelationName(relation))));
+-								break;
+-						}
++						XactLockTableWait(SnapshotDirty.xmax,
++										  relation, &tuple->t_self,
++										  XLTW_FetchUpdated);
+ 						continue;	/* loop back to repeat heap_fetch */
+ 					}
+ 

@@ -1,0 +1,10 @@
+SET client_min_messages = warning;
+CREATE TABLE g (a int NOT NULL, b int GENERATED ALWAYS AS (a*2) STORED NOT NULL);
+CREATE UNIQUE INDEX g_idx ON g(a, b);
+ALTER TABLE g REPLICA IDENTITY USING INDEX g_idx;
+CREATE PUBLICATION p FOR TABLE g;
+psql:<REPRO>:5: WARNING:  "wal_level" is insufficient to publish logical changes
+HINT:  Set "wal_level" to "logical" before creating subscriptions.
+UPDATE g SET a = 100 WHERE a = 1;
+psql:<REPRO>:6: ERROR:  cannot update table "g"
+DETAIL:  Replica identity must not contain unpublished generated columns.

@@ -1,0 +1,85 @@
+diff --git a/src/backend/utils/adt/acl.c b/src/backend/utils/adt/acl.c
+index 0ec8c19d64b..1fee6c1e221 100644
+--- a/src/backend/utils/adt/acl.c
++++ b/src/backend/utils/adt/acl.c
+@@ -2539,12 +2539,6 @@ column_privilege_check(Oid tableoid, AttrNumber attnum,
+ 	AclResult	aclresult;
+ 	bool		is_missing = false;
+ 
+-	/*
+-	 * If convert_column_name failed, we can just return -1 immediately.
+-	 */
+-	if (attnum == InvalidAttrNumber)
+-		return -1;
+-
+ 	/*
+ 	 * Check for column-level privileges first. This serves in part as a check
+ 	 * on whether the column even exists, so we need to do it before checking
+@@ -2889,59 +2883,21 @@ has_column_privilege_id_attnum(PG_FUNCTION_ARGS)
+ 
+ /*
+  * Given a table OID and a column name expressed as a string, look it up
+- * and return the column number.  Returns InvalidAttrNumber in cases
+- * where caller should return NULL instead of failing.
++ * and return the column number
+  */
+ static AttrNumber
+ convert_column_name(Oid tableoid, text *column)
+ {
+-	char	   *colname;
+-	HeapTuple	attTuple;
+ 	AttrNumber	attnum;
++	char	   *colname;
+ 
+ 	colname = text_to_cstring(column);
+-
+-	/*
+-	 * We don't use get_attnum() here because it will report that dropped
+-	 * columns don't exist.  We need to treat dropped columns differently from
+-	 * nonexistent columns.
+-	 */
+-	attTuple = SearchSysCache2(ATTNAME,
+-							   ObjectIdGetDatum(tableoid),
+-							   CStringGetDatum(colname));
+-	if (HeapTupleIsValid(attTuple))
+-	{
+-		Form_pg_attribute attributeForm;
+-
+-		attributeForm = (Form_pg_attribute) GETSTRUCT(attTuple);
+-		/* We want to return NULL for dropped columns */
+-		if (attributeForm->attisdropped)
+-			attnum = InvalidAttrNumber;
+-		else
+-			attnum = attributeForm->attnum;
+-		ReleaseSysCache(attTuple);
+-	}
+-	else
+-	{
+-		char	   *tablename = get_rel_name(tableoid);
+-
+-		/*
+-		 * If the table OID is bogus, or it's just been dropped, we'll get
+-		 * NULL back.  In such cases we want has_column_privilege to return
+-		 * NULL too, so just return InvalidAttrNumber.
+-		 */
+-		if (tablename != NULL)
+-		{
+-			/* tableoid exists, colname does not, so throw error */
+-			ereport(ERROR,
+-					(errcode(ERRCODE_UNDEFINED_COLUMN),
+-					 errmsg("column \"%s\" of relation \"%s\" does not exist",
+-							colname, tablename)));
+-		}
+-		/* tableoid doesn't exist, so act like attisdropped case */
+-		attnum = InvalidAttrNumber;
+-	}
+-
++	attnum = get_attnum(tableoid, colname);
++	if (attnum == InvalidAttrNumber)
++		ereport(ERROR,
++				(errcode(ERRCODE_UNDEFINED_COLUMN),
++				 errmsg("column \"%s\" of relation \"%s\" does not exist",
++						colname, get_rel_name(tableoid))));
+ 	pfree(colname);
+ 	return attnum;
+ }

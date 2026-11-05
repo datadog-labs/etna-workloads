@@ -1,0 +1,32 @@
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..dfa7cb388cf 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -1283,10 +1283,6 @@ rel_is_distinct_for(PlannerInfo *root, RelOptInfo *rel, List *clause_list,
+ bool
+ query_supports_distinctness(Query *query)
+ {
+-	/* SRFs break distinctness except with DISTINCT, see below */
+-	if (query->hasTargetSRFs && query->distinctClause == NIL)
+-		return false;
+-
+ 	/* check for features we can prove distinctness with */
+ 	if (query->distinctClause != NIL ||
+ 		query->groupClause != NIL ||
+@@ -1390,16 +1386,6 @@ query_is_distinct_for_with_collations(Query *query, List *distinct_cols)
+ 			return true;
+ 	}
+ 
+-	/*
+-	 * Otherwise, a set-returning function in the query's targetlist can
+-	 * result in returning duplicate rows, despite any grouping that might
+-	 * occur before tlist evaluation.  (If all tlist SRFs are within GROUP BY
+-	 * columns, it would be safe because they'd be expanded before grouping.
+-	 * But it doesn't currently seem worth the effort to check for that.)
+-	 */
+-	if (query->hasTargetSRFs)
+-		return false;
+-
+ 	/*
+ 	 * Similarly, GROUP BY without GROUPING SETS guarantees uniqueness if all
+ 	 * the grouped columns appear in colnos and operator semantics match.

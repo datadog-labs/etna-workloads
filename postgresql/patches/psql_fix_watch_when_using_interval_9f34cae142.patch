@@ -1,0 +1,38 @@
+diff --git a/src/bin/psql/command.c b/src/bin/psql/command.c
+index 09a1e79a6a7..ae7cb952356 100644
+--- a/src/bin/psql/command.c
++++ b/src/bin/psql/command.c
+@@ -5864,10 +5864,6 @@ do_shell(const char *command)
+  *
+  * We break this out of exec_command to avoid having to plaster "volatile"
+  * onto a bunch of exec_command's variables to silence stupider compilers.
+- *
+- * "sleep" is the amount of time to sleep during each loop, measured in
+- * seconds.  The internals of this function should use "sleep_ms" for
+- * precise sleep time calculations.
+  */
+ static bool
+ do_watch(PQExpBuffer query_buf, double sleep, int iter, int min_rows)
+@@ -5993,10 +5989,10 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter, int min_rows)
+ 
+ 		if (user_title)
+ 			snprintf(title, title_len, _("%s\t%s (every %gs)\n"),
+-					 user_title, timebuf, sleep_ms / 1000.0);
++					 user_title, timebuf, sleep);
+ 		else
+ 			snprintf(title, title_len, _("%s (every %gs)\n"),
+-					 timebuf, sleep_ms / 1000.0);
++					 timebuf, sleep);
+ 		myopt.title = title;
+ 
+ 		/* Run the query and print out the result */
+@@ -6017,8 +6013,7 @@ do_watch(PQExpBuffer query_buf, double sleep, int iter, int min_rows)
+ 		if (pagerpipe && ferror(pagerpipe))
+ 			break;
+ 
+-		/* Tight loop, no wait needed */
+-		if (sleep_ms == 0)
++		if (sleep == 0)
+ 			continue;
+ 
+ #ifdef WIN32

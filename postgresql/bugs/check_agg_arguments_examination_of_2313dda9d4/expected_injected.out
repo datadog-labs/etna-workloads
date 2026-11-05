@@ -1,0 +1,24 @@
+create temp table t(b1 bool, x int);
+insert into t values (true,1),(false,2);
+select (select max(x) filter (where b1)) from t;
+ max 
+-----
+   1
+(1 row)
+
+select (select max(x) filter (where b1) from (values(1)) v) from t;
+ max 
+-----
+   1
+(1 row)
+
+select (select max(x) filter (where sum(x) > 0) from (values(1)) v) from t;
+psql:<REPRO>:5: ERROR:  aggregate function calls cannot be nested
+LINE 1: select (select max(x) filter (where sum(x) > 0) from (values...
+                                            ^
+select (select max(x) filter (where bool_or(x > 0)) from (values(1)) v) from t;
+psql:<REPRO>:6: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:6: error: connection to server was lost
+### server crashed or assertion failed

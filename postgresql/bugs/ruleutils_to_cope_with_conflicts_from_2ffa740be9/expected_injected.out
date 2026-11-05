@@ -1,0 +1,35 @@
+create table tt7(x int, xx int, y int);
+alter table tt7 drop column xx;
+create table tt8(x int, z int);
+create view vv2 as
+select * from (values(1,2,3,4,5)) v(a,b,c,d,e)
+union all
+select * from tt7 full join tt8 using (x), tt8 tt8x;
+select pg_get_viewdef('vv2'::regclass);
+                 pg_get_viewdef                 
+------------------------------------------------
+  SELECT v.a,                                  +
+     v.b,                                      +
+     v.c,                                      +
+     v.d,                                      +
+     v.e                                       +
+    FROM ( VALUES (1,2,3,4,5)) v(a, b, c, d, e)+
+ UNION ALL                                     +
+  SELECT x AS a,                               +
+     tt7.y AS b,                               +
+     tt8.z AS c,                               +
+     tt8x.x AS d,                              +
+     tt8x.z AS e                               +
+    FROM (tt7                                  +
+      FULL JOIN tt8 USING (x)),                +
+     tt8 tt8x;
+(1 row)
+
+create table t1(a int, b int);
+create view v1 as select * from t1, t1 t1x;
+psql:<REPRO>:10: ERROR:  column "a" specified more than once
+alter table t1 rename a to b2;
+select pg_get_viewdef('v1'::regclass);
+psql:<REPRO>:12: ERROR:  relation "v1" does not exist
+LINE 1: select pg_get_viewdef('v1'::regclass);
+                              ^

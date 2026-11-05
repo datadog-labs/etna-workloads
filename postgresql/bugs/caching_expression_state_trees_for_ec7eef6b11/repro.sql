@@ -1,0 +1,10 @@
+create domain dpos as int check (value > 0);
+create function f(x int) returns dpos as $$ select x::dpos $$ language sql;
+select f(1);
+select f(2);
+select f(3);
+create table t(a int);
+insert into t select generate_series(1,5);
+select f(a) from t;
+select f(a) from t;
+select f(-1);

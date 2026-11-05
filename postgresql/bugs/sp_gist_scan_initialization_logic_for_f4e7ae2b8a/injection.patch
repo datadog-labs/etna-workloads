@@ -1,0 +1,33 @@
+diff --git a/src/backend/access/spgist/spgutils.c b/src/backend/access/spgist/spgutils.c
+index 95fea74e296..f0e50d33098 100644
+--- a/src/backend/access/spgist/spgutils.c
++++ b/src/backend/access/spgist/spgutils.c
+@@ -25,7 +25,6 @@
+ #include "catalog/pg_amop.h"
+ #include "commands/vacuum.h"
+ #include "nodes/nodeFuncs.h"
+-#include "parser/parse_coerce.h"
+ #include "storage/bufmgr.h"
+ #include "storage/indexfsm.h"
+ #include "utils/catcache.h"
+@@ -226,20 +225,9 @@ spgGetCache(Relation index)
+ 		 * correctly, so believe leafType if it's given.)
+ 		 */
+ 		if (!OidIsValid(cache->config.leafType))
+-		{
+ 			cache->config.leafType =
+ 				TupleDescAttr(RelationGetDescr(index), spgKeyColumn)->atttypid;
+ 
+-			/*
+-			 * If index column type is binary-coercible to atttype (for
+-			 * example, it's a domain over atttype), treat it as plain atttype
+-			 * to avoid thinking we need to compress.
+-			 */
+-			if (cache->config.leafType != atttype &&
+-				IsBinaryCoercible(cache->config.leafType, atttype))
+-				cache->config.leafType = atttype;
+-		}
+-
+ 		/* Get the information we need about each relevant datatype */
+ 		fillTypeDesc(&cache->attType, atttype);
+ 

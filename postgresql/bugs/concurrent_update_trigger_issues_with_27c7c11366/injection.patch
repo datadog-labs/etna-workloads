@@ -1,0 +1,219 @@
+diff --git a/src/backend/commands/trigger.c b/src/backend/commands/trigger.c
+index 7ae6557d897..625f217ca5e 100644
+--- a/src/backend/commands/trigger.c
++++ b/src/backend/commands/trigger.c
+@@ -80,7 +80,6 @@ static bool GetTupleForTrigger(EState *estate,
+ 							   ItemPointer tid,
+ 							   LockTupleMode lockmode,
+ 							   TupleTableSlot *oldslot,
+-							   bool do_epq_recheck,
+ 							   TupleTableSlot **epqslot,
+ 							   TM_Result *tmresultp,
+ 							   TM_FailureData *tmfdp);
+@@ -2710,8 +2709,7 @@ ExecBRDeleteTriggers(EState *estate, EPQState *epqstate,
+ 					 HeapTuple fdw_trigtuple,
+ 					 TupleTableSlot **epqslot,
+ 					 TM_Result *tmresult,
+-					 TM_FailureData *tmfd,
+-					 bool is_merge_delete)
++					 TM_FailureData *tmfd)
+ {
+ 	TupleTableSlot *slot = ExecGetTriggerOldSlot(estate, relinfo);
+ 	TriggerDesc *trigdesc = relinfo->ri_TrigDesc;
+@@ -2726,17 +2724,9 @@ ExecBRDeleteTriggers(EState *estate, EPQState *epqstate,
+ 	{
+ 		TupleTableSlot *epqslot_candidate = NULL;
+ 
+-		/*
+-		 * Get a copy of the on-disk tuple we are planning to delete.  In
+-		 * general, if the tuple has been concurrently updated, we should
+-		 * recheck it using EPQ.  However, if this is a MERGE DELETE action,
+-		 * we skip this EPQ recheck and leave it to the caller (it must do
+-		 * additional rechecking, and might end up executing a different
+-		 * action entirely).
+-		 */
+ 		if (!GetTupleForTrigger(estate, epqstate, relinfo, tupleid,
+-								LockTupleExclusive, slot, !is_merge_delete,
+-								&epqslot_candidate, tmresult, tmfd))
++								LockTupleExclusive, slot, &epqslot_candidate,
++								tmresult, tmfd))
+ 			return false;
+ 
+ 		/*
+@@ -2835,7 +2825,6 @@ ExecARDeleteTriggers(EState *estate,
+ 							   tupleid,
+ 							   LockTupleExclusive,
+ 							   slot,
+-							   false,
+ 							   NULL,
+ 							   NULL,
+ 							   NULL);
+@@ -2980,8 +2969,7 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
+ 					 HeapTuple fdw_trigtuple,
+ 					 TupleTableSlot *newslot,
+ 					 TM_Result *tmresult,
+-					 TM_FailureData *tmfd,
+-					 bool is_merge_update)
++					 TM_FailureData *tmfd)
+ {
+ 	TriggerDesc *trigdesc = relinfo->ri_TrigDesc;
+ 	TupleTableSlot *oldslot = ExecGetTriggerOldSlot(estate, relinfo);
+@@ -3002,17 +2990,10 @@ ExecBRUpdateTriggers(EState *estate, EPQState *epqstate,
+ 	{
+ 		TupleTableSlot *epqslot_candidate = NULL;
+ 
+-		/*
+-		 * Get a copy of the on-disk tuple we are planning to update.  In
+-		 * general, if the tuple has been concurrently updated, we should
+-		 * recheck it using EPQ.  However, if this is a MERGE UPDATE action,
+-		 * we skip this EPQ recheck and leave it to the caller (it must do
+-		 * additional rechecking, and might end up executing a different
+-		 * action entirely).
+-		 */
++		/* get a copy of the on-disk tuple we are planning to update */
+ 		if (!GetTupleForTrigger(estate, epqstate, relinfo, tupleid,
+-								lockmode, oldslot, !is_merge_update,
+-								&epqslot_candidate, tmresult, tmfd))
++								lockmode, oldslot, &epqslot_candidate,
++								tmresult, tmfd))
+ 			return false;		/* cancel the update action */
+ 
+ 		/*
+@@ -3196,7 +3177,6 @@ ExecARUpdateTriggers(EState *estate, ResultRelInfo *relinfo,
+ 							   tupleid,
+ 							   LockTupleExclusive,
+ 							   oldslot,
+-							   false,
+ 							   NULL,
+ 							   NULL,
+ 							   NULL);
+@@ -3353,7 +3333,6 @@ GetTupleForTrigger(EState *estate,
+ 				   ItemPointer tid,
+ 				   LockTupleMode lockmode,
+ 				   TupleTableSlot *oldslot,
+-				   bool do_epq_recheck,
+ 				   TupleTableSlot **epqslot,
+ 				   TM_Result *tmresultp,
+ 				   TM_FailureData *tmfdp)
+@@ -3413,32 +3392,31 @@ GetTupleForTrigger(EState *estate,
+ 				if (tmfd.traversed)
+ 				{
+ 					/*
+-					 * Recheck the tuple using EPQ, if requested.  Otherwise,
+-					 * just return that it was concurrently updated.
++					 * Recheck the tuple using EPQ. For MERGE, we leave this
++					 * to the caller (it must do additional rechecking, and
++					 * might end up executing a different action entirely).
+ 					 */
+-					if (do_epq_recheck)
+-					{
+-						*epqslot = EvalPlanQual(epqstate,
+-												relation,
+-												relinfo->ri_RangeTableIndex,
+-												oldslot);
+-
+-						/*
+-						 * If PlanQual failed for updated tuple - we must not
+-						 * process this tuple!
+-						 */
+-						if (TupIsNull(*epqslot))
+-						{
+-							*epqslot = NULL;
+-							return false;
+-						}
+-					}
+-					else
++					if (estate->es_plannedstmt->commandType == CMD_MERGE)
+ 					{
+ 						if (tmresultp)
+ 							*tmresultp = TM_Updated;
+ 						return false;
+ 					}
++
++					*epqslot = EvalPlanQual(epqstate,
++											relation,
++											relinfo->ri_RangeTableIndex,
++											oldslot);
++
++					/*
++					 * If PlanQual failed for updated tuple - we must not
++					 * process this tuple!
++					 */
++					if (TupIsNull(*epqslot))
++					{
++						*epqslot = NULL;
++						return false;
++					}
+ 				}
+ 				break;
+ 
+diff --git a/src/backend/executor/execReplication.c b/src/backend/executor/execReplication.c
+index bb78d89265d..01191dfaba3 100644
+--- a/src/backend/executor/execReplication.c
++++ b/src/backend/executor/execReplication.c
+@@ -670,7 +670,7 @@ ExecSimpleRelationUpdate(ResultRelInfo *resultRelInfo,
+ 		resultRelInfo->ri_TrigDesc->trig_update_before_row)
+ 	{
+ 		if (!ExecBRUpdateTriggers(estate, epqstate, resultRelInfo,
+-								  tid, NULL, slot, NULL, NULL, false))
++								  tid, NULL, slot, NULL, NULL))
+ 			skip_tuple = true;	/* "do nothing" */
+ 	}
+ 
+@@ -746,7 +746,7 @@ ExecSimpleRelationDelete(ResultRelInfo *resultRelInfo,
+ 		resultRelInfo->ri_TrigDesc->trig_delete_before_row)
+ 	{
+ 		skip_tuple = !ExecBRDeleteTriggers(estate, epqstate, resultRelInfo,
+-										   tid, NULL, NULL, NULL, NULL, false);
++										   tid, NULL, NULL, NULL, NULL);
+ 	}
+ 
+ 	if (!skip_tuple)
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index df99a204e0c..70a9d278b75 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -1474,8 +1474,7 @@ ExecDeletePrologue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
+ 
+ 		return ExecBRDeleteTriggers(context->estate, context->epqstate,
+ 									resultRelInfo, tupleid, oldtuple,
+-									epqreturnslot, result, &context->tmfd,
+-									context->mtstate->operation == CMD_MERGE);
++									epqreturnslot, result, &context->tmfd);
+ 	}
+ 
+ 	return true;
+@@ -2118,8 +2117,7 @@ ExecUpdatePrologue(ModifyTableContext *context, ResultRelInfo *resultRelInfo,
+ 
+ 		return ExecBRUpdateTriggers(context->estate, context->epqstate,
+ 									resultRelInfo, tupleid, oldtuple, slot,
+-									result, &context->tmfd,
+-									context->mtstate->operation == CMD_MERGE);
++									result, &context->tmfd);
+ 	}
+ 
+ 	return true;
+diff --git a/src/include/commands/trigger.h b/src/include/commands/trigger.h
+index 54be07c9e42..4d1b2a784a5 100644
+--- a/src/include/commands/trigger.h
++++ b/src/include/commands/trigger.h
+@@ -215,8 +215,7 @@ extern bool ExecBRDeleteTriggers(EState *estate,
+ 								 HeapTuple fdw_trigtuple,
+ 								 TupleTableSlot **epqslot,
+ 								 TM_Result *tmresult,
+-								 TM_FailureData *tmfd,
+-								 bool is_merge_delete);
++								 TM_FailureData *tmfd);
+ extern void ExecARDeleteTriggers(EState *estate,
+ 								 ResultRelInfo *relinfo,
+ 								 ItemPointer tupleid,
+@@ -238,8 +237,7 @@ extern bool ExecBRUpdateTriggers(EState *estate,
+ 								 HeapTuple fdw_trigtuple,
+ 								 TupleTableSlot *newslot,
+ 								 TM_Result *tmresult,
+-								 TM_FailureData *tmfd,
+-								 bool is_merge_update);
++								 TM_FailureData *tmfd);
+ extern void ExecARUpdateTriggers(EState *estate,
+ 								 ResultRelInfo *relinfo,
+ 								 ResultRelInfo *src_partinfo,

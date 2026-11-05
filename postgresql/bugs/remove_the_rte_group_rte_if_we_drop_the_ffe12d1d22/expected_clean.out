@@ -1,0 +1,21 @@
+create temp table t(a int, b int);
+explain (costs off)
+select a.* from t a
+where exists (select 1 from t b where a.a = b.b group by b.a);
+            QUERY PLAN             
+-----------------------------------
+ Hash Join
+   Hash Cond: (a.a = b.b)
+   ->  Seq Scan on t a
+   ->  Hash
+         ->  HashAggregate
+               Group Key: b.b
+               ->  Seq Scan on t b
+(7 rows)
+
+select 1;
+ ?column? 
+----------
+        1
+(1 row)
+

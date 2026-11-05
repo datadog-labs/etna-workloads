@@ -1,0 +1,20 @@
+diff --git a/src/backend/access/transam/xlogrecovery.c b/src/backend/access/transam/xlogrecovery.c
+index 37d6090e465..0259eff9efb 100644
+--- a/src/backend/access/transam/xlogrecovery.c
++++ b/src/backend/access/transam/xlogrecovery.c
+@@ -5083,7 +5083,14 @@ check_recovery_target_xid(char **newval, void **extra, GucSource source)
+ 		TransactionId *myextra;
+ 
+ 		errno = 0;
+-		xid = (TransactionId) strtou64(*newval, NULL, 0);
++		{
++			/* strtoul() range, as on platforms where unsigned long is 32 bits */
++			unsigned long val = strtoul(*newval, NULL, 0);
++
++			if (val > PG_UINT32_MAX)
++				errno = ERANGE;
++			xid = (TransactionId) val;
++		}
+ 		if (errno == EINVAL || errno == ERANGE)
+ 			return false;
+ 

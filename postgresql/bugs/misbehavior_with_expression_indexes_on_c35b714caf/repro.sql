@@ -1,0 +1,6 @@
+CREATE TEMP TABLE temptest(col int) ON COMMIT DELETE ROWS;
+CREATE INDEX ON temptest(bit_length(''));
+BEGIN;
+INSERT INTO temptest VALUES (1);
+COMMIT;
+SELECT count(*) FROM temptest;

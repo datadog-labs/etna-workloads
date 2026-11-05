@@ -1,0 +1,20 @@
+create role ru1; create role ru2; create role ru3; create role ru4; create role ru5;
+grant create on schema public to ru1;
+set session role ru1;
+create table dep_priv_test (a int);
+grant select on dep_priv_test to ru2 with grant option;
+grant select on dep_priv_test to ru3 with grant option;
+set session role ru2;
+grant select on dep_priv_test to ru4 with grant option;
+set session role ru3;
+grant select on dep_priv_test to ru4 with grant option;
+set session role ru4;
+grant select on dep_priv_test to ru5;
+set session role ru2;
+revoke select on dep_priv_test from ru4 cascade;
+select relacl from pg_class where relname='dep_priv_test';
+                       relacl                        
+-----------------------------------------------------
+ {ru1=arwdDxtm/ru1,ru2=r*/ru1,ru3=r*/ru1,ru4=r*/ru3}
+(1 row)
+

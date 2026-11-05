@@ -1,0 +1,7 @@
+CREATE TABLE t (a integer) PARTITION BY LIST (a);
+CREATE TABLE tp (a integer PRIMARY KEY);
+CREATE UNIQUE INDEX t_a_idx ON ONLY t (a);
+ALTER TABLE t ATTACH PARTITION tp FOR VALUES IN (1);
+ALTER INDEX t_a_idx ATTACH PARTITION tp_pkey;
+ALTER TABLE t DETACH PARTITION tp;
+SELECT conname, conparentid <> 0 AS haspar, conislocal, coninhcount FROM pg_constraint WHERE conname='tp_pkey';

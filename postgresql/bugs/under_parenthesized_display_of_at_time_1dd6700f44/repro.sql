@@ -1,0 +1,2 @@
+create view atzv as select ('2022-12-01'::date + '1 day'::interval) at time zone 'UTC' as atz;
+select pg_get_viewdef('atzv', true);

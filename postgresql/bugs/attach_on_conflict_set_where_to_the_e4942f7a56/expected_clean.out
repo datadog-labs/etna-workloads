@@ -1,0 +1,15 @@
+create table t(key int primary key, fruit text);
+explain (costs off) insert into t values(0,'a') on conflict (key) do update set fruit = excluded.fruit
+  where exists (select 1 from t ii where ii.key = excluded.key);
+                  QUERY PLAN                  
+----------------------------------------------
+ Insert on t
+   Conflict Resolution: UPDATE
+   Conflict Arbiter Indexes: t_pkey
+   Conflict Filter: EXISTS(SubPlan 1)
+   ->  Result
+   SubPlan 1
+     ->  Index Only Scan using t_pkey on t ii
+           Index Cond: (key = excluded.key)
+(8 rows)
+

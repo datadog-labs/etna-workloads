@@ -1,0 +1,71 @@
+diff --git a/src/pl/plpython/plpy_cursorobject.c b/src/pl/plpython/plpy_cursorobject.c
+index 0725fbc19f2..cc74c4df6ba 100644
+--- a/src/pl/plpython/plpy_cursorobject.c
++++ b/src/pl/plpython/plpy_cursorobject.c
+@@ -258,11 +258,6 @@ PLy_cursor_plan(PyObject *ob, PyObject *args)
+ 			PyObject   *elem;
+ 
+ 			elem = PySequence_GetItem(args, j);
+-
+-			/* PySequence_GetItem() can return NULL, with an exception set */
+-			if (elem == NULL)
+-				PLy_elog(ERROR, "could not get element %d from sequence", j);
+-
+ 			PG_TRY(2);
+ 			{
+ 				bool		isnull;
+diff --git a/src/pl/plpython/plpy_spi.c b/src/pl/plpython/plpy_spi.c
+index ce9f57060cf..1e386aadcca 100644
+--- a/src/pl/plpython/plpy_spi.c
++++ b/src/pl/plpython/plpy_spi.c
+@@ -86,11 +86,6 @@ PLy_spi_prepare(PyObject *self, PyObject *args)
+ 			int32		typmod;
+ 
+ 			optr = PySequence_GetItem(list, i);
+-
+-			/* PySequence_GetItem() can return NULL, with an exception set */
+-			if (optr == NULL)
+-				PLy_elog(ERROR, "could not get element %d from sequence", i);
+-
+ 			if (PyUnicode_Check(optr))
+ 				sptr = PLyUnicode_AsString(optr);
+ 			else
+@@ -253,11 +248,6 @@ PLy_spi_execute_plan(PyObject *ob, PyObject *list, long limit)
+ 			PyObject   *elem;
+ 
+ 			elem = PySequence_GetItem(list, j);
+-
+-			/* PySequence_GetItem() can return NULL, with an exception set */
+-			if (elem == NULL)
+-				PLy_elog(ERROR, "could not get element %d from sequence", j);
+-
+ 			PG_TRY(2);
+ 			{
+ 				bool		isnull;
+diff --git a/src/pl/plpython/plpy_typeio.c b/src/pl/plpython/plpy_typeio.c
+index 462778e8afe..f6509a41902 100644
+--- a/src/pl/plpython/plpy_typeio.c
++++ b/src/pl/plpython/plpy_typeio.c
+@@ -1209,10 +1209,6 @@ PLySequence_ToArray_recurse(PyObject *obj, ArrayBuildState **astatep,
+ 		/* fetch the array element */
+ 		PyObject   *subobj = PySequence_GetItem(obj, i);
+ 
+-		/* PySequence_GetItem() can return NULL, with an exception set */
+-		if (subobj == NULL)
+-			PLy_elog(ERROR, "could not get element %d from sequence", i);
+-
+ 		/* need PG_TRY to ensure we release the subobj's refcount */
+ 		PG_TRY();
+ 		{
+@@ -1459,10 +1455,7 @@ PLySequence_ToComposite(PLyObToDatum *arg, TupleDesc desc, PyObject *sequence)
+ 		PG_TRY();
+ 		{
+ 			value = PySequence_GetItem(sequence, idx);
+-
+-			/* PySequence_GetItem() can return NULL, with an exception set */
+-			if (value == NULL)
+-				PLy_elog(ERROR, "could not get element %d from sequence", idx);
++			Assert(value);
+ 
+ 			values[i] = att->func(att, value, &nulls[i], false);
+ 

@@ -1,0 +1,6 @@
+SET password_encryption = 'scram-sha-256';
+SET client_min_messages = error;
+CREATE ROLE r6 PASSWORD 'SCRAM-SHA-256$1234';
+CREATE ROLE r7 PASSWORD 'md5012345678901234567890123456789zz';
+SELECT rolname, left(rolpassword, 14) AS pw FROM pg_authid WHERE rolname IN ('r6','r7') ORDER BY 1;
+DROP ROLE r6; DROP ROLE r7;

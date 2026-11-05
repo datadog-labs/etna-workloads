@@ -1,0 +1,22 @@
+explain (verbose, costs off)
+select row(row(row(1))) = any (select row(row(1)));
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Result
+   Output: (ANY ('("(1)")'::record = (hashed SubPlan 1).col1))
+   SubPlan 1
+     ->  Result
+           Output: '("(1)")'::record
+(5 rows)
+
+explain (costs off)
+select x from (values (row(1, 2)), (row(1, 3))) _(x) union select x from (values (row(1, 2)), (row(1, 4))) _(x);
+               QUERY PLAN                
+-----------------------------------------
+ HashAggregate
+   Group Key: "*VALUES*".column1
+   ->  Append
+         ->  Values Scan on "*VALUES*"
+         ->  Values Scan on "*VALUES*_1"
+(5 rows)
+

@@ -1,0 +1,74 @@
+diff --git a/src/backend/access/gin/gindatapage.c b/src/backend/access/gin/gindatapage.c
+index 6c2c6194720..d100b881eb9 100644
+--- a/src/backend/access/gin/gindatapage.c
++++ b/src/backend/access/gin/gindatapage.c
+@@ -1777,17 +1777,29 @@ createPostingTree(Relation index, ItemPointerData *items, uint32 nitems,
+ {
+ 	BlockNumber blkno;
+ 	Buffer		buffer;
+-	Page		tmppage;
+ 	Page		page;
+ 	Pointer		ptr;
+ 	int			nrootitems;
+ 	int			rootsize;
+ 	bool		is_build = (buildStats != NULL);
+ 
+-	/* Construct the new root page in memory first. */
+-	tmppage = (Page) palloc(BLCKSZ);
+-	GinInitPage(tmppage, GIN_DATA | GIN_LEAF | GIN_COMPRESSED, BLCKSZ);
+-	GinPageGetOpaque(tmppage)->rightlink = InvalidBlockNumber;
++	/*
++	 * Create the root page.
++	 */
++	buffer = GinNewBuffer(index);
++	page = BufferGetPage(buffer);
++	blkno = BufferGetBlockNumber(buffer);
++
++	/*
++	 * Copy any predicate locks from the entry tree leaf (containing posting
++	 * list) to the posting tree.
++	 */
++	PredicateLockPageSplit(index, BufferGetBlockNumber(entrybuffer), blkno);
++
++	START_CRIT_SECTION();
++
++	GinInitPage(page, GIN_DATA | GIN_LEAF | GIN_COMPRESSED, BLCKSZ);
++	GinPageGetOpaque(page)->rightlink = InvalidBlockNumber;
+ 
+ 	/*
+ 	 * Write as many of the items to the root page as fit. In segments of max
+@@ -1795,7 +1807,7 @@ createPostingTree(Relation index, ItemPointerData *items, uint32 nitems,
+ 	 */
+ 	nrootitems = 0;
+ 	rootsize = 0;
+-	ptr = (Pointer) GinDataLeafPageGetPostingList(tmppage);
++	ptr = (Pointer) GinDataLeafPageGetPostingList(page);
+ 	while (nrootitems < nitems)
+ 	{
+ 		GinPostingList *segment;
+@@ -1816,24 +1828,7 @@ createPostingTree(Relation index, ItemPointerData *items, uint32 nitems,
+ 		nrootitems += npacked;
+ 		pfree(segment);
+ 	}
+-	GinDataPageSetDataSize(tmppage, rootsize);
+-
+-	/*
+-	 * All set. Get a new physical page, and copy the in-memory page to it.
+-	 */
+-	buffer = GinNewBuffer(index);
+-	page = BufferGetPage(buffer);
+-	blkno = BufferGetBlockNumber(buffer);
+-
+-	/*
+-	 * Copy any predicate locks from the entry tree leaf (containing posting
+-	 * list) to the posting tree.
+-	 */
+-	PredicateLockPageSplit(index, BufferGetBlockNumber(entrybuffer), blkno);
+-
+-	START_CRIT_SECTION();
+-
+-	PageRestoreTempPage(tmppage, page);
++	GinDataPageSetDataSize(page, rootsize);
+ 	MarkBufferDirty(buffer);
+ 
+ 	if (RelationNeedsWAL(index) && !is_build)

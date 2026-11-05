@@ -1,0 +1,20 @@
+diff --git a/src/backend/utils/adt/numeric.c b/src/backend/utils/adt/numeric.c
+index a372237cf65..0da8e39d018 100644
+--- a/src/backend/utils/adt/numeric.c
++++ b/src/backend/utils/adt/numeric.c
+@@ -2081,10 +2081,12 @@ compute_bucket(Numeric operand, Numeric bound1, Numeric bound2,
+ 	sub_var(&operand_var, &bound1_var, &operand_var);
+ 	sub_var(&bound2_var, &bound1_var, &bound2_var);
+ 
+-	mul_var(&operand_var, count_var, &operand_var,
+-			operand_var.dscale + count_var->dscale);
+-	div_var(&operand_var, &bound2_var, result_var, 0, false, true);
++	div_var(&operand_var, &bound2_var, result_var,
++			select_div_scale(&operand_var, &bound2_var), true, true);
++	mul_var(result_var, count_var, result_var,
++			result_var->dscale + count_var->dscale);
+ 	add_var(result_var, &const_one, result_var);
++	floor_var(result_var, result_var);
+ 
+ 	free_var(&bound1_var);
+ 	free_var(&bound2_var);

@@ -1,0 +1,15 @@
+SET client_min_messages = warning;
+CREATE SUBSCRIPTION s CONNECTION 'dbname=doesnotexist' PUBLICATION p1, p2 WITH (connect = false);
+psql:<REPRO>:2: WARNING:  subscription was created, but is not connected
+HINT:  To initiate replication, you must manually create the replication slot, enable the subscription, and refresh the subscription.
+ALTER SUBSCRIPTION s DROP PUBLICATION p1 WITH (refresh = false, copy_data = true);
+psql:<REPRO>:3: ERROR:  unrecognized subscription parameter: "copy_data"
+SELECT subpublications FROM pg_subscription WHERE subname = 's';
+ subpublications 
+-----------------
+ {p1,p2}
+(1 row)
+
+DROP SUBSCRIPTION s;
+psql:<REPRO>:5: ERROR:  could not connect to publisher when attempting to drop replication slot "s": connection to server on socket "<WORK>/.s.PGSQL.5432" failed: FATAL:  database "doesnotexist" does not exist
+HINT:  Use ALTER SUBSCRIPTION ... DISABLE to disable the subscription, and then use ALTER SUBSCRIPTION ... SET (slot_name = NONE) to disassociate it from the slot.

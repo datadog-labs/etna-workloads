@@ -1,0 +1,10 @@
+CREATE TABLE stxdinp(i int, a int, b int) PARTITION BY RANGE (i);
+CREATE TABLE stxdinp1 PARTITION OF stxdinp FOR VALUES FROM (1) TO (100);
+INSERT INTO stxdinp SELECT 1, a/100, a/100 FROM generate_series(1, 999) a;
+CREATE STATISTICS stxdinp ON (a + 1), a, b FROM stxdinp;
+VACUUM ANALYZE stxdinp;
+DO $$ BEGIN
+  EXECUTE 'EXPLAIN SELECT a + 1, b FROM ONLY stxdinp GROUP BY 1, 2';
+  RAISE NOTICE 'planned ok';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'planning failed'; END $$;
+psql:<REPRO>:9: NOTICE:  planning failed

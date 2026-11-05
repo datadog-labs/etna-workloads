@@ -1,0 +1,15 @@
+BEGIN;
+CREATE DOMAIN arrdomain AS int[];
+CREATE FUNCTION make_ad(int,int) returns arrdomain as
+  'declare x arrdomain;
+   begin
+     x := array[$1,$2];
+     return x;
+   end' language plpgsql volatile;
+CREATE FUNCTION ad_eq(arrdomain, arrdomain) returns boolean as
+  'begin return array_eq($1, $2); end' language plpgsql;
+CREATE OPERATOR = (procedure = ad_eq,
+  leftarg = arrdomain, rightarg = arrdomain);
+SELECT NULLIF(make_ad(1,2), array[2,3]::arrdomain);
+psql:<REPRO>:13: ERROR:  cache lookup failed for type 2139062143
+ROLLBACK;

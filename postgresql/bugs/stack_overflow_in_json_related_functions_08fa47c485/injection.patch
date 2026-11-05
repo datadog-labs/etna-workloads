@@ -1,0 +1,57 @@
+diff --git a/src/backend/utils/adt/json.c b/src/backend/utils/adt/json.c
+index c1d3de602ae..d6163ac5669 100644
+--- a/src/backend/utils/adt/json.c
++++ b/src/backend/utils/adt/json.c
+@@ -183,8 +183,6 @@ datum_to_json_internal(Datum val, bool is_null, StringInfo result,
+ 	char	   *outputstr;
+ 	text	   *jsontext;
+ 
+-	check_stack_depth();
+-
+ 	/* callers are expected to ensure that null keys are not passed in */
+ 	Assert(!(key_scalar && is_null));
+ 
+diff --git a/src/backend/utils/adt/jsonb.c b/src/backend/utils/adt/jsonb.c
+index da94d424d61..970ff6a0a74 100644
+--- a/src/backend/utils/adt/jsonb.c
++++ b/src/backend/utils/adt/jsonb.c
+@@ -644,8 +644,6 @@ datum_to_jsonb_internal(Datum val, bool is_null, JsonbInState *result,
+ 	JsonbValue	jb;
+ 	bool		scalar_jsonb = false;
+ 
+-	check_stack_depth();
+-
+ 	/* Convert val to a JsonbValue in jb (in most cases) */
+ 	if (is_null)
+ 	{
+diff --git a/src/common/jsonapi.c b/src/common/jsonapi.c
+index f0d51c56782..c822813e5c9 100644
+--- a/src/common/jsonapi.c
++++ b/src/common/jsonapi.c
+@@ -1397,15 +1397,6 @@ parse_object(JsonLexContext *lex, const JsonSemAction *sem)
+ 	JsonTokenType tok;
+ 	JsonParseErrorType result;
+ 
+-#ifndef FRONTEND
+-
+-	/*
+-	 * TODO: clients need some way to put a bound on stack growth. Parse level
+-	 * limits maybe?
+-	 */
+-	check_stack_depth();
+-#endif
+-
+ 	if (ostart != NULL)
+ 	{
+ 		result = (*ostart) (sem->semstate);
+@@ -1519,10 +1510,6 @@ parse_array(JsonLexContext *lex, const JsonSemAction *sem)
+ 	json_struct_action aend = sem->array_end;
+ 	JsonParseErrorType result;
+ 
+-#ifndef FRONTEND
+-	check_stack_depth();
+-#endif
+-
+ 	if (astart != NULL)
+ 	{
+ 		result = (*astart) (sem->semstate);

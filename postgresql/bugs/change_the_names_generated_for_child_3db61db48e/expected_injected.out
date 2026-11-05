@@ -1,0 +1,19 @@
+create table pk (a int primary key) partition by list (a);
+create table pk1 partition of pk for values in (1);
+create table fk (a int, constraint myfk foreign key (a) references pk) partition by list (a);
+create table fk1 partition of fk for values in (1);
+select conname from pg_constraint where conrelid='fk'::regclass order by 1;
+  conname  
+-----------
+ fk_a_fkey
+ myfk
+(2 rows)
+
+select conname from pg_constraint where conrelid='pk1'::regclass or confrelid='pk1'::regclass order by 1;
+    conname    
+---------------
+ fk_a_fkey
+ pk1_pkey
+ pk_a_not_null
+(3 rows)
+

@@ -1,0 +1,154 @@
+diff --git a/src/backend/catalog/namespace.c b/src/backend/catalog/namespace.c
+index a0e4ce24a7c..ceedeb90dbc 100644
+--- a/src/backend/catalog/namespace.c
++++ b/src/backend/catalog/namespace.c
+@@ -989,23 +989,13 @@ RelationIsVisibleExt(Oid relid, bool *is_missing)
+ 
+ /*
+  * TypenameGetTypid
+- *		Wrapper for binary compatibility.
+- */
+-Oid
+-TypenameGetTypid(const char *typname)
+-{
+-	return TypenameGetTypidExtended(typname, true);
+-}
+-
+-/*
+- * TypenameGetTypidExtended
+  *		Try to resolve an unqualified datatype name.
+  *		Returns OID if type found in search path, else InvalidOid.
+  *
+  * This is essentially the same as RelnameGetRelid.
+  */
+ Oid
+-TypenameGetTypidExtended(const char *typname, bool temp_ok)
++TypenameGetTypid(const char *typname)
+ {
+ 	Oid			typid;
+ 	ListCell   *l;
+@@ -1016,9 +1006,6 @@ TypenameGetTypidExtended(const char *typname, bool temp_ok)
+ 	{
+ 		Oid			namespaceId = lfirst_oid(l);
+ 
+-		if (!temp_ok && namespaceId == myTempNamespace)
+-			continue;			/* do not look in temp namespace */
+-
+ 		typid = GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid,
+ 								PointerGetDatum(typname),
+ 								ObjectIdGetDatum(namespaceId));
+diff --git a/src/backend/parser/parse_func.c b/src/backend/parser/parse_func.c
+index a7074c9e2e6..c1af1126168 100644
+--- a/src/backend/parser/parse_func.c
++++ b/src/backend/parser/parse_func.c
+@@ -1938,12 +1938,7 @@ FuncNameAsType(List *funcname)
+ 	Oid			result;
+ 	Type		typtup;
+ 
+-	/*
+-	 * temp_ok=false protects the <refsect1 id="sql-createfunction-security">
+-	 * contract for writing SECURITY DEFINER functions safely.
+-	 */
+-	typtup = LookupTypeNameExtended(NULL, makeTypeNameFromNameList(funcname),
+-									NULL, false, false);
++	typtup = LookupTypeName(NULL, makeTypeNameFromNameList(funcname), NULL, false);
+ 	if (typtup == NULL)
+ 		return InvalidOid;
+ 
+diff --git a/src/backend/parser/parse_type.c b/src/backend/parser/parse_type.c
+index 7713bdc6af0..e25275cebe8 100644
+--- a/src/backend/parser/parse_type.c
++++ b/src/backend/parser/parse_type.c
+@@ -32,18 +32,6 @@ static int32 typenameTypeMod(ParseState *pstate, const TypeName *typeName,
+ 
+ /*
+  * LookupTypeName
+- *		Wrapper for typical case.
+- */
+-Type
+-LookupTypeName(ParseState *pstate, const TypeName *typeName,
+-			   int32 *typmod_p, bool missing_ok)
+-{
+-	return LookupTypeNameExtended(pstate,
+-								  typeName, typmod_p, true, missing_ok);
+-}
+-
+-/*
+- * LookupTypeNameExtended
+  *		Given a TypeName object, lookup the pg_type syscache entry of the type.
+  *		Returns NULL if no such type can be found.  If the type is found,
+  *		the typmod value represented in the TypeName struct is computed and
+@@ -62,17 +50,11 @@ LookupTypeName(ParseState *pstate, const TypeName *typeName,
+  * found but is a shell, and there is typmod decoration, an error will be
+  * thrown --- this is intentional.
+  *
+- * If temp_ok is false, ignore types in the temporary namespace.  Pass false
+- * when the caller will decide, using goodness of fit criteria, whether the
+- * typeName is actually a type or something else.  If typeName always denotes
+- * a type (or denotes nothing), pass true.
+- *
+  * pstate is only used for error location info, and may be NULL.
+  */
+ Type
+-LookupTypeNameExtended(ParseState *pstate,
+-					   const TypeName *typeName, int32 *typmod_p,
+-					   bool temp_ok, bool missing_ok)
++LookupTypeName(ParseState *pstate, const TypeName *typeName,
++			   int32 *typmod_p, bool missing_ok)
+ {
+ 	Oid			typoid;
+ 	HeapTuple	tup;
+@@ -189,7 +171,7 @@ LookupTypeNameExtended(ParseState *pstate,
+ 		else
+ 		{
+ 			/* Unqualified type name, so search the search path */
+-			typoid = TypenameGetTypidExtended(typname, temp_ok);
++			typoid = TypenameGetTypid(typname);
+ 		}
+ 
+ 		/* If an array reference, return the array type instead */
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..26a710fa660 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -11437,14 +11437,6 @@ get_coercion_expr(Node *arg, deparse_context *context,
+ 		if (!PRETTY_PAREN(context))
+ 			appendStringInfoChar(buf, ')');
+ 	}
+-
+-	/*
+-	 * Never emit resulttype(arg) functional notation. A pg_proc entry could
+-	 * take precedence, and a resulttype in pg_temp would require schema
+-	 * qualification that format_type_with_typemod() would usually omit. We've
+-	 * standardized on arg::resulttype, but CAST(arg AS resulttype) notation
+-	 * would work fine.
+-	 */
+ 	appendStringInfo(buf, "::%s",
+ 					 format_type_with_typemod(resulttype, resulttypmod));
+ }
+diff --git a/src/include/catalog/namespace.h b/src/include/catalog/namespace.h
+index 8c7ccc69a3c..a0b7130abca 100644
+--- a/src/include/catalog/namespace.h
++++ b/src/include/catalog/namespace.h
+@@ -94,7 +94,6 @@ extern Oid	RelnameGetRelid(const char *relname);
+ extern bool RelationIsVisible(Oid relid);
+ 
+ extern Oid	TypenameGetTypid(const char *typname);
+-extern Oid	TypenameGetTypidExtended(const char *typname, bool temp_ok);
+ extern bool TypeIsVisible(Oid typid);
+ 
+ extern FuncCandidateList FuncnameGetCandidates(List *names,
+diff --git a/src/include/parser/parse_type.h b/src/include/parser/parse_type.h
+index 0d919d8bfa2..56bfebe6e59 100644
+--- a/src/include/parser/parse_type.h
++++ b/src/include/parser/parse_type.h
+@@ -21,9 +21,6 @@ typedef HeapTuple Type;
+ 
+ extern Type LookupTypeName(ParseState *pstate, const TypeName *typeName,
+ 						   int32 *typmod_p, bool missing_ok);
+-extern Type LookupTypeNameExtended(ParseState *pstate,
+-								   const TypeName *typeName, int32 *typmod_p,
+-								   bool temp_ok, bool missing_ok);
+ extern Oid	LookupTypeNameOid(ParseState *pstate, const TypeName *typeName,
+ 							  bool missing_ok);
+ extern Type typenameType(ParseState *pstate, const TypeName *typeName,

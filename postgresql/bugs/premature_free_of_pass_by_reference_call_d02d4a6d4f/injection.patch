@@ -1,0 +1,24 @@
+diff --git a/src/backend/commands/functioncmds.c b/src/backend/commands/functioncmds.c
+index 0335e982b31..60707b817e6 100644
+--- a/src/backend/commands/functioncmds.c
++++ b/src/backend/commands/functioncmds.c
+@@ -2293,13 +2293,19 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver
+ 	i = 0;
+ 	foreach(lc, fexpr->args)
+ 	{
++		EState	   *estate;
++		ExprContext *econtext;
+ 		ExprState  *exprstate;
+ 		Datum		val;
+ 		bool		isnull;
+ 
++		estate = CreateExecutorState();
++		estate->es_param_list_info = params;
++		econtext = CreateExprContext(estate);
+ 		exprstate = ExecPrepareExpr(lfirst(lc), estate);
+ 
+ 		val = ExecEvalExprSwitchContext(exprstate, econtext, &isnull);
++		FreeExecutorState(estate);
+ 
+ 		fcinfo->args[i].value = val;
+ 		fcinfo->args[i].isnull = isnull;

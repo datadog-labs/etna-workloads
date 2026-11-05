@@ -1,0 +1,257 @@
+diff --git a/src/backend/catalog/aclchk.c b/src/backend/catalog/aclchk.c
+index 17816481760..17e659e1214 100644
+--- a/src/backend/catalog/aclchk.c
++++ b/src/backend/catalog/aclchk.c
+@@ -2407,17 +2407,11 @@ ExecGrant_Type_check(InternalGrant *istmt, HeapTuple tuple)
+ 
+ 	pg_type_tuple = (Form_pg_type) GETSTRUCT(tuple);
+ 
+-	/* Disallow GRANT on dependent types */
+ 	if (IsTrueArrayType(pg_type_tuple))
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_INVALID_GRANT_OPERATION),
+ 				 errmsg("cannot set privileges of array types"),
+ 				 errhint("Set the privileges of the element type instead.")));
+-	if (pg_type_tuple->typtype == TYPTYPE_MULTIRANGE)
+-		ereport(ERROR,
+-				(errcode(ERRCODE_INVALID_GRANT_OPERATION),
+-				 errmsg("cannot set privileges of multirange types"),
+-				 errhint("Set the privileges of the range type instead.")));
+ }
+ 
+ static void
+@@ -3771,35 +3765,6 @@ pg_type_aclmask_ext(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how,
+ 		typeForm = (Form_pg_type) GETSTRUCT(tuple);
+ 	}
+ 
+-	/*
+-	 * Likewise, multirange types don't manage their own permissions; consult
+-	 * the associated range type.  (Note we must do this after the array step
+-	 * to get the right answer for arrays of multiranges.)
+-	 */
+-	if (typeForm->typtype == TYPTYPE_MULTIRANGE)
+-	{
+-		Oid			rangetype = get_multirange_range(typeForm->oid);
+-
+-		ReleaseSysCache(tuple);
+-
+-		tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(rangetype));
+-		if (!HeapTupleIsValid(tuple))
+-		{
+-			if (is_missing != NULL)
+-			{
+-				/* return "no privileges" instead of throwing an error */
+-				*is_missing = true;
+-				return 0;
+-			}
+-			else
+-				ereport(ERROR,
+-						(errcode(ERRCODE_UNDEFINED_OBJECT),
+-						 errmsg("type with OID %u does not exist",
+-								rangetype)));
+-		}
+-		typeForm = (Form_pg_type) GETSTRUCT(tuple);
+-	}
+-
+ 	/*
+ 	 * Now get the type's owner and ACL from the tuple
+ 	 */
+diff --git a/src/backend/catalog/pg_type.c b/src/backend/catalog/pg_type.c
+index a59a7d5541c..74b44cb2416 100644
+--- a/src/backend/catalog/pg_type.c
++++ b/src/backend/catalog/pg_type.c
+@@ -328,15 +328,14 @@ TypeCreate(Oid newTypeOid,
+ 				 errmsg("fixed-size types must have storage PLAIN")));
+ 
+ 	/*
+-	 * This is a dependent type if it's an implicitly-created array type or
+-	 * multirange type, or if it's a relation rowtype that's not a composite
+-	 * type.  For such types we'll leave the ACL empty, and we'll skip
+-	 * creating some dependency records because there will be a dependency
+-	 * already through the depended-on type or relation.  (Caution: this is
+-	 * closely intertwined with some behavior in GenerateTypeDependencies.)
++	 * This is a dependent type if it's an implicitly-created array type, or
++	 * if it's a relation rowtype that's not a composite type.  For such types
++	 * we'll leave the ACL empty, and we'll skip creating some dependency
++	 * records because there will be a dependency already through the
++	 * depended-on type or relation.  (Caution: this is closely intertwined
++	 * with some behavior in GenerateTypeDependencies.)
+ 	 */
+ 	isDependentType = isImplicitArray ||
+-		typeType == TYPTYPE_MULTIRANGE ||
+ 		(OidIsValid(relationOid) && relationKind != RELKIND_COMPOSITE_TYPE);
+ 
+ 	/*
+@@ -537,9 +536,8 @@ TypeCreate(Oid newTypeOid,
+  * relationKind and isImplicitArray are likewise somewhat expensive to deduce
+  * from the tuple, so we make callers pass those (they're not optional).
+  *
+- * isDependentType is true if this is an implicit array, multirange, or
+- * relation rowtype; that means it doesn't need its own dependencies on owner
+- * etc.
++ * isDependentType is true if this is an implicit array or relation rowtype;
++ * that means it doesn't need its own dependencies on owner etc.
+  *
+  * We make an extension-membership dependency if we're in an extension
+  * script and makeExtensionDep is true.
+@@ -608,23 +606,18 @@ GenerateTypeDependencies(HeapTuple typeTuple,
+ 	 * Make dependencies on namespace, owner, ACL.
+ 	 *
+ 	 * Skip these for a dependent type, since it will have such dependencies
+-	 * indirectly through its depended-on type or relation.  An exception is
+-	 * that multiranges need their own namespace dependency, since we don't
+-	 * force them to be in the same schema as their range type.
++	 * indirectly through its depended-on type or relation.
+ 	 */
+ 
+-	/* collects normal dependencies for bulk recording */
++	/* placeholder for all normal dependencies */
+ 	addrs_normal = new_object_addresses();
+ 
+-	if (!isDependentType || typeForm->typtype == TYPTYPE_MULTIRANGE)
++	if (!isDependentType)
+ 	{
+ 		ObjectAddressSet(referenced, NamespaceRelationId,
+ 						 typeForm->typnamespace);
+-		add_exact_object_address(&referenced, addrs_normal);
+-	}
++		recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
+ 
+-	if (!isDependentType)
+-	{
+ 		recordDependencyOnOwner(TypeRelationId, typeObjectId,
+ 								typeForm->typowner);
+ 
+@@ -746,16 +739,6 @@ GenerateTypeDependencies(HeapTuple typeTuple,
+ 		recordDependencyOn(&myself, &referenced,
+ 						   isImplicitArray ? DEPENDENCY_INTERNAL : DEPENDENCY_NORMAL);
+ 	}
+-
+-	/*
+-	 * Note: you might expect that we should record an internal dependency of
+-	 * a multirange on its range type here, by analogy with the cases above.
+-	 * But instead, that is done by RangeCreate(), which also handles
+-	 * recording of other range-type-specific dependencies.  That's pretty
+-	 * bogus.  It's okay for now, because there are no cases where we need to
+-	 * regenerate the dependencies of a range or multirange type.  But someday
+-	 * we might need to move that logic here to allow such regeneration.
+-	 */
+ }
+ 
+ /*
+diff --git a/src/backend/commands/typecmds.c b/src/backend/commands/typecmds.c
+index 2ed7973d1b4..2d02c109247 100644
+--- a/src/backend/commands/typecmds.c
++++ b/src/backend/commands/typecmds.c
+@@ -3829,8 +3829,6 @@ RenameType(RenameStmt *stmt)
+ 				 errhint("You can alter type %s, which will alter the array type as well.",
+ 						 format_type_be(typTup->typelem))));
+ 
+-	/* we do allow separate renaming of multirange types, though */
+-
+ 	/*
+ 	 * If type is composite we need to rename associated pg_class entry too.
+ 	 * RenameRelationInternal will call RenameTypeInternal automatically.
+@@ -3914,21 +3912,6 @@ AlterTypeOwner(List *names, Oid newOwnerId, ObjectType objecttype)
+ 				 errhint("You can alter type %s, which will alter the array type as well.",
+ 						 format_type_be(typTup->typelem))));
+ 
+-	/* don't allow direct alteration of multirange types, either */
+-	if (typTup->typtype == TYPTYPE_MULTIRANGE)
+-	{
+-		Oid			rangetype = get_multirange_range(typeOid);
+-
+-		/* We don't expect get_multirange_range to fail, but cope if so */
+-		ereport(ERROR,
+-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+-				 errmsg("cannot alter multirange type %s",
+-						format_type_be(typeOid)),
+-				 OidIsValid(rangetype) ?
+-				 errhint("You can alter type %s, which will alter the multirange type as well.",
+-						 format_type_be(rangetype)) : 0));
+-	}
+-
+ 	/*
+ 	 * If the new owner is the same as the existing owner, consider the
+ 	 * command to have succeeded.  This is for dump restoration purposes.
+@@ -3968,13 +3951,13 @@ AlterTypeOwner(List *names, Oid newOwnerId, ObjectType objecttype)
+ /*
+  * AlterTypeOwner_oid - change type owner unconditionally
+  *
+- * This function recurses to handle dependent types (arrays and multiranges).
+- * It invokes any necessary access object hooks.  If hasDependEntry is true,
+- * this function modifies the pg_shdepend entry appropriately (this should be
+- * passed as false only for table rowtypes and dependent types).
++ * This function recurses to handle a pg_class entry, if necessary.  It
++ * invokes any necessary access object hooks.  If hasDependEntry is true, this
++ * function modifies the pg_shdepend entry appropriately (this should be
++ * passed as false only for table rowtypes and array types).
+  *
+  * This is used by ALTER TABLE/TYPE OWNER commands, as well as by REASSIGN
+- * OWNED BY.  It assumes the caller has done all needed checks.
++ * OWNED BY.  It assumes the caller has done all needed check.
+  */
+ void
+ AlterTypeOwner_oid(Oid typeOid, Oid newOwnerId, bool hasDependEntry)
+@@ -4014,7 +3997,7 @@ AlterTypeOwner_oid(Oid typeOid, Oid newOwnerId, bool hasDependEntry)
+  * AlterTypeOwnerInternal - bare-bones type owner change.
+  *
+  * This routine simply modifies the owner of a pg_type entry, and recurses
+- * to handle any dependent types.
++ * to handle a possible array type.
+  */
+ void
+ AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId)
+@@ -4064,19 +4047,6 @@ AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId)
+ 	if (OidIsValid(typTup->typarray))
+ 		AlterTypeOwnerInternal(typTup->typarray, newOwnerId);
+ 
+-	/* If it is a range type, update the associated multirange too */
+-	if (typTup->typtype == TYPTYPE_RANGE)
+-	{
+-		Oid			multirange_typeid = get_range_multirange(typeOid);
+-
+-		if (!OidIsValid(multirange_typeid))
+-			ereport(ERROR,
+-					(errcode(ERRCODE_UNDEFINED_OBJECT),
+-					 errmsg("could not find multirange type for data type %s",
+-							format_type_be(typeOid))));
+-		AlterTypeOwnerInternal(multirange_typeid, newOwnerId);
+-	}
+-
+ 	/* Clean up */
+ 	table_close(rel, RowExclusiveLock);
+ }
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..e47d93fadc7 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -2082,7 +2082,7 @@ selectDumpableType(TypeInfo *tyinfo, Archive *fout)
+ 		return;
+ 	}
+ 
+-	/* skip auto-generated array and multirange types */
++	/* skip auto-generated array types */
+ 	if (tyinfo->isArray || tyinfo->isMultirange)
+ 	{
+ 		tyinfo->dobj.objType = DO_DUMMY_TYPE;
+@@ -2090,8 +2090,8 @@ selectDumpableType(TypeInfo *tyinfo, Archive *fout)
+ 		/*
+ 		 * Fall through to set the dump flag; we assume that the subsequent
+ 		 * rules will do the same thing as they would for the array's base
+-		 * type or multirange's range type.  (We cannot reliably look up the
+-		 * base type here, since getTypes may not have processed it yet.)
++		 * type.  (We cannot reliably look up the base type here, since
++		 * getTypes may not have processed it yet.)
+ 		 */
+ 	}
+ 
+@@ -6140,7 +6140,7 @@ getTypes(Archive *fout)
+ 
+ 		tyinfo[i].typarray = atooid(PQgetvalue(res, i, i_typarray));
+ 
+-		if (tyinfo[i].typtype == TYPTYPE_MULTIRANGE)
++		if (tyinfo[i].typtype == 'm')
+ 			tyinfo[i].isMultirange = true;
+ 		else
+ 			tyinfo[i].isMultirange = false;

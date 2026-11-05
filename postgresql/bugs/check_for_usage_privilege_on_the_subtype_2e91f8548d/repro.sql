@@ -1,0 +1,11 @@
+CREATE ROLE regress_subtype;
+GRANT CREATE ON SCHEMA public TO regress_subtype;
+CREATE TYPE mytype AS (a INT, b INT);
+REVOKE USAGE ON TYPE mytype FROM PUBLIC;
+SET ROLE regress_subtype;
+CREATE TYPE myrange AS RANGE (subtype = mytype);
+RESET ROLE;
+SELECT count(*) AS range_created FROM pg_type WHERE typname = 'myrange';
+DROP TYPE mytype CASCADE;
+REVOKE CREATE ON SCHEMA public FROM regress_subtype;
+DROP ROLE regress_subtype;

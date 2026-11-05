@@ -1,0 +1,59 @@
+diff --git a/src/backend/commands/lockcmds.c b/src/backend/commands/lockcmds.c
+index 616da196714..0f88ee7a861 100644
+--- a/src/backend/commands/lockcmds.c
++++ b/src/backend/commands/lockcmds.c
+@@ -31,8 +31,7 @@ static void LockTableRecurse(Oid reloid, LOCKMODE lockmode, bool nowait);
+ static AclResult LockTableAclCheck(Oid reloid, LOCKMODE lockmode, Oid userid);
+ static void RangeVarCallbackForLockTable(const RangeVar *rv, Oid relid,
+ 										 Oid oldrelid, void *arg);
+-static void LockViewRecurse(Oid reloid, LOCKMODE lockmode, bool nowait,
+-							List *ancestor_views);
++static void LockViewRecurse(Oid reloid, LOCKMODE lockmode, bool nowait, List *ancestor_views);
+ 
+ /*
+  * LOCK TABLE
+@@ -198,12 +197,12 @@ LockViewRecurse_walker(Node *node, LockViewRecurse_context *context)
+ 				relkind != RELKIND_VIEW)
+ 				continue;
+ 
+-			/*
+-			 * We might be dealing with a self-referential view.  If so, we
+-			 * can just stop recursing, since we already locked it.
+-			 */
++			/* Check infinite recursion in the view definition. */
+ 			if (list_member_oid(context->ancestor_views, relid))
+-				continue;
++				ereport(ERROR,
++						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
++						 errmsg("infinite recursion detected in rules for relation \"%s\"",
++								get_rel_name(relid))));
+ 
+ 			/*
+ 			 * Check permissions as the specified user.  This will either be
+@@ -224,8 +223,7 @@ LockViewRecurse_walker(Node *node, LockViewRecurse_context *context)
+ 								relname)));
+ 
+ 			if (relkind == RELKIND_VIEW)
+-				LockViewRecurse(relid, context->lockmode, context->nowait,
+-								context->ancestor_views);
++				LockViewRecurse(relid, context->lockmode, context->nowait, context->ancestor_views);
+ 			else if (rte->inh)
+ 				LockTableRecurse(relid, context->lockmode, context->nowait);
+ 		}
+@@ -242,14 +240,13 @@ LockViewRecurse_walker(Node *node, LockViewRecurse_context *context)
+ }
+ 
+ static void
+-LockViewRecurse(Oid reloid, LOCKMODE lockmode, bool nowait,
+-				List *ancestor_views)
++LockViewRecurse(Oid reloid, LOCKMODE lockmode, bool nowait, List *ancestor_views)
+ {
+ 	LockViewRecurse_context context;
++
+ 	Relation	view;
+ 	Query	   *viewquery;
+ 
+-	/* caller has already locked the view */
+ 	view = table_open(reloid, NoLock);
+ 	viewquery = get_view_query(view);
+ 

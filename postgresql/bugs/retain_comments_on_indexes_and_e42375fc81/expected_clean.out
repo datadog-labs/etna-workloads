@@ -1,0 +1,22 @@
+create table ct(id int, t text, constraint ct_pk primary key (id), constraint ct_u unique (t));
+create index ct_i on ct(id);
+comment on index ct_i is 'idx';
+comment on constraint ct_pk on ct is 'pk con';
+comment on index ct_pk is 'pk idx';
+alter table ct alter column id type bigint;
+select indexrelid::regclass::text, obj_description(indexrelid,'pg_class') from pg_index where indrelid='ct'::regclass order by 1;
+ indexrelid | obj_description 
+------------+-----------------
+ ct_i       | idx
+ ct_pk      | pk idx
+ ct_u       | 
+(3 rows)
+
+select conname, obj_description(oid,'pg_constraint') from pg_constraint where conrelid='ct'::regclass order by 1;
+    conname     | obj_description 
+----------------+-----------------
+ ct_id_not_null | 
+ ct_pk          | pk con
+ ct_u           | 
+(3 rows)
+

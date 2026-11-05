@@ -1,0 +1,21 @@
+\set VERBOSITY default
+create function f() returns void as $$
+begin
+  execute 'select 1/0';
+end$$ language plpgsql;
+select f();
+psql:<REPRO>:6: ERROR:  division by zero
+CONTEXT:  SQL statement "select 1/0"
+PL/pgSQL function f() line 3 at EXECUTE
+create function g() returns void as $$
+begin
+  get stacked diagnostics x = message_text;
+end$$ language plpgsql;
+psql:<REPRO>:10: ERROR:  "x" is not a known variable
+LINE 3:   get stacked diagnostics x = message_text;
+                                  ^
+select g();
+psql:<REPRO>:11: ERROR:  function g() does not exist
+LINE 1: select g();
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.

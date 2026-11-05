@@ -1,0 +1,41 @@
+diff --git a/src/backend/replication/logical/tablesync.c b/src/backend/replication/logical/tablesync.c
+index 92e4e383d77..77ab3f17730 100644
+--- a/src/backend/replication/logical/tablesync.c
++++ b/src/backend/replication/logical/tablesync.c
+@@ -1171,30 +1171,18 @@ copy_table(Relation rel)
+ 	/* Regular table with no row filter or generated columns */
+ 	if (lrel.relkind == RELKIND_RELATION && qual == NIL && !gencol_published)
+ 	{
+-		appendStringInfo(&cmd, "COPY %s",
++		appendStringInfo(&cmd, "COPY %s (",
+ 						 quote_qualified_identifier(lrel.nspname, lrel.relname));
+ 
+-		/* If the table has columns, then specify the columns */
+-		if (lrel.natts)
++		for (int i = 0; i < lrel.natts; i++)
+ 		{
+-			appendStringInfoString(&cmd, " (");
+-
+-			/*
+-			 * XXX Do we need to list the columns in all cases? Maybe we're
+-			 * replicating all columns?
+-			 */
+-			for (int i = 0; i < lrel.natts; i++)
+-			{
+-				if (i > 0)
+-					appendStringInfoString(&cmd, ", ");
+-
+-				appendStringInfoString(&cmd, quote_identifier(lrel.attnames[i]));
+-			}
++			if (i > 0)
++				appendStringInfoString(&cmd, ", ");
+ 
+-			appendStringInfoChar(&cmd, ')');
++			appendStringInfoString(&cmd, quote_identifier(lrel.attnames[i]));
+ 		}
+ 
+-		appendStringInfoString(&cmd, " TO STDOUT");
++		appendStringInfoString(&cmd, ") TO STDOUT");
+ 	}
+ 	else
+ 	{

@@ -1,0 +1,30 @@
+diff --git a/src/backend/executor/execCurrent.c b/src/backend/executor/execCurrent.c
+index 3bfdc0230ff..725de3641b4 100644
+--- a/src/backend/executor/execCurrent.c
++++ b/src/backend/executor/execCurrent.c
+@@ -419,8 +419,6 @@ search_plan_tree(PlanState *node, Oid table_oid,
+ 	 * If we found a candidate at or below this node, then this node's
+ 	 * chgParam indicates a pending rescan that will affect the candidate.
+ 	 */
+-	if (result && node->chgParam != NULL)
+-		*pending_rescan = true;
+ 
+ 	return result;
+ }
+diff --git a/src/backend/executor/execScan.c b/src/backend/executor/execScan.c
+index 31ed4783c1d..43c6ddfd0c6 100644
+--- a/src/backend/executor/execScan.c
++++ b/src/backend/executor/execScan.c
+@@ -109,12 +109,6 @@ ExecScanReScan(ScanState *node)
+ {
+ 	EState	   *estate = node->ps.state;
+ 
+-	/*
+-	 * We must clear the scan tuple so that observers (e.g., execCurrent.c)
+-	 * can tell that this plan node is not positioned on a tuple.
+-	 */
+-	ExecClearTuple(node->ss_ScanTupleSlot);
+-
+ 	/*
+ 	 * Rescan EvalPlanQual tuple(s) if we're inside an EvalPlanQual recheck.
+ 	 * But don't lose the "blocked" status of blocked target relations.

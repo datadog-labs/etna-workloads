@@ -1,0 +1,83 @@
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..a493d8c45f9 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -4526,14 +4526,6 @@ start_apply(XLogRecPtr origin_startpos)
+ 	}
+ 	PG_CATCH();
+ 	{
+-		/*
+-		 * Reset the origin state to prevent the advancement of origin
+-		 * progress if we fail to apply. Otherwise, this will result in
+-		 * transaction loss as that transaction won't be sent again by the
+-		 * server.
+-		 */
+-		replorigin_reset(0, (Datum) 0);
+-
+ 		if (MySubscription->disableonerr)
+ 			DisableSubscriptionAndExit();
+ 		else
+@@ -5053,12 +5045,23 @@ void
+ apply_error_callback(void *arg)
+ {
+ 	ApplyErrorCallbackArg *errarg = &apply_error_callback_arg;
++	int			elevel;
+ 
+ 	if (apply_error_callback_arg.command == 0)
+ 		return;
+ 
+ 	Assert(errarg->origin_name);
+ 
++	elevel = geterrlevel();
++
++	/*
++	 * Reset the origin state to prevent the advancement of origin progress if
++	 * we fail to apply. Otherwise, this will result in transaction loss as
++	 * that transaction won't be sent again by the server.
++	 */
++	if (elevel >= ERROR)
++		replorigin_reset(0, (Datum) 0);
++
+ 	if (errarg->rel == NULL)
+ 	{
+ 		if (!TransactionIdIsValid(errarg->remote_xid))
+diff --git a/src/backend/utils/error/elog.c b/src/backend/utils/error/elog.c
+index d78f3ab8a30..f97f43c29a6 100644
+--- a/src/backend/utils/error/elog.c
++++ b/src/backend/utils/error/elog.c
+@@ -1590,6 +1590,23 @@ geterrcode(void)
+ 	return edata->sqlerrcode;
+ }
+ 
++/*
++ * geterrlevel --- return the currently set error level
++ *
++ * This is only intended for use in error callback subroutines, since there
++ * is no other place outside elog.c where the concept is meaningful.
++ */
++int
++geterrlevel(void)
++{
++	ErrorData  *edata = &errordata[errordata_stack_depth];
++
++	/* we don't bother incrementing recursion_depth */
++	CHECK_STACK_DEPTH();
++
++	return edata->elevel;
++}
++
+ /*
+  * geterrposition --- return the currently set error position (0 if none)
+  *
+diff --git a/src/include/utils/elog.h b/src/include/utils/elog.h
+index 581b39091e0..3fdc462a7cc 100644
+--- a/src/include/utils/elog.h
++++ b/src/include/utils/elog.h
+@@ -227,6 +227,7 @@ extern int	internalerrquery(const char *query);
+ extern int	err_generic_string(int field, const char *str);
+ 
+ extern int	geterrcode(void);
++extern int	geterrlevel(void);
+ extern int	geterrposition(void);
+ extern int	getinternalerrposition(void);
+ 

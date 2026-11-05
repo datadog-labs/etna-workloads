@@ -1,0 +1,6 @@
+CREATE TABLE t (a int unique, b int);
+SET client_min_messages = 'ERROR';
+CREATE PUBLICATION pub1 FOR ALL TABLES;
+RESET client_min_messages;
+INSERT INTO t VALUES (1, 1) ON CONFLICT (a) DO UPDATE SET b = 2;
+INSERT INTO t VALUES (1, 1) ON CONFLICT DO NOTHING;

@@ -1,0 +1,17 @@
+create function f1() returns setof int language plpgsql as $$ begin return query execute 'create temp table tt(a int)'; end $$;
+select * from f1();
+psql:<REPRO>:2: ERROR:  query is not a SELECT
+CONTEXT:  query: create temp table tt(a int)
+PL/pgSQL function f1() line 1 at RETURN QUERY
+create function f2() returns setof int language plpgsql as $$ begin return query execute 'select 1 where false'; end $$;
+select * from f2();
+ f2 
+----
+(0 rows)
+
+create temp table t2(a int);
+create function f3() returns setof int language plpgsql as $$ begin return query execute 'insert into t2 values (1)'; end $$;
+select * from f3();
+psql:<REPRO>:7: ERROR:  query is not a SELECT
+CONTEXT:  query: insert into t2 values (1)
+PL/pgSQL function f3() line 1 at RETURN QUERY

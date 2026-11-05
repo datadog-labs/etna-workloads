@@ -1,0 +1,4 @@
+CREATE FUNCTION rf_add(int,int) RETURNS int LANGUAGE sql AS 'select $1+$2';
+CREATE OPERATOR +++ (LEFTARG=int, RIGHTARG=int, FUNCTION=rf_add);
+SELECT 1 +++ 2;
+CREATE OPERATOR ||| (LEFTARG=int, RIGHTARG=int);

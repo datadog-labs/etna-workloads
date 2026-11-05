@@ -1,0 +1,37 @@
+diff --git a/src/backend/parser/parse_func.c b/src/backend/parser/parse_func.c
+index a7074c9e2e6..8621ad1a0af 100644
+--- a/src/backend/parser/parse_func.c
++++ b/src/backend/parser/parse_func.c
+@@ -220,7 +220,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
+ 	 * syntactic decoration that'd require it to be a function (such as
+ 	 * aggregate or variadic decoration, or named arguments).
+ 	 */
+-	could_be_projection = (nargs == 1 && !proc_call &&
++	could_be_projection = (nargs == 1 &&
+ 						   agg_order == NIL && agg_filter == NULL &&
+ 						   !agg_star && !agg_distinct && over == NULL &&
+ 						   !func_variadic && argnames == NIL &&
+@@ -279,7 +279,6 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
+ 	/* If this is a CALL, reject things that aren't procedures */
+ 	if (proc_call &&
+ 		(fdresult == FUNCDETAIL_NORMAL ||
+-		 fdresult == FUNCDETAIL_AGGREGATE ||
+ 		 fdresult == FUNCDETAIL_WINDOWFUNC ||
+ 		 fdresult == FUNCDETAIL_COERCION))
+ 		ereport(ERROR,
+@@ -364,6 +363,15 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
+ 		Form_pg_aggregate classForm;
+ 		int			catDirectArgs;
+ 
++		if (proc_call)
++			ereport(ERROR,
++					(errcode(ERRCODE_UNDEFINED_FUNCTION),
++					 errmsg("%s is not a procedure",
++							func_signature_string(funcname, nargs,
++												  argnames,
++												  actual_arg_types)),
++					 parser_errposition(pstate, location)));
++
+ 		tup = SearchSysCache1(AGGFNOID, ObjectIdGetDatum(funcid));
+ 		if (!HeapTupleIsValid(tup)) /* should not happen */
+ 			elog(ERROR, "cache lookup failed for aggregate %u", funcid);

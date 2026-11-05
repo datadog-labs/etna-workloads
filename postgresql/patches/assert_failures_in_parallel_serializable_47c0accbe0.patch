@@ -1,0 +1,50 @@
+diff --git a/src/backend/storage/lmgr/predicate.c b/src/backend/storage/lmgr/predicate.c
+index d82114ffca1..29635c59471 100644
+--- a/src/backend/storage/lmgr/predicate.c
++++ b/src/backend/storage/lmgr/predicate.c
+@@ -3311,7 +3311,6 @@ SetNewSxactGlobalXmin(void)
+ void
+ ReleasePredicateLocks(bool isCommit, bool isReadOnlySafe)
+ {
+-	bool		partiallyReleasing = false;
+ 	bool		needToClear;
+ 	SERIALIZABLEXACT *roXact;
+ 	dlist_mutable_iter iter;
+@@ -3410,7 +3409,6 @@ ReleasePredicateLocks(bool isCommit, bool isReadOnlySafe)
+ 		else
+ 		{
+ 			MySerializableXact->flags |= SXACT_FLAG_PARTIALLY_RELEASED;
+-			partiallyReleasing = true;
+ 			/* ... and proceed to perform the partial release below. */
+ 		}
+ 	}
+@@ -3634,10 +3632,7 @@ ReleasePredicateLocks(bool isCommit, bool isReadOnlySafe)
+ 	 * only release the reference on the first call.
+ 	 */
+ 	needToClear = false;
+-	if ((partiallyReleasing ||
+-		 !SxactIsPartiallyReleased(MySerializableXact)) &&
+-		TransactionIdEquals(MySerializableXact->xmin,
+-							PredXact->SxactGlobalXmin))
++	if (TransactionIdEquals(MySerializableXact->xmin, PredXact->SxactGlobalXmin))
+ 	{
+ 		Assert(PredXact->SxactGlobalXminCount > 0);
+ 		if (--(PredXact->SxactGlobalXminCount) == 0)
+@@ -4711,14 +4706,10 @@ PreCommit_CheckForSerializationFailure(void)
+ 
+ 	LWLockAcquire(SerializableXactHashLock, LW_EXCLUSIVE);
+ 
+-	/*
+-	 * Check if someone else has already decided that we need to die.  Since
+-	 * we set our own DOOMED flag when partially releasing, ignore in that
+-	 * case.
+-	 */
+-	if (SxactIsDoomed(MySerializableXact) &&
+-		!SxactIsPartiallyReleased(MySerializableXact))
++	/* Check if someone else has already decided that we need to die */
++	if (SxactIsDoomed(MySerializableXact))
+ 	{
++		Assert(!SxactIsPartiallyReleased(MySerializableXact));
+ 		LWLockRelease(SerializableXactHashLock);
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),

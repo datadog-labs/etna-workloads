@@ -1,0 +1,186 @@
+diff --git a/src/backend/parser/scan.l b/src/backend/parser/scan.l
+index 08990831fe8..ace35238f82 100644
+--- a/src/backend/parser/scan.l
++++ b/src/backend/parser/scan.l
+@@ -398,30 +398,16 @@ numericfail		{decinteger}\.\.
+ real			({decinteger}|{numeric})[Ee][-+]?{decinteger}
+ realfail		({decinteger}|{numeric})[Ee][-+]
+ 
++decinteger_junk	{decinteger}{ident_start}
++hexinteger_junk	{hexinteger}{ident_start}
++octinteger_junk	{octinteger}{ident_start}
++bininteger_junk	{bininteger}{ident_start}
++numeric_junk	{numeric}{ident_start}
++real_junk		{real}{ident_start}
++
+ /* Positional parameters don't accept underscores. */
+ param			\${decdigit}+
+-
+-/*
+- * An identifier immediately following an integer literal is disallowed because
+- * in some cases it's ambiguous what is meant: for example, 0x1234 could be
+- * either a hexinteger or a decinteger "0" and an identifier "x1234".  We can
+- * detect such problems by seeing if integer_junk matches a longer substring
+- * than any of the XXXinteger patterns (decinteger, hexinteger, octinteger,
+- * bininteger).  One "junk" pattern is sufficient because
+- * {decinteger}{identifier} will match all the same strings we'd match with
+- * {hexinteger}{identifier} etc.
+- *
+- * Note that the rule for integer_junk must appear after the ones for
+- * XXXinteger to make this work correctly: 0x1234 will match both hexinteger
+- * and integer_junk, and we need hexinteger to be chosen in that case.
+- *
+- * Also disallow strings matched by numeric_junk, real_junk and param_junk
+- * for consistency.
+- */
+-integer_junk	{decinteger}{identifier}
+-numeric_junk	{numeric}{identifier}
+-real_junk		{real}{identifier}
+-param_junk		\${decdigit}+{identifier}
++param_junk		\${decdigit}+{ident_start}
+ 
+ other			.
+ 
+@@ -1055,7 +1041,19 @@ other			.
+ 					SET_YYLLOC();
+ 					yyerror("trailing junk after numeric literal");
+ 				}
+-{integer_junk}	{
++{decinteger_junk}	{
++					SET_YYLLOC();
++					yyerror("trailing junk after numeric literal");
++				}
++{hexinteger_junk}	{
++					SET_YYLLOC();
++					yyerror("trailing junk after numeric literal");
++				}
++{octinteger_junk}	{
++					SET_YYLLOC();
++					yyerror("trailing junk after numeric literal");
++				}
++{bininteger_junk}	{
+ 					SET_YYLLOC();
+ 					yyerror("trailing junk after numeric literal");
+ 				}
+diff --git a/src/fe_utils/psqlscan.l b/src/fe_utils/psqlscan.l
+index baaadcd60e3..01ab4552c81 100644
+--- a/src/fe_utils/psqlscan.l
++++ b/src/fe_utils/psqlscan.l
+@@ -343,30 +343,16 @@ numericfail		{decinteger}\.\.
+ real			({decinteger}|{numeric})[Ee][-+]?{decinteger}
+ realfail		({decinteger}|{numeric})[Ee][-+]
+ 
++decinteger_junk	{decinteger}{ident_start}
++hexinteger_junk	{hexinteger}{ident_start}
++octinteger_junk	{octinteger}{ident_start}
++bininteger_junk	{bininteger}{ident_start}
++numeric_junk	{numeric}{ident_start}
++real_junk		{real}{ident_start}
++
+ /* Positional parameters don't accept underscores. */
+ param			\${decdigit}+
+-
+-/*
+- * An identifier immediately following an integer literal is disallowed because
+- * in some cases it's ambiguous what is meant: for example, 0x1234 could be
+- * either a hexinteger or a decinteger "0" and an identifier "x1234".  We can
+- * detect such problems by seeing if integer_junk matches a longer substring
+- * than any of the XXXinteger patterns (decinteger, hexinteger, octinteger,
+- * bininteger).  One "junk" pattern is sufficient because
+- * {decinteger}{identifier} will match all the same strings we'd match with
+- * {hexinteger}{identifier} etc.
+- *
+- * Note that the rule for integer_junk must appear after the ones for
+- * XXXinteger to make this work correctly: 0x1234 will match both hexinteger
+- * and integer_junk, and we need hexinteger to be chosen in that case.
+- *
+- * Also disallow strings matched by numeric_junk, real_junk and param_junk
+- * for consistency.
+- */
+-integer_junk	{decinteger}{identifier}
+-numeric_junk	{numeric}{identifier}
+-real_junk		{real}{identifier}
+-param_junk		\${decdigit}+{identifier}
++param_junk		\${decdigit}+{ident_start}
+ 
+ /* psql-specific: characters allowed in variable names */
+ variable_char	[A-Za-z\200-\377_0-9]
+@@ -919,7 +905,16 @@ other			.
+ {realfail}		{
+ 					ECHO;
+ 				}
+-{integer_junk}	{
++{decinteger_junk}	{
++					ECHO;
++				}
++{hexinteger_junk}	{
++					ECHO;
++				}
++{octinteger_junk}	{
++					ECHO;
++				}
++{bininteger_junk}	{
+ 					ECHO;
+ 				}
+ {numeric_junk}	{
+diff --git a/src/interfaces/ecpg/preproc/pgc.l b/src/interfaces/ecpg/preproc/pgc.l
+index 63283a4a1e5..c1d27c7dcc3 100644
+--- a/src/interfaces/ecpg/preproc/pgc.l
++++ b/src/interfaces/ecpg/preproc/pgc.l
+@@ -381,30 +381,16 @@ numericfail		{decinteger}\.\.
+ real			({decinteger}|{numeric})[Ee][-+]?{decinteger}
+ realfail		({decinteger}|{numeric})[Ee][-+]
+ 
++decinteger_junk	{decinteger}{ident_start}
++hexinteger_junk	{hexinteger}{ident_start}
++octinteger_junk	{octinteger}{ident_start}
++bininteger_junk	{bininteger}{ident_start}
++numeric_junk	{numeric}{ident_start}
++real_junk		{real}{ident_start}
++
+ /* Positional parameters don't accept underscores. */
+ param			\${decdigit}+
+-
+-/*
+- * An identifier immediately following an integer literal is disallowed because
+- * in some cases it's ambiguous what is meant: for example, 0x1234 could be
+- * either a hexinteger or a decinteger "0" and an identifier "x1234".  We can
+- * detect such problems by seeing if integer_junk matches a longer substring
+- * than any of the XXXinteger patterns (decinteger, hexinteger, octinteger,
+- * bininteger).  One "junk" pattern is sufficient because
+- * {decinteger}{identifier} will match all the same strings we'd match with
+- * {hexinteger}{identifier} etc.
+- *
+- * Note that the rule for integer_junk must appear after the ones for
+- * XXXinteger to make this work correctly: 0x1234 will match both hexinteger
+- * and integer_junk, and we need hexinteger to be chosen in that case.
+- *
+- * Also disallow strings matched by numeric_junk, real_junk and param_junk
+- * for consistency.
+- */
+-integer_junk	{decinteger}{identifier}
+-numeric_junk	{numeric}{identifier}
+-real_junk		{real}{identifier}
+-param_junk		\${decdigit}+{identifier}
++param_junk		\${decdigit}+{ident_start}
+ 
+ /* special characters for other dbms */
+ /* we have to react differently in compat mode */
+@@ -1037,7 +1023,16 @@ cppline			{space}*#([^i][A-Za-z]*|{if}|{ifdef}|{ifndef}|{import})((\/\*[^*/]*\*+
+ 	 * Note that some trailing junk is valid in C (such as 100LL), so we
+ 	 * contain this to SQL mode.
+ 	 */
+-{integer_junk}	{
++{decinteger_junk} {
++					mmfatal(PARSE_ERROR, "trailing junk after numeric literal");
++				}
++{hexinteger_junk} {
++					mmfatal(PARSE_ERROR, "trailing junk after numeric literal");
++				}
++{octinteger_junk} {
++					mmfatal(PARSE_ERROR, "trailing junk after numeric literal");
++				}
++{bininteger_junk} {
+ 					mmfatal(PARSE_ERROR, "trailing junk after numeric literal");
+ 				}
+ {numeric_junk}	{

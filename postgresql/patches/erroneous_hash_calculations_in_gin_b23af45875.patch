@@ -1,0 +1,70 @@
+diff --git a/src/backend/utils/adt/jsonb_gin.c b/src/backend/utils/adt/jsonb_gin.c
+index c1950792b5a..082f3d38649 100644
+--- a/src/backend/utils/adt/jsonb_gin.c
++++ b/src/backend/utils/adt/jsonb_gin.c
+@@ -1128,31 +1128,40 @@ gin_extract_jsonb_path(PG_FUNCTION_ARGS)
+ 				parent = stack;
+ 				stack = (PathHashStack *) palloc(sizeof(PathHashStack));
+ 
+-				/*
+-				 * We pass forward hashes from outer nesting levels so that
+-				 * the hashes for nested values will include outer keys as
+-				 * well as their own keys.
+-				 *
+-				 * Nesting an array within another array will not alter
+-				 * innermost scalar element hash values, but that seems
+-				 * inconsequential.
+-				 */
+-				stack->hash = parent->hash;
++				if (parent->parent)
++				{
++					/*
++					 * Pass forward hashes from previous container nesting
++					 * levels.
++					 */
++					stack->hash = parent->hash;
++				}
++				else
++				{
++					/*
++					 * At the outermost level, initialize hash with container
++					 * type proxy value.
++					 */
++					stack->hash = (r == WJB_BEGIN_ARRAY) ? JB_FARRAY : JB_FOBJECT;
++				}
+ 				stack->parent = parent;
+ 				break;
+ 			case WJB_KEY:
+-				/* mix this key into the current outer hash */
++				/* initialize hash from parent */
++				stack->hash = stack->parent->hash;
++				/* and mix in this key */
+ 				JsonbHashScalarValue(&v, &stack->hash);
+ 				/* hash is now ready to incorporate the value */
+ 				break;
+ 			case WJB_ELEM:
++				/* array elements use parent hash mixed with element's hash */
++				stack->hash = stack->parent->hash;
++				/* FALL THRU */
+ 			case WJB_VALUE:
+ 				/* mix the element or value's hash into the prepared hash */
+ 				JsonbHashScalarValue(&v, &stack->hash);
+ 				/* and emit an index entry */
+ 				add_gin_entry(&entries, UInt32GetDatum(stack->hash));
+-				/* reset hash for next key, value, or sub-object */
+-				stack->hash = stack->parent->hash;
+ 				break;
+ 			case WJB_END_ARRAY:
+ 			case WJB_END_OBJECT:
+@@ -1160,11 +1169,6 @@ gin_extract_jsonb_path(PG_FUNCTION_ARGS)
+ 				parent = stack->parent;
+ 				pfree(stack);
+ 				stack = parent;
+-				/* reset hash for next key, value, or sub-object */
+-				if (stack->parent)
+-					stack->hash = stack->parent->hash;
+-				else
+-					stack->hash = 0;
+ 				break;
+ 			default:
+ 				elog(ERROR, "invalid JsonbIteratorNext rc: %d", (int) r);

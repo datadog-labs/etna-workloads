@@ -1,0 +1,51 @@
+diff --git a/src/backend/access/spgist/spgutils.c b/src/backend/access/spgist/spgutils.c
+index 95fea74e296..d3ec5536bbe 100644
+--- a/src/backend/access/spgist/spgutils.c
++++ b/src/backend/access/spgist/spgutils.c
+@@ -194,6 +194,8 @@ spgGetCache(Relation index)
+ 		Oid			atttype;
+ 		spgConfigIn in;
+ 		FmgrInfo   *procinfo;
++		Buffer		metabuffer;
++		SpGistMetaPageData *metadata;
+ 
+ 		cache = MemoryContextAllocZero(index->rd_indexcxt,
+ 									   sizeof(SpGistCache));
+@@ -261,28 +263,19 @@ spgGetCache(Relation index)
+ 		fillTypeDesc(&cache->attPrefixType, cache->config.prefixType);
+ 		fillTypeDesc(&cache->attLabelType, cache->config.labelType);
+ 
+-		/*
+-		 * Finally, if it's a real index (not a partitioned one), get the
+-		 * lastUsedPages data from the metapage
+-		 */
+-		if (index->rd_rel->relkind != RELKIND_PARTITIONED_INDEX)
+-		{
+-			Buffer		metabuffer;
+-			SpGistMetaPageData *metadata;
+-
+-			metabuffer = ReadBuffer(index, SPGIST_METAPAGE_BLKNO);
+-			LockBuffer(metabuffer, BUFFER_LOCK_SHARE);
++		/* Last, get the lastUsedPages data from the metapage */
++		metabuffer = ReadBuffer(index, SPGIST_METAPAGE_BLKNO);
++		LockBuffer(metabuffer, BUFFER_LOCK_SHARE);
+ 
+-			metadata = SpGistPageGetMeta(BufferGetPage(metabuffer));
++		metadata = SpGistPageGetMeta(BufferGetPage(metabuffer));
+ 
+-			if (metadata->magicNumber != SPGIST_MAGIC_NUMBER)
+-				elog(ERROR, "index \"%s\" is not an SP-GiST index",
+-					 RelationGetRelationName(index));
++		if (metadata->magicNumber != SPGIST_MAGIC_NUMBER)
++			elog(ERROR, "index \"%s\" is not an SP-GiST index",
++				 RelationGetRelationName(index));
+ 
+-			cache->lastUsedPages = metadata->lastUsedPages;
++		cache->lastUsedPages = metadata->lastUsedPages;
+ 
+-			UnlockReleaseBuffer(metabuffer);
+-		}
++		UnlockReleaseBuffer(metabuffer);
+ 
+ 		index->rd_amcache = cache;
+ 	}

@@ -1,0 +1,5 @@
+CREATE ROLE r_own;
+CREATE DATABASE d_own OWNER r_own;
+DROP OWNED BY r_own;
+DROP DATABASE d_own;
+SELECT count(*) FROM pg_database WHERE datname='d_own';

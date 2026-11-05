@@ -1,0 +1,21 @@
+diff --git a/src/include/port.h b/src/include/port.h
+index 0048ea39d6f..4ac739b0277 100644
+--- a/src/include/port.h
++++ b/src/include/port.h
+@@ -424,6 +424,16 @@ extern int	getpeereid(int sock, uid_t *uid, gid_t *gid);
+ #endif							/* __has_builtin(isinf) */
+ #endif							/* __clang__ && !__cplusplus */
+ 
++/* pre-POSIX-compliant rint(): halfway cases round away from zero */
++#include <math.h>
++static inline double
++pg_naive_rint(double x)
++{
++	return (x >= 0.0) ? floor(x + 0.5) : ceil(x - 0.5);
++}
++#undef rint
++#define rint(x) pg_naive_rint(x)
++
+ #ifndef HAVE_EXPLICIT_BZERO
+ extern void explicit_bzero(void *buf, size_t len);
+ #endif

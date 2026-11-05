@@ -1,0 +1,14 @@
+CREATE ROLE ru1; CREATE ROLE ru2;
+CREATE TABLE t1 (a int);
+INSERT INTO t1 SELECT generate_series(1,20);
+GRANT SELECT ON t1 TO ru1, ru2;
+CREATE POLICY p1 ON t1 TO ru1 USING (a % 2 = 0);
+CREATE POLICY p2 ON t1 TO ru2 USING (a % 4 = 0);
+ALTER TABLE t1 ENABLE ROW LEVEL SECURITY;
+SET ROLE ru1;
+PREPARE role_inval AS SELECT count(*) FROM t1;
+EXECUTE role_inval;
+SET ROLE ru2;
+EXECUTE role_inval;
+SET ROLE ru1;
+EXECUTE role_inval;

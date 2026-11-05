@@ -1,0 +1,76 @@
+diff --git a/src/backend/executor/nodeHashjoin.c b/src/backend/executor/nodeHashjoin.c
+index 039d43ea541..47f3080f129 100644
+--- a/src/backend/executor/nodeHashjoin.c
++++ b/src/backend/executor/nodeHashjoin.c
+@@ -570,23 +570,22 @@ ExecHashJoinImpl(PlanState *pstate, bool parallel)
+ 						continue;
+ 					}
+ 
+-					/*
+-					 * If we only need to consider the first matching inner
+-					 * tuple, then advance to next outer tuple after we've
+-					 * processed this one.
+-					 */
+-					if (node->js.single_match)
+-						node->hj_JoinState = HJ_NEED_NEW_OUTER;
+-
+ 					/*
+ 					 * In a right-antijoin, we never return a matched tuple.
+-					 * If it's not an inner_unique join, we need to stay on
+-					 * the current outer tuple to continue scanning the inner
+-					 * side for matches.
++					 * And we need to stay on the current outer tuple to
++					 * continue scanning the inner side for matches.
+ 					 */
+ 					if (node->js.jointype == JOIN_RIGHT_ANTI)
+ 						continue;
+ 
++					/*
++					 * If we only need to join to the first matching inner
++					 * tuple, then consider returning this one, but after that
++					 * continue with next outer tuple.
++					 */
++					if (node->js.single_match)
++						node->hj_JoinState = HJ_NEED_NEW_OUTER;
++
+ 					if (otherqual == NULL || ExecQual(otherqual, econtext))
+ 						return ExecProject(node->js.ps.ps_ProjInfo);
+ 					else
+diff --git a/src/backend/executor/nodeMergejoin.c b/src/backend/executor/nodeMergejoin.c
+index a233313128a..55901a72e89 100644
+--- a/src/backend/executor/nodeMergejoin.c
++++ b/src/backend/executor/nodeMergejoin.c
+@@ -799,23 +799,22 @@ ExecMergeJoin(PlanState *pstate)
+ 						break;
+ 					}
+ 
+-					/*
+-					 * If we only need to consider the first matching inner
+-					 * tuple, then advance to next outer tuple after we've
+-					 * processed this one.
+-					 */
+-					if (node->js.single_match)
+-						node->mj_JoinState = EXEC_MJ_NEXTOUTER;
+-
+ 					/*
+ 					 * In a right-antijoin, we never return a matched tuple.
+-					 * If it's not an inner_unique join, we need to stay on
+-					 * the current outer tuple to continue scanning the inner
+-					 * side for matches.
++					 * And we need to stay on the current outer tuple to
++					 * continue scanning the inner side for matches.
+ 					 */
+ 					if (node->js.jointype == JOIN_RIGHT_ANTI)
+ 						break;
+ 
++					/*
++					 * If we only need to join to the first matching inner
++					 * tuple, then consider returning this one, but after that
++					 * continue with next outer tuple.
++					 */
++					if (node->js.single_match)
++						node->mj_JoinState = EXEC_MJ_NEXTOUTER;
++
+ 					qualResult = (otherqual == NULL ||
+ 								  ExecQual(otherqual, econtext));
+ 					MJ_DEBUG_QUAL(otherqual, qualResult);

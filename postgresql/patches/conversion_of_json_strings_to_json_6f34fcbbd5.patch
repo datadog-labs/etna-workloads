@@ -1,0 +1,28 @@
+diff --git a/src/backend/utils/adt/jsonfuncs.c b/src/backend/utils/adt/jsonfuncs.c
+index 775da3c060d..720baf0b9cb 100644
+--- a/src/backend/utils/adt/jsonfuncs.c
++++ b/src/backend/utils/adt/jsonfuncs.c
+@@ -3140,14 +3140,15 @@ populate_scalar(ScalarIOData *io, Oid typid, int32 typmod, JsValue *jsv,
+ 		if ((typid == JSONOID || typid == JSONBOID) &&
+ 			jsv->val.json.type == JSON_TOKEN_STRING)
+ 		{
+-			StringInfoData buf;
+-
+-			initStringInfo(&buf);
+-			if (len >= 0)
+-				escape_json_with_len(&buf, json, len);
+-			else
+-				escape_json(&buf, json);
+-			str = buf.data;
++			/* add quotes around string value, without escaping */
++			if (len < 0)
++				len = strlen(json);
++
++			str = palloc(len + 3);
++			str[0] = '"';
++			memcpy(&str[1], json, len);
++			str[len + 1] = '"';
++			str[len + 2] = '\0';
+ 		}
+ 		else if (len >= 0)
+ 		{

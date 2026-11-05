@@ -1,0 +1,22 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..ac2dfaad994 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -1042,7 +1042,16 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
+ 	if (stmt->accessMethod != NULL)
+ 	{
+ 		Assert(RELKIND_HAS_TABLE_AM(relkind) || relkind == RELKIND_PARTITIONED_TABLE);
+-		accessMethodId = get_table_am_oid(stmt->accessMethod, false);
++		HeapTuple	tuple;
++
++		tuple = SearchSysCache1(AMNAME, PointerGetDatum(stmt->accessMethod));
++		if (!HeapTupleIsValid(tuple))
++			ereport(ERROR,
++					(errcode(ERRCODE_UNDEFINED_OBJECT),
++					 errmsg("table access method \"%s\" does not exist",
++							stmt->accessMethod)));
++		accessMethodId = ((Form_pg_am) GETSTRUCT(tuple))->oid;
++		ReleaseSysCache(tuple);
+ 	}
+ 	else if (RELKIND_HAS_TABLE_AM(relkind) || relkind == RELKIND_PARTITIONED_TABLE)
+ 	{

@@ -1,0 +1,7 @@
+CREATE TABLE t1 (a int);
+CREATE VIEW v1 WITH (security_barrier = true) AS SELECT * FROM t1;
+CREATE RULE v1_upd_rule AS ON UPDATE TO v1 DO INSTEAD
+  UPDATE t1 SET a = NEW.a WHERE a = OLD.a;
+CREATE VIEW v2 WITH (security_barrier = true) AS
+  SELECT * FROM v1 WHERE EXISTS (SELECT 1);
+EXPLAIN (COSTS OFF) UPDATE v2 SET a = 1;

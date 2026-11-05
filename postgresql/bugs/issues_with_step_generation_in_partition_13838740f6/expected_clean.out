@@ -1,0 +1,21 @@
+create table boolpart (a bool) partition by list (a);
+create table boolpart_t partition of boolpart for values in (true);
+create table boolpart_f partition of boolpart for values in (false);
+create table boolpart_null partition of boolpart for values in (null);
+explain (costs off) select * from boolpart where a is true and a is unknown;
+        QUERY PLAN        
+--------------------------
+ Result
+   One-Time Filter: false
+(2 rows)
+
+create table rp3 (a int, b int, c int) partition by range(a, b, c);
+create table rp3_p1 partition of rp3 for values from (1, 1, 0) to (1, 1, 10);
+create table rp3_p2 partition of rp3 for values from (2, 2, 0) to (2, 2, 10);
+explain (costs off) select * from rp3 where a <= 1 and b = 1 and c >= 0;
+                  QUERY PLAN                   
+-----------------------------------------------
+ Seq Scan on rp3_p1 rp3
+   Filter: ((a <= 1) AND (c >= 0) AND (b = 1))
+(2 rows)
+

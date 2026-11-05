@@ -1,0 +1,85 @@
+diff --git a/src/pl/plpgsql/src/pl_exec.c b/src/pl/plpgsql/src/pl_exec.c
+index e2fe0fd4b56..fa8d434321e 100644
+--- a/src/pl/plpgsql/src/pl_exec.c
++++ b/src/pl/plpgsql/src/pl_exec.c
+@@ -2207,20 +2207,22 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
+ 	 * Make a plan if we don't have one already.
+ 	 */
+ 	if (expr->plan == NULL)
++	{
+ 		exec_prepare_plan(estate, expr, 0);
+ 
+-	/*
+-	 * A CALL or DO can never be a simple expression.
+-	 */
+-	Assert(!expr->expr_simple_expr);
++		/*
++		 * A CALL or DO can never be a simple expression.
++		 */
++		Assert(!expr->expr_simple_expr);
+ 
+-	/*
+-	 * Also construct a DTYPE_ROW datum representing the plpgsql variables
+-	 * associated with the procedure's output arguments.  Then we can use
+-	 * exec_move_row() to do the assignments.
+-	 */
+-	if (stmt->is_call && stmt->target == NULL)
+-		stmt->target = make_callstmt_target(estate, expr);
++		/*
++		 * Also construct a DTYPE_ROW datum representing the plpgsql variables
++		 * associated with the procedure's output arguments.  Then we can use
++		 * exec_move_row() to do the assignments.
++		 */
++		if (stmt->is_call)
++			stmt->target = make_callstmt_target(estate, expr);
++	}
+ 
+ 	paramLI = setup_param_list(estate, expr);
+ 
+@@ -4224,12 +4226,10 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
+ 	 * whether the statement is INSERT/UPDATE/DELETE/MERGE
+ 	 */
+ 	if (expr->plan == NULL)
+-		exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK);
+-
+-	if (!stmt->mod_stmt_set)
+ 	{
+ 		ListCell   *l;
+ 
++		exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK);
+ 		stmt->mod_stmt = false;
+ 		foreach(l, SPI_plan_get_plan_sources(expr->plan))
+ 		{
+@@ -4251,7 +4251,6 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
+ 				break;
+ 			}
+ 		}
+-		stmt->mod_stmt_set = true;
+ 	}
+ 
+ 	/*
+diff --git a/src/pl/plpgsql/src/pl_gram.y b/src/pl/plpgsql/src/pl_gram.y
+index 5612e66d023..a1dbf23edad 100644
+--- a/src/pl/plpgsql/src/pl_gram.y
++++ b/src/pl/plpgsql/src/pl_gram.y
+@@ -3177,7 +3177,7 @@ make_execsql_stmt(int firsttoken, int location, PLword *word, YYSTYPE *yylvalp,
+ 
+ 	check_sql_expr(expr->query, expr->parseMode, location, yyscanner);
+ 
+-	execsql = palloc0(sizeof(PLpgSQL_stmt_execsql));
++	execsql = palloc(sizeof(PLpgSQL_stmt_execsql));
+ 	execsql->cmd_type = PLPGSQL_STMT_EXECSQL;
+ 	execsql->lineno = plpgsql_location_to_lineno(location, yyscanner);
+ 	execsql->stmtid = ++plpgsql_curr_compile->nstatements;
+diff --git a/src/pl/plpgsql/src/plpgsql.h b/src/pl/plpgsql/src/plpgsql.h
+index 41e52b8ce71..98e1576ba64 100644
+--- a/src/pl/plpgsql/src/plpgsql.h
++++ b/src/pl/plpgsql/src/plpgsql.h
+@@ -921,7 +921,6 @@ typedef struct PLpgSQL_stmt_execsql
+ 	unsigned int stmtid;
+ 	PLpgSQL_expr *sqlstmt;
+ 	bool		mod_stmt;		/* is the stmt INSERT/UPDATE/DELETE/MERGE? */
+-	bool		mod_stmt_set;	/* is mod_stmt valid yet? */
+ 	bool		into;			/* INTO supplied? */
+ 	bool		strict;			/* INTO STRICT flag */
+ 	PLpgSQL_variable *target;	/* INTO target (record or row) */

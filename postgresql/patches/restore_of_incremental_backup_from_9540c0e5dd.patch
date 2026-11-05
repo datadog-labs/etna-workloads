@@ -1,0 +1,68 @@
+diff --git a/src/backend/access/heap/visibilitymap.c b/src/backend/access/heap/visibilitymap.c
+index d44620eca7f..888f3578d52 100644
+--- a/src/backend/access/heap/visibilitymap.c
++++ b/src/backend/access/heap/visibilitymap.c
+@@ -115,8 +115,6 @@
+ 
+ /* Mapping from heap block number to the right bit in the visibility map */
+ #define HEAPBLK_TO_MAPBLOCK(x) ((x) / HEAPBLOCKS_PER_PAGE)
+-#define HEAPBLK_TO_MAPBLOCK_LIMIT(x) \
+-	(((x) + HEAPBLOCKS_PER_PAGE - 1) / HEAPBLOCKS_PER_PAGE)
+ #define HEAPBLK_TO_MAPBYTE(x) (((x) % HEAPBLOCKS_PER_PAGE) / HEAPBLOCKS_PER_BYTE)
+ #define HEAPBLK_TO_OFFSET(x) (((x) % HEAPBLOCKS_PER_BYTE) * BITS_PER_HEAPBLOCK)
+ 
+@@ -563,21 +561,6 @@ visibilitymap_prepare_truncate(Relation rel, BlockNumber nheapblocks)
+ 	return newnblocks;
+ }
+ 
+-/*
+- *	visibilitymap_truncation_length -
+- *			compute truncation length for visibility map
+- *
+- * Given a proposed truncation length for the main fork, compute the
+- * correct truncation length for the visibility map. Should return the
+- * same answer as visibilitymap_prepare_truncate(), but without modifying
+- * anything.
+- */
+-BlockNumber
+-visibilitymap_truncation_length(BlockNumber nheapblocks)
+-{
+-	return HEAPBLK_TO_MAPBLOCK_LIMIT(nheapblocks);
+-}
+-
+ /*
+  * Read a visibility map page.
+  *
+diff --git a/src/backend/postmaster/walsummarizer.c b/src/backend/postmaster/walsummarizer.c
+index 96bef8778ce..6e62a2629a3 100644
+--- a/src/backend/postmaster/walsummarizer.c
++++ b/src/backend/postmaster/walsummarizer.c
+@@ -23,7 +23,6 @@
+ #include "postgres.h"
+ 
+ #include "access/timeline.h"
+-#include "access/visibilitymap.h"
+ #include "access/xlog.h"
+ #include "access/xlog_internal.h"
+ #include "access/xlogrecovery.h"
+@@ -1456,8 +1455,7 @@ SummarizeSmgrRecord(XLogReaderState *xlogreader, BlockRefTable *brtab)
+ 									   MAIN_FORKNUM, xlrec->blkno);
+ 		if ((xlrec->flags & SMGR_TRUNCATE_VM) != 0)
+ 			BlockRefTableSetLimitBlock(brtab, &xlrec->rlocator,
+-									   VISIBILITYMAP_FORKNUM,
+-									   visibilitymap_truncation_length(xlrec->blkno));
++									   VISIBILITYMAP_FORKNUM, xlrec->blkno);
+ 	}
+ }
+ 
+diff --git a/src/include/access/visibilitymap.h b/src/include/access/visibilitymap.h
+index 1bc59c9ac33..93766c1dd21 100644
+--- a/src/include/access/visibilitymap.h
++++ b/src/include/access/visibilitymap.h
+@@ -43,6 +43,5 @@ extern uint8 visibilitymap_get_status(Relation rel, BlockNumber heapBlk, Buffer
+ extern void visibilitymap_count(Relation rel, BlockNumber *all_visible, BlockNumber *all_frozen);
+ extern BlockNumber visibilitymap_prepare_truncate(Relation rel,
+ 												  BlockNumber nheapblocks);
+-extern BlockNumber visibilitymap_truncation_length(BlockNumber nheapblocks);
+ 
+ #endif							/* VISIBILITYMAP_H */

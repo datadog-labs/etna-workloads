@@ -1,0 +1,24 @@
+EXPLAIN (COSTS OFF)
+SELECT 1 FROM
+  (SELECT ntile(s1.x) OVER () AS c
+   FROM (SELECT (SELECT 1) AS x) AS s1) s
+WHERE s.c = 1;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ Subquery Scan on s
+   Filter: (s.c = 1)
+   ->  WindowAgg
+         Window: w1 AS (ROWS UNBOUNDED PRECEDING)
+         Run Condition: (ntile((InitPlan 1).col1) OVER w1 <= 1)
+         InitPlan 1
+           ->  Result
+         ->  Result
+(8 rows)
+
+SELECT * FROM (SELECT g, row_number() OVER (ORDER BY g) rn FROM generate_series(1,5) g) s WHERE rn < 3;
+ g | rn 
+---+----
+ 1 |  1
+ 2 |  2
+(2 rows)
+

@@ -1,0 +1,30 @@
+create table a as select g f from generate_series(1,1000) g;
+create table b as select g f from generate_series(1,1000) g;
+create table c as select g f from generate_series(1,1000) g;
+create table d as select g f from generate_series(1,10000) g;
+analyze;
+explain (costs off)
+select * from a t1
+  left join ((select t2.f from b t2
+                left join c t3 on t2.f > 0
+                where t2.f <> coalesce(t3.f, -1)) s
+             left join d t4 on s.f > 1)
+    on s.f = t1.f;
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Nested Loop Left Join
+   Join Filter: (t2.f > 1)
+   ->  Hash Right Join
+         Hash Cond: (t2.f = t1.f)
+         ->  Nested Loop Left Join
+               Join Filter: (t2.f > 0)
+               Filter: (t2.f <> COALESCE(t3.f, '-1'::integer))
+               ->  Seq Scan on b t2
+               ->  Materialize
+                     ->  Seq Scan on c t3
+         ->  Hash
+               ->  Seq Scan on a t1
+   ->  Materialize
+         ->  Seq Scan on d t4
+(14 rows)
+

@@ -1,0 +1,34 @@
+diff --git a/src/backend/statistics/extended_stats.c b/src/backend/statistics/extended_stats.c
+index 03349baccfb..2273df3d8d8 100644
+--- a/src/backend/statistics/extended_stats.c
++++ b/src/backend/statistics/extended_stats.c
+@@ -1634,7 +1634,6 @@ statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
+ 	if (!leakproof)
+ 	{
+ 		Bitmapset  *clause_attnums = NULL;
+-		int			attnum = -1;
+ 
+ 		/*
+ 		 * We have to check per-column privileges.  *attnums has the attnums
+@@ -1645,16 +1644,13 @@ statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
+ 		 * while attnums within *attnums aren't.  Convert *attnums to the
+ 		 * offset style so we can combine the results.
+ 		 */
+-		while ((attnum = bms_next_member(*attnums, attnum)) >= 0)
++		if (*exprs != NIL)
+ 		{
+-			clause_attnums =
+-				bms_add_member(clause_attnums,
+-							   attnum - FirstLowInvalidHeapAttributeNumber);
++			pull_varattnos((Node *) exprs, relid, &clause_attnums);
++			clause_attnums = bms_add_members(clause_attnums, *attnums);
+ 		}
+-
+-		/* Now merge attnums from *exprs into clause_attnums */
+-		if (*exprs != NIL)
+-			pull_varattnos((Node *) *exprs, relid, &clause_attnums);
++		else
++			clause_attnums = *attnums;
+ 
+ 		/* Must have permission to read all rows from these columns */
+ 		if (!all_rows_selectable(root, relid, clause_attnums))

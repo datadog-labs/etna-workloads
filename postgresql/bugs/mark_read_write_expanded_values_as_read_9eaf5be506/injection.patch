@@ -1,0 +1,28 @@
+diff --git a/src/backend/executor/nodeValuesscan.c b/src/backend/executor/nodeValuesscan.c
+index 8e85a5f2e9a..6704f56e4db 100644
+--- a/src/backend/executor/nodeValuesscan.c
++++ b/src/backend/executor/nodeValuesscan.c
+@@ -142,23 +142,11 @@ ValuesNext(ValuesScanState *node)
+ 		foreach(lc, exprstatelist)
+ 		{
+ 			ExprState  *estate = (ExprState *) lfirst(lc);
+-			CompactAttribute *attr = TupleDescCompactAttr(slot->tts_tupleDescriptor,
+-														  resind);
+ 
+ 			values[resind] = ExecEvalExpr(estate,
+ 										  econtext,
+ 										  &isnull[resind]);
+ 
+-			/*
+-			 * We must force any R/W expanded datums to read-only state, in
+-			 * case they are multiply referenced in the plan node's output
+-			 * expressions, or in case we skip the output projection and the
+-			 * output column is multiply referenced in higher plan nodes.
+-			 */
+-			values[resind] = MakeExpandedObjectReadOnly(values[resind],
+-														isnull[resind],
+-														attr->attlen);
+-
+ 			resind++;
+ 		}
+ 

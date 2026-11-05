@@ -1,0 +1,168 @@
+diff --git a/src/backend/utils/adt/jsonb_gin.c b/src/backend/utils/adt/jsonb_gin.c
+index c1950792b5a..1f3b305e770 100644
+--- a/src/backend/utils/adt/jsonb_gin.c
++++ b/src/backend/utils/adt/jsonb_gin.c
+@@ -894,10 +894,9 @@ gin_extract_jsonb_query(PG_FUNCTION_ARGS)
+ 			/* Nulls in the array are ignored */
+ 			if (key_nulls[i])
+ 				continue;
+-			/* We rely on the array elements not being toasted */
+ 			entries[j++] = make_text_key(JGINFLAG_KEY,
+-										 VARDATA_ANY(key_datums[i]),
+-										 VARSIZE_ANY_EXHDR(key_datums[i]));
++										 VARDATA(key_datums[i]),
++										 VARSIZE(key_datums[i]) - VARHDRSZ);
+ 		}
+ 
+ 		*nentries = j;
+diff --git a/src/backend/utils/adt/jsonb_op.c b/src/backend/utils/adt/jsonb_op.c
+index fa5603f26e1..51e8392439d 100644
+--- a/src/backend/utils/adt/jsonb_op.c
++++ b/src/backend/utils/adt/jsonb_op.c
+@@ -62,9 +62,8 @@ jsonb_exists_any(PG_FUNCTION_ARGS)
+ 			continue;
+ 
+ 		strVal.type = jbvString;
+-		/* We rely on the array elements not being toasted */
+-		strVal.val.string.val = VARDATA_ANY(key_datums[i]);
+-		strVal.val.string.len = VARSIZE_ANY_EXHDR(key_datums[i]);
++		strVal.val.string.val = VARDATA(key_datums[i]);
++		strVal.val.string.len = VARSIZE(key_datums[i]) - VARHDRSZ;
+ 
+ 		if (findJsonbValueFromContainer(&jb->root,
+ 										JB_FOBJECT | JB_FARRAY,
+@@ -95,9 +94,8 @@ jsonb_exists_all(PG_FUNCTION_ARGS)
+ 			continue;
+ 
+ 		strVal.type = jbvString;
+-		/* We rely on the array elements not being toasted */
+-		strVal.val.string.val = VARDATA_ANY(key_datums[i]);
+-		strVal.val.string.len = VARSIZE_ANY_EXHDR(key_datums[i]);
++		strVal.val.string.val = VARDATA(key_datums[i]);
++		strVal.val.string.len = VARSIZE(key_datums[i]) - VARHDRSZ;
+ 
+ 		if (findJsonbValueFromContainer(&jb->root,
+ 										JB_FOBJECT | JB_FARRAY,
+diff --git a/src/backend/utils/adt/jsonfuncs.c b/src/backend/utils/adt/jsonfuncs.c
+index 775da3c060d..b5b10479701 100644
+--- a/src/backend/utils/adt/jsonfuncs.c
++++ b/src/backend/utils/adt/jsonfuncs.c
+@@ -539,12 +539,6 @@ pg_parse_json_or_errsave(JsonLexContext *lex, const JsonSemAction *sem,
+ JsonLexContext *
+ makeJsonLexContext(JsonLexContext *lex, text *json, bool need_escapes)
+ {
+-	/*
+-	 * Most callers pass a detoasted datum, but it's not clear that they all
+-	 * do.  pg_detoast_datum_packed() is cheap insurance.
+-	 */
+-	json = pg_detoast_datum_packed(json);
+-
+ 	return makeJsonLexContextCstringLen(lex,
+ 										VARDATA_ANY(json),
+ 										VARSIZE_ANY_EXHDR(json),
+@@ -1578,11 +1572,9 @@ jsonb_get_element(Jsonb *jb, Datum *path, int npath, bool *isnull, bool as_text)
+ 	{
+ 		if (have_object)
+ 		{
+-			text	   *subscr = DatumGetTextPP(path[i]);
+-
+ 			jbvp = getKeyJsonValueFromContainer(container,
+-												VARDATA_ANY(subscr),
+-												VARSIZE_ANY_EXHDR(subscr),
++												VARDATA(path[i]),
++												VARSIZE(path[i]) - VARHDRSZ,
+ 												NULL);
+ 		}
+ 		else if (have_array)
+@@ -1755,8 +1747,8 @@ push_path(JsonbParseState **st, int level, Datum *path_elems,
+ 		{
+ 			/* text, an object is expected */
+ 			newkey.type = jbvString;
+-			newkey.val.string.val = c;
+-			newkey.val.string.len = strlen(c);
++			newkey.val.string.len = VARSIZE_ANY_EXHDR(path_elems[i]);
++			newkey.val.string.val = VARDATA_ANY(path_elems[i]);
+ 
+ 			(void) pushJsonbValue(st, WJB_BEGIN_OBJECT, NULL);
+ 			(void) pushJsonbValue(st, WJB_KEY, &newkey);
+@@ -4765,7 +4757,6 @@ jsonb_delete_array(PG_FUNCTION_ARGS)
+ 				if (keys_nulls[i])
+ 					continue;
+ 
+-				/* We rely on the array elements not being toasted */
+ 				keyptr = VARDATA_ANY(keys_elems[i]);
+ 				keylen = VARSIZE_ANY_EXHDR(keys_elems[i]);
+ 				if (keylen == v.val.string.len &&
+@@ -5287,7 +5278,6 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+ 			  int path_len, JsonbParseState **st, int level,
+ 			  JsonbValue *newval, uint32 npairs, int op_type)
+ {
+-	text	   *pathelem = NULL;
+ 	int			i;
+ 	JsonbValue	k,
+ 				v;
+@@ -5295,11 +5285,6 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+ 
+ 	if (level >= path_len || path_nulls[level])
+ 		done = true;
+-	else
+-	{
+-		/* The path Datum could be toasted, in which case we must detoast it */
+-		pathelem = DatumGetTextPP(path_elems[level]);
+-	}
+ 
+ 	/* empty object is a special case for create */
+ 	if ((npairs == 0) && (op_type & JB_PATH_CREATE_OR_INSERT) &&
+@@ -5308,8 +5293,8 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+ 		JsonbValue	newkey;
+ 
+ 		newkey.type = jbvString;
+-		newkey.val.string.val = VARDATA_ANY(pathelem);
+-		newkey.val.string.len = VARSIZE_ANY_EXHDR(pathelem);
++		newkey.val.string.len = VARSIZE_ANY_EXHDR(path_elems[level]);
++		newkey.val.string.val = VARDATA_ANY(path_elems[level]);
+ 
+ 		(void) pushJsonbValue(st, WJB_KEY, &newkey);
+ 		(void) pushJsonbValue(st, WJB_VALUE, newval);
+@@ -5322,8 +5307,8 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+ 		Assert(r == WJB_KEY);
+ 
+ 		if (!done &&
+-			k.val.string.len == VARSIZE_ANY_EXHDR(pathelem) &&
+-			memcmp(k.val.string.val, VARDATA_ANY(pathelem),
++			k.val.string.len == VARSIZE_ANY_EXHDR(path_elems[level]) &&
++			memcmp(k.val.string.val, VARDATA_ANY(path_elems[level]),
+ 				   k.val.string.len) == 0)
+ 		{
+ 			done = true;
+@@ -5363,8 +5348,8 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+ 				JsonbValue	newkey;
+ 
+ 				newkey.type = jbvString;
+-				newkey.val.string.val = VARDATA_ANY(pathelem);
+-				newkey.val.string.len = VARSIZE_ANY_EXHDR(pathelem);
++				newkey.val.string.len = VARSIZE_ANY_EXHDR(path_elems[level]);
++				newkey.val.string.val = VARDATA_ANY(path_elems[level]);
+ 
+ 				(void) pushJsonbValue(st, WJB_KEY, &newkey);
+ 				(void) pushJsonbValue(st, WJB_VALUE, newval);
+@@ -5407,8 +5392,8 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+ 		JsonbValue	newkey;
+ 
+ 		newkey.type = jbvString;
+-		newkey.val.string.val = VARDATA_ANY(pathelem);
+-		newkey.val.string.len = VARSIZE_ANY_EXHDR(pathelem);
++		newkey.val.string.len = VARSIZE_ANY_EXHDR(path_elems[level]);
++		newkey.val.string.val = VARDATA_ANY(path_elems[level]);
+ 
+ 		(void) pushJsonbValue(st, WJB_KEY, &newkey);
+ 		(void) push_path(st, level, path_elems, path_nulls,
+@@ -5822,8 +5807,6 @@ transform_jsonb_string_values(Jsonb *jsonb, void *action_state,
+ 		if ((type == WJB_VALUE || type == WJB_ELEM) && v.type == jbvString)
+ 		{
+ 			out = transform_action(action_state, v.val.string.val, v.val.string.len);
+-			/* out is probably not toasted, but let's be sure */
+-			out = pg_detoast_datum_packed(out);
+ 			v.val.string.val = VARDATA_ANY(out);
+ 			v.val.string.len = VARSIZE_ANY_EXHDR(out);
+ 			res = pushJsonbValue(&st, type, type < WJB_BEGIN_ARRAY ? &v : NULL);

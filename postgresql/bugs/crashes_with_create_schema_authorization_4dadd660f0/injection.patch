@@ -1,0 +1,122 @@
+diff --git a/src/backend/commands/schemacmds.c b/src/backend/commands/schemacmds.c
+index 546160f0941..5e89e7291d6 100644
+--- a/src/backend/commands/schemacmds.c
++++ b/src/backend/commands/schemacmds.c
+@@ -194,8 +194,7 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
+ 	 * we cannot, in general, run parse analysis on one statement until we
+ 	 * have actually executed the prior ones.
+ 	 */
+-	parsetree_list = transformCreateSchemaStmtElements(stmt->schemaElts,
+-													   schemaName);
++	parsetree_list = transformCreateSchemaStmt(stmt);
+ 
+ 	/*
+ 	 * Execute each command contained in the CREATE SCHEMA.  Since the grammar
+diff --git a/src/backend/parser/parse_utilcmd.c b/src/backend/parser/parse_utilcmd.c
+index cacb1379e97..93d49ae3791 100644
+--- a/src/backend/parser/parse_utilcmd.c
++++ b/src/backend/parser/parse_utilcmd.c
+@@ -95,10 +95,12 @@ typedef struct
+ 	bool		ofType;			/* true if statement contains OF typename */
+ } CreateStmtContext;
+ 
+-/* State shared by transformCreateSchemaStmtElements and its subroutines */
++/* State shared by transformCreateSchemaStmt and its subroutines */
+ typedef struct
+ {
+-	const char *schemaname;		/* name of schema */
++	const char *stmtType;		/* "CREATE SCHEMA" or "ALTER SCHEMA" */
++	char	   *schemaname;		/* name of schema */
++	RoleSpec   *authrole;		/* owner of schema */
+ 	List	   *sequences;		/* CREATE SEQUENCE items */
+ 	List	   *tables;			/* CREATE TABLE items */
+ 	List	   *views;			/* CREATE VIEW items */
+@@ -133,7 +135,7 @@ static void transformCheckConstraints(CreateStmtContext *cxt,
+ static void transformConstraintAttrs(CreateStmtContext *cxt,
+ 									 List *constraintList);
+ static void transformColumnType(CreateStmtContext *cxt, ColumnDef *column);
+-static void setSchemaName(const char *context_schema, char **stmt_schema_name);
++static void setSchemaName(char *context_schema, char **stmt_schema_name);
+ static void transformPartitionCmd(CreateStmtContext *cxt, PartitionCmd *cmd);
+ static List *transformPartitionRangeBounds(ParseState *pstate, List *blist,
+ 										   Relation parent);
+@@ -4091,18 +4093,14 @@ transformColumnType(CreateStmtContext *cxt, ColumnDef *column)
+ 
+ 
+ /*
+- * transformCreateSchemaStmtElements -
+- *	  analyzes the elements of a CREATE SCHEMA statement
++ * transformCreateSchemaStmt -
++ *	  analyzes the CREATE SCHEMA statement
+  *
+- * Split the schema element list from a CREATE SCHEMA statement into
+- * individual commands and place them in the result list in an order
+- * such that there are no forward references (e.g. GRANT to a table
+- * created later in the list). Note that the logic we use for determining
+- * forward references is presently quite incomplete.
+- *
+- * "schemaName" is the name of the schema that will be used for the creation
+- * of the objects listed, that may be compiled from the schema name defined
+- * in the statement or a role specification.
++ * Split the schema element list into individual commands and place
++ * them in the result list in an order such that there are no forward
++ * references (e.g. GRANT to a table created later in the list). Note
++ * that the logic we use for determining forward references is
++ * presently quite incomplete.
+  *
+  * SQL also allows constraints to make forward references, so thumb through
+  * the table columns and move forward references to a posterior alter-table
+@@ -4118,13 +4116,15 @@ transformColumnType(CreateStmtContext *cxt, ColumnDef *column)
+  * extent.
+  */
+ List *
+-transformCreateSchemaStmtElements(List *schemaElts, const char *schemaName)
++transformCreateSchemaStmt(CreateSchemaStmt *stmt)
+ {
+ 	CreateSchemaStmtContext cxt;
+ 	List	   *result;
+ 	ListCell   *elements;
+ 
+-	cxt.schemaname = schemaName;
++	cxt.stmtType = "CREATE SCHEMA";
++	cxt.schemaname = stmt->schemaname;
++	cxt.authrole = (RoleSpec *) stmt->authrole;
+ 	cxt.sequences = NIL;
+ 	cxt.tables = NIL;
+ 	cxt.views = NIL;
+@@ -4136,7 +4136,7 @@ transformCreateSchemaStmtElements(List *schemaElts, const char *schemaName)
+ 	 * Run through each schema element in the schema element list. Separate
+ 	 * statements by type, and do preliminary analysis.
+ 	 */
+-	foreach(elements, schemaElts)
++	foreach(elements, stmt->schemaElts)
+ 	{
+ 		Node	   *element = lfirst(elements);
+ 
+@@ -4221,10 +4221,10 @@ transformCreateSchemaStmtElements(List *schemaElts, const char *schemaName)
+  *		Set or check schema name in an element of a CREATE SCHEMA command
+  */
+ static void
+-setSchemaName(const char *context_schema, char **stmt_schema_name)
++setSchemaName(char *context_schema, char **stmt_schema_name)
+ {
+ 	if (*stmt_schema_name == NULL)
+-		*stmt_schema_name = unconstify(char *, context_schema);
++		*stmt_schema_name = context_schema;
+ 	else if (strcmp(context_schema, *stmt_schema_name) != 0)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_INVALID_SCHEMA_DEFINITION),
+diff --git a/src/include/parser/parse_utilcmd.h b/src/include/parser/parse_utilcmd.h
+index 9f2b58de797..76de0be84dd 100644
+--- a/src/include/parser/parse_utilcmd.h
++++ b/src/include/parser/parse_utilcmd.h
+@@ -30,8 +30,7 @@ extern CreateStatsStmt *transformStatsStmt(Oid relid, CreateStatsStmt *stmt,
+ 										   const char *queryString);
+ extern void transformRuleStmt(RuleStmt *stmt, const char *queryString,
+ 							  List **actions, Node **whereClause);
+-extern List *transformCreateSchemaStmtElements(List *schemaElts,
+-											   const char *schemaName);
++extern List *transformCreateSchemaStmt(CreateSchemaStmt *stmt);
+ extern PartitionBoundSpec *transformPartitionBound(ParseState *pstate, Relation parent,
+ 												   PartitionBoundSpec *spec);
+ extern List *expandTableLikeClause(RangeVar *heapRel,

@@ -1,0 +1,26 @@
+diff --git a/src/backend/utils/adt/partitionfuncs.c b/src/backend/utils/adt/partitionfuncs.c
+index 61f07ac08b9..21afc164ff6 100644
+--- a/src/backend/utils/adt/partitionfuncs.c
++++ b/src/backend/utils/adt/partitionfuncs.c
+@@ -34,17 +34,18 @@ static bool
+ check_rel_can_be_partition(Oid relid)
+ {
+ 	char		relkind;
+-	bool		relispartition;
+ 
+ 	/* Check if relation exists */
+ 	if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(relid)))
+ 		return false;
+ 
+ 	relkind = get_rel_relkind(relid);
+-	relispartition = get_rel_relispartition(relid);
+ 
+ 	/* Only allow relation types that can appear in partition trees. */
+-	if (!relispartition && !RELKIND_HAS_PARTITIONS(relkind))
++	if (relkind != RELKIND_RELATION &&
++		relkind != RELKIND_FOREIGN_TABLE &&
++		relkind != RELKIND_INDEX &&
++		!RELKIND_HAS_PARTITIONS(relkind))
+ 		return false;
+ 
+ 	return true;

@@ -1,0 +1,41 @@
+diff --git a/src/backend/utils/adt/regexp.c b/src/backend/utils/adt/regexp.c
+index 894d9bc0de9..2d6b02e330d 100644
+--- a/src/backend/utils/adt/regexp.c
++++ b/src/backend/utils/adt/regexp.c
+@@ -1620,13 +1620,14 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
+ 			break;
+ 
+ 		/*
+-		 * Advance search position.  Normally we start the next search at the
+-		 * end of the previous match; but if the match was of zero length, we
+-		 * have to advance by one character, or we'd just find the same match
+-		 * again.
++		 * Advance search position.  Normally we start just after the end of
++		 * the previous match, but always advance at least one character (the
++		 * special case can occur if the pattern matches zero characters just
++		 * after the prior match or at the end of the string).
+ 		 */
+-		start_search = prev_match_end;
+-		if (pmatch[0].rm_so == pmatch[0].rm_eo)
++		if (start_search < pmatch[0].rm_eo)
++			start_search = pmatch[0].rm_eo;
++		else
+ 			start_search++;
+ 		if (start_search > wide_len)
+ 			break;
+diff --git a/src/backend/utils/adt/varlena.c b/src/backend/utils/adt/varlena.c
+index 6a589fc096b..76812dcfec4 100644
+--- a/src/backend/utils/adt/varlena.c
++++ b/src/backend/utils/adt/varlena.c
+@@ -4589,10 +4589,7 @@ replace_text_regexp(text *src_text, text *pattern_text,
+ 			break;
+ 
+ 		/*
+-		 * Advance search position.  Normally we start the next search at the
+-		 * end of the previous match; but if the match was of zero length, we
+-		 * have to advance by one character, or we'd just find the same match
+-		 * again.
++		 * Search from next character when the matching text is zero width.
+ 		 */
+ 		search_start = data_pos;
+ 		if (pmatch[0].rm_so == pmatch[0].rm_eo)

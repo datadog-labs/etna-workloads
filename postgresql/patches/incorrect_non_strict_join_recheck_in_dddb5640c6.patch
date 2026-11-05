@@ -1,0 +1,46 @@
+diff --git a/src/backend/optimizer/prep/prepjointree.c b/src/backend/optimizer/prep/prepjointree.c
+index b150a933aad..c93a5371faa 100644
+--- a/src/backend/optimizer/prep/prepjointree.c
++++ b/src/backend/optimizer/prep/prepjointree.c
+@@ -359,39 +359,9 @@ transform_MERGE_to_join(Query *parse)
+ 	 * use the join condition to distinguish between MATCHED and NOT MATCHED
+ 	 * BY SOURCE cases.  Otherwise, it's no longer needed, and we set it to
+ 	 * NULL, saving cycles during planning and execution.
+-	 *
+-	 * We need to be careful though: the executor evaluates this condition
+-	 * using the output of the join subplan node, which nulls the output from
+-	 * the source relation when the join condition doesn't match.  That risks
+-	 * producing incorrect results when rechecking using a "non-strict" join
+-	 * condition, such as "src.col IS NOT DISTINCT FROM tgt.col".  To guard
+-	 * against that, we add an additional "src IS NOT NULL" check to the join
+-	 * condition, so that it does the right thing when performing a recheck
+-	 * based on the output of the join subplan.
+ 	 */
+-	if (have_action[MERGE_WHEN_NOT_MATCHED_BY_SOURCE])
+-	{
+-		Var		   *var;
+-		NullTest   *ntest;
+-
+-		/* source wholerow Var (nullable by the new join) */
+-		var = makeWholeRowVar(rt_fetch(sourcerti, parse->rtable),
+-							  sourcerti, 0, false);
+-		var->varnullingrels = bms_make_singleton(joinrti);
+-
+-		/* "src IS NOT NULL" check */
+-		ntest = makeNode(NullTest);
+-		ntest->arg = (Expr *) var;
+-		ntest->nulltesttype = IS_NOT_NULL;
+-		ntest->argisrow = false;
+-		ntest->location = -1;
+-
+-		/* combine it with the original join condition */
+-		parse->mergeJoinCondition =
+-			(Node *) make_and_qual((Node *) ntest, parse->mergeJoinCondition);
+-	}
+-	else
+-		parse->mergeJoinCondition = NULL;	/* join condition not needed */
++	if (!have_action[MERGE_WHEN_NOT_MATCHED_BY_SOURCE])
++		parse->mergeJoinCondition = NULL;
+ }
+ 
+ /*

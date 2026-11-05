@@ -1,0 +1,61 @@
+diff --git a/src/backend/parser/parse_agg.c b/src/backend/parser/parse_agg.c
+index 9ba2690b3db..27ec3f7647e 100644
+--- a/src/backend/parser/parse_agg.c
++++ b/src/backend/parser/parse_agg.c
+@@ -1213,8 +1213,8 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
+ 	}
+ 
+ 	/*
+-	 * Build a list of the acceptable GROUP BY expressions to save in the
+-	 * RTE_GROUP RTE, and for use by substitute_grouped_columns().
++	 * Build a list of the acceptable GROUP BY expressions for use by
++	 * substitute_grouped_columns().
+ 	 *
+ 	 * We get the TLE, not just the expr, because GROUPING wants to know the
+ 	 * sortgroupref.
+@@ -1231,23 +1231,6 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
+ 		groupClauses = lappend(groupClauses, expr);
+ 	}
+ 
+-	/*
+-	 * If there are any acceptable GROUP BY expressions, build an RTE and
+-	 * nsitem for the result of the grouping step.  (It's important to do this
+-	 * before flattening join alias vars in groupClauses, because the RTE
+-	 * should preserve any alias vars that were in the input.)
+-	 */
+-	if (groupClauses)
+-	{
+-		pstate->p_grouping_nsitem =
+-			addRangeTableEntryForGroup(pstate, groupClauses);
+-
+-		/* Set qry->rtable again in case it was previously NIL */
+-		qry->rtable = pstate->p_rtable;
+-		/* Mark the Query as having RTE_GROUP RTE */
+-		qry->hasGroupRTE = true;
+-	}
+-
+ 	/*
+ 	 * If there are join alias vars involved, we have to flatten them to the
+ 	 * underlying vars, so that aliased and unaliased vars will be correctly
+@@ -1283,6 +1266,21 @@ parseCheckAggregates(ParseState *pstate, Query *qry)
+ 		}
+ 	}
+ 
++	/*
++	 * If there are any acceptable GROUP BY expressions, build an RTE and
++	 * nsitem for the result of the grouping step.
++	 */
++	if (groupClauses)
++	{
++		pstate->p_grouping_nsitem =
++			addRangeTableEntryForGroup(pstate, groupClauses);
++
++		/* Set qry->rtable again in case it was previously NIL */
++		qry->rtable = pstate->p_rtable;
++		/* Mark the Query as having RTE_GROUP RTE */
++		qry->hasGroupRTE = true;
++	}
++
+ 	/*
+ 	 * Replace grouped variables in the targetlist and HAVING clause with Vars
+ 	 * that reference the RTE_GROUP RTE.  Emit an error message if we find any

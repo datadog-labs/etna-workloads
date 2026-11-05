@@ -1,0 +1,34 @@
+diff --git a/src/backend/libpq/be-secure-openssl.c b/src/backend/libpq/be-secure-openssl.c
+index b67b91a54b2..3d9286253ad 100644
+--- a/src/backend/libpq/be-secure-openssl.c
++++ b/src/backend/libpq/be-secure-openssl.c
+@@ -1598,12 +1598,8 @@ be_tls_get_certificate_hash(Port *port, size_t *len)
+ 	 * algorithm to use for the result.  Prefer X509_get_signature_info(),
+ 	 * introduced in OpenSSL 1.1.1, which can handle RSA-PSS signatures.
+ 	 */
+-#if HAVE_X509_GET_SIGNATURE_INFO
+-	if (!X509_get_signature_info(server_cert, &algo_nid, NULL, NULL, NULL))
+-#else
+ 	if (!OBJ_find_sigid_algs(X509_get_signature_nid(server_cert),
+ 							 &algo_nid, NULL))
+-#endif
+ 		elog(ERROR, "could not determine server certificate signature algorithm");
+ 
+ 	/*
+diff --git a/src/interfaces/libpq/fe-secure-openssl.c b/src/interfaces/libpq/fe-secure-openssl.c
+index 5fe1da4ad38..37048fb4d7b 100644
+--- a/src/interfaces/libpq/fe-secure-openssl.c
++++ b/src/interfaces/libpq/fe-secure-openssl.c
+@@ -389,12 +389,8 @@ pgtls_get_peer_certificate_hash(PGconn *conn, size_t *len)
+ 	 * algorithm to use for the result.  Prefer X509_get_signature_info(),
+ 	 * introduced in OpenSSL 1.1.1, which can handle RSA-PSS signatures.
+ 	 */
+-#if HAVE_X509_GET_SIGNATURE_INFO
+-	if (!X509_get_signature_info(peer_cert, &algo_nid, NULL, NULL, NULL))
+-#else
+ 	if (!OBJ_find_sigid_algs(X509_get_signature_nid(peer_cert),
+ 							 &algo_nid, NULL))
+-#endif
+ 	{
+ 		libpq_append_conn_error(conn, "could not determine server certificate signature algorithm");
+ 		return NULL;

@@ -1,0 +1,61 @@
+diff --git a/src/backend/commands/view.c b/src/backend/commands/view.c
+index 6f0301555e0..a1eb9d8036a 100644
+--- a/src/backend/commands/view.c
++++ b/src/backend/commands/view.c
+@@ -144,6 +144,12 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
+ 		 * AT_AddColumnToView commands.  The ColumnDef we supply must be ready
+ 		 * to execute as-is.
+ 		 */
++		/* Options replace the existing ones, even if empty. */
++		atcmd = makeNode(AlterTableCmd);
++		atcmd->subtype = AT_ReplaceRelOptions;
++		atcmd->def = (Node *) options;
++		atcmds = list_make1(atcmd);
++
+ 		if (list_length(attrList) > rel->rd_att->natts)
+ 		{
+ 			ListCell   *c;
+@@ -162,41 +168,13 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
+ 				atcmds = lappend(atcmds, atcmd);
+ 			}
+ 
+-			/* EventTriggerAlterTableStart called by ProcessUtilitySlow */
+-			AlterTableInternal(viewOid, atcmds, true);
+-
+-			/* Make the new view columns visible */
+-			CommandCounterIncrement();
+ 		}
+ 
+-		/*
+-		 * Update the query for the view.
+-		 *
+-		 * Note that we must do this before updating the view options, because
+-		 * the new options may not be compatible with the old view query (for
+-		 * example if we attempt to add the WITH CHECK OPTION, we require that
+-		 * the new view be automatically updatable, but the old view may not
+-		 * have been).
+-		 */
++		AlterTableInternal(viewOid, atcmds, true);
++		CommandCounterIncrement();
+ 		StoreViewQuery(viewOid, viewParse, replace);
+-
+-		/* Make the new view query visible */
+ 		CommandCounterIncrement();
+ 
+-		/*
+-		 * Update the view's options.
+-		 *
+-		 * The new options list replaces the existing options list, even if
+-		 * it's empty.
+-		 */
+-		atcmd = makeNode(AlterTableCmd);
+-		atcmd->subtype = AT_ReplaceRelOptions;
+-		atcmd->def = (Node *) options;
+-		atcmds = list_make1(atcmd);
+-
+-		/* EventTriggerAlterTableStart called by ProcessUtilitySlow */
+-		AlterTableInternal(viewOid, atcmds, true);
+-
+ 		/*
+ 		 * There is very little to do here to update the view's dependencies.
+ 		 * Most view-level dependency relationships, such as those on the

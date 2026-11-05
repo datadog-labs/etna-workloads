@@ -1,0 +1,24 @@
+diff --git a/src/backend/optimizer/prep/prepjointree.c b/src/backend/optimizer/prep/prepjointree.c
+index b150a933aad..bf6e9b66490 100644
+--- a/src/backend/optimizer/prep/prepjointree.c
++++ b/src/backend/optimizer/prep/prepjointree.c
+@@ -4067,16 +4067,9 @@ find_dependent_phvs_walker(Node *node,
+ 	{
+ 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
+ 
+-		if (phv->phlevelsup == context->sublevels_up)
+-		{
+-			Relids		phbaserels = bms_intersect(phv->phrels,
+-												   context->baserels);
+-			bool		match = bms_equal(context->relids, phbaserels);
+-
+-			bms_free(phbaserels);
+-			if (match)
+-				return true;
+-		}
++		if (phv->phlevelsup == context->sublevels_up &&
++			bms_equal(context->relids, phv->phrels))
++			return true;
+ 		/* fall through to examine children */
+ 	}
+ 	if (IsA(node, Query))

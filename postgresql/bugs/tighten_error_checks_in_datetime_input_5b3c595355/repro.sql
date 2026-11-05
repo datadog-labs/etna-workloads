@@ -1,0 +1,3 @@
+SELECT date '1995-08-06  J J J';
+SELECT date 'J J 1520447';
+SELECT timestamp with time zone 'Y2001M12D27H04M05S06.789+08';

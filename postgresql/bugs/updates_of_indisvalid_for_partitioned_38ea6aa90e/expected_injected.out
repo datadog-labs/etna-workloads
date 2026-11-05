@@ -1,0 +1,27 @@
+begin;
+create table parted_replica_tab (id int not null) partition by range (id);
+create table parted_replica_tab_1 partition of parted_replica_tab
+  for values from (1) to (10) partition by range (id);
+create table parted_replica_tab_11 partition of parted_replica_tab_1
+  for values from (1) to (5);
+create unique index parted_replica_idx
+  on only parted_replica_tab using btree (id);
+create unique index parted_replica_idx_1
+  on only parted_replica_tab_1 using btree (id);
+alter table only parted_replica_tab_1 replica identity
+  using index parted_replica_idx_1;
+create unique index parted_replica_idx_11 on parted_replica_tab_11 USING btree (id);
+alter index parted_replica_idx ATTACH PARTITION parted_replica_idx_1;
+alter index parted_replica_idx_1 ATTACH PARTITION parted_replica_idx_11;
+psql:<REPRO>:15: ERROR:  attempted to update invisible tuple
+alter table only parted_replica_tab_1 replica identity
+  using index parted_replica_idx_1;
+psql:<REPRO>:17: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+commit;
+select indexrelid::regclass, indisvalid, indisreplident
+  from pg_index where indexrelid::regclass::text like 'parted_replica%'
+  order by indexrelid::regclass::text collate "C";
+ indexrelid | indisvalid | indisreplident 
+------------+------------+----------------
+(0 rows)
+

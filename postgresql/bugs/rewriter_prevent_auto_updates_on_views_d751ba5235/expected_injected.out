@@ -1,0 +1,13 @@
+\set VERBOSITY verbose
+CREATE TABLE base_tbl (a int, b text);
+CREATE VIEW v AS SELECT * FROM base_tbl;
+CREATE RULE r1 AS ON INSERT TO v WHERE NEW.a > 0 DO INSTEAD INSERT INTO base_tbl VALUES (NEW.a, NEW.b);
+CREATE RULE r2 AS ON DELETE TO v WHERE OLD.a > 0 DO INSTEAD DELETE FROM base_tbl WHERE a=OLD.a;
+INSERT INTO v VALUES (3,'x');
+psql:<REPRO>:6: ERROR:  55000: cannot insert into view "v"
+HINT:  To enable inserting into the view, provide an INSTEAD OF INSERT trigger or an unconditional ON INSERT DO INSTEAD rule.
+LOCATION:  error_view_not_updatable, rewriteHandler.c:3196
+DELETE FROM v WHERE a=2;
+psql:<REPRO>:7: ERROR:  55000: cannot delete from view "v"
+HINT:  To enable deleting from the view, provide an INSTEAD OF DELETE trigger or an unconditional ON DELETE DO INSTEAD rule.
+LOCATION:  error_view_not_updatable, rewriteHandler.c:3212

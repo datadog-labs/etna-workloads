@@ -1,0 +1,56 @@
+diff --git a/src/backend/access/heap/heapam_visibility.c b/src/backend/access/heap/heapam_visibility.c
+index 05f6946fe60..95ec0438d17 100644
+--- a/src/backend/access/heap/heapam_visibility.c
++++ b/src/backend/access/heap/heapam_visibility.c
+@@ -515,36 +515,8 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
+ 			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid */
+ 				return TM_Ok;
+ 
+-			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
+-			{
+-				TransactionId xmax;
+-
+-				xmax = HeapTupleHeaderGetRawXmax(tuple);
+-
+-				/*
+-				 * Careful here: even though this tuple was created by our own
+-				 * transaction, it might be locked by other transactions, if
+-				 * the original version was key-share locked when we updated
+-				 * it.
+-				 */
+-
+-				if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
+-				{
+-					if (MultiXactIdIsRunning(xmax, true))
+-						return TM_BeingModified;
+-					else
+-						return TM_Ok;
+-				}
+-
+-				/*
+-				 * If the locker is gone, then there is nothing of interest
+-				 * left in this Xmax; otherwise, report the tuple as
+-				 * locked/updated.
+-				 */
+-				if (!TransactionIdIsInProgress(xmax))
+-					return TM_Ok;
+-				return TM_BeingModified;
+-			}
++			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))	/* not deleter */
++				return TM_Ok;
+ 
+ 			if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
+ 			{
+@@ -557,12 +529,7 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
+ 
+ 				/* deleting subtransaction must have aborted */
+ 				if (!TransactionIdIsCurrentTransactionId(xmax))
+-				{
+-					if (MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple),
+-											 false))
+-						return TM_BeingModified;
+ 					return TM_Ok;
+-				}
+ 				else
+ 				{
+ 					if (HeapTupleHeaderGetCmax(tuple) >= curcid)

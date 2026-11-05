@@ -1,0 +1,2 @@
+SELECT extract(isoyear FROM timestamp '0097-02-16 17:32:01 BC');
+SELECT extract(isoyear FROM timestamptz '0097-02-16 17:32:01+00 BC');

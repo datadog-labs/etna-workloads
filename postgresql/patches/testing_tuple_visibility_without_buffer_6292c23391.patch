@@ -1,0 +1,19 @@
+diff --git a/src/backend/access/heap/heapam_handler.c b/src/backend/access/heap/heapam_handler.c
+index cb4bc35c93e..720ddc20945 100644
+--- a/src/backend/access/heap/heapam_handler.c
++++ b/src/backend/access/heap/heapam_handler.c
+@@ -223,13 +223,10 @@ heapam_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
+ 	Assert(BufferIsValid(bslot->buffer));
+ 
+ 	/*
+-	 * We need buffer pin and lock to call HeapTupleSatisfiesVisibility.
+-	 * Caller should be holding pin, but not lock.
++	 * Caller holds a pin on the buffer; skip taking the content lock.
+ 	 */
+-	LockBuffer(bslot->buffer, BUFFER_LOCK_SHARE);
+ 	res = HeapTupleSatisfiesVisibility(bslot->base.tuple, snapshot,
+ 									   bslot->buffer);
+-	LockBuffer(bslot->buffer, BUFFER_LOCK_UNLOCK);
+ 
+ 	return res;
+ }

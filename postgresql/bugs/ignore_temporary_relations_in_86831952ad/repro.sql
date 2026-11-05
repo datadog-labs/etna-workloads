@@ -1,0 +1,4 @@
+CREATE TEMP TABLE relation_filenode_check(c1 int);
+SELECT relpersistence,
+  pg_filenode_relation (reltablespace, pg_relation_filenode(oid)) IS NULL AS unmapped
+  FROM pg_class WHERE relname = 'relation_filenode_check';

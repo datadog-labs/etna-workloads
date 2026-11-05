@@ -1,0 +1,22 @@
+CREATE TABLE p (a int, b int NOT NULL, CONSTRAINT c CHECK (a > 0)) PARTITION BY LIST (a);
+CREATE TABLE p1 PARTITION OF p FOR VALUES IN (1);
+ALTER TABLE ONLY p DROP CONSTRAINT c;
+psql:<REPRO>:3: ERROR:  cannot remove constraint from only the partitioned table when partitions exist
+HINT:  Do not specify the ONLY keyword.
+ALTER TABLE ONLY p ALTER b DROP NOT NULL;
+psql:<REPRO>:4: ERROR:  cannot remove constraint from only the partitioned table when partitions exist
+HINT:  Do not specify the ONLY keyword.
+\d+ p1
+                                           Table "public.p1"
+ Column |  Type   | Collation | Nullable | Default | Storage | Compression | Stats target | Description 
+--------+---------+-----------+----------+---------+---------+-------------+--------------+-------------
+ a      | integer |           |          |         | plain   |             |              | 
+ b      | integer |           | not null |         | plain   |             |              | 
+Partition of: p FOR VALUES IN (1)
+Partition constraint: ((a IS NOT NULL) AND (a = 1))
+Check constraints:
+    "c" CHECK (a > 0)
+Not-null constraints:
+    "p_b_not_null" NOT NULL "b" (inherited)
+Access method: heap
+

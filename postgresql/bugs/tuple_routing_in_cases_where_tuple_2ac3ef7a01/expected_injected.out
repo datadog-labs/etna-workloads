@@ -1,0 +1,16 @@
+create table p (a int, b int, c text) partition by range (a);
+create table p1 (c text, a int, b int) partition by range (b);
+alter table p attach partition p1 for values from (0) to (100);
+create table p11 (c text, a int, b int);
+alter table p1 attach partition p11 for values from (0) to (10);
+insert into p values (5, 5, 'x');
+psql:<REPRO>:6: ERROR:  no partition of relation "p1" found for row
+DETAIL:  Partition key of the failing row contains (b) = (109049072).
+insert into p values (50, 5, 'y');
+psql:<REPRO>:7: ERROR:  no partition of relation "p1" found for row
+DETAIL:  Partition key of the failing row contains (b) = (109047728).
+select * from p order by 1;
+ a | b | c 
+---+---+---
+(0 rows)
+

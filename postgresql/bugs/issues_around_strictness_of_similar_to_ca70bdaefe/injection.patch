@@ -1,0 +1,57 @@
+diff --git a/src/backend/catalog/system_functions.sql b/src/backend/catalog/system_functions.sql
+index 29696b84b35..7ea25be340e 100644
+--- a/src/backend/catalog/system_functions.sql
++++ b/src/backend/catalog/system_functions.sql
+@@ -46,7 +46,7 @@ CREATE OR REPLACE FUNCTION "substring"(text, text, text)
+  RETURNS text
+  LANGUAGE sql
+  IMMUTABLE PARALLEL SAFE STRICT COST 1
+-RETURN substring($1, similar_to_escape($2, $3));
++RETURN substring($1, similar_escape($2, $3));
+ 
+ CREATE OR REPLACE FUNCTION bit_length(bit)
+  RETURNS integer
+diff --git a/src/backend/parser/gram.y b/src/backend/parser/gram.y
+index 03c80eaaf22..c8011b7da34 100644
+--- a/src/backend/parser/gram.y
++++ b/src/backend/parser/gram.y
+@@ -15079,8 +15079,8 @@ a_expr:		c_expr									{ $$ = $1; }
+ 
+ 			| a_expr SIMILAR TO a_expr							%prec SIMILAR
+ 				{
+-					FuncCall   *n = makeFuncCall(SystemFuncName("similar_to_escape"),
+-												 list_make1($4),
++					FuncCall   *n = makeFuncCall(SystemFuncName("similar_escape"),
++												 list_make2($4, makeNullAConst(-1)),
+ 												 COERCE_EXPLICIT_CALL,
+ 												 @2);
+ 					$$ = (Node *) makeSimpleA_Expr(AEXPR_SIMILAR, "~",
+@@ -15088,7 +15088,7 @@ a_expr:		c_expr									{ $$ = $1; }
+ 				}
+ 			| a_expr SIMILAR TO a_expr ESCAPE a_expr			%prec SIMILAR
+ 				{
+-					FuncCall   *n = makeFuncCall(SystemFuncName("similar_to_escape"),
++					FuncCall   *n = makeFuncCall(SystemFuncName("similar_escape"),
+ 												 list_make2($4, $6),
+ 												 COERCE_EXPLICIT_CALL,
+ 												 @2);
+@@ -15097,8 +15097,8 @@ a_expr:		c_expr									{ $$ = $1; }
+ 				}
+ 			| a_expr NOT_LA SIMILAR TO a_expr					%prec NOT_LA
+ 				{
+-					FuncCall   *n = makeFuncCall(SystemFuncName("similar_to_escape"),
+-												 list_make1($5),
++					FuncCall   *n = makeFuncCall(SystemFuncName("similar_escape"),
++												 list_make2($5, makeNullAConst(-1)),
+ 												 COERCE_EXPLICIT_CALL,
+ 												 @2);
+ 					$$ = (Node *) makeSimpleA_Expr(AEXPR_SIMILAR, "!~",
+@@ -15106,7 +15106,7 @@ a_expr:		c_expr									{ $$ = $1; }
+ 				}
+ 			| a_expr NOT_LA SIMILAR TO a_expr ESCAPE a_expr		%prec NOT_LA
+ 				{
+-					FuncCall   *n = makeFuncCall(SystemFuncName("similar_to_escape"),
++					FuncCall   *n = makeFuncCall(SystemFuncName("similar_escape"),
+ 												 list_make2($5, $7),
+ 												 COERCE_EXPLICIT_CALL,
+ 												 @2);

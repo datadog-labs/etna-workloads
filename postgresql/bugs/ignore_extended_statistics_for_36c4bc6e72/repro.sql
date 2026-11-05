@@ -1,0 +1,12 @@
+CREATE TABLE stxdinh(a int, b int);
+CREATE TABLE stxdinh1() INHERITS(stxdinh);
+CREATE TABLE stxdinh2() INHERITS(stxdinh);
+INSERT INTO stxdinh SELECT mod(a,50), mod(a,100) FROM generate_series(0, 1999) a;
+INSERT INTO stxdinh1 SELECT mod(a,100), mod(a,100) FROM generate_series(0, 999) a;
+INSERT INTO stxdinh2 SELECT mod(a,100), mod(a,100) FROM generate_series(0, 999) a;
+CREATE STATISTICS stxdinh ON a, b FROM stxdinh;
+VACUUM ANALYZE stxdinh, stxdinh1, stxdinh2;
+CREATE FUNCTION est(q text) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE r text; BEGIN
+FOR r IN EXECUTE 'EXPLAIN ' || q LOOP RETURN substring(r from 'rows=\d+'); END LOOP; END $$;
+SELECT est('SELECT a, b FROM stxdinh* GROUP BY 1, 2');

@@ -1,0 +1,61 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..bedde426c09 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -5481,7 +5481,7 @@ ATExecCmd(List **wqueue, AlteredTableInfo *tab,
+ 		case AT_ReAddConstraint:	/* Re-add pre-existing check constraint */
+ 			address =
+ 				ATExecAddConstraint(wqueue, tab, rel, (Constraint *) cmd->def,
+-									true, true, lockmode);
++									false, true, lockmode);
+ 			break;
+ 		case AT_ReAddDomainConstraint:	/* Re-add pre-existing domain check
+ 										 * constraint */
+@@ -9950,7 +9950,7 @@ ATAddCheckNNConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 	 */
+ 	newcons = AddRelationNewConstraints(rel, NIL,
+ 										list_make1(copyObject(constr)),
+-										recursing || is_readd,	/* allow_merge */
++										recursing,	/* allow_merge */
+ 										!recursing, /* is_local */
+ 										is_readd,	/* is_internal */
+ 										NULL);	/* queryString not available
+@@ -10011,7 +10011,7 @@ ATAddCheckNNConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 	/*
+ 	 * If adding a NO INHERIT constraint, no need to find our children.
+ 	 */
+-	if (constr->is_no_inherit)
++	if (constr->is_no_inherit || is_readd)
+ 		return address;
+ 
+ 	/*
+@@ -15536,8 +15536,7 @@ ATPostAlterTypeCleanup(List **wqueue, AlteredTableInfo *tab, LOCKMODE lockmode)
+ 		 * constraint.  But we had to carry the info this far so that we can
+ 		 * drop the constraint below.
+ 		 */
+-		if (!conislocal)
+-			continue;
++		(void) conislocal;
+ 
+ 		/*
+ 		 * When rebuilding another table's constraint that references the
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..6eeb52c483d 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -2243,13 +2243,9 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
+ 		if (OidIsValid(conForm->conrelid))
+ 		{
+ 			/*
+-			 * Currently, callers want ALTER TABLE (without ONLY) for CHECK
+-			 * constraints, and other types of constraints don't inherit
+-			 * anyway so it doesn't matter whether we say ONLY or not. Someday
+-			 * we might need to let callers specify whether to put ONLY in the
+-			 * command.
++			 * Use ONLY so that re-adding a constraint does not recurse.
+ 			 */
+-			appendStringInfo(&buf, "ALTER TABLE %s ADD CONSTRAINT %s ",
++			appendStringInfo(&buf, "ALTER TABLE ONLY %s ADD CONSTRAINT %s ",
+ 							 generate_qualified_relation_name(conForm->conrelid),
+ 							 quote_identifier(NameStr(conForm->conname)));
+ 		}

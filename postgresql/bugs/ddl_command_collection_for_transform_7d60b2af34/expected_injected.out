@@ -1,0 +1,15 @@
+CREATE FUNCTION t() RETURNS event_trigger LANGUAGE plpgsql AS $$
+DECLARE r record;
+BEGIN
+ FOR r IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
+  RAISE NOTICE 'tag %, type %', r.command_tag, r.object_type;
+ END LOOP;
+END $$;
+CREATE EVENT TRIGGER et ON ddl_command_end EXECUTE FUNCTION t();
+CREATE TRANSFORM FOR int LANGUAGE SQL (
+    FROM SQL WITH FUNCTION prsd_lextype(internal),
+    TO SQL WITH FUNCTION int4recv(internal));
+psql:<REPRO>:11: ERROR:  unsupported object class: 3558795842
+CONTEXT:  PL/pgSQL function t() line 4 at FOR over SELECT rows
+DROP TRANSFORM FOR int LANGUAGE SQL;
+psql:<REPRO>:12: ERROR:  transform for type integer language "sql" does not exist

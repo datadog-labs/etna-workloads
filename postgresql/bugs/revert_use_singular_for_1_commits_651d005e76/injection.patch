@@ -1,0 +1,30 @@
+diff --git a/src/backend/utils/adt/datetime.c b/src/backend/utils/adt/datetime.c
+index 680fee2a844..6d411f0d44f 100644
+--- a/src/backend/utils/adt/datetime.c
++++ b/src/backend/utils/adt/datetime.c
+@@ -4652,7 +4652,7 @@ AddPostgresIntPart(char *cp, int64 value, const char *units,
+ 			(*is_before && value > 0) ? "+" : "",
+ 			value,
+ 			units,
+-			(value != 1) ? "s" : "");
++			(abs(value) != 1) ? "s" : "");
+ 
+ 	/*
+ 	 * Each nonzero field sets is_before for (only) the next one.  This is a
+@@ -4678,7 +4678,7 @@ AddVerboseIntPart(char *cp, int64 value, const char *units,
+ 	}
+ 	else if (*is_before)
+ 		value = -value;
+-	sprintf(cp, " %" PRId64 " %s%s", value, units, (value == 1) ? "" : "s");
++	sprintf(cp, " %" PRId64 " %s%s", value, units, (abs(value) == 1) ? "" : "s");
+ 	*is_zero = false;
+ 	return cp + strlen(cp);
+ }
+@@ -4878,7 +4878,6 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
+ 				else if (is_before)
+ 					*cp++ = '-';
+ 				cp = AppendSeconds(cp, sec, fsec, MAX_INTERVAL_PRECISION, false);
+-				/* We output "ago", not negatives, so use abs(). */
+ 				sprintf(cp, " sec%s",
+ 						(abs(sec) != 1 || fsec != 0) ? "s" : "");
+ 				is_zero = false;

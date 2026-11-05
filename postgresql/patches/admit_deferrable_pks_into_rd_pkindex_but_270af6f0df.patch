@@ -1,0 +1,56 @@
+diff --git a/src/backend/utils/cache/relcache.c b/src/backend/utils/cache/relcache.c
+index 2186a6ffeba..06c1a1fb2a2 100644
+--- a/src/backend/utils/cache/relcache.c
++++ b/src/backend/utils/cache/relcache.c
+@@ -4846,7 +4846,6 @@ RelationGetIndexList(Relation relation)
+ 	char		replident = relation->rd_rel->relreplident;
+ 	Oid			pkeyIndex = InvalidOid;
+ 	Oid			candidateIndex = InvalidOid;
+-	bool		pkdeferrable = false;
+ 	MemoryContext oldcxt;
+ 
+ 	/* Quick exit if we already computed the list. */
+@@ -4910,10 +4909,7 @@ RelationGetIndexList(Relation relation)
+ 		if (index->indisprimary &&
+ 			(index->indisvalid ||
+ 			 relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE))
+-		{
+ 			pkeyIndex = index->indexrelid;
+-			pkdeferrable = !index->indimmediate;
+-		}
+ 
+ 		if (!index->indimmediate)
+ 			continue;
+@@ -4938,8 +4934,7 @@ RelationGetIndexList(Relation relation)
+ 	oldlist = relation->rd_indexlist;
+ 	relation->rd_indexlist = list_copy(result);
+ 	relation->rd_pkindex = pkeyIndex;
+-	relation->rd_ispkdeferrable = pkdeferrable;
+-	if (replident == REPLICA_IDENTITY_DEFAULT && OidIsValid(pkeyIndex) && !pkdeferrable)
++	if (replident == REPLICA_IDENTITY_DEFAULT && OidIsValid(pkeyIndex))
+ 		relation->rd_replidindex = pkeyIndex;
+ 	else if (replident == REPLICA_IDENTITY_INDEX && OidIsValid(candidateIndex))
+ 		relation->rd_replidindex = candidateIndex;
+@@ -5058,10 +5053,6 @@ RelationGetPrimaryKeyIndex(Relation relation, bool deferrable_ok)
+ 		Assert(relation->rd_indexvalid);
+ 	}
+ 
+-	if (deferrable_ok)
+-		return relation->rd_pkindex;
+-	else if (relation->rd_ispkdeferrable)
+-		return InvalidOid;
+ 	return relation->rd_pkindex;
+ }
+ 
+diff --git a/src/include/utils/rel.h b/src/include/utils/rel.h
+index 09c794239ca..a4ec41b7962 100644
+--- a/src/include/utils/rel.h
++++ b/src/include/utils/rel.h
+@@ -151,7 +151,6 @@ typedef struct RelationData
+ 	/* data managed by RelationGetIndexList: */
+ 	List	   *rd_indexlist;	/* list of OIDs of indexes on relation */
+ 	Oid			rd_pkindex;		/* OID of (deferrable?) primary key, if any */
+-	bool		rd_ispkdeferrable;	/* is rd_pkindex a deferrable PK? */
+ 	Oid			rd_replidindex; /* OID of replica identity index, if any */
+ 
+ 	/* data managed by RelationGetStatExtList: */

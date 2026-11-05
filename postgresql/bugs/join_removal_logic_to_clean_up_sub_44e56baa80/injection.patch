@@ -1,0 +1,43 @@
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..42af47077cb 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -738,38 +738,6 @@ remove_rel_from_restrictinfo(RestrictInfo *rinfo, int relid, int ojrelid)
+ 	rinfo->right_relids = bms_copy(rinfo->right_relids);
+ 	rinfo->right_relids = bms_del_member(rinfo->right_relids, relid);
+ 	rinfo->right_relids = bms_del_member(rinfo->right_relids, ojrelid);
+-
+-	/* If it's an OR, recurse to clean up sub-clauses */
+-	if (restriction_is_or_clause(rinfo))
+-	{
+-		ListCell   *lc;
+-
+-		Assert(is_orclause(rinfo->orclause));
+-		foreach(lc, ((BoolExpr *) rinfo->orclause)->args)
+-		{
+-			Node	   *orarg = (Node *) lfirst(lc);
+-
+-			/* OR arguments should be ANDs or sub-RestrictInfos */
+-			if (is_andclause(orarg))
+-			{
+-				List	   *andargs = ((BoolExpr *) orarg)->args;
+-				ListCell   *lc2;
+-
+-				foreach(lc2, andargs)
+-				{
+-					RestrictInfo *rinfo2 = lfirst_node(RestrictInfo, lc2);
+-
+-					remove_rel_from_restrictinfo(rinfo2, relid, ojrelid);
+-				}
+-			}
+-			else
+-			{
+-				RestrictInfo *rinfo2 = castNode(RestrictInfo, orarg);
+-
+-				remove_rel_from_restrictinfo(rinfo2, relid, ojrelid);
+-			}
+-		}
+-	}
+ }
+ 
+ /*

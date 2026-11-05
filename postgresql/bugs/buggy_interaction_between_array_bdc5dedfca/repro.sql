@@ -1,0 +1,1 @@
+SELECT (array[1,2])[(SELECT g.i)] FROM generate_series(1, 1) g(i);

@@ -1,0 +1,45 @@
+diff --git a/src/backend/optimizer/path/joinrels.c b/src/backend/optimizer/path/joinrels.c
+index aad41b94009..24a2ca80fa0 100644
+--- a/src/backend/optimizer/path/joinrels.c
++++ b/src/backend/optimizer/path/joinrels.c
+@@ -1583,8 +1583,12 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
+ 											   child_rel1->relids,
+ 											   child_rel2->relids);
+ 
+-		/* Find the AppendRelInfo structures */
++		/* Build correct join relids for child join */
+ 		child_relids = bms_union(child_rel1->relids, child_rel2->relids);
++		child_relids = add_outer_joins_to_relids(root, child_relids,
++												 child_sjinfo, NULL);
++
++		/* Find the AppendRelInfo structures */
+ 		appinfos = find_appinfos_by_relids(root, child_relids,
+ 										   &nappinfos);
+ 
+@@ -1611,9 +1615,7 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
+ 		}
+ 
+ 		/* Assert we got the right one */
+-		Assert(bms_equal(child_joinrel->relids,
+-						 adjust_child_relids(joinrel->relids,
+-											 nappinfos, appinfos)));
++		Assert(bms_equal(child_joinrel->relids, child_relids));
+ 
+ 		/* And make paths for the child join */
+ 		populate_joinrel_with_paths(root, child_rel1, child_rel2,
+diff --git a/src/backend/optimizer/util/relnode.c b/src/backend/optimizer/util/relnode.c
+index ff507331a06..794bf9cca28 100644
+--- a/src/backend/optimizer/util/relnode.c
++++ b/src/backend/optimizer/util/relnode.c
+@@ -893,8 +893,9 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
+ 	Assert(parent_joinrel->consider_partitionwise_join);
+ 
+ 	joinrel->reloptkind = RELOPT_OTHER_JOINREL;
+-	joinrel->relids = adjust_child_relids(parent_joinrel->relids,
+-										  nappinfos, appinfos);
++	joinrel->relids = bms_union(outer_rel->relids, inner_rel->relids);
++	joinrel->relids = add_outer_joins_to_relids(root, joinrel->relids, sjinfo,
++												NULL);
+ 	joinrel->rows = 0;
+ 	/* cheap startup cost is interesting iff not all tuples to be retrieved */
+ 	joinrel->consider_startup = (root->tuple_fraction > 0);

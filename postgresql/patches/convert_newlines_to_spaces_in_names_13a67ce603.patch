@@ -1,0 +1,173 @@
+diff --git a/src/bin/pg_dump/dumputils.c b/src/bin/pg_dump/dumputils.c
+index 17ec9f9b0cc..28d8375c2cb 100644
+--- a/src/bin/pg_dump/dumputils.c
++++ b/src/bin/pg_dump/dumputils.c
+@@ -32,43 +32,6 @@ static void AddAcl(PQExpBuffer aclbuf, const char *keyword,
+ 				   const char *subname);
+ 
+ 
+-/*
+- * Sanitize a string to be included in an SQL comment or TOC listing, by
+- * replacing any newlines with spaces.  This ensures each logical output line
+- * is in fact one physical output line, to prevent corruption of the dump
+- * (which could, in the worst case, present an SQL injection vulnerability
+- * if someone were to incautiously load a dump containing objects with
+- * maliciously crafted names).
+- *
+- * The result is a freshly malloc'd string.  If the input string is NULL,
+- * return a malloc'ed empty string, unless want_hyphen, in which case return a
+- * malloc'ed hyphen.
+- *
+- * Note that we currently don't bother to quote names, meaning that the name
+- * fields aren't automatically parseable.  "pg_restore -L" doesn't care because
+- * it only examines the dumpId field, but someday we might want to try harder.
+- */
+-char *
+-sanitize_line(const char *str, bool want_hyphen)
+-{
+-	char	   *result;
+-	char	   *s;
+-
+-	if (!str)
+-		return pg_strdup(want_hyphen ? "-" : "");
+-
+-	result = pg_strdup(str);
+-
+-	for (s = result; *s != '\0'; s++)
+-	{
+-		if (*s == '\n' || *s == '\r')
+-			*s = ' ';
+-	}
+-
+-	return result;
+-}
+-
+-
+ /*
+  * Build GRANT/REVOKE command(s) for an object.
+  *
+diff --git a/src/bin/pg_dump/dumputils.h b/src/bin/pg_dump/dumputils.h
+index bbc70329abe..e812e5e00cd 100644
+--- a/src/bin/pg_dump/dumputils.h
++++ b/src/bin/pg_dump/dumputils.h
+@@ -36,7 +36,6 @@
+ #endif
+ 
+ 
+-extern char *sanitize_line(const char *str, bool want_hyphen);
+ extern bool buildACLCommands(const char *name, const char *subname, const char *nspname,
+ 							 const char *type, const char *acls, const char *baseacls,
+ 							 const char *owner, const char *prefix, int remoteVersion,
+diff --git a/src/bin/pg_dump/pg_backup_archiver.c b/src/bin/pg_dump/pg_backup_archiver.c
+index efcb5924935..a2fadf4b2a3 100644
+--- a/src/bin/pg_dump/pg_backup_archiver.c
++++ b/src/bin/pg_dump/pg_backup_archiver.c
+@@ -58,6 +58,7 @@ static ArchiveHandle *_allocAH(const char *FileSpec, const ArchiveFormat fmt,
+ 							   DataDirSyncMethod sync_method);
+ static void _getObjectDescription(PQExpBuffer buf, const TocEntry *te);
+ static void _printTocEntry(ArchiveHandle *AH, TocEntry *te, const char *pfx);
++static char *sanitize_line(const char *str, bool want_hyphen);
+ static void _doSetFixedOutputState(ArchiveHandle *AH);
+ static void _doSetSessionAuth(ArchiveHandle *AH, const char *user);
+ static void _reconnectToDB(ArchiveHandle *AH, const char *dbname);
+@@ -4140,6 +4141,42 @@ _printTocEntry(ArchiveHandle *AH, TocEntry *te, const char *pfx)
+ 	}
+ }
+ 
++/*
++ * Sanitize a string to be included in an SQL comment or TOC listing, by
++ * replacing any newlines with spaces.  This ensures each logical output line
++ * is in fact one physical output line, to prevent corruption of the dump
++ * (which could, in the worst case, present an SQL injection vulnerability
++ * if someone were to incautiously load a dump containing objects with
++ * maliciously crafted names).
++ *
++ * The result is a freshly malloc'd string.  If the input string is NULL,
++ * return a malloc'ed empty string, unless want_hyphen, in which case return a
++ * malloc'ed hyphen.
++ *
++ * Note that we currently don't bother to quote names, meaning that the name
++ * fields aren't automatically parseable.  "pg_restore -L" doesn't care because
++ * it only examines the dumpId field, but someday we might want to try harder.
++ */
++static char *
++sanitize_line(const char *str, bool want_hyphen)
++{
++	char	   *result;
++	char	   *s;
++
++	if (!str)
++		return pg_strdup(want_hyphen ? "-" : "");
++
++	result = pg_strdup(str);
++
++	for (s = result; *s != '\0'; s++)
++	{
++		if (*s == '\n' || *s == '\r')
++			*s = ' ';
++	}
++
++	return result;
++}
++
+ /*
+  * Write the file header for a custom-format archive
+  */
+diff --git a/src/bin/pg_dump/pg_dump.c b/src/bin/pg_dump/pg_dump.c
+index 618b0ea28a1..3d38e4b445c 100644
+--- a/src/bin/pg_dump/pg_dump.c
++++ b/src/bin/pg_dump/pg_dump.c
+@@ -2838,14 +2838,11 @@ dumpTableData(Archive *fout, const TableDataInfo *tdinfo)
+ 		 forcePartitionRootLoad(tbinfo)))
+ 	{
+ 		TableInfo  *parentTbinfo;
+-		char	   *sanitized;
+ 
+ 		parentTbinfo = getRootTableInfo(tbinfo);
+ 		copyFrom = fmtQualifiedDumpable(parentTbinfo);
+-		sanitized = sanitize_line(copyFrom, true);
+ 		printfPQExpBuffer(copyBuf, "-- load via partition root %s",
+-						  sanitized);
+-		free(sanitized);
++						  copyFrom);
+ 		tdDefn = pg_strdup(copyBuf->data);
+ 	}
+ 	else
+diff --git a/src/bin/pg_dump/pg_dumpall.c b/src/bin/pg_dump/pg_dumpall.c
+index 40b133bb230..3a644100ff8 100644
+--- a/src/bin/pg_dump/pg_dumpall.c
++++ b/src/bin/pg_dump/pg_dumpall.c
+@@ -1545,13 +1545,7 @@ dumpUserConfig(PGconn *conn, const char *username)
+ 	res = executeQuery(conn, buf->data);
+ 
+ 	if (PQntuples(res) > 0)
+-	{
+-		char	   *sanitized;
+-
+-		sanitized = sanitize_line(username, true);
+-		fprintf(OPF, "\n--\n-- User Config \"%s\"\n--\n\n", sanitized);
+-		free(sanitized);
+-	}
++		fprintf(OPF, "\n--\n-- User Config \"%s\"\n--\n\n", username);
+ 
+ 	for (int i = 0; i < PQntuples(res); i++)
+ 	{
+@@ -1653,7 +1647,6 @@ dumpDatabases(PGconn *conn)
+ 	for (i = 0; i < PQntuples(res); i++)
+ 	{
+ 		char	   *dbname = PQgetvalue(res, i, 0);
+-		char	   *sanitized;
+ 		const char *create_opts;
+ 		int			ret;
+ 
+@@ -1670,9 +1663,7 @@ dumpDatabases(PGconn *conn)
+ 
+ 		pg_log_info("dumping database \"%s\"", dbname);
+ 
+-		sanitized = sanitize_line(dbname, true);
+-		fprintf(OPF, "--\n-- Database \"%s\" dump\n--\n\n", sanitized);
+-		free(sanitized);
++		fprintf(OPF, "--\n-- Database \"%s\" dump\n--\n\n", dbname);
+ 
+ 		/*
+ 		 * We assume that "template1" and "postgres" already exist in the

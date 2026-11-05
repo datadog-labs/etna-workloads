@@ -1,0 +1,6 @@
+create table u(k int primary key, c text);
+create function af() returns trigger language plpgsql as $$
+begin raise warning 'old: %, new: %', old.c, new.c; return null; end $$;
+create trigger t after update on u for each row execute function af();
+insert into u values (1,'a');
+insert into u values (1,'b') on conflict (k) do update set c = 'upd ' || u.c;

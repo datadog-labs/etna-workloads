@@ -1,0 +1,53 @@
+create table p (a bool, b bool) partition by range (a, b);
+create table p_ff partition of p for values from (false,false) to (false,true);
+create table p_ft partition of p for values from (false,true) to (true,false);
+create table p_tf partition of p for values from (true,false) to (true,true);
+create table p_tt partition of p for values from (true,true) to (maxvalue,maxvalue);
+explain (costs off) select * from p where a and b;
+         QUERY PLAN         
+----------------------------
+ Append
+   ->  Seq Scan on p_ft p_1
+         Filter: (a AND b)
+   ->  Seq Scan on p_tf p_2
+         Filter: (a AND b)
+   ->  Seq Scan on p_tt p_3
+         Filter: (a AND b)
+(7 rows)
+
+explain (costs off) select * from p where b and a;
+         QUERY PLAN         
+----------------------------
+ Append
+   ->  Seq Scan on p_ft p_1
+         Filter: (b AND a)
+   ->  Seq Scan on p_tf p_2
+         Filter: (b AND a)
+   ->  Seq Scan on p_tt p_3
+         Filter: (b AND a)
+(7 rows)
+
+explain (costs off) select * from p where a is true and b is true;
+                  QUERY PLAN                   
+-----------------------------------------------
+ Append
+   ->  Seq Scan on p_ft p_1
+         Filter: ((a IS TRUE) AND (b IS TRUE))
+   ->  Seq Scan on p_tf p_2
+         Filter: ((a IS TRUE) AND (b IS TRUE))
+   ->  Seq Scan on p_tt p_3
+         Filter: ((a IS TRUE) AND (b IS TRUE))
+(7 rows)
+
+explain (costs off) select * from p where b is true and a is true;
+                  QUERY PLAN                   
+-----------------------------------------------
+ Append
+   ->  Seq Scan on p_ft p_1
+         Filter: ((b IS TRUE) AND (a IS TRUE))
+   ->  Seq Scan on p_tf p_2
+         Filter: ((b IS TRUE) AND (a IS TRUE))
+   ->  Seq Scan on p_tt p_3
+         Filter: ((b IS TRUE) AND (a IS TRUE))
+(7 rows)
+

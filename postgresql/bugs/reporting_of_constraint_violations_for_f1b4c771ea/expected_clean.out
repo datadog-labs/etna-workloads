@@ -1,0 +1,9 @@
+create table p (a int, b text) partition by list (b);
+create table p1 (b text, a int);
+alter table p attach partition p1 for values in ('x');
+create function trg() returns trigger language plpgsql as
+$$ begin new.b := 'y'; return new; end $$;
+create trigger t before insert on p1 for each row execute procedure trg();
+insert into p values (1, 'x');
+psql:<REPRO>:7: ERROR:  new row for relation "p1" violates partition constraint
+DETAIL:  Failing row contains (1, y).

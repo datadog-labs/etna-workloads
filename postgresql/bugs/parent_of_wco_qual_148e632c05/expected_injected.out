@@ -1,0 +1,27 @@
+CREATE TABLE base_tbl (a int PRIMARY KEY, b int);
+CREATE TABLE ref_tbl (a int PRIMARY KEY);
+CREATE VIEW rw_view1 AS SELECT * FROM base_tbl b WHERE EXISTS(SELECT 1 FROM ref_tbl r WHERE r.a = b.a) WITH CHECK OPTION;
+EXPLAIN (costs off) INSERT INTO rw_view1 VALUES (5);
+                          QUERY PLAN                           
+---------------------------------------------------------------
+ Insert on base_tbl b
+   ->  Result
+         SubPlan 1
+           ->  Index Only Scan using ref_tbl_pkey on ref_tbl r
+                 Index Cond: (a = b.a)
+(5 rows)
+
+EXPLAIN (costs off) UPDATE rw_view1 SET a = a + 5;
+                           QUERY PLAN                            
+-----------------------------------------------------------------
+ Update on base_tbl b
+   ->  Hash Join
+         Hash Cond: (r.a = b.a)
+         ->  Seq Scan on ref_tbl r
+         ->  Hash
+               ->  Seq Scan on base_tbl b
+         SubPlan 1
+           ->  Index Only Scan using ref_tbl_pkey on ref_tbl r_1
+                 Index Cond: (a = b.a)
+(9 rows)
+

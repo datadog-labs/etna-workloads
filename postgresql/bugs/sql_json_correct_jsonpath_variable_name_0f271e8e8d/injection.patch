@@ -1,0 +1,46 @@
+diff --git a/src/backend/executor/execExpr.c b/src/backend/executor/execExpr.c
+index 038a93c5cc7..d040bc0c005 100644
+--- a/src/backend/executor/execExpr.c
++++ b/src/backend/executor/execExpr.c
+@@ -4805,7 +4805,6 @@ ExecInitJsonExpr(JsonExpr *jsexpr, ExprState *state,
+ 		JsonPathVariable *var = palloc(sizeof(*var));
+ 
+ 		var->name = argname->sval;
+-		var->namelen = strlen(var->name);
+ 		var->typid = exprType((Node *) argexpr);
+ 		var->typmod = exprTypmod((Node *) argexpr);
+ 
+diff --git a/src/backend/utils/adt/jsonpath_exec.c b/src/backend/utils/adt/jsonpath_exec.c
+index 4be288c23eb..2b184f83e9e 100644
+--- a/src/backend/utils/adt/jsonpath_exec.c
++++ b/src/backend/utils/adt/jsonpath_exec.c
+@@ -2988,8 +2988,7 @@ GetJsonPathVar(void *cxt, char *varName, int varNameLen,
+ 	{
+ 		JsonPathVariable *curvar = lfirst(lc);
+ 
+-		if (curvar->namelen == varNameLen &&
+-			strncmp(curvar->name, varName, varNameLen) == 0)
++		if (!strncmp(curvar->name, varName, varNameLen))
+ 		{
+ 			var = curvar;
+ 			break;
+@@ -4127,7 +4126,6 @@ JsonTableInitOpaque(TableFuncScanState *state, int natts)
+ 			JsonPathVariable *var = palloc(sizeof(*var));
+ 
+ 			var->name = pstrdup(name->sval);
+-			var->namelen = strlen(var->name);
+ 			var->typid = exprType((Node *) state->expr);
+ 			var->typmod = exprTypmod((Node *) state->expr);
+ 
+diff --git a/src/include/utils/jsonpath.h b/src/include/utils/jsonpath.h
+index 23a76d233e9..795e0a37fe1 100644
+--- a/src/include/utils/jsonpath.h
++++ b/src/include/utils/jsonpath.h
+@@ -287,7 +287,6 @@ extern bool jspConvertRegexFlags(uint32 xflags, int *result,
+ typedef struct JsonPathVariable
+ {
+ 	char	   *name;
+-	int			namelen;		/* strlen(name) as cache for GetJsonPathVar() */
+ 	Oid			typid;
+ 	int32		typmod;
+ 	Datum		value;

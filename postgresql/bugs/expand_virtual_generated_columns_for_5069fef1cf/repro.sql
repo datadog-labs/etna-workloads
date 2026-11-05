@@ -1,0 +1,4 @@
+create table g (a int primary key, b int generated always as (a*2), e int);
+insert into g values (1),(2);
+alter table g alter column e type bigint using b;
+select * from g;

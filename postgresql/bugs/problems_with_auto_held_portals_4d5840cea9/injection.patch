@@ -1,0 +1,47 @@
+diff --git a/src/backend/executor/spi.c b/src/backend/executor/spi.c
+index ecb2e4ccaa1..0365d1ccf19 100644
+--- a/src/backend/executor/spi.c
++++ b/src/backend/executor/spi.c
+@@ -264,13 +264,6 @@ _SPI_commit(bool chain)
+ 		/* Protect current SPI stack entry against deletion */
+ 		_SPI_current->internal_xact = true;
+ 
+-		/*
+-		 * Hold any pinned portals that any PLs might be using.  We have to do
+-		 * this before changing transaction state, since this will run
+-		 * user-defined code that might throw an error.
+-		 */
+-		HoldPinnedPortals();
+-
+ 		/* Release snapshots associated with portals */
+ 		ForgetPortalSnapshots();
+ 
+@@ -355,14 +348,6 @@ _SPI_rollback(bool chain)
+ 		/* Protect current SPI stack entry against deletion */
+ 		_SPI_current->internal_xact = true;
+ 
+-		/*
+-		 * Hold any pinned portals that any PLs might be using.  We have to do
+-		 * this before changing transaction state, since this will run
+-		 * user-defined code that might throw an error, and in any case
+-		 * couldn't be run in an already-aborted transaction.
+-		 */
+-		HoldPinnedPortals();
+-
+ 		/* Release snapshots associated with portals */
+ 		ForgetPortalSnapshots();
+ 
+diff --git a/src/backend/utils/mmgr/portalmem.c b/src/backend/utils/mmgr/portalmem.c
+index 0be1c2b0fff..14c6d32aa98 100644
+--- a/src/backend/utils/mmgr/portalmem.c
++++ b/src/backend/utils/mmgr/portalmem.c
+@@ -1235,8 +1235,8 @@ HoldPinnedPortals(void)
+ 			if (portal->status != PORTAL_READY)
+ 				elog(ERROR, "pinned portal is not ready to be auto-held");
+ 
+-			HoldPortal(portal);
+ 			portal->autoHeld = true;
++			HoldPortal(portal);
+ 		}
+ 	}
+ }

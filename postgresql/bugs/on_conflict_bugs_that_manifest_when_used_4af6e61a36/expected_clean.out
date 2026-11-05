@@ -1,0 +1,26 @@
+create table hat_data(hat_name text primary key, hat_color text);
+create view hats as select * from hat_data;
+create rule hat_upsert as on insert to hats do instead
+  insert into hat_data values (new.hat_name, new.hat_color)
+  on conflict (hat_name) do update
+  set hat_name = hat_data.hat_name, hat_color = excluded.hat_color
+  where excluded.hat_color <> 'forbidden'
+  returning *;
+insert into hats values ('h8','black') returning *;
+ hat_name | hat_color 
+----------+-----------
+ h8       | black
+(1 row)
+
+insert into hats values ('h8','white') returning *;
+ hat_name | hat_color 
+----------+-----------
+ h8       | white
+(1 row)
+
+select * from hat_data;
+ hat_name | hat_color 
+----------+-----------
+ h8       | white
+(1 row)
+

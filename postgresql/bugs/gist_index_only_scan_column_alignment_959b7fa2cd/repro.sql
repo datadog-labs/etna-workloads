@@ -1,0 +1,10 @@
+create temp table gist_ios_tupdesc (a inet, r numrange);
+insert into gist_ios_tupdesc
+values ('::1', numrange(repeat('7', 200)::numeric, repeat('8', 200)::numeric));
+create index on gist_ios_tupdesc using gist (a inet_ops, r);
+vacuum analyze gist_ios_tupdesc;
+set enable_seqscan = off;
+set enable_bitmapscan = off;
+select lower(r) = repeat('7', 200)::numeric as lower_ok,
+       upper(r) = repeat('8', 200)::numeric as upper_ok
+  from gist_ios_tupdesc where r && numrange(null, null);

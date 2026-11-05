@@ -1,0 +1,5 @@
+CREATE TABLE t (a int, c int, ia int[]);
+INSERT INTO t SELECT mod(i,100), mod(i,25), array[mod(i,25)] FROM generate_series(1,5000) i;
+CREATE STATISTICS s (mcv) ON a, c, ia FROM t;
+ANALYZE t;
+EXPLAIN SELECT * FROM t WHERE a = ANY (ARRAY[4,5]) AND 4 = ANY(ia);

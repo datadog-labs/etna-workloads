@@ -1,0 +1,6 @@
+create table cnullparent (f1 int);
+create table cnullchild (check (f1 = 1 or f1 = null)) inherits(cnullparent);
+insert into cnullchild values(1);
+insert into cnullchild values(2);
+insert into cnullchild values(null);
+select * from cnullparent where f1 = 2;

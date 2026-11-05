@@ -1,0 +1,45 @@
+diff --git a/src/backend/executor/nodeBitmapHeapscan.c b/src/backend/executor/nodeBitmapHeapscan.c
+index fd842ad8e22..baeec3aae16 100644
+--- a/src/backend/executor/nodeBitmapHeapscan.c
++++ b/src/backend/executor/nodeBitmapHeapscan.c
+@@ -232,11 +232,9 @@ ExecReScanBitmapHeapScan(BitmapHeapScanState *node)
+ 	if (scan)
+ 	{
+ 		/*
+-		 * End iteration on iterators saved in scan descriptor if they have
+-		 * not already been cleaned up.
++		 * End iteration on iterators saved in scan descriptor.
+ 		 */
+-		if (!tbm_exhausted(&scan->st.rs_tbmiterator))
+-			tbm_end_iterate(&scan->st.rs_tbmiterator);
++		tbm_end_iterate(&scan->st.rs_tbmiterator);
+ 
+ 		/* rescan to release any page pin */
+ 		table_rescan(node->ss.ss_currentScanDesc, NULL);
+@@ -304,11 +302,9 @@ ExecEndBitmapHeapScan(BitmapHeapScanState *node)
+ 	if (scanDesc)
+ 	{
+ 		/*
+-		 * End iteration on iterators saved in scan descriptor if they have
+-		 * not already been cleaned up.
++		 * End iteration on iterators saved in scan descriptor.
+ 		 */
+-		if (!tbm_exhausted(&scanDesc->st.rs_tbmiterator))
+-			tbm_end_iterate(&scanDesc->st.rs_tbmiterator);
++		tbm_end_iterate(&scanDesc->st.rs_tbmiterator);
+ 
+ 		/*
+ 		 * close table scan
+diff --git a/src/backend/nodes/tidbitmap.c b/src/backend/nodes/tidbitmap.c
+index 41031aa8f2f..aae8547c2ce 100644
+--- a/src/backend/nodes/tidbitmap.c
++++ b/src/backend/nodes/tidbitmap.c
+@@ -1596,7 +1596,7 @@ tbm_begin_iterate(TIDBitmap *tbm, dsa_area *dsa, dsa_pointer dsp)
+ void
+ tbm_end_iterate(TBMIterator *iterator)
+ {
+-	Assert(iterator && !tbm_exhausted(iterator));
++	Assert(iterator);
+ 
+ 	if (iterator->shared)
+ 		tbm_end_shared_iterate(iterator->i.shared_iterator);

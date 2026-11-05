@@ -1,0 +1,8 @@
+CREATE EXTENSION plpython3u;
+CREATE FUNCTION ugly(x int, lim int) RETURNS SETOF int AS $$
+global x
+while x <= lim:
+    yield x
+    x = x + 1
+$$ LANGUAGE plpython3u;
+SELECT ugly(1,3), ugly(7,8);

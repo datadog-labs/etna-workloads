@@ -1,0 +1,21 @@
+CREATE TABLE tab4 (a int PRIMARY KEY) PARTITION BY LIST (a);
+CREATE TABLE tab4_1 PARTITION OF tab4 FOR VALUES IN (0,1) PARTITION BY LIST (a);
+CREATE TABLE tab4_1_1 PARTITION OF tab4_1 FOR VALUES IN (0,1);
+CREATE PUBLICATION pub_all FOR ALL TABLES WITH (publish_via_partition_root = true);
+CREATE PUBLICATION pub_lower FOR TABLE tab4_1 WITH (publish_via_partition_root = true);
+SELECT pg_create_logical_replication_slot('s','pgoutput');
+ pg_create_logical_replication_slot 
+------------------------------------
+ (s,0/17A40A0)
+(1 row)
+
+INSERT INTO tab4 VALUES (1);
+SELECT position('tab4_1'::bytea in data) > 0 AS via_middle
+FROM pg_logical_slot_get_binary_changes('s', NULL, NULL, 'proto_version','1','publication_names','pub_all,pub_lower')
+WHERE get_byte(data,0) = 82;
+ via_middle 
+------------
+ f
+ t
+(2 rows)
+

@@ -1,0 +1,20 @@
+diff --git a/src/backend/optimizer/util/appendinfo.c b/src/backend/optimizer/util/appendinfo.c
+index 9ef93d466c0..6d74fb24f2d 100644
+--- a/src/backend/optimizer/util/appendinfo.c
++++ b/src/backend/optimizer/util/appendinfo.c
+@@ -143,12 +143,14 @@ make_inh_translation_list(Relation oldrelation, Relation newrelation,
+ 		 */
+ 		if (new_attno >= newnatts ||
+ 			(att = TupleDescAttr(new_tupdesc, new_attno))->attisdropped ||
++			att->attinhcount == 0 ||
+ 			strcmp(attname, NameStr(att->attname)) != 0)
+ 		{
+ 			HeapTuple	newtup;
+ 
+ 			newtup = SearchSysCacheAttName(new_relid, attname);
+-			if (!HeapTupleIsValid(newtup))
++			if (!HeapTupleIsValid(newtup) ||
++				((Form_pg_attribute) GETSTRUCT(newtup))->attinhcount == 0)
+ 				elog(ERROR, "could not find inherited attribute \"%s\" of relation \"%s\"",
+ 					 attname, RelationGetRelationName(newrelation));
+ 			new_attno = ((Form_pg_attribute) GETSTRUCT(newtup))->attnum - 1;

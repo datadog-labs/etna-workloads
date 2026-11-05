@@ -1,0 +1,4 @@
+create temp table t(f1 int4);
+insert into t values (0),(1);
+analyze t;
+select (1 = any(array_agg(f1))) = any (select false) from t;

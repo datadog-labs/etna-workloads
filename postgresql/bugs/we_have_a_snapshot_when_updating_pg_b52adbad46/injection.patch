@@ -1,0 +1,105 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..5549644431f 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -2296,17 +2296,9 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
+ 		 */
+ 		WaitForLockers(heaplocktag, AccessExclusiveLock, true);
+ 
+-		/*
+-		 * Updating pg_index might involve TOAST table access, so ensure we
+-		 * have a valid snapshot.
+-		 */
+-		PushActiveSnapshot(GetTransactionSnapshot());
+-
+ 		/* Finish invalidation of index and mark it as dead */
+ 		index_concurrently_set_dead(heapId, indexId);
+ 
+-		PopActiveSnapshot();
+-
+ 		/*
+ 		 * Again, commit the transaction to make the pg_index update visible
+ 		 * to other sessions.
+@@ -2354,12 +2346,6 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
+ 
+ 	RelationForgetRelation(indexId);
+ 
+-	/*
+-	 * Updating pg_index might involve TOAST table access, so ensure we have a
+-	 * valid snapshot.
+-	 */
+-	PushActiveSnapshot(GetTransactionSnapshot());
+-
+ 	/*
+ 	 * fix INDEX relation, and check for expressional index
+ 	 */
+@@ -2377,8 +2363,6 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
+ 	ReleaseSysCache(tuple);
+ 	table_close(indexRelation, RowExclusiveLock);
+ 
+-	PopActiveSnapshot();
+-
+ 	/*
+ 	 * if it has any expression columns, we might have stored statistics about
+ 	 * them.
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..3340817d5f1 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -1812,19 +1812,11 @@ DefineIndex(Oid tableId,
+ 								 PROGRESS_CREATEIDX_PHASE_WAIT_3);
+ 	WaitForOlderSnapshots(limitXmin, true);
+ 
+-	/*
+-	 * Updating pg_index might involve TOAST table access, so ensure we have a
+-	 * valid snapshot.
+-	 */
+-	PushActiveSnapshot(GetTransactionSnapshot());
+-
+ 	/*
+ 	 * Index can now be marked valid -- update its pg_index entry
+ 	 */
+ 	index_set_state_flags(indexRelationId, INDEX_CREATE_SET_VALID);
+ 
+-	PopActiveSnapshot();
+-
+ 	/*
+ 	 * The pg_index update will cause backends (including this one) to update
+ 	 * relcache entries for the index itself, but we should also send a
+@@ -4279,20 +4271,12 @@ ReindexRelationConcurrently(const ReindexStmt *stmt, Oid relationOid, const Rein
+ 									 get_rel_namespace(oldidx->tableId),
+ 									 false);
+ 
+-		/*
+-		 * Swapping the indexes might involve TOAST table access, so ensure we
+-		 * have a valid snapshot.
+-		 */
+-		PushActiveSnapshot(GetTransactionSnapshot());
+-
+ 		/*
+ 		 * Swap old index with the new one.  This also marks the new one as
+ 		 * valid and the old one as not valid.
+ 		 */
+ 		index_concurrently_swap(newidx->indexId, oldidx->indexId, oldName);
+ 
+-		PopActiveSnapshot();
+-
+ 		/*
+ 		 * Invalidate the relcache for the table, so that after this commit
+ 		 * all sessions will refresh any cached plans that might reference the
+@@ -4343,15 +4327,7 @@ ReindexRelationConcurrently(const ReindexStmt *stmt, Oid relationOid, const Rein
+ 		 */
+ 		CHECK_FOR_INTERRUPTS();
+ 
+-		/*
+-		 * Updating pg_index might involve TOAST table access, so ensure we
+-		 * have a valid snapshot.
+-		 */
+-		PushActiveSnapshot(GetTransactionSnapshot());
+-
+ 		index_concurrently_set_dead(oldidx->tableId, oldidx->indexId);
+-
+-		PopActiveSnapshot();
+ 	}
+ 
+ 	/* Commit this transaction to make the updates visible. */

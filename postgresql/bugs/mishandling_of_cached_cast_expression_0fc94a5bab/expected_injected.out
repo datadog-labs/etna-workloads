@@ -1,0 +1,26 @@
+create type t1 as (a int);
+create function f2(int) returns t1 language sql volatile as $$ select row($1+1)::t1 $$;
+create cast (int as t1) with function f2(int) as assignment;
+create function p(i int) returns int language plpgsql as $$
+declare v t1; begin v := i; return (v).a; end $$;
+create function churn() returns int language plpgsql as $$
+declare r int; begin
+ select count(*) into r from (select g, repeat('x',g%50) s from generate_series(1,20000) g order by s) x; return r; end $$;
+select p(1);
+ p 
+---
+ 2
+(1 row)
+
+select churn(), p(2);
+ churn | p 
+-------+---
+ 20000 | 3
+(1 row)
+
+select churn(), p(3);
+psql:<REPRO>:11: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:11: error: connection to server was lost
+### server crashed or assertion failed

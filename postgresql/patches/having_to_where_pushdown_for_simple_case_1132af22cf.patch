@@ -1,0 +1,31 @@
+diff --git a/src/backend/optimizer/util/clauses.c b/src/backend/optimizer/util/clauses.c
+index aa70667c4a5..bb05ffc66d2 100644
+--- a/src/backend/optimizer/util/clauses.c
++++ b/src/backend/optimizer/util/clauses.c
+@@ -5613,25 +5613,9 @@ grouping_conflict_walker(Node *node, grouping_walker_ctx *ctx)
+ 
+ 		if (arg && IsA(arg, Var))
+ 		{
+-			Var		   *var = (Var *) arg;
+-
+ 			/*
+-			 * The arg is a grouping column compared by every WHEN.  For a
+-			 * nondeterministic collation, reject if any WHEN applies a
+-			 * different collation.
++			 * The arg is a direct grouping column; treat it as handled.
+ 			 */
+-			if (OidIsValid(ctx->get_eqop(var, ctx->cb_context)) &&
+-				OidIsValid(var->varcollid) &&
+-				!get_collation_isdeterministic(var->varcollid))
+-			{
+-				foreach_node(CaseWhen, cw, cexpr->args)
+-				{
+-					Oid			collid = exprInputCollation((Node *) cw->expr);
+-
+-					if (OidIsValid(collid) && collid != var->varcollid)
+-						return true;
+-				}
+-			}
+ 		}
+ 		else if (grouping_conflict_walker((Node *) cexpr->arg, ctx))
+ 		{

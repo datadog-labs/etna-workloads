@@ -1,0 +1,36 @@
+diff --git a/src/backend/statistics/mcv.c b/src/backend/statistics/mcv.c
+index d98cda698d9..2085ca526ff 100644
+--- a/src/backend/statistics/mcv.c
++++ b/src/backend/statistics/mcv.c
+@@ -1939,30 +1939,7 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
+ 			}
+ 		}
+ 		else
+-		{
+-			/* Otherwise, it must be a bare boolean-returning expression */
+-			int			idx;
+-
+-			/* match the expression to a dimension of the statistic */
+-			idx = mcv_match_expression(clause, keys, exprs, NULL);
+-
+-			/*
+-			 * Walk through the MCV items and evaluate the current clause. We
+-			 * can skip items that were already ruled out, and terminate if
+-			 * there are no remaining MCV items that might possibly match.
+-			 */
+-			for (int i = 0; i < mcvlist->nitems; i++)
+-			{
+-				bool		match;
+-				MCVItem    *item = &mcvlist->items[i];
+-
+-				/* "match" just means it's bool TRUE */
+-				match = !item->isnull[idx] && DatumGetBool(item->values[idx]);
+-
+-				/* now, update the match bitmap, depending on OR/AND type */
+-				matches[i] = RESULT_MERGE(matches[i], is_or, match);
+-			}
+-		}
++			elog(ERROR, "unknown clause type: %d", clause->type);
+ 	}
+ 
+ 	return matches;

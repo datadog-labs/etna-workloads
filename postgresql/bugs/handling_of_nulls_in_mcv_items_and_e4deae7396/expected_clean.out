@@ -1,0 +1,25 @@
+CREATE TABLE t (a int, b text, c int, d text);
+INSERT INTO t SELECT (CASE WHEN i%2=0 THEN NULL ELSE 0 END),(CASE WHEN i%2=0 THEN NULL ELSE 'x' END),(CASE WHEN i%2=0 THEN NULL ELSE 0 END),(CASE WHEN i%2=0 THEN NULL ELSE 'x' END) FROM generate_series(1,5000) i;
+CREATE STATISTICS s (mcv) ON a, b, c, d FROM t;
+ANALYZE t;
+EXPLAIN SELECT * FROM t WHERE a IS NULL AND (b = 'x' OR d = 'x');
+                            QUERY PLAN                            
+------------------------------------------------------------------
+ Seq Scan on t  (cost=0.00..98.00 rows=1 width=12)
+   Filter: ((a IS NULL) AND ((b = 'x'::text) OR (d = 'x'::text)))
+(2 rows)
+
+EXPLAIN SELECT * FROM t WHERE b = 'x' OR d = 'x';
+                      QUERY PLAN                      
+------------------------------------------------------
+ Seq Scan on t  (cost=0.00..98.00 rows=2500 width=12)
+   Filter: ((b = 'x'::text) OR (d = 'x'::text))
+(2 rows)
+
+EXPLAIN SELECT * FROM t WHERE a = 0 OR c = 0;
+                      QUERY PLAN                      
+------------------------------------------------------
+ Seq Scan on t  (cost=0.00..98.00 rows=2500 width=12)
+   Filter: ((a = 0) OR (c = 0))
+(2 rows)
+

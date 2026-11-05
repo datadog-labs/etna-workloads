@@ -1,0 +1,38 @@
+diff --git a/src/backend/utils/cache/funccache.c b/src/backend/utils/cache/funccache.c
+index 1495af131e8..8e102cd9b51 100644
+--- a/src/backend/utils/cache/funccache.c
++++ b/src/backend/utils/cache/funccache.c
+@@ -368,8 +368,6 @@ cfunc_resolve_polymorphic_argtypes(int numargs,
+ 
+ 	if (!forValidator)
+ 	{
+-		int			inargno;
+-
+ 		/* normal case, pass to standard routine */
+ 		if (!resolve_polymorphic_argtypes(numargs, argtypes, argmodes,
+ 										  call_expr))
+@@ -378,24 +376,6 @@ cfunc_resolve_polymorphic_argtypes(int numargs,
+ 					 errmsg("could not determine actual argument "
+ 							"type for polymorphic function \"%s\"",
+ 							proname)));
+-		/* also, treat RECORD inputs (but not outputs) as polymorphic */
+-		inargno = 0;
+-		for (i = 0; i < numargs; i++)
+-		{
+-			char		argmode = argmodes ? argmodes[i] : PROARGMODE_IN;
+-
+-			if (argmode == PROARGMODE_OUT || argmode == PROARGMODE_TABLE)
+-				continue;
+-			if (argtypes[i] == RECORDOID || argtypes[i] == RECORDARRAYOID)
+-			{
+-				Oid			resolvedtype = get_call_expr_argtype(call_expr,
+-																 inargno);
+-
+-				if (OidIsValid(resolvedtype))
+-					argtypes[i] = resolvedtype;
+-			}
+-			inargno++;
+-		}
+ 	}
+ 	else
+ 	{

@@ -1,0 +1,38 @@
+diff --git a/src/backend/commands/subscriptioncmds.c b/src/backend/commands/subscriptioncmds.c
+index 395dcc678c2..822c858b678 100644
+--- a/src/backend/commands/subscriptioncmds.c
++++ b/src/backend/commands/subscriptioncmds.c
+@@ -1671,12 +1671,10 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
+ 	bool		must_use_password;
+ 
+ 	/*
+-	 * The launcher may concurrently start a new worker for this subscription.
+-	 * During initialization, the worker checks for subscription validity and
+-	 * exits if the subscription has already been dropped. See
+-	 * InitializeLogRepWorker.
++	 * Lock pg_subscription with AccessExclusiveLock to ensure that the
++	 * launcher doesn't restart new worker during dropping the subscription
+ 	 */
+-	rel = table_open(SubscriptionRelationId, RowExclusiveLock);
++	rel = table_open(SubscriptionRelationId, AccessExclusiveLock);
+ 
+ 	tup = SearchSysCache2(SUBSCRIPTIONNAME, MyDatabaseId,
+ 						  CStringGetDatum(stmt->subname));
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..210afaf51ce 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -4697,13 +4697,6 @@ InitializeLogRepWorker(void)
+ 	StartTransactionCommand();
+ 	oldctx = MemoryContextSwitchTo(ApplyContext);
+ 
+-	/*
+-	 * Lock the subscription to prevent it from being concurrently dropped,
+-	 * then re-verify its existence. After the initialization, the worker will
+-	 * be terminated gracefully if the subscription is dropped.
+-	 */
+-	LockSharedObject(SubscriptionRelationId, MyLogicalRepWorker->subid, 0,
+-					 AccessShareLock);
+ 	MySubscription = GetSubscription(MyLogicalRepWorker->subid, true);
+ 	if (!MySubscription)
+ 	{

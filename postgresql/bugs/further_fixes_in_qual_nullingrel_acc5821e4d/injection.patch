@@ -1,0 +1,32 @@
+diff --git a/src/backend/optimizer/plan/initsplan.c b/src/backend/optimizer/plan/initsplan.c
+index 8112509e872..d8b7db3d27e 100644
+--- a/src/backend/optimizer/plan/initsplan.c
++++ b/src/backend/optimizer/plan/initsplan.c
+@@ -1950,8 +1950,7 @@ make_outerjoininfo(PlannerInfo *root,
+ 			}
+ 			else if (jointype == JOIN_LEFT &&
+ 					 otherinfo->jointype == JOIN_LEFT &&
+-					 bms_overlap(strict_relids, otherinfo->min_righthand) &&
+-					 !bms_overlap(clause_relids, otherinfo->syn_lefthand))
++					 bms_overlap(strict_relids, otherinfo->min_righthand))
+ 			{
+ 				/* Identity 3 applies, so remove the ordering restriction */
+ 				min_lefthand = bms_del_member(min_lefthand, otherinfo->ojrelid);
+@@ -2411,7 +2410,7 @@ deconstruct_distribute_oj_quals(PlannerInfo *root,
+ 			{
+ 				quals = (List *)
+ 					add_nulling_relids((Node *) quals,
+-									   sjinfo->syn_lefthand,
++									   othersj->min_righthand,
+ 									   bms_make_singleton(othersj->ojrelid));
+ 				incompatible_joins = bms_del_member(incompatible_joins,
+ 													othersj->ojrelid);
+@@ -2476,7 +2475,7 @@ deconstruct_distribute_oj_quals(PlannerInfo *root,
+ 			{
+ 				quals = (List *)
+ 					add_nulling_relids((Node *) quals,
+-									   othersj->syn_righthand,
++									   othersj->min_righthand,
+ 									   bms_make_singleton(othersj->ojrelid));
+ 				incompatible_joins = bms_del_member(incompatible_joins,
+ 													othersj->ojrelid);

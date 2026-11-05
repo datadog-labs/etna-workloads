@@ -1,0 +1,5 @@
+create temp table t(q1 int8, q2 int8);
+insert into t values (1,2),(3,1);
+select * from generate_series(1,3) g,
+  lateral (select * from t a where g = q1 union all
+           select * from t b where g = q2) ss order by 1,2,3;

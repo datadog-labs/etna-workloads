@@ -1,0 +1,8 @@
+create table pk(f1 int primary key);
+create table fk(f1 int references pk deferrable initially deferred);
+insert into pk values(1);
+insert into fk values(1);
+begin;
+delete from pk where f1 = 1;
+alter table fk drop constraint fk_f1_fkey;
+commit;

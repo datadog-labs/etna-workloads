@@ -1,0 +1,30 @@
+CREATE TABLE q (b box);
+INSERT INTO q SELECT box(point(x*10,y*10),point(x*10+5,y*10+5)) FROM generate_series(1,100) x, generate_series(1,100) y;
+INSERT INTO q VALUES (NULL),('((-infinity,-infinity),(infinity,infinity))'),('((-infinity,-infinity),(700,infinity))');
+CREATE INDEX qi ON q USING spgist(b);
+SET enable_seqscan=off;
+SET enable_bitmapscan=off;
+SELECT count(*) FROM q WHERE b &< box '((100,200),(300,500))';
+ count 
+-------
+  2900
+(1 row)
+
+SELECT count(*) FROM q WHERE b &> box '((100,200),(300,500))';
+ count 
+-------
+  9100
+(1 row)
+
+SELECT count(*) FROM q WHERE b &<| box '((100,200),(300,500))';
+ count 
+-------
+  4900
+(1 row)
+
+SELECT count(*) FROM q WHERE b |&> box '((100,200),(300,500))';
+ count 
+-------
+  8100
+(1 row)
+

@@ -1,0 +1,109 @@
+diff --git a/src/backend/optimizer/util/var.c b/src/backend/optimizer/util/var.c
+index 9428cf5bb9c..287e606a019 100644
+--- a/src/backend/optimizer/util/var.c
++++ b/src/backend/optimizer/util/var.c
+@@ -184,84 +184,32 @@ pull_varnos_walker(Node *node, pull_varnos_context *context)
+ 	}
+ 	if (IsA(node, PlaceHolderVar))
+ 	{
+-		PlaceHolderVar *phv = (PlaceHolderVar *) node;
+-
+ 		/*
+-		 * If a PlaceHolderVar is not of the target query level, ignore it,
+-		 * instead recursing into its expression to see if it contains any
+-		 * vars that are of the target level.  We'll also do that when the
+-		 * caller doesn't pass a "root" pointer.  (We probably shouldn't see
+-		 * PlaceHolderVars at all in such cases, but if we do, this is a
+-		 * reasonable behavior.)
++		 * A PlaceHolderVar acts as a variable of its syntactic scope, or
++		 * lower than that if it references only a subset of the rels in its
++		 * syntactic scope.  It might also contain lateral references, but we
++		 * should ignore such references when computing the set of varnos in
++		 * an expression tree.  Also, if the PHV contains no variables within
++		 * its syntactic scope, it will be forced to be evaluated exactly at
++		 * the syntactic scope, so take that as the relid set.
+ 		 */
+-		if (phv->phlevelsup == context->sublevels_up &&
+-			context->root != NULL)
+-		{
+-			/*
+-			 * Ideally, the PHV's contribution to context->varnos is its
+-			 * ph_eval_at set.  However, this code can be invoked before
+-			 * that's been computed.  If we cannot find a PlaceHolderInfo,
+-			 * fall back to the conservative assumption that the PHV will be
+-			 * evaluated at its syntactic level (phv->phrels).
+-			 *
+-			 * Another problem is that a PlaceHolderVar can appear in quals or
+-			 * tlists that have been translated for use in a child appendrel.
+-			 * Typically such a PHV is a parameter expression sourced by some
+-			 * other relation, so that the translation from parent appendrel
+-			 * to child doesn't change its phrels, and we should still take
+-			 * ph_eval_at at face value.  But in corner cases, the PHV's
+-			 * original phrels can include the parent appendrel itself, in
+-			 * which case the translated PHV will have the child appendrel in
+-			 * phrels, and we must translate ph_eval_at to match.
+-			 */
+-			PlaceHolderInfo *phinfo = NULL;
++		PlaceHolderVar *phv = (PlaceHolderVar *) node;
++		pull_varnos_context subcontext;
+ 
+-			if (phv->phlevelsup == 0)
+-			{
+-				if (phv->phid < context->root->placeholder_array_size)
+-					phinfo = context->root->placeholder_array[phv->phid];
+-			}
+-			if (phinfo == NULL)
+-			{
+-				/* No PlaceHolderInfo yet, use phrels */
++		subcontext.varnos = NULL;
++		subcontext.root = context->root;
++		subcontext.sublevels_up = context->sublevels_up;
++		(void) pull_varnos_walker((Node *) phv->phexpr, &subcontext);
++		if (phv->phlevelsup == context->sublevels_up)
++		{
++			subcontext.varnos = bms_int_members(subcontext.varnos,
++												phv->phrels);
++			if (bms_is_empty(subcontext.varnos))
+ 				context->varnos = bms_add_members(context->varnos,
+ 												  phv->phrels);
+-			}
+-			else if (bms_equal(phv->phrels, phinfo->ph_var->phrels))
+-			{
+-				/* Normal case: use ph_eval_at */
+-				context->varnos = bms_add_members(context->varnos,
+-												  phinfo->ph_eval_at);
+-			}
+-			else
+-			{
+-				/* Translated PlaceHolderVar: translate ph_eval_at to match */
+-				Relids		newevalat,
+-							delta;
+-
+-				/* remove what was removed from phv->phrels ... */
+-				delta = bms_difference(phinfo->ph_var->phrels, phv->phrels);
+-				newevalat = bms_difference(phinfo->ph_eval_at, delta);
+-				/* ... then if that was in fact part of ph_eval_at ... */
+-				if (!bms_equal(newevalat, phinfo->ph_eval_at))
+-				{
+-					/* ... add what was added */
+-					delta = bms_difference(phv->phrels, phinfo->ph_var->phrels);
+-					newevalat = bms_join(newevalat, delta);
+-				}
+-				context->varnos = bms_join(context->varnos,
+-										   newevalat);
+-			}
+-
+-			/*
+-			 * In all three cases, include phnullingrels in the result.  We
+-			 * don't worry about possibly needing to translate it, because
+-			 * appendrels only translate varnos of baserels, not outer joins.
+-			 */
+-			context->varnos = bms_add_members(context->varnos,
+-											  phv->phnullingrels);
+-			return false;		/* don't recurse into expression */
+ 		}
++		context->varnos = bms_join(context->varnos, subcontext.varnos);
++		return false;
+ 	}
+ 	else if (IsA(node, Query))
+ 	{

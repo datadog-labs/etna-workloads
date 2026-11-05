@@ -1,0 +1,2 @@
+SELECT * FROM json_populate_record(null::record, '{"x": 776}') AS (x int, y int);
+SELECT * FROM jsonb_populate_recordset(null::record, '[{"x": 776}]') AS (x int, y int);

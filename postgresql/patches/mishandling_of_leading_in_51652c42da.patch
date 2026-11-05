@@ -1,0 +1,163 @@
+diff --git a/src/backend/utils/adt/like_match.c b/src/backend/utils/adt/like_match.c
+index 6735d7fa775..4f74bf3cbcb 100644
+--- a/src/backend/utils/adt/like_match.c
++++ b/src/backend/utils/adt/like_match.c
+@@ -79,8 +79,6 @@
+ static int
+ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ {
+-	bool		nondeterministic = (locale && !locale->deterministic);
+-
+ 	/* Fast path for match-everything pattern */
+ 	if (plen == 1 && *p == '%')
+ 		return LIKE_TRUE;
+@@ -94,16 +92,23 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 	 * occasions it is safe to advance by byte, as the text and pattern will
+ 	 * be in lockstep. This allows us to perform all comparisons between the
+ 	 * text and pattern on a byte by byte basis, even for multi-byte
+-	 * encodings.  (But that doesn't work in a nondeterministic locale, so the
+-	 * nondeterministic case below has to advance the text by chars.)
++	 * encodings.
+ 	 */
+ 	while (tlen > 0 && plen > 0)
+ 	{
+-		/*
+-		 * At the top of this loop, we are not positioned immediately after an
+-		 * escape, so we may take wildcards at face value.
+-		 */
+-		if (*p == '%')
++		if (*p == '\\')
++		{
++			/* Next pattern byte must match literally, whatever it is */
++			NextByte(p, plen);
++			/* ... and there had better be one, per SQL standard */
++			if (plen <= 0)
++				ereport(ERROR,
++						(errcode(ERRCODE_INVALID_ESCAPE_SEQUENCE),
++						 errmsg("LIKE pattern must not end with escape character")));
++			if (GETCHAR(*p, locale) != GETCHAR(*t, locale))
++				return LIKE_FALSE;
++		}
++		else if (*p == '%')
+ 		{
+ 			char		firstpat;
+ 
+@@ -152,9 +157,9 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 			 * the first pattern byte to each text byte to avoid recursing
+ 			 * more than we have to.  This fact also guarantees that we don't
+ 			 * have to consider a match to the zero-length substring at the
+-			 * end of the text.  But with a nondeterministic locale, we can't
+-			 * rely on the first byte of a match being equal, so we have to
+-			 * recurse in any case.
++			 * end of the text.  With a nondeterministic collation, we can't
++			 * rely on the first bytes being equal, so we have to recurse in
++			 * any case.
+ 			 */
+ 			if (*p == '\\')
+ 			{
+@@ -169,7 +174,7 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 
+ 			while (tlen > 0)
+ 			{
+-				if (GETCHAR(*t, locale) == firstpat || nondeterministic)
++				if (GETCHAR(*t, locale) == firstpat || (locale && !locale->deterministic))
+ 				{
+ 					int			matched = MatchText(t, tlen, p, plen, locale);
+ 
+@@ -193,7 +198,7 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 			NextByte(p, plen);
+ 			continue;
+ 		}
+-		else if (nondeterministic)
++		else if (locale && !locale->deterministic)
+ 		{
+ 			/*
+ 			 * For nondeterministic locales, we find the next substring of the
+@@ -213,9 +218,9 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 			char	   *buf = NULL;
+ 
+ 			/*
+-			 * Determine length of substring of pattern without wildcards.  p
+-			 * is the start of the subpattern, p1 will advance to one past its
+-			 * last byte.  Also track if we found an escape character.
++			 * Determine next substring of pattern without wildcards.  p is
++			 * the start of the subpattern, p1 is one past the last byte. Also
++			 * track if we found an escape character.
+ 			 */
+ 			p1 = p;
+ 			p1len = plen;
+@@ -233,15 +238,12 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 				}
+ 				else if (*p1 == '_' || *p1 == '%')
+ 					break;
+-				/* Advance over regular or escaped character */
+ 				NextByte(p1, p1len);
+ 			}
+ 
+ 			/*
+-			 * If we found an escape character, then make a de-escaped copy of
+-			 * the subpattern that we can use to match literally.  Otherwise
+-			 * we can use the subpattern in-place.  (buf holds the de-escaped
+-			 * copy; be sure to pfree it before returning.)
++			 * If we found an escape character, then make an unescaped copy of
++			 * the subpattern.
+ 			 */
+ 			if (found_escape)
+ 			{
+@@ -283,10 +285,9 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 			}
+ 
+ 			/*
+-			 * Consider each successively-longer substring of the remaining
+-			 * text and try to match it against the subpattern.  t is the
+-			 * start of the substring, t1 is one past its last byte.  We start
+-			 * with a zero-length substring.
++			 * Now build a substring of the text and try to match it against
++			 * the subpattern.  t is the start of the text, t1 is one past the
++			 * last byte.  We start with a zero-length string.
+ 			 */
+ 			t1 = t;
+ 			t1len = tlen;
+@@ -294,16 +295,16 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 			{
+ 				int			cmp;
+ 
+-				/* This could be slow, so allow interrupts */
+ 				CHECK_FOR_INTERRUPTS();
+ 
+ 				cmp = pg_strncoll(subpat, subpatlen, t, (t1 - t), locale);
+ 
+ 				/*
+ 				 * If we found a match, we have to test if the rest of pattern
+-				 * can match against the rest of the text.  If not, we have to
+-				 * continue and try the next longer substring.  (This is
+-				 * similar to the recursion for the '%' wildcard above.)
++				 * can match against the rest of the string.  Otherwise we
++				 * have to continue here try matching with a longer substring.
++				 * (This is similar to the recursion for the '%' wildcard
++				 * above.)
+ 				 *
+ 				 * Note that we can't just wind forward p and t and continue
+ 				 * with the main loop.  This would fail for example with
+@@ -338,20 +339,7 @@ MatchText(const char *t, int tlen, const char *p, int plen, pg_locale_t locale)
+ 				}
+ 				else
+ 					NextChar(t1, t1len);
+-			}					/* end loop over substrings starting at t */
+-		}
+-		/* the rest of this loop considers only deterministic cases */
+-		else if (*p == '\\')
+-		{
+-			/* Next pattern byte must match literally, whatever it is */
+-			NextByte(p, plen);
+-			/* ... and there had better be one, per SQL standard */
+-			if (plen <= 0)
+-				ereport(ERROR,
+-						(errcode(ERRCODE_INVALID_ESCAPE_SEQUENCE),
+-						 errmsg("LIKE pattern must not end with escape character")));
+-			if (GETCHAR(*p, locale) != GETCHAR(*t, locale))
+-				return LIKE_FALSE;
++			}
+ 		}
+ 		else if (GETCHAR(*p, locale) != GETCHAR(*t, locale))
+ 		{

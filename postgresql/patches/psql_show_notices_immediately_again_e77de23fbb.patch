@@ -1,0 +1,145 @@
+diff --git a/src/bin/psql/common.c b/src/bin/psql/common.c
+index 428f965c495..767c1a6bf70 100644
+--- a/src/bin/psql/common.c
++++ b/src/bin/psql/common.c
+@@ -1106,6 +1106,43 @@ PrintQueryResult(PGresult *result, bool last,
+ 	return success;
+ }
+ 
++/*
++ * Data structure and functions to record notices while they are
++ * emitted, so that they can be shown later.
++ *
++ * We need to know which result is last, which requires to extract
++ * one result in advance, hence two buffers are needed.
++ */
++struct t_notice_messages
++{
++	PQExpBufferData messages[2];
++	int			current;
++};
++
++/*
++ * Store notices in appropriate buffer, for later display.
++ */
++static void
++AppendNoticeMessage(void *arg, const char *msg)
++{
++	struct t_notice_messages *notices = arg;
++
++	appendPQExpBufferStr(&notices->messages[notices->current], msg);
++}
++
++/*
++ * Show notices stored in buffer, which is then reset.
++ */
++static void
++ShowNoticeMessage(struct t_notice_messages *notices)
++{
++	PQExpBufferData *current = &notices->messages[notices->current];
++
++	if (*current->data != '\0')
++		pg_log_info("%s", current->data);
++	resetPQExpBuffer(current);
++}
++
+ /*
+  * SendQuery: send the query string to the backend
+  * (and print out result)
+@@ -1593,6 +1630,7 @@ ExecQueryAndProcessResults(const char *query,
+ 	PGresult   *result;
+ 	FILE	   *gfile_fout = NULL;
+ 	bool		gfile_is_pipe = false;
++	struct t_notice_messages notices;
+ 
+ 	if (timing)
+ 		INSTR_TIME_SET_CURRENT(before);
+@@ -1808,6 +1846,12 @@ ExecQueryAndProcessResults(const char *query,
+ 		psql_scan_destroy(scan_state);
+ 	}
+ 
++	/* intercept notices */
++	notices.current = 0;
++	initPQExpBuffer(&notices.messages[0]);
++	initPQExpBuffer(&notices.messages[1]);
++	PQsetNoticeProcessor(pset.db, AppendNoticeMessage, &notices);
++
+ 	/* first result */
+ 	result = PQgetResult(pset.db);
+ 	if (min_rows > 0 && PQntuples(result) < min_rows)
+@@ -1830,6 +1874,7 @@ ExecQueryAndProcessResults(const char *query,
+ 			 */
+ 			const char *error = PQresultErrorMessage(result);
+ 
++			ShowNoticeMessage(&notices);
+ 			if (strlen(error))
+ 				pg_log_info("%s", error);
+ 
+@@ -1916,6 +1961,8 @@ ExecQueryAndProcessResults(const char *query,
+ 		{
+ 			FILE	   *copy_stream = NULL;
+ 
++			ShowNoticeMessage(&notices);
++
+ 			if (PQpipelineStatus(pset.db) != PQ_PIPELINE_OFF)
+ 			{
+ 				/*
+@@ -2007,7 +2054,12 @@ ExecQueryAndProcessResults(const char *query,
+ 			 * HandleCopyResult() with a NULL output stream to collect and
+ 			 * discard the COPY data.
+ 			 */
++			/* use normal notice processor during COPY */
++			PQsetNoticeProcessor(pset.db, NoticeProcessor, NULL);
++
+ 			success &= HandleCopyResult(&result, copy_stream);
++
++			PQsetNoticeProcessor(pset.db, AppendNoticeMessage, &notices);
+ 		}
+ 
+ 		/* If we have a chunked result, collect and print all chunks */
+@@ -2160,6 +2212,7 @@ ExecQueryAndProcessResults(const char *query,
+ 		 * string, it will return NULL.  Otherwise, we'll have other results
+ 		 * to process.  We need to do that to check whether this is the last.
+ 		 */
++		notices.current ^= 1;
+ 		if (PQpipelineStatus(pset.db) == PQ_PIPELINE_OFF)
+ 			next_result = PQgetResult(pset.db);
+ 		else
+@@ -2179,6 +2232,7 @@ ExecQueryAndProcessResults(const char *query,
+ 			if (pset.requested_results > 0)
+ 				next_result = PQgetResult(pset.db);
+ 		}
++		notices.current ^= 1;
+ 
+ 		last = (next_result == NULL);
+ 
+@@ -2201,6 +2255,9 @@ ExecQueryAndProcessResults(const char *query,
+ 			*elapsed_msec = INSTR_TIME_GET_MILLISEC(after);
+ 		}
+ 
++		/* notices already shown above for copy */
++		ShowNoticeMessage(&notices);
++
+ 		/*
+ 		 * This may or may not print something depending on settings.
+ 		 *
+@@ -2231,6 +2288,7 @@ ExecQueryAndProcessResults(const char *query,
+ 			SetResultVariables(result, success);
+ 
+ 		ClearOrSaveResult(result);
++		notices.current ^= 1;
+ 		result = next_result;
+ 
+ 		if (cancel_pressed && PQpipelineStatus(pset.db) == PQ_PIPELINE_OFF)
+@@ -2248,6 +2306,11 @@ ExecQueryAndProcessResults(const char *query,
+ 		}
+ 	}
+ 
++	/* reset notice hook */
++	PQsetNoticeProcessor(pset.db, NoticeProcessor, NULL);
++	termPQExpBuffer(&notices.messages[0]);
++	termPQExpBuffer(&notices.messages[1]);
++
+ 	/* close \g file if we opened it */
+ 	CloseGOutput(gfile_fout, gfile_is_pipe);
+ 

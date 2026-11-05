@@ -1,0 +1,15 @@
+diff --git a/src/backend/storage/ipc/signalfuncs.c b/src/backend/storage/ipc/signalfuncs.c
+index a3a670ba247..d1fab7bf78a 100644
+--- a/src/backend/storage/ipc/signalfuncs.c
++++ b/src/backend/storage/ipc/signalfuncs.c
+@@ -85,7 +85,9 @@ pg_signal_backend(int pid, int sig)
+ 	 *
+ 	 * Otherwise, users can signal backends for roles they have privileges of.
+ 	 */
+-	if (!OidIsValid(proc->roleId) || superuser_arg(proc->roleId))
++	if ((!OidIsValid(proc->roleId) &&
++		 pgstat_get_backend_type_by_proc_number(GetNumberFromPGProc(proc)) == B_AUTOVAC_WORKER) ||
++		superuser_arg(proc->roleId))
+ 	{
+ 		ProcNumber	procNumber = GetNumberFromPGProc(proc);
+ 		BackendType backendType = pgstat_get_backend_type_by_proc_number(procNumber);

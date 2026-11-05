@@ -1,0 +1,53 @@
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..b3e0c7744ee 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -2545,8 +2545,7 @@ preprocess_rowmarks(PlannerInfo *root)
+ 		 * CTIDs invalid.  This is also checked at parse time, but that's
+ 		 * insufficient because of rule substitution, query pullup, etc.
+ 		 */
+-		CheckSelectLocking(parse, linitial_node(RowMarkClause,
+-												parse->rowMarks)->strength);
++		CheckSelectLocking(parse);
+ 	}
+ 	else
+ 	{
+diff --git a/src/backend/parser/analyze.c b/src/backend/parser/analyze.c
+index 2fec9ce8106..ee46dae0023 100644
+--- a/src/backend/parser/analyze.c
++++ b/src/backend/parser/analyze.c
+@@ -3400,8 +3400,11 @@ LCS_asString(LockClauseStrength strength)
+  * exported so planner can check again after rewriting, query pullup, etc
+  */
+ void
+-CheckSelectLocking(Query *qry, LockClauseStrength strength)
++CheckSelectLocking(Query *qry)
+ {
++	LockClauseStrength strength = linitial_node(RowMarkClause,
++												qry->rowMarks)->strength;
++
+ 	Assert(strength != LCS_NONE);	/* else caller error */
+ 
+ 	if (qry->setOperations)
+@@ -3473,7 +3476,7 @@ transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc,
+ 	Index		i;
+ 	LockingClause *allrels;
+ 
+-	CheckSelectLocking(qry, lc->strength);
++	CheckSelectLocking(qry);
+ 
+ 	/* make a clause we can pass down to subqueries to select all rels */
+ 	allrels = makeNode(LockingClause);
+diff --git a/src/include/parser/analyze.h b/src/include/parser/analyze.h
+index f29ed03b476..1c6a06150b7 100644
+--- a/src/include/parser/analyze.h
++++ b/src/include/parser/analyze.h
+@@ -55,7 +55,7 @@ extern bool analyze_requires_snapshot(RawStmt *parseTree);
+ extern bool query_requires_rewrite_plan(Query *query);
+ 
+ extern const char *LCS_asString(LockClauseStrength strength);
+-extern void CheckSelectLocking(Query *qry, LockClauseStrength strength);
++extern void CheckSelectLocking(Query *qry);
+ extern void applyLockingClause(Query *qry, Index rtindex,
+ 							   LockClauseStrength strength,
+ 							   LockWaitPolicy waitPolicy, bool pushedDown);

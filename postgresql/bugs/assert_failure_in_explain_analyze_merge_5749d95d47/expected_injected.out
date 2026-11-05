@@ -1,0 +1,16 @@
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF)
+MERGE INTO target t USING (SELECT 1 as key, 'merge2a' as val) s ON s.key = t.key
+WHEN NOT MATCHED THEN INSERT VALUES (s.key, s.val)
+WHEN MATCHED THEN UPDATE set key = t.key + 1, val = t.val || ' updated by ' || s.val
+WHEN NOT MATCHED BY SOURCE THEN UPDATE set key = t.key + 1, val = t.val || ' nm by source'
+RETURNING merge_action(), old, new, t.*;
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+connection to server was lost
+ key |           val            
+-----+--------------------------
+   2 | setup1 updated by merge1
+(1 row)
+
+### server crashed or assertion failed

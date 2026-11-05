@@ -1,0 +1,14 @@
+SET enable_partitionwise_join = on;
+CREATE TABLE prt1 (a int, b int) PARTITION BY RANGE (a);
+CREATE TABLE prt1_p1 PARTITION OF prt1 FOR VALUES FROM (0) TO (250);
+CREATE TABLE prt1_p2 PARTITION OF prt1 FOR VALUES FROM (250) TO (500);
+CREATE TABLE prt1_p3 PARTITION OF prt1 FOR VALUES FROM (500) TO (600);
+INSERT INTO prt1 SELECT i, i FROM generate_series(0,599) i;
+ANALYZE prt1;
+EXPLAIN (COSTS OFF)
+SELECT * FROM prt1 t1 JOIN prt1 t2 ON t1.a = t2.a WHERE t1.a IN (SELECT a FROM prt1 t3);
+psql:<REPRO>:9: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:9: error: connection to server was lost
+### server crashed or assertion failed

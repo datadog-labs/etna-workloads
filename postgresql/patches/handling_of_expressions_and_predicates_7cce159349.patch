@@ -1,0 +1,44 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..00debf80327 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -1368,36 +1368,9 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
+ 	reloptionsDatum = SysCacheGetAttr(RELOID, classTuple,
+ 									  Anum_pg_class_reloptions, &isnull);
+ 
+-	/*
+-	 * Fetch the list of expressions and predicates directly from the
+-	 * catalogs.  This cannot rely on the information from IndexInfo of the
+-	 * old index as these have been flattened for the planner.
+-	 */
+-	if (oldInfo->ii_Expressions != NIL)
+-	{
+-		Datum		exprDatum;
+-		char	   *exprString;
+-
+-		exprDatum = SysCacheGetAttrNotNull(INDEXRELID, indexTuple,
+-										   Anum_pg_index_indexprs);
+-		exprString = TextDatumGetCString(exprDatum);
+-		indexExprs = (List *) stringToNode(exprString);
+-		pfree(exprString);
+-	}
+-	if (oldInfo->ii_Predicate != NIL)
+-	{
+-		Datum		predDatum;
+-		char	   *predString;
+-
+-		predDatum = SysCacheGetAttrNotNull(INDEXRELID, indexTuple,
+-										   Anum_pg_index_indpred);
+-		predString = TextDatumGetCString(predDatum);
+-		indexPreds = (List *) stringToNode(predString);
+-
+-		/* Also convert to implicit-AND format */
+-		indexPreds = make_ands_implicit((Expr *) indexPreds);
+-		pfree(predString);
+-	}
++	/* Reuse the expressions and predicates of the old IndexInfo */
++	indexExprs = oldInfo->ii_Expressions;
++	indexPreds = oldInfo->ii_Predicate;
+ 
+ 	/*
+ 	 * Build the index information for the new index.  Note that rebuild of

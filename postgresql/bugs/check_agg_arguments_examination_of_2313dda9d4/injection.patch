@@ -1,0 +1,31 @@
+diff --git a/src/backend/parser/parse_agg.c b/src/backend/parser/parse_agg.c
+index 9ba2690b3db..bd0cbb70b64 100644
+--- a/src/backend/parser/parse_agg.c
++++ b/src/backend/parser/parse_agg.c
+@@ -658,8 +658,13 @@ check_agg_arguments(ParseState *pstate,
+ 	context.min_cte = NULL;
+ 	context.sublevels_up = 0;
+ 
+-	(void) check_agg_arguments_walker((Node *) args, &context);
+-	(void) check_agg_arguments_walker((Node *) filter, &context);
++	(void) expression_tree_walker((Node *) args,
++								  check_agg_arguments_walker,
++								  (void *) &context);
++
++	(void) expression_tree_walker((Node *) filter,
++								  check_agg_arguments_walker,
++								  (void *) &context);
+ 
+ 	/*
+ 	 * If we found no vars nor aggs at all, it's a level-zero aggregate;
+@@ -721,7 +726,9 @@ check_agg_arguments(ParseState *pstate,
+ 		context.min_varlevel = -1;
+ 		context.min_agglevel = -1;
+ 		context.min_ctelevel = -1;
+-		(void) check_agg_arguments_walker((Node *) directargs, &context);
++		(void) expression_tree_walker((Node *) directargs,
++									  check_agg_arguments_walker,
++									  (void *) &context);
+ 		if (context.min_varlevel >= 0 && context.min_varlevel < agglevel)
+ 			ereport(ERROR,
+ 					(errcode(ERRCODE_GROUPING_ERROR),

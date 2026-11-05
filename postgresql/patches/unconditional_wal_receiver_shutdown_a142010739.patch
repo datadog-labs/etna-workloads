@@ -1,0 +1,70 @@
+diff --git a/src/backend/access/transam/xlog.c b/src/backend/access/transam/xlog.c
+index 2fd06e37999..94ebf152fd6 100644
+--- a/src/backend/access/transam/xlog.c
++++ b/src/backend/access/transam/xlog.c
+@@ -9541,24 +9541,18 @@ void
+ XLogShutdownWalRcv(void)
+ {
+ 	ShutdownWalRcv();
+-	ResetInstallXLogFileSegmentActive();
+-}
+ 
+-/* Enable WAL file recycling and preallocation. */
+-void
+-SetInstallXLogFileSegmentActive(void)
+-{
+ 	LWLockAcquire(ControlFileLock, LW_EXCLUSIVE);
+-	XLogCtl->InstallXLogFileSegmentActive = true;
++	XLogCtl->InstallXLogFileSegmentActive = false;
+ 	LWLockRelease(ControlFileLock);
+ }
+ 
+-/* Disable WAL file recycling and preallocation. */
++/* Enable WAL file recycling and preallocation. */
+ void
+-ResetInstallXLogFileSegmentActive(void)
++SetInstallXLogFileSegmentActive(void)
+ {
+ 	LWLockAcquire(ControlFileLock, LW_EXCLUSIVE);
+-	XLogCtl->InstallXLogFileSegmentActive = false;
++	XLogCtl->InstallXLogFileSegmentActive = true;
+ 	LWLockRelease(ControlFileLock);
+ }
+ 
+diff --git a/src/backend/access/transam/xlogrecovery.c b/src/backend/access/transam/xlogrecovery.c
+index 37d6090e465..23e13363085 100644
+--- a/src/backend/access/transam/xlogrecovery.c
++++ b/src/backend/access/transam/xlogrecovery.c
+@@ -3707,19 +3707,8 @@ WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
+ 					 * Before we leave XLOG_FROM_STREAM state, make sure that
+ 					 * walreceiver is not active, so that it won't overwrite
+ 					 * WAL that we restore from archive.
+-					 *
+-					 * If walreceiver is actively streaming (or attempting to
+-					 * connect), we must shut it down. However, if it's
+-					 * already in WAITING state (e.g., due to timeline
+-					 * divergence), we only need to reset the install flag to
+-					 * allow archive restoration.
+ 					 */
+-					if (WalRcvStreaming())
+-						XLogShutdownWalRcv();
+-					else
+-					{
+-						ResetInstallXLogFileSegmentActive();
+-					}
++					XLogShutdownWalRcv();
+ 
+ 					/*
+ 					 * Before we sleep, re-scan for possible new timelines if
+diff --git a/src/include/access/xlog.h b/src/include/access/xlog.h
+index f20f5edb438..b4d6f273b9e 100644
+--- a/src/include/access/xlog.h
++++ b/src/include/access/xlog.h
+@@ -271,7 +271,6 @@ extern void SwitchIntoArchiveRecovery(XLogRecPtr EndRecPtr, TimeLineID replayTLI
+ extern void ReachedEndOfBackup(XLogRecPtr EndRecPtr, TimeLineID tli);
+ extern void SetInstallXLogFileSegmentActive(void);
+ extern bool IsInstallXLogFileSegmentActive(void);
+-extern void ResetInstallXLogFileSegmentActive(void);
+ extern void XLogShutdownWalRcv(void);
+ 
+ /*

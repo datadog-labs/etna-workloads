@@ -1,0 +1,37 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..7c62e19caea 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -13040,25 +13040,15 @@ QueueFKConstraintValidation(List **wqueue, Relation conrel, Relation fkrel,
+ 	if (fkrel->rd_rel->relkind == RELKIND_RELATION &&
+ 		con->confrelid == pkrelid)
+ 	{
+-		NewConstraint *newcon;
+-		Constraint *fkconstraint;
+-
+-		/* Queue validation for phase 3 */
+-		fkconstraint = makeNode(Constraint);
+-		/* for now this is all we need */
+-		fkconstraint->conname = pstrdup(NameStr(con->conname));
++		Relation	refrel;
+ 
+-		newcon = (NewConstraint *) palloc0(sizeof(NewConstraint));
+-		newcon->name = fkconstraint->conname;
+-		newcon->contype = CONSTR_FOREIGN;
+-		newcon->refrelid = con->confrelid;
+-		newcon->refindid = con->conindid;
+-		newcon->conid = con->oid;
+-		newcon->qual = (Node *) fkconstraint;
++		refrel = table_open(con->confrelid, RowShareLock);
+ 
+-		/* Find or create work queue entry for this table */
+-		tab = ATGetQueueEntry(wqueue, fkrel);
+-		tab->constraints = lappend(tab->constraints, newcon);
++		validateForeignKeyConstraint(NameStr(con->conname), fkrel, refrel,
++									 con->conindid,
++									 con->oid,
++									 con->conperiod);
++		table_close(refrel, NoLock);
+ 	}
+ 
+ 	/*

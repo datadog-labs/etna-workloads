@@ -1,0 +1,17 @@
+create temp table few(id int);
+insert into few values (1),(2);
+explain (verbose, costs off)
+SELECT * FROM few f1,
+  (SELECT unnest(ARRAY[1,2]) FROM few f2 WHERE false OFFSET 0) ss;
+                  QUERY PLAN                   
+-----------------------------------------------
+ Nested Loop
+   Output: f1.id, (unnest('{1,2}'::integer[]))
+   ->  Seq Scan on pg_temp.few f1
+         Output: f1.id
+   ->  ProjectSet
+         Output: unnest('{1,2}'::integer[])
+         ->  Result
+               One-Time Filter: false
+(8 rows)
+

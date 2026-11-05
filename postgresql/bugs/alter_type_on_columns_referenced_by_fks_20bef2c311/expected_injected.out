@@ -1,0 +1,14 @@
+CREATE TABLE pk (a int PRIMARY KEY);
+CREATE TABLE fk (a int REFERENCES pk(a));
+INSERT INTO pk VALUES (1);
+INSERT INTO fk VALUES (1);
+ALTER TABLE pk ALTER COLUMN a TYPE bigint;
+psql:<REPRO>:5: ERROR:  cannot drop constraint pk_pkey on table pk because other objects depend on it
+DETAIL:  constraint fk_a_fkey on table fk depends on index pk_pkey
+HINT:  Use DROP ... CASCADE to drop the dependent objects too.
+SELECT format_type(atttypid,NULL) FROM pg_attribute WHERE attrelid='pk'::regclass AND attname='a';
+ format_type 
+-------------
+ integer
+(1 row)
+

@@ -1,0 +1,84 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..688b37d5389 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -714,10 +714,6 @@ UpdateIndexRelation(Oid indexoid,
+  *			already exists.
+  *		INDEX_CREATE_PARTITIONED:
+  *			create a partitioned index (table must be partitioned)
+- *		INDEX_CREATE_DEFERRABLE:
+- *			index supports a deferrable constraint, mark it as
+- *			non-immediate (indimmediate = false).
+- *
+  * constr_flags: flags passed to index_constraint_create
+  *		(only if INDEX_CREATE_ADD_CONSTRAINT is set)
+  * allow_system_table_mods: allow table to be a system catalog
+@@ -1053,8 +1049,7 @@ index_create(Relation heapRelation,
+ 						indexInfo,
+ 						collationIds, opclassIds, coloptions,
+ 						isprimary, is_exclusion,
+-						(constr_flags & INDEX_CONSTR_CREATE_DEFERRABLE) == 0 &&
+-						(flags & INDEX_CREATE_DEFERRABLE) == 0,
++						(constr_flags & INDEX_CONSTR_CREATE_DEFERRABLE) == 0,
+ 						!concurrent && !invalid,
+ 						!concurrent);
+ 
+@@ -1325,8 +1320,6 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
+ 	List	   *indexColNames = NIL;
+ 	List	   *indexExprs = NIL;
+ 	List	   *indexPreds = NIL;
+-	bits16		flags = INDEX_CREATE_SKIP_BUILD | INDEX_CREATE_CONCURRENT;
+-	Form_pg_index indexForm;
+ 
+ 	indexRelation = index_open(oldIndexId, RowExclusiveLock);
+ 
+@@ -1346,13 +1339,6 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
+ 	indexTuple = SearchSysCache1(INDEXRELID, ObjectIdGetDatum(oldIndexId));
+ 	if (!HeapTupleIsValid(indexTuple))
+ 		elog(ERROR, "cache lookup failed for index %u", oldIndexId);
+-
+-	indexForm = (Form_pg_index) GETSTRUCT(indexTuple);
+-
+-	/* Old index is deferrable, do the same for the new index */
+-	if (!indexForm->indimmediate)
+-		flags |= INDEX_CREATE_DEFERRABLE;
+-
+ 	indclassDatum = SysCacheGetAttrNotNull(INDEXRELID, indexTuple,
+ 										   Anum_pg_index_indclass);
+ 	indclass = (oidvector *) DatumGetPointer(indclassDatum);
+@@ -1475,8 +1461,8 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
+ 							  indcoloptions->values,
+ 							  stattargets,
+ 							  reloptionsDatum,
+-							  flags,
+-							  0,	/* constr_flags */
++							  INDEX_CREATE_SKIP_BUILD | INDEX_CREATE_CONCURRENT,
++							  0,
+ 							  true, /* allow table to be a system catalog? */
+ 							  false,	/* is_internal? */
+ 							  NULL);
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..13aa83255b7 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -4145,8 +4145,6 @@ ReindexRelationConcurrently(const ReindexStmt *stmt, Oid relationOid, const Rein
+ 		CommitTransactionCommand();
+ 	}
+ 
+-	INJECTION_POINT("reindex-conc-index-built", NULL);
+-
+ 	StartTransactionCommand();
+ 
+ 	/*
+diff --git a/src/include/catalog/index.h b/src/include/catalog/index.h
+index 60430aee0d5..4daa8bef5ee 100644
+--- a/src/include/catalog/index.h
++++ b/src/include/catalog/index.h
+@@ -65,7 +65,6 @@ extern void index_check_primary_key(Relation heapRel,
+ #define	INDEX_CREATE_IF_NOT_EXISTS			(1 << 4)
+ #define	INDEX_CREATE_PARTITIONED			(1 << 5)
+ #define INDEX_CREATE_INVALID				(1 << 6)
+-#define INDEX_CREATE_DEFERRABLE				(1 << 7)
+ 
+ extern Oid	index_create(Relation heapRelation,
+ 						 const char *indexRelationName,

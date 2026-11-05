@@ -1,0 +1,20 @@
+CREATE FUNCTION mvtest_drop_the_index() RETURNS bool AS $$
+BEGIN
+  EXECUTE 'DROP INDEX IF EXISTS public.mvtest_drop_idx';
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql;
+CREATE MATERIALIZED VIEW drop_idx_matview AS
+  SELECT 1 as i WHERE mvtest_drop_the_index();
+psql:<REPRO>:8: NOTICE:  index "mvtest_drop_idx" does not exist, skipping
+CREATE UNIQUE INDEX mvtest_drop_idx ON drop_idx_matview (i);
+CREATE TABLE res(m text);
+DO $$ BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY drop_idx_matview;
+EXCEPTION WHEN OTHERS THEN INSERT INTO res VALUES (SQLERRM);
+END $$;
+psql:<REPRO>:14: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:14: error: connection to server was lost
+### server crashed or assertion failed

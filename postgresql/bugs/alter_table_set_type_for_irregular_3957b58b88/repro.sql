@@ -1,0 +1,7 @@
+CREATE TABLE t2 (int_two int2, int_four int4, int_eight int8);
+CREATE TABLE t2_c1 (int_four int4, int_eight int8, int_two int2);
+ALTER TABLE t2_c1 INHERIT t2;
+INSERT INTO t2_c1 VALUES (1, 2, 3);
+ALTER TABLE t2 ALTER COLUMN int_four TYPE int8 USING int_four::int8;
+SELECT * FROM t2_c1;
+ALTER TABLE t2 ALTER COLUMN int_four TYPE int4 USING (pg_column_size(t2));

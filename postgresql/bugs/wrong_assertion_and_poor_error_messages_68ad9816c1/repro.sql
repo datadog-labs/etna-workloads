@@ -1,0 +1,3 @@
+create table t(id int);
+create rule qqq as on insert to t do also delete from t;
+copy (insert into t default values) to stdout;

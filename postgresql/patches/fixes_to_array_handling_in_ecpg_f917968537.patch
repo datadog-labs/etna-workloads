@@ -1,0 +1,30 @@
+diff --git a/src/interfaces/ecpg/preproc/type.c b/src/interfaces/ecpg/preproc/type.c
+index 39124c93919..59c290c85d3 100644
+--- a/src/interfaces/ecpg/preproc/type.c
++++ b/src/interfaces/ecpg/preproc/type.c
+@@ -282,7 +282,7 @@ ECPGdump_a_type(FILE *o, const char *name, struct ECPGtype *type, const int brac
+ 
+ 					ECPGdump_a_simple(o, name,
+ 									  type->u.element->type,
+-									  type->u.element->size, type->size, struct_sizeof ? struct_sizeof : NULL,
++									  type->u.element->size, type->size, NULL,
+ 									  prefix, type->u.element->counter);
+ 
+ 					if (ind_type != NULL)
+@@ -535,14 +535,14 @@ ECPGdump_a_simple(FILE *o, const char *name, enum ECPGttype type,
+ 		 * Array size would be -1 for addresses of members within structure,
+ 		 * when pointer to structure is being dumped.
+ 		 */
+-		if (atoi(arrsize) < 0 && !size)
++		if (atoi(arrsize) < 0)
+ 			strcpy(arrsize, "1");
+ 
+ 		/*
+ 		 * If size i.e. the size of structure of which this variable is part
+ 		 * of, that gives the offset to the next element, if required
+ 		 */
+-		if (size == NULL || strlen(size) == 0)
++		if (size == NULL || strlen(size) == 0 || strcmp(arrsize, "0") == 0 || strcmp(arrsize, "1") == 0)
+ 			fprintf(o, "\n\t%s,%s,(long)%s,(long)%s,%s, ", get_type(type), variable, varcharsize, arrsize, offset);
+ 		else
+ 			fprintf(o, "\n\t%s,%s,(long)%s,(long)%s,%s, ", get_type(type), variable, varcharsize, arrsize, size);

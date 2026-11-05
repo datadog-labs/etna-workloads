@@ -1,0 +1,48 @@
+diff --git a/src/backend/optimizer/path/indxpath.c b/src/backend/optimizer/path/indxpath.c
+index 7a8d8238086..b5d091faaf0 100644
+--- a/src/backend/optimizer/path/indxpath.c
++++ b/src/backend/optimizer/path/indxpath.c
+@@ -4223,13 +4223,10 @@ relation_has_unique_index_ext(PlannerInfo *root, RelOptInfo *rel,
+ 
+ 		/*
+ 		 * If the index is not unique, or not immediately enforced, or if it's
+-		 * a partial index, it's useless here.  We're unable to make use of
+-		 * predOK partial unique indexes due to the fact that
+-		 * check_index_predicates() also makes use of join predicates to
+-		 * determine if the partial index is usable. Here we need proofs that
+-		 * hold true before any joins are evaluated.
++		 * a partial index that doesn't match the query, it's useless here.
+ 		 */
+-		if (!ind->unique || !ind->immediate || ind->indpred != NIL)
++		if (!ind->unique || !ind->immediate ||
++			(ind->indpred != NIL && !ind->predOK))
+ 			continue;
+ 
+ 		/*
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..d7fe64fd6c1 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -1127,9 +1127,9 @@ rel_supports_distinctness(PlannerInfo *root, RelOptInfo *rel)
+ 		/*
+ 		 * For a plain relation, we only know how to prove uniqueness by
+ 		 * reference to unique indexes.  Make sure there's at least one
+-		 * suitable unique index.  It must be immediately enforced, and not a
+-		 * partial index. (Keep these conditions in sync with
+-		 * relation_has_unique_index_for!)
++		 * suitable unique index.  It must be immediately enforced, and if
++		 * it's a partial index, it must match the query.  (Keep these
++		 * conditions in sync with relation_has_unique_index_for!)
+ 		 */
+ 		ListCell   *lc;
+ 
+@@ -1137,7 +1137,8 @@ rel_supports_distinctness(PlannerInfo *root, RelOptInfo *rel)
+ 		{
+ 			IndexOptInfo *ind = (IndexOptInfo *) lfirst(lc);
+ 
+-			if (ind->unique && ind->immediate && ind->indpred == NIL)
++			if (ind->unique && ind->immediate &&
++				(ind->indpred == NIL || ind->predOK))
+ 				return true;
+ 		}
+ 	}

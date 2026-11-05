@@ -1,0 +1,37 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..55572b5b57d 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -9312,9 +9312,6 @@ ATExecDropColumn(List **wqueue, Relation rel, const char *colName,
+ 	/* since this function recurses, it could be driven to stack overflow */
+ 	check_stack_depth();
+ 
+-	if (!recursing)
+-		addrs = new_object_addresses();
+-
+ 	/*
+ 	 * get the number of the attribute
+ 	 */
+@@ -9464,18 +9461,14 @@ ATExecDropColumn(List **wqueue, Relation rel, const char *colName,
+ 		table_close(attr_rel, RowExclusiveLock);
+ 	}
+ 
+-	/* Add object to delete */
++	/*
++	 * Perform the actual column deletion
++	 */
+ 	object.classId = RelationRelationId;
+ 	object.objectId = RelationGetRelid(rel);
+ 	object.objectSubId = attnum;
+-	add_exact_object_address(&object, addrs);
+ 
+-	if (!recursing)
+-	{
+-		/* Recursion has ended, drop everything that was collected */
+-		performMultipleDeletions(addrs, behavior, 0);
+-		free_object_addresses(addrs);
+-	}
++	performDeletion(&object, behavior, 0);
+ 
+ 	return object;
+ }

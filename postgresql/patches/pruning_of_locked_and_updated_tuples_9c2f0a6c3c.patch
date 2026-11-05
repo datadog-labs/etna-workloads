@@ -1,0 +1,14 @@
+diff --git a/src/backend/access/heap/heapam_visibility.c b/src/backend/access/heap/heapam_visibility.c
+index 05f6946fe60..77b4d508632 100644
+--- a/src/backend/access/heap/heapam_visibility.c
++++ b/src/backend/access/heap/heapam_visibility.c
+@@ -1374,7 +1374,8 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
+ 			 * not a problem to prune that tuple, because any remaining
+ 			 * lockers will also be present in newer tuple versions.
+ 			 */
+-			*dead_after = xmax;
++			if (!MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))
++				*dead_after = xmax;
+ 			return HEAPTUPLE_RECENTLY_DEAD;
+ 		}
+ 		else if (!MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))

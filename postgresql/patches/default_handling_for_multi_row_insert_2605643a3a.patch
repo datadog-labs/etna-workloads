@@ -1,0 +1,40 @@
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 62f54786be4..af0a2e17d1d 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -4079,30 +4079,23 @@ RewriteQuery(Query *parsetree, List *rewrite_events, int orig_rt_length,
+ 		 */
+ 		if (event == CMD_INSERT)
+ 		{
+-			ListCell   *lc2;
+ 			RangeTblEntry *values_rte = NULL;
+ 
+ 			/*
+-			 * Test if it's a multi-row INSERT ... VALUES (...), (...), ... by
+-			 * looking for a VALUES RTE in the fromlist.  For product queries,
+-			 * we must ignore any already-processed VALUES RTEs from the
+-			 * original query.  These appear at the start of the rangetable.
++			 * If it's an INSERT ... VALUES (...), (...), ... there will be a
++			 * single RTE for the VALUES targetlists.
+ 			 */
+-			foreach(lc2, parsetree->jointree->fromlist)
++			if (list_length(parsetree->jointree->fromlist) == 1)
+ 			{
+-				RangeTblRef *rtr = (RangeTblRef *) lfirst(lc2);
++				RangeTblRef *rtr = (RangeTblRef *) linitial(parsetree->jointree->fromlist);
+ 
+-				if (IsA(rtr, RangeTblRef) && rtr->rtindex > orig_rt_length)
++				if (IsA(rtr, RangeTblRef))
+ 				{
+ 					RangeTblEntry *rte = rt_fetch(rtr->rtindex,
+ 												  parsetree->rtable);
+ 
+ 					if (rte->rtekind == RTE_VALUES)
+ 					{
+-						/* should not find more than one VALUES RTE */
+-						if (values_rte != NULL)
+-							elog(ERROR, "more than one VALUES RTE found");
+-
+ 						values_rte = rte;
+ 						values_rte_index = rtr->rtindex;
+ 					}

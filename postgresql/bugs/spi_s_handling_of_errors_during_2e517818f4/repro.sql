@@ -1,0 +1,13 @@
+CREATE EXTENSION plpython3u;
+CREATE TABLE testpk (id int PRIMARY KEY);
+CREATE TABLE testfk (f1 int REFERENCES testpk DEFERRABLE INITIALLY DEFERRED);
+DO LANGUAGE plpython3u $$
+plpy.execute("INSERT INTO testfk VALUES (0)")
+try:
+    plpy.commit()
+except plpy.SPIError as e:
+    print("sqlstate: %s" % e.sqlstate)
+plpy.execute("INSERT INTO testpk VALUES (1)")
+plpy.execute("INSERT INTO testfk VALUES (1)")
+$$;
+SELECT * FROM testfk;

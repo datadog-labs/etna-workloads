@@ -1,0 +1,91 @@
+diff --git a/src/backend/utils/adt/timestamp.c b/src/backend/utils/adt/timestamp.c
+index 72775924bb7..46e8f64f069 100644
+--- a/src/backend/utils/adt/timestamp.c
++++ b/src/backend/utils/adt/timestamp.c
+@@ -2542,24 +2542,14 @@ timestamptz_cmp_timestamp(PG_FUNCTION_ARGS)
+  * wider-than-int64 datatype for the linear representation, so use INT128.
+  */
+ 
+-static inline INT128
++static inline TimeOffset
+ interval_cmp_value(const Interval *interval)
+ {
+-	INT128		span;
+-	int64		days;
++	TimeOffset	span;
+ 
+-	/*
+-	 * Combine the month and day fields into an integral number of days.
+-	 * Because the inputs are int32, int64 arithmetic suffices here.
+-	 */
+-	days = interval->month * INT64CONST(30);
+-	days += interval->day;
+-
+-	/* Widen time field to 128 bits */
+-	span = int64_to_int128(interval->time);
+-
+-	/* Scale up days to microseconds, forming a 128-bit product */
+-	int128_add_int64_mul_int64(&span, days, USECS_PER_DAY);
++	span = interval->time;
++	span += interval->month * INT64CONST(30) * USECS_PER_DAY;
++	span += interval->day * INT64CONST(24) * USECS_PER_HOUR;
+ 
+ 	return span;
+ }
+@@ -2567,19 +2557,18 @@ interval_cmp_value(const Interval *interval)
+ static int
+ interval_cmp_internal(const Interval *interval1, const Interval *interval2)
+ {
+-	INT128		span1 = interval_cmp_value(interval1);
+-	INT128		span2 = interval_cmp_value(interval2);
++	TimeOffset	span1 = interval_cmp_value(interval1);
++	TimeOffset	span2 = interval_cmp_value(interval2);
+ 
+-	return int128_compare(span1, span2);
++	return ((span1 < span2) ? -1 : (span1 > span2) ? 1 : 0);
+ }
+ 
+ static int
+ interval_sign(const Interval *interval)
+ {
+-	INT128		span = interval_cmp_value(interval);
+-	INT128		zero = int64_to_int128(0);
++	TimeOffset	span = interval_cmp_value(interval);
+ 
+-	return int128_compare(span, zero);
++	return ((span < 0) ? -1 : (span > 0) ? 1 : 0);
+ }
+ 
+ Datum
+@@ -2656,7 +2645,7 @@ Datum
+ interval_hash(PG_FUNCTION_ARGS)
+ {
+ 	Interval   *interval = PG_GETARG_INTERVAL_P(0);
+-	INT128		span = interval_cmp_value(interval);
++	TimeOffset	span = interval_cmp_value(interval);
+ 	int64		span64;
+ 
+ 	/*
+@@ -2665,7 +2654,7 @@ interval_hash(PG_FUNCTION_ARGS)
+ 	 * for compatibility with hashes calculated before use of INT128 was
+ 	 * introduced.
+ 	 */
+-	span64 = int128_to_int64(span);
++	span64 = span;
+ 
+ 	return DirectFunctionCall1(hashint8, Int64GetDatumFast(span64));
+ }
+@@ -2674,11 +2663,11 @@ Datum
+ interval_hash_extended(PG_FUNCTION_ARGS)
+ {
+ 	Interval   *interval = PG_GETARG_INTERVAL_P(0);
+-	INT128		span = interval_cmp_value(interval);
++	TimeOffset	span = interval_cmp_value(interval);
+ 	int64		span64;
+ 
+ 	/* Same approach as interval_hash */
+-	span64 = int128_to_int64(span);
++	span64 = span;
+ 
+ 	return DirectFunctionCall2(hashint8extended, Int64GetDatumFast(span64),
+ 							   PG_GETARG_DATUM(1));

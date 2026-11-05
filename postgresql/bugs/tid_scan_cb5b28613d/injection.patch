@@ -1,0 +1,29 @@
+diff --git a/src/backend/executor/nodeTidscan.c b/src/backend/executor/nodeTidscan.c
+index d50c6600358..0f0978581eb 100644
+--- a/src/backend/executor/nodeTidscan.c
++++ b/src/backend/executor/nodeTidscan.c
+@@ -147,8 +147,9 @@ TidListEval(TidScanState *tidstate)
+ 	 */
+ 	if (tidstate->ss.ss_currentScanDesc == NULL)
+ 		tidstate->ss.ss_currentScanDesc =
+-			table_beginscan_tid(tidstate->ss.ss_currentRelation,
+-								tidstate->ss.ps.state->es_snapshot);
++			table_beginscan(tidstate->ss.ss_currentRelation,
++							tidstate->ss.ps.state->es_snapshot,
++							0, NULL);
+ 	scan = tidstate->ss.ss_currentScanDesc;
+ 
+ 	/*
+diff --git a/src/backend/utils/adt/tid.c b/src/backend/utils/adt/tid.c
+index 1b0df111717..3cc7790b202 100644
+--- a/src/backend/utils/adt/tid.c
++++ b/src/backend/utils/adt/tid.c
+@@ -321,7 +321,7 @@ currtid_internal(Relation rel, ItemPointer tid)
+ 	ItemPointerCopy(tid, result);
+ 
+ 	snapshot = RegisterSnapshot(GetLatestSnapshot());
+-	scan = table_beginscan_tid(rel, snapshot);
++	scan = table_beginscan(rel, snapshot, 0, NULL);
+ 	table_tuple_get_latest_tid(scan, result);
+ 	table_endscan(scan);
+ 	UnregisterSnapshot(snapshot);

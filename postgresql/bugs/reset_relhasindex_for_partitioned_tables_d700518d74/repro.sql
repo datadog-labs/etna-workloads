@@ -1,0 +1,5 @@
+CREATE TABLE vp (a int primary key, b int) PARTITION BY HASH (a);
+CREATE TABLE vp1 PARTITION OF vp FOR VALUES WITH (MODULUS 2, REMAINDER 0);
+CREATE TABLE vp2 PARTITION OF vp FOR VALUES WITH (MODULUS 2, REMAINDER 1);
+ANALYZE vp;
+SELECT relname, relhasindex FROM pg_class WHERE relname LIKE 'vp%' AND relkind IN ('p','r') ORDER BY relname;

@@ -1,0 +1,22 @@
+create table t(a int, b int);
+create table s(a int, b int);
+explain (verbose, costs off) merge into t using s on t.a=s.a
+when matched and s.b > 0 then update set b = t.b + s.b;
+                  QUERY PLAN                  
+----------------------------------------------
+ Merge on public.t
+   ->  Merge Join
+         Output: s.a, s.b, t.ctid, s.ctid
+         Merge Cond: (t.a = s.a)
+         ->  Sort
+               Output: t.ctid, t.a
+               Sort Key: t.a
+               ->  Seq Scan on public.t
+                     Output: t.ctid, t.a
+         ->  Sort
+               Output: s.a, s.b, s.ctid
+               Sort Key: s.a
+               ->  Seq Scan on public.s
+                     Output: s.a, s.b, s.ctid
+(14 rows)
+

@@ -1,0 +1,107 @@
+diff --git a/src/backend/access/brin/brin.c b/src/backend/access/brin/brin.c
+index 6afd5367c59..fe4cc15f079 100644
+--- a/src/backend/access/brin/brin.c
++++ b/src/backend/access/brin/brin.c
+@@ -514,18 +514,16 @@ brininsertcleanup(Relation index, IndexInfo *indexInfo)
+ 	BrinInsertState *bistate = (BrinInsertState *) indexInfo->ii_AmCache;
+ 
+ 	/* bail out if cache not initialized */
+-	if (bistate == NULL)
++	if (indexInfo->ii_AmCache == NULL)
+ 		return;
+ 
+-	/* do this first to avoid dangling pointer if we fail partway through */
+-	indexInfo->ii_AmCache = NULL;
+-
+ 	/*
+ 	 * Clean up the revmap. Note that the brinDesc has already been cleaned up
+ 	 * as part of its own memory context.
+ 	 */
+ 	brinRevmapTerminate(bistate->bis_rmAccess);
+-	pfree(bistate);
++	bistate->bis_rmAccess = NULL;
++	bistate->bis_desc = NULL;
+ }
+ 
+ /*
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..228aeac219e 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -2459,13 +2459,8 @@ apply_handle_insert(StringInfo s)
+ 		apply_handle_tuple_routing(edata,
+ 								   remoteslot, NULL, CMD_INSERT);
+ 	else
+-	{
+-		ResultRelInfo *relinfo = edata->targetRelInfo;
+-
+-		ExecOpenIndices(relinfo, false);
+-		apply_handle_insert_internal(edata, relinfo, remoteslot);
+-		ExecCloseIndices(relinfo);
+-	}
++		apply_handle_insert_internal(edata, edata->targetRelInfo,
++									 remoteslot);
+ 
+ 	finish_edata(edata);
+ 
+@@ -2492,18 +2487,16 @@ apply_handle_insert_internal(ApplyExecutionData *edata,
+ {
+ 	EState	   *estate = edata->estate;
+ 
+-	/* Caller should have opened indexes already. */
+-	Assert(relinfo->ri_IndexRelationDescs != NULL ||
+-		   !relinfo->ri_RelationDesc->rd_rel->relhasindex ||
+-		   RelationGetIndexList(relinfo->ri_RelationDesc) == NIL);
+-
+-	/* Caller will not have done this bit. */
+-	Assert(relinfo->ri_onConflictArbiterIndexes == NIL);
++	/* We must open indexes here. */
++	ExecOpenIndices(relinfo, false);
+ 	InitConflictIndexes(relinfo);
+ 
+ 	/* Do the insert. */
+ 	TargetPrivilegesCheck(relinfo->ri_RelationDesc, ACL_INSERT);
+ 	ExecSimpleRelationInsert(relinfo, estate, remoteslot);
++
++	/* Cleanup. */
++	ExecCloseIndices(relinfo);
+ }
+ 
+ /*
+@@ -2831,14 +2824,8 @@ apply_handle_delete(StringInfo s)
+ 		apply_handle_tuple_routing(edata,
+ 								   remoteslot, NULL, CMD_DELETE);
+ 	else
+-	{
+-		ResultRelInfo *relinfo = edata->targetRelInfo;
+-
+-		ExecOpenIndices(relinfo, false);
+-		apply_handle_delete_internal(edata, relinfo,
++		apply_handle_delete_internal(edata, edata->targetRelInfo,
+ 									 remoteslot, rel->localindexoid);
+-		ExecCloseIndices(relinfo);
+-	}
+ 
+ 	finish_edata(edata);
+ 
+@@ -2873,11 +2860,7 @@ apply_handle_delete_internal(ApplyExecutionData *edata,
+ 	bool		found;
+ 
+ 	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1, NIL);
+-
+-	/* Caller should have opened indexes already. */
+-	Assert(relinfo->ri_IndexRelationDescs != NULL ||
+-		   !localrel->rd_rel->relhasindex ||
+-		   RelationGetIndexList(localrel) == NIL);
++	ExecOpenIndices(relinfo, false);
+ 
+ 	found = FindReplTupleInLocalRel(edata, localrel, remoterel, localindexoid,
+ 									remoteslot, &localslot);
+@@ -2916,6 +2899,7 @@ apply_handle_delete_internal(ApplyExecutionData *edata,
+ 	}
+ 
+ 	/* Cleanup. */
++	ExecCloseIndices(relinfo);
+ 	EvalPlanQualEnd(&epqstate);
+ }
+ 

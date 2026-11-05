@@ -1,0 +1,336 @@
+diff --git a/src/backend/optimizer/path/indxpath.c b/src/backend/optimizer/path/indxpath.c
+index 7a8d8238086..3a2ade000ec 100644
+--- a/src/backend/optimizer/path/indxpath.c
++++ b/src/backend/optimizer/path/indxpath.c
+@@ -31,7 +31,6 @@
+ #include "optimizer/optimizer.h"
+ #include "optimizer/pathnode.h"
+ #include "optimizer/paths.h"
+-#include "optimizer/placeholder.h"
+ #include "optimizer/prep.h"
+ #include "optimizer/restrictinfo.h"
+ #include "utils/lsyscache.h"
+@@ -197,6 +196,8 @@ static Expr *match_clause_to_ordering_op(IndexOptInfo *index,
+ static bool ec_member_matches_indexcol(PlannerInfo *root, RelOptInfo *rel,
+ 									   EquivalenceClass *ec, EquivalenceMember *em,
+ 									   void *arg);
++static bool contain_strippable_phv_walker(Node *node, void *context);
++static Node *strip_phvs_in_index_operand_mutator(Node *node, void *context);
+ 
+ 
+ /*
+@@ -4427,7 +4428,7 @@ match_index_to_operand(Node *operand,
+ 	 * a subtree) has been wrapped in PlaceHolderVars to enforce separate
+ 	 * identity or as a result of outer joins.
+ 	 */
+-	operand = strip_noop_phvs(operand);
++	operand = strip_phvs_in_index_operand(operand);
+ 
+ 	/*
+ 	 * Ignore any RelabelType node above the operand.  This is needed to be
+@@ -4493,15 +4494,88 @@ match_index_to_operand(Node *operand,
+ 
+ /*
+  * strip_phvs_in_index_operand
++ *	  Strip PlaceHolderVar nodes from the given operand expression to
++ *	  facilitate matching against an index's key.
+  *
+- * Retained as a backward-compatibility wrapper around strip_noop_phvs() to
+- * avoid breaking third-party extensions that may reference this function.  New
+- * code should call strip_noop_phvs() directly.
++ * A PlaceHolderVar appearing in a relation-scan-level expression is
++ * effectively a no-op.  Nevertheless, to play it safe, we strip only
++ * PlaceHolderVars that are not marked nullable.
++ *
++ * The removal is performed recursively because PlaceHolderVars can be nested
++ * or interleaved with other node types.  We must peel back all layers to
++ * expose the base operand.
++ *
++ * As a performance optimization, we first use a lightweight walker to check
++ * for the presence of strippable PlaceHolderVars.  The expensive mutator is
++ * invoked only if a candidate is found, avoiding unnecessary memory allocation
++ * and tree copying in the common case where no PlaceHolderVars are present.
+  */
+ Node *
+ strip_phvs_in_index_operand(Node *operand)
+ {
+-	return strip_noop_phvs(operand);
++	/* Don't mutate/copy if no target PHVs exist */
++	if (!contain_strippable_phv_walker(operand, NULL))
++		return operand;
++
++	return strip_phvs_in_index_operand_mutator(operand, NULL);
++}
++
++/*
++ * contain_strippable_phv_walker
++ *	  Detect if there are any PlaceHolderVars in the tree that are candidates
++ *	  for stripping.
++ *
++ * We identify a PlaceHolderVar as strippable only if its phnullingrels is
++ * empty.
++ */
++static bool
++contain_strippable_phv_walker(Node *node, void *context)
++{
++	if (node == NULL)
++		return false;
++
++	if (IsA(node, PlaceHolderVar))
++	{
++		PlaceHolderVar *phv = (PlaceHolderVar *) node;
++
++		if (bms_is_empty(phv->phnullingrels))
++			return true;
++	}
++
++	return expression_tree_walker(node, contain_strippable_phv_walker,
++								  context);
++}
++
++/*
++ * strip_phvs_in_index_operand_mutator
++ *	  Recursively remove PlaceHolderVars in the tree that match the criteria.
++ *
++ * We strip a PlaceHolderVar only if its phnullingrels is empty, replacing it
++ * with its contained expression.
++ */
++static Node *
++strip_phvs_in_index_operand_mutator(Node *node, void *context)
++{
++	if (node == NULL)
++		return NULL;
++
++	if (IsA(node, PlaceHolderVar))
++	{
++		PlaceHolderVar *phv = (PlaceHolderVar *) node;
++
++		/* If matches the criteria, strip it */
++		if (bms_is_empty(phv->phnullingrels))
++		{
++			/* Recurse on its contained expression */
++			return strip_phvs_in_index_operand_mutator((Node *) phv->phexpr,
++													   context);
++		}
++
++		/* Otherwise, keep this PHV but check its contained expression */
++	}
++
++	return expression_tree_mutator(node, strip_phvs_in_index_operand_mutator,
++								   context);
+ }
+ 
+ /*
+diff --git a/src/backend/optimizer/plan/createplan.c b/src/backend/optimizer/plan/createplan.c
+index 10b7358c28b..06128a9f243 100644
+--- a/src/backend/optimizer/plan/createplan.c
++++ b/src/backend/optimizer/plan/createplan.c
+@@ -5271,7 +5271,7 @@ fix_indexqual_operand(Node *node, IndexOptInfo *index, int indexcol)
+ 	/*
+ 	 * Remove any PlaceHolderVar wrapping of the indexkey
+ 	 */
+-	node = strip_noop_phvs(node);
++	node = strip_phvs_in_index_operand(node);
+ 
+ 	/*
+ 	 * Remove any binary-compatible relabeling of the indexkey
+diff --git a/src/backend/optimizer/util/placeholder.c b/src/backend/optimizer/util/placeholder.c
+index 86e3c1e751f..e1cd00a72fb 100644
+--- a/src/backend/optimizer/util/placeholder.c
++++ b/src/backend/optimizer/util/placeholder.c
+@@ -35,8 +35,6 @@ static void find_placeholders_recurse(PlannerInfo *root, Node *jtnode);
+ static void find_placeholders_in_expr(PlannerInfo *root, Node *expr);
+ static bool contain_placeholder_references_walker(Node *node,
+ 												  contain_placeholder_references_context *context);
+-static bool contain_noop_phv_walker(Node *node, void *context);
+-static Node *strip_noop_phvs_mutator(Node *node, void *context);
+ 
+ 
+ /*
+@@ -587,92 +585,3 @@ get_placeholder_nulling_relids(PlannerInfo *root, PlaceHolderInfo *phinfo)
+ 	result = bms_del_members(result, phinfo->ph_eval_at);
+ 	return result;
+ }
+-
+-/*
+- * strip_noop_phvs
+- *	  Strip no-op PlaceHolderVar nodes from the given expression tree.
+- *
+- * A PlaceHolderVar that is not marked as nullable (i.e., its phnullingrels
+- * is empty) is effectively a no-op when it appears in a relation-scan-level
+- * expression.  This function strips such PlaceHolderVars, which is useful
+- * for matching expressions to index keys or partition keys in cases where
+- * the expression has been wrapped in PlaceHolderVars during subquery pullup.
+- *
+- * IMPORTANT: the caller must ensure that the expression is a scan-level
+- * expression, so that non-nullable PlaceHolderVars in it are indeed no-ops.
+- *
+- * The removal is performed recursively because PlaceHolderVars can be nested
+- * or interleaved with other node types.  We must peel back all layers to
+- * expose the base expression.
+- *
+- * As a performance optimization, we first use a lightweight walker to check
+- * for the presence of strippable PlaceHolderVars.  The expensive mutator is
+- * invoked only if a candidate is found, avoiding unnecessary memory allocation
+- * and tree copying in the common case where no PlaceHolderVars are present.
+- */
+-Node *
+-strip_noop_phvs(Node *node)
+-{
+-	/* Don't mutate/copy if no target PHVs exist */
+-	if (!contain_noop_phv_walker(node, NULL))
+-		return node;
+-
+-	return strip_noop_phvs_mutator(node, NULL);
+-}
+-
+-/*
+- * contain_noop_phv_walker
+- *	  Detect if there are any PlaceHolderVars in the tree that are candidates
+- *	  for stripping.
+- *
+- * We identify a PlaceHolderVar as strippable only if its phnullingrels is
+- * empty.
+- */
+-static bool
+-contain_noop_phv_walker(Node *node, void *context)
+-{
+-	if (node == NULL)
+-		return false;
+-
+-	if (IsA(node, PlaceHolderVar))
+-	{
+-		PlaceHolderVar *phv = (PlaceHolderVar *) node;
+-
+-		if (bms_is_empty(phv->phnullingrels))
+-			return true;
+-	}
+-
+-	return expression_tree_walker(node, contain_noop_phv_walker,
+-								  context);
+-}
+-
+-/*
+- * strip_noop_phvs_mutator
+- *	  Recursively remove PlaceHolderVars that are not marked nullable.
+- *
+- * We strip a PlaceHolderVar only if its phnullingrels is empty, replacing it
+- * with its contained expression.
+- */
+-static Node *
+-strip_noop_phvs_mutator(Node *node, void *context)
+-{
+-	if (node == NULL)
+-		return NULL;
+-
+-	if (IsA(node, PlaceHolderVar))
+-	{
+-		PlaceHolderVar *phv = (PlaceHolderVar *) node;
+-
+-		if (bms_is_empty(phv->phnullingrels))
+-		{
+-			/* Recurse on its contained expression */
+-			return strip_noop_phvs_mutator((Node *) phv->phexpr,
+-										   context);
+-		}
+-
+-		/* Otherwise, keep this PHV but check its contained expression */
+-	}
+-
+-	return expression_tree_mutator(node, strip_noop_phvs_mutator,
+-								   context);
+-}
+diff --git a/src/backend/partitioning/partprune.c b/src/backend/partitioning/partprune.c
+index 5dae151da0f..0b048a4f131 100644
+--- a/src/backend/partitioning/partprune.c
++++ b/src/backend/partitioning/partprune.c
+@@ -49,7 +49,6 @@
+ #include "optimizer/cost.h"
+ #include "optimizer/optimizer.h"
+ #include "optimizer/pathnode.h"
+-#include "optimizer/placeholder.h"
+ #include "parser/parsetree.h"
+ #include "partitioning/partbounds.h"
+ #include "partitioning/partprune.h"
+@@ -1815,15 +1814,6 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
+  *   and couldn't possibly match any other one either, due to its form or
+  *   properties (such as containing a volatile function).
+  *   Output arguments: none set.
+- *
+- * Note that when pulling up a subquery, the clause operands may get wrapped
+- * in PlaceHolderVars to enforce separate identity or as a result of outer
+- * joins.  We must strip such no-op PlaceHolderVars before comparing operands
+- * to the partition key, otherwise the equal() checks will fail to recognize
+- * valid matches.  This is safe because the clauses here are always
+- * relation-scan-level expressions, where a PlaceHolderVar with empty
+- * phnullingrels is effectively a no-op.  Stripping may also bring separate
+- * RelabelType nodes into adjacency, so we must loop when peeling those.
+  */
+ static PartClauseMatchStatus
+ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+@@ -1939,12 +1929,10 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+ 		PartClauseInfo *partclause;
+ 
+ 		leftop = (Expr *) get_leftop(clause);
+-		leftop = (Expr *) strip_noop_phvs((Node *) leftop);
+-		while (IsA(leftop, RelabelType))
++		if (IsA(leftop, RelabelType))
+ 			leftop = ((RelabelType *) leftop)->arg;
+ 		rightop = (Expr *) get_rightop(clause);
+-		rightop = (Expr *) strip_noop_phvs((Node *) rightop);
+-		while (IsA(rightop, RelabelType))
++		if (IsA(rightop, RelabelType))
+ 			rightop = ((RelabelType *) rightop)->arg;
+ 		opno = opclause->opno;
+ 
+@@ -2192,8 +2180,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+ 				   *elem_clauses;
+ 		ListCell   *lc1;
+ 
+-		leftop = (Expr *) strip_noop_phvs((Node *) leftop);
+-		while (IsA(leftop, RelabelType))
++		if (IsA(leftop, RelabelType))
+ 			leftop = ((RelabelType *) leftop)->arg;
+ 
+ 		/* check if the LHS matches this partition key */
+@@ -2419,8 +2406,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
+ 		NullTest   *nulltest = (NullTest *) clause;
+ 		Expr	   *arg = nulltest->arg;
+ 
+-		arg = (Expr *) strip_noop_phvs((Node *) arg);
+-		while (IsA(arg, RelabelType))
++		if (IsA(arg, RelabelType))
+ 			arg = ((RelabelType *) arg)->arg;
+ 
+ 		/* Does arg match with this partition key column? */
+@@ -3726,8 +3712,7 @@ match_boolean_partition_clause(Oid partopfamily, Expr *clause, Expr *partkey,
+ 		BooleanTest *btest = (BooleanTest *) clause;
+ 
+ 		leftop = btest->arg;
+-		leftop = (Expr *) strip_noop_phvs((Node *) leftop);
+-		while (IsA(leftop, RelabelType))
++		if (IsA(leftop, RelabelType))
+ 			leftop = ((RelabelType *) leftop)->arg;
+ 
+ 		if (equal(leftop, partkey))
+@@ -3764,8 +3749,7 @@ match_boolean_partition_clause(Oid partopfamily, Expr *clause, Expr *partkey,
+ 
+ 		leftop = is_not_clause ? get_notclausearg(clause) : clause;
+ 
+-		leftop = (Expr *) strip_noop_phvs((Node *) leftop);
+-		while (IsA(leftop, RelabelType))
++		if (IsA(leftop, RelabelType))
+ 			leftop = ((RelabelType *) leftop)->arg;
+ 
+ 		/* Compare to the partition key, and make up a clause ... */
+diff --git a/src/include/optimizer/placeholder.h b/src/include/optimizer/placeholder.h
+index 0186f18bb06..db92d8861ba 100644
+--- a/src/include/optimizer/placeholder.h
++++ b/src/include/optimizer/placeholder.h
+@@ -32,6 +32,5 @@ extern bool contain_placeholder_references_to(PlannerInfo *root, Node *clause,
+ 											  int relid);
+ extern Relids get_placeholder_nulling_relids(PlannerInfo *root,
+ 											 PlaceHolderInfo *phinfo);
+-extern Node *strip_noop_phvs(Node *node);
+ 
+ #endif							/* PLACEHOLDER_H */

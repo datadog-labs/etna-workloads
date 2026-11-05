@@ -1,0 +1,75 @@
+diff --git a/src/backend/commands/dbcommands.c b/src/backend/commands/dbcommands.c
+index 5eb6caffe6d..0a41f91538f 100644
+--- a/src/backend/commands/dbcommands.c
++++ b/src/backend/commands/dbcommands.c
+@@ -1872,8 +1872,10 @@ dropdb(const char *dbname, bool missing_ok, bool force)
+ 	 */
+ 	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT);
+ 
++#if defined(USE_BARRIER_SMGRRELEASE)
+ 	/* Close all smgr fds in all backends. */
+ 	WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
++#endif
+ 
+ 	/*
+ 	 * Remove all tablespace subdirs belonging to the database.
+@@ -2123,8 +2125,10 @@ movedb(const char *dbname, const char *tblspcname)
+ 	RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_FORCE | CHECKPOINT_WAIT
+ 					  | CHECKPOINT_FLUSH_ALL);
+ 
++#if defined(USE_BARRIER_SMGRRELEASE)
+ 	/* Close all smgr fds in all backends. */
+ 	WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
++#endif
+ 
+ 	/*
+ 	 * Now drop all buffers holding data of the target database; they should
+@@ -3373,8 +3377,10 @@ dbase_redo(XLogReaderState *record)
+ 		 */
+ 		FlushDatabaseBuffers(xlrec->src_db_id);
+ 
++#if defined(USE_BARRIER_SMGRRELEASE)
+ 		/* Close all smgr fds in all backends. */
+ 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
++#endif
+ 
+ 		/*
+ 		 * Copy this subdirectory to the new location
+@@ -3440,8 +3446,10 @@ dbase_redo(XLogReaderState *record)
+ 		/* Clean out the xlog relcache too */
+ 		XLogDropDatabase(xlrec->db_id);
+ 
++#if defined(USE_BARRIER_SMGRRELEASE)
+ 		/* Close all smgr fds in all backends. */
+ 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
++#endif
+ 
+ 		for (i = 0; i < xlrec->ntablespaces; i++)
+ 		{
+diff --git a/src/backend/commands/tablespace.c b/src/backend/commands/tablespace.c
+index a9005cc7212..f60eb91f6bb 100644
+--- a/src/backend/commands/tablespace.c
++++ b/src/backend/commands/tablespace.c
+@@ -511,9 +511,11 @@ DropTableSpace(DropTableSpaceStmt *stmt)
+ 		 * use a global barrier to ask all backends to close all files, and
+ 		 * wait until they're finished.
+ 		 */
++#if defined(USE_BARRIER_SMGRRELEASE)
+ 		LWLockRelease(TablespaceCreateLock);
+ 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
+ 		LWLockAcquire(TablespaceCreateLock, LW_EXCLUSIVE);
++#endif
+ 
+ 		/* And now try again. */
+ 		if (!destroy_tablespace_directories(tablespaceoid, false))
+@@ -1526,8 +1528,10 @@ tblspc_redo(XLogReaderState *record)
+ 	{
+ 		xl_tblspc_drop_rec *xlrec = (xl_tblspc_drop_rec *) XLogRecGetData(record);
+ 
++#if defined(USE_BARRIER_SMGRRELEASE)
+ 		/* Close all smgr fds in all backends. */
+ 		WaitForProcSignalBarrier(EmitProcSignalBarrier(PROCSIGNAL_BARRIER_SMGRRELEASE));
++#endif
+ 
+ 		/*
+ 		 * If we issued a WAL record for a drop tablespace it implies that

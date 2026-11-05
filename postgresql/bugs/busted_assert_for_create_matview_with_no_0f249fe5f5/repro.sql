@@ -1,0 +1,9 @@
+BEGIN;
+CREATE FUNCTION mvtest_func() RETURNS void AS $$
+BEGIN
+  CREATE MATERIALIZED VIEW mvtest2 AS SELECT 1 AS x WITH NO DATA;
+END;
+$$ LANGUAGE plpgsql;
+SELECT mvtest_func();
+SELECT * FROM mvtest2;
+ROLLBACK;

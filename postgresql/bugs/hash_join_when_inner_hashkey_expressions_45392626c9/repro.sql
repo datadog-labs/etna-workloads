@@ -1,0 +1,10 @@
+create temp table a(q2 int);
+insert into a values (456),(123);
+create temp table t1 as select g as v from generate_series(1,1000) g;
+create temp table i4(f1 int);
+insert into i4 values (0),(0),(5);
+analyze t1; analyze i4; analyze a;
+set enable_hashjoin=on; set enable_mergejoin=off; set enable_nestloop=off;
+select a.q2, ss.* from a,
+lateral (select t1.v, i4.f1 from t1 join i4 on t1.v = i4.f1+a.q2 order by 1,2) ss
+order by 1,2,3;

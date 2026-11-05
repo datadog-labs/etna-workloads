@@ -1,0 +1,14 @@
+CREATE SCHEMA s;
+SET search_path = s;
+CREATE FUNCTION fn(i int) RETURNS int LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN RAISE NOTICE 'sp: %', current_setting('search_path'); RETURN i; END $$;
+CREATE TABLE t(i int);
+INSERT INTO t VALUES (1);
+CREATE INDEX ti ON t (fn(i));
+psql:<REPRO>:7: NOTICE:  sp: pg_catalog, pg_temp
+REINDEX INDEX ti;
+psql:<REPRO>:8: NOTICE:  sp: pg_catalog, pg_temp
+VACUUM FULL t;
+psql:<REPRO>:9: NOTICE:  sp: pg_catalog, pg_temp
+ANALYZE t;
+psql:<REPRO>:10: NOTICE:  sp: s

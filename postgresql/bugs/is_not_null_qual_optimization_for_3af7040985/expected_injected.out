@@ -1,0 +1,25 @@
+CREATE TABLE pred_parent (a int);
+CREATE TABLE pred_child () INHERITS (pred_parent);
+ALTER TABLE ONLY pred_parent ALTER a SET NOT NULL;
+INSERT INTO pred_child VALUES (NULL), (1);
+SELECT count(*) FROM pred_parent WHERE a IS NULL;
+ count 
+-------
+     0
+(1 row)
+
+EXPLAIN (COSTS OFF) SELECT * FROM pred_parent WHERE a IS NOT NULL;
+                 QUERY PLAN                  
+---------------------------------------------
+ Append
+   ->  Seq Scan on pred_parent pred_parent_1
+   ->  Seq Scan on pred_child pred_parent_2
+(3 rows)
+
+EXPLAIN (COSTS OFF) SELECT * FROM pred_parent WHERE a IS NULL;
+        QUERY PLAN        
+--------------------------
+ Result
+   One-Time Filter: false
+(2 rows)
+

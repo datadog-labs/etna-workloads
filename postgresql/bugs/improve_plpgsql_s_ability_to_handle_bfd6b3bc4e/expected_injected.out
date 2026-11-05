@@ -1,0 +1,13 @@
+create type two_int4s as (f1 int4, f2 int4);
+create type more_int4s as (f0 text, f1 int4, f2 int4);
+create function getf2(record) returns int language plpgsql as
+$$ begin return $1.f2; end $$;
+select getf2(row(1,2)::two_int4s);
+ getf2 
+-------
+     2
+(1 row)
+
+select getf2(row('foo',123,456)::more_int4s);
+psql:<REPRO>:6: ERROR:  type of parameter 1 (more_int4s) does not match that when preparing the plan (two_int4s)
+CONTEXT:  PL/pgSQL function getf2(record) line 1 at RETURN

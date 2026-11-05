@@ -1,0 +1,35 @@
+diff --git a/src/backend/commands/explain.c b/src/backend/commands/explain.c
+index 15ef3304863..44a067ca765 100644
+--- a/src/backend/commands/explain.c
++++ b/src/backend/commands/explain.c
+@@ -4297,22 +4297,22 @@ show_wal_usage(ExplainState *es, const WalUsage *usage)
+ static void
+ show_memory_counters(ExplainState *es, const MemoryContextCounters *mem_counters)
+ {
+-	int64		memUsedkB = BYTES_TO_KILOBYTES(mem_counters->totalspace -
+-											   mem_counters->freespace);
+-	int64		memAllocatedkB = BYTES_TO_KILOBYTES(mem_counters->totalspace);
+-
+ 	if (es->format == EXPLAIN_FORMAT_TEXT)
+ 	{
+ 		ExplainIndentText(es);
+ 		appendStringInfo(es->str,
+-						 "Memory: used=" INT64_FORMAT "kB  allocated=" INT64_FORMAT "kB",
+-						 memUsedkB, memAllocatedkB);
++						 "Memory: used=%lld bytes  allocated=%lld bytes",
++						 (long long) (mem_counters->totalspace - mem_counters->freespace),
++						 (long long) mem_counters->totalspace);
+ 		appendStringInfoChar(es->str, '\n');
+ 	}
+ 	else
+ 	{
+-		ExplainPropertyInteger("Memory Used", "kB", memUsedkB, es);
+-		ExplainPropertyInteger("Memory Allocated", "kB", memAllocatedkB, es);
++		ExplainPropertyInteger("Memory Used", "bytes",
++							   mem_counters->totalspace - mem_counters->freespace,
++							   es);
++		ExplainPropertyInteger("Memory Allocated", "bytes",
++							   mem_counters->totalspace, es);
+ 	}
+ }
+ 

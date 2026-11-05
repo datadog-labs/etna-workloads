@@ -1,0 +1,22 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..dbd7a6a2457 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -7520,6 +7520,8 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 		{
+ 			NewColumnValue *newval;
+ 
++			Expr	   *rawdefval = defval;
++
+ 			/* Prepare defval for execution, either here or in Phase 3 */
+ 			defval = expression_planner(defval);
+ 
+@@ -7543,7 +7545,7 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 			if (rel->rd_rel->relkind == RELKIND_RELATION &&
+ 				!colDef->generated &&
+ 				!has_domain_constraints &&
+-				!contain_volatile_functions((Node *) defval))
++				!contain_volatile_functions((Node *) rawdefval))
+ 			{
+ 				EState	   *estate;
+ 				ExprState  *exprState;

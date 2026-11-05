@@ -1,0 +1,18 @@
+set enable_partitionwise_join = on;
+set geqo_threshold = 2;
+create table pa (a int, b int) partition by range (a);
+create table pa1 partition of pa for values from (0) to (10);
+create table pa2 partition of pa for values from (10) to (20);
+create table pa3 partition of pa for values from (20) to (30);
+create table pb (a int, b int) partition by range (a);
+create table pb1 partition of pb for values from (0) to (10);
+create table pb2 partition of pb for values from (10) to (20);
+create table pb3 partition of pb for values from (20) to (30);
+insert into pa select i, i from generate_series(0,29) i;
+insert into pb select i, i from generate_series(0,29) i;
+select count(*) from pa x join pb y on x.a = y.a where x.a < 20 and y.a >= 10;
+psql:<REPRO>:13: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:13: error: connection to server was lost
+### server crashed or assertion failed

@@ -1,0 +1,21 @@
+create function unreserved_test() returns int as $$
+declare
+  comment int := 21;
+begin
+  comment := comment + 1;
+  comment on function unreserved_test() is 'this is a test';
+  return comment;
+end
+$$ language plpgsql;
+psql:<REPRO>:9: ERROR:  syntax error at or near "on"
+LINE 6:   comment on function unreserved_test() is 'this is a test';
+                  ^
+select unreserved_test();
+psql:<REPRO>:10: ERROR:  function unreserved_test() does not exist
+LINE 1: select unreserved_test();
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+select obj_description('unreserved_test()'::regprocedure, 'pg_proc');
+psql:<REPRO>:11: ERROR:  function "unreserved_test()" does not exist
+LINE 1: select obj_description('unreserved_test()'::regprocedure, 'p...
+                               ^

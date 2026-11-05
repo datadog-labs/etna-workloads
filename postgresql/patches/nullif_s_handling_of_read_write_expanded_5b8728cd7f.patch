@@ -1,0 +1,130 @@
+diff --git a/src/backend/executor/execExpr.c b/src/backend/executor/execExpr.c
+index 038a93c5cc7..67a40de9b4c 100644
+--- a/src/backend/executor/execExpr.c
++++ b/src/backend/executor/execExpr.c
+@@ -1241,14 +1241,6 @@ ExecInitExprRec(Expr *node, ExprState *state,
+ 							 op->args, op->opfuncid, op->inputcollid,
+ 							 state);
+ 
+-				/*
+-				 * If first argument is of varlena type, we'll need to ensure
+-				 * that the value passed to the comparison function is a
+-				 * read-only pointer.
+-				 */
+-				scratch.d.func.make_ro =
+-					(get_typlen(exprType((Node *) linitial(op->args))) == -1);
+-
+ 				/*
+ 				 * Change opcode of call instruction to EEOP_NULLIF.
+ 				 *
+diff --git a/src/backend/executor/execExprInterp.c b/src/backend/executor/execExprInterp.c
+index 80ac19baa25..3afab6c6c30 100644
+--- a/src/backend/executor/execExprInterp.c
++++ b/src/backend/executor/execExprInterp.c
+@@ -1519,24 +1519,12 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
+ 			 * The arguments are already evaluated into fcinfo->args.
+ 			 */
+ 			FunctionCallInfo fcinfo = op->d.func.fcinfo_data;
+-			Datum		save_arg0 = fcinfo->args[0].value;
+ 
+ 			/* if either argument is NULL they can't be equal */
+ 			if (!fcinfo->args[0].isnull && !fcinfo->args[1].isnull)
+ 			{
+ 				Datum		result;
+ 
+-				/*
+-				 * If first argument is of varlena type, it might be an
+-				 * expanded datum.  We need to ensure that the value passed to
+-				 * the comparison function is a read-only pointer.  However,
+-				 * if we end by returning the first argument, that will be the
+-				 * original read-write pointer if it was read-write.
+-				 */
+-				if (op->d.func.make_ro)
+-					fcinfo->args[0].value =
+-						MakeExpandedObjectReadOnlyInternal(save_arg0);
+-
+ 				fcinfo->isnull = false;
+ 				result = op->d.func.fn_addr(fcinfo);
+ 
+@@ -1551,7 +1539,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
+ 			}
+ 
+ 			/* Arguments aren't equal, so return the first one */
+-			*op->resvalue = save_arg0;
++			*op->resvalue = fcinfo->args[0].value;
+ 			*op->resnull = fcinfo->args[0].isnull;
+ 
+ 			EEO_NEXT();
+diff --git a/src/backend/jit/llvm/llvmjit_expr.c b/src/backend/jit/llvm/llvmjit_expr.c
+index e807e60e311..af4d776c5bc 100644
+--- a/src/backend/jit/llvm/llvmjit_expr.c
++++ b/src/backend/jit/llvm/llvmjit_expr.c
+@@ -1630,9 +1630,6 @@ llvm_compile_expr(ExprState *state)
+ 
+ 					v_fcinfo = l_ptr_const(fcinfo, l_ptr(StructFunctionCallInfoData));
+ 
+-					/* save original arg[0] */
+-					v_arg0 = l_funcvalue(b, v_fcinfo, 0);
+-
+ 					/* if either argument is NULL they can't be equal */
+ 					v_argnull0 = l_funcnull(b, v_fcinfo, 0);
+ 					v_argnull1 = l_funcnull(b, v_fcinfo, 1);
+@@ -1649,6 +1646,7 @@ llvm_compile_expr(ExprState *state)
+ 
+ 					/* one (or both) of the arguments are null, return arg[0] */
+ 					LLVMPositionBuilderAtEnd(b, b_hasnull);
++					v_arg0 = l_funcvalue(b, v_fcinfo, 0);
+ 					LLVMBuildStore(b, v_argnull0, v_resnullp);
+ 					LLVMBuildStore(b, v_arg0, v_resvaluep);
+ 					LLVMBuildBr(b, opblocks[opno + 1]);
+@@ -1656,35 +1654,12 @@ llvm_compile_expr(ExprState *state)
+ 					/* build block to invoke function and check result */
+ 					LLVMPositionBuilderAtEnd(b, b_nonull);
+ 
+-					/*
+-					 * If first argument is of varlena type, it might be an
+-					 * expanded datum.  We need to ensure that the value
+-					 * passed to the comparison function is a read-only
+-					 * pointer.  However, if we end by returning the first
+-					 * argument, that will be the original read-write pointer
+-					 * if it was read-write.
+-					 */
+-					if (op->d.func.make_ro)
+-					{
+-						LLVMValueRef v_params[1];
+-						LLVMValueRef v_arg0_ro;
+-
+-						v_params[0] = v_arg0;
+-						v_arg0_ro =
+-							l_call(b,
+-								   llvm_pg_var_func_type("MakeExpandedObjectReadOnlyInternal"),
+-								   llvm_pg_func(mod, "MakeExpandedObjectReadOnlyInternal"),
+-								   v_params, lengthof(v_params), "");
+-						LLVMBuildStore(b, v_arg0_ro,
+-									   l_funcvaluep(b, v_fcinfo, 0));
+-					}
+-
+ 					v_retval = BuildV1Call(context, b, mod, fcinfo, &v_fcinfo_isnull);
+ 
+ 					/*
+-					 * If result not null and arguments are equal return null,
+-					 * else return arg[0] (same result as if there'd been
+-					 * NULLs, hence reuse b_hasnull).
++					 * If result not null, and arguments are equal return null
++					 * (same result as if there'd been NULLs, hence reuse
++					 * b_hasnull).
+ 					 */
+ 					v_argsequal = LLVMBuildAnd(b,
+ 											   LLVMBuildICmp(b, LLVMIntEQ,
+diff --git a/src/include/executor/execExpr.h b/src/include/executor/execExpr.h
+index f42f467fa3d..da33df80eba 100644
+--- a/src/include/executor/execExpr.h
++++ b/src/include/executor/execExpr.h
+@@ -390,7 +390,6 @@ typedef struct ExprEvalStep
+ 			/* faster to access without additional indirection: */
+ 			PGFunction	fn_addr;	/* actual call address */
+ 			int			nargs;	/* number of arguments */
+-			bool		make_ro;	/* make arg0 R/O (used only for NULLIF) */
+ 		}			func;
+ 
+ 		/* for EEOP_BOOL_*_STEP */

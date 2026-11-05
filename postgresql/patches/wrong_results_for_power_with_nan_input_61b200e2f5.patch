@@ -1,0 +1,30 @@
+diff --git a/src/backend/utils/adt/float.c b/src/backend/utils/adt/float.c
+index ba66a9c4ce6..8bd280da046 100644
+--- a/src/backend/utils/adt/float.c
++++ b/src/backend/utils/adt/float.c
+@@ -1492,25 +1492,6 @@ dpow(PG_FUNCTION_ARGS)
+ 	float8		arg2 = PG_GETARG_FLOAT8(1);
+ 	float8		result;
+ 
+-	/*
+-	 * The POSIX spec says that NaN ^ 0 = 1, and 1 ^ NaN = 1, while all other
+-	 * cases with NaN inputs yield NaN (with no error).  Many older platforms
+-	 * get one or more of these cases wrong, so deal with them via explicit
+-	 * logic rather than trusting pow(3).
+-	 */
+-	if (isnan(arg1))
+-	{
+-		if (isnan(arg2) || arg2 != 0.0)
+-			PG_RETURN_FLOAT8(get_float8_nan());
+-		PG_RETURN_FLOAT8(1.0);
+-	}
+-	if (isnan(arg2))
+-	{
+-		if (arg1 != 1.0)
+-			PG_RETURN_FLOAT8(get_float8_nan());
+-		PG_RETURN_FLOAT8(1.0);
+-	}
+-
+ 	/*
+ 	 * The SQL spec requires that we emit a particular SQLSTATE error code for
+ 	 * certain error conditions.  Specifically, we don't return a

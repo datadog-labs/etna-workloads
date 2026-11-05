@@ -1,0 +1,27 @@
+SET debug_discard_caches = 1;
+CREATE TABLE comment_test (
+  id text CONSTRAINT comment_test_pk PRIMARY KEY,
+  positive_col integer CHECK (positive_col > 0),
+  indexed_col integer);
+CREATE INDEX comment_test_index ON comment_test(indexed_col);
+COMMENT ON COLUMN comment_test.id IS 'Column ''id'' on comment_test';
+COMMENT ON INDEX comment_test_index IS 'Simple index on comment_test';
+COMMENT ON CONSTRAINT comment_test_positive_col_check ON comment_test IS 'CHECK constraint on comment_test.positive_col';
+COMMENT ON INDEX comment_test_pk IS 'Index backing the PRIMARY KEY of comment_test';
+CREATE TABLE comment_test_child (
+  id text CONSTRAINT comment_test_child_fk REFERENCES comment_test);
+CREATE INDEX comment_test_child_fk ON comment_test_child(id);
+COMMENT ON COLUMN comment_test_child.id IS 'Column ''id'' on comment_test_child';
+COMMENT ON INDEX comment_test_child_fk IS 'Index backing the FOREIGN KEY of comment_test_child';
+COMMENT ON CONSTRAINT comment_test_child_fk ON comment_test_child IS 'FOREIGN KEY constraint of comment_test_child';
+ALTER TABLE comment_test ALTER COLUMN id SET DATA TYPE text;
+psql:<REPRO>:17: ERROR:  relation "public.pg_trigger" does not exist
+ALTER TABLE comment_test ALTER COLUMN id SET DATA TYPE int USING id::integer;
+psql:<REPRO>:18: ERROR:  foreign key constraint "comment_test_child_fk" cannot be implemented
+DETAIL:  Key columns "id" of the referencing table and "id" of the referenced table are of incompatible types: text and integer.
+SELECT conname, obj_description(oid,'pg_constraint') FROM pg_constraint WHERE conrelid='comment_test_child'::regclass;
+        conname        |               obj_description                
+-----------------------+----------------------------------------------
+ comment_test_child_fk | FOREIGN KEY constraint of comment_test_child
+(1 row)
+

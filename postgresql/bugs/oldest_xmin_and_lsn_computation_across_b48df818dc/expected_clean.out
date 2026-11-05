@@ -1,0 +1,35 @@
+SELECT pg_create_physical_replication_slot('s', true) IS NOT NULL;
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT pg_walfile_name(pg_current_wal_lsn()) AS seg \gset
+CREATE TABLE t (a int);
+INSERT INTO t SELECT generate_series(1,10);
+SELECT pg_switch_wal() IS NOT NULL;
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT pg_switch_wal() IS NOT NULL;
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT pg_replication_slot_advance('s', pg_current_wal_lsn()) IS NOT NULL;
+ ?column? 
+----------
+ t
+(1 row)
+
+CHECKPOINT;
+CHECKPOINT;
+SELECT count(*) AS old_segment_still_present FROM pg_ls_waldir() WHERE name = :'seg';
+ old_segment_still_present 
+---------------------------
+                         0
+(1 row)
+

@@ -1,0 +1,222 @@
+diff --git a/src/backend/commands/alter.c b/src/backend/commands/alter.c
+index c801c869c1c..b6a8f676150 100644
+--- a/src/backend/commands/alter.c
++++ b/src/backend/commands/alter.c
+@@ -610,16 +610,16 @@ ExecAlterObjectSchemaStmt(AlterObjectSchemaStmt *stmt,
+ /*
+  * Change an object's namespace given its classOid and object Oid.
+  *
+- * Objects that don't have a namespace should be ignored, as should
+- * dependent types such as array types.
++ * Objects that don't have a namespace should be ignored.
+  *
+  * This function is currently used only by ALTER EXTENSION SET SCHEMA,
+- * so it only needs to cover object kinds that can be members of an
+- * extension, and it can silently ignore dependent types --- we assume
+- * those will be moved when their parent object is moved.
++ * so it only needs to cover object types that can be members of an
++ * extension, and it doesn't have to deal with certain special cases
++ * such as not wanting to process array types --- those should never
++ * be direct members of an extension anyway.
+  *
+  * Returns the OID of the object's previous namespace, or InvalidOid if
+- * object doesn't have a schema or was ignored due to being a dependent type.
++ * object doesn't have a schema.
+  */
+ Oid
+ AlterObjectNamespace_oid(Oid classId, Oid objid, Oid nspOid,
+@@ -643,7 +643,7 @@ AlterObjectNamespace_oid(Oid classId, Oid objid, Oid nspOid,
+ 			}
+ 
+ 		case TypeRelationId:
+-			oldNspOid = AlterTypeNamespace_oid(objid, nspOid, true, objsMoved);
++			oldNspOid = AlterTypeNamespace_oid(objid, nspOid, objsMoved);
+ 			break;
+ 
+ 		case ProcedureRelationId:
+diff --git a/src/backend/commands/extension.c b/src/backend/commands/extension.c
+index f1a54066e32..25ceb9a8fd1 100644
+--- a/src/backend/commands/extension.c
++++ b/src/backend/commands/extension.c
+@@ -3361,7 +3361,7 @@ AlterExtensionNamespace(const char *extensionName, const char *newschema, Oid *o
+ 
+ 		/*
+ 		 * If not all the objects had the same old namespace (ignoring any
+-		 * that are not in namespaces or are dependent types), complain.
++		 * that are not in namespaces), complain.
+ 		 */
+ 		if (dep_oldNspOid != InvalidOid && dep_oldNspOid != oldNspOid)
+ 			ereport(ERROR,
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..86e1d3e4f2b 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -19076,11 +19076,8 @@ AlterTableNamespaceInternal(Relation rel, Oid oldNspOid, Oid nspOid,
+ 
+ 	/* Fix the table's row type too, if it has one */
+ 	if (OidIsValid(rel->rd_rel->reltype))
+-		AlterTypeNamespaceInternal(rel->rd_rel->reltype, nspOid,
+-								   false,	/* isImplicitArray */
+-								   false,	/* ignoreDependent */
+-								   false,	/* errorOnTableType */
+-								   objsMoved);
++		AlterTypeNamespaceInternal(rel->rd_rel->reltype,
++								   nspOid, false, false, objsMoved);
+ 
+ 	/* Fix other dependent stuff */
+ 	AlterIndexNamespaces(classRel, rel, oldNspOid, nspOid, objsMoved);
+diff --git a/src/backend/commands/typecmds.c b/src/backend/commands/typecmds.c
+index 2ed7973d1b4..0c58604d499 100644
+--- a/src/backend/commands/typecmds.c
++++ b/src/backend/commands/typecmds.c
+@@ -4099,7 +4099,7 @@ AlterTypeNamespace(List *names, const char *newschema, ObjectType objecttype,
+ 	typename = makeTypeNameFromNameList(names);
+ 	typeOid = typenameTypeId(NULL, typename);
+ 
+-	/* Don't allow ALTER DOMAIN on a non-domain type */
++	/* Don't allow ALTER DOMAIN on a type */
+ 	if (objecttype == OBJECT_DOMAIN && get_typtype(typeOid) != TYPTYPE_DOMAIN)
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+@@ -4110,7 +4110,7 @@ AlterTypeNamespace(List *names, const char *newschema, ObjectType objecttype,
+ 	nspOid = LookupCreationNamespace(newschema);
+ 
+ 	objsMoved = new_object_addresses();
+-	oldNspOid = AlterTypeNamespace_oid(typeOid, nspOid, false, objsMoved);
++	oldNspOid = AlterTypeNamespace_oid(typeOid, nspOid, objsMoved);
+ 	free_object_addresses(objsMoved);
+ 
+ 	if (oldschema)
+@@ -4121,21 +4121,8 @@ AlterTypeNamespace(List *names, const char *newschema, ObjectType objecttype,
+ 	return myself;
+ }
+ 
+-/*
+- * ALTER TYPE SET SCHEMA, where the caller has already looked up the OIDs
+- * of the type and the target schema and checked the schema's privileges.
+- *
+- * If ignoreDependent is true, we silently ignore dependent types
+- * (array types and table rowtypes) rather than raising errors.
+- *
+- * This entry point is exported for use by AlterObjectNamespace_oid,
+- * which doesn't want errors when it passes OIDs of dependent types.
+- *
+- * Returns the type's old namespace OID, or InvalidOid if we did nothing.
+- */
+ Oid
+-AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, bool ignoreDependent,
+-					   ObjectAddresses *objsMoved)
++AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, ObjectAddresses *objsMoved)
+ {
+ 	Oid			elemOid;
+ 
+@@ -4146,23 +4133,15 @@ AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, bool ignoreDependent,
+ 	/* don't allow direct alteration of array types */
+ 	elemOid = get_element_type(typeOid);
+ 	if (OidIsValid(elemOid) && get_array_type(elemOid) == typeOid)
+-	{
+-		if (ignoreDependent)
+-			return InvalidOid;
+ 		ereport(ERROR,
+ 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+ 				 errmsg("cannot alter array type %s",
+ 						format_type_be(typeOid)),
+ 				 errhint("You can alter type %s, which will alter the array type as well.",
+ 						 format_type_be(elemOid))));
+-	}
+ 
+ 	/* and do the work */
+-	return AlterTypeNamespaceInternal(typeOid, nspOid,
+-									  false,	/* isImplicitArray */
+-									  ignoreDependent,	/* ignoreDependent */
+-									  true, /* errorOnTableType */
+-									  objsMoved);
++	return AlterTypeNamespaceInternal(typeOid, nspOid, false, true, objsMoved);
+ }
+ 
+ /*
+@@ -4174,21 +4153,15 @@ AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, bool ignoreDependent,
+  * if any.  isImplicitArray should be true only when doing this internal
+  * recursion (outside callers must never try to move an array type directly).
+  *
+- * If ignoreDependent is true, we silently don't process table types.
+- *
+  * If errorOnTableType is true, the function errors out if the type is
+  * a table type.  ALTER TABLE has to be used to move a table to a new
+- * namespace.  (This flag is ignored if ignoreDependent is true.)
+- *
+- * We also do nothing if the type is already listed in *objsMoved.
+- * After a successful move, we add the type to *objsMoved.
++ * namespace.
+  *
+- * Returns the type's old namespace OID, or InvalidOid if we did nothing.
++ * Returns the type's old namespace OID.
+  */
+ Oid
+ AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
+ 						   bool isImplicitArray,
+-						   bool ignoreDependent,
+ 						   bool errorOnTableType,
+ 						   ObjectAddresses *objsMoved)
+ {
+@@ -4243,21 +4216,15 @@ AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
+ 		 get_rel_relkind(typform->typrelid) == RELKIND_COMPOSITE_TYPE);
+ 
+ 	/* Enforce not-table-type if requested */
+-	if (typform->typtype == TYPTYPE_COMPOSITE && !isCompositeType)
+-	{
+-		if (ignoreDependent)
+-		{
+-			table_close(rel, RowExclusiveLock);
+-			return InvalidOid;
+-		}
+-		if (errorOnTableType)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
+-					 errmsg("%s is a table's row type",
+-							format_type_be(typeOid)),
+-			/* translator: %s is an SQL ALTER command */
+-					 errhint("Use %s instead.", "ALTER TABLE")));
+-	}
++	if (typform->typtype == TYPTYPE_COMPOSITE && !isCompositeType &&
++		errorOnTableType)
++		ereport(ERROR,
++				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
++				 errmsg("%s is a table's row type",
++						format_type_be(typeOid)),
++		/* translator: %s is an SQL ALTER command */
++				 errhint("Use %s instead.",
++						 "ALTER TABLE")));
+ 
+ 	if (oldNspOid != nspOid)
+ 	{
+@@ -4324,11 +4291,7 @@ AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
+ 
+ 	/* Recursively alter the associated array type, if any */
+ 	if (OidIsValid(arrayOid))
+-		AlterTypeNamespaceInternal(arrayOid, nspOid,
+-								   true,	/* isImplicitArray */
+-								   false,	/* ignoreDependent */
+-								   true,	/* errorOnTableType */
+-								   objsMoved);
++		AlterTypeNamespaceInternal(arrayOid, nspOid, true, true, objsMoved);
+ 
+ 	return oldNspOid;
+ }
+diff --git a/src/include/commands/typecmds.h b/src/include/commands/typecmds.h
+index b2ffec8c3be..0b16c8108b0 100644
+--- a/src/include/commands/typecmds.h
++++ b/src/include/commands/typecmds.h
+@@ -51,11 +51,9 @@ extern void AlterTypeOwnerInternal(Oid typeOid, Oid newOwnerId);
+ 
+ extern ObjectAddress AlterTypeNamespace(List *names, const char *newschema,
+ 										ObjectType objecttype, Oid *oldschema);
+-extern Oid	AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, bool ignoreDependent,
+-								   ObjectAddresses *objsMoved);
++extern Oid	AlterTypeNamespace_oid(Oid typeOid, Oid nspOid, ObjectAddresses *objsMoved);
+ extern Oid	AlterTypeNamespaceInternal(Oid typeOid, Oid nspOid,
+ 									   bool isImplicitArray,
+-									   bool ignoreDependent,
+ 									   bool errorOnTableType,
+ 									   ObjectAddresses *objsMoved);
+ 

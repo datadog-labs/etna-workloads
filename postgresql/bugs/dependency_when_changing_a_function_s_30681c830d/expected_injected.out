@@ -1,0 +1,19 @@
+CREATE FUNCTION bt_in(cstring) RETURNS bt AS 'boolin' LANGUAGE internal IMMUTABLE STRICT;
+psql:<REPRO>:1: NOTICE:  type "bt" is not yet defined
+DETAIL:  Creating a shell type definition.
+CREATE FUNCTION bt_out(bt) RETURNS cstring AS 'boolout' LANGUAGE internal IMMUTABLE STRICT;
+psql:<REPRO>:2: NOTICE:  argument type bt is only a shell
+LINE 1: CREATE FUNCTION bt_out(bt) RETURNS cstring AS 'boolout' LANG...
+                               ^
+CREATE TYPE bt(INPUT = bt_in, OUTPUT = bt_out);
+SELECT count(*) FROM pg_depend d WHERE d.refobjid = 'bt'::regtype AND d.classid = 'pg_proc'::regclass;
+ count 
+-------
+     0
+(1 row)
+
+DROP FUNCTION bt_in(cstring);
+psql:<REPRO>:5: ERROR:  cannot drop function bt_in(cstring) because other objects depend on it
+DETAIL:  type bt depends on function bt_in(cstring)
+HINT:  Use DROP ... CASCADE to drop the dependent objects too.
+DROP TYPE bt CASCADE;

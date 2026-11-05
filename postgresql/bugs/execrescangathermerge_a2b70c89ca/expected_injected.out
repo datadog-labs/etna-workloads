@@ -1,0 +1,30 @@
+create table t as select i as u, (i%4)::text as s from generate_series(1,20000) i;
+analyze t;
+set parallel_setup_cost=0; set parallel_tuple_cost=0; set min_parallel_table_scan_size=0;
+set max_parallel_workers_per_gather=4; set enable_material=false;
+set enable_hashagg=false;
+explain (costs off)
+select * from (select s, count(u) from t group by s order by s) ss
+  right join (values (1),(2),(3)) v(x) on true;
+                      QUERY PLAN                      
+------------------------------------------------------
+ Nested Loop Left Join
+   ->  Values Scan on "*VALUES*"
+   ->  Finalize GroupAggregate
+         Group Key: t.s
+         ->  Gather Merge
+               Workers Planned: 4
+               ->  Partial GroupAggregate
+                     Group Key: t.s
+                     ->  Sort
+                           Sort Key: t.s
+                           ->  Parallel Seq Scan on t
+(11 rows)
+
+select * from (select s, count(u) from t group by s order by s) ss
+  right join (values (1),(2),(3)) v(x) on true;
+psql:<REPRO>:10: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:10: error: connection to server was lost
+### server crashed or assertion failed

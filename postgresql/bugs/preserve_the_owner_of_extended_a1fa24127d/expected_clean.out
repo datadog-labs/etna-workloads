@@ -1,0 +1,19 @@
+create role r_own; create role r_alt superuser;
+create table t (a int, b int);
+create statistics s1 on a, b from t;
+alter statistics s1 owner to r_own;
+select stxowner::regrole from pg_statistic_ext where stxname='s1';
+ stxowner 
+----------
+ r_own
+(1 row)
+
+set role r_alt;
+alter table t alter column a type bigint;
+reset role;
+select stxowner::regrole from pg_statistic_ext where stxname='s1';
+ stxowner 
+----------
+ r_own
+(1 row)
+

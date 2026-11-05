@@ -1,0 +1,11 @@
+CREATE TABLE tt(a int);
+CREATE FUNCTION tf() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$;
+CREATE TRIGGER trg AFTER TRUNCATE OR UPDATE ON tt REFERENCING OLD TABLE AS d NEW TABLE AS i
+  FOR EACH STATEMENT EXECUTE PROCEDURE tf();
+psql:<REPRO>:4: ERROR:  TRUNCATE triggers with transition tables are not supported
+SELECT count(*) FROM pg_trigger WHERE tgrelid='tt'::regclass;
+ count 
+-------
+     0
+(1 row)
+

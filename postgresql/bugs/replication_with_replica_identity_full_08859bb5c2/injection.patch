@@ -1,0 +1,40 @@
+diff --git a/src/backend/executor/execReplication.c b/src/backend/executor/execReplication.c
+index bb78d89265d..b4c3cb88f96 100644
+--- a/src/backend/executor/execReplication.c
++++ b/src/backend/executor/execReplication.c
+@@ -294,8 +294,6 @@ tuples_equal(TupleTableSlot *slot1, TupleTableSlot *slot2,
+ 	for (attrnum = 0; attrnum < slot1->tts_tupleDescriptor->natts; attrnum++)
+ 	{
+ 		Form_pg_attribute att;
+-		TypeCacheEntry *typentry;
+-
+ 		att = TupleDescAttr(slot1->tts_tupleDescriptor, attrnum);
+ 
+ 		/*
+@@ -318,23 +316,9 @@ tuples_equal(TupleTableSlot *slot1, TupleTableSlot *slot2,
+ 		if (slot1->tts_isnull[attrnum] || slot2->tts_isnull[attrnum])
+ 			continue;
+ 
+-		typentry = eq[attrnum];
+-		if (typentry == NULL)
+-		{
+-			typentry = lookup_type_cache(att->atttypid,
+-										 TYPECACHE_EQ_OPR_FINFO);
+-			if (!OidIsValid(typentry->eq_opr_finfo.fn_oid))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_UNDEFINED_FUNCTION),
+-						 errmsg("could not identify an equality operator for type %s",
+-								format_type_be(att->atttypid))));
+-			eq[attrnum] = typentry;
+-		}
+-
+-		if (!DatumGetBool(FunctionCall2Coll(&typentry->eq_opr_finfo,
+-											att->attcollation,
+-											slot1->tts_values[attrnum],
+-											slot2->tts_values[attrnum])))
++		if (!datumIsEqual(slot1->tts_values[attrnum],
++						  slot2->tts_values[attrnum],
++						  att->attbyval, att->attlen))
+ 			return false;
+ 	}
+ 

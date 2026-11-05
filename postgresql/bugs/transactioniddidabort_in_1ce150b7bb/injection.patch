@@ -1,0 +1,16 @@
+diff --git a/src/backend/access/heap/heapam.c b/src/backend/access/heap/heapam.c
+index d72b41ef92f..46fa8634787 100644
+--- a/src/backend/access/heap/heapam.c
++++ b/src/backend/access/heap/heapam.c
+@@ -7811,7 +7811,10 @@ MultiXactIdGetUpdateXid(TransactionId xmax, uint16 t_infomask)
+ 			if (!ISUPDATE_from_mxstatus(members[i].status))
+ 				continue;
+ 
+-			/* there can be at most one updater */
++			/* ignore aborted transactions */
++			if (TransactionIdDidAbort(members[i].xid))
++				continue;
++			/* there should be at most one non-aborted updater */
+ 			Assert(update_xact == InvalidTransactionId);
+ 			update_xact = members[i].xid;
+ #ifndef USE_ASSERT_CHECKING

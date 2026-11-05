@@ -1,0 +1,55 @@
+diff --git a/src/backend/commands/subscriptioncmds.c b/src/backend/commands/subscriptioncmds.c
+index 395dcc678c2..f9f99c56ce3 100644
+--- a/src/backend/commands/subscriptioncmds.c
++++ b/src/backend/commands/subscriptioncmds.c
+@@ -405,37 +405,20 @@ parse_subscription_options(ParseState *pstate, List *stmt_options,
+ 	if (!opts->slot_name &&
+ 		IsSet(opts->specified_opts, SUBOPT_SLOT_NAME))
+ 	{
+-		if (opts->enabled)
+-		{
+-			if (IsSet(opts->specified_opts, SUBOPT_ENABLED))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_SYNTAX_ERROR),
+-				/*- translator: both %s are strings of the form "option = value" */
+-						 errmsg("%s and %s are mutually exclusive options",
+-								"slot_name = NONE", "enabled = true")));
+-			else
+-				ereport(ERROR,
+-						(errcode(ERRCODE_SYNTAX_ERROR),
+-				/*- translator: both %s are strings of the form "option = value" */
+-						 errmsg("subscription with %s must also set %s",
+-								"slot_name = NONE", "enabled = false")));
+-		}
++		if (opts->enabled &&
++			IsSet(opts->specified_opts, SUBOPT_ENABLED))
++			ereport(ERROR,
++					(errcode(ERRCODE_SYNTAX_ERROR),
++			/*- translator: both %s are strings of the form "option = value" */
++					 errmsg("%s and %s are mutually exclusive options",
++							"slot_name = NONE", "enabled = true")));
+ 
+-		if (opts->create_slot)
+-		{
+-			if (IsSet(opts->specified_opts, SUBOPT_CREATE_SLOT))
+-				ereport(ERROR,
+-						(errcode(ERRCODE_SYNTAX_ERROR),
+-				/*- translator: both %s are strings of the form "option = value" */
+-						 errmsg("%s and %s are mutually exclusive options",
+-								"slot_name = NONE", "create_slot = true")));
+-			else
+-				ereport(ERROR,
+-						(errcode(ERRCODE_SYNTAX_ERROR),
+-				/*- translator: both %s are strings of the form "option = value" */
+-						 errmsg("subscription with %s must also set %s",
+-								"slot_name = NONE", "create_slot = false")));
+-		}
++		if (opts->create_slot &&
++			IsSet(opts->specified_opts, SUBOPT_CREATE_SLOT))
++			ereport(ERROR,
++					(errcode(ERRCODE_SYNTAX_ERROR),
++					 errmsg("%s and %s are mutually exclusive options",
++							"slot_name = NONE", "create_slot = true")));
+ 	}
+ }
+ 

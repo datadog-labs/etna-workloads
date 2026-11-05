@@ -1,0 +1,4 @@
+CREATE TABLE t(id int) WITH (autovacuum_enabled = false);
+SELECT pg_restore_relation_stats('schemaname','public','relname','t','relpages',18::integer,'reltuples',21::real,'relallvisible',24::integer);
+CREATE INDEX t_i ON t(id);
+SELECT relpages, reltuples, relallvisible FROM pg_class WHERE oid='t'::regclass;

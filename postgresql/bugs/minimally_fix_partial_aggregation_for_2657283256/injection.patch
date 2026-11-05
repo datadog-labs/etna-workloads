@@ -1,0 +1,44 @@
+diff --git a/src/backend/executor/nodeAgg.c b/src/backend/executor/nodeAgg.c
+index 474888deb2d..0d38db681cc 100644
+--- a/src/backend/executor/nodeAgg.c
++++ b/src/backend/executor/nodeAgg.c
+@@ -3979,13 +3979,6 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
+ 				Oid			combineFnInputTypes[] = {aggtranstype,
+ 				aggtranstype};
+ 
+-				/*
+-				 * When combining there's only one input, the to-be-combined
+-				 * transition value.  The transition value is not counted
+-				 * here.
+-				 */
+-				pertrans->numTransInputs = 1;
+-
+ 				/* aggcombinefn always has two arguments of aggtranstype */
+ 				build_pertrans_for_aggref(pertrans, aggstate, estate,
+ 										  aggref, transfn_oid, aggtranstype,
+@@ -4007,12 +4000,6 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
+ 			}
+ 			else
+ 			{
+-				/* Detect how many arguments to pass to the transfn */
+-				if (AGGKIND_IS_ORDERED_SET(aggref->aggkind))
+-					pertrans->numTransInputs = list_length(aggref->args);
+-				else
+-					pertrans->numTransInputs = numAggTransFnArgs;
+-
+ 				build_pertrans_for_aggref(pertrans, aggstate, estate,
+ 										  aggref, transfn_oid, aggtranstype,
+ 										  serialfn_oid, deserialfn_oid,
+@@ -4170,6 +4157,12 @@ build_pertrans_for_aggref(AggStatePerTrans pertrans,
+ 
+ 	pertrans->aggtranstype = aggtranstype;
+ 
++	/* Detect how many arguments to pass to the transfn */
++	if (AGGKIND_IS_ORDERED_SET(aggref->aggkind))
++		pertrans->numTransInputs = numInputs;
++	else
++		pertrans->numTransInputs = numArguments;
++
+ 	/* account for the current transition state */
+ 	numTransArgs = pertrans->numTransInputs + 1;
+ 

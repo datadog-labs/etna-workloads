@@ -1,0 +1,11 @@
+CREATE TABLE hash_parted (a int) PARTITION BY HASH (a);
+CREATE TABLE hpart_1 PARTITION OF hash_parted FOR VALUES WITH (MODULUS 10, REMAINDER 0);
+CREATE TABLE hpart_2 PARTITION OF hash_parted FOR VALUES WITH (MODULUS 50, REMAINDER 1);
+CREATE TABLE hpart_3 PARTITION OF hash_parted FOR VALUES WITH (MODULUS 200, REMAINDER 2);
+CREATE TABLE hpart_4 PARTITION OF hash_parted FOR VALUES WITH (MODULUS 10, REMAINDER 3);
+CREATE TABLE fail_part PARTITION OF hash_parted FOR VALUES WITH (MODULUS 25, REMAINDER 3);
+psql:<REPRO>:6: ERROR:  every hash partition modulus must be a factor of the next larger modulus
+DETAIL:  The new modulus 25 is not divisible by 10, the modulus of existing partition "hpart_2".
+CREATE TABLE fail_part PARTITION OF hash_parted FOR VALUES WITH (MODULUS 150, REMAINDER 3);
+psql:<REPRO>:7: ERROR:  every hash partition modulus must be a factor of the next larger modulus
+DETAIL:  The new modulus 150 is not a factor of 200, the modulus of existing partition "hpart_4".

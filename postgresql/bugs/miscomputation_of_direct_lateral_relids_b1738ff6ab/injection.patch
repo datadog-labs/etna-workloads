@@ -1,0 +1,33 @@
+diff --git a/src/backend/optimizer/util/placeholder.c b/src/backend/optimizer/util/placeholder.c
+index 86e3c1e751f..d1742c3bf23 100644
+--- a/src/backend/optimizer/util/placeholder.c
++++ b/src/backend/optimizer/util/placeholder.c
+@@ -451,26 +451,12 @@ add_placeholders_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
+ 					joinrel->reltarget->cost.per_tuple += cost.per_tuple;
+ 					tuple_width += phinfo->ph_width;
+ 				}
+-			}
+ 
+-			/*
+-			 * Also adjust joinrel's direct_lateral_relids to include the
+-			 * PHV's source rel(s).  We must do this even if we're not
+-			 * actually going to emit the PHV, otherwise join_is_legal() will
+-			 * reject valid join orderings.  (In principle maybe we could
+-			 * instead remove the joinrel's lateral_relids dependency; but
+-			 * that's complicated to get right, and cases where we're not
+-			 * going to emit the PHV are too rare to justify the work.)
+-			 *
+-			 * In principle we should only do this if the join doesn't yet
+-			 * include the PHV's source rel(s).  But our caller
+-			 * build_join_rel() will clean things up by removing the join's
+-			 * own relids from its direct_lateral_relids, so we needn't
+-			 * account for that here.
+-			 */
++			/* Adjust joinrel's direct_lateral_relids as needed */
+ 			joinrel->direct_lateral_relids =
+ 				bms_add_members(joinrel->direct_lateral_relids,
+ 								phinfo->ph_lateral);
++			}
+ 		}
+ 	}
+ 

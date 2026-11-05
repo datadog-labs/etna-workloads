@@ -1,0 +1,51 @@
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..53b2da15317 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -2067,6 +2067,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction,
+ 			List	   *mergeActionLists = NIL;
+ 			List	   *mergeJoinConditions = NIL;
+ 			List	   *rowMarks;
++			bool		skip_modifytable = false;
+ 
+ 			if (bms_membership(root->all_result_relids) == BMS_MULTIPLE)
+ 			{
+@@ -2190,27 +2191,10 @@ grouping_planner(PlannerInfo *root, double tuple_fraction,
+ 				if (resultRelations == NIL)
+ 				{
+ 					/*
+-					 * We managed to exclude every child rel, so generate a
+-					 * dummy one-relation plan using info for the top target
+-					 * rel (even though that may not be a leaf target).
+-					 * Although it's clear that no data will be updated or
+-					 * deleted, we still need to have a ModifyTable node so
+-					 * that any statement triggers will be executed.  (This
+-					 * could be cleaner if we fixed nodeModifyTable.c to allow
+-					 * zero target relations, but that probably wouldn't be a
+-					 * net win.)
++					 * We managed to exclude every child rel, so just return
++					 * the dummy plan; it doesn't even need a ModifyTable node.
+ 					 */
+-					resultRelations = list_make1_int(parse->resultRelation);
+-					if (parse->commandType == CMD_UPDATE)
+-						updateColnosLists = list_make1(root->update_colnos);
+-					if (parse->withCheckOptions)
+-						withCheckOptionLists = list_make1(parse->withCheckOptions);
+-					if (parse->returningList)
+-						returningLists = list_make1(parse->returningList);
+-					if (parse->mergeActionList)
+-						mergeActionLists = list_make1(parse->mergeActionList);
+-					if (parse->commandType == CMD_MERGE)
+-						mergeJoinConditions = list_make1(parse->mergeJoinCondition);
++					skip_modifytable = true;
+ 				}
+ 			}
+ 			else
+@@ -2240,6 +2224,7 @@ grouping_planner(PlannerInfo *root, double tuple_fraction,
+ 			else
+ 				rowMarks = root->rowMarks;
+ 
++			if (!skip_modifytable)
+ 			path = (Path *)
+ 				create_modifytable_path(root, final_rel,
+ 										path,

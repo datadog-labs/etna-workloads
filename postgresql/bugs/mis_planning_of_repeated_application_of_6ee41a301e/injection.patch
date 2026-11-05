@@ -1,0 +1,49 @@
+diff --git a/src/backend/optimizer/plan/createplan.c b/src/backend/optimizer/plan/createplan.c
+index 10b7358c28b..8d93097d765 100644
+--- a/src/backend/optimizer/plan/createplan.c
++++ b/src/backend/optimizer/plan/createplan.c
+@@ -2055,7 +2055,6 @@ create_projection_plan(PlannerInfo *root, ProjectionPath *best_path, int flags)
+ 		 */
+ 		subplan = create_plan_recurse(root, best_path->subpath,
+ 									  CP_IGNORE_TLIST);
+-		Assert(is_projection_capable_plan(subplan));
+ 		tlist = build_path_tlist(root, &best_path->path);
+ 	}
+ 	else
+diff --git a/src/backend/optimizer/util/pathnode.c b/src/backend/optimizer/util/pathnode.c
+index e8d8a537061..41d512211f3 100644
+--- a/src/backend/optimizer/util/pathnode.c
++++ b/src/backend/optimizer/util/pathnode.c
+@@ -2905,23 +2905,7 @@ create_projection_path(PlannerInfo *root,
+ 					   PathTarget *target)
+ {
+ 	ProjectionPath *pathnode = makeNode(ProjectionPath);
+-	PathTarget *oldtarget;
+-
+-	/*
+-	 * We mustn't put a ProjectionPath directly above another; it's useless
+-	 * and will confuse create_projection_plan.  Rather than making sure all
+-	 * callers handle that, let's implement it here, by stripping off any
+-	 * ProjectionPath in what we're given.  Given this rule, there won't be
+-	 * more than one.
+-	 */
+-	if (IsA(subpath, ProjectionPath))
+-	{
+-		ProjectionPath *subpp = (ProjectionPath *) subpath;
+-
+-		Assert(subpp->path.parent == rel);
+-		subpath = subpp->subpath;
+-		Assert(!IsA(subpath, ProjectionPath));
+-	}
++	PathTarget *oldtarget = subpath->pathtarget;
+ 
+ 	pathnode->path.pathtype = T_Result;
+ 	pathnode->path.parent = rel;
+@@ -2947,7 +2931,6 @@ create_projection_path(PlannerInfo *root,
+ 	 * Note: in the latter case, create_projection_plan has to recheck our
+ 	 * conclusion; see comments therein.
+ 	 */
+-	oldtarget = subpath->pathtarget;
+ 	if (is_projection_capable_path(subpath) ||
+ 		equal(oldtarget->exprs, target->exprs))
+ 	{

@@ -1,0 +1,21 @@
+CREATE FUNCTION mvtest_drop_the_index() RETURNS bool AS $$
+BEGIN
+  EXECUTE 'DROP INDEX IF EXISTS public.mvtest_drop_idx';
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql;
+CREATE MATERIALIZED VIEW drop_idx_matview AS
+  SELECT 1 as i WHERE mvtest_drop_the_index();
+psql:<REPRO>:8: NOTICE:  index "mvtest_drop_idx" does not exist, skipping
+CREATE UNIQUE INDEX mvtest_drop_idx ON drop_idx_matview (i);
+CREATE TABLE res(m text);
+DO $$ BEGIN
+  REFRESH MATERIALIZED VIEW CONCURRENTLY drop_idx_matview;
+EXCEPTION WHEN OTHERS THEN INSERT INTO res VALUES (SQLERRM);
+END $$;
+SELECT * FROM res;
+                                      m                                       
+------------------------------------------------------------------------------
+ could not find suitable unique index on materialized view "drop_idx_matview"
+(1 row)
+

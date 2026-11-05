@@ -1,0 +1,60 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..dc0eb65309f 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -15385,41 +15385,25 @@ RememberIndexForRebuilding(Oid indoid, AlteredTableInfo *tab)
+ 	 */
+ 	if (!list_member_oid(tab->changedIndexOids, indoid))
+ 	{
+-		/*
+-		 * Before adding it as an index-to-rebuild, we'd better see if it
+-		 * belongs to a constraint, and if so rebuild the constraint instead.
+-		 * Typically this check fails, because constraint indexes normally
+-		 * have only dependencies on their constraint.  But it's possible for
+-		 * such an index to also have direct dependencies on table columns,
+-		 * for example with a partial exclusion constraint.
+-		 */
+-		Oid			conoid = get_index_constraint(indoid);
+-
+-		if (OidIsValid(conoid))
+-		{
+-			RememberConstraintForRebuilding(conoid, tab);
+-		}
+-		else
+-		{
+-			/* OK, capture the index's existing definition string */
+-			char	   *defstring = pg_get_indexdef_string(indoid);
++		/* OK, capture the index's existing definition string */
++		char	   *defstring = pg_get_indexdef_string(indoid);
+ 
+-			tab->changedIndexOids = lappend_oid(tab->changedIndexOids,
+-												indoid);
+-			tab->changedIndexDefs = lappend(tab->changedIndexDefs,
+-											defstring);
++		tab->changedIndexOids = lappend_oid(tab->changedIndexOids,
++											indoid);
++		tab->changedIndexDefs = lappend(tab->changedIndexDefs,
++										defstring);
+ 
+-			/*
+-			 * Remember if this index is used for the table's replica identity
+-			 * or if it is a clustered index, so that ATPostAlterTypeCleanup()
+-			 * can queue up commands necessary to restore those properties.
+-			 */
+-			RememberReplicaIdentityForRebuilding(indoid, tab);
+-			RememberClusterOnForRebuilding(indoid, tab);
+-		}
++		/*
++		 * Remember if this index is used for the table's replica identity
++		 * or if it is a clustered index, so that ATPostAlterTypeCleanup()
++		 * can queue up commands necessary to restore those properties.
++		 */
++		RememberReplicaIdentityForRebuilding(indoid, tab);
++		RememberClusterOnForRebuilding(indoid, tab);
+ 	}
+ }
+ 
++
+ /*
+  * Subroutine for ATExecAlterColumnType: remember that a statistics object
+  * needs to be rebuilt (which we might already know).

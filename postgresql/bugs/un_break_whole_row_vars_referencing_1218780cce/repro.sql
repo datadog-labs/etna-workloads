@@ -1,0 +1,4 @@
+create type comptype as (r float8, i float8);
+create domain dcomptype as comptype;
+create function makedcomp(r float8, i float8) returns dcomptype as 'select row(r, i)' language sql;
+select m, m is not null from makedcomp(1,2) m;

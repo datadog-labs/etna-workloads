@@ -1,0 +1,86 @@
+diff --git a/src/backend/optimizer/path/equivclass.c b/src/backend/optimizer/path/equivclass.c
+index 441f12f6c50..29930ae90c3 100644
+--- a/src/backend/optimizer/path/equivclass.c
++++ b/src/backend/optimizer/path/equivclass.c
+@@ -1077,65 +1077,35 @@ bool
+ relation_can_be_sorted_early(PlannerInfo *root, RelOptInfo *rel,
+ 							 EquivalenceClass *ec, bool require_parallel_safe)
+ {
+-	PathTarget *target = rel->reltarget;
+-	EquivalenceMember *em;
+-	ListCell   *lc;
+-
+-	/*
+-	 * Reject volatile ECs immediately; such sorts must always be postponed.
+-	 */
+-	if (ec->ec_has_volatile)
+-		return false;
++	ListCell   *lc_em;
+ 
+ 	/*
+-	 * Try to find an EM directly matching some reltarget member.
++	 * If there is more than one equivalence member matching these
++	 * requirements we'll be content to choose any one of them.
+ 	 */
+-	foreach(lc, target->exprs)
++	foreach(lc_em, ec->ec_members)
+ 	{
+-		Expr	   *targetexpr = (Expr *) lfirst(lc);
++		EquivalenceMember *em = lfirst(lc_em);
++		Expr	   *em_expr = em->em_expr;
+ 
+-		em = find_ec_member_matching_expr(ec, targetexpr, rel->relids);
+-		if (!em)
++		if (em->em_is_const)
+ 			continue;
+ 
+-		/*
+-		 * Reject expressions involving set-returning functions, as those
+-		 * can't be computed early either.  (Note: this test and the following
+-		 * one are effectively checking properties of targetexpr, so there's
+-		 * no point in asking whether some other EC member would be better.)
+-		 */
+-		if (expression_returns_set((Node *) em->em_expr))
++		/* Any Vars in the member need to come from this relation. */
++		if (!bms_is_subset(em->em_relids, rel->relids))
+ 			continue;
+ 
+-		/*
+-		 * If requested, reject expressions that are not parallel-safe.  We
+-		 * check this last because it's a rather expensive test.
+-		 */
+-		if (require_parallel_safe &&
+-			!is_parallel_safe(root, (Node *) em->em_expr))
++		if (require_parallel_safe && !is_parallel_safe(root, (Node *) em_expr))
+ 			continue;
+ 
+-		return true;
+-	}
+-
+-	/*
+-	 * Try to find an expression computable from the reltarget.
+-	 */
+-	em = find_computable_ec_member(root, ec, target->exprs, rel->relids,
+-								   require_parallel_safe);
+-	if (!em)
+-		return false;
++		if (expression_returns_set((Node *) em_expr))
++			continue;
+ 
+-	/*
+-	 * Reject expressions involving set-returning functions, as those can't be
+-	 * computed early either.  (There's no point in looking for another EC
+-	 * member in this case; since SRFs can't appear in WHERE, they cannot
+-	 * belong to multi-member ECs.)
+-	 */
+-	if (expression_returns_set((Node *) em->em_expr))
+-		return false;
++		if (!ec->ec_has_volatile)
++			return true;
++	}
+ 
+-	return true;
++	return false;
+ }
+ 
+ /*

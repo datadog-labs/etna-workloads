@@ -1,0 +1,22 @@
+explain (verbose, costs off)
+with recursive test as (
+  select 1 as x
+  union all
+  select x + 1
+  from test
+) search breadth first by x set y
+select * from test limit 5;
+                                         QUERY PLAN                                         
+--------------------------------------------------------------------------------------------
+ Limit
+   Output: test.x, test.y
+   CTE test
+     ->  Recursive Union
+           ->  Result
+                 Output: 1, '(0,1)'::record
+           ->  WorkTable Scan on test test_1
+                 Output: (test_1.x + 1), ROW(int8inc((test_1.y)."*DEPTH*"), (test_1.x + 1))
+   ->  CTE Scan on test
+         Output: test.x, test.y
+(10 rows)
+

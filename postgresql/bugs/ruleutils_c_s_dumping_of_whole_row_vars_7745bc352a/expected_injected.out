@@ -1,0 +1,21 @@
+create table t(a int, b int);
+create type nc as (x t);
+create view v1 as select row(i)::nc from t i;
+select pg_get_viewdef('v1', true);
+        pg_get_viewdef         
+-------------------------------
+  SELECT ROW(i.*)::nc AS "row"+
+    FROM t i;
+(1 row)
+
+create view v2 as select * from t i, lateral(values(i)) ss;
+select pg_get_viewdef('v2', true);
+         pg_get_viewdef          
+---------------------------------
+  SELECT i.a,                   +
+     i.b,                       +
+     ss.column1                 +
+    FROM t i,                   +
+     LATERAL ( VALUES (i.*)) ss;
+(1 row)
+

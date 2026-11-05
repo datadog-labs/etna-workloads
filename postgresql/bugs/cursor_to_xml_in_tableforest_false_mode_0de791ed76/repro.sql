@@ -1,0 +1,4 @@
+BEGIN;
+DECLARE xc CURSOR FOR SELECT 1 AS a, 'one'::text AS b;
+SELECT cursor_to_xml('xc'::refcursor, 5, true, false, '');
+COMMIT;

@@ -1,0 +1,16 @@
+CREATE SEQUENCE s;
+CREATE TABLE g (a int PRIMARY KEY, b int GENERATED ALWAYS AS (a * 2) VIRTUAL);
+INSERT INTO g (a) VALUES (10);
+INSERT INTO g (a) VALUES (30);
+DO $$ BEGIN
+ALTER TABLE g ADD COLUMN c float8 DEFAULT nextval('s')::float8 CHECK (b < 50);
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE '%', regexp_replace(SQLERRM, 'pg_temp_[0-9]+', 'T'); END $$;
+psql:<REPRO>:7: NOTICE:  no generation expression found for column number 2 of table "T"
+ALTER TABLE g ADD COLUMN c float8 DEFAULT nextval('s')::float8 CHECK (b < 61);
+psql:<REPRO>:8: ERROR:  no generation expression found for column number 2 of table "pg_temp_16385"
+SELECT count(*) FROM g;
+ count 
+-------
+     2
+(1 row)
+

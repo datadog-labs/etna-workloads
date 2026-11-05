@@ -1,0 +1,18 @@
+CREATE TABLE pk (id int primary key);
+CREATE TABLE fk (id int, r int references pk deferrable initially immediate);
+INSERT INTO pk VALUES (1);
+INSERT INTO fk VALUES (1,1);
+DELETE FROM pk WHERE id = 2;
+ALTER TABLE fk ALTER CONSTRAINT fk_r_fkey DEFERRABLE INITIALLY DEFERRED;
+BEGIN;
+UPDATE pk SET id = 5 WHERE id = 1;
+psql:<REPRO>:8: ERROR:  update or delete on table "pk" violates foreign key constraint "fk_r_fkey" on table "fk"
+DETAIL:  Key (id)=(1) is still referenced from table "fk".
+SET CONSTRAINTS ALL IMMEDIATE;
+psql:<REPRO>:9: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+COMMIT;
+BEGIN;
+UPDATE pk SET id = 6 WHERE id = 1;
+psql:<REPRO>:12: ERROR:  update or delete on table "pk" violates foreign key constraint "fk_r_fkey" on table "fk"
+DETAIL:  Key (id)=(1) is still referenced from table "fk".
+COMMIT;

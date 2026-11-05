@@ -1,0 +1,13 @@
+CREATE TABLE g (a int, b int GENERATED ALWAYS AS (a*2) STORED);
+CREATE TABLE glog (op text, old_b int, new_b int);
+CREATE RULE r1 AS ON INSERT TO g DO ALSO INSERT INTO glog VALUES ('INS', NULL, new.b);
+CREATE RULE r2 AS ON UPDATE TO g DO ALSO INSERT INTO glog VALUES ('UPD', old.b, new.b);
+INSERT INTO g VALUES (1);
+UPDATE g SET a = 10;
+SELECT * FROM glog;
+ op  | old_b | new_b 
+-----+-------+-------
+ INS |       |     2
+ UPD |     2 |    20
+(2 rows)
+

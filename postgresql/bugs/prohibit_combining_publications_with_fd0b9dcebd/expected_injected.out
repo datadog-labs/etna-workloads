@@ -1,0 +1,13 @@
+CREATE TABLE t(a int, b int, c int);
+CREATE PUBLICATION p1 FOR TABLE t(a);
+CREATE PUBLICATION p2 FOR TABLE t(a,b);
+SELECT pg_create_logical_replication_slot('s1','pgoutput') IS NOT NULL;
+ ?column? 
+----------
+ t
+(1 row)
+
+CREATE SUBSCRIPTION sub CONNECTION 'host=<WORK>/rtmp_sock port=5599 dbname=postgres' PUBLICATION p1, p2 WITH (create_slot=false, slot_name='s1', enabled=false)
+ERROR:  duplicate key value violates unique constraint "pg_subscription_rel_srrelid_srsubid_index"
+DETAIL:  Key (srrelid, srsubid)=(16384, 16391) already exists.
+0

@@ -1,0 +1,46 @@
+diff --git a/src/backend/access/transam/xlog.c b/src/backend/access/transam/xlog.c
+index 2fd06e37999..69aa564b180 100644
+--- a/src/backend/access/transam/xlog.c
++++ b/src/backend/access/transam/xlog.c
+@@ -7358,17 +7358,9 @@ CreateCheckPoint(int flags)
+ 	 */
+ 	XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
+ 	KeepLogSeg(recptr, &_logSegNo);
+-	if (InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED | RS_INVAL_IDLE_TIMEOUT,
+-										   _logSegNo, InvalidOid,
+-										   InvalidTransactionId))
+-	{
+-		/*
+-		 * Some slots have been invalidated; recalculate the old-segment
+-		 * horizon, starting again from RedoRecPtr.
+-		 */
+-		XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
+-		KeepLogSeg(recptr, &_logSegNo);
+-	}
++	InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED | RS_INVAL_IDLE_TIMEOUT,
++									   _logSegNo, InvalidOid,
++									   InvalidTransactionId);
+ 	_logSegNo--;
+ 	RemoveOldXlogFiles(_logSegNo, RedoRecPtr, recptr,
+ 					   checkPoint.ThisTimeLineID);
+@@ -7816,17 +7808,9 @@ CreateRestartPoint(int flags)
+ 
+ 	INJECTION_POINT("restartpoint-before-slot-invalidation", NULL);
+ 
+-	if (InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED | RS_INVAL_IDLE_TIMEOUT,
+-										   _logSegNo, InvalidOid,
+-										   InvalidTransactionId))
+-	{
+-		/*
+-		 * Some slots have been invalidated; recalculate the old-segment
+-		 * horizon, starting again from RedoRecPtr.
+-		 */
+-		XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
+-		KeepLogSeg(endptr, &_logSegNo);
+-	}
++	InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED | RS_INVAL_IDLE_TIMEOUT,
++									   _logSegNo, InvalidOid,
++									   InvalidTransactionId);
+ 	_logSegNo--;
+ 
+ 	/*

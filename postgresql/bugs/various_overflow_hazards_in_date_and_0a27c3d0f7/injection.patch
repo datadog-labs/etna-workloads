@@ -1,0 +1,94 @@
+diff --git a/src/backend/utils/adt/date.c b/src/backend/utils/adt/date.c
+index 4227ab1a72b..d6291ec0e91 100644
+--- a/src/backend/utils/adt/date.c
++++ b/src/backend/utils/adt/date.c
+@@ -257,15 +257,8 @@ make_date(PG_FUNCTION_ARGS)
+ 	/* Handle negative years as BC */
+ 	if (tm.tm_year < 0)
+ 	{
+-		int			year = tm.tm_year;
+-
+ 		bc = true;
+-		if (pg_neg_s32_overflow(year, &year))
+-			ereport(ERROR,
+-					(errcode(ERRCODE_DATETIME_FIELD_OVERFLOW),
+-					 errmsg("date field value out of range: %d-%02d-%02d",
+-							tm.tm_year, tm.tm_mon, tm.tm_mday)));
+-		tm.tm_year = year;
++		tm.tm_year = -tm.tm_year;
+ 	}
+ 
+ 	dterr = ValidateDate(DTK_DATE_M, false, false, bc, &tm);
+diff --git a/src/backend/utils/adt/formatting.c b/src/backend/utils/adt/formatting.c
+index 9460ee1b7c6..72adf11e0c8 100644
+--- a/src/backend/utils/adt/formatting.c
++++ b/src/backend/utils/adt/formatting.c
+@@ -3721,13 +3721,7 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
+ 								 errmsg("invalid value \"%s\" for \"%s\"",
+ 										s, "Y,YYY")));
+ 
+-					/* years += (millennia * 1000); */
+-					if (pg_mul_s32_overflow(millennia, 1000, &millennia) ||
+-						pg_add_s32_overflow(years, millennia, &years))
+-						ereturn(escontext,,
+-								(errcode(ERRCODE_DATETIME_FIELD_OVERFLOW),
+-								 errmsg("value for \"%s\" in source string is out of range", "Y,YYY")));
+-
++					years += (millennia * 1000);
+ 					if (!from_char_set_int(&out->year, years, n, escontext))
+ 						return;
+ 					out->yysz = 4;
+@@ -4789,31 +4783,11 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
+ 			fmask |= DTK_DATE_M;
+ 		}
+ 		else
+-		{
+-			/* tmfc.ddd = (tmfc.ww - 1) * 7 + 1; */
+-			if (pg_sub_s32_overflow(tmfc.ww, 1, &tmfc.ddd) ||
+-				pg_mul_s32_overflow(tmfc.ddd, 7, &tmfc.ddd) ||
+-				pg_add_s32_overflow(tmfc.ddd, 1, &tmfc.ddd))
+-			{
+-				DateTimeParseError(DTERR_FIELD_OVERFLOW, NULL,
+-								   date_str, "timestamp", escontext);
+-				goto fail;
+-			}
+-		}
++			tmfc.ddd = (tmfc.ww - 1) * 7 + 1;
+ 	}
+ 
+ 	if (tmfc.w)
+-	{
+-		/* tmfc.dd = (tmfc.w - 1) * 7 + 1; */
+-		if (pg_sub_s32_overflow(tmfc.w, 1, &tmfc.dd) ||
+-			pg_mul_s32_overflow(tmfc.dd, 7, &tmfc.dd) ||
+-			pg_add_s32_overflow(tmfc.dd, 1, &tmfc.dd))
+-		{
+-			DateTimeParseError(DTERR_FIELD_OVERFLOW, NULL,
+-							   date_str, "timestamp", escontext);
+-			goto fail;
+-		}
+-	}
++		tmfc.dd = (tmfc.w - 1) * 7 + 1;
+ 	if (tmfc.dd)
+ 	{
+ 		tm->tm_mday = tmfc.dd;
+@@ -4878,18 +4852,7 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
+ 	}
+ 
+ 	if (tmfc.ms)
+-	{
+-		int			tmp = 0;
+-
+-		/* *fsec += tmfc.ms * 1000; */
+-		if (pg_mul_s32_overflow(tmfc.ms, 1000, &tmp) ||
+-			pg_add_s32_overflow(*fsec, tmp, fsec))
+-		{
+-			DateTimeParseError(DTERR_FIELD_OVERFLOW, NULL,
+-							   date_str, "timestamp", escontext);
+-			goto fail;
+-		}
+-	}
++		*fsec += tmfc.ms * 1000;
+ 	if (tmfc.us)
+ 		*fsec += tmfc.us;
+ 	if (fprec)

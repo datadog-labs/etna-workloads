@@ -1,0 +1,32 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..25d71b175d0 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -2873,27 +2873,6 @@ MergeAttributes(List *columns, const List *supers, char relpersistence,
+ 		{
+ 			Node	   *this_default = (Node *) lfirst(lc1);
+ 			ColumnDef  *def = (ColumnDef *) lfirst(lc2);
+-			bool		found_whole_row;
+-
+-			/* Adjust Vars to match new table's column numbering */
+-			this_default = map_variable_attnos(this_default,
+-											   1, 0,
+-											   newattmap,
+-											   InvalidOid, &found_whole_row);
+-
+-			/*
+-			 * For the moment we have to reject whole-row variables.  We could
+-			 * convert them, if we knew the new table's rowtype OID, but that
+-			 * hasn't been assigned yet.  (A variable could only appear in a
+-			 * generation expression, so the error message is correct.)
+-			 */
+-			if (found_whole_row)
+-				ereport(ERROR,
+-						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-						 errmsg("cannot convert whole-row table reference"),
+-						 errdetail("Generation expression for column \"%s\" contains a whole-row reference to table \"%s\".",
+-								   def->colname,
+-								   RelationGetRelationName(relation))));
+ 
+ 			/*
+ 			 * If we already had a default from some prior parent, check to

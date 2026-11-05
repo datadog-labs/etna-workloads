@@ -1,0 +1,7 @@
+CREATE FOREIGN DATA WRAPPER dummy;
+CREATE SERVER s0 FOREIGN DATA WRAPPER dummy;
+CREATE FOREIGN TABLE ft1 (c1 integer NOT NULL) SERVER s0;
+ALTER FOREIGN TABLE ft1 ADD COLUMN c8 integer DEFAULT 0;
+ALTER FOREIGN TABLE ft1 ALTER COLUMN c8 TYPE char(10);
+SELECT count(*) FROM pg_attribute
+  WHERE attrelid = 'ft1'::regclass AND (attmissingval IS NOT NULL OR atthasmissing);

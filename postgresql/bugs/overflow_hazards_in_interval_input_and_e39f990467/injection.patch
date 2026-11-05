@@ -1,0 +1,32 @@
+diff --git a/src/backend/utils/adt/datetime.c b/src/backend/utils/adt/datetime.c
+index 680fee2a844..bb56466b8dc 100644
+--- a/src/backend/utils/adt/datetime.c
++++ b/src/backend/utils/adt/datetime.c
+@@ -531,11 +531,7 @@ AppendTimestampSeconds(char *cp, struct pg_tm *tm, fsec_t fsec)
+ static bool
+ int64_multiply_add(int64 val, int64 multiplier, int64 *sum)
+ {
+-	int64		product;
+-
+-	if (pg_mul_s64_overflow(val, multiplier, &product) ||
+-		pg_add_s64_overflow(*sum, product, sum))
+-		return false;
++	*sum += val * multiplier;
+ 	return true;
+ }
+ 
+@@ -642,12 +638,8 @@ AdjustMicroseconds(int64 val, double fval, int64 scale,
+ static bool
+ AdjustDays(int64 val, int scale, struct pg_itm_in *itm_in)
+ {
+-	int			days;
+-
+-	if (val < INT_MIN || val > INT_MAX)
+-		return false;
+-	return !pg_mul_s32_overflow((int32) val, scale, &days) &&
+-		!pg_add_s32_overflow(itm_in->tm_mday, days, &itm_in->tm_mday);
++	itm_in->tm_mday += (int) val * scale;
++	return true;
+ }
+ 
+ /*

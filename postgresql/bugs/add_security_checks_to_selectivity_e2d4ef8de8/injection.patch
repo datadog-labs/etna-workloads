@@ -1,0 +1,41 @@
+diff --git a/src/backend/utils/adt/selfuncs.c b/src/backend/utils/adt/selfuncs.c
+index 3abc6c1ca7d..403bd6d0f6a 100644
+--- a/src/backend/utils/adt/selfuncs.c
++++ b/src/backend/utils/adt/selfuncs.c
+@@ -339,10 +339,9 @@ var_eq_const(VariableStatData *vardata, Oid oproid, Oid collation,
+ 	{
+ 		selec = 1.0 / vardata->rel->tuples;
+ 	}
+-	else if (HeapTupleIsValid(vardata->statsTuple) &&
+-			 statistic_proc_security_check(vardata,
+-										   (opfuncoid = get_opcode(oproid))))
++	else if (HeapTupleIsValid(vardata->statsTuple))
+ 	{
++		opfuncoid = get_opcode(oproid);
+ 		AttStatsSlot sslot;
+ 		bool		match = false;
+ 		int			i;
+@@ -751,7 +750,6 @@ mcv_selectivity(VariableStatData *vardata, FmgrInfo *opproc, Oid collation,
+ 	sumcommon = 0.0;
+ 
+ 	if (HeapTupleIsValid(vardata->statsTuple) &&
+-		statistic_proc_security_check(vardata, opproc->fn_oid) &&
+ 		get_attstatsslot(&sslot, vardata->statsTuple,
+ 						 STATISTIC_KIND_MCV, InvalidOid,
+ 						 ATTSTATSSLOT_VALUES | ATTSTATSSLOT_NUMBERS))
+@@ -843,7 +841,6 @@ histogram_selectivity(VariableStatData *vardata,
+ 	Assert(min_hist_size > 2 * n_skip);
+ 
+ 	if (HeapTupleIsValid(vardata->statsTuple) &&
+-		statistic_proc_security_check(vardata, opproc->fn_oid) &&
+ 		get_attstatsslot(&sslot, vardata->statsTuple,
+ 						 STATISTIC_KIND_HISTOGRAM, InvalidOid,
+ 						 ATTSTATSSLOT_VALUES))
+@@ -1071,7 +1068,6 @@ ineq_histogram_selectivity(PlannerInfo *root,
+ 	 * comparison_ops_are_compatible() to see if the operators match.
+ 	 */
+ 	if (HeapTupleIsValid(vardata->statsTuple) &&
+-		statistic_proc_security_check(vardata, opproc->fn_oid) &&
+ 		get_attstatsslot(&sslot, vardata->statsTuple,
+ 						 STATISTIC_KIND_HISTOGRAM, InvalidOid,
+ 						 ATTSTATSSLOT_VALUES))

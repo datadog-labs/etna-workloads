@@ -1,0 +1,42 @@
+diff --git a/src/bin/scripts/vacuumdb.c b/src/bin/scripts/vacuumdb.c
+index fa04109f2d7..93f43287232 100644
+--- a/src/bin/scripts/vacuumdb.c
++++ b/src/bin/scripts/vacuumdb.c
+@@ -873,9 +873,13 @@ retrieve_objects(PGconn *conn, vacuumingOptions *vacopts,
+ 	 */
+ 	if (objects_listed)
+ 	{
+-		appendPQExpBufferStr(&catalog_query, " LEFT JOIN listed_objects"
+-							 " ON listed_objects.object_oid"
+-							 " OPERATOR(pg_catalog.=) ");
++		appendPQExpBufferStr(&catalog_query, " JOIN listed_objects"
++							 " ON listed_objects.object_oid ");
++
++		if (objfilter & OBJFILTER_SCHEMA_EXCLUDE)
++			appendPQExpBufferStr(&catalog_query, "OPERATOR(pg_catalog.!=) ");
++		else
++			appendPQExpBufferStr(&catalog_query, "OPERATOR(pg_catalog.=) ");
+ 
+ 		if (objfilter & OBJFILTER_TABLE)
+ 			appendPQExpBufferStr(&catalog_query, "c.oid\n");
+@@ -890,20 +894,6 @@ retrieve_objects(PGconn *conn, vacuumingOptions *vacopts,
+ 						 " WHERE c.relpersistence OPERATOR(pg_catalog.!=) "
+ 						 CppAsString2(RELPERSISTENCE_TEMP) "\n");
+ 
+-	/*
+-	 * Used to match the tables or schemas listed by the user, for the WHERE
+-	 * clause.
+-	 */
+-	if (objects_listed)
+-	{
+-		if (objfilter & OBJFILTER_SCHEMA_EXCLUDE)
+-			appendPQExpBufferStr(&catalog_query,
+-								 " AND listed_objects.object_oid IS NULL\n");
+-		else
+-			appendPQExpBufferStr(&catalog_query,
+-								 " AND listed_objects.object_oid IS NOT NULL\n");
+-	}
+-
+ 	/*
+ 	 * If no tables were listed, filter for the relevant relation types.  If
+ 	 * tables were given via --table, don't bother filtering by relation type.

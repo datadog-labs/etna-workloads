@@ -1,0 +1,122 @@
+diff --git a/src/pl/plpgsql/src/pl_exec.c b/src/pl/plpgsql/src/pl_exec.c
+index e2fe0fd4b56..613ff86194e 100644
+--- a/src/pl/plpgsql/src/pl_exec.c
++++ b/src/pl/plpgsql/src/pl_exec.c
+@@ -342,7 +342,7 @@ static void plpgsql_estate_setup(PLpgSQL_execstate *estate,
+ static void exec_eval_cleanup(PLpgSQL_execstate *estate);
+ 
+ static void exec_prepare_plan(PLpgSQL_execstate *estate,
+-							  PLpgSQL_expr *expr, int cursorOptions);
++							  PLpgSQL_expr *expr, int cursorOptions, bool keepplan);
+ static void exec_simple_check_plan(PLpgSQL_execstate *estate, PLpgSQL_expr *expr);
+ static bool exec_is_simple_query(PLpgSQL_expr *expr);
+ static void exec_save_simple_expr(PLpgSQL_expr *expr, CachedPlan *cplan);
+@@ -2207,7 +2207,7 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
+ 	 * Make a plan if we don't have one already.
+ 	 */
+ 	if (expr->plan == NULL)
+-		exec_prepare_plan(estate, expr, 0);
++		exec_prepare_plan(estate, expr, 0, estate->atomic);
+ 
+ 	/*
+ 	 * A CALL or DO can never be a simple expression.
+@@ -2943,7 +2943,7 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
+ 	Assert(query);
+ 
+ 	if (query->plan == NULL)
+-		exec_prepare_plan(estate, query, curvar->cursor_options);
++		exec_prepare_plan(estate, query, curvar->cursor_options, true);
+ 
+ 	/*
+ 	 * Set up ParamListInfo for this query
+@@ -3586,7 +3586,7 @@ exec_stmt_return_query(PLpgSQL_execstate *estate,
+ 		 * On the first call for this expression generate the plan.
+ 		 */
+ 		if (expr->plan == NULL)
+-			exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK);
++			exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK, true);
+ 
+ 		/*
+ 		 * Set up ParamListInfo to pass to executor
+@@ -4160,7 +4160,7 @@ exec_eval_cleanup(PLpgSQL_execstate *estate)
+  *	if (query->plan == NULL)
+  *	{
+  *		// okay to put setup code here
+- *		exec_prepare_plan(estate, query, ...);
++ *		exec_prepare_plan(estate, query, ..., true);
+  *		// NOT okay to put more logic here
+  *	}
+  *
+@@ -4171,7 +4171,7 @@ exec_eval_cleanup(PLpgSQL_execstate *estate)
+  */
+ static void
+ exec_prepare_plan(PLpgSQL_execstate *estate,
+-				  PLpgSQL_expr *expr, int cursorOptions)
++				  PLpgSQL_expr *expr, int cursorOptions, bool keepplan)
+ {
+ 	SPIPlanPtr	plan;
+ 	SPIPrepareOptions options;
+@@ -4189,7 +4189,8 @@ exec_prepare_plan(PLpgSQL_execstate *estate,
+ 		elog(ERROR, "SPI_prepare_extended failed for \"%s\": %s",
+ 			 expr->query, SPI_result_code_string(SPI_result));
+ 
+-	SPI_keepplan(plan);
++	if (keepplan)
++		SPI_keepplan(plan);
+ 	expr->plan = plan;
+ 
+ 	/* Check to see if it's a simple expression */
+@@ -4224,7 +4225,7 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
+ 	 * whether the statement is INSERT/UPDATE/DELETE/MERGE
+ 	 */
+ 	if (expr->plan == NULL)
+-		exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK);
++		exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK, true);
+ 
+ 	if (!stmt->mod_stmt_set)
+ 	{
+@@ -4700,7 +4701,7 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
+ 		 */
+ 		query = stmt->query;
+ 		if (query->plan == NULL)
+-			exec_prepare_plan(estate, query, stmt->cursor_options);
++			exec_prepare_plan(estate, query, stmt->cursor_options, true);
+ 	}
+ 	else if (stmt->dynquery != NULL)
+ 	{
+@@ -4776,7 +4777,7 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
+ 
+ 		query = curvar->cursor_explicit_expr;
+ 		if (query->plan == NULL)
+-			exec_prepare_plan(estate, query, curvar->cursor_options);
++			exec_prepare_plan(estate, query, curvar->cursor_options, true);
+ 	}
+ 
+ 	/*
+@@ -5012,7 +5013,7 @@ exec_assign_expr(PLpgSQL_execstate *estate, PLpgSQL_datum *target,
+ 	 * If first time through, create a plan for this expression.
+ 	 */
+ 	if (expr->plan == NULL)
+-		exec_prepare_plan(estate, expr, 0);
++		exec_prepare_plan(estate, expr, 0, true);
+ 
+ 	value = exec_eval_expr(estate, expr, &isnull, &valtype, &valtypmod);
+ 	exec_assign_value(estate, target, value, isnull, valtype, valtypmod);
+@@ -5676,7 +5677,7 @@ exec_eval_expr(PLpgSQL_execstate *estate,
+ 	 * If first time through, create a plan for this expression.
+ 	 */
+ 	if (expr->plan == NULL)
+-		exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK);
++		exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK, true);
+ 
+ 	/*
+ 	 * If this is a simple expression, bypass SPI and use the executor
+@@ -5773,7 +5774,7 @@ exec_run_select(PLpgSQL_execstate *estate,
+ 
+ 		if (portalP == NULL)
+ 			cursorOptions |= CURSOR_OPT_PARALLEL_OK;
+-		exec_prepare_plan(estate, expr, cursorOptions);
++		exec_prepare_plan(estate, expr, cursorOptions, true);
+ 	}
+ 
+ 	/*

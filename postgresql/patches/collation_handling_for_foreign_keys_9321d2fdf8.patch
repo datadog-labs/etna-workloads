@@ -1,0 +1,387 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..ec06f0cfe5b 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -440,10 +440,10 @@ static void QueueNNConstraintValidation(List **wqueue, Relation conrel, Relation
+ 										HeapTuple contuple, bool recurse, bool recursing,
+ 										LOCKMODE lockmode);
+ static int	transformColumnNameList(Oid relId, List *colList,
+-									int16 *attnums, Oid *atttypids, Oid *attcollids);
++									int16 *attnums, Oid *atttypids);
+ static int	transformFkeyGetPrimaryKey(Relation pkrel, Oid *indexOid,
+ 									   List **attnamelist,
+-									   int16 *attnums, Oid *atttypids, Oid *attcollids,
++									   int16 *attnums, Oid *atttypids,
+ 									   Oid *opclasses, bool *pk_has_without_overlaps);
+ static Oid	transformFkeyCheckAttrs(Relation pkrel,
+ 									int numattrs, int16 *attnums,
+@@ -10083,8 +10083,6 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 	int16		fkattnum[INDEX_MAX_KEYS] = {0};
+ 	Oid			pktypoid[INDEX_MAX_KEYS] = {0};
+ 	Oid			fktypoid[INDEX_MAX_KEYS] = {0};
+-	Oid			pkcolloid[INDEX_MAX_KEYS] = {0};
+-	Oid			fkcolloid[INDEX_MAX_KEYS] = {0};
+ 	Oid			opclasses[INDEX_MAX_KEYS] = {0};
+ 	Oid			pfeqoperators[INDEX_MAX_KEYS] = {0};
+ 	Oid			ppeqoperators[INDEX_MAX_KEYS] = {0};
+@@ -10171,11 +10169,11 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 
+ 	/*
+ 	 * Look up the referencing attributes to make sure they exist, and record
+-	 * their attnums and type and collation OIDs.
++	 * their attnums and type OIDs.
+ 	 */
+ 	numfks = transformColumnNameList(RelationGetRelid(rel),
+ 									 fkconstraint->fk_attrs,
+-									 fkattnum, fktypoid, fkcolloid);
++									 fkattnum, fktypoid);
+ 	with_period = fkconstraint->fk_with_period || fkconstraint->pk_with_period;
+ 	if (with_period && !fkconstraint->fk_with_period)
+ 		ereport(ERROR,
+@@ -10184,7 +10182,7 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 
+ 	numfkdelsetcols = transformColumnNameList(RelationGetRelid(rel),
+ 											  fkconstraint->fk_del_set_cols,
+-											  fkdelsetcols, NULL, NULL);
++											  fkdelsetcols, NULL);
+ 	numfkdelsetcols = validateFkOnDeleteSetColumns(numfks, fkattnum,
+ 												   numfkdelsetcols,
+ 												   fkdelsetcols,
+@@ -10194,14 +10192,13 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 	 * If the attribute list for the referenced table was omitted, lookup the
+ 	 * definition of the primary key and use it.  Otherwise, validate the
+ 	 * supplied attribute list.  In either case, discover the index OID and
+-	 * index opclasses, and the attnums and type and collation OIDs of the
+-	 * attributes.
++	 * index opclasses, and the attnums and type OIDs of the attributes.
+ 	 */
+ 	if (fkconstraint->pk_attrs == NIL)
+ 	{
+ 		numpks = transformFkeyGetPrimaryKey(pkrel, &indexOid,
+ 											&fkconstraint->pk_attrs,
+-											pkattnum, pktypoid, pkcolloid,
++											pkattnum, pktypoid,
+ 											opclasses, &pk_has_without_overlaps);
+ 
+ 		/* If the primary key uses WITHOUT OVERLAPS, the fk must use PERIOD */
+@@ -10214,7 +10211,7 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 	{
+ 		numpks = transformColumnNameList(RelationGetRelid(pkrel),
+ 										 fkconstraint->pk_attrs,
+-										 pkattnum, pktypoid, pkcolloid);
++										 pkattnum, pktypoid);
+ 
+ 		/* Since we got pk_attrs, one should be a period. */
+ 		if (with_period && !fkconstraint->pk_with_period)
+@@ -10331,8 +10328,6 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 		Oid			pktype = pktypoid[i];
+ 		Oid			fktype = fktypoid[i];
+ 		Oid			fktyped;
+-		Oid			pkcoll = pkcolloid[i];
+-		Oid			fkcoll = fkcolloid[i];
+ 		HeapTuple	cla_ht;
+ 		Form_pg_opclass cla_tup;
+ 		Oid			amid;
+@@ -10448,41 +10443,6 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 							   format_type_be(fktype),
+ 							   format_type_be(pktype))));
+ 
+-		/*
+-		 * This shouldn't be possible, but better check to make sure we have a
+-		 * consistent state for the check below.
+-		 */
+-		if ((OidIsValid(pkcoll) && !OidIsValid(fkcoll)) || (!OidIsValid(pkcoll) && OidIsValid(fkcoll)))
+-			elog(ERROR, "key columns are not both collatable");
+-
+-		if (OidIsValid(pkcoll) && OidIsValid(fkcoll))
+-		{
+-			bool		pkcolldet;
+-			bool		fkcolldet;
+-
+-			pkcolldet = get_collation_isdeterministic(pkcoll);
+-			fkcolldet = get_collation_isdeterministic(fkcoll);
+-
+-			/*
+-			 * SQL requires that both collations are the same.  This is
+-			 * because we need a consistent notion of equality on both
+-			 * columns.  We relax this by allowing different collations if
+-			 * they are both deterministic.  (This is also for backward
+-			 * compatibility, because PostgreSQL has always allowed this.)
+-			 */
+-			if ((!pkcolldet || !fkcolldet) && pkcoll != fkcoll)
+-				ereport(ERROR,
+-						(errcode(ERRCODE_COLLATION_MISMATCH),
+-						 errmsg("foreign key constraint \"%s\" cannot be implemented", fkconstraint->conname),
+-						 errdetail("Key columns \"%s\" of the referencing table and \"%s\" of the referenced table "
+-								   "have incompatible collations: \"%s\" and \"%s\".  "
+-								   "If either collation is nondeterministic, then both collations have to be the same.",
+-								   strVal(list_nth(fkconstraint->fk_attrs, i)),
+-								   strVal(list_nth(fkconstraint->pk_attrs, i)),
+-								   get_collation_name(fkcoll),
+-								   get_collation_name(pkcoll))));
+-		}
+-
+ 		if (old_check_ok)
+ 		{
+ 			/*
+@@ -10503,8 +10463,6 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 			CoercionPathType new_pathtype;
+ 			Oid			old_castfunc;
+ 			Oid			new_castfunc;
+-			Oid			old_fkcoll;
+-			Oid			new_fkcoll;
+ 			Form_pg_attribute attr = TupleDescAttr(tab->oldDesc,
+ 												   fkattnum[i] - 1);
+ 
+@@ -10520,9 +10478,6 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 			new_pathtype = findFkeyCast(pfeqop_right, new_fktype,
+ 										&new_castfunc);
+ 
+-			old_fkcoll = attr->attcollation;
+-			new_fkcoll = fkcoll;
+-
+ 			/*
+ 			 * Upon a change to the cast from the FK column to its pfeqop
+ 			 * operand, revalidate the constraint.  For this evaluation, a
+@@ -10546,10 +10501,9 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 			 * turn conform to the domain.  Consequently, we need not treat
+ 			 * domains specially here.
+ 			 *
+-			 * If the collation changes, revalidation is required, unless both
+-			 * collations are deterministic, because those share the same
+-			 * notion of equality (because texteq reduces to bitwise
+-			 * equality).
++			 * Since we require that all collations share the same notion of
++			 * equality (which they do, because texteq reduces to bitwise
++			 * equality), we don't compare collation here.
+ 			 *
+ 			 * We need not directly consider the PK type.  It's necessarily
+ 			 * binary coercible to the opcintype of the unique index column,
+@@ -10559,9 +10513,7 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 			old_check_ok = (new_pathtype == old_pathtype &&
+ 							new_castfunc == old_castfunc &&
+ 							(!IsPolymorphicType(pfeqop_right) ||
+-							 new_fktype == old_fktype) &&
+-							(new_fkcoll == old_fkcoll ||
+-							 (get_collation_isdeterministic(old_fkcoll) && get_collation_isdeterministic(new_fkcoll))));
++							 new_fktype == old_fktype));
+ 		}
+ 
+ 		pfeqoperators[i] = pfeqop;
+@@ -13336,8 +13288,7 @@ QueueNNConstraintValidation(List **wqueue, Relation conrel, Relation rel,
+ /*
+  * transformColumnNameList - transform list of column names
+  *
+- * Lookup each name and return its attnum and, optionally, type and collation
+- * OIDs
++ * Lookup each name and return its attnum and, optionally, type OID
+  *
+  * Note: the name of this function suggests that it's general-purpose,
+  * but actually it's only used to look up names appearing in foreign-key
+@@ -13346,7 +13297,7 @@ QueueNNConstraintValidation(List **wqueue, Relation conrel, Relation rel,
+  */
+ static int
+ transformColumnNameList(Oid relId, List *colList,
+-						int16 *attnums, Oid *atttypids, Oid *attcollids)
++						int16 *attnums, Oid *atttypids)
+ {
+ 	ListCell   *l;
+ 	int			attnum;
+@@ -13377,8 +13328,6 @@ transformColumnNameList(Oid relId, List *colList,
+ 		attnums[attnum] = attform->attnum;
+ 		if (atttypids != NULL)
+ 			atttypids[attnum] = attform->atttypid;
+-		if (attcollids != NULL)
+-			attcollids[attnum] = attform->attcollation;
+ 		ReleaseSysCache(atttuple);
+ 		attnum++;
+ 	}
+@@ -13389,7 +13338,7 @@ transformColumnNameList(Oid relId, List *colList,
+ /*
+  * transformFkeyGetPrimaryKey -
+  *
+- *	Look up the names, attnums, types, and collations of the primary key attributes
++ *	Look up the names, attnums, and types of the primary key attributes
+  *	for the pkrel.  Also return the index OID and index opclasses of the
+  *	index supporting the primary key.  Also return whether the index has
+  *	WITHOUT OVERLAPS.
+@@ -13402,7 +13351,7 @@ transformColumnNameList(Oid relId, List *colList,
+ static int
+ transformFkeyGetPrimaryKey(Relation pkrel, Oid *indexOid,
+ 						   List **attnamelist,
+-						   int16 *attnums, Oid *atttypids, Oid *attcollids,
++						   int16 *attnums, Oid *atttypids,
+ 						   Oid *opclasses, bool *pk_has_without_overlaps)
+ {
+ 	List	   *indexoidlist;
+@@ -13476,7 +13425,6 @@ transformFkeyGetPrimaryKey(Relation pkrel, Oid *indexOid,
+ 
+ 		attnums[i] = pkattno;
+ 		atttypids[i] = attnumTypeId(pkrel, pkattno);
+-		attcollids[i] = attnumCollationId(pkrel, pkattno);
+ 		opclasses[i] = indclass->values[i];
+ 		*attnamelist = lappend(*attnamelist,
+ 							   makeString(pstrdup(NameStr(*attnumAttName(pkrel, pkattno)))));
+diff --git a/src/backend/utils/adt/ri_triggers.c b/src/backend/utils/adt/ri_triggers.c
+index 6239900fa28..055aa6995fc 100644
+--- a/src/backend/utils/adt/ri_triggers.c
++++ b/src/backend/utils/adt/ri_triggers.c
+@@ -209,7 +209,7 @@ static void ri_BuildQueryKey(RI_QueryKey *key,
+ 							 int32 constr_queryno);
+ static bool ri_KeysEqual(Relation rel, TupleTableSlot *oldslot, TupleTableSlot *newslot,
+ 						 const RI_ConstraintInfo *riinfo, bool rel_is_pk);
+-static bool ri_CompareWithCast(Oid eq_opr, Oid typeid, Oid collid,
++static bool ri_CompareWithCast(Oid eq_opr, Oid typeid,
+ 							   Datum lhs, Datum rhs);
+ 
+ static void ri_InitHashTables(void);
+@@ -786,6 +786,8 @@ ri_restrict(TriggerData *trigdata, bool is_no_action)
+ 		{
+ 			Oid			pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
+ 			Oid			fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
++			Oid			pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
++			Oid			fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
+ 
+ 			quoteOneName(attname,
+ 						 RIAttName(fk_rel, riinfo->fk_attnums[i]));
+@@ -794,6 +796,8 @@ ri_restrict(TriggerData *trigdata, bool is_no_action)
+ 							paramname, pk_type,
+ 							riinfo->pf_eq_oprs[i],
+ 							attname, fk_type);
++			if (pk_coll != fk_coll && !get_collation_isdeterministic(pk_coll))
++				ri_GenerateQualCollation(&querybuf, pk_coll);
+ 			querysep = "AND";
+ 			queryoids[i] = pk_type;
+ 		}
+@@ -971,6 +975,8 @@ RI_FKey_cascade_del(PG_FUNCTION_ARGS)
+ 		{
+ 			Oid			pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
+ 			Oid			fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
++			Oid			pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
++			Oid			fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
+ 
+ 			quoteOneName(attname,
+ 						 RIAttName(fk_rel, riinfo->fk_attnums[i]));
+@@ -979,6 +985,8 @@ RI_FKey_cascade_del(PG_FUNCTION_ARGS)
+ 							paramname, pk_type,
+ 							riinfo->pf_eq_oprs[i],
+ 							attname, fk_type);
++			if (pk_coll != fk_coll && !get_collation_isdeterministic(pk_coll))
++				ri_GenerateQualCollation(&querybuf, pk_coll);
+ 			querysep = "AND";
+ 			queryoids[i] = pk_type;
+ 		}
+@@ -1083,6 +1091,8 @@ RI_FKey_cascade_upd(PG_FUNCTION_ARGS)
+ 		{
+ 			Oid			pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
+ 			Oid			fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
++			Oid			pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
++			Oid			fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
+ 
+ 			quoteOneName(attname,
+ 						 RIAttName(fk_rel, riinfo->fk_attnums[i]));
+@@ -1094,6 +1104,8 @@ RI_FKey_cascade_upd(PG_FUNCTION_ARGS)
+ 							paramname, pk_type,
+ 							riinfo->pf_eq_oprs[i],
+ 							attname, fk_type);
++			if (pk_coll != fk_coll && !get_collation_isdeterministic(pk_coll))
++				ri_GenerateQualCollation(&querybuf, pk_coll);
+ 			querysep = ",";
+ 			qualsep = "AND";
+ 			queryoids[i] = pk_type;
+@@ -1316,6 +1328,8 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
+ 		{
+ 			Oid			pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
+ 			Oid			fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
++			Oid			pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
++			Oid			fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
+ 
+ 			quoteOneName(attname,
+ 						 RIAttName(fk_rel, riinfo->fk_attnums[i]));
+@@ -1325,6 +1339,8 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
+ 							paramname, pk_type,
+ 							riinfo->pf_eq_oprs[i],
+ 							attname, fk_type);
++			if (pk_coll != fk_coll && !get_collation_isdeterministic(pk_coll))
++				ri_GenerateQualCollation(&querybuf, pk_coll);
+ 			qualsep = "AND";
+ 			queryoids[i] = pk_type;
+ 		}
+@@ -2079,17 +2095,19 @@ ri_GenerateQual(StringInfo buf,
+ /*
+  * ri_GenerateQualCollation --- add a COLLATE spec to a WHERE clause
+  *
+- * We only have to use this function when directly comparing the referencing
+- * and referenced columns, if they are of different collations; else the
+- * parser will fail to resolve the collation to use.  We don't need to use
+- * this function for RI queries that compare a variable to a $n parameter.
+- * Since parameter symbols always have default collation, the effect will be
+- * to use the variable's collation.
+- *
+- * Note that we require that the collations of the referencing and the
+- * referenced column have the same notion of equality: Either they have to
+- * both be deterministic or else they both have to be the same.  (See also
+- * ATAddForeignKeyConstraint().)
++ * At present, we intentionally do not use this function for RI queries that
++ * compare a variable to a $n parameter.  Since parameter symbols always have
++ * default collation, the effect will be to use the variable's collation.
++ * Now that is only strictly correct when testing the referenced column, since
++ * the SQL standard specifies that RI comparisons should use the referenced
++ * column's collation.  However, so long as all collations have the same
++ * notion of equality (which they do, because texteq reduces to bitwise
++ * equality), there's no visible semantic impact from using the referencing
++ * column's collation when testing it, and this is a good thing to do because
++ * it lets us use a normal index on the referencing column.  However, we do
++ * have to use this function when directly comparing the referencing and
++ * referenced columns, if they are of different collations; else the parser
++ * will fail to resolve the collation to use.
+  */
+ static void
+ ri_GenerateQualCollation(StringInfo buf, Oid collation)
+@@ -3047,7 +3065,7 @@ ri_KeysEqual(Relation rel, TupleTableSlot *oldslot, TupleTableSlot *newslot,
+ 			 * operator.  Changes that compare equal will still satisfy the
+ 			 * constraint after the update.
+ 			 */
+-			if (!ri_CompareWithCast(eq_opr, RIAttType(rel, attnums[i]), RIAttCollation(rel, attnums[i]),
++			if (!ri_CompareWithCast(eq_opr, RIAttType(rel, attnums[i]),
+ 									newvalue, oldvalue))
+ 				return false;
+ 		}
+@@ -3063,12 +3081,11 @@ ri_KeysEqual(Relation rel, TupleTableSlot *oldslot, TupleTableSlot *newslot,
+  * Call the appropriate comparison operator for two values.
+  * Normally this is equality, but for the PERIOD part of foreign keys
+  * it is ContainedBy, so the order of lhs vs rhs is significant.
+- * See below for how the collation is applied.
+  *
+  * NB: we have already checked that neither value is null.
+  */
+ static bool
+-ri_CompareWithCast(Oid eq_opr, Oid typeid, Oid collid,
++ri_CompareWithCast(Oid eq_opr, Oid typeid,
+ 				   Datum lhs, Datum rhs)
+ {
+ 	RI_CompareHashEntry *entry = ri_HashCompareOp(eq_opr, typeid);
+@@ -3094,9 +3111,9 @@ ri_CompareWithCast(Oid eq_opr, Oid typeid, Oid collid,
+ 	 * on the other side of a foreign-key constraint.  Therefore, the
+ 	 * comparison here would need to be done with the collation of the *other*
+ 	 * table.  For simplicity (e.g., we might not even have the other table
+-	 * open), we'll use our own collation.  This is fine because we require
+-	 * that both collations have the same notion of equality (either they are
+-	 * both deterministic or else they are both the same).
++	 * open), we'll just use the default collation here, which could lead to
++	 * some false negatives.  All this would break if we ever allow
++	 * database-wide collations to be nondeterministic.
+ 	 *
+ 	 * With range/multirangetypes, the collation of the base type is stored as
+ 	 * part of the rangetype (pg_range.rngcollation), and always used, so
+@@ -3104,7 +3121,9 @@ ri_CompareWithCast(Oid eq_opr, Oid typeid, Oid collid,
+ 	 * But if we support arbitrary types with PERIOD, we should perhaps just
+ 	 * always force a re-check.
+ 	 */
+-	return DatumGetBool(FunctionCall2Coll(&entry->eq_opr_finfo, collid, lhs, rhs));
++	return DatumGetBool(FunctionCall2Coll(&entry->eq_opr_finfo,
++										  DEFAULT_COLLATION_OID,
++										  lhs, rhs));
+ }
+ 
+ /*

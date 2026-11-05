@@ -1,0 +1,158 @@
+diff --git a/src/backend/regex/regc_color.c b/src/backend/regex/regc_color.c
+index 1587f452ea3..7c9dec4bcb0 100644
+--- a/src/backend/regex/regc_color.c
++++ b/src/backend/regex/regc_color.c
+@@ -1072,19 +1072,9 @@ colorcomplement(struct nfa *nfa,
+ 
+ 	assert(of != from);
+ 
+-	/*
+-	 * A RAINBOW arc matches all colors, making the complement empty.  But we
+-	 * can't just return without making any arcs, because that would leave the
+-	 * NFA disconnected which would break any future delsub().  Instead, make
+-	 * a CANTMATCH arc.  Also set the HASCANTMATCH flag so we know we need to
+-	 * clean that up at the start of NFA optimization.
+-	 */
++	/* A RAINBOW arc matches all colors, making the complement empty */
+ 	if (findarc(of, PLAIN, RAINBOW) != NULL)
+-	{
+-		newarc(nfa, CANTMATCH, 0, from, to);
+-		nfa->flags |= HASCANTMATCH;
+ 		return;
+-	}
+ 
+ 	/* Otherwise, transiently mark the colors that appear in of's out-arcs */
+ 	for (a = of->outs; a != NULL; a = a->outchain)
+@@ -1096,12 +1086,6 @@ colorcomplement(struct nfa *nfa,
+ 			assert(!UNUSEDCOLOR(cd));
+ 			cd->flags |= COLMARK;
+ 		}
+-
+-		/*
+-		 * There's no syntax for re-complementing a color set, so we cannot
+-		 * see CANTMATCH arcs here.
+-		 */
+-		assert(a->type != CANTMATCH);
+ 	}
+ 
+ 	/* Scan colors, clear transient marks, add arcs for unmarked colors */
+diff --git a/src/backend/regex/regc_nfa.c b/src/backend/regex/regc_nfa.c
+index 92b11116194..5c387ba975e 100644
+--- a/src/backend/regex/regc_nfa.c
++++ b/src/backend/regex/regc_nfa.c
+@@ -1462,7 +1462,6 @@ removetraverse(struct nfa *nfa,
+ 		{
+ 			case PLAIN:
+ 			case EMPTY:
+-			case CANTMATCH:
+ 				/* nothing to do */
+ 				break;
+ 			case AHEAD:
+@@ -1600,12 +1599,6 @@ optimize(struct nfa *nfa,
+ 	if (verbose)
+ 		fprintf(f, "\ninitial cleanup:\n");
+ #endif
+-	/* If we have any CANTMATCH arcs, drop them; but this is uncommon */
+-	if (nfa->flags & HASCANTMATCH)
+-	{
+-		removecantmatch(nfa);
+-		nfa->flags &= ~HASCANTMATCH;
+-	}
+ 	cleanup(nfa);				/* may simplify situation */
+ #ifdef REG_DEBUG
+ 	if (verbose)
+@@ -2929,34 +2922,6 @@ clonesuccessorstates(struct nfa *nfa,
+ 	}
+ }
+ 
+-/*
+- * removecantmatch - remove CANTMATCH arcs, which are no longer useful
+- * once we are done with the parsing phase.  (We need them only to
+- * preserve connectedness of NFA subgraphs during parsing.)
+- */
+-static void
+-removecantmatch(struct nfa *nfa)
+-{
+-	struct state *s;
+-
+-	for (s = nfa->states; s != NULL; s = s->next)
+-	{
+-		struct arc *a;
+-		struct arc *nexta;
+-
+-		for (a = s->outs; a != NULL; a = nexta)
+-		{
+-			nexta = a->outchain;
+-			if (a->type == CANTMATCH)
+-			{
+-				freearc(nfa, a);
+-				if (NISERR())
+-					return;
+-			}
+-		}
+-	}
+-}
+-
+ /*
+  * cleanup - clean up NFA after optimizations
+  */
+@@ -3672,8 +3637,6 @@ dumpnfa(struct nfa *nfa,
+ 		fprintf(f, ", eol [%ld]", (long) nfa->eos[1]);
+ 	if (nfa->flags & HASLACONS)
+ 		fprintf(f, ", haslacons");
+-	if (nfa->flags & HASCANTMATCH)
+-		fprintf(f, ", hascantmatch");
+ 	if (nfa->flags & MATCHALL)
+ 	{
+ 		fprintf(f, ", minmatchall %d", nfa->minmatchall);
+@@ -3796,9 +3759,6 @@ dumparc(struct arc *a,
+ 			break;
+ 		case EMPTY:
+ 			break;
+-		case CANTMATCH:
+-			fprintf(f, "X");
+-			break;
+ 		default:
+ 			fprintf(f, "0x%x/0%lo", a->type, (long) a->co);
+ 			break;
+diff --git a/src/backend/regex/regcomp.c b/src/backend/regex/regcomp.c
+index 4b8eed1b384..eae932e6c7c 100644
+--- a/src/backend/regex/regcomp.c
++++ b/src/backend/regex/regcomp.c
+@@ -215,7 +215,6 @@ static void clonesuccessorstates(struct nfa *nfa, struct state *ssource,
+ 								 struct state *spredecessor,
+ 								 struct arc *refarc, char *curdonemap,
+ 								 char *outerdonemap, int nstates);
+-static void removecantmatch(struct nfa *nfa);
+ static void cleanup(struct nfa *nfa);
+ static void markreachable(struct nfa *nfa, struct state *s,
+ 						  struct state *okay, struct state *mark);
+@@ -343,7 +342,6 @@ struct vars
+ #define BEHIND	'r'				/* color-lookbehind arc */
+ #define WBDRY	'w'				/* word boundary constraint */
+ #define NWBDRY	'W'				/* non-word-boundary constraint */
+-#define CANTMATCH 'x'			/* arc that cannot match anything */
+ #define SBEGIN	'A'				/* beginning of string (even if not BOL) */
+ #define SEND	'Z'				/* end of string (even if not EOL) */
+ 
+@@ -2371,7 +2369,6 @@ nfanode(struct vars *v,
+ 	nfa = newnfa(v, v->cm, v->nfa);
+ 	NOERRZ();
+ 	dupnfa(nfa, t->begin, t->end, nfa->init, nfa->final);
+-	nfa->flags = v->nfa->flags;
+ 	if (!ISERR())
+ 		specialcolors(nfa);
+ 	if (!ISERR())
+diff --git a/src/include/regex/regguts.h b/src/include/regex/regguts.h
+index 6fb9551721d..f8c325df52e 100644
+--- a/src/include/regex/regguts.h
++++ b/src/include/regex/regguts.h
+@@ -418,8 +418,6 @@ struct cnfa
+ 	int			flags;			/* bitmask of the following flags: */
+ #define  HASLACONS	01			/* uses lookaround constraints */
+ #define  MATCHALL	02			/* matches all strings of a range of lengths */
+-#define  HASCANTMATCH 04		/* contains CANTMATCH arcs */
+-	/* Note: HASCANTMATCH appears in nfa structs' flags, but never in cnfas */
+ 	int			pre;			/* setup state number */
+ 	int			post;			/* teardown state number */
+ 	color		bos[2];			/* colors, if any, assigned to BOS and BOL */

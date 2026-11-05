@@ -1,0 +1,241 @@
+# Verbatim injection
+
+This injection is the reverse of the implementation hunks of upstream commit 8f5e42d3346924b5d6330208d62ec1b19fdbc110 ("Fix pgbench in prepared mode with an empty pipeline"), applied to REL_18_6 (exactly). It restores the code the fix replaced.
+
+Files: src/bin/pgbench/pgbench.c
+
+Failing oracle cases:
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|LOCK TABLE inside implicit transaction block of pipeline status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|REINDEX CONCURRENTLY outside implicit transaction block of pipeline status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|SET LOCAL and \syncpipeline status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|SET LOCAL and \syncpipeline stderr /(?^:WARNING:  SET LOCAL can only be used in transaction blocks)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|SET LOCAL inside implicit transaction block of pipeline status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|SET LOCAL inside implicit transaction block of pipeline stderr /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|SET LOCAL outside implicit transaction block of pipeline status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|SET LOCAL outside implicit transaction block of pipeline stderr /(?^:WARNING:  SET LOCAL can only be used in transaction blocks)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|Test copy in script status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|Test copy in script stderr /(?^:COPY is not supported in pgbench, aborting)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|VACUUM outside implicit transaction block of pipeline status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|concurrent update with retrying status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|concurrent update with retrying stderr /(?^s:(client (0|1) sending UPDATE xy SET y = y \+ -?\d+\b).*client \2 got an error in command 3 \(SQL\) of script 0; ERROR:  could not serialize access due to concurrent update\b.*\1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|concurrent update with retrying stdout /(?^:number of transactions retried: 1\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|concurrent update with retrying stdout /(?^:processed: 2/2\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|concurrent update with retrying stdout /(?^:total number of retries: 1\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|deadlock with retrying status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|deadlock with retrying stderr /(?^:client (0|1) got an error in command (3|5) \(SQL\) of script 0; ERROR:  deadlock detected\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|deadlock with retrying stdout /(?^:number of transactions retried: 1\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|deadlock with retrying stdout /(?^:processed: 2/2\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|deadlock with retrying stdout /(?^:total number of retries: 1\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: LOCK TABLE outside implicit transaction block of pipeline status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: REINDEX CONCURRENTLY inside implicit transaction block of pipeline status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: VACUUM inside implicit transaction block of pipeline status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: \endpipeline with no start status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: \endpipeline with no start stderr /(?^:not in pipeline mode)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: \gset not allowed in pipeline mode status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: \gset not allowed in pipeline mode stderr /(?^:gset is not allowed in pipeline mode)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: call \startpipeline and \syncpipeline without \endpipeline status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: call \startpipeline and \syncpipeline without \endpipeline stderr /(?^:end of script reached with pipeline open)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: call \startpipeline twice status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: call \startpipeline twice stderr /(?^:already in pipeline mode)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: call \startpipeline without \endpipeline in a single transaction status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: call \startpipeline without \endpipeline in a single transaction stderr /(?^:end of script reached with pipeline open)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: call \startpipeline without \endpipeline status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: call \startpipeline without \endpipeline stderr /(?^:end of script reached with pipeline open)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|error: subtransactions not allowed in pipeline status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|file name format`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|file name format#2`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|incomplete transaction block status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|incomplete transaction block stderr /(?^:client 0 aborted: end of script reached without completing the last transaction)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|incomplete transaction block stdout /(?^:processed: 1/10)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|number of log files`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|number of log files#2`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench late throttling status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench late throttling stderr /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench late throttling stdout /(?^:above the 1.0 ms latency limit: [01]/)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench late throttling stdout /(?^:processed: [01]/10)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench late throttling stdout /(?^:type: .*/001_pgbench_sleep)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench logs contents status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench logs contents stderr /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench logs contents stdout /(?^:processed: 10/10)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench logs contents stdout /(?^:select only)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench logs status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench logs stderr /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench logs stdout /(?^:processed: 100/100)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench logs stdout /(?^:select only)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: bad boolean status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: bad boolean stderr /(?^:malformed variable.*trueXXX)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: bad boolean stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset after gset status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset after gset stderr /(?^:gset must follow an SQL command)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset after gset stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset alone status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset alone stderr /(?^:gset must follow an SQL command)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset alone stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset bad default name status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset bad default name stderr /(?^:error storing into variable \?column\?)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset bad default name stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset bad name status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset bad name stderr /(?^:error storing into variable bad name!)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset bad name stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset no SQL status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset no SQL stderr /(?^:gset must follow an SQL command)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset no SQL stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset no row status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset no row stderr /(?^:expected one row, got 0\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset no row stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset non SELECT status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset non SELECT stderr /(?^:expected one row, got 0)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset non SELECT stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset too many arguments status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset too many arguments stderr /(?^:too many arguments)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: gset too many arguments stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: invalid permute size status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: invalid permute size stderr /(?^:permute size parameter must be greater than zero)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: invalid permute size stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: misc empty script status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: misc empty script stderr /(?^:empty command list for script)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: misc empty script stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: misc invalid backslash command status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: misc invalid backslash command stderr /(?^:invalid command .* "nosuchcommand")/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: misc invalid backslash command stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set at least one arg status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set at least one arg stderr /(?^:at least one argument expected)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set at least one arg stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint add overflow status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint add overflow stderr /(?^:int add out)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint add overflow stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint div out of range status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint div out of range stderr /(?^:bigint div out of range)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint div out of range stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint mul overflow status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint mul overflow stderr /(?^:int mul out)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint mul overflow stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint sub overflow status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint sub overflow stderr /(?^:int sub out)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set bigint sub overflow stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set case error status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set case error stderr /(?^:syntax error in command "set")/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set case error stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set division by zero status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set division by zero stderr /(?^:division by zero)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set division by zero stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set double to int overflow status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set double to int overflow stderr /(?^:double to int overflow for 100)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set double to int overflow stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set empty random range status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set empty random range stderr /(?^:empty range given to random)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set empty random range stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set exponential param greater 0 status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set exponential param greater 0 stderr /(?^:exponential parameter must be greater )/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set exponential param greater 0 stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set gaussian param too small status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set gaussian param too small stderr /(?^:gaussian param.* at least 2)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set gaussian param too small stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set invalid variable name status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set invalid variable name stderr /(?^:invalid variable name)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set invalid variable name stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set missing argument status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set missing argument stderr /(?^i:missing argument)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set missing argument stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set no expression status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set no expression stderr /(?^:syntax error)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set no expression stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set no such function status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set no such function stderr /(?^:unexpected function name)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set no such function stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set non numeric value status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set non numeric value stderr /(?^:malformed variable "foo" value: "bla")/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set non numeric value stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not a bool status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not a bool stderr /(?^:cannot coerce double to boolean)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not a bool stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not a double status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not a double stderr /(?^:cannot coerce boolean to double)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not a double stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not an int status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not an int stderr /(?^:cannot coerce boolean to int)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set not an int stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set number of args mismatch status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set number of args mismatch stderr /(?^:unexpected number of arguments)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set number of args mismatch stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set random error status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set random error stderr /(?^:cannot coerce boolean to int)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set random error stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set random range too large status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set random range too large stderr /(?^:random range is too large)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set random range too large stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set syntax error status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set syntax error stderr /(?^:syntax error in command "set")/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set syntax error stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set too many args status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set too many args stderr /(?^:too many function arguments)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set too many args stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set undefined variable status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set undefined variable stderr /(?^:undefined variable "nosuchvariable")/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set undefined variable stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set unexpected char status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set unexpected char stderr /(?^:unexpected character .;.)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set unexpected char stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set zipfian param to 1 status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set zipfian param to 1 stderr /(?^:zipfian parameter must be in range \[1\.001, 1000\])/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set zipfian param to 1 stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set zipfian param too large status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set zipfian param too large stderr /(?^:zipfian parameter must be in range \[1\.001, 1000\])/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: set zipfian param too large stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell missing arg status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell missing arg stderr /(?^:missing argument )/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell missing arg stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell no such command status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell no such command stderr /(?^:could not read result )/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell no such command stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell not an int status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell not an int stderr /(?^:command must return an integer)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: setshell not an int stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell bad command status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell bad command stderr /(?^:\(shell\) .* meta-command failed)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell bad command stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell missing command status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell missing command stderr /(?^:missing command )/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell missing command stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell too many args status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell too many args stderr /(?^:too many arguments in command "shell")/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell too many args stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell undefined variable status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell undefined variable stderr /(?^:undefined variable ":nosuchvariable")/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: shell undefined variable stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep missing arg status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep missing arg stderr /(?^:\\sleep)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep missing arg stderr /(?^:missing argument)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep missing arg stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep too many args status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep too many args stderr /(?^:too many arguments)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep too many args stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep undefined variable status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep undefined variable stderr /(?^:sleep: undefined variable)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep undefined variable stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep unknown unit status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep unknown unit stderr /(?^:unrecognized time unit)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sleep unknown unit stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sql syntax error status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sql syntax error stderr /(?^:ERROR:  syntax error)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sql syntax error stderr /(?^:prepared statement .* does not exist)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sql syntax error stdout /(?^:processed: 0/1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sql too many args status (got 1 vs expected 1)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sql too many args stderr /(?^:statement has too many arguments.*\b255\b)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench script error: sql too many args stdout /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench throttling status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench throttling stderr /(?^:^$)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench throttling stdout /(?^:builtin: select only)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|pgbench throttling stdout /(?^:processed: 200/200)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|test --exit-on-abort status (got 2 vs expected 2)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|test --exit-on-abort stderr /(?^:Run was aborted due to an error in thread)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|test --exit-on-abort stderr /(?^:division by zero)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|transaction count for <P>/001_pgbench_log_3.<N> (10)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|transaction format for 001_pgbench_log_2`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|transaction format for 001_pgbench_log_3`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|working \startpipeline status (got 0 vs expected 0)#2`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|working \startpipeline stdout /(?^:actually processed: 1/1)/#2`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|working \startpipeline stdout /(?^:type: .*/001_pgbench_pipeline_prep)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|working \startpipeline with serializable status (got 0 vs expected 0)`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|working \startpipeline with serializable stdout /(?^:actually processed: (\d+)/\1)/`
+- `src/bin/pgbench|t/001_pgbench_with_server.pl|working \startpipeline with serializable stdout /(?^:type: .*/001_pgbench_pipeline_serializable)/`

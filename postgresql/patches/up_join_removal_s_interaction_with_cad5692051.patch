@@ -1,0 +1,44 @@
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..bc2880329e6 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -250,23 +250,15 @@ join_is_removable(PlannerInfo *root, SpecialJoinInfo *sjinfo)
+ 
+ 		if (bms_overlap(phinfo->ph_lateral, innerrel->relids))
+ 			return false;		/* it references innerrel laterally */
+-		if (!bms_overlap(phinfo->ph_eval_at, innerrel->relids))
+-			continue;			/* it definitely doesn't reference innerrel */
+ 		if (bms_is_subset(phinfo->ph_needed, inputrelids))
+ 			continue;			/* PHV is not used above the join */
+-		if (!bms_is_member(sjinfo->ojrelid, phinfo->ph_eval_at))
+-			return false;		/* it has to be evaluated below the join */
+-
+-		/*
+-		 * We need to be sure there will still be a place to evaluate the PHV
+-		 * if we remove the join, ie that ph_eval_at wouldn't become empty.
+-		 */
+-		if (!bms_overlap(sjinfo->min_lefthand, phinfo->ph_eval_at))
++		if (!bms_overlap(phinfo->ph_eval_at, innerrel->relids))
++			continue;			/* it definitely doesn't reference innerrel */
++		if (bms_is_subset(phinfo->ph_eval_at, innerrel->relids))
+ 			return false;		/* there isn't any other place to eval PHV */
+-		/* Check contained expression last, since this is a bit expensive */
+ 		if (bms_overlap(pull_varnos(root, (Node *) phinfo->ph_var->phexpr),
+ 						innerrel->relids))
+-			return false;		/* contained expression references innerrel */
++			return false;		/* it does reference innerrel */
+ 	}
+ 
+ 	/*
+@@ -715,10 +707,7 @@ remove_rel_from_restrictinfo(RestrictInfo *rinfo, int relid, int ojrelid)
+ 	 * (In present usage, clause_relids is probably not shared, but
+ 	 * required_relids could be; let's not assume anything.)
+ 	 */
+-	rinfo->clause_relids = bms_copy(rinfo->clause_relids);
+-	rinfo->clause_relids = bms_del_member(rinfo->clause_relids, relid);
+-	rinfo->clause_relids = bms_del_member(rinfo->clause_relids, ojrelid);
+-	/* Likewise for required_relids */
++	/* Clean required_relids */
+ 	rinfo->required_relids = bms_copy(rinfo->required_relids);
+ 	rinfo->required_relids = bms_del_member(rinfo->required_relids, relid);
+ 	rinfo->required_relids = bms_del_member(rinfo->required_relids, ojrelid);

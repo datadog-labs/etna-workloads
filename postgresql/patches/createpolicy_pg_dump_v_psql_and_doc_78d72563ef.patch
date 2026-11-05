@@ -1,0 +1,25 @@
+diff --git a/src/backend/catalog/system_views.sql b/src/backend/catalog/system_views.sql
+index 08f780a2e63..85e63574ac4 100644
+--- a/src/backend/catalog/system_views.sql
++++ b/src/backend/catalog/system_views.sql
+@@ -72,9 +72,8 @@ CREATE VIEW pg_user AS
+ 
+ CREATE VIEW pg_policies AS
+     SELECT
+-        N.nspname AS schemaname,
+-        C.relname AS tablename,
+         pol.polname AS policyname,
++        (SELECT relname FROM pg_catalog.pg_class WHERE oid = pol.polrelid) AS tablename,
+         CASE
+             WHEN pol.polpermissive THEN
+                 'PERMISSIVE'
+@@ -102,8 +101,7 @@ CREATE VIEW pg_policies AS
+         pg_catalog.pg_get_expr(pol.polqual, pol.polrelid) AS qual,
+         pg_catalog.pg_get_expr(pol.polwithcheck, pol.polrelid) AS with_check
+     FROM pg_catalog.pg_policy pol
+-    JOIN pg_catalog.pg_class C ON (C.oid = pol.polrelid)
+-    LEFT JOIN pg_catalog.pg_namespace N ON (N.oid = C.relnamespace);
++    ORDER BY 1;
+ 
+ CREATE VIEW pg_rules AS
+     SELECT

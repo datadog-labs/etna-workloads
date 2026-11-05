@@ -1,0 +1,21 @@
+diff --git a/src/backend/executor/execExpr.c b/src/backend/executor/execExpr.c
+index 038a93c5cc7..185c1c6cf22 100644
+--- a/src/backend/executor/execExpr.c
++++ b/src/backend/executor/execExpr.c
+@@ -636,7 +636,15 @@ ExecBuildUpdateProjection(List *targetList,
+ 	 * number of columns of the "outer" tuple.
+ 	 */
+ 	if (evalTargetList)
+-		expr_setup_walker((Node *) targetList, &deform);
++	{
++		foreach(lc, targetList)
++		{
++			TargetEntry *tle = lfirst_node(TargetEntry, lc);
++
++			if (!tle->resjunk)
++				expr_setup_walker((Node *) tle->expr, &deform);
++		}
++	}
+ 	else
+ 		deform.last_outer = nAssignableCols;
+ 

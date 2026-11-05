@@ -1,0 +1,30 @@
+diff --git a/src/backend/utils/adt/jsonb.c b/src/backend/utils/adt/jsonb.c
+index da94d424d61..e1dcfc28db6 100644
+--- a/src/backend/utils/adt/jsonb.c
++++ b/src/backend/utils/adt/jsonb.c
+@@ -1401,7 +1401,7 @@ jsonb_object_two_arg(PG_FUNCTION_ARGS)
+ 				 errmsg("wrong number of array subscripts")));
+ 
+ 	if (nkdims == 0)
+-		goto close_object;
++		PG_RETURN_DATUM(CStringGetTextDatum("{}"));
+ 
+ 	deconstruct_array_builtin(key_array, TEXTOID, &key_datums, &key_nulls, &key_count);
+ 	deconstruct_array_builtin(val_array, TEXTOID, &val_datums, &val_nulls, &val_count);
+@@ -1450,14 +1450,13 @@ jsonb_object_two_arg(PG_FUNCTION_ARGS)
+ 		(void) pushJsonbValue(&result.parseState, WJB_VALUE, &v);
+ 	}
+ 
++	result.res = pushJsonbValue(&result.parseState, WJB_END_OBJECT, NULL);
++
+ 	pfree(key_datums);
+ 	pfree(key_nulls);
+ 	pfree(val_datums);
+ 	pfree(val_nulls);
+ 
+-close_object:
+-	result.res = pushJsonbValue(&result.parseState, WJB_END_OBJECT, NULL);
+-
+ 	PG_RETURN_POINTER(JsonbValueToJsonb(result.res));
+ }
+ 

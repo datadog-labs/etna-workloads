@@ -1,0 +1,10 @@
+create table matest0 (a int, b int, c int, d int);
+create table matest1 () inherits(matest0);
+create index matest0i on matest0 (b, c);
+create index matest1i on matest1 (b, c);
+set enable_nestloop = off;
+explain (costs off)
+select t1.* from matest0 t1, matest0 t2
+where t1.b = t2.b and t2.c = t2.d
+order by t1.b limit 10;
+psql:<REPRO>:9: ERROR:  could not find pathkey item to sort

@@ -1,0 +1,12 @@
+create function first_el(anyarray) returns anyelement as
+'select $1[1]' language sql strict immutable;
+create aggregate first_el_agg_f8(float8) (
+  SFUNC = array_append, STYPE = float8[], FINALFUNC = first_el);
+select first_el_agg_f8(x::float8) over(order by x) from generate_series(1,3) x;
+ first_el_agg_f8 
+-----------------
+               1
+               1
+               1
+(3 rows)
+

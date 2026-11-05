@@ -1,0 +1,79 @@
+diff --git a/src/backend/storage/aio/read_stream.c b/src/backend/storage/aio/read_stream.c
+index 7f79514e962..d119ec7462a 100644
+--- a/src/backend/storage/aio/read_stream.c
++++ b/src/backend/storage/aio/read_stream.c
+@@ -555,16 +555,6 @@ read_stream_begin_impl(int flags,
+ 	uint32		max_possible_buffer_limit;
+ 	Oid			tablespace_id;
+ 
+-	/*
+-	 * Reject attempts to read non-local temporary relations; we would be
+-	 * likely to get wrong data since we have no visibility into the owning
+-	 * session's local buffers.
+-	 */
+-	if (rel && RELATION_IS_OTHER_TEMP(rel))
+-		ereport(ERROR,
+-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-				 errmsg("cannot access temporary tables of other sessions")));
+-
+ 	/*
+ 	 * Decide how many I/Os we will allow to run at the same time.  This
+ 	 * number also affects how far we look ahead for opportunities to start
+diff --git a/src/backend/storage/buffer/bufmgr.c b/src/backend/storage/buffer/bufmgr.c
+index 9a771c81cb1..17a517570e4 100644
+--- a/src/backend/storage/buffer/bufmgr.c
++++ b/src/backend/storage/buffer/bufmgr.c
+@@ -807,10 +807,19 @@ ReadBufferExtended(Relation reln, ForkNumber forkNum, BlockNumber blockNum,
+ {
+ 	Buffer		buf;
+ 
++	/*
++	 * Reject attempts to read non-local temporary relations; we would be
++	 * likely to get wrong data since we have no visibility into the owning
++	 * session's local buffers.
++	 */
++	if (RELATION_IS_OTHER_TEMP(reln))
++		ereport(ERROR,
++				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
++				 errmsg("cannot access temporary tables of other sessions")));
++
+ 	/*
+ 	 * Read the buffer, and update pgstat counters to reflect a cache hit or
+-	 * miss.  The other-session temp-relation check is enforced by
+-	 * ReadBuffer_common().
++	 * miss.
+ 	 */
+ 	buf = ReadBuffer_common(reln, RelationGetSmgr(reln), 0,
+ 							forkNum, blockNum, mode, strategy);
+@@ -1191,18 +1200,6 @@ ReadBuffer_common(Relation rel, SMgrRelation smgr, char smgr_persistence,
+ 	int			flags;
+ 	char		persistence;
+ 
+-	/*
+-	 * Reject attempts to read non-local temporary relations; we would be
+-	 * likely to get wrong data since we have no visibility into the owning
+-	 * session's local buffers.  This is the canonical place for the check,
+-	 * covering the ReadBufferExtended() entry point and any other caller that
+-	 * supplies a Relation.
+-	 */
+-	if (rel && RELATION_IS_OTHER_TEMP(rel))
+-		ereport(ERROR,
+-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-				 errmsg("cannot access temporary tables of other sessions")));
+-
+ 	/*
+ 	 * Backward compatibility path, most code should use ExtendBufferedRel()
+ 	 * instead, as acquiring the extension lock inside ExtendBufferedRel()
+@@ -1277,12 +1274,6 @@ StartReadBuffersImpl(ReadBuffersOperation *operation,
+ 	Assert(*nblocks > 0);
+ 	Assert(*nblocks <= MAX_IO_COMBINE_LIMIT);
+ 
+-	/* see comments in ReadBuffer_common */
+-	if (operation->rel && RELATION_IS_OTHER_TEMP(operation->rel))
+-		ereport(ERROR,
+-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+-				 errmsg("cannot access temporary tables of other sessions")));
+-
+ 	for (int i = 0; i < actual_nblocks; ++i)
+ 	{
+ 		bool		found;

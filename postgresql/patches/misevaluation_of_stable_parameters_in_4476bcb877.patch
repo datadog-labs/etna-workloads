@@ -1,0 +1,57 @@
+diff --git a/src/backend/commands/functioncmds.c b/src/backend/commands/functioncmds.c
+index 0335e982b31..a23031ba0e8 100644
+--- a/src/backend/commands/functioncmds.c
++++ b/src/backend/commands/functioncmds.c
+@@ -68,7 +68,6 @@
+ #include "utils/guc.h"
+ #include "utils/lsyscache.h"
+ #include "utils/rel.h"
+-#include "utils/snapmgr.h"
+ #include "utils/syscache.h"
+ #include "utils/typcache.h"
+ 
+@@ -2280,16 +2279,6 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver
+ 	estate->es_param_list_info = params;
+ 	econtext = CreateExprContext(estate);
+ 
+-	/*
+-	 * If we're called in non-atomic context, we also have to ensure that the
+-	 * argument expressions run with an up-to-date snapshot.  Our caller will
+-	 * have provided a current snapshot in atomic contexts, but not in
+-	 * non-atomic contexts, because the possibility of a COMMIT/ROLLBACK
+-	 * destroying the snapshot makes higher-level management too complicated.
+-	 */
+-	if (!atomic)
+-		PushActiveSnapshot(GetTransactionSnapshot());
+-
+ 	i = 0;
+ 	foreach(lc, fexpr->args)
+ 	{
+@@ -2307,23 +2296,20 @@ ExecuteCallStmt(CallStmt *stmt, ParamListInfo params, bool atomic, DestReceiver
+ 		i++;
+ 	}
+ 
+-	/* Get rid of temporary snapshot for arguments, if we made one */
+-	if (!atomic)
+-		PopActiveSnapshot();
+-
+-	/* Here we actually call the procedure */
+ 	pgstat_init_function_usage(fcinfo, &fcusage);
+ 	retval = FunctionCallInvoke(fcinfo);
+ 	pgstat_end_function_usage(&fcusage, true);
+ 
+-	/* Handle the procedure's outputs */
+ 	if (fexpr->funcresulttype == VOIDOID)
+ 	{
+ 		/* do nothing */
+ 	}
+ 	else if (fexpr->funcresulttype == RECORDOID)
+ 	{
+-		/* send tuple to client */
++		/*
++		 * send tuple to client
++		 */
++
+ 		HeapTupleHeader td;
+ 		Oid			tupType;
+ 		int32		tupTypmod;

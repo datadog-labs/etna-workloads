@@ -1,0 +1,17 @@
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..db6ece8a9a9 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -449,10 +449,9 @@ remove_rel_from_query(PlannerInfo *root, RelOptInfo *rel,
+ 		PlaceHolderInfo *phinfo = (PlaceHolderInfo *) lfirst(l);
+ 
+ 		Assert(sjinfo == NULL || !bms_is_member(relid, phinfo->ph_lateral));
+-		if (sjinfo != NULL &&
+-			bms_is_subset(phinfo->ph_needed, joinrelids) &&
++		if (bms_is_subset(phinfo->ph_needed, joinrelids) &&
+ 			bms_is_member(relid, phinfo->ph_eval_at) &&
+-			!bms_is_member(sjinfo->ojrelid, phinfo->ph_eval_at))
++			!bms_is_member(sjinfo ? sjinfo->ojrelid : -1, phinfo->ph_eval_at))
+ 		{
+ 			/*
+ 			 * This code shouldn't be executed if one relation is substituted

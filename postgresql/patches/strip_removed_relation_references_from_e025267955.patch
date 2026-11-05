@@ -1,0 +1,27 @@
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..16cd3c3833e 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -791,22 +791,6 @@ remove_rel_from_eclass(PlannerInfo *root, EquivalenceClass *ec,
+ {
+ 	ListCell   *lc;
+ 
+-	/*
+-	 * Strip the removed rel/join from PlaceHolderVars in member expressions.
+-	 * This is needed even when the EC's relids don't mention the removed rel.
+-	 * Plain Vars and Consts can't contain a PlaceHolderVar, so skip them.
+-	 */
+-	if (sjinfo != NULL && root->glob->lastPHId != 0)
+-	{
+-		foreach_node(EquivalenceMember, em, ec->ec_members)
+-		{
+-			if (!IsA(em->em_expr, Var) && !IsA(em->em_expr, Const))
+-				em->em_expr = (Expr *)
+-					remove_rel_from_phvs((Node *) em->em_expr, relid,
+-										 sjinfo->ojrelid);
+-		}
+-	}
+-
+ 	if (!bms_is_member(relid, ec->ec_relids) &&
+ 		(sjinfo == NULL || !bms_is_member(sjinfo->ojrelid, ec->ec_relids)))
+ 		return;

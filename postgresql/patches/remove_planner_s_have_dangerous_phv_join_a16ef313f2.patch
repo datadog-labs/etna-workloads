@@ -1,0 +1,86 @@
+diff --git a/src/backend/optimizer/path/joinpath.c b/src/backend/optimizer/path/joinpath.c
+index af5aa8aea84..3eb3cd36a51 100644
+--- a/src/backend/optimizer/path/joinpath.c
++++ b/src/backend/optimizer/path/joinpath.c
+@@ -881,8 +881,9 @@ try_nestloop_path(PlannerInfo *root,
+ 	required_outer = calc_nestloop_required_outer(outerrelids, outer_paramrels,
+ 												  innerrelids, inner_paramrels);
+ 	if (required_outer &&
+-		!bms_overlap(required_outer, extra->param_source_rels) &&
+-		!allow_star_schema_join(root, outerrelids, inner_paramrels))
++		((!bms_overlap(required_outer, extra->param_source_rels) &&
++		  !allow_star_schema_join(root, outerrelids, inner_paramrels)) ||
++		 have_dangerous_phv(root, outerrelids, inner_paramrels)))
+ 	{
+ 		/* Waste no memory when we reject a path here */
+ 		bms_free(required_outer);
+diff --git a/src/backend/optimizer/path/joinrels.c b/src/backend/optimizer/path/joinrels.c
+index aad41b94009..914fda93153 100644
+--- a/src/backend/optimizer/path/joinrels.c
++++ b/src/backend/optimizer/path/joinrels.c
+@@ -581,6 +581,9 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
+ 			/* check there is a direct reference from rel2 to rel1 */
+ 			if (!bms_overlap(rel1->relids, rel2->direct_lateral_relids))
+ 				return false;	/* only indirect refs, so reject */
++			/* check we won't have a dangerous PHV */
++			if (have_dangerous_phv(root, rel1->relids, rel2->lateral_relids))
++				return false;	/* might be unable to handle required PHV */
+ 		}
+ 		else if (lateral_rev)
+ 		{
+@@ -593,6 +596,9 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
+ 			/* check there is a direct reference from rel1 to rel2 */
+ 			if (!bms_overlap(rel2->relids, rel1->direct_lateral_relids))
+ 				return false;	/* only indirect refs, so reject */
++			/* check we won't have a dangerous PHV */
++			if (have_dangerous_phv(root, rel2->relids, rel1->lateral_relids))
++				return false;	/* might be unable to handle required PHV */
+ 		}
+ 
+ 		/*
+@@ -1269,6 +1275,32 @@ has_legal_joinclause(PlannerInfo *root, RelOptInfo *rel)
+ }
+ 
+ 
++/*
++ * have_dangerous_phv: nestloop with a PHV param that must be evaluated at
++ * the join itself (restriction removed by the fix).
++ */
++bool
++have_dangerous_phv(PlannerInfo *root,
++				   Relids outer_relids, Relids inner_params)
++{
++	ListCell   *lc;
++
++	foreach(lc, root->placeholder_list)
++	{
++		PlaceHolderInfo *phinfo = (PlaceHolderInfo *) lfirst(lc);
++
++		if (!bms_is_subset(phinfo->ph_eval_at, inner_params))
++			continue;
++		if (!bms_overlap(phinfo->ph_eval_at, outer_relids))
++			continue;
++		if (bms_is_subset(phinfo->ph_eval_at, outer_relids))
++			continue;
++		return true;
++	}
++	return false;
++}
++
++
+ /*
+  * is_dummy_rel --- has relation been proven empty?
+  */
+diff --git a/src/include/optimizer/paths.h b/src/include/optimizer/paths.h
+index 70380276c84..643263e3b74 100644
+--- a/src/include/optimizer/paths.h
++++ b/src/include/optimizer/paths.h
+@@ -110,6 +110,8 @@ extern Relids add_outer_joins_to_relids(PlannerInfo *root, Relids input_relids,
+ 										List **pushed_down_joins);
+ extern bool have_join_order_restriction(PlannerInfo *root,
+ 										RelOptInfo *rel1, RelOptInfo *rel2);
++extern bool have_dangerous_phv(PlannerInfo *root,
++							   Relids outer_relids, Relids inner_params);
+ extern void mark_dummy_rel(RelOptInfo *rel);
+ extern void init_dummy_sjinfo(SpecialJoinInfo *sjinfo, Relids left_relids,
+ 							  Relids right_relids);

@@ -1,0 +1,85 @@
+alter system set max_slot_wal_keep_size = '32MB';
+alter system set wal_keep_size = 0;
+alter system set min_wal_size = '32MB';
+alter system set max_wal_size = '1GB';
+select pg_reload_conf() as reloaded;
+ reloaded 
+----------
+ t
+(1 row)
+
+select pg_sleep(1);
+ pg_sleep 
+----------
+ 
+(1 row)
+
+create table t(a int);
+select pg_create_physical_replication_slot('s', true);
+ pg_create_physical_replication_slot 
+-------------------------------------
+ (s,0/175EF28)
+(1 row)
+
+checkpoint;
+insert into t values (1);
+select pg_switch_wal() is not null as sw;
+ sw 
+----
+ t
+(1 row)
+
+insert into t values (1);
+select pg_switch_wal() is not null as sw;
+ sw 
+----
+ t
+(1 row)
+
+insert into t values (1);
+select pg_switch_wal() is not null as sw;
+ sw 
+----
+ t
+(1 row)
+
+insert into t values (1);
+select pg_switch_wal() is not null as sw;
+ sw 
+----
+ t
+(1 row)
+
+insert into t values (1);
+select pg_switch_wal() is not null as sw;
+ sw 
+----
+ t
+(1 row)
+
+insert into t values (1);
+select pg_switch_wal() is not null as sw;
+ sw 
+----
+ t
+(1 row)
+
+select wal_status from pg_replication_slots;
+ wal_status 
+------------
+ unreserved
+(1 row)
+
+checkpoint;
+select wal_status from pg_replication_slots;
+ wal_status 
+------------
+ lost
+(1 row)
+
+select count(*) as old_segs from pg_ls_waldir() where name ~ '^[0-9A-F]{24}$' and name < pg_walfile_name(pg_current_wal_lsn());
+ old_segs 
+----------
+        0
+(1 row)
+

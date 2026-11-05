@@ -1,0 +1,14 @@
+diff --git a/src/backend/replication/logical/proto.c b/src/backend/replication/logical/proto.c
+index 1a352b542dc..27596ee958d 100644
+--- a/src/backend/replication/logical/proto.c
++++ b/src/backend/replication/logical/proto.c
+@@ -846,7 +846,8 @@ logicalrep_write_tuple(StringInfo out, Relation rel, TupleTableSlot *slot,
+ 
+ 			pq_sendbyte(out, LOGICALREP_COLUMN_TEXT);
+ 			outputstr = OidOutputFunctionCall(typclass->typoutput, values[i]);
+-			pq_sendcountedtext(out, outputstr, strlen(outputstr));
++			pq_sendint32(out, strlen(outputstr) + 1);	/* length, null terminated */
++			pq_sendstring(out, outputstr);	/* data */
+ 			pfree(outputstr);
+ 		}
+ 

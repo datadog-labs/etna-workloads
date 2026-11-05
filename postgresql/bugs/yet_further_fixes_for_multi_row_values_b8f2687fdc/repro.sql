@@ -1,0 +1,10 @@
+create table base_tab_def (a int, b text default 'Table default',
+                           c text default 'Table default', d text, e text);
+create view base_tab_def_view as select * from base_tab_def;
+alter view base_tab_def_view alter b set default 'View default';
+alter view base_tab_def_view alter d set default 'View default';
+create rule base_tab_def_view_ins_rule as on insert to base_tab_def_view
+  do also insert into base_tab_def (a, b, e) select new.a, new.b, 'xxx';
+insert into base_tab_def_view values (2, default, default, default, default),
+                                     (3, default, default, default, default);
+select * from base_tab_def order by a, e nulls first;

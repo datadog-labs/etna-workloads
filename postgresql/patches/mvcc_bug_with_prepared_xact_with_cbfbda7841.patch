@@ -1,0 +1,191 @@
+diff --git a/src/backend/access/transam/twophase.c b/src/backend/access/transam/twophase.c
+index 77be057bdbb..d1fd053d456 100644
+--- a/src/backend/access/transam/twophase.c
++++ b/src/backend/access/transam/twophase.c
+@@ -2026,8 +2026,9 @@ PrescanPreparedTransactions(TransactionId **xids_p, int *nxids_p)
+  * This is never called at the end of recovery - we use
+  * RecoverPreparedTransactions() at that point.
+  *
+- * This updates pg_subtrans, so that any subtransactions will be correctly
+- * seen as in-progress in snapshots taken during recovery.
++ * The lack of calls to SubTransSetParent() calls here is by design;
++ * those calls are made by RecoverPreparedTransactions() at the end of recovery
++ * for those xacts that need this.
+  */
+ void
+ StandbyRecoverPreparedTransactions(void)
+@@ -2047,7 +2048,7 @@ StandbyRecoverPreparedTransactions(void)
+ 
+ 		buf = ProcessTwoPhaseBuffer(xid,
+ 									gxact->prepare_start_lsn,
+-									gxact->ondisk, true, false);
++									gxact->ondisk, false, false);
+ 		if (buf != NULL)
+ 			pfree(buf);
+ 	}
+diff --git a/src/backend/access/transam/xlog.c b/src/backend/access/transam/xlog.c
+index 2fd06e37999..2c6240df478 100644
+--- a/src/backend/access/transam/xlog.c
++++ b/src/backend/access/transam/xlog.c
+@@ -5856,9 +5856,6 @@ StartupXLOG(void)
+ 				RunningTransactionsData running;
+ 				TransactionId latestCompletedXid;
+ 
+-				/* Update pg_subtrans entries for any prepared transactions */
+-				StandbyRecoverPreparedTransactions();
+-
+ 				/*
+ 				 * Construct a RunningTransactions snapshot representing a
+ 				 * shut down server, with only prepared transactions still
+@@ -5867,7 +5864,7 @@ StartupXLOG(void)
+ 				 */
+ 				running.xcnt = nxids;
+ 				running.subxcnt = 0;
+-				running.subxid_status = SUBXIDS_IN_SUBTRANS;
++				running.subxid_overflow = false;
+ 				running.nextXid = XidFromFullTransactionId(checkPoint.nextXid);
+ 				running.oldestRunningXid = oldestActiveXID;
+ 				latestCompletedXid = XidFromFullTransactionId(checkPoint.nextXid);
+@@ -5877,6 +5874,8 @@ StartupXLOG(void)
+ 				running.xids = xids;
+ 
+ 				ProcArrayApplyRecoveryInfo(&running);
++
++				StandbyRecoverPreparedTransactions();
+ 			}
+ 		}
+ 
+@@ -8361,9 +8360,6 @@ xlog_redo(XLogReaderState *record)
+ 
+ 			oldestActiveXID = PrescanPreparedTransactions(&xids, &nxids);
+ 
+-			/* Update pg_subtrans entries for any prepared transactions */
+-			StandbyRecoverPreparedTransactions();
+-
+ 			/*
+ 			 * Construct a RunningTransactions snapshot representing a shut
+ 			 * down server, with only prepared transactions still alive. We're
+@@ -8372,7 +8368,7 @@ xlog_redo(XLogReaderState *record)
+ 			 */
+ 			running.xcnt = nxids;
+ 			running.subxcnt = 0;
+-			running.subxid_status = SUBXIDS_IN_SUBTRANS;
++			running.subxid_overflow = false;
+ 			running.nextXid = XidFromFullTransactionId(checkPoint.nextXid);
+ 			running.oldestRunningXid = oldestActiveXID;
+ 			latestCompletedXid = XidFromFullTransactionId(checkPoint.nextXid);
+@@ -8382,6 +8378,8 @@ xlog_redo(XLogReaderState *record)
+ 			running.xids = xids;
+ 
+ 			ProcArrayApplyRecoveryInfo(&running);
++
++			StandbyRecoverPreparedTransactions();
+ 		}
+ 
+ 		/* ControlFile->checkPointCopy always tracks the latest ckpt XID */
+diff --git a/src/backend/storage/ipc/procarray.c b/src/backend/storage/ipc/procarray.c
+index e5b945a9ee3..e5bc223edaf 100644
+--- a/src/backend/storage/ipc/procarray.c
++++ b/src/backend/storage/ipc/procarray.c
+@@ -1106,7 +1106,7 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
+ 		 * If the snapshot isn't overflowed or if its empty we can reset our
+ 		 * pending state and use this snapshot instead.
+ 		 */
+-		if (running->subxid_status != SUBXIDS_MISSING || running->xcnt == 0)
++		if (!running->subxid_overflow || running->xcnt == 0)
+ 		{
+ 			/*
+ 			 * If we have already collected known assigned xids, we need to
+@@ -1258,7 +1258,7 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
+ 	 * missing, so conservatively assume the last one is latestObservedXid.
+ 	 * ----------
+ 	 */
+-	if (running->subxid_status == SUBXIDS_MISSING)
++	if (running->subxid_overflow)
+ 	{
+ 		standbyState = STANDBY_SNAPSHOT_PENDING;
+ 
+@@ -1270,18 +1270,6 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
+ 		standbyState = STANDBY_SNAPSHOT_READY;
+ 
+ 		standbySnapshotPendingXmin = InvalidTransactionId;
+-
+-		/*
+-		 * If the 'xids' array didn't include all subtransactions, we have to
+-		 * mark any snapshots taken as overflowed.
+-		 */
+-		if (running->subxid_status == SUBXIDS_IN_SUBTRANS)
+-			procArray->lastOverflowedXid = latestObservedXid;
+-		else
+-		{
+-			Assert(running->subxid_status == SUBXIDS_IN_ARRAY);
+-			procArray->lastOverflowedXid = InvalidTransactionId;
+-		}
+ 	}
+ 
+ 	/*
+@@ -2846,7 +2834,7 @@ GetRunningTransactionData(void)
+ 
+ 	CurrentRunningXacts->xcnt = count - subcount;
+ 	CurrentRunningXacts->subxcnt = subcount;
+-	CurrentRunningXacts->subxid_status = suboverflowed ? SUBXIDS_IN_SUBTRANS : SUBXIDS_IN_ARRAY;
++	CurrentRunningXacts->subxid_overflow = suboverflowed;
+ 	CurrentRunningXacts->nextXid = XidFromFullTransactionId(TransamVariables->nextXid);
+ 	CurrentRunningXacts->oldestRunningXid = oldestRunningXid;
+ 	CurrentRunningXacts->oldestDatabaseRunningXid = oldestDatabaseRunningXid;
+diff --git a/src/backend/storage/ipc/standby.c b/src/backend/storage/ipc/standby.c
+index 7fa8d9247e0..be9f0727181 100644
+--- a/src/backend/storage/ipc/standby.c
++++ b/src/backend/storage/ipc/standby.c
+@@ -1188,7 +1188,7 @@ standby_redo(XLogReaderState *record)
+ 
+ 		running.xcnt = xlrec->xcnt;
+ 		running.subxcnt = xlrec->subxcnt;
+-		running.subxid_status = xlrec->subxid_overflow ? SUBXIDS_MISSING : SUBXIDS_IN_ARRAY;
++		running.subxid_overflow = xlrec->subxid_overflow;
+ 		running.nextXid = xlrec->nextXid;
+ 		running.latestCompletedXid = xlrec->latestCompletedXid;
+ 		running.oldestRunningXid = xlrec->oldestRunningXid;
+@@ -1357,7 +1357,7 @@ LogCurrentRunningXacts(RunningTransactions CurrRunningXacts)
+ 
+ 	xlrec.xcnt = CurrRunningXacts->xcnt;
+ 	xlrec.subxcnt = CurrRunningXacts->subxcnt;
+-	xlrec.subxid_overflow = (CurrRunningXacts->subxid_status != SUBXIDS_IN_ARRAY);
++	xlrec.subxid_overflow = CurrRunningXacts->subxid_overflow;
+ 	xlrec.nextXid = CurrRunningXacts->nextXid;
+ 	xlrec.oldestRunningXid = CurrRunningXacts->oldestRunningXid;
+ 	xlrec.latestCompletedXid = CurrRunningXacts->latestCompletedXid;
+@@ -1374,7 +1374,7 @@ LogCurrentRunningXacts(RunningTransactions CurrRunningXacts)
+ 
+ 	recptr = XLogInsert(RM_STANDBY_ID, XLOG_RUNNING_XACTS);
+ 
+-	if (xlrec.subxid_overflow)
++	if (CurrRunningXacts->subxid_overflow)
+ 		elog(DEBUG2,
+ 			 "snapshot of %d running transactions overflowed (lsn %X/%X oldest xid %u latest complete %u next xid %u)",
+ 			 CurrRunningXacts->xcnt,
+diff --git a/src/include/storage/standby.h b/src/include/storage/standby.h
+index 24e2f5082bc..e0b28d7a49c 100644
+--- a/src/include/storage/standby.h
++++ b/src/include/storage/standby.h
+@@ -75,19 +75,11 @@ extern void StandbyReleaseOldLocks(TransactionId oldxid);
+  * almost immediately see the data we need to begin executing queries.
+  */
+ 
+-typedef enum
+-{
+-	SUBXIDS_IN_ARRAY,			/* xids array includes all running subxids */
+-	SUBXIDS_MISSING,			/* snapshot overflowed, subxids are missing */
+-	SUBXIDS_IN_SUBTRANS,		/* subxids are not included in 'xids', but
+-								 * pg_subtrans is fully up-to-date */
+-} subxids_array_status;
+-
+ typedef struct RunningTransactionsData
+ {
+ 	int			xcnt;			/* # of xact ids in xids[] */
+ 	int			subxcnt;		/* # of subxact ids in xids[] */
+-	subxids_array_status subxid_status;
++	bool		subxid_overflow;	/* snapshot overflowed, subxids missing */
+ 	TransactionId nextXid;		/* xid from TransamVariables->nextXid */
+ 	TransactionId oldestRunningXid; /* *not* oldestXmin */
+ 	TransactionId oldestDatabaseRunningXid; /* same as above, but within the

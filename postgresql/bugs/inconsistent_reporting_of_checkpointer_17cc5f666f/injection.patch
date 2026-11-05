@@ -1,0 +1,31 @@
+diff --git a/src/backend/access/transam/slru.c b/src/backend/access/transam/slru.c
+index 4b2a285db34..0f2897907cb 100644
+--- a/src/backend/access/transam/slru.c
++++ b/src/backend/access/transam/slru.c
+@@ -716,12 +716,9 @@ SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata)
+ 	if (!ok)
+ 		SlruReportIOError(ctl, pageno, InvalidTransactionId);
+ 
+-	/* If part of a checkpoint, count this as a SLRU buffer written. */
++	/* If part of a checkpoint, count this as a buffer written. */
+ 	if (fdata)
+-	{
+-		CheckpointStats.ckpt_slru_written++;
+-		PendingCheckpointerStats.slru_written++;
+-	}
++		CheckpointStats.ckpt_bufs_written++;
+ }
+ 
+ /*
+diff --git a/src/backend/catalog/system_views.sql b/src/backend/catalog/system_views.sql
+index 08f780a2e63..7069eb39ead 100644
+--- a/src/backend/catalog/system_views.sql
++++ b/src/backend/catalog/system_views.sql
+@@ -1165,7 +1165,6 @@ CREATE VIEW pg_stat_checkpointer AS
+         pg_stat_get_checkpointer_write_time() AS write_time,
+         pg_stat_get_checkpointer_sync_time() AS sync_time,
+         pg_stat_get_checkpointer_buffers_written() AS buffers_written,
+-        pg_stat_get_checkpointer_slru_written() AS slru_written,
+         pg_stat_get_checkpointer_stat_reset_time() AS stats_reset;
+ 
+ CREATE VIEW pg_stat_io AS

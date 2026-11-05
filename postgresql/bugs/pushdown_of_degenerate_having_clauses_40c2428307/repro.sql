@@ -1,0 +1,3 @@
+create temp table g(a int, b int);
+insert into g values (1,1),(2,2);
+select a, count(*) from g group by grouping sets ((a), ()) having false;

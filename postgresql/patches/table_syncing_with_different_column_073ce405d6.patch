@@ -1,0 +1,33 @@
+diff --git a/src/backend/replication/logical/tablesync.c b/src/backend/replication/logical/tablesync.c
+index 92e4e383d77..4778863d46f 100644
+--- a/src/backend/replication/logical/tablesync.c
++++ b/src/backend/replication/logical/tablesync.c
+@@ -726,15 +726,25 @@ static List *
+ make_copy_attnamelist(LogicalRepRelMapEntry *rel)
+ {
+ 	List	   *attnamelist = NIL;
++	TupleDesc	desc = RelationGetDescr(rel->localrel);
+ 	int			i;
+ 
+-	for (i = 0; i < rel->remoterel.natts; i++)
++	for (i = 0; i < desc->natts; i++)
+ 	{
++		int			remoteattnum = rel->attrmap->attnums[i];
++
++		/* Skip dropped attributes. */
++		if (TupleDescAttr(desc, i)->attisdropped)
++			continue;
++
++		/* Skip attributes that are missing on remote side. */
++		if (remoteattnum < 0)
++			continue;
++
+ 		attnamelist = lappend(attnamelist,
+-							  makeString(rel->remoterel.attnames[i]));
++							  makeString(rel->remoterel.attnames[remoteattnum]));
+ 	}
+ 
+-
+ 	return attnamelist;
+ }
+ 

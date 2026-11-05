@@ -1,0 +1,5 @@
+create temp table t8(q1 int8, q2 int8);
+explain (verbose, costs off)
+select 1 from
+  (select * from t8 where q1 <> (select 42) offset 0) ss
+where false;

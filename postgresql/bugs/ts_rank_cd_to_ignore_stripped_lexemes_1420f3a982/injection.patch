@@ -1,0 +1,32 @@
+diff --git a/src/backend/utils/adt/tsrank.c b/src/backend/utils/adt/tsrank.c
+index e863aa58653..50f76f9e7da 100644
+--- a/src/backend/utils/adt/tsrank.c
++++ b/src/backend/utils/adt/tsrank.c
+@@ -742,9 +742,15 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
+ 	int			len = qr->query->size * 4,
+ 				cur = 0;
+ 	DocRepresentation *doc;
++	WordEntryPosVector1 posnull;
+ 
+ 	doc = (DocRepresentation *) palloc(sizeof(DocRepresentation) * len);
+ 
++	/* A dummy WordEntryPos array to use when haspos is false */
++	posnull.npos = 1;
++	posnull.pos[0] = 0;
++	WEP_SETPOS(posnull.pos[0], MAXENTRYPOS - 1);
++
+ 	/*
+ 	 * Iterate through query to make DocRepresentation for words and it's
+ 	 * entries satisfied by query
+@@ -772,9 +778,8 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
+ 			}
+ 			else
+ 			{
+-				/* ignore words without positions */
+-				entry++;
+-				continue;
++				dimt = posnull.npos;
++				post = posnull.pos;
+ 			}
+ 
+ 			while (cur + dimt >= len)

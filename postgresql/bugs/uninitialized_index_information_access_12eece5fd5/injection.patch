@@ -1,0 +1,86 @@
+diff --git a/src/backend/executor/execIndexing.c b/src/backend/executor/execIndexing.c
+index 4819d3bf167..fa162433ad2 100644
+--- a/src/backend/executor/execIndexing.c
++++ b/src/backend/executor/execIndexing.c
+@@ -215,8 +215,9 @@ ExecOpenIndices(ResultRelInfo *resultRelInfo, bool speculative)
+ 		ii = BuildIndexInfo(indexDesc);
+ 
+ 		/*
+-		 * If the indexes are to be used for speculative insertion, add extra
+-		 * information required by unique index entries.
++		 * If the indexes are to be used for speculative insertion or conflict
++		 * detection in logical replication, add extra information required by
++		 * unique index entries.
+ 		 */
+ 		if (speculative && ii->ii_Unique && !indexDesc->rd_index->indisexclusion)
+ 			BuildSpeculativeIndexInfo(indexDesc, ii);
+diff --git a/src/backend/executor/execReplication.c b/src/backend/executor/execReplication.c
+index bb78d89265d..8cefc558a6e 100644
+--- a/src/backend/executor/execReplication.c
++++ b/src/backend/executor/execReplication.c
+@@ -431,30 +431,6 @@ retry:
+ 	return found;
+ }
+ 
+-/*
+- * Build additional index information necessary for conflict detection.
+- */
+-static void
+-BuildConflictIndexInfo(ResultRelInfo *resultRelInfo, Oid conflictindex)
+-{
+-	for (int i = 0; i < resultRelInfo->ri_NumIndices; i++)
+-	{
+-		Relation	indexRelation = resultRelInfo->ri_IndexRelationDescs[i];
+-		IndexInfo  *indexRelationInfo = resultRelInfo->ri_IndexRelationInfo[i];
+-
+-		if (conflictindex != RelationGetRelid(indexRelation))
+-			continue;
+-
+-		/*
+-		 * This Assert will fail if BuildSpeculativeIndexInfo() is called
+-		 * twice for the given index.
+-		 */
+-		Assert(indexRelationInfo->ii_UniqueOps == NULL);
+-
+-		BuildSpeculativeIndexInfo(indexRelation, indexRelationInfo);
+-	}
+-}
+-
+ /*
+  * Find the tuple that violates the passed unique index (conflictindex).
+  *
+@@ -476,12 +452,6 @@ FindConflictTuple(ResultRelInfo *resultRelInfo, EState *estate,
+ 
+ 	*conflictslot = NULL;
+ 
+-	/*
+-	 * Build additional information required to check constraints violations.
+-	 * See check_exclusion_or_unique_constraint().
+-	 */
+-	BuildConflictIndexInfo(resultRelInfo, conflictindex);
+-
+ retry:
+ 	if (ExecCheckIndexConstraints(resultRelInfo, slot, estate,
+ 								  &conflictTid, &slot->tts_tid,
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..89cb10ea52c 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -2462,7 +2462,7 @@ apply_handle_insert(StringInfo s)
+ 	{
+ 		ResultRelInfo *relinfo = edata->targetRelInfo;
+ 
+-		ExecOpenIndices(relinfo, false);
++		ExecOpenIndices(relinfo, true);
+ 		apply_handle_insert_internal(edata, relinfo, remoteslot);
+ 		ExecCloseIndices(relinfo);
+ 	}
+@@ -2690,7 +2690,7 @@ apply_handle_update_internal(ApplyExecutionData *edata,
+ 	MemoryContext oldctx;
+ 
+ 	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1, NIL);
+-	ExecOpenIndices(relinfo, false);
++	ExecOpenIndices(relinfo, true);
+ 
+ 	found = FindReplTupleInLocalRel(edata, localrel,
+ 									&relmapentry->remoterel,

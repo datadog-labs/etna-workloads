@@ -1,0 +1,42 @@
+diff --git a/src/backend/optimizer/path/costsize.c b/src/backend/optimizer/path/costsize.c
+index a290a3e66b6..009d66b6b57 100644
+--- a/src/backend/optimizer/path/costsize.c
++++ b/src/backend/optimizer/path/costsize.c
+@@ -2014,7 +2014,6 @@ cost_incremental_sort(Path *path,
+ 				group_input_run_cost;
+ 	List	   *presortedExprs = NIL;
+ 	ListCell   *l;
+-	bool		unknown_varno = false;
+ 
+ 	Assert(presorted_keys > 0 && presorted_keys < list_length(pathkeys));
+ 
+@@ -2056,17 +2055,6 @@ cost_incremental_sort(Path *path,
+ 		EquivalenceMember *member = (EquivalenceMember *)
+ 			linitial(key->pk_eclass->ec_members);
+ 
+-		/*
+-		 * Check if the expression contains Var with "varno 0" so that we
+-		 * don't call estimate_num_groups in that case.
+-		 */
+-		if (bms_is_member(0, pull_varnos(root, (Node *) member->em_expr)))
+-		{
+-			unknown_varno = true;
+-			break;
+-		}
+-
+-		/* expression not containing any Vars with "varno 0" */
+ 		presortedExprs = lappend(presortedExprs, member->em_expr);
+ 
+ 		if (foreach_current_index(l) + 1 >= presorted_keys)
+@@ -2074,9 +2062,8 @@ cost_incremental_sort(Path *path,
+ 	}
+ 
+ 	/* Estimate the number of groups with equal presorted keys. */
+-	if (!unknown_varno)
+-		input_groups = estimate_num_groups(root, presortedExprs, input_tuples,
+-										   NULL, NULL);
++	input_groups = estimate_num_groups(root, presortedExprs, input_tuples,
++									   NULL, NULL);
+ 
+ 	group_tuples = input_tuples / input_groups;
+ 	group_input_run_cost = input_run_cost / input_groups;

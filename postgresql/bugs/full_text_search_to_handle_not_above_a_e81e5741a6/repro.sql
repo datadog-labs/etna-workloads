@@ -1,0 +1,10 @@
+create table t(v tsvector);
+insert into t values ('foo bar'), ('bar foo'), ('baz'), ('foo baz bar');
+create index t_gin on t using gin(v);
+set enable_seqscan=off;
+select * from t where v @@ '!(foo<->bar)'::tsquery order by v::text;
+select * from t where v @@ 'foo<->!(foo<->bar)'::tsquery order by v::text;
+select * from t where v @@ '!(foo<->!bar)'::tsquery order by v::text;
+select * from t where v @@ '!(!foo<->bar)'::tsquery order by v::text;
+select * from t where v @@ '!(foo<2>bar)'::tsquery order by v::text;
+select * from t where v @@ '!((foo<->bar)<->baz)'::tsquery order by v::text;

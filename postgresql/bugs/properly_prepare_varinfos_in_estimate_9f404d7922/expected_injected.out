@@ -1,0 +1,9 @@
+CREATE TABLE sb_1 AS SELECT gs % 10 AS x, gs % 10 AS y, gs % 10 AS z FROM generate_series(1, 1e4) AS gs;
+CREATE TABLE sb_2 AS SELECT gs % 49 AS x, gs % 51 AS y, gs % 73 AS z, 'abc' || gs AS payload FROM generate_series(1, 1e4) AS gs;
+CREATE STATISTICS extstat_sb_2 (ndistinct) ON x, y, z FROM sb_2;
+ANALYZE sb_1, sb_2;
+SET enable_nestloop = 'off';
+SET enable_mergejoin = 'off';
+EXPLAIN (COSTS OFF)
+SELECT FROM sb_1 LEFT JOIN sb_2 ON (sb_2.x=sb_1.x) AND (sb_1.x=sb_2.x);
+psql:<REPRO>:8: ERROR:  corrupt MVNDistinct entry

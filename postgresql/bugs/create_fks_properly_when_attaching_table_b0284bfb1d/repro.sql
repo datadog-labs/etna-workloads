@@ -1,0 +1,5 @@
+create table pk(a int primary key);
+create table p(a int references pk) partition by list(a);
+create table c(a int);
+alter table p attach partition c for values in (1);
+select conrelid::regclass, convalidated from pg_constraint where contype='f' order by 1::text;

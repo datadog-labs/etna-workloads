@@ -1,0 +1,46 @@
+diff --git a/src/backend/catalog/objectaddress.c b/src/backend/catalog/objectaddress.c
+index 76d5955e5ed..d45afded3a8 100644
+--- a/src/backend/catalog/objectaddress.c
++++ b/src/backend/catalog/objectaddress.c
+@@ -4007,7 +4007,6 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
+ 				HeapTuple	tup;
+ 				char	   *pubname;
+ 				Form_pg_publication_rel prform;
+-				StringInfoData rel;
+ 
+ 				tup = SearchSysCache1(PUBLICATIONREL,
+ 									  ObjectIdGetDatum(object->objectId));
+@@ -4022,13 +4021,8 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
+ 				prform = (Form_pg_publication_rel) GETSTRUCT(tup);
+ 				pubname = get_publication_name(prform->prpubid, false);
+ 
+-				initStringInfo(&rel);
+-				getRelationDescription(&rel, prform->prrelid, false);
+-
+-				/* translator: first %s is, e.g., "table %s" */
+-				appendStringInfo(&buffer, _("publication of %s in publication %s"),
+-								 rel.data, pubname);
+-				pfree(rel.data);
++				appendStringInfo(&buffer, _("publication table %s in publication %s"),
++								 get_rel_name(prform->prrelid), pubname);
+ 				ReleaseSysCache(tup);
+ 				break;
+ 			}
+@@ -5953,11 +5947,14 @@ getObjectIdentityParts(const ObjectAddress *object,
+ 				prform = (Form_pg_publication_rel) GETSTRUCT(tup);
+ 				pubname = get_publication_name(prform->prpubid, false);
+ 
+-				getRelationIdentity(&buffer, prform->prrelid, objname, false);
+-				appendStringInfo(&buffer, " in publication %s", pubname);
++				appendStringInfo(&buffer, _("%s in publication %s"),
++								 get_rel_name(prform->prrelid), pubname);
+ 
+-				if (objargs)
++				if (objname)
++				{
++					getRelationIdentity(&buffer, prform->prrelid, objname, false);
+ 					*objargs = list_make1(pubname);
++				}
+ 
+ 				ReleaseSysCache(tup);
+ 				break;

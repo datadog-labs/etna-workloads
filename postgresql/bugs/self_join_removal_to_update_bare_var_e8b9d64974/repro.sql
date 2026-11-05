@@ -1,0 +1,7 @@
+CREATE TABLE sl(a int, b int, c int);
+CREATE UNIQUE INDEX ON sl(a, b);
+CREATE UNIQUE INDEX ON sl(c);
+ALTER TABLE sl ADD COLUMN bool_col boolean;
+EXPLAIN (COSTS OFF)
+SELECT 1 AS c1 FROM sl sl1 LEFT JOIN (sl AS sl2 NATURAL JOIN sl AS sl3)
+  ON sl2.bool_col LEFT JOIN sl AS sl4 ON sl2.bool_col;

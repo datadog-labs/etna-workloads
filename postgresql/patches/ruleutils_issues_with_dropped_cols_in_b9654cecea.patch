@@ -1,0 +1,39 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..7423e7dca09 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -4433,14 +4433,7 @@ set_relation_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
+ 		 * which should be sufficiently up-to-date: no other RTE types can
+ 		 * have columns get dropped from under them after parsing.
+ 		 */
+-		if (rte->rtekind == RTE_FUNCTION && rte->functions != NIL)
+-		{
+-			/* Since we're not creating Vars, rtindex etc. don't matter */
+-			expandRTE(rte, 1, 0, VAR_RETURNING_DEFAULT, -1,
+-					  true /* include dropped */ , &colnames, NULL);
+-		}
+-		else
+-			colnames = rte->eref->colnames;
++		colnames = rte->eref->colnames;
+ 
+ 		ncolumns = list_length(colnames);
+ 		real_colnames = (char **) palloc(ncolumns * sizeof(char *));
+@@ -7805,15 +7798,9 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
+ 				 attnum, rte->eref->aliasname);
+ 		attname = colinfo->colnames[attnum - 1];
+ 
+-		/*
+-		 * If we find a Var referencing a dropped column, it seems better to
+-		 * print something (anything) than to fail.  In general this should
+-		 * not happen, but it used to be possible for some cases involving
+-		 * functions returning named composite types, and perhaps there are
+-		 * still bugs out there.
+-		 */
+-		if (attname == NULL)
+-			attname = "?dropped?column?";
++		if (attname == NULL)	/* dropped column? */
++			elog(ERROR, "invalid attnum %d for relation \"%s\"",
++				 attnum, rte->eref->aliasname);
+ 	}
+ 	else
+ 	{

@@ -1,0 +1,45 @@
+diff --git a/src/backend/access/heap/heapam_visibility.c b/src/backend/access/heap/heapam_visibility.c
+index 05f6946fe60..03c4c446e8c 100644
+--- a/src/backend/access/heap/heapam_visibility.c
++++ b/src/backend/access/heap/heapam_visibility.c
+@@ -648,9 +648,6 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
+ 				return TM_Invisible;	/* updated before scan started */
+ 		}
+ 
+-		if (MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))
+-			return TM_BeingModified;
+-
+ 		if (TransactionIdDidCommit(xmax))
+ 		{
+ 			if (!ItemPointerEquals(&htup->t_self, &tuple->t_ctid))
+@@ -659,26 +656,13 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
+ 				return TM_Deleted;
+ 		}
+ 
+-		/*
+-		 * By here, the update in the Xmax is either aborted or crashed, but
+-		 * what about the other members?
+-		 */
+-
++		/* no member, even just a locker, alive anymore */
+ 		if (!MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))
+-		{
+-			/*
+-			 * There's no member, even just a locker, alive anymore, so we can
+-			 * mark the Xmax as invalid.
+-			 */
+ 			SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
+ 						InvalidTransactionId);
+-			return TM_Ok;
+-		}
+-		else
+-		{
+-			/* There are lockers running */
+-			return TM_BeingModified;
+-		}
++
++		/* it must have aborted or crashed */
++		return TM_Ok;
+ 	}
+ 
+ 	if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple)))

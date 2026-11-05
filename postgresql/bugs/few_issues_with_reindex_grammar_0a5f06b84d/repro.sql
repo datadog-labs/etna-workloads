@@ -1,0 +1,3 @@
+REINDEX DATABASE nonexistent_db;
+REINDEX SYSTEM nonexistent_db;
+REINDEX SYSTEM CONCURRENTLY postgres;

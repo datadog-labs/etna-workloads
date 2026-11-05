@@ -1,0 +1,5 @@
+CREATE TABLE cp_test (a int, b text);
+CREATE PROCEDURE ptest1(x text) LANGUAGE SQL AS $$ INSERT INTO cp_test VALUES (1, x) $$;
+CALL ptest1('xy' || 'zzy');
+CALL ptest1(repeat('q', 5) || lower('ABC'));
+SELECT * FROM cp_test ORDER BY b COLLATE "C";

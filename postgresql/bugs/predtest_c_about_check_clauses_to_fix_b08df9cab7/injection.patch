@@ -1,0 +1,48 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..76aaaeff41e 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -20109,6 +20109,8 @@ PartConstraintImpliedByRelConstraint(Relation scanrel,
+ 	List	   *existConstraint = NIL;
+ 	TupleConstr *constr = RelationGetDescr(scanrel)->constr;
+ 	int			i;
++	Bitmapset  *not_null_attrs = NULL;
++	ListCell   *lc;
+ 
+ 	if (constr && constr->has_not_null)
+ 	{
+@@ -20140,11 +20142,33 @@ PartConstraintImpliedByRelConstraint(Relation scanrel,
+ 				ntest->argisrow = false;
+ 				ntest->location = -1;
+ 				existConstraint = lappend(existConstraint, ntest);
++				not_null_attrs = bms_add_member(not_null_attrs, i);
+ 			}
+ 		}
+ 	}
+ 
+-	return ConstraintImpliedByRelConstraint(scanrel, partConstraint, existConstraint);
++	if (!ConstraintImpliedByRelConstraint(scanrel, partConstraint, existConstraint))
++		return false;
++
++	/*
++	 * Give up if the partition constraint has a key IS NOT NULL test, but the
++	 * column lacks a NOT NULL property.
++	 */
++	foreach(lc, partConstraint)
++	{
++		Node	   *expr = lfirst(lc);
++
++		if (IsA(expr, NullTest) &&
++			((NullTest *) expr)->nulltesttype == IS_NOT_NULL)
++		{
++			Expr	   *arg = ((NullTest *) expr)->arg;
++
++			if (!IsA(arg, Var) ||
++				!bms_is_member(((Var *) arg)->varattno, not_null_attrs))
++				return false;
++		}
++	}
++	return true;
+ }
+ 
+ /*

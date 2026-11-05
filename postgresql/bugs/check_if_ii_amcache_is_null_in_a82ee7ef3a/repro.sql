@@ -1,0 +1,5 @@
+CREATE TABLE t (a int);
+INSERT INTO t VALUES (1);
+CREATE INDEX ON t USING brin (a);
+UPDATE t SET a = a;
+SELECT 'done';

@@ -1,0 +1,28 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..594fdb51e29 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -3487,9 +3487,6 @@ validate_index(Oid heapId, Oid indexId, Snapshot snapshot)
+ 	/* Done with tuplesort object */
+ 	tuplesort_end(state.tuplesort);
+ 
+-	/* Make sure to release resources cached in indexInfo (if needed). */
+-	index_insert_cleanup(indexRelation, indexInfo);
+-
+ 	elog(DEBUG2,
+ 		 "validate_index found %.0f heap tuples, %.0f index tuples; inserted %.0f missing tuples",
+ 		 state.htups, state.itups, state.tups_inserted);
+diff --git a/src/backend/commands/constraint.c b/src/backend/commands/constraint.c
+index 3497a8221f2..96fa7c607ff 100644
+--- a/src/backend/commands/constraint.c
++++ b/src/backend/commands/constraint.c
+@@ -174,9 +174,6 @@ unique_key_recheck(PG_FUNCTION_ARGS)
+ 		index_insert(indexRel, values, isnull, &checktid,
+ 					 trigdata->tg_relation, UNIQUE_CHECK_EXISTING,
+ 					 false, indexInfo);
+-
+-		/* Cleanup cache possibly initialized by index_insert. */
+-		index_insert_cleanup(indexRel, indexInfo);
+ 	}
+ 	else
+ 	{

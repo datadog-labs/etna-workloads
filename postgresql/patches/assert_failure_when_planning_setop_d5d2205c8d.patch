@@ -1,0 +1,19 @@
+diff --git a/src/backend/optimizer/plan/planner.c b/src/backend/optimizer/plan/planner.c
+index cf49f8604fa..a35d6216f57 100644
+--- a/src/backend/optimizer/plan/planner.c
++++ b/src/backend/optimizer/plan/planner.c
+@@ -1775,7 +1775,13 @@ grouping_planner(PlannerInfo *root, double tuple_fraction,
+ 		 * If we're a subquery for a set operation, store the SetOperationStmt
+ 		 * in qp_extra.
+ 		 */
+-		qp_extra.setop = setops;
++		if (root->parent_root != NULL &&
++			root->parent_root->parse->setOperations != NULL &&
++			IsA(root->parent_root->parse->setOperations, SetOperationStmt))
++			qp_extra.setop =
++				(SetOperationStmt *) root->parent_root->parse->setOperations;
++		else
++			qp_extra.setop = NULL;
+ 
+ 		/*
+ 		 * Generate the best unsorted and presorted paths for the scan/join

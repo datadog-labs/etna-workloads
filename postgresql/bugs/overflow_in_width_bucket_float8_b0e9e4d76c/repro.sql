@@ -1,0 +1,3 @@
+SELECT width_bucket(0, -1e100::float8, 1, 10);
+SELECT width_bucket(10.5::float8, -1.797e308, 1.797e308, 2);
+SELECT width_bucket(1::float8, 0, 1, 2147483647);

@@ -1,0 +1,14 @@
+create table t8(q1 int8, q2 int8);
+create user ru;
+set session authorization ru;
+select * from
+  ((select a.q1 as x from t8 a offset 0)
+   union all
+   (select b.q2 as x from t8 b offset 0)) ss
+where false;
+set constraint_exclusion = on;
+select * from
+  ((select a.q1 as x from t8 a where q1 > 0)
+   union all
+   (select b.q2 as x from t8 b where q2 > 0)) ss
+where x < 0;

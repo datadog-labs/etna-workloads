@@ -1,0 +1,13 @@
+CREATE TABLE t AS SELECT 'a'||g AS s FROM generate_series(1,1000) g;
+CREATE INDEX ON t USING hash (s);
+ANALYZE t;
+SET enable_seqscan = off;
+EXPLAIN (COSTS OFF) SELECT * FROM t WHERE s = 'a1' OR s = 'a2';
+                       QUERY PLAN                       
+--------------------------------------------------------
+ Bitmap Heap Scan on t
+   Recheck Cond: ((s = 'a1'::text) OR (s = 'a2'::text))
+   ->  Bitmap Index Scan on t_s_idx
+         Index Cond: (s = ANY ('{a1,a2}'::text[]))
+(4 rows)
+

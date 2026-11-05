@@ -1,0 +1,18 @@
+diff --git a/src/backend/parser/parse_coerce.c b/src/backend/parser/parse_coerce.c
+index 19d7aeff75f..93c8acf6367 100644
+--- a/src/backend/parser/parse_coerce.c
++++ b/src/backend/parser/parse_coerce.c
+@@ -760,8 +760,11 @@ coerce_type_typmod(Node *node, Oid targetTypeId, int32 targetTypMod,
+ 	CoercionPathType pathtype;
+ 	Oid			funcId;
+ 
+-	/* Skip coercion if already done */
+-	if (targetTypMod == exprTypmod(node))
++	/*
++	 * A negative typmod is assumed to mean that no coercion is wanted. Also,
++	 * skip coercion if already done.
++	 */
++	if (targetTypMod < 0 || targetTypMod == exprTypmod(node))
+ 		return node;
+ 
+ 	/* Suppress display of nested coercion steps */

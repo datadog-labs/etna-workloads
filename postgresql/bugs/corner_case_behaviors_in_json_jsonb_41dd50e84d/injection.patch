@@ -1,0 +1,80 @@
+diff --git a/src/backend/utils/adt/jsonfuncs.c b/src/backend/utils/adt/jsonfuncs.c
+index 775da3c060d..a36ebffb8c3 100644
+--- a/src/backend/utils/adt/jsonfuncs.c
++++ b/src/backend/utils/adt/jsonfuncs.c
+@@ -866,8 +866,16 @@ jsonb_object_field(PG_FUNCTION_ARGS)
+ 	JsonbValue *v;
+ 	JsonbValue	vbuf;
+ 
+-	if (!JB_ROOT_IS_OBJECT(jb))
+-		PG_RETURN_NULL();
++	if (JB_ROOT_IS_SCALAR(jb))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("cannot call %s on a scalar",
++						"jsonb_object_field (jsonb -> text)")));
++	else if (JB_ROOT_IS_ARRAY(jb))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("cannot call %s on an array",
++						"jsonb_object_field (jsonb -> text)")));
+ 
+ 	v = getKeyJsonValueFromContainer(&jb->root,
+ 									 VARDATA_ANY(key),
+@@ -904,8 +912,16 @@ jsonb_object_field_text(PG_FUNCTION_ARGS)
+ 	JsonbValue *v;
+ 	JsonbValue	vbuf;
+ 
+-	if (!JB_ROOT_IS_OBJECT(jb))
+-		PG_RETURN_NULL();
++	if (JB_ROOT_IS_SCALAR(jb))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("cannot call %s on a scalar",
++						"jsonb_object_field_text (jsonb ->> text)")));
++	else if (JB_ROOT_IS_ARRAY(jb))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("cannot call %s on an array",
++						"jsonb_object_field_text (jsonb ->> text)")));
+ 
+ 	v = getKeyJsonValueFromContainer(&jb->root,
+ 									 VARDATA_ANY(key),
+@@ -940,8 +956,16 @@ jsonb_array_element(PG_FUNCTION_ARGS)
+ 	int			element = PG_GETARG_INT32(1);
+ 	JsonbValue *v;
+ 
+-	if (!JB_ROOT_IS_ARRAY(jb))
+-		PG_RETURN_NULL();
++	if (JB_ROOT_IS_SCALAR(jb))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("cannot call %s on a scalar",
++						"jsonb_array_element (jsonb -> int)")));
++	else if (JB_ROOT_IS_OBJECT(jb))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("cannot call %s on an object",
++						"jsonb_array_element (jsonb -> int)")));
+ 
+ 	/* Handle negative subscript */
+ 	if (element < 0)
+@@ -983,8 +1007,16 @@ jsonb_array_element_text(PG_FUNCTION_ARGS)
+ 	int			element = PG_GETARG_INT32(1);
+ 	JsonbValue *v;
+ 
+-	if (!JB_ROOT_IS_ARRAY(jb))
+-		PG_RETURN_NULL();
++	if (JB_ROOT_IS_SCALAR(jb))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("cannot call %s on a scalar",
++						"jsonb_array_element_text")));
++	else if (JB_ROOT_IS_OBJECT(jb))
++		ereport(ERROR,
++				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
++				 errmsg("cannot call %s on an object",
++						"jsonb_array_element_text")));
+ 
+ 	/* Handle negative subscript */
+ 	if (element < 0)

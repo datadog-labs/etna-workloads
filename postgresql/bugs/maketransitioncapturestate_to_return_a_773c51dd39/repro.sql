@@ -1,0 +1,11 @@
+create function dump_insert() returns trigger language plpgsql as $$ begin raise notice 'ins %', (select string_agg(new_table::text, ', ' order by a) from new_table); return null; end; $$;
+create function dump_delete() returns trigger language plpgsql as $$ begin raise notice 'del %', (select string_agg(old_table::text, ', ' order by a) from old_table); return null; end; $$;
+create function dump_update_old() returns trigger language plpgsql as $$ begin raise notice 'upd old %', (select string_agg(old_table::text, ', ' order by a) from old_table); return null; end; $$;
+create table p (a text) partition by list (a);
+create table c1 partition of p for values in ('AAA1','AAA2');
+create table c2 partition of p for values in ('BBB1','BBB2');
+create trigger u after update on p referencing old table as old_table for each statement execute procedure dump_update_old();
+create trigger i after insert on p referencing new table as new_table for each statement execute procedure dump_insert();
+create trigger d after delete on p referencing old table as old_table for each statement execute procedure dump_delete();
+insert into p values ('AAA1'),('BBB1');
+update p set a='BBB2' where a='AAA1';

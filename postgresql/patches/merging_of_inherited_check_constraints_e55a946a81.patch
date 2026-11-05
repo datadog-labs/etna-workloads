@@ -1,0 +1,43 @@
+diff --git a/src/backend/catalog/heap.c b/src/backend/catalog/heap.c
+index 16a5d6b7b97..676e9c37505 100644
+--- a/src/backend/catalog/heap.c
++++ b/src/backend/catalog/heap.c
+@@ -2833,16 +2833,6 @@ MergeWithExistingConstraint(Relation rel, const char *ccname, Node *expr,
+ 					 errmsg("constraint \"%s\" conflicts with inherited constraint on relation \"%s\"",
+ 							ccname, RelationGetRelationName(rel))));
+ 
+-		/*
+-		 * If the child constraint is "not valid" then cannot merge with a
+-		 * valid parent constraint.
+-		 */
+-		if (is_initially_valid && con->conenforced && !con->convalidated)
+-			ereport(ERROR,
+-					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+-					 errmsg("constraint \"%s\" conflicts with NOT VALID constraint on relation \"%s\"",
+-							ccname, RelationGetRelationName(rel))));
+-
+ 		/*
+ 		 * A non-enforced child constraint cannot be merged with an enforced
+ 		 * parent constraint. However, the reverse is allowed, where the child
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..ca752e9e85d 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -17781,17 +17781,6 @@ MergeConstraintsIntoExisting(Relation child_rel, Relation parent_rel)
+ 						 errmsg("constraint \"%s\" conflicts with non-inherited constraint on child table \"%s\"",
+ 								NameStr(child_con->conname), RelationGetRelationName(child_rel))));
+ 
+-			/*
+-			 * If the child constraint is "not valid" then cannot merge with a
+-			 * valid parent constraint
+-			 */
+-			if (parent_con->convalidated && child_con->conenforced &&
+-				!child_con->convalidated)
+-				ereport(ERROR,
+-						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+-						 errmsg("constraint \"%s\" conflicts with NOT VALID constraint on child table \"%s\"",
+-								NameStr(child_con->conname), RelationGetRelationName(child_rel))));
+-
+ 			/*
+ 			 * A NOT ENFORCED child constraint cannot be merged with an
+ 			 * ENFORCED parent constraint. However, the reverse is allowed,

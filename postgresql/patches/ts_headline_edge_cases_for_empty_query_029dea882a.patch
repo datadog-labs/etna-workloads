@@ -1,0 +1,53 @@
+diff --git a/src/backend/tsearch/wparser_def.c b/src/backend/tsearch/wparser_def.c
+index 471c452ec48..f0729910b14 100644
+--- a/src/backend/tsearch/wparser_def.c
++++ b/src/backend/tsearch/wparser_def.c
+@@ -2434,8 +2434,7 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
+ 	/* show the first min_words words if we have not marked anything */
+ 	if (num_f <= 0)
+ 	{
+-		startpos = curlen = 0;
+-		endpos = -1;
++		startpos = endpos = curlen = 0;
+ 		for (i = 0; i < prs->curwords && curlen < min_words; i++)
+ 		{
+ 			if (!NONWORDTOKEN(prs->words[i].type))
+@@ -2589,7 +2588,7 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
+ 		if (bestlen < 0)
+ 		{
+ 			curlen = 0;
+-			pose = -1;
++			pose = 0;
+ 			for (i = 0; i < prs->curwords && curlen < min_words; i++)
+ 			{
+ 				if (!NONWORDTOKEN(prs->words[i].type))
+@@ -2619,6 +2618,7 @@ prsd_headline(PG_FUNCTION_ARGS)
+ 	HeadlineParsedText *prs = (HeadlineParsedText *) PG_GETARG_POINTER(0);
+ 	List	   *prsoptions = (List *) PG_GETARG_POINTER(1);
+ 	TSQuery		query = PG_GETARG_TSQUERY(2);
++	hlCheck		ch;
+ 	List	   *locations;
+ 
+ 	/* default option values: */
+@@ -2691,17 +2691,10 @@ prsd_headline(PG_FUNCTION_ARGS)
+ 	}
+ 
+ 	/* Locate words and phrases matching the query */
+-	if (query->size > 0)
+-	{
+-		hlCheck		ch;
+-
+-		ch.words = prs->words;
+-		ch.len = prs->curwords;
+-		locations = TS_execute_locations(GETQUERY(query), &ch, TS_EXEC_EMPTY,
+-										 checkcondition_HL);
+-	}
+-	else
+-		locations = NIL;		/* empty query matches nothing */
++	ch.words = prs->words;
++	ch.len = prs->curwords;
++	locations = TS_execute_locations(GETQUERY(query), &ch, TS_EXEC_EMPTY,
++									 checkcondition_HL);
+ 
+ 	/* Apply appropriate headline selector */
+ 	if (max_fragments == 0)

@@ -1,0 +1,12 @@
+create table t(a int, b int);
+create index on t(a);
+insert into t values (1,1);
+begin;
+delete from t;
+set local enable_seqscan=off; set local enable_indexscan=off;
+set local enable_indexonlyscan=off;
+explain (analyze, costs off, timing off, summary off, buffers off) select * from t where a=1;
+rollback;
+set enable_seqscan=off; set enable_indexscan=off;
+delete from t;
+explain (analyze, costs off, timing off, summary off, buffers off) select * from t where a=1;

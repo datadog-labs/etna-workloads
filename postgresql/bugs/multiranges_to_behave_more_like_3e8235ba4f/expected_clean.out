@@ -1,0 +1,22 @@
+create type textrange1 as range(subtype=text, multirange_type_name=multitextrange1, collation="C");
+create role regress_mr_owner;
+alter type multitextrange1 owner to regress_mr_owner;
+psql:<REPRO>:3: ERROR:  cannot alter multirange type multitextrange1
+HINT:  You can alter type textrange1, which will alter the multirange type as well.
+alter type textrange1 owner to regress_mr_owner;
+set role regress_mr_owner;
+revoke usage on type multitextrange1 from public;
+psql:<REPRO>:6: ERROR:  cannot set privileges of multirange types
+HINT:  Set the privileges of the range type instead.
+revoke usage on type textrange1 from public;
+\dT+ *textrange1*
+                                                         List of data types
+ Schema |      Name       |  Internal name  | Size | Elements |      Owner       |          Access privileges          | Description 
+--------+-----------------+-----------------+------+----------+------------------+-------------------------------------+-------------
+ public | multitextrange1 | multitextrange1 | var  |          | regress_mr_owner |                                     | 
+ public | textrange1      | textrange1      | var  |          | regress_mr_owner | regress_mr_owner=U/regress_mr_owner | 
+(2 rows)
+
+reset role;
+drop type textrange1;
+drop role regress_mr_owner;

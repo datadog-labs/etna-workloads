@@ -1,0 +1,12 @@
+create table pt (a int) partition by list (a);
+create table pt1 partition of pt for values in (1);
+create function trg() returns trigger language plpgsql as $$ begin return null; end $$;
+create trigger t after insert on pt1 for each row execute procedure trg();
+copy pt(a) from stdin;
+psql:<REPRO>:7: WARNING:  resource was not closed: relation "pt1"
+select * from pt;
+ a 
+---
+ 1
+(1 row)
+

@@ -1,0 +1,1 @@
+SELECT pg_get_viewdef('pg_statio_all_tables'::regclass) LIKE '%LATERAL%' AS uses_lateral;

@@ -1,0 +1,42 @@
+diff --git a/src/backend/commands/typecmds.c b/src/backend/commands/typecmds.c
+index 2ed7973d1b4..06978a9d29e 100644
+--- a/src/backend/commands/typecmds.c
++++ b/src/backend/commands/typecmds.c
+@@ -4667,37 +4667,6 @@ AlterTypeRecurse(Oid typeOid, bool isImplicitArray,
+ 
+ 	InvokeObjectPostAlterHook(TypeRelationId, typeOid, 0);
+ 
+-	/*
+-	 * Arrays inherit their base type's typmodin and typmodout, but none of
+-	 * the other properties we're concerned with here.  Recurse to the array
+-	 * type if needed.
+-	 */
+-	if (!isImplicitArray &&
+-		(atparams->updateTypmodin || atparams->updateTypmodout))
+-	{
+-		Oid			arrtypoid = ((Form_pg_type) GETSTRUCT(newtup))->typarray;
+-
+-		if (OidIsValid(arrtypoid))
+-		{
+-			HeapTuple	arrtup;
+-			AlterTypeRecurseParams arrparams;
+-
+-			arrtup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(arrtypoid));
+-			if (!HeapTupleIsValid(arrtup))
+-				elog(ERROR, "cache lookup failed for type %u", arrtypoid);
+-
+-			memset(&arrparams, 0, sizeof(arrparams));
+-			arrparams.updateTypmodin = atparams->updateTypmodin;
+-			arrparams.updateTypmodout = atparams->updateTypmodout;
+-			arrparams.typmodinOid = atparams->typmodinOid;
+-			arrparams.typmodoutOid = atparams->typmodoutOid;
+-
+-			AlterTypeRecurse(arrtypoid, true, arrtup, catalog, &arrparams);
+-
+-			ReleaseSysCache(arrtup);
+-		}
+-	}
+-
+ 	/*
+ 	 * Now we need to recurse to domains.  However, some properties are not
+ 	 * inherited by domains, so clear the update flags for those.

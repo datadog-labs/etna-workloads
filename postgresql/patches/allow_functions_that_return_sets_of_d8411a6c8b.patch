@@ -1,0 +1,24 @@
+diff --git a/src/backend/executor/execSRF.c b/src/backend/executor/execSRF.c
+index a03fe780a02..f5e79d7f2c0 100644
+--- a/src/backend/executor/execSRF.c
++++ b/src/backend/executor/execSRF.c
+@@ -252,6 +252,19 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
+ 			if (rsinfo.isDone == ExprEndResult)
+ 				break;
+ 
++			/*
++			 * NULL rowtype values: for a set-returning function this is a
++			 * protocol violation; otherwise fall out and cons up all-nulls.
++			 */
++			if (returnsTuple && fcinfo->isnull)
++			{
++				if (!returnsSet)
++					break;
++				ereport(ERROR,
++						(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
++						 errmsg("function returning set of rows cannot return null value")));
++			}
++
+ 			/*
+ 			 * If first time through, build tuplestore for result.  For a
+ 			 * scalar function result type, also make a suitable tupdesc.

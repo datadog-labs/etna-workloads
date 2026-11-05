@@ -1,0 +1,8 @@
+CREATE ROLE rg;
+CREATE ROLE rg_direct;
+CREATE ROLE rg_member;
+GRANT rg TO rg_direct WITH INHERIT FALSE, ADMIN TRUE;
+SET SESSION AUTHORIZATION rg_direct;
+GRANT rg TO rg_member;
+SELECT member::regrole::text, grantor::regrole::text FROM pg_auth_members WHERE roleid = 'rg'::regrole AND member = 'rg_member'::regrole;
+RESET SESSION AUTHORIZATION;

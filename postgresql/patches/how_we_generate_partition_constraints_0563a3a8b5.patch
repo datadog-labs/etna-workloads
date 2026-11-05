@@ -1,0 +1,41 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..9ebf1175889 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -20276,9 +20276,7 @@ QueuePartitionConstraintValidation(List **wqueue, Relation scanrel,
+ 			 * Adjust the constraint for scanrel so that it matches this
+ 			 * partition's attribute numbers.
+ 			 */
+-			thisPartConstraint =
+-				map_partition_varattnos(partConstraint, 1,
+-										part_rel, scanrel);
++			thisPartConstraint = partConstraint;
+ 
+ 			QueuePartitionConstraintValidation(wqueue, part_rel,
+ 											   thisPartConstraint,
+diff --git a/src/backend/utils/cache/partcache.c b/src/backend/utils/cache/partcache.c
+index f5d7d70def0..9e62831dcf0 100644
+--- a/src/backend/utils/cache/partcache.c
++++ b/src/backend/utils/cache/partcache.c
+@@ -383,19 +383,14 @@ generate_partition_qual(Relation rel)
+ 
+ 	ReleaseSysCache(tuple);
+ 
++	my_qual = map_partition_varattnos(my_qual, 1, rel, parent);
++
+ 	/* Add the parent's quals to the list (if any) */
+ 	if (parent->rd_rel->relispartition)
+ 		result = list_concat(generate_partition_qual(parent), my_qual);
+ 	else
+ 		result = my_qual;
+ 
+-	/*
+-	 * Change Vars to have partition's attnos instead of the parent's. We do
+-	 * this after we concatenate the parent's quals, because we want every Var
+-	 * in it to bear this relation's attnos. It's safe to assume varno = 1
+-	 * here.
+-	 */
+-	result = map_partition_varattnos(result, 1, rel, parent);
+ 
+ 	/* Assert that we're not leaking any old data during assignments below */
+ 	Assert(rel->rd_partcheckcxt == NULL);

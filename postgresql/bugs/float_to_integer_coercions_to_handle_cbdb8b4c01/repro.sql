@@ -1,0 +1,4 @@
+SELECT '32767.4'::float4::int2;
+SELECT '-32768.4'::float8::int2;
+SELECT '2147483647'::float4::int4;
+SELECT '9223372036854775807'::float8::int8;

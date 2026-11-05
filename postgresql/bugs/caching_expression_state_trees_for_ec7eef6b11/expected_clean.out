@@ -1,0 +1,44 @@
+create domain dpos as int check (value > 0);
+create function f(x int) returns dpos as $$ select x::dpos $$ language sql;
+select f(1);
+ f 
+---
+ 1
+(1 row)
+
+select f(2);
+ f 
+---
+ 2
+(1 row)
+
+select f(3);
+ f 
+---
+ 3
+(1 row)
+
+create table t(a int);
+insert into t select generate_series(1,5);
+select f(a) from t;
+ f 
+---
+ 1
+ 2
+ 3
+ 4
+ 5
+(5 rows)
+
+select f(a) from t;
+ f 
+---
+ 1
+ 2
+ 3
+ 4
+ 5
+(5 rows)
+
+select f(-1);
+psql:<REPRO>:10: ERROR:  value for domain dpos violates check constraint "dpos_check"

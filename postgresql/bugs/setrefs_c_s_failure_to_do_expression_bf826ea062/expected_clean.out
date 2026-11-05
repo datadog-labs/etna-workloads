@@ -1,0 +1,28 @@
+create table asptab (id int primary key) partition by range (id);
+create table asptab0 partition of asptab for values from (0) to (1);
+create table asptab1 partition of asptab for values from (1) to (2);
+create table int4_tbl(f1 int);
+explain (costs off)
+select * from
+  (select exists (select 1 from int4_tbl tinner where f1 = touter.f1) as b
+   from int4_tbl touter) ss,
+  asptab
+where asptab.id > ss.b::int;
+                             QUERY PLAN                             
+--------------------------------------------------------------------
+ Nested Loop
+   ->  Seq Scan on int4_tbl touter
+   ->  Append
+         ->  Index Only Scan using asptab0_pkey on asptab0 asptab_1
+               Index Cond: (id > (EXISTS(SubPlan 3))::integer)
+               SubPlan 4
+                 ->  Seq Scan on int4_tbl tinner_2
+         ->  Index Only Scan using asptab1_pkey on asptab1 asptab_2
+               Index Cond: (id > (EXISTS(SubPlan 3))::integer)
+         SubPlan 3
+           ->  Seq Scan on int4_tbl tinner_1
+                 Filter: (f1 = touter.f1)
+   SubPlan 2
+     ->  Seq Scan on int4_tbl tinner
+(14 rows)
+

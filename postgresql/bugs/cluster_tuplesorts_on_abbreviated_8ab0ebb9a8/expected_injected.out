@@ -1,0 +1,11 @@
+CREATE TABLE t (id serial primary key, a int, b text COLLATE "C");
+INSERT INTO t(a, b) SELECT g.i % 42, 'prefix'||g.i FROM generate_series(1, 133) g(i);
+CREATE INDEX t_up ON t ((upper(b)));
+CLUSTER t USING t_up;
+WITH r AS (SELECT lag(b) OVER (ORDER BY ctid) AS lb, b FROM t)
+SELECT count(*) > 0 AS misordered FROM r WHERE upper(lb) > upper(b);
+ misordered 
+------------
+ t
+(1 row)
+

@@ -1,0 +1,52 @@
+diff --git a/src/backend/utils/cache/plancache.c b/src/backend/utils/cache/plancache.c
+index 34adb0b411e..340024096a2 100644
+--- a/src/backend/utils/cache/plancache.c
++++ b/src/backend/utils/cache/plancache.c
+@@ -695,26 +695,6 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
+ 		return NIL;
+ 	}
+ 
+-	/*
+-	 * If the query is currently valid, we should have a saved search_path ---
+-	 * check to see if that matches the current environment.  If not, we want
+-	 * to force replan.  (We could almost ignore this consideration when
+-	 * working from an analyzed parse tree; but there are scenarios where
+-	 * planning can have search_path-dependent results, for example if it
+-	 * inlines an old-style SQL function.)
+-	 */
+-	if (plansource->is_valid)
+-	{
+-		Assert(plansource->search_path != NULL);
+-		if (!SearchPathMatchesCurrentEnvironment(plansource->search_path))
+-		{
+-			/* Invalidate the querytree and generic plan */
+-			plansource->is_valid = false;
+-			if (plansource->gplan)
+-				plansource->gplan->is_valid = false;
+-		}
+-	}
+-
+ 	/*
+ 	 * If the query rewrite phase had a possible RLS dependency, we must redo
+ 	 * it if either the role or the row_security setting has changed.
+@@ -1470,8 +1450,6 @@ CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
+ 	Assert(plan->magic == CACHEDPLAN_MAGIC);
+ 	Assert(plan->is_valid);
+ 	Assert(plan == plansource->gplan);
+-	Assert(plansource->search_path != NULL);
+-	Assert(SearchPathMatchesCurrentEnvironment(plansource->search_path));
+ 
+ 	/* We don't support oneshot plans here. */
+ 	if (plansource->is_oneshot)
+@@ -1592,11 +1570,6 @@ CachedPlanIsSimplyValid(CachedPlanSource *plansource, CachedPlan *plan,
+ 
+ 	Assert(plan->magic == CACHEDPLAN_MAGIC);
+ 
+-	/* Is the search_path still the same as when we made it? */
+-	Assert(plansource->search_path != NULL);
+-	if (!SearchPathMatchesCurrentEnvironment(plansource->search_path))
+-		return false;
+-
+ 	/* It's still good.  Bump refcount if requested. */
+ 	if (owner)
+ 	{

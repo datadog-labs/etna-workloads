@@ -1,0 +1,14 @@
+create table p (a int);
+create table c () inherits (p);
+insert into p values (1);
+alter table p add constraint ck check (a = 2) no inherit not valid;
+alter table p validate constraint ck;
+psql:<REPRO>:5: ERROR:  check constraint "ck" of relation "p" is violated by some row
+delete from only p;
+alter table p validate constraint ck;
+select convalidated from pg_constraint where conrelid = 'p'::regclass and conname = 'ck';
+ convalidated 
+--------------
+ t
+(1 row)
+

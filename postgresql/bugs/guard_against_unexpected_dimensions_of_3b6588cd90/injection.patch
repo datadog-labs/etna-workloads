@@ -1,0 +1,201 @@
+diff --git a/src/backend/access/hash/hashfunc.c b/src/backend/access/hash/hashfunc.c
+index adab96b9f13..ec96348942e 100644
+--- a/src/backend/access/hash/hashfunc.c
++++ b/src/backend/access/hash/hashfunc.c
+@@ -27,7 +27,6 @@
+ #include "postgres.h"
+ 
+ #include "common/hashfn.h"
+-#include "utils/builtins.h"
+ #include "utils/float.h"
+ #include "utils/fmgrprotos.h"
+ #include "utils/pg_locale.h"
+@@ -234,7 +233,6 @@ hashoidvector(PG_FUNCTION_ARGS)
+ {
+ 	oidvector  *key = (oidvector *) PG_GETARG_POINTER(0);
+ 
+-	check_valid_oidvector(key);
+ 	return hash_any((unsigned char *) key->values, key->dim1 * sizeof(Oid));
+ }
+ 
+@@ -243,7 +241,6 @@ hashoidvectorextended(PG_FUNCTION_ARGS)
+ {
+ 	oidvector  *key = (oidvector *) PG_GETARG_POINTER(0);
+ 
+-	check_valid_oidvector(key);
+ 	return hash_any_extended((unsigned char *) key->values,
+ 							 key->dim1 * sizeof(Oid),
+ 							 PG_GETARG_INT64(1));
+diff --git a/src/backend/access/nbtree/nbtcompare.c b/src/backend/access/nbtree/nbtcompare.c
+index 458cd1ae0a0..4da5a3c1d16 100644
+--- a/src/backend/access/nbtree/nbtcompare.c
++++ b/src/backend/access/nbtree/nbtcompare.c
+@@ -57,7 +57,6 @@
+ 
+ #include <limits.h>
+ 
+-#include "utils/builtins.h"
+ #include "utils/fmgrprotos.h"
+ #include "utils/skipsupport.h"
+ #include "utils/sortsupport.h"
+@@ -526,9 +525,6 @@ btoidvectorcmp(PG_FUNCTION_ARGS)
+ 	oidvector  *b = (oidvector *) PG_GETARG_POINTER(1);
+ 	int			i;
+ 
+-	check_valid_oidvector(a);
+-	check_valid_oidvector(b);
+-
+ 	/* We arbitrarily choose to sort first by vector length */
+ 	if (a->dim1 != b->dim1)
+ 		PG_RETURN_INT32(a->dim1 - b->dim1);
+diff --git a/src/backend/utils/adt/format_type.c b/src/backend/utils/adt/format_type.c
+index f4b891fe347..9948c26e76c 100644
+--- a/src/backend/utils/adt/format_type.c
++++ b/src/backend/utils/adt/format_type.c
+@@ -448,15 +448,11 @@ oidvectortypes(PG_FUNCTION_ARGS)
+ {
+ 	oidvector  *oidArray = (oidvector *) PG_GETARG_POINTER(0);
+ 	char	   *result;
+-	int			numargs;
++	int			numargs = oidArray->dim1;
+ 	int			num;
+ 	size_t		total;
+ 	size_t		left;
+ 
+-	/* validate input before fetching dim1 */
+-	check_valid_oidvector(oidArray);
+-	numargs = oidArray->dim1;
+-
+ 	total = 20 * numargs + 1;
+ 	result = palloc(total);
+ 	result[0] = '\0';
+diff --git a/src/backend/utils/adt/int.c b/src/backend/utils/adt/int.c
+index 0fcd43ba0f9..b5781989a64 100644
+--- a/src/backend/utils/adt/int.c
++++ b/src/backend/utils/adt/int.c
+@@ -134,30 +134,6 @@ buildint2vector(const int16 *int2s, int n)
+ 	return result;
+ }
+ 
+-/*
+- * validate that an array object meets the restrictions of int2vector
+- *
+- * We need this because there are pathways by which a general int2[] array can
+- * be cast to int2vector, allowing the type's restrictions to be violated.
+- * All code that receives an int2vector as a SQL parameter should check this.
+- */
+-static void
+-check_valid_int2vector(const int2vector *int2Array)
+-{
+-	/*
+-	 * We insist on ndim == 1 and dataoffset == 0 (that is, no nulls) because
+-	 * otherwise the array's layout will not be what calling code expects.  We
+-	 * needn't be picky about the index lower bound though.  Checking elemtype
+-	 * is just paranoia.
+-	 */
+-	if (int2Array->ndim != 1 ||
+-		int2Array->dataoffset != 0 ||
+-		int2Array->elemtype != INT2OID)
+-		ereport(ERROR,
+-				(errcode(ERRCODE_DATATYPE_MISMATCH),
+-				 errmsg("array is not a valid int2vector")));
+-}
+-
+ /*
+  *		int2vectorin			- converts "num num ..." to internal form
+  */
+@@ -232,14 +208,10 @@ int2vectorout(PG_FUNCTION_ARGS)
+ {
+ 	int2vector *int2Array = (int2vector *) PG_GETARG_POINTER(0);
+ 	int			num,
+-				nnums;
++				nnums = int2Array->dim1;
+ 	char	   *rp;
+ 	char	   *result;
+ 
+-	/* validate input before fetching dim1 */
+-	check_valid_int2vector(int2Array);
+-	nnums = int2Array->dim1;
+-
+ 	/* assumes sign, 5 digits, ' ' */
+ 	rp = result = (char *) palloc(nnums * 7 + 1);
+ 	for (num = 0; num < nnums; num++)
+@@ -300,7 +272,6 @@ int2vectorrecv(PG_FUNCTION_ARGS)
+ Datum
+ int2vectorsend(PG_FUNCTION_ARGS)
+ {
+-	/* We don't do check_valid_int2vector, since array_send won't care */
+ 	return array_send(fcinfo);
+ }
+ 
+diff --git a/src/backend/utils/adt/oid.c b/src/backend/utils/adt/oid.c
+index 4ea0d3d8569..4e880e76232 100644
+--- a/src/backend/utils/adt/oid.c
++++ b/src/backend/utils/adt/oid.c
+@@ -107,30 +107,6 @@ buildoidvector(const Oid *oids, int n)
+ 	return result;
+ }
+ 
+-/*
+- * validate that an array object meets the restrictions of oidvector
+- *
+- * We need this because there are pathways by which a general oid[] array can
+- * be cast to oidvector, allowing the type's restrictions to be violated.
+- * All code that receives an oidvector as a SQL parameter should check this.
+- */
+-void
+-check_valid_oidvector(const oidvector *oidArray)
+-{
+-	/*
+-	 * We insist on ndim == 1 and dataoffset == 0 (that is, no nulls) because
+-	 * otherwise the array's layout will not be what calling code expects.  We
+-	 * needn't be picky about the index lower bound though.  Checking elemtype
+-	 * is just paranoia.
+-	 */
+-	if (oidArray->ndim != 1 ||
+-		oidArray->dataoffset != 0 ||
+-		oidArray->elemtype != OIDOID)
+-		ereport(ERROR,
+-				(errcode(ERRCODE_DATATYPE_MISMATCH),
+-				 errmsg("array is not a valid oidvector")));
+-}
+-
+ /*
+  *		oidvectorin			- converts "num num ..." to internal form
+  */
+@@ -183,14 +159,10 @@ oidvectorout(PG_FUNCTION_ARGS)
+ {
+ 	oidvector  *oidArray = (oidvector *) PG_GETARG_POINTER(0);
+ 	int			num,
+-				nnums;
++				nnums = oidArray->dim1;
+ 	char	   *rp;
+ 	char	   *result;
+ 
+-	/* validate input before fetching dim1 */
+-	check_valid_oidvector(oidArray);
+-	nnums = oidArray->dim1;
+-
+ 	/* assumes sign, 10 digits, ' ' */
+ 	rp = result = (char *) palloc(nnums * 12 + 1);
+ 	for (num = 0; num < nnums; num++)
+@@ -253,7 +225,6 @@ oidvectorrecv(PG_FUNCTION_ARGS)
+ Datum
+ oidvectorsend(PG_FUNCTION_ARGS)
+ {
+-	/* We don't do check_valid_oidvector, since array_send won't care */
+ 	return array_send(fcinfo);
+ }
+ 
+diff --git a/src/include/utils/builtins.h b/src/include/utils/builtins.h
+index 64b3f534e9a..1c98c7d2255 100644
+--- a/src/include/utils/builtins.h
++++ b/src/include/utils/builtins.h
+@@ -68,7 +68,6 @@ extern char *pg_ultostr(char *str, uint32 value);
+ 
+ /* oid.c */
+ extern oidvector *buildoidvector(const Oid *oids, int n);
+-extern void check_valid_oidvector(const oidvector *oidArray);
+ extern Oid	oidparse(Node *node);
+ extern int	oid_cmp(const void *p1, const void *p2);
+ 

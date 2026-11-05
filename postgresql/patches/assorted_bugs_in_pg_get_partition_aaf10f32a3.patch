@@ -1,0 +1,70 @@
+diff --git a/src/backend/utils/cache/partcache.c b/src/backend/utils/cache/partcache.c
+index f5d7d70def0..dd29084ae07 100644
+--- a/src/backend/utils/cache/partcache.c
++++ b/src/backend/utils/cache/partcache.c
+@@ -298,28 +298,26 @@ RelationGetPartitionQual(Relation rel)
+ Expr *
+ get_partition_qual_relid(Oid relid)
+ {
++	Relation	rel = relation_open(relid, AccessShareLock);
+ 	Expr	   *result = NULL;
++	List	   *and_args;
+ 
+-	/* Do the work only if this relation exists and is a partition. */
+-	if (get_rel_relispartition(relid))
++	/* Do the work only if this relation is a partition. */
++	if (rel->rd_rel->relispartition)
+ 	{
+-		Relation	rel = relation_open(relid, AccessShareLock);
+-		List	   *and_args;
+-
+ 		and_args = generate_partition_qual(rel);
+ 
+-		/* Convert implicit-AND list format to boolean expression */
+ 		if (and_args == NIL)
+ 			result = NULL;
+ 		else if (list_length(and_args) > 1)
+ 			result = makeBoolExpr(AND_EXPR, and_args, -1);
+ 		else
+ 			result = linitial(and_args);
+-
+-		/* Keep the lock, to allow safe deparsing against the rel by caller. */
+-		relation_close(rel, NoLock);
+ 	}
+ 
++	/* Keep the lock. */
++	relation_close(rel, NoLock);
++
+ 	return result;
+ }
+ 
+@@ -340,6 +338,7 @@ generate_partition_qual(Relation rel)
+ 	MemoryContext oldcxt;
+ 	Datum		boundDatum;
+ 	bool		isnull;
++	PartitionBoundSpec *bound;
+ 	List	   *my_qual = NIL,
+ 			   *result = NIL;
+ 	Oid			parentrelid;
+@@ -371,15 +370,13 @@ generate_partition_qual(Relation rel)
+ 	boundDatum = SysCacheGetAttr(RELOID, tuple,
+ 								 Anum_pg_class_relpartbound,
+ 								 &isnull);
+-	if (!isnull)
+-	{
+-		PartitionBoundSpec *bound;
+-
+-		bound = castNode(PartitionBoundSpec,
+-						 stringToNode(TextDatumGetCString(boundDatum)));
++	if (isnull)
++		elog(ERROR, "null relpartbound for relation %u",
++			 RelationGetRelid(rel));
++	bound = castNode(PartitionBoundSpec,
++					 stringToNode(TextDatumGetCString(boundDatum)));
+ 
+-		my_qual = get_qual_from_partbound(parent, bound);
+-	}
++	my_qual = get_qual_from_partbound(parent, bound);
+ 
+ 	ReleaseSysCache(tuple);
+ 

@@ -1,0 +1,43 @@
+diff --git a/src/backend/access/transam/xlog.c b/src/backend/access/transam/xlog.c
+index 2fd06e37999..f5369aaff15 100644
+--- a/src/backend/access/transam/xlog.c
++++ b/src/backend/access/transam/xlog.c
+@@ -7956,23 +7956,27 @@ GetWALAvailability(XLogRecPtr targetLSN)
+ 	XLByteToSeg(targetLSN, targetSeg, wal_segment_size);
+ 
+ 	/*
+-	 * No point in returning reserved or extended status values if the
+-	 * targetSeg is known to be lost.
++	 * If max_slot_wal_keep_size has changed after the last call, the segment
++	 * that would been kept by the current setting might have been lost by the
++	 * previous setting. No point in showing normal or keeping status values
++	 * if the targetSeg is known to be lost.
+ 	 */
+-	if (targetSeg >= oldestSlotSeg)
++	if (targetSeg >= oldestSeg)
+ 	{
+-		/* show "reserved" when targetSeg is within max_wal_size */
+-		if (targetSeg >= oldestSegMaxWalSize)
++		/*
++		 * show "reserved" when targetSeg is within max_wal_size, even if
++		 * max_slot_wal_keep_size is smaller than max_wal_size.
++		 */
++		if ((max_slot_wal_keep_size_mb <= 0 ||
++			 max_slot_wal_keep_size_mb >= max_wal_size_mb) &&
++			oldestSegMaxWalSize <= targetSeg)
+ 			return WALAVAIL_RESERVED;
+ 
+-		/* being retained by slots exceeding max_wal_size */
+-		return WALAVAIL_EXTENDED;
++		/* being retained by slots */
++		if (oldestSlotSeg <= targetSeg)
++			return WALAVAIL_EXTENDED;
+ 	}
+ 
+-	/* WAL segments are no longer retained but haven't been removed yet */
+-	if (targetSeg >= oldestSeg)
+-		return WALAVAIL_UNRESERVED;
+-
+ 	/* Definitely lost */
+ 	return WALAVAIL_REMOVED;
+ }

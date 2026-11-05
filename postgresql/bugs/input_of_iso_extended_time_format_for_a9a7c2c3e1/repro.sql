@@ -1,0 +1,2 @@
+SELECT time 'T04:05:06';
+SELECT timetz 'T04:05:06.07';

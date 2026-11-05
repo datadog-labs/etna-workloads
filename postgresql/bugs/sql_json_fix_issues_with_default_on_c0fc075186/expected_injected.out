@@ -1,0 +1,14 @@
+SELECT JSON_VALUE(jsonb '{"a":1}', '$.b' RETURNING text DEFAULT '"x"'::jsonb::text ON ERROR);
+psql:<REPRO>:1: ERROR:  can only specify a constant, non-aggregate function, or operator expression for DEFAULT
+LINE 1: ...LUE(jsonb '{"a":1}', '$.b' RETURNING text DEFAULT '"x"'::jso...
+                                                             ^
+SELECT JSON_VALUE(jsonb '{"a":1}', '$.b' RETURNING text DEFAULT 'x'::varchar ON EMPTY);
+ json_value 
+------------
+ x
+(1 row)
+
+SELECT JSON_VALUE(jsonb '{"a":1}', '$.b' RETURNING text DEFAULT (SELECT 'x') ON EMPTY);
+psql:<REPRO>:3: ERROR:  can only specify a constant, non-aggregate function, or operator expression for DEFAULT
+LINE 1: ...LUE(jsonb '{"a":1}', '$.b' RETURNING text DEFAULT (SELECT 'x...
+                                                             ^

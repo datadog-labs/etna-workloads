@@ -1,0 +1,6 @@
+create table t(a int);
+create function f() returns trigger language plpgsql as $$begin return new; end$$;
+create trigger a before insert on t for each row execute procedure f();
+alter trigger a on t rename to b;
+select tgname from pg_trigger where tgrelid='t'::regclass;
+drop trigger b on t;

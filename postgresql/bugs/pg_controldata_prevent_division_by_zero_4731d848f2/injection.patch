@@ -1,0 +1,37 @@
+diff --git a/src/bin/pg_controldata/pg_controldata.c b/src/bin/pg_controldata/pg_controldata.c
+index 7bb801bb886..86e7dd98742 100644
+--- a/src/bin/pg_controldata/pg_controldata.c
++++ b/src/bin/pg_controldata/pg_controldata.c
+@@ -103,6 +103,7 @@ main(int argc, char *argv[])
+ 	char		mock_auth_nonce_str[MOCK_AUTH_NONCE_LEN * 2 + 1];
+ 	const char *strftime_fmt = "%c";
+ 	const char *progname;
++	XLogSegNo	segno;
+ 	char		xlogfilename[MAXFNAMELEN];
+ 	int			c;
+ 	int			i;
+@@ -215,21 +216,10 @@ main(int argc, char *argv[])
+ 	/*
+ 	 * Calculate name of the WAL file containing the latest checkpoint's REDO
+ 	 * start point.
+-	 *
+-	 * A corrupted control file could report a WAL segment size of 0 or
+-	 * negative value, and to guard against division by zero, we need to treat
+-	 * that specially.
+ 	 */
+-	if (WalSegSz > 0)
+-	{
+-		XLogSegNo	segno;
+-
+-		XLByteToSeg(ControlFile->checkPointCopy.redo, segno, WalSegSz);
+-		XLogFileName(xlogfilename, ControlFile->checkPointCopy.ThisTimeLineID,
+-					 segno, WalSegSz);
+-	}
+-	else
+-		strcpy(xlogfilename, _("???"));
++	XLByteToSeg(ControlFile->checkPointCopy.redo, segno, WalSegSz);
++	XLogFileName(xlogfilename, ControlFile->checkPointCopy.ThisTimeLineID,
++				 segno, WalSegSz);
+ 
+ 	for (i = 0; i < MOCK_AUTH_NONCE_LEN; i++)
+ 		snprintf(&mock_auth_nonce_str[i * 2], 3, "%02x",

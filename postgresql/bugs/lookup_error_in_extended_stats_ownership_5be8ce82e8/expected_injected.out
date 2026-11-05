@@ -1,0 +1,12 @@
+CREATE TABLE ab1 (a int, b int);
+CREATE STATISTICS ab1_s ON a, b FROM ab1;
+CREATE ROLE temp_role;
+SET SESSION AUTHORIZATION temp_role;
+DO $$ BEGIN
+  COMMENT ON STATISTICS ab1_s IS 'x';
+EXCEPTION WHEN others THEN
+  RAISE NOTICE '%', CASE WHEN SQLERRM LIKE 'must be owner%' THEN SQLERRM ELSE 'other error' END;
+END $$;
+psql:<REPRO>:9: NOTICE:  other error
+RESET SESSION AUTHORIZATION;
+DROP ROLE temp_role;

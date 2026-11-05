@@ -1,0 +1,71 @@
+diff --git a/src/backend/postmaster/walsummarizer.c b/src/backend/postmaster/walsummarizer.c
+index 96bef8778ce..75844fc8dbf 100644
+--- a/src/backend/postmaster/walsummarizer.c
++++ b/src/backend/postmaster/walsummarizer.c
+@@ -34,7 +34,6 @@
+ #include "common/blkreftable.h"
+ #include "libpq/pqsignal.h"
+ #include "miscadmin.h"
+-#include "pgstat.h"
+ #include "postmaster/auxprocess.h"
+ #include "postmaster/interrupt.h"
+ #include "postmaster/walsummarizer.h"
+@@ -1788,9 +1787,6 @@ summarizer_wait_for_wal(void)
+ 			sleep_quanta -= pages_read_since_last_sleep;
+ 	}
+ 
+-	/* Report pending statistics to the cumulative stats system. */
+-	pgstat_report_wal(false);
+-
+ 	/* OK, now sleep. */
+ 	(void) WaitLatch(MyLatch,
+ 					 WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
+diff --git a/src/backend/replication/walreceiver.c b/src/backend/replication/walreceiver.c
+index 49bf48a3064..0db1665aaa5 100644
+--- a/src/backend/replication/walreceiver.c
++++ b/src/backend/replication/walreceiver.c
+@@ -629,16 +629,6 @@ WalReceiverMain(const void *startup_data, size_t startup_data_len)
+ 					 */
+ 					bool		requestReply = false;
+ 
+-					/*
+-					 * Report pending statistics to the cumulative stats
+-					 * system.  This location is useful for the report as it
+-					 * is not within a tight loop in the WAL receiver, to
+-					 * avoid bloating pgstats with requests, while also making
+-					 * sure that the reports happen each time a status update
+-					 * is sent.
+-					 */
+-					pgstat_report_wal(false);
+-
+ 					/*
+ 					 * Check if time since last receive from primary has
+ 					 * reached the configured limit.
+diff --git a/src/backend/utils/activity/pgstat_io.c b/src/backend/utils/activity/pgstat_io.c
+index 13ae57ed649..7cba33c2c6a 100644
+--- a/src/backend/utils/activity/pgstat_io.c
++++ b/src/backend/utils/activity/pgstat_io.c
+@@ -428,22 +428,12 @@ pgstat_tracks_io_object(BackendType bktype, IOObject io_object,
+ 	 */
+ 	no_temp_rel = bktype == B_AUTOVAC_LAUNCHER || bktype == B_BG_WRITER ||
+ 		bktype == B_CHECKPOINTER || bktype == B_AUTOVAC_WORKER ||
+-		bktype == B_STANDALONE_BACKEND || bktype == B_STARTUP ||
+-		bktype == B_WAL_SUMMARIZER || bktype == B_WAL_WRITER ||
+-		bktype == B_WAL_RECEIVER;
++		bktype == B_STANDALONE_BACKEND || bktype == B_STARTUP;
+ 
+ 	if (no_temp_rel && io_context == IOCONTEXT_NORMAL &&
+ 		io_object == IOOBJECT_TEMP_RELATION)
+ 		return false;
+ 
+-	/*
+-	 * Some BackendTypes only perform IO under IOOBJECT_WAL, hence exclude all
+-	 * rows for all the other objects for these.
+-	 */
+-	if ((bktype == B_WAL_SUMMARIZER || bktype == B_WAL_RECEIVER ||
+-		 bktype == B_WAL_WRITER) && io_object != IOOBJECT_WAL)
+-		return false;
+-
+ 	/*
+ 	 * Some BackendTypes do not currently perform any IO in certain
+ 	 * IOContexts, and, while it may not be inherently incorrect for them to

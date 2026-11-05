@@ -1,0 +1,66 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..f598e52bcc7 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -79,7 +79,8 @@
+ 
+ /* Indent counts */
+ #define PRETTYINDENT_STD		8
+-#define PRETTYINDENT_JOIN		4
++#define PRETTYINDENT_JOIN	   13
++#define PRETTYINDENT_JOIN_ON	(PRETTYINDENT_JOIN-PRETTYINDENT_STD)
+ #define PRETTYINDENT_VAR		4
+ 
+ #define PRETTYINDENT_LIMIT		40	/* wrap limit */
+@@ -12579,32 +12580,27 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
+ 			case JOIN_INNER:
+ 				if (j->quals)
+ 					appendContextKeyword(context, " JOIN ",
+-										 -PRETTYINDENT_STD,
+-										 PRETTYINDENT_STD,
+-										 PRETTYINDENT_JOIN);
++										 -PRETTYINDENT_JOIN,
++										 PRETTYINDENT_JOIN, 2);
+ 				else
+ 					appendContextKeyword(context, " CROSS JOIN ",
+-										 -PRETTYINDENT_STD,
+-										 PRETTYINDENT_STD,
+-										 PRETTYINDENT_JOIN);
++										 -PRETTYINDENT_JOIN,
++										 PRETTYINDENT_JOIN, 1);
+ 				break;
+ 			case JOIN_LEFT:
+ 				appendContextKeyword(context, " LEFT JOIN ",
+-									 -PRETTYINDENT_STD,
+-									 PRETTYINDENT_STD,
+-									 PRETTYINDENT_JOIN);
++									 -PRETTYINDENT_JOIN,
++									 PRETTYINDENT_JOIN, 2);
+ 				break;
+ 			case JOIN_FULL:
+ 				appendContextKeyword(context, " FULL JOIN ",
+-									 -PRETTYINDENT_STD,
+-									 PRETTYINDENT_STD,
+-									 PRETTYINDENT_JOIN);
++									 -PRETTYINDENT_JOIN,
++									 PRETTYINDENT_JOIN, 2);
+ 				break;
+ 			case JOIN_RIGHT:
+ 				appendContextKeyword(context, " RIGHT JOIN ",
+-									 -PRETTYINDENT_STD,
+-									 PRETTYINDENT_STD,
+-									 PRETTYINDENT_JOIN);
++									 -PRETTYINDENT_JOIN,
++									 PRETTYINDENT_JOIN, 2);
+ 				break;
+ 			default:
+ 				elog(ERROR, "unrecognized join type: %d",
+@@ -12617,6 +12613,8 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
+ 		if (need_paren_on_right)
+ 			appendStringInfoChar(buf, ')');
+ 
++		context->indentLevel -= PRETTYINDENT_JOIN_ON;
++
+ 		if (j->usingClause)
+ 		{
+ 			ListCell   *lc;

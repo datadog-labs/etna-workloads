@@ -1,0 +1,3 @@
+create view rule_v1 as values(1,2);
+alter table rule_v1 rename column column2 to q2;
+select pg_get_viewdef('rule_v1'::regclass);

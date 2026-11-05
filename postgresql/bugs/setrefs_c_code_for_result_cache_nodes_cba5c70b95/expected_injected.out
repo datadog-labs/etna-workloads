@@ -1,0 +1,35 @@
+create table t1(f1 text);
+create table t2(f1 text);
+create table i8(q1 int8, q2 int8);
+insert into i8 values (1,123),(2,456),(3,789);
+insert into t1 select 'a' from generate_series(1,5);
+insert into t2 values ('a'),('b');
+analyze t1; analyze t2; analyze i8;
+set enable_hashjoin=off; set enable_mergejoin=off; set enable_material=off;
+set enable_seqscan=on;
+explain (verbose, costs off)
+select * from t1 left join i8 on i8.q2=123,
+  lateral (select i8.q1, t2.f1 from t2 limit 1) as ss
+where t1.f1 = ss.f1;
+                QUERY PLAN                
+------------------------------------------
+ Nested Loop
+   Output: t1.f1, i8.q1, i8.q2, q1, f1
+   Join Filter: (t1.f1 = f1)
+   ->  Nested Loop Left Join
+         Output: t1.f1, i8.q1, i8.q2
+         ->  Seq Scan on public.t1
+               Output: t1.f1
+         ->  Seq Scan on public.i8
+               Output: i8.q1, i8.q2
+               Filter: (i8.q2 = 123)
+   ->  Memoize
+         Output: q1, f1
+         Cache Key: i8.q1
+         Cache Mode: binary
+         ->  Limit
+               Output: (i8.q1), t2.f1
+               ->  Seq Scan on public.t2
+                     Output: i8.q1, t2.f1
+(18 rows)
+

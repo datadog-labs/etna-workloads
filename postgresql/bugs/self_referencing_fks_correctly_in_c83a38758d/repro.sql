@@ -1,0 +1,5 @@
+CREATE TABLE p (id int PRIMARY KEY, ref int, FOREIGN KEY (ref) REFERENCES p) PARTITION BY RANGE (id);
+CREATE TABLE p1 PARTITION OF p FOR VALUES FROM (0) TO (100);
+INSERT INTO p VALUES (1, NULL), (2, 1);
+DELETE FROM p WHERE id = 1;
+SELECT count(*) FROM pg_trigger WHERE tgrelid = 'p1'::regclass AND tgisinternal;

@@ -1,0 +1,30 @@
+diff --git a/src/pl/plpgsql/src/pl_exec.c b/src/pl/plpgsql/src/pl_exec.c
+index e2fe0fd4b56..b63f25876c1 100644
+--- a/src/pl/plpgsql/src/pl_exec.c
++++ b/src/pl/plpgsql/src/pl_exec.c
+@@ -2214,14 +2214,6 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
+ 	 */
+ 	Assert(!expr->expr_simple_expr);
+ 
+-	/*
+-	 * Also construct a DTYPE_ROW datum representing the plpgsql variables
+-	 * associated with the procedure's output arguments.  Then we can use
+-	 * exec_move_row() to do the assignments.
+-	 */
+-	if (stmt->is_call && stmt->target == NULL)
+-		stmt->target = make_callstmt_target(estate, expr);
+-
+ 	paramLI = setup_param_list(estate, expr);
+ 
+ 	before_lxid = MyProc->vxid.lxid;
+@@ -2269,6 +2261,10 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
+ 		if (!stmt->is_call)
+ 			elog(ERROR, "DO statement returned a row");
+ 
++		/* construct the output-argument row only after the call has run */
++		if (stmt->target == NULL)
++			stmt->target = make_callstmt_target(estate, expr);
++
+ 		exec_move_row(estate, stmt->target, tuptab->vals[0], tuptab->tupdesc);
+ 	}
+ 	else if (SPI_processed > 1)

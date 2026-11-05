@@ -1,0 +1,35 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..a48857d503f 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -20925,7 +20925,7 @@ CloneRowTriggersToPartition(Relation parent, Relation partition)
+ 		CreateTriggerFiringOn(trigStmt, NULL, RelationGetRelid(partition),
+ 							  trigForm->tgconstrrelid, InvalidOid, InvalidOid,
+ 							  trigForm->tgfoid, trigForm->oid, qual,
+-							  false, true, trigForm->tgenabled);
++							  false, true, TRIGGER_FIRES_ON_ORIGIN);
+ 
+ 		MemoryContextSwitchTo(oldcxt);
+ 		MemoryContextReset(perTupCxt);
+diff --git a/src/backend/commands/trigger.c b/src/backend/commands/trigger.c
+index 7ae6557d897..a79f71b05aa 100644
+--- a/src/backend/commands/trigger.c
++++ b/src/backend/commands/trigger.c
+@@ -872,7 +872,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
+ 															 CStringGetDatum(trigname));
+ 	values[Anum_pg_trigger_tgfoid - 1] = ObjectIdGetDatum(funcoid);
+ 	values[Anum_pg_trigger_tgtype - 1] = Int16GetDatum(tgtype);
+-	values[Anum_pg_trigger_tgenabled - 1] = trigger_fires_when;
++	values[Anum_pg_trigger_tgenabled - 1] = CharGetDatum(TRIGGER_FIRES_ON_ORIGIN);
+ 	values[Anum_pg_trigger_tgisinternal - 1] = BoolGetDatum(isInternal);
+ 	values[Anum_pg_trigger_tgconstrrelid - 1] = ObjectIdGetDatum(constrrelid);
+ 	values[Anum_pg_trigger_tgconstrindid - 1] = ObjectIdGetDatum(indexOid);
+@@ -1196,7 +1196,7 @@ CreateTriggerFiringOn(CreateTrigStmt *stmt, const char *queryString,
+ 								  partdesc->oids[i], refRelOid,
+ 								  InvalidOid, InvalidOid,
+ 								  funcoid, trigoid, qual,
+-								  isInternal, true, trigger_fires_when);
++								  isInternal, true, TRIGGER_FIRES_ON_ORIGIN);
+ 
+ 			table_close(childTbl, NoLock);
+ 

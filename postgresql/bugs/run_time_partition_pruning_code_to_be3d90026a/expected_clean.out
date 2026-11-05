@@ -1,0 +1,16 @@
+create table listp (a int) partition by list (a);
+create table listp_1 partition of listp for values in (1);
+create table listp_2 partition of listp for values in (2);
+explain (analyze, costs off, summary off, timing off, buffers off)
+select * from listp where a = (select null::int);
+                 QUERY PLAN                 
+--------------------------------------------
+ Append (actual rows=0.00 loops=1)
+   InitPlan 1
+     ->  Result (actual rows=1.00 loops=1)
+   ->  Seq Scan on listp_1 (never executed)
+         Filter: (a = (InitPlan 1).col1)
+   ->  Seq Scan on listp_2 (never executed)
+         Filter: (a = (InitPlan 1).col1)
+(7 rows)
+

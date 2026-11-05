@@ -1,0 +1,115 @@
+diff --git a/src/backend/utils/adt/formatting.c b/src/backend/utils/adt/formatting.c
+index 9460ee1b7c6..710fed4678b 100644
+--- a/src/backend/utils/adt/formatting.c
++++ b/src/backend/utils/adt/formatting.c
+@@ -6161,8 +6161,6 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
+ 							if (IS_FILLMODE(Np->Num))
+ 								continue;
+ 						}
+-						if (*Np->inout_p != ',')
+-							continue;
+ 					}
+ 					break;
+ 
+@@ -6202,18 +6200,7 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
+ 							if (IS_FILLMODE(Np->Num))
+ 								continue;
+ 						}
+-
+-						/*
+-						 * Because L_thousands_sep typically contains data
+-						 * characters (either '.' or ','), we can't use
+-						 * NUM_eat_non_data_chars here.  Instead skip only if
+-						 * the input matches L_thousands_sep.
+-						 */
+-						if (AMOUNT_TEST(pattern_len) &&
+-							strncmp(Np->inout_p, pattern, pattern_len) == 0)
+-							Np->inout_p += pattern_len - 1;
+-						else
+-							continue;
++						Np->inout_p += pattern_len - 1;
+ 					}
+ 					break;
+ 
+@@ -6233,8 +6220,7 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
+ 					else
+ 					{
+ 						/* Here we do not truncate the symbol ... */
+-						NUM_eat_non_data_chars(Np, pg_mbstrlen(pattern), input_len);
+-						continue;
++						Np->inout_p += strlen(pattern) - 1;
+ 					}
+ 					break;
+ 
+@@ -6277,16 +6263,8 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
+ 						continue;
+ 
+ 					if (Np->is_to_char)
+-					{
+ 						strcpy(Np->inout_p, get_th(Np->number, TH_LOWER));
+-						Np->inout_p += 1;
+-					}
+-					else
+-					{
+-						/* All variants of 'th' occupy 2 characters */
+-						NUM_eat_non_data_chars(Np, 2, input_len);
+-						continue;
+-					}
++					Np->inout_p += 1;
+ 					break;
+ 
+ 				case NUM_TH:
+@@ -6295,16 +6273,8 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
+ 						continue;
+ 
+ 					if (Np->is_to_char)
+-					{
+ 						strcpy(Np->inout_p, get_th(Np->number, TH_UPPER));
+-						Np->inout_p += 1;
+-					}
+-					else
+-					{
+-						/* All variants of 'TH' occupy 2 characters */
+-						NUM_eat_non_data_chars(Np, 2, input_len);
+-						continue;
+-					}
++					Np->inout_p += 1;
+ 					break;
+ 
+ 				case NUM_MI:
+@@ -6321,11 +6291,6 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
+ 					{
+ 						if (*Np->inout_p == '-')
+ 							*Np->number = '-';
+-						else
+-						{
+-							NUM_eat_non_data_chars(Np, 1, input_len);
+-							continue;
+-						}
+ 					}
+ 					break;
+ 
+@@ -6343,11 +6308,6 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
+ 					{
+ 						if (*Np->inout_p == '+')
+ 							*Np->number = '+';
+-						else
+-						{
+-							NUM_eat_non_data_chars(Np, 1, input_len);
+-							continue;
+-						}
+ 					}
+ 					break;
+ 
+@@ -6360,11 +6320,6 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
+ 							*Np->number = '-';
+ 						else if (*Np->inout_p == '+')
+ 							*Np->number = '+';
+-						else
+-						{
+-							NUM_eat_non_data_chars(Np, 1, input_len);
+-							continue;
+-						}
+ 					}
+ 					break;
+ 

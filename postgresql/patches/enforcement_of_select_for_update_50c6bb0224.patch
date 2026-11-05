@@ -1,0 +1,36 @@
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 62f54786be4..b15d4bb365a 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -1854,15 +1854,6 @@ ApplyRetrieveRule(Query *parsetree,
+ 
+ 	AcquireRewriteLocks(rule_action, true, (rc != NULL));
+ 
+-	/*
+-	 * If FOR [KEY] UPDATE/SHARE of view, mark all the contained tables as
+-	 * implicit FOR [KEY] UPDATE/SHARE, the same as the parser would have done
+-	 * if the view's subquery had been written out explicitly.
+-	 */
+-	if (rc != NULL)
+-		markQueryForLocking(rule_action, (Node *) rule_action->jointree,
+-							rc->strength, rc->waitPolicy, true);
+-
+ 	/*
+ 	 * Recursively expand any view references inside the view.
+ 	 */
+@@ -1907,6 +1898,15 @@ ApplyRetrieveRule(Query *parsetree,
+ 									  makeString(pstrdup("?column?")));
+ 	}
+ 
++	/*
++	 * If FOR [KEY] UPDATE/SHARE of view, mark all the contained tables as
++	 * implicit FOR [KEY] UPDATE/SHARE, the same as the parser would have done
++	 * if the view's subquery had been written out explicitly.
++	 */
++	if (rc != NULL)
++		markQueryForLocking(rule_action, (Node *) rule_action->jointree,
++							rc->strength, rc->waitPolicy, true);
++
+ 	return parsetree;
+ }
+ 

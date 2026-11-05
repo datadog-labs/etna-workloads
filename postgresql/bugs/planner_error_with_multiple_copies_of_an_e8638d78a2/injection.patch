@@ -1,0 +1,85 @@
+diff --git a/src/backend/optimizer/plan/setrefs.c b/src/backend/optimizer/plan/setrefs.c
+index d706546f332..f6255337eeb 100644
+--- a/src/backend/optimizer/plan/setrefs.c
++++ b/src/backend/optimizer/plan/setrefs.c
+@@ -344,43 +344,9 @@ set_plan_references(PlannerInfo *root, Plan *plan)
+ 		glob->appendRelations = lappend(glob->appendRelations, appinfo);
+ 	}
+ 
+-	/* If needed, create workspace for processing AlternativeSubPlans */
+-	if (root->hasAlternativeSubPlans)
+-	{
+-		root->isAltSubplan = (bool *)
+-			palloc0(list_length(glob->subplans) * sizeof(bool));
+-		root->isUsedSubplan = (bool *)
+-			palloc0(list_length(glob->subplans) * sizeof(bool));
+-	}
+-
+ 	/* Now fix the Plan tree */
+ 	result = set_plan_refs(root, plan, rtoffset);
+ 
+-	/*
+-	 * If we have AlternativeSubPlans, it is likely that we now have some
+-	 * unreferenced subplans in glob->subplans.  To avoid expending cycles on
+-	 * those subplans later, get rid of them by setting those list entries to
+-	 * NULL.  (Note: we can't do this immediately upon processing an
+-	 * AlternativeSubPlan, because there may be multiple copies of the
+-	 * AlternativeSubPlan, and they can get resolved differently.)
+-	 */
+-	if (root->hasAlternativeSubPlans)
+-	{
+-		foreach(lc, glob->subplans)
+-		{
+-			int			ndx = foreach_current_index(lc);
+-
+-			/*
+-			 * If it was used by some AlternativeSubPlan in this query level,
+-			 * but wasn't selected as best by any AlternativeSubPlan, then we
+-			 * don't need it.  Do not touch subplans that aren't parts of
+-			 * AlternativeSubPlans.
+-			 */
+-			if (root->isAltSubplan[ndx] && !root->isUsedSubplan[ndx])
+-				lfirst(lc) = NULL;
+-		}
+-	}
+-
+ 	return result;
+ }
+ 
+@@ -2174,18 +2140,30 @@ fix_alternative_subplan(PlannerInfo *root, AlternativeSubPlan *asplan,
+ 		Cost		curcost;
+ 
+ 		curcost = curplan->startup_cost + num_exec * curplan->per_call_cost;
+-		if (bestplan == NULL || curcost <= bestcost)
++		if (bestplan == NULL)
+ 		{
+ 			bestplan = curplan;
+ 			bestcost = curcost;
+ 		}
++		else if (curcost <= bestcost)
++		{
++			/* drop old bestplan */
++			ListCell   *lc2 = list_nth_cell(root->glob->subplans,
++											bestplan->plan_id - 1);
+ 
+-		/* Also mark all subplans that are in AlternativeSubPlans */
+-		root->isAltSubplan[curplan->plan_id - 1] = true;
+-	}
++			lfirst(lc2) = NULL;
++			bestplan = curplan;
++			bestcost = curcost;
++		}
++		else
++		{
++			/* drop curplan */
++			ListCell   *lc2 = list_nth_cell(root->glob->subplans,
++											curplan->plan_id - 1);
+ 
+-	/* Mark the subplan we selected */
+-	root->isUsedSubplan[bestplan->plan_id - 1] = true;
++			lfirst(lc2) = NULL;
++		}
++	}
+ 
+ 	return (Node *) bestplan;
+ }

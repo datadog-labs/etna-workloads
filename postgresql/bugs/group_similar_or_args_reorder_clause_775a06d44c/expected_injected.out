@@ -1,0 +1,30 @@
+CREATE TABLE t (a int, b int);
+INSERT INTO t SELECT i, i FROM generate_series(1,100000) i;
+CREATE INDEX ta ON t(a);
+CREATE INDEX tb ON t(b);
+ANALYZE t;
+SET enable_seqscan=off;
+EXPLAIN (COSTS OFF) SELECT * FROM t WHERE a < 1 OR b < 2;
+              QUERY PLAN              
+--------------------------------------
+ Bitmap Heap Scan on t
+   Recheck Cond: ((b < 2) OR (a < 1))
+   ->  BitmapOr
+         ->  Bitmap Index Scan on tb
+               Index Cond: (b < 2)
+         ->  Bitmap Index Scan on ta
+               Index Cond: (a < 1)
+(7 rows)
+
+EXPLAIN (COSTS OFF) SELECT * FROM t WHERE a < 1 OR a < 3 OR b < 2;
+                        QUERY PLAN                        
+----------------------------------------------------------
+ Bitmap Heap Scan on t
+   Recheck Cond: ((b < 2) OR ((a < 1) OR (a < 3)))
+   ->  BitmapOr
+         ->  Bitmap Index Scan on tb
+               Index Cond: (b < 2)
+         ->  Bitmap Index Scan on ta
+               Index Cond: (a < ANY ('{1,3}'::integer[]))
+(7 rows)
+

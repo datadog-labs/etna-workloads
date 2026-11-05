@@ -1,0 +1,48 @@
+diff --git a/src/backend/commands/copyfromparse.c b/src/backend/commands/copyfromparse.c
+index fedaf78ba5e..8a19a4a3498 100644
+--- a/src/backend/commands/copyfromparse.c
++++ b/src/backend/commands/copyfromparse.c
+@@ -1241,6 +1241,7 @@ CopyReadLineText(CopyFromState cstate, bool is_csv)
+ 	bool		result = false;
+ 
+ 	/* CSV variables */
++	bool		first_char_in_line = true;
+ 	bool		in_quote = false,
+ 				last_was_esc = false;
+ 	char		quotec = '\0';
+@@ -1331,7 +1332,7 @@ CopyReadLineText(CopyFromState cstate, bool is_csv)
+ 			 * need to do this before changing CSV state, in case '\r' is also
+ 			 * the quote or escape character.
+ 			 */
+-			if (c == '\r')
++			if (c == '\\' || c == '\r')
+ 			{
+ 				IF_NEED_REFILL_AND_NOT_EOF_CONTINUE(0);
+ 			}
+@@ -1438,7 +1439,7 @@ CopyReadLineText(CopyFromState cstate, bool is_csv)
+ 		 * Process backslash, except in CSV mode where backslash is a normal
+ 		 * character.
+ 		 */
+-		if (c == '\\' && !is_csv)
++		if (c == '\\' && (!is_csv || first_char_in_line))
+ 		{
+ 			char		c2;
+ 
+@@ -1506,7 +1507,7 @@ CopyReadLineText(CopyFromState cstate, bool is_csv)
+ 				result = true;	/* report EOF */
+ 				break;
+ 			}
+-			else
++			else if (!is_csv)
+ 			{
+ 				/*
+ 				 * If we are here, it means we found a backslash followed by
+@@ -1519,6 +1520,8 @@ CopyReadLineText(CopyFromState cstate, bool is_csv)
+ 				input_buf_ptr++;
+ 			}
+ 		}
++
++		first_char_in_line = false;
+ 	}							/* end of outer loop */
+ 
+ 	/*

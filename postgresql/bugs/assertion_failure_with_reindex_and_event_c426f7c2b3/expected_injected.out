@@ -1,0 +1,10 @@
+CREATE FUNCTION snapf() RETURNS EVENT_TRIGGER AS $$ BEGIN PERFORM 1; END $$ LANGUAGE plpgsql;
+CREATE EVENT TRIGGER snap_trg ON ddl_command_end EXECUTE FUNCTION snapf();
+CREATE TABLE t (c1 int);
+REINDEX TABLE CONCURRENTLY t;
+psql:<REPRO>:4: NOTICE:  table "t" has no indexes that can be reindexed concurrently
+psql:<REPRO>:4: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:4: error: connection to server was lost
+### server crashed or assertion failed

@@ -1,0 +1,35 @@
+CREATE ROLE rls_u;
+GRANT ALL ON SCHEMA public TO rls_u;
+SET ROLE rls_u;
+BEGIN;
+CREATE TABLE cc2 (a int, b text);
+INSERT INTO cc2 VALUES (1, 'Apple');
+ALTER TABLE cc2 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cc2 FORCE ROW LEVEL SECURITY;
+CREATE POLICY p1 ON cc2 AS PERMISSIVE
+  USING (ctid IN ('(0,1)', '(0,2)', '(4294967295,0)'));
+DECLARE c CURSOR FOR SELECT * FROM cc2;
+FETCH FROM c;
+ a |   b   
+---+-------
+ 1 | Apple
+(1 row)
+
+EXPLAIN (COSTS OFF)
+UPDATE cc2 SET b = 'Manzana' WHERE CURRENT OF c;
+                                 QUERY PLAN                                 
+----------------------------------------------------------------------------
+ Update on cc2
+   ->  Tid Scan on cc2
+         TID Cond: CURRENT OF c
+         Filter: (ctid = ANY ('{"(0,1)","(0,2)","(4294967295,0)"}'::tid[]))
+(4 rows)
+
+UPDATE cc2 SET b = 'Manzana' WHERE CURRENT OF c;
+SELECT ctid, * FROM cc2;
+ ctid  | a |    b    
+-------+---+---------
+ (0,2) | 1 | Manzana
+(1 row)
+
+ROLLBACK;

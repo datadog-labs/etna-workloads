@@ -1,0 +1,10 @@
+CREATE TABLE t (a int, b text, c int, d text);
+INSERT INTO t SELECT (CASE WHEN i%2=0 THEN NULL ELSE 0 END),(CASE WHEN i%2=0 THEN NULL ELSE 'x' END),(CASE WHEN i%2=0 THEN NULL ELSE 0 END),(CASE WHEN i%2=0 THEN NULL ELSE 'x' END) FROM generate_series(1,5000) i;
+CREATE STATISTICS s (mcv) ON a, b, c, d FROM t;
+ANALYZE t;
+EXPLAIN SELECT * FROM t WHERE a IS NULL AND (b = 'x' OR d = 'x');
+psql:<REPRO>:5: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:5: error: connection to server was lost
+### server crashed or assertion failed

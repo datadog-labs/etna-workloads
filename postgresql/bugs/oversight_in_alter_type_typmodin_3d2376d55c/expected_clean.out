@@ -1,0 +1,17 @@
+CREATE TYPE myvarchar;
+CREATE FUNCTION myvarcharin(cstring, oid, integer) RETURNS myvarchar LANGUAGE internal STABLE PARALLEL SAFE AS 'varcharin';
+psql:<REPRO>:2: NOTICE:  return type myvarchar is only a shell
+CREATE FUNCTION myvarcharout(myvarchar) RETURNS cstring LANGUAGE internal STABLE PARALLEL SAFE AS 'varcharout';
+psql:<REPRO>:3: NOTICE:  argument type myvarchar is only a shell
+LINE 1: CREATE FUNCTION myvarcharout(myvarchar) RETURNS cstring LANG...
+                                     ^
+CREATE TYPE myvarchar (input = myvarcharin, output = myvarcharout, alignment = integer, storage = main);
+ALTER TYPE myvarchar SET (receive = -);
+psql:<REPRO>:5: ERROR:  function -(internal) does not exist
+ALTER TYPE myvarchar SET (typmod_in = varchartypmodin, typmod_out = varchartypmodout);
+SELECT typmodin, typmodout FROM pg_type WHERE typname = '_myvarchar';
+    typmodin     |    typmodout     
+-----------------+------------------
+ varchartypmodin | varchartypmodout
+(1 row)
+

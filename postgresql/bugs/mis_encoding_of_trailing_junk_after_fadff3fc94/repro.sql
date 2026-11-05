@@ -1,0 +1,3 @@
+SELECT 123abc;
+SELECT 1.5abc;
+SELECT 0x1Gz;

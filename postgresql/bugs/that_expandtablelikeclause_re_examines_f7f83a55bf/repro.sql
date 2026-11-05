@@ -1,0 +1,7 @@
+CREATE TABLE t1 (a text PRIMARY KEY, b text);
+BEGIN;
+CREATE SCHEMA s;
+SET LOCAL search_path = s, public;
+CREATE TABLE t1 (LIKE t1 INCLUDING ALL);
+\d t1
+ROLLBACK;

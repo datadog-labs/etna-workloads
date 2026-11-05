@@ -1,0 +1,53 @@
+diff --git a/src/backend/replication/logical/worker.c b/src/backend/replication/logical/worker.c
+index bb40dbb45f7..1cc8d9f921e 100644
+--- a/src/backend/replication/logical/worker.c
++++ b/src/backend/replication/logical/worker.c
+@@ -895,25 +895,15 @@ slot_store_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
+  * need to materialize "slot" at the end to make it independent of "srcslot".
+  */
+ static void
+-slot_modify_data(TupleTableSlot *slot, TupleTableSlot *srcslot,
+-				 LogicalRepRelMapEntry *rel,
++slot_modify_data(TupleTableSlot *slot, LogicalRepRelMapEntry *rel,
+ 				 LogicalRepTupleData *tupleData)
+ {
+ 	int			natts = slot->tts_tupleDescriptor->natts;
+ 	int			i;
+ 
+-	/* We'll fill "slot" with a virtual tuple, so we must start with ... */
++	slot_getallattrs(slot);
+ 	ExecClearTuple(slot);
+ 
+-	/*
+-	 * Copy all the column data from srcslot, so that we'll have valid values
+-	 * for unreplaced columns.
+-	 */
+-	Assert(natts == srcslot->tts_tupleDescriptor->natts);
+-	slot_getallattrs(srcslot);
+-	memcpy(slot->tts_values, srcslot->tts_values, natts * sizeof(Datum));
+-	memcpy(slot->tts_isnull, srcslot->tts_isnull, natts * sizeof(bool));
+-
+ 	/* Call the "in" function for each replaced attribute */
+ 	Assert(natts == rel->attrmap->maplen);
+ 	for (i = 0; i < natts; i++)
+@@ -2727,7 +2717,8 @@ apply_handle_update_internal(ApplyExecutionData *edata,
+ 
+ 		/* Process and store remote tuple in the slot */
+ 		oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
+-		slot_modify_data(remoteslot, localslot, relmapentry, newtup);
++		ExecCopySlot(remoteslot, localslot);
++		slot_modify_data(remoteslot, relmapentry, newtup);
+ 		MemoryContextSwitchTo(oldctx);
+ 
+ 		EvalPlanQualSetSlot(&epqstate, remoteslot);
+@@ -3132,8 +3123,8 @@ apply_handle_tuple_routing(ApplyExecutionData *edata,
+ 				 * remoteslot_part.
+ 				 */
+ 				oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
+-				slot_modify_data(remoteslot_part, localslot, part_entry,
+-								 newtup);
++				ExecCopySlot(remoteslot_part, localslot);
++				slot_modify_data(remoteslot_part, part_entry, newtup);
+ 				MemoryContextSwitchTo(oldctx);
+ 
+ 				EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1, NIL);

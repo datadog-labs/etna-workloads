@@ -1,0 +1,58 @@
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..8ddf2fbbf35 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -1587,7 +1587,6 @@ innerrel_is_unique_ext(PlannerInfo *root,
+ 	ListCell   *lc;
+ 	UniqueRelInfo *uniqueRelInfo;
+ 	List	   *outer_exprs = NIL;
+-	bool		self_join = (extra_clauses != NULL);
+ 
+ 	/* Certainly can't prove uniqueness when there are no joinclauses */
+ 	if (restrictlist == NIL)
+@@ -1616,9 +1615,7 @@ innerrel_is_unique_ext(PlannerInfo *root,
+ 	{
+ 		uniqueRelInfo = (UniqueRelInfo *) lfirst(lc);
+ 
+-		if ((!self_join && bms_is_subset(uniqueRelInfo->outerrelids, outerrelids)) ||
+-			(self_join && bms_equal(uniqueRelInfo->outerrelids, outerrelids) &&
+-			 uniqueRelInfo->self_join))
++		if (bms_is_subset(uniqueRelInfo->outerrelids, outerrelids))
+ 		{
+ 			if (extra_clauses)
+ 				*extra_clauses = uniqueRelInfo->extra_clauses;
+@@ -1640,8 +1637,7 @@ innerrel_is_unique_ext(PlannerInfo *root,
+ 
+ 	/* No cached information, so try to make the proof. */
+ 	if (is_innerrel_unique_for(root, joinrelids, outerrelids, innerrel,
+-							   jointype, restrictlist,
+-							   self_join ? &outer_exprs : NULL))
++							   jointype, restrictlist, &outer_exprs))
+ 	{
+ 		/*
+ 		 * Cache the positive result for future probes, being sure to keep it
+@@ -1656,7 +1652,6 @@ innerrel_is_unique_ext(PlannerInfo *root,
+ 		old_context = MemoryContextSwitchTo(root->planner_cxt);
+ 		uniqueRelInfo = makeNode(UniqueRelInfo);
+ 		uniqueRelInfo->outerrelids = bms_copy(outerrelids);
+-		uniqueRelInfo->self_join = self_join;
+ 		uniqueRelInfo->extra_clauses = outer_exprs;
+ 		innerrel->unique_for_rels = lappend(innerrel->unique_for_rels,
+ 											uniqueRelInfo);
+diff --git a/src/include/nodes/pathnodes.h b/src/include/nodes/pathnodes.h
+index 6eef1450e04..17d7beb06ca 100644
+--- a/src/include/nodes/pathnodes.h
++++ b/src/include/nodes/pathnodes.h
+@@ -3591,12 +3591,6 @@ typedef struct UniqueRelInfo
+ 	 */
+ 	Relids		outerrelids;
+ 
+-	/*
+-	 * The relation in consideration is unique when considering only clauses
+-	 * suitable for self-join (passed split_selfjoin_quals()).
+-	 */
+-	bool		self_join;
+-
+ 	/*
+ 	 * Additional clauses from a baserestrictinfo list that were used to prove
+ 	 * the uniqueness.   We cache it for the self-join checking procedure: a

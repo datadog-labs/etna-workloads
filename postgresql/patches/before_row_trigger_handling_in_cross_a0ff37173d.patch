@@ -1,0 +1,31 @@
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index df99a204e0c..b053eabf64a 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -1594,7 +1594,7 @@ ExecDelete(ModifyTableContext *context,
+ 	 * done if it says we are.
+ 	 */
+ 	if (!ExecDeletePrologue(context, resultRelInfo, tupleid, oldtuple,
+-							epqreturnslot, tmresult))
++							epqreturnslot, NULL))
+ 		return NULL;
+ 
+ 	/* INSTEAD OF ROW DELETE Triggers */
+@@ -2030,7 +2030,7 @@ ExecCrossPartitionUpdate(ModifyTableContext *context,
+ 		 * action entirely).
+ 		 */
+ 		if (mtstate->operation == CMD_MERGE)
+-			return *tmresult == TM_Ok;
++			return false;
+ 		else if (TupIsNull(epqslot))
+ 			return true;
+ 		else
+@@ -2272,7 +2272,7 @@ lreplace:
+ 		 * here; instead let it handle that on its own rules.
+ 		 */
+ 		if (context->mtstate->operation == CMD_MERGE)
+-			return result;
++			return TM_Updated;
+ 
+ 		/*
+ 		 * ExecCrossPartitionUpdate installed an updated version of the new

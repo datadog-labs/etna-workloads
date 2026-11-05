@@ -1,0 +1,9 @@
+CREATE TABLE pk (a int PRIMARY KEY) PARTITION BY LIST (a);
+CREATE TABLE pk1 PARTITION OF pk FOR VALUES IN (1,2);
+CREATE TABLE pk3 PARTITION OF pk FOR VALUES IN (3,4);
+CREATE TABLE fk (a int REFERENCES pk ON UPDATE NO ACTION);
+INSERT INTO pk VALUES (1);
+INSERT INTO fk VALUES (1);
+UPDATE pk SET a = 3 WHERE a = 1;
+psql:<REPRO>:7: ERROR:  update or delete on table "pk" violates foreign key constraint "fk_a_fkey" on table "fk"
+DETAIL:  Key (a)=(1) is still referenced from table "fk".

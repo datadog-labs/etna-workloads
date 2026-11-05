@@ -1,0 +1,2 @@
+with cte as materialized (select s from generate_series(1,5) s)
+select from cte union select from cte;

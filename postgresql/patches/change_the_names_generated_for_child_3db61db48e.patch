@@ -1,0 +1,52 @@
+diff --git a/src/backend/catalog/pg_constraint.c b/src/backend/catalog/pg_constraint.c
+index d3fcfa1f6ba..a79783584ef 100644
+--- a/src/backend/catalog/pg_constraint.c
++++ b/src/backend/catalog/pg_constraint.c
+@@ -498,8 +498,6 @@ ConstraintNameExists(const char *conname, Oid namespaceid)
+  * name1, name2, and label are used the same way as for makeObjectName(),
+  * except that the label can't be NULL; digits will be appended to the label
+  * if needed to create a name that is unique within the specified namespace.
+- * If the given label is empty, we only consider names that include at least
+- * one added digit.
+  *
+  * 'others' can be a list of string names already chosen within the current
+  * command (but not yet reflected into the catalogs); we will not choose
+@@ -528,11 +526,8 @@ ChooseConstraintName(const char *name1, const char *name2,
+ 
+ 	conDesc = table_open(ConstraintRelationId, AccessShareLock);
+ 
+-	/* try the unmodified label first, unless it's empty */
+-	if (label[0] != '\0')
+-		strlcpy(modlabel, label, sizeof(modlabel));
+-	else
+-		snprintf(modlabel, sizeof(modlabel), "%s%d", label, ++pass);
++	/* try the unmodified label first */
++	strlcpy(modlabel, label, sizeof(modlabel));
+ 
+ 	for (;;)
+ 	{
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..ebb35420523 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -10757,16 +10757,14 @@ addFkConstraint(addFkConstraintSides fkside,
+ 
+ 	/*
+ 	 * Caller supplies us with a constraint name; however, it may be used in
+-	 * this partition, so come up with a different one in that case.  Unless
+-	 * truncation to NAMEDATALEN dictates otherwise, the new name will be the
+-	 * supplied name with an underscore and digit(s) appended.
++	 * this partition, so come up with a different one in that case.
+ 	 */
+ 	if (ConstraintNameIsUsed(CONSTRAINT_RELATION,
+ 							 RelationGetRelid(rel),
+ 							 constraintname))
+-		conname = ChooseConstraintName(constraintname,
+-									   NULL,
+-									   "",
++		conname = ChooseConstraintName(RelationGetRelationName(rel),
++									   ChooseForeignKeyConstraintNameAddition(fkconstraint->fk_attrs),
++									   "fkey",
+ 									   RelationGetNamespace(rel), NIL);
+ 	else
+ 		conname = constraintname;

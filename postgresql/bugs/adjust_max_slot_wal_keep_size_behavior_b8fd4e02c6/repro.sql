@@ -1,0 +1,10 @@
+select pg_create_physical_replication_slot('s', true);
+create table t(a int);
+select pg_switch_wal() is not null;
+select pg_switch_wal() is not null;
+select pg_switch_wal() is not null;
+select pg_switch_wal() is not null;
+alter system set max_slot_wal_keep_size = '16MB';
+select pg_reload_conf();
+select pg_sleep(1);
+select slot_name, wal_status from pg_replication_slots;

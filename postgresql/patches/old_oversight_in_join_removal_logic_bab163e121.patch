@@ -1,0 +1,26 @@
+diff --git a/src/backend/optimizer/plan/analyzejoins.c b/src/backend/optimizer/plan/analyzejoins.c
+index 4d19204da0a..6ea2cf1650c 100644
+--- a/src/backend/optimizer/plan/analyzejoins.c
++++ b/src/backend/optimizer/plan/analyzejoins.c
+@@ -449,21 +449,6 @@ remove_rel_from_query(PlannerInfo *root, RelOptInfo *rel,
+ 		PlaceHolderInfo *phinfo = (PlaceHolderInfo *) lfirst(l);
+ 
+ 		Assert(sjinfo == NULL || !bms_is_member(relid, phinfo->ph_lateral));
+-		if (sjinfo != NULL &&
+-			bms_is_subset(phinfo->ph_needed, joinrelids) &&
+-			bms_is_member(relid, phinfo->ph_eval_at) &&
+-			!bms_is_member(sjinfo->ojrelid, phinfo->ph_eval_at))
+-		{
+-			/*
+-			 * This code shouldn't be executed if one relation is substituted
+-			 * with another: in this case, the placeholder may be employed in
+-			 * a filter inside the scan node the SJE removes.
+-			 */
+-			root->placeholder_list = foreach_delete_current(root->placeholder_list,
+-															l);
+-			root->placeholder_array[phinfo->phid] = NULL;
+-		}
+-		else
+ 		{
+ 			PlaceHolderVar *phv = phinfo->ph_var;
+ 

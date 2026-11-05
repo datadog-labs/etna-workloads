@@ -1,0 +1,43 @@
+diff --git a/src/backend/optimizer/path/allpaths.c b/src/backend/optimizer/path/allpaths.c
+index b53722036cd..53c3b51d4e4 100644
+--- a/src/backend/optimizer/path/allpaths.c
++++ b/src/backend/optimizer/path/allpaths.c
+@@ -1366,7 +1366,7 @@ add_paths_to_append_rel(PlannerInfo *root, RelOptInfo *rel,
+ 			accumulate_append_subpath(childrel->cheapest_total_path,
+ 									  &subpaths, NULL);
+ 		else
+-			subpaths_valid = false;
++			elog(ERROR, "LATERAL within an append relation is not supported yet");
+ 
+ 		/*
+ 		 * When the planner is considering cheap startup plans, we'll also
+diff --git a/src/backend/optimizer/prep/prepjointree.c b/src/backend/optimizer/prep/prepjointree.c
+index b150a933aad..9791f6b9285 100644
+--- a/src/backend/optimizer/prep/prepjointree.c
++++ b/src/backend/optimizer/prep/prepjointree.c
+@@ -1656,25 +1656,6 @@ pull_up_simple_union_all(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
+ 	 */
+ 	IncrementVarSublevelsUp_rtable(rtable, -1, 1);
+ 
+-	/*
+-	 * If the UNION ALL subquery had a LATERAL marker, propagate that to all
+-	 * its children.  The individual children might or might not contain any
+-	 * actual lateral cross-references, but we have to mark the pulled-up
+-	 * child RTEs so that later planner stages will check for such.
+-	 */
+-	if (rte->lateral)
+-	{
+-		ListCell   *rt;
+-
+-		foreach(rt, rtable)
+-		{
+-			RangeTblEntry *child_rte = (RangeTblEntry *) lfirst(rt);
+-
+-			Assert(child_rte->rtekind == RTE_SUBQUERY);
+-			child_rte->lateral = true;
+-		}
+-	}
+-
+ 	/*
+ 	 * Append child RTEs (and their perminfos) to parent rtable.
+ 	 */

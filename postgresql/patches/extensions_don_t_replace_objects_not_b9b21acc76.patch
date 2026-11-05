@@ -1,0 +1,445 @@
+diff --git a/src/backend/catalog/pg_collation.c b/src/backend/catalog/pg_collation.c
+index 469635b3580..cd2c58929ce 100644
+--- a/src/backend/catalog/pg_collation.c
++++ b/src/backend/catalog/pg_collation.c
+@@ -76,25 +76,15 @@ CollationCreate(const char *collname, Oid collnamespace,
+ 	 * friendlier error message.  The unique index provides a backstop against
+ 	 * race conditions.
+ 	 */
+-	oid = GetSysCacheOid3(COLLNAMEENCNSP,
+-						  Anum_pg_collation_oid,
+-						  PointerGetDatum(collname),
+-						  Int32GetDatum(collencoding),
+-						  ObjectIdGetDatum(collnamespace));
+-	if (OidIsValid(oid))
++	if (SearchSysCacheExists3(COLLNAMEENCNSP,
++							  PointerGetDatum(collname),
++							  Int32GetDatum(collencoding),
++							  ObjectIdGetDatum(collnamespace)))
+ 	{
+ 		if (quiet)
+ 			return InvalidOid;
+ 		else if (if_not_exists)
+ 		{
+-			/*
+-			 * If we are in an extension script, insist that the pre-existing
+-			 * object be a member of the extension, to avoid security risks.
+-			 */
+-			ObjectAddressSet(myself, CollationRelationId, oid);
+-			checkMembershipInCurrentExtension(&myself);
+-
+-			/* OK to skip */
+ 			ereport(NOTICE,
+ 					(errcode(ERRCODE_DUPLICATE_OBJECT),
+ 					 collencoding == -1
+@@ -124,19 +114,16 @@ CollationCreate(const char *collname, Oid collnamespace,
+ 	 * so we take a ShareRowExclusiveLock earlier, to protect against
+ 	 * concurrent changes fooling this check.
+ 	 */
+-	if (collencoding == -1)
+-		oid = GetSysCacheOid3(COLLNAMEENCNSP,
+-							  Anum_pg_collation_oid,
+-							  PointerGetDatum(collname),
+-							  Int32GetDatum(GetDatabaseEncoding()),
+-							  ObjectIdGetDatum(collnamespace));
+-	else
+-		oid = GetSysCacheOid3(COLLNAMEENCNSP,
+-							  Anum_pg_collation_oid,
+-							  PointerGetDatum(collname),
+-							  Int32GetDatum(-1),
+-							  ObjectIdGetDatum(collnamespace));
+-	if (OidIsValid(oid))
++	if ((collencoding == -1 &&
++		 SearchSysCacheExists3(COLLNAMEENCNSP,
++							   PointerGetDatum(collname),
++							   Int32GetDatum(GetDatabaseEncoding()),
++							   ObjectIdGetDatum(collnamespace))) ||
++		(collencoding != -1 &&
++		 SearchSysCacheExists3(COLLNAMEENCNSP,
++							   PointerGetDatum(collname),
++							   Int32GetDatum(-1),
++							   ObjectIdGetDatum(collnamespace))))
+ 	{
+ 		if (quiet)
+ 		{
+@@ -145,14 +132,6 @@ CollationCreate(const char *collname, Oid collnamespace,
+ 		}
+ 		else if (if_not_exists)
+ 		{
+-			/*
+-			 * If we are in an extension script, insist that the pre-existing
+-			 * object be a member of the extension, to avoid security risks.
+-			 */
+-			ObjectAddressSet(myself, CollationRelationId, oid);
+-			checkMembershipInCurrentExtension(&myself);
+-
+-			/* OK to skip */
+ 			table_close(rel, NoLock);
+ 			ereport(NOTICE,
+ 					(errcode(ERRCODE_DUPLICATE_OBJECT),
+diff --git a/src/backend/catalog/pg_depend.c b/src/backend/catalog/pg_depend.c
+index 48f0ec7ed27..bc51df63b5c 100644
+--- a/src/backend/catalog/pg_depend.c
++++ b/src/backend/catalog/pg_depend.c
+@@ -184,23 +184,22 @@ recordMultipleDependencies(const ObjectAddress *depender,
+ 
+ /*
+  * If we are executing a CREATE EXTENSION operation, mark the given object
+- * as being a member of the extension, or check that it already is one.
+- * Otherwise, do nothing.
++ * as being a member of the extension.  Otherwise, do nothing.
+  *
+  * This must be called during creation of any user-definable object type
+  * that could be a member of an extension.
+  *
+- * isReplace must be true if the object already existed, and false if it is
+- * newly created.  In the former case we insist that it already be a member
+- * of the current extension.  In the latter case we can skip checking whether
+- * it is already a member of any extension.
++ * If isReplace is true, the object already existed (or might have already
++ * existed), so we must check for a pre-existing extension membership entry.
++ * Passing false is a guarantee that the object is newly created, and so
++ * could not already be a member of any extension.
+  *
+  * Note: isReplace = true is typically used when updating an object in
+- * CREATE OR REPLACE and similar commands.  We used to allow the target
+- * object to not already be an extension member, instead silently absorbing
+- * it into the current extension.  However, this was both error-prone
+- * (extensions might accidentally overwrite free-standing objects) and
+- * a security hazard (since the object would retain its previous ownership).
++ * CREATE OR REPLACE and similar commands.  The net effect is that if an
++ * extension script uses such a command on a pre-existing free-standing
++ * object, the object will be absorbed into the extension.  If the object
++ * is already a member of some other extension, the command will fail.
++ * This behavior is desirable for cases such as replacing a shell type.
+  */
+ void
+ recordDependencyOnCurrentExtension(const ObjectAddress *object,
+@@ -218,12 +217,6 @@ recordDependencyOnCurrentExtension(const ObjectAddress *object,
+ 		{
+ 			Oid			oldext;
+ 
+-			/*
+-			 * Side note: these catalog lookups are safe only because the
+-			 * object is a pre-existing one.  In the not-isReplace case, the
+-			 * caller has most likely not yet done a CommandCounterIncrement
+-			 * that would make the new object visible.
+-			 */
+ 			oldext = getExtensionOfObject(object->classId, object->objectId);
+ 			if (OidIsValid(oldext))
+ 			{
+@@ -237,13 +230,6 @@ recordDependencyOnCurrentExtension(const ObjectAddress *object,
+ 								getObjectDescription(object, false),
+ 								get_extension_name(oldext))));
+ 			}
+-			/* It's a free-standing object, so reject */
+-			ereport(ERROR,
+-					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+-					 errmsg("%s is not a member of extension \"%s\"",
+-							getObjectDescription(object, false),
+-							get_extension_name(CurrentExtensionObject)),
+-					 errdetail("An extension is not allowed to replace an object that it does not own.")));
+ 		}
+ 
+ 		/* OK, record it as a member of CurrentExtensionObject */
+@@ -255,49 +241,6 @@ recordDependencyOnCurrentExtension(const ObjectAddress *object,
+ 	}
+ }
+ 
+-/*
+- * If we are executing a CREATE EXTENSION operation, check that the given
+- * object is a member of the extension, and throw an error if it isn't.
+- * Otherwise, do nothing.
+- *
+- * This must be called whenever a CREATE IF NOT EXISTS operation (for an
+- * object type that can be an extension member) has found that an object of
+- * the desired name already exists.  It is insecure for an extension to use
+- * IF NOT EXISTS except when the conflicting object is already an extension
+- * member; otherwise a hostile user could substitute an object with arbitrary
+- * properties.
+- */
+-void
+-checkMembershipInCurrentExtension(const ObjectAddress *object)
+-{
+-	/*
+-	 * This is actually the same condition tested in
+-	 * recordDependencyOnCurrentExtension; but we want to issue a
+-	 * differently-worded error, and anyway it would be pretty confusing to
+-	 * call recordDependencyOnCurrentExtension in these circumstances.
+-	 */
+-
+-	/* Only whole objects can be extension members */
+-	Assert(object->objectSubId == 0);
+-
+-	if (creating_extension)
+-	{
+-		Oid			oldext;
+-
+-		oldext = getExtensionOfObject(object->classId, object->objectId);
+-		/* If already a member of this extension, OK */
+-		if (oldext == CurrentExtensionObject)
+-			return;
+-		/* Else complain */
+-		ereport(ERROR,
+-				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+-				 errmsg("%s is not a member of extension \"%s\"",
+-						getObjectDescription(object, false),
+-						get_extension_name(CurrentExtensionObject)),
+-				 errdetail("An extension may only use CREATE ... IF NOT EXISTS to skip object creation if the conflicting object is one that it already owns.")));
+-	}
+-}
+-
+ /*
+  * deleteDependencyRecordsFor -- delete all records with given depender
+  * classId/objectId.  Returns the number of records deleted.
+diff --git a/src/backend/catalog/pg_operator.c b/src/backend/catalog/pg_operator.c
+index bfcfa643464..2766dc9616a 100644
+--- a/src/backend/catalog/pg_operator.c
++++ b/src/backend/catalog/pg_operator.c
+@@ -939,7 +939,7 @@ makeOperatorDependencies(HeapTuple tuple,
+ 
+ 	/* Dependency on extension */
+ 	if (makeExtensionDep)
+-		recordDependencyOnCurrentExtension(&myself, isUpdate);
++		recordDependencyOnCurrentExtension(&myself, true);
+ 
+ 	return myself;
+ }
+diff --git a/src/backend/catalog/pg_type.c b/src/backend/catalog/pg_type.c
+index a59a7d5541c..35bf0a57f9f 100644
+--- a/src/backend/catalog/pg_type.c
++++ b/src/backend/catalog/pg_type.c
+@@ -550,11 +550,8 @@ TypeCreate(Oid newTypeOid,
+  * rebuild should be true if this is a pre-existing type.  We will remove
+  * existing dependencies and rebuild them from scratch.  This is needed for
+  * ALTER TYPE, and also when replacing a shell type.  We don't remove any
+- * existing extension dependency, though; hence, if makeExtensionDep is also
+- * true and we're in an extension script, an error will occur unless the
+- * type already belongs to the current extension.  That's the behavior we
+- * want when replacing a shell type, which is the only case where both flags
+- * are true.
++ * existing extension dependency, though (hence, if makeExtensionDep is also
++ * true and the type belongs to some other extension, an error will occur).
+  *
+  * NB: Caller is responsible for ensuring the user has USAGE on all types
+  * defaultExpr depends on.
+diff --git a/src/backend/commands/createas.c b/src/backend/commands/createas.c
+index dfd2ab8e862..004107fca64 100644
+--- a/src/backend/commands/createas.c
++++ b/src/backend/commands/createas.c
+@@ -393,14 +393,11 @@ bool
+ CreateTableAsRelExists(CreateTableAsStmt *ctas)
+ {
+ 	Oid			nspid;
+-	Oid			oldrelid;
+-	ObjectAddress address;
+ 	IntoClause *into = ctas->into;
+ 
+ 	nspid = RangeVarGetCreationNamespace(into->rel);
+ 
+-	oldrelid = get_relname_relid(into->rel->relname, nspid);
+-	if (OidIsValid(oldrelid))
++	if (get_relname_relid(into->rel->relname, nspid))
+ 	{
+ 		if (!ctas->if_not_exists)
+ 			ereport(ERROR,
+@@ -408,16 +405,7 @@ CreateTableAsRelExists(CreateTableAsStmt *ctas)
+ 					 errmsg("relation \"%s\" already exists",
+ 							into->rel->relname)));
+ 
+-		/*
+-		 * The relation exists and IF NOT EXISTS has been specified.
+-		 *
+-		 * If we are in an extension script, insist that the pre-existing
+-		 * object be a member of the extension, to avoid security risks.
+-		 */
+-		ObjectAddressSet(address, RelationRelationId, oldrelid);
+-		checkMembershipInCurrentExtension(&address);
+-
+-		/* OK to skip */
++		/* The relation exists and IF NOT EXISTS has been specified */
+ 		ereport(NOTICE,
+ 				(errcode(ERRCODE_DUPLICATE_TABLE),
+ 				 errmsg("relation \"%s\" already exists, skipping",
+diff --git a/src/backend/commands/foreigncmds.c b/src/backend/commands/foreigncmds.c
+index d7ac1489a17..1f48aca366a 100644
+--- a/src/backend/commands/foreigncmds.c
++++ b/src/backend/commands/foreigncmds.c
+@@ -871,22 +871,13 @@ CreateForeignServer(CreateForeignServerStmt *stmt)
+ 	ownerId = GetUserId();
+ 
+ 	/*
+-	 * Check that there is no other foreign server by this name.  If there is
+-	 * one, do nothing if IF NOT EXISTS was specified.
++	 * Check that there is no other foreign server by this name. Do nothing if
++	 * IF NOT EXISTS was enforced.
+ 	 */
+-	srvId = get_foreign_server_oid(stmt->servername, true);
+-	if (OidIsValid(srvId))
++	if (GetForeignServerByName(stmt->servername, true) != NULL)
+ 	{
+ 		if (stmt->if_not_exists)
+ 		{
+-			/*
+-			 * If we are in an extension script, insist that the pre-existing
+-			 * object be a member of the extension, to avoid security risks.
+-			 */
+-			ObjectAddressSet(myself, ForeignServerRelationId, srvId);
+-			checkMembershipInCurrentExtension(&myself);
+-
+-			/* OK to skip */
+ 			ereport(NOTICE,
+ 					(errcode(ERRCODE_DUPLICATE_OBJECT),
+ 					 errmsg("server \"%s\" already exists, skipping",
+@@ -1151,10 +1142,6 @@ CreateUserMapping(CreateUserMappingStmt *stmt)
+ 	{
+ 		if (stmt->if_not_exists)
+ 		{
+-			/*
+-			 * Since user mappings aren't members of extensions (see comments
+-			 * below), no need for checkMembershipInCurrentExtension here.
+-			 */
+ 			ereport(NOTICE,
+ 					(errcode(ERRCODE_DUPLICATE_OBJECT),
+ 					 errmsg("user mapping for \"%s\" already exists for server \"%s\", skipping",
+diff --git a/src/backend/commands/schemacmds.c b/src/backend/commands/schemacmds.c
+index 546160f0941..1688f3041d0 100644
+--- a/src/backend/commands/schemacmds.c
++++ b/src/backend/commands/schemacmds.c
+@@ -116,25 +116,14 @@ CreateSchemaCommand(CreateSchemaStmt *stmt, const char *queryString,
+ 	 * the permissions checks, but since CREATE TABLE IF NOT EXISTS makes its
+ 	 * creation-permission check first, we do likewise.
+ 	 */
+-	if (stmt->if_not_exists)
++	if (stmt->if_not_exists &&
++		SearchSysCacheExists1(NAMESPACENAME, PointerGetDatum(schemaName)))
+ 	{
+-		namespaceId = get_namespace_oid(schemaName, true);
+-		if (OidIsValid(namespaceId))
+-		{
+-			/*
+-			 * If we are in an extension script, insist that the pre-existing
+-			 * object be a member of the extension, to avoid security risks.
+-			 */
+-			ObjectAddressSet(address, NamespaceRelationId, namespaceId);
+-			checkMembershipInCurrentExtension(&address);
+-
+-			/* OK to skip */
+-			ereport(NOTICE,
+-					(errcode(ERRCODE_DUPLICATE_SCHEMA),
+-					 errmsg("schema \"%s\" already exists, skipping",
+-							schemaName)));
+-			return InvalidOid;
+-		}
++		ereport(NOTICE,
++				(errcode(ERRCODE_DUPLICATE_SCHEMA),
++				 errmsg("schema \"%s\" already exists, skipping",
++						schemaName)));
++		return InvalidOid;
+ 	}
+ 
+ 	/*
+diff --git a/src/backend/commands/sequence.c b/src/backend/commands/sequence.c
+index c1ad656397a..2f669edc530 100644
+--- a/src/backend/commands/sequence.c
++++ b/src/backend/commands/sequence.c
+@@ -146,14 +146,6 @@ DefineSequence(ParseState *pstate, CreateSeqStmt *seq)
+ 		RangeVarGetAndCheckCreationNamespace(seq->sequence, NoLock, &seqoid);
+ 		if (OidIsValid(seqoid))
+ 		{
+-			/*
+-			 * If we are in an extension script, insist that the pre-existing
+-			 * object be a member of the extension, to avoid security risks.
+-			 */
+-			ObjectAddressSet(address, RelationRelationId, seqoid);
+-			checkMembershipInCurrentExtension(&address);
+-
+-			/* OK to skip */
+ 			ereport(NOTICE,
+ 					(errcode(ERRCODE_DUPLICATE_TABLE),
+ 					 errmsg("relation \"%s\" already exists, skipping",
+diff --git a/src/backend/commands/statscmds.c b/src/backend/commands/statscmds.c
+index 536c164caf2..18b04080c7e 100644
+--- a/src/backend/commands/statscmds.c
++++ b/src/backend/commands/statscmds.c
+@@ -195,10 +195,6 @@ CreateStatistics(List *relids, CreateStatsStmt *stmt, bool check_rights)
+ 	{
+ 		if (stmt->if_not_exists)
+ 		{
+-			/*
+-			 * Since stats objects aren't members of extensions (see comments
+-			 * below), no need for checkMembershipInCurrentExtension here.
+-			 */
+ 			ereport(NOTICE,
+ 					(errcode(ERRCODE_DUPLICATE_OBJECT),
+ 					 errmsg("statistics object \"%s\" already exists, skipping",
+diff --git a/src/backend/commands/view.c b/src/backend/commands/view.c
+index 6f0301555e0..43bd35eff54 100644
+--- a/src/backend/commands/view.c
++++ b/src/backend/commands/view.c
+@@ -184,7 +184,7 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
+ 		CommandCounterIncrement();
+ 
+ 		/*
+-		 * Update the view's options.
++		 * Finally update the view options.
+ 		 *
+ 		 * The new options list replaces the existing options list, even if
+ 		 * it's empty.
+@@ -197,22 +197,8 @@ DefineVirtualRelation(RangeVar *relation, List *tlist, bool replace,
+ 		/* EventTriggerAlterTableStart called by ProcessUtilitySlow */
+ 		AlterTableInternal(viewOid, atcmds, true);
+ 
+-		/*
+-		 * There is very little to do here to update the view's dependencies.
+-		 * Most view-level dependency relationships, such as those on the
+-		 * owner, schema, and associated composite type, aren't changing.
+-		 * Because we don't allow changing type or collation of an existing
+-		 * view column, those dependencies of the existing columns don't
+-		 * change either, while the AT_AddColumnToView machinery took care of
+-		 * adding such dependencies for new view columns.  The dependencies of
+-		 * the view's query could have changed arbitrarily, but that was dealt
+-		 * with inside StoreViewQuery.  What remains is only to check that
+-		 * view replacement is allowed when we're creating an extension.
+-		 */
+ 		ObjectAddressSet(address, RelationRelationId, viewOid);
+ 
+-		recordDependencyOnCurrentExtension(&address, true);
+-
+ 		/*
+ 		 * Seems okay, so return the OID of the pre-existing view.
+ 		 */
+diff --git a/src/backend/parser/parse_utilcmd.c b/src/backend/parser/parse_utilcmd.c
+index cacb1379e97..14c952832c1 100644
+--- a/src/backend/parser/parse_utilcmd.c
++++ b/src/backend/parser/parse_utilcmd.c
+@@ -195,16 +195,6 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
+ 	 */
+ 	if (stmt->if_not_exists && OidIsValid(existing_relid))
+ 	{
+-		/*
+-		 * If we are in an extension script, insist that the pre-existing
+-		 * object be a member of the extension, to avoid security risks.
+-		 */
+-		ObjectAddress address;
+-
+-		ObjectAddressSet(address, RelationRelationId, existing_relid);
+-		checkMembershipInCurrentExtension(&address);
+-
+-		/* OK to skip */
+ 		ereport(NOTICE,
+ 				(errcode(ERRCODE_DUPLICATE_TABLE),
+ 				 errmsg("relation \"%s\" already exists, skipping",
+diff --git a/src/include/catalog/dependency.h b/src/include/catalog/dependency.h
+index ddcd977f355..e447994e14b 100644
+--- a/src/include/catalog/dependency.h
++++ b/src/include/catalog/dependency.h
+@@ -154,8 +154,6 @@ extern void recordMultipleDependencies(const ObjectAddress *depender,
+ extern void recordDependencyOnCurrentExtension(const ObjectAddress *object,
+ 											   bool isReplace);
+ 
+-extern void checkMembershipInCurrentExtension(const ObjectAddress *object);
+-
+ extern long deleteDependencyRecordsFor(Oid classId, Oid objectId,
+ 									   bool skipExtensionDeps);
+ 

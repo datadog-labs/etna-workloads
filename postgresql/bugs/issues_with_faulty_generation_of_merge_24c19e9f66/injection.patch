@@ -1,0 +1,46 @@
+diff --git a/src/backend/optimizer/path/pathkeys.c b/src/backend/optimizer/path/pathkeys.c
+index 8b04d40d36d..5d6de997c21 100644
+--- a/src/backend/optimizer/path/pathkeys.c
++++ b/src/backend/optimizer/path/pathkeys.c
+@@ -1257,21 +1257,7 @@ find_var_for_subquery_tle(RelOptInfo *rel, TargetEntry *tle)
+ 	if (tle->resjunk)
+ 		return NULL;
+ 
+-	/* Search the rel's targetlist to see what it will return */
+-	foreach(lc, rel->reltarget->exprs)
+-	{
+-		Var		   *var = (Var *) lfirst(lc);
+-
+-		/* Ignore placeholders */
+-		if (!IsA(var, Var))
+-			continue;
+-		Assert(var->varno == rel->relid);
+-
+-		/* If we find a Var referencing this TLE, we're good */
+-		if (var->varattno == tle->resno)
+-			return copyObject(var); /* Make a copy for safety */
+-	}
+-	return NULL;
++	return makeVarFromTargetEntry(rel->relid, tle);
+ }
+ 
+ /*
+diff --git a/src/backend/optimizer/plan/createplan.c b/src/backend/optimizer/plan/createplan.c
+index 10b7358c28b..b4261b00bd5 100644
+--- a/src/backend/optimizer/plan/createplan.c
++++ b/src/backend/optimizer/plan/createplan.c
+@@ -1568,13 +1568,7 @@ create_merge_append_plan(PlannerInfo *root, MergeAppendPath *best_path,
+ 	 * produce either the exact tlist or a narrow tlist, we should get rid of
+ 	 * the sort columns again.  We must inject a projection node to do so.
+ 	 */
+-	if (tlist_was_changed && (flags & (CP_EXACT_TLIST | CP_SMALL_TLIST)))
+-	{
+-		tlist = list_copy_head(plan->targetlist, orig_tlist_length);
+-		return inject_projection_plan(plan, tlist, plan->parallel_safe);
+-	}
+-	else
+-		return plan;
++	return plan;
+ }
+ 
+ /*

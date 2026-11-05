@@ -1,0 +1,35 @@
+diff --git a/src/backend/optimizer/plan/subselect.c b/src/backend/optimizer/plan/subselect.c
+index 23eace9dbc4..8f9cb2277a7 100644
+--- a/src/backend/optimizer/plan/subselect.c
++++ b/src/backend/optimizer/plan/subselect.c
+@@ -1688,30 +1688,6 @@ simplify_EXISTS_query(PlannerInfo *root, Query *query)
+ 	query->sortClause = NIL;
+ 	query->hasDistinctOn = false;
+ 
+-	/*
+-	 * Since we have thrown away the GROUP BY clauses, we'd better get rid of
+-	 * the RTE_GROUP RTE and clear the hasGroupRTE flag.  To safely get rid of
+-	 * the RTE_GROUP RTE without shifting the index of any subsequent RTE in
+-	 * the rtable, we convert the RTE to be RTE_RESULT type in-place, and zero
+-	 * out RTE_GROUP-specific fields.
+-	 */
+-	if (query->hasGroupRTE)
+-	{
+-		foreach_node(RangeTblEntry, rte, query->rtable)
+-		{
+-			if (rte->rtekind == RTE_GROUP)
+-			{
+-				rte->rtekind = RTE_RESULT;
+-				rte->groupexprs = NIL;
+-
+-				/* A query should only have one RTE_GROUP, so we can stop. */
+-				break;
+-			}
+-		}
+-
+-		query->hasGroupRTE = false;
+-	}
+-
+ 	return true;
+ }
+ 

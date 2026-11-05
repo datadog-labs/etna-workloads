@@ -1,0 +1,10 @@
+CREATE FUNCTION vol() RETURNS bigint LANGUAGE plpgsql VOLATILE AS $$ BEGIN RETURN 0; END $$;
+CREATE TABLE parted_si (id int not null, data text not null, rand bigint not null default vol()) PARTITION BY LIST((id % 2));
+CREATE TABLE parted_si_p_even PARTITION OF parted_si FOR VALUES IN (0);
+CREATE TABLE parted_si_p_odd PARTITION OF parted_si FOR VALUES IN (1);
+CREATE TABLE src AS SELECT g AS id, (g*7919)::text AS data FROM generate_series(10000,1,-1) g;
+\o /dev/null
+COPY src TO PROGRAM 'cat > repro_data.tmp';
+\o
+COPY parted_si(id, data) FROM PROGRAM 'cat repro_data.tmp';
+SELECT tableoid::regclass, id % 2 = 0 is_even, count(*) from parted_si GROUP BY 1, 2 ORDER BY 1;

@@ -1,0 +1,39 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..02bdc95e371 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -212,7 +212,7 @@ index_check_primary_key(Relation heapRel,
+ 	 * have faith that the parser rejected multiple pkey clauses; and CREATE
+ 	 * INDEX doesn't have a way to say PRIMARY KEY, so it's no problem either.
+ 	 */
+-	if ((is_alter_table || heapRel->rd_rel->relispartition) &&
++	if (is_alter_table &&
+ 		relationHasPrimaryKey(heapRel))
+ 	{
+ 		ereport(ERROR,
+diff --git a/src/backend/commands/indexcmds.c b/src/backend/commands/indexcmds.c
+index 5cd9c3932d6..0ddbd5988e9 100644
+--- a/src/backend/commands/indexcmds.c
++++ b/src/backend/commands/indexcmds.c
+@@ -1542,7 +1542,7 @@ DefineIndex(Oid tableId,
+ 									indexRelationId,	/* this is our child */
+ 									createdConstraintId,
+ 									-1,
+-									is_alter_table, check_rights,
++									false, check_rights,
+ 									check_not_in_use,
+ 									skip_build, quiet);
+ 					SetUserIdAndSecContext(child_save_userid,
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..e901f8fb1f9 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -20779,7 +20779,7 @@ AttachPartitionEnsureIndexes(List **wqueue, Relation rel, Relation attachrel)
+ 						RelationGetRelid(idxRel),
+ 						conOid,
+ 						-1,
+-						true, false, false, false, false);
++						false, false, false, false, false);
+ 		}
+ 
+ 		index_close(idxRel, AccessShareLock);

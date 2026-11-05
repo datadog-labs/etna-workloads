@@ -1,0 +1,10 @@
+create function g(i int) returns int language plpgsql immutable as $$ begin raise notice 'sp=%', current_setting('search_path'); return i; end $$;
+create table t(a int);
+insert into t values (1);
+create index on t (g(a));
+analyze t;
+create materialized view mv as select g(a) from t with no data;
+refresh materialized view mv;
+cluster t using t_g_idx;
+reindex table t;
+vacuum t;

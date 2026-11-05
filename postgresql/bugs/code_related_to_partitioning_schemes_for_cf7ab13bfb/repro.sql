@@ -1,0 +1,6 @@
+create table lp (a int, b int, c int) partition by list (a);
+create table lp1 partition of lp for values in (1) partition by list (c);
+create table lp11 partition of lp1 for values in (1);
+alter table lp drop column b;
+select * from lp;
+update lp set c = 1 where a = 1;

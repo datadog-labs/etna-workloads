@@ -1,0 +1,30 @@
+diff --git a/src/backend/regex/regexec.c b/src/backend/regex/regexec.c
+index 665aa31bd03..1961e85e643 100644
+--- a/src/backend/regex/regexec.c
++++ b/src/backend/regex/regexec.c
+@@ -629,18 +629,17 @@ cfindloop(struct vars *v,
+ 					return er;
+ 				}
+ 				/* Try next longer/shorter match with same begin point */
+-				if (shorter)
++				if ((shorter) ? end == estop : end == begin)
+ 				{
+-					if (end == estop)
+-						break;	/* no more, so try next begin point */
+-					estart = end + 1;
++					/* no point in trying again */
++					*coldp = cold;
++					return REG_NOMATCH;
+ 				}
++				/* go around and try again */
++				if (shorter)
++					estart = end + 1;
+ 				else
+-				{
+-					if (end == begin)
+-						break;	/* no more, so try next begin point */
+ 					estop = end - 1;
+-				}
+ 			}					/* end loop over endpoint positions */
+ 		}						/* end loop over beginning positions */
+ 

@@ -1,0 +1,36 @@
+diff --git a/src/backend/utils/adt/tsquery.c b/src/backend/utils/adt/tsquery.c
+index de899a600ae..aad03a59c68 100644
+--- a/src/backend/utils/adt/tsquery.c
++++ b/src/backend/utils/adt/tsquery.c
+@@ -476,9 +476,15 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
+ 				break;
+ 
+ 			case WAITOPERATOR:
+-				if (*state->buf == '\0')
++				if (t_iseq(state->buf, '"'))
+ 				{
+-					return PT_END;
++					/*
++					 * put implicit AND after an operand and handle this quote
++					 * in WAITOPERAND
++					 */
++					state->state = WAITOPERAND;
++					*operator = OP_AND;
++					return PT_OPR;
+ 				}
+ 				else if (parse_or_operator(state))
+ 				{
+@@ -486,11 +492,9 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
+ 					*operator = OP_OR;
+ 					return PT_OPR;
+ 				}
+-				else if (ISOPERATOR(state->buf))
++				else if (*state->buf == '\0')
+ 				{
+-					/* ignore other operators in this state too */
+-					state->buf++;
+-					continue;
++					return PT_END;
+ 				}
+ 				else if (!isspace((unsigned char) *state->buf))
+ 				{

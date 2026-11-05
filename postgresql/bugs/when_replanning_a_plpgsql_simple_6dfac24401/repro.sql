@@ -1,0 +1,8 @@
+create function simplesql() returns int language sql as $$select 2 + 2$$;
+create function simplecaller() returns int language plpgsql
+as $$ declare x int; begin x := simplesql(); return x; end$$;
+select simplecaller();
+drop function simplesql();
+create function simplesql() returns setof int language sql as $$select 22 + 22$$;
+select simplecaller();
+select simplecaller();

@@ -1,0 +1,77 @@
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index df99a204e0c..473f443ed52 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -3417,7 +3417,7 @@ lmerge_matched:
+ 							 * the tuple moved, and setting our current
+ 							 * resultRelInfo to that.
+ 							 */
+-							if (ItemPointerIndicatesMovedPartitions(tupleid))
++							if (ItemPointerIndicatesMovedPartitions(&context->tmfd.ctid))
+ 								ereport(ERROR,
+ 										(errcode(ERRCODE_T_R_SERIALIZATION_FAILURE),
+ 										 errmsg("tuple to be merged was already moved to another partition due to concurrent update")));
+@@ -3465,13 +3465,12 @@ lmerge_matched:
+ 									if (ItemPointerIsValid(&lockedtid))
+ 										UnlockTuple(resultRelInfo->ri_RelationDesc, &lockedtid,
+ 													InplaceUpdateTupleLock);
+-									LockTuple(resultRelInfo->ri_RelationDesc, tupleid,
++									LockTuple(resultRelInfo->ri_RelationDesc, &context->tmfd.ctid,
+ 											  InplaceUpdateTupleLock);
+-									lockedtid = *tupleid;
++									lockedtid = context->tmfd.ctid;
+ 								}
+-
+ 								if (!table_tuple_fetch_row_version(resultRelationDesc,
+-																   tupleid,
++																   &context->tmfd.ctid,
+ 																   SnapshotAny,
+ 																   resultRelInfo->ri_oldTupleSlot))
+ 									elog(ERROR, "failed to fetch the target tuple");
+diff --git a/src/include/access/tableam.h b/src/include/access/tableam.h
+index 9ecf8fa6027..25373aa4cae 100644
+--- a/src/include/access/tableam.h
++++ b/src/include/access/tableam.h
+@@ -121,9 +121,7 @@ typedef enum TU_UpdateIndexes
+ /*
+  * When table_tuple_update, table_tuple_delete, or table_tuple_lock fail
+  * because the target tuple is already outdated, they fill in this struct to
+- * provide information to the caller about what happened. When those functions
+- * succeed, the contents of this struct should not be relied upon, except for
+- * `traversed`, which may be set in both success and failure cases.
++ * provide information to the caller about what happened.
+  *
+  * ctid is the target's ctid link: it is the same as the target's TID if the
+  * target was deleted, or the location of the replacement tuple if the target
+@@ -139,9 +137,6 @@ typedef enum TU_UpdateIndexes
+  * tuple); otherwise cmax is zero.  (We make this restriction because
+  * HeapTupleHeaderGetCmax doesn't work for tuples outdated in other
+  * transactions.)
+- *
+- * traversed indicates if an update chain was followed in order to try to lock
+- * the target tuple.  (This may be set in both success and failure cases.)
+  */
+ typedef struct TM_FailureData
+ {
+@@ -1513,7 +1508,7 @@ table_tuple_update(Relation rel, ItemPointer otid, TupleTableSlot *slot,
+  *
+  * Input parameters:
+  *	relation: relation containing tuple (caller must hold suitable lock)
+- *	tid: TID of tuple to lock (updated if an update chain was followed)
++ *	tid: TID of tuple to lock
+  *	snapshot: snapshot to use for visibility determinations
+  *	cid: current command ID (used for visibility test, and stored into
+  *		tuple's cmax if lock is successful)
+@@ -1538,10 +1533,8 @@ table_tuple_update(Relation rel, ItemPointer otid, TupleTableSlot *slot,
+  *	TM_WouldBlock: lock couldn't be acquired and wait_policy is skip
+  *
+  * In the failure cases other than TM_Invisible and TM_Deleted, the routine
+- * fills *tmfd with the tuple's t_ctid, t_xmax, and, if possible, t_cmax.
+- * Additionally, in both success and failure cases, tmfd->traversed is set if
+- * an update chain was followed.  See comments for struct TM_FailureData for
+- * additional info.
++ * fills *tmfd with the tuple's t_ctid, t_xmax, and, if possible, t_cmax.  See
++ * comments for struct TM_FailureData for additional info.
+  */
+ static inline TM_Result
+ table_tuple_lock(Relation rel, ItemPointer tid, Snapshot snapshot,

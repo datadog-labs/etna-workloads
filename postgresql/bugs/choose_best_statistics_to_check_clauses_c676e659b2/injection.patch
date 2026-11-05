@@ -1,0 +1,48 @@
+diff --git a/src/backend/statistics/extended_stats.c b/src/backend/statistics/extended_stats.c
+index 03349baccfb..fd95b69684c 100644
+--- a/src/backend/statistics/extended_stats.c
++++ b/src/backend/statistics/extended_stats.c
+@@ -1256,12 +1256,13 @@ choose_best_statistics(List *stats, char requiredkind, bool inh,
+ 				continue;
+ 
+ 			/* ignore clauses that are not covered by this object */
+-			if (!bms_is_subset(clause_attnums[i], info->keys) ||
+-				!stat_covers_expressions(info, clause_exprs[i], &expr_idxs))
++			if (!stat_covers_expressions(info, clause_exprs[i], &expr_idxs))
+ 				continue;
+ 
+ 			/* record attnums and indexes of expressions covered */
+-			matched_attnums = bms_add_members(matched_attnums, clause_attnums[i]);
++			matched_attnums = bms_add_members(matched_attnums,
++											  bms_intersect(clause_attnums[i],
++															info->keys));
+ 			matched_exprs = bms_add_members(matched_exprs, expr_idxs);
+ 		}
+ 
+@@ -1710,6 +1711,7 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
+ 	List	  **list_exprs;		/* expressions matched to any statistic */
+ 	int			listidx;
+ 	Selectivity sel = (is_or) ? 0.0 : 1.0;
++	Bitmapset  *clauses_attnums = NULL;
+ 	RangeTblEntry *rte = planner_rt_fetch(rel->relid, root);
+ 
+ 	/* check if there's any stats that might be useful for us. */
+@@ -1745,6 +1747,7 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
+ 		{
+ 			list_attnums[listidx] = attnums;
+ 			list_exprs[listidx] = exprs;
++			clauses_attnums = bms_add_members(clauses_attnums, attnums);
+ 		}
+ 		else
+ 		{
+@@ -1755,6 +1758,10 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
+ 		listidx++;
+ 	}
+ 
++	/* We need at least two attributes for multivariate statistics. */
++	if (bms_membership(clauses_attnums) != BMS_MULTIPLE)
++		return sel;
++
+ 	/* apply as many extended statistics as possible */
+ 	while (true)
+ 	{

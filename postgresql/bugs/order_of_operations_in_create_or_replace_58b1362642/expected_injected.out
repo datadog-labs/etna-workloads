@@ -1,0 +1,13 @@
+CREATE TABLE t1 (a int, b text);
+CREATE VIEW v1 AS SELECT null::int AS a;
+CREATE OR REPLACE VIEW v1 AS SELECT * FROM t1 WHERE a > 0 WITH CHECK OPTION;
+psql:<REPRO>:3: ERROR:  WITH CHECK OPTION is supported only on automatically updatable views
+HINT:  Views that do not select from a single table or view are not automatically updatable.
+INSERT INTO v1 VALUES (1, 'ok');
+psql:<REPRO>:4: ERROR:  INSERT has more expressions than target columns
+LINE 1: INSERT INTO v1 VALUES (1, 'ok');
+                                  ^
+INSERT INTO v1 VALUES (-1, 'invalid');
+psql:<REPRO>:5: ERROR:  INSERT has more expressions than target columns
+LINE 1: INSERT INTO v1 VALUES (-1, 'invalid');
+                                   ^

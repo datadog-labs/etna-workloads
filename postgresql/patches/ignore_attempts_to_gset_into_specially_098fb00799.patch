@@ -1,0 +1,67 @@
+diff --git a/src/bin/psql/common.c b/src/bin/psql/common.c
+index 428f965c495..9cbf93ed4aa 100644
+--- a/src/bin/psql/common.c
++++ b/src/bin/psql/common.c
+@@ -827,13 +827,6 @@ StoreQueryTuple(const PGresult *result)
+ 			/* concatenate prefix and column name */
+ 			varname = psprintf("%s%s", pset.gset_prefix, colname);
+ 
+-			if (VariableHasHook(pset.vars, varname))
+-			{
+-				pg_log_warning("attempt to \\gset into specially treated variable \"%s\" ignored",
+-							   varname);
+-				continue;
+-			}
+-
+ 			if (!PQgetisnull(result, 0, i))
+ 				value = PQgetvalue(result, 0, i);
+ 			else
+diff --git a/src/bin/psql/variables.c b/src/bin/psql/variables.c
+index 07f5e3f6f2d..646d41b5c38 100644
+--- a/src/bin/psql/variables.c
++++ b/src/bin/psql/variables.c
+@@ -430,32 +430,6 @@ SetVariableHooks(VariableSpace space, const char *name,
+ 		(void) (*ahook) (current->value);
+ }
+ 
+-/*
+- * Return true iff the named variable has substitute and/or assign hook
+- * functions.
+- */
+-bool
+-VariableHasHook(VariableSpace space, const char *name)
+-{
+-	struct _variable *current;
+-
+-	Assert(space);
+-	Assert(name);
+-
+-	for (current = space->next; current; current = current->next)
+-	{
+-		int			cmp = strcmp(current->name, name);
+-
+-		if (cmp == 0)
+-			return (current->substitute_hook != NULL ||
+-					current->assign_hook != NULL);
+-		if (cmp > 0)
+-			break;				/* it's not there */
+-	}
+-
+-	return false;
+-}
+-
+ /*
+  * Convenience function to set a variable's value to "on".
+  */
+diff --git a/src/bin/psql/variables.h b/src/bin/psql/variables.h
+index df23ccb987d..9273a54e897 100644
+--- a/src/bin/psql/variables.h
++++ b/src/bin/psql/variables.h
+@@ -93,7 +93,6 @@ bool		DeleteVariable(VariableSpace space, const char *name);
+ void		SetVariableHooks(VariableSpace space, const char *name,
+ 							 VariableSubstituteHook shook,
+ 							 VariableAssignHook ahook);
+-bool		VariableHasHook(VariableSpace space, const char *name);
+ 
+ void		PsqlVarEnumError(const char *name, const char *value, const char *suggestions);
+ 

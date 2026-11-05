@@ -1,0 +1,25 @@
+SELECT 'seed' AS g, flags FROM (SELECT pg_settings_get_flags('transaction_isolation') AS flags) s;
+  g   |                 flags                 
+------+---------------------------------------
+ seed | {NO_RESET,NO_RESET_ALL,NOT_IN_SAMPLE}
+(1 row)
+
+BEGIN;
+SELECT 1;
+ ?column? 
+----------
+        1
+(1 row)
+
+RESET transaction_isolation;
+psql:<REPRO>:4: ERROR:  parameter "transaction_isolation" cannot be reset
+ROLLBACK;
+CREATE FUNCTION f() RETURNS int LANGUAGE sql SET transaction_read_only = on AS 'select 1';
+psql:<REPRO>:6: ERROR:  parameter "transaction_read_only" cannot be set locally in functions
+SELECT f();
+psql:<REPRO>:7: ERROR:  function f() does not exist
+LINE 1: SELECT f();
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+RESET seed;
+psql:<REPRO>:8: ERROR:  parameter "seed" cannot be reset

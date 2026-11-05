@@ -1,0 +1,38 @@
+diff --git a/src/backend/nodes/makefuncs.c b/src/backend/nodes/makefuncs.c
+index bc48966c5d1..e2d9e9be41a 100644
+--- a/src/backend/nodes/makefuncs.c
++++ b/src/backend/nodes/makefuncs.c
+@@ -988,8 +988,6 @@ makeJsonIsPredicate(Node *expr, JsonFormat *format, JsonValueType item_type,
+ {
+ 	JsonIsPredicate *n = makeNode(JsonIsPredicate);
+ 
+-	Assert(expr != NULL);
+-
+ 	n->expr = expr;
+ 	n->format = format;
+ 	n->item_type = item_type;
+diff --git a/src/backend/parser/parse_expr.c b/src/backend/parser/parse_expr.c
+index cf872ce79b5..188a35107c1 100644
+--- a/src/backend/parser/parse_expr.c
++++ b/src/backend/parser/parse_expr.c
+@@ -4088,20 +4088,10 @@ transformJsonParseArg(ParseState *pstate, Node *jsexpr, JsonFormat *format,
+ 
+ 		if (*exprtype == UNKNOWNOID || typcategory == TYPCATEGORY_STRING)
+ 		{
+-			int			location = exprLocation(expr);
+-
+ 			expr = coerce_to_target_type(pstate, (Node *) expr, *exprtype,
+ 										 TEXTOID, -1,
+ 										 COERCION_IMPLICIT,
+ 										 COERCE_IMPLICIT_CAST, -1);
+-			if (expr == NULL)
+-				ereport(ERROR,
+-						errcode(ERRCODE_CANNOT_COERCE),
+-						errmsg("cannot cast type %s to %s",
+-							   format_type_be(*exprtype),
+-							   format_type_be(TEXTOID)),
+-						parser_errposition(pstate, location));
+-
+ 			*exprtype = TEXTOID;
+ 		}
+ 

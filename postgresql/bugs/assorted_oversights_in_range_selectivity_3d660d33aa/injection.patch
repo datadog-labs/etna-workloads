@@ -1,0 +1,52 @@
+diff --git a/src/backend/utils/adt/rangetypes_selfuncs.c b/src/backend/utils/adt/rangetypes_selfuncs.c
+index d126abc5a82..901760b6047 100644
+--- a/src/backend/utils/adt/rangetypes_selfuncs.c
++++ b/src/backend/utils/adt/rangetypes_selfuncs.c
+@@ -290,8 +290,6 @@ calc_rangesel(TypeCacheEntry *typcache, VariableStatData *vardata,
+ 			case OID_RANGE_OVERLAPS_RIGHT_OP:
+ 			case OID_RANGE_LEFT_OP:
+ 			case OID_RANGE_RIGHT_OP:
+-				/* nothing is less than an empty range */
+-			case OID_RANGE_LESS_OP:
+ 				selec = 0.0;
+ 				break;
+ 
+@@ -299,21 +297,15 @@ calc_rangesel(TypeCacheEntry *typcache, VariableStatData *vardata,
+ 			case OID_RANGE_CONTAINED_OP:
+ 				/* only empty ranges are <= an empty range */
+ 			case OID_RANGE_LESS_EQUAL_OP:
++			case OID_RANGE_GREATER_EQUAL_OP:
+ 				selec = empty_frac;
+ 				break;
+ 
+ 				/* everything contains an empty range */
+ 			case OID_RANGE_CONTAINS_OP:
+-				/* everything is >= an empty range */
+-			case OID_RANGE_GREATER_EQUAL_OP:
+ 				selec = 1.0;
+ 				break;
+ 
+-				/* all non-empty ranges are > an empty range */
+-			case OID_RANGE_GREATER_OP:
+-				selec = 1.0 - empty_frac;
+-				break;
+-
+ 				/* an element cannot be empty */
+ 			case OID_RANGE_CONTAINS_ELEM_OP:
+ 			default:
+@@ -482,13 +474,13 @@ calc_hist_selectivity(TypeCacheEntry *typcache, VariableStatData *vardata,
+ 		case OID_RANGE_GREATER_OP:
+ 			hist_selec =
+ 				1 - calc_hist_selectivity_scalar(typcache, &const_lower,
+-												 hist_lower, nhist, false);
++												 hist_lower, nhist, true);
+ 			break;
+ 
+ 		case OID_RANGE_GREATER_EQUAL_OP:
+ 			hist_selec =
+ 				1 - calc_hist_selectivity_scalar(typcache, &const_lower,
+-												 hist_lower, nhist, true);
++												 hist_lower, nhist, false);
+ 			break;
+ 
+ 		case OID_RANGE_LEFT_OP:

@@ -1,0 +1,14 @@
+CREATE DATABASE regression_invalid;
+UPDATE pg_database SET datconnlimit = -2 WHERE datname = 'regression_invalid';
+CREATE DATABASE regression_invalid_template TEMPLATE regression_invalid;
+psql:<REPRO>:3: ERROR:  cannot use invalid database "regression_invalid" as template
+HINT:  Use DROP DATABASE to drop invalid databases.
+SELECT count(*) FROM pg_database WHERE datname = 'regression_invalid_template';
+ count 
+-------
+     0
+(1 row)
+
+\c regression_invalid
+psql:<REPRO>:5: error: \connect: connection to server on socket "<WORK>/.s.PGSQL.5432" failed: FATAL:  cannot connect to invalid database "regression_invalid"
+HINT:  Use DROP DATABASE to drop invalid databases.

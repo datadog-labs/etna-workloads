@@ -1,0 +1,100 @@
+diff --git a/src/backend/commands/copyfrom.c b/src/backend/commands/copyfrom.c
+index 12781963b4f..2f03e8d3839 100644
+--- a/src/backend/commands/copyfrom.c
++++ b/src/backend/commands/copyfrom.c
+@@ -27,6 +27,7 @@
+ #include "access/heapam.h"
+ #include "access/tableam.h"
+ #include "access/xact.h"
++#include "catalog/dependency.h"
+ #include "catalog/namespace.h"
+ #include "commands/copyapi.h"
+ #include "commands/copyfrom_internal.h"
+@@ -1779,8 +1780,18 @@ BeginCopyFrom(ParseState *pstate,
+ 			 !list_member_int(cstate->attnumlist, attnum)) &&
+ 			!att->attgenerated)
+ 		{
+-			Expr	   *defexpr = (Expr *) build_column_default(cstate->rel,
+-																attnum);
++			Expr	   *defexpr;
++
++			if (att->attidentity)
++			{
++				NextValueExpr *nve = makeNode(NextValueExpr);
++
++				nve->seqid = getIdentitySequence(cstate->rel, attnum, false);
++				nve->typeId = att->atttypid;
++				defexpr = (Expr *) nve;
++			}
++			else
++				defexpr = (Expr *) build_column_default(cstate->rel, attnum);
+ 
+ 			if (defexpr != NULL)
+ 			{
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..30808c84e98 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -7476,21 +7476,7 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
+ 		bool		has_domain_constraints;
+ 		bool		has_missing = false;
+ 
+-		/*
+-		 * For an identity column, we can't use build_column_default(),
+-		 * because the sequence ownership isn't set yet.  So do it manually.
+-		 */
+-		if (colDef->identity)
+-		{
+-			NextValueExpr *nve = makeNode(NextValueExpr);
+-
+-			nve->seqid = RangeVarGetRelid(colDef->identitySequence, NoLock, false);
+-			nve->typeId = attribute->atttypid;
+-
+-			defval = (Expr *) nve;
+-		}
+-		else
+-			defval = (Expr *) build_column_default(rel, attribute->attnum);
++		defval = (Expr *) build_column_default(rel, attribute->attnum);
+ 
+ 		/* Build CoerceToDomain(NULL) expression if needed */
+ 		has_domain_constraints = DomainHasConstraints(attribute->atttypid);
+diff --git a/src/backend/rewrite/rewriteHandler.c b/src/backend/rewrite/rewriteHandler.c
+index 62f54786be4..c8d476390a3 100644
+--- a/src/backend/rewrite/rewriteHandler.c
++++ b/src/backend/rewrite/rewriteHandler.c
+@@ -1033,7 +1033,17 @@ rewriteTargetListIU(List *targetList,
+ 		{
+ 			Node	   *new_expr;
+ 
+-			new_expr = build_column_default(target_relation, attrno);
++			if (att_tup->attidentity)
++			{
++				NextValueExpr *nve = makeNode(NextValueExpr);
++
++				nve->seqid = getIdentitySequence(target_relation, attrno, false);
++				nve->typeId = att_tup->atttypid;
++
++				new_expr = (Node *) nve;
++			}
++			else
++				new_expr = build_column_default(target_relation, attrno);
+ 
+ 			/*
+ 			 * If there is no default (ie, default is effectively NULL), we
+@@ -1269,16 +1279,6 @@ build_column_default(Relation rel, int attrno)
+ 	Node	   *expr = NULL;
+ 	Oid			exprtype;
+ 
+-	if (att_tup->attidentity)
+-	{
+-		NextValueExpr *nve = makeNode(NextValueExpr);
+-
+-		nve->seqid = getIdentitySequence(rel, attrno, false);
+-		nve->typeId = att_tup->atttypid;
+-
+-		return (Node *) nve;
+-	}
+-
+ 	/*
+ 	 * If relation has a default for this column, fetch that expression.
+ 	 */

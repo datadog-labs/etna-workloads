@@ -1,0 +1,27 @@
+create table cp (id int primary key, val int) partition by range (id);
+create table cpp (val int, id int not null);
+alter table cp attach partition cpp for values from (1) to (1000);
+create function ct4() returns trigger as
+$$begin raise exception 'BOOM!'; end$$ language plpgsql;
+create trigger cpu after update on cp
+ referencing old table as old_rows new table as new_rows
+ for each statement execute procedure ct4();
+insert into cp (id, val) values (1, 2);
+begin;
+savepoint svp;
+update cp set val = 3 where id = 1;
+psql:<REPRO>:12: ERROR:  BOOM!
+CONTEXT:  PL/pgSQL function ct4() line 1 at RAISE
+psql:<REPRO>:12: ERROR:  tupdesc reference 0x7bb13ac6e0e8 is not owned by resource owner SubTransaction
+psql:<REPRO>:12: WARNING:  AbortSubTransaction while in ABORT state
+psql:<REPRO>:12: ERROR:  tupdesc reference 0x7bb13ac6e0e8 is not owned by resource owner SubTransaction
+psql:<REPRO>:12: WARNING:  AbortSubTransaction while in ABORT state
+psql:<REPRO>:12: ERROR:  tupdesc reference 0x7bb13ac6e0e8 is not owned by resource owner SubTransaction
+psql:<REPRO>:12: WARNING:  AbortSubTransaction while in ABORT state
+psql:<REPRO>:12: ERROR:  tupdesc reference 0x7bb13ac6e0e8 is not owned by resource owner SubTransaction
+psql:<REPRO>:12: PANIC:  ERRORDATA_STACK_SIZE exceeded
+psql:<REPRO>:12: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:<REPRO>:12: error: connection to server was lost
+### server crashed or assertion failed

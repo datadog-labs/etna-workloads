@@ -1,0 +1,49 @@
+diff --git a/src/bin/pgbench/pgbench.c b/src/bin/pgbench/pgbench.c
+index 6d3b67cdede..5a9406c4866 100644
+--- a/src/bin/pgbench/pgbench.c
++++ b/src/bin/pgbench/pgbench.c
+@@ -3131,11 +3131,17 @@ prepareCommand(CState *st, int command_num)
+ 		PGresult   *res;
+ 
+ 		pg_log_debug("client %d preparing %s", st->id, command->prepname);
+-		res = PQprepare(st->con, command->prepname,
+-						command->argv[0], command->argc - 1, NULL);
+-		if (PQresultStatus(res) != PGRES_COMMAND_OK)
++		if (PQpipelineStatus(st->con) == PQ_PIPELINE_OFF)
++		{
++			res = PQprepare(st->con, command->prepname,
++							command->argv[0], command->argc - 1, NULL);
++			if (PQresultStatus(res) != PGRES_COMMAND_OK)
++				pg_log_error("%s", PQerrorMessage(st->con));
++			PQclear(res);
++		}
++		else if (!PQsendPrepare(st->con, command->prepname,
++								command->argv[0], command->argc - 1, NULL))
+ 			pg_log_error("%s", PQerrorMessage(st->con));
+-		PQclear(res);
+ 		st->prepared[st->use_file][command_num] = true;
+ 	}
+ }
+@@ -3211,7 +3217,11 @@ sendCommand(CState *st, Command *command)
+ 	{
+ 		const char *params[MAX_ARGS];
+ 
+-		prepareCommand(st, st->command);
++		/* prepare every command of the script on first use */
++		Command   **cmds = sql_script[st->use_file].commands;
++
++		for (int j = 0; cmds[j] != NULL; j++)
++			prepareCommand(st, j);
+ 		getQueryParams(&st->variables, command, params);
+ 
+ 		pg_log_debug("client %d sending %s", st->id, command->prepname);
+@@ -4516,9 +4526,6 @@ executeMetaCommand(CState *st, pg_time_usec_t *now)
+ 		 * ISOLATION LEVEL SERIALIZABLE in a pipeline would fail due to a
+ 		 * snapshot having been acquired by the prepare within the pipeline.
+ 		 */
+-		if (querymode == QUERY_PREPARED)
+-			prepareCommandsInPipeline(st);
+-
+ 		if (PQpipelineStatus(st->con) != PQ_PIPELINE_OFF)
+ 		{
+ 			commandFailed(st, "startpipeline", "already in pipeline mode");

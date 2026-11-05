@@ -1,0 +1,7 @@
+CREATE FOREIGN DATA WRAPPER w;
+CREATE SERVER s FOREIGN DATA WRAPPER w;
+CREATE SCHEMA fs;
+CREATE FOREIGN TABLE ft1 (c1 int) SERVER s;
+ALTER FOREIGN TABLE ft1 ADD COLUMN c11 serial;
+ALTER FOREIGN TABLE ft1 SET SCHEMA fs;
+SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relname='ft1_c11_seq';

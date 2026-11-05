@@ -1,0 +1,4 @@
+CREATE FUNCTION gf1(a int) RETURNS int AS $$ SELECT a * 3 $$ IMMUTABLE LANGUAGE SQL;
+CREATE TABLE gtest12 (a int, c int GENERATED ALWAYS AS (gf1(a)) VIRTUAL);
+CREATE TYPE double_int AS (a int, b int);
+CREATE TABLE gtest4 (a int, b double_int GENERATED ALWAYS AS ((a*2,a*3)) VIRTUAL);

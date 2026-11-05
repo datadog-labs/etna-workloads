@@ -1,0 +1,70 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..5cd52b902ca 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -17247,8 +17247,7 @@ ATExecEnableDisableTrigger(Relation rel, const char *trigname,
+ 						   char fires_when, bool skip_system, bool recurse,
+ 						   LOCKMODE lockmode)
+ {
+-	EnableDisableTrigger(rel, trigname, InvalidOid,
+-						 fires_when, skip_system, recurse,
++	EnableDisableTrigger(rel, trigname, fires_when, skip_system, recurse,
+ 						 lockmode);
+ 
+ 	InvokeObjectPostAlterHook(RelationRelationId,
+diff --git a/src/backend/commands/trigger.c b/src/backend/commands/trigger.c
+index 7ae6557d897..37869df1529 100644
+--- a/src/backend/commands/trigger.c
++++ b/src/backend/commands/trigger.c
+@@ -1716,8 +1716,7 @@ renametrig_partition(Relation tgrel, Oid partitionId, Oid parentTriggerOid,
+  *	to change 'tgenabled' field for the specified trigger(s)
+  *
+  * rel: relation to process (caller must hold suitable lock on it)
+- * tgname: name of trigger to process, or NULL to scan all triggers
+- * tgparent: if not zero, process only triggers with this tgparentid
++ * tgname: trigger to process, or NULL to scan all triggers
+  * fires_when: new value for tgenabled field. In addition to generic
+  *			   enablement/disablement, this also defines when the trigger
+  *			   should be fired in session replication roles.
+@@ -1729,7 +1728,7 @@ renametrig_partition(Relation tgrel, Oid partitionId, Oid parentTriggerOid,
+  * system triggers
+  */
+ void
+-EnableDisableTrigger(Relation rel, const char *tgname, Oid tgparent,
++EnableDisableTrigger(Relation rel, const char *tgname,
+ 					 char fires_when, bool skip_system, bool recurse,
+ 					 LOCKMODE lockmode)
+ {
+@@ -1768,9 +1767,6 @@ EnableDisableTrigger(Relation rel, const char *tgname, Oid tgparent,
+ 	{
+ 		Form_pg_trigger oldtrig = (Form_pg_trigger) GETSTRUCT(tuple);
+ 
+-		if (OidIsValid(tgparent) && tgparent != oldtrig->tgparentid)
+-			continue;
+-
+ 		if (oldtrig->tgisinternal)
+ 		{
+ 			/* system trigger ... ok to process? */
+@@ -1821,8 +1817,7 @@ EnableDisableTrigger(Relation rel, const char *tgname, Oid tgparent,
+ 				Relation	part;
+ 
+ 				part = relation_open(partdesc->oids[i], lockmode);
+-				/* Match on child triggers' tgparentid, not their name */
+-				EnableDisableTrigger(part, NULL, oldtrig->oid,
++				EnableDisableTrigger(part, NameStr(oldtrig->tgname),
+ 									 fires_when, skip_system, recurse,
+ 									 lockmode);
+ 				table_close(part, NoLock);	/* keep lock till commit */
+diff --git a/src/include/commands/trigger.h b/src/include/commands/trigger.h
+index 54be07c9e42..81b9bd4dc88 100644
+--- a/src/include/commands/trigger.h
++++ b/src/include/commands/trigger.h
+@@ -172,7 +172,7 @@ extern Oid	get_trigger_oid(Oid relid, const char *trigname, bool missing_ok);
+ 
+ extern ObjectAddress renametrig(RenameStmt *stmt);
+ 
+-extern void EnableDisableTrigger(Relation rel, const char *tgname, Oid tgparent,
++extern void EnableDisableTrigger(Relation rel, const char *tgname,
+ 								 char fires_when, bool skip_system, bool recurse,
+ 								 LOCKMODE lockmode);
+ 

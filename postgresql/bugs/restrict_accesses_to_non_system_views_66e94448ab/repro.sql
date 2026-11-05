@@ -1,0 +1,6 @@
+create table tt27v_tbl (a int);
+create view tt27v as select a from tt27v_tbl;
+set restrict_nonsystem_relation_kind to 'view';
+select a from tt27v where a > 0;
+insert into tt27v values (1);
+reset restrict_nonsystem_relation_kind;

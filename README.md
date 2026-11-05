@@ -11,6 +11,7 @@ re-injected into a fixed release as patches, for evaluating testing tools.
 | [`cpython/`](cpython) | CPython 3.15.2 | PSF-2.0 | 1,076 | injection patches in C and Python (also Marauders patch variants), upstream test oracles, 1,035 standalone reproducers; mined with the pipeline in `sqlite/tool/` (`ETNA_KIND=cpython`) |
 | [`go/`](go) | Go 1.27.3 (compiler) | BSD-3-Clause | 402 | injection patches in the compiler (also Marauders patch variants), upstream test oracles, 383 standalone reproducers; mined with the pipeline in `sqlite/tool/` (`ETNA_KIND=go`) |
 | [`datafusion/`](datafusion) | Apache DataFusion 55.2.0 | Apache-2.0 | 288 | injection patches in the Rust crates (also Marauders patch variants), SQL logic test oracles, 267 standalone `repro.sql` reproducers for `datafusion-cli`; mined with the pipeline in `sqlite/tool/` (`ETNA_KIND=datafusion`) |
+| [`postgresql/`](postgresql) | PostgreSQL 18.6 (REL_18_6) | PostgreSQL | 1,466 (1,045 strict) | injection patches in the server, client tools and libraries (also Marauders patch variants), upstream pg_regress/isolation/TAP oracles, 1,449 standalone `repro.sql`/`repro.sh` reproducers; mined with the clean-room pipeline in `postgresql/tool/` |
 
 ## Licensing
 

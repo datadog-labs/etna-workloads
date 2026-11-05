@@ -1,0 +1,45 @@
+diff --git a/src/backend/catalog/index.c b/src/backend/catalog/index.c
+index 898814db624..7454cfe4443 100644
+--- a/src/backend/catalog/index.c
++++ b/src/backend/catalog/index.c
+@@ -1582,7 +1582,6 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
+ 				newIndexTuple;
+ 	Form_pg_index oldIndexForm,
+ 				newIndexForm;
+-	bool		isPartition;
+ 	Oid			indexConstraintOid;
+ 	List	   *constraintOids = NIL;
+ 	ListCell   *lc;
+@@ -1612,11 +1611,6 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
+ 	namestrcpy(&newClassForm->relname, NameStr(oldClassForm->relname));
+ 	namestrcpy(&oldClassForm->relname, oldName);
+ 
+-	/* Swap the partition flags to track inheritance properly */
+-	isPartition = newClassForm->relispartition;
+-	newClassForm->relispartition = oldClassForm->relispartition;
+-	oldClassForm->relispartition = isPartition;
+-
+ 	CatalogTupleUpdate(pg_class, &oldClassTuple->t_self, oldClassTuple);
+ 	CatalogTupleUpdate(pg_class, &newClassTuple->t_self, newClassTuple);
+ 
+@@ -1786,20 +1780,6 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
+ 		table_close(description, NoLock);
+ 	}
+ 
+-	/*
+-	 * Swap inheritance relationship with parent index
+-	 */
+-	if (get_rel_relispartition(oldIndexId))
+-	{
+-		List	   *ancestors = get_partition_ancestors(oldIndexId);
+-		Oid			parentIndexRelid = linitial_oid(ancestors);
+-
+-		DeleteInheritsTuple(oldIndexId, parentIndexRelid, false, NULL);
+-		StoreSingleInheritance(newIndexId, parentIndexRelid, 1);
+-
+-		list_free(ancestors);
+-	}
+-
+ 	/*
+ 	 * Swap all dependencies of and on the old index to the new one, and
+ 	 * vice-versa.  Note that a call to CommandCounterIncrement() would cause

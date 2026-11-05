@@ -1,0 +1,32 @@
+with cte(c) as materialized (select row(1, 2)),
+     cte2(c) as (select * from cte)
+select * from cte2 as t
+where (select * from (select c as c1) s
+       where (select (c1).f1 > 0)) is not null;
+   c   
+-------
+ (1,2)
+(1 row)
+
+create view composite_v as
+with cte(c) as materialized (select row(1, 2)),
+     cte2(c) as (select * from cte)
+select 1 as one from cte2 as t
+where (select * from (select c as c1) s
+       where (select (c1).f1 > 0)) is not null;
+select pg_get_viewdef('composite_v', true);
+                     pg_get_viewdef                     
+--------------------------------------------------------
+  WITH cte(c) AS MATERIALIZED (                        +
+          SELECT ROW(1, 2) AS "row"                    +
+         ), cte2(c) AS (                               +
+          SELECT cte.c                                 +
+            FROM cte                                   +
+         )                                             +
+  SELECT 1 AS one                                      +
+    FROM cte2 t                                        +
+   WHERE (( SELECT s.c1                                +
+            FROM ( SELECT t.c AS c1) s                 +
+           WHERE ( SELECT (s.c1).f1 > 0))) IS NOT NULL;
+(1 row)
+

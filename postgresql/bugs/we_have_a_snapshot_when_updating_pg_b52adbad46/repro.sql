@@ -1,0 +1,7 @@
+create table t (a int);
+create or replace function tf (a int, b int[]) returns bool as $$ select true $$ language sql immutable;
+select array_agg(n) b from generate_series(1, 10000) n \gset
+create index concurrently ti on t (tf(a, :'b'));
+reindex index concurrently ti;
+drop index concurrently ti;
+select 1 as done;

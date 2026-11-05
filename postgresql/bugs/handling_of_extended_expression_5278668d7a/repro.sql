@@ -1,0 +1,5 @@
+CREATE TABLE t6 (a int, c text, b text);
+CREATE STATISTICS ext_stat ON (a || b) FROM t6;
+ALTER TABLE t6 DROP COLUMN c;
+CREATE TABLE t6c (LIKE t6 INCLUDING ALL);
+\d+ t6c

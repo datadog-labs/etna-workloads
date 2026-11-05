@@ -1,0 +1,95 @@
+diff --git a/src/backend/partitioning/partprune.c b/src/backend/partitioning/partprune.c
+index 5dae151da0f..61bd8df6d1b 100644
+--- a/src/backend/partitioning/partprune.c
++++ b/src/backend/partitioning/partprune.c
+@@ -167,6 +167,7 @@ static List *get_steps_using_prefix(GeneratePruningStepsContext *context,
+ 									bool step_op_is_ne,
+ 									Expr *step_lastexpr,
+ 									Oid step_lastcmpfn,
++									int step_lastkeyno,
+ 									Bitmapset *step_nullkeys,
+ 									List *prefix);
+ static List *get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
+@@ -174,6 +175,7 @@ static List *get_steps_using_prefix_recurse(GeneratePruningStepsContext *context
+ 											bool step_op_is_ne,
+ 											Expr *step_lastexpr,
+ 											Oid step_lastcmpfn,
++											int step_lastkeyno,
+ 											Bitmapset *step_nullkeys,
+ 											List *prefix,
+ 											ListCell *start,
+@@ -1558,6 +1560,7 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
+ 															  pc->op_is_ne,
+ 															  pc->expr,
+ 															  pc->cmpfn,
++															  0,
+ 															  NULL,
+ 															  NIL);
+ 							opsteps = list_concat(opsteps, pc_steps);
+@@ -1683,6 +1686,7 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
+ 															  pc->op_is_ne,
+ 															  pc->expr,
+ 															  pc->cmpfn,
++															  pc->keyno,
+ 															  NULL,
+ 															  prefix);
+ 							opsteps = list_concat(opsteps, pc_steps);
+@@ -1756,6 +1760,7 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
+ 												   false,
+ 												   pc->expr,
+ 												   pc->cmpfn,
++												   pc->keyno,
+ 												   nullkeys,
+ 												   prefix);
+ 						opsteps = list_concat(opsteps, pc_steps);
+@@ -2483,6 +2488,7 @@ get_steps_using_prefix(GeneratePruningStepsContext *context,
+ 					   bool step_op_is_ne,
+ 					   Expr *step_lastexpr,
+ 					   Oid step_lastcmpfn,
++					   int step_lastkeyno,
+ 					   Bitmapset *step_nullkeys,
+ 					   List *prefix)
+ {
+@@ -2513,6 +2519,7 @@ get_steps_using_prefix(GeneratePruningStepsContext *context,
+ 										  step_op_is_ne,
+ 										  step_lastexpr,
+ 										  step_lastcmpfn,
++										  step_lastkeyno,
+ 										  step_nullkeys,
+ 										  prefix,
+ 										  list_head(prefix),
+@@ -2541,6 +2548,7 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
+ 							   bool step_op_is_ne,
+ 							   Expr *step_lastexpr,
+ 							   Oid step_lastcmpfn,
++							   int step_lastkeyno,
+ 							   Bitmapset *step_nullkeys,
+ 							   List *prefix,
+ 							   ListCell *start,
+@@ -2550,17 +2558,15 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
+ 	List	   *result = NIL;
+ 	ListCell   *lc;
+ 	int			cur_keyno;
+-	int			final_keyno;
+ 
+ 	/* Actually, recursion would be limited by PARTITION_MAX_KEYS. */
+ 	check_stack_depth();
+ 
+ 	Assert(start != NULL);
+ 	cur_keyno = ((PartClauseInfo *) lfirst(start))->keyno;
+-	final_keyno = ((PartClauseInfo *) llast(prefix))->keyno;
+ 
+ 	/* Check if we need to recurse. */
+-	if (cur_keyno < final_keyno)
++	if (cur_keyno < step_lastkeyno - 1)
+ 	{
+ 		PartClauseInfo *pc;
+ 		ListCell   *next_start;
+@@ -2615,6 +2621,7 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
+ 													   step_op_is_ne,
+ 													   step_lastexpr,
+ 													   step_lastcmpfn,
++													   step_lastkeyno,
+ 													   step_nullkeys,
+ 													   prefix,
+ 													   next_start,

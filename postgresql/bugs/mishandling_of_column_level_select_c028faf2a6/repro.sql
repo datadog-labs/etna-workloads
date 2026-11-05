@@ -1,0 +1,10 @@
+create role r1;
+create table t1(a int, b int, c int);
+insert into t1 values (1,2,3);
+grant select(a) on t1 to r1;
+set role r1;
+select j.* from (t1 join t1 t2 using (a)) j;
+select j.b from (t1 join t1 t2 using (a)) j;
+select (j.*) from (t1 a1 join t1 a2 using (a)) j;
+select * from (t1 a1 join t1 a2 using (a)) j;
+reset role;

@@ -1,0 +1,40 @@
+diff --git a/src/backend/statistics/extended_stats.c b/src/backend/statistics/extended_stats.c
+index 03349baccfb..d7981eece7c 100644
+--- a/src/backend/statistics/extended_stats.c
++++ b/src/backend/statistics/extended_stats.c
+@@ -1426,18 +1426,13 @@ statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
+ 	{
+ 		ScalarArrayOpExpr *expr = (ScalarArrayOpExpr *) clause;
+ 		Node	   *clause_expr;
+-		bool		expronleft;
+ 
+ 		/* Only expressions with two arguments are considered compatible. */
+ 		if (list_length(expr->args) != 2)
+ 			return false;
+ 
+ 		/* Check if the expression has the right shape (one Var, one Const) */
+-		if (!examine_opclause_args(expr->args, &clause_expr, NULL, &expronleft))
+-			return false;
+-
+-		/* We only support Var on left, Const on right */
+-		if (!expronleft)
++		if (!examine_opclause_args(expr->args, &clause_expr, NULL, NULL))
+ 			return false;
+ 
+ 		/*
+diff --git a/src/backend/statistics/mcv.c b/src/backend/statistics/mcv.c
+index d98cda698d9..3f869817bc2 100644
+--- a/src/backend/statistics/mcv.c
++++ b/src/backend/statistics/mcv.c
+@@ -1734,9 +1734,8 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
+ 			if (!examine_opclause_args(expr->args, &clause_expr, &cst, &expronleft))
+ 				elog(ERROR, "incompatible clause");
+ 
+-			/* We expect Var on left */
+-			if (!expronleft)
+-				elog(ERROR, "incompatible clause");
++			/* ScalarArrayOpExpr has the Var always on the left */
++			Assert(expronleft);
+ 
+ 			/*
+ 			 * Deconstruct the array constant, unless it's NULL (we'll cover

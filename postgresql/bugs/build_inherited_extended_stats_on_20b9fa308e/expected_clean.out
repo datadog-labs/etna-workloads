@@ -1,0 +1,17 @@
+CREATE TABLE p (a int, b int) PARTITION BY RANGE (a);
+CREATE TABLE p1 PARTITION OF p FOR VALUES FROM (0) TO (1000);
+INSERT INTO p SELECT i/100, i/100 FROM generate_series(0,9999) i;
+CREATE STATISTICS s (ndistinct) ON a, b FROM p;
+ANALYZE p;
+SELECT count(*) FROM pg_statistic_ext_data WHERE stxoid='s'::regclass AND stxdndistinct IS NOT NULL;
+psql:<REPRO>:6: ERROR:  relation "s" does not exist
+LINE 1: ... count(*) FROM pg_statistic_ext_data WHERE stxoid='s'::regcl...
+                                                             ^
+EXPLAIN SELECT a, b FROM p GROUP BY 1, 2;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ HashAggregate  (cost=195.00..196.00 rows=100 width=8)
+   Group Key: p.a, p.b
+   ->  Seq Scan on p1 p  (cost=0.00..145.00 rows=10000 width=8)
+(3 rows)
+

@@ -1,0 +1,8 @@
+create temp table t8(q1 int8, q2 int8);
+insert into t8 values (1,2),(3,4);
+SELECT q1 FROM
+(
+  WITH t_cte AS (SELECT * FROM t8 t)
+  SELECT q1, (SELECT q2 FROM t_cte WHERE t_cte.q1 = i8.q1) AS t_sub
+  FROM t8 i8
+) ss;

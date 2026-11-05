@@ -1,0 +1,25 @@
+diff --git a/src/backend/partitioning/partbounds.c b/src/backend/partitioning/partbounds.c
+index a0a1363d5be..c8d4fbbf0d4 100644
+--- a/src/backend/partitioning/partbounds.c
++++ b/src/backend/partitioning/partbounds.c
+@@ -3115,8 +3115,7 @@ check_new_partition_bound(char *relname, Relation parent,
+ 											  key->partcollation,
+ 											  lower->datums, lower->kind,
+ 											  true, upper);
+-				Assert(cmpval != 0);
+-				if (cmpval > 0)
++				if (cmpval >= 0)
+ 				{
+ 					/* Point to problematic key in the lower datums list. */
+ 					PartitionRangeDatum *datum = list_nth(spec->lowerdatums,
+@@ -3217,8 +3216,9 @@ check_new_partition_bound(char *relname, Relation parent,
+ 						 * Point to problematic key in the lower datums list;
+ 						 * if we have equality, point to the first one.
+ 						 */
++						Assert(cmpval >= 0);
+ 						datum = cmpval == 0 ? linitial(spec->lowerdatums) :
+-							list_nth(spec->lowerdatums, abs(cmpval) - 1);
++							list_nth(spec->lowerdatums, cmpval - 1);
+ 						overlap = true;
+ 						overlap_location = datum->location;
+ 						with = boundinfo->indexes[offset + 1];

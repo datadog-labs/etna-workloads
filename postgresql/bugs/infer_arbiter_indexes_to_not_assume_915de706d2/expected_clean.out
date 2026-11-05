@@ -1,0 +1,14 @@
+create table t(key int4, fruit text);
+create view v as select * from t;
+create unique index ie on t(lower(fruit));
+explain (costs off) insert into v values(0,'x') on conflict (lower(fruit)) do nothing;
+           QUERY PLAN           
+--------------------------------
+ Insert on t
+   Conflict Resolution: NOTHING
+   Conflict Arbiter Indexes: ie
+   ->  Result
+(4 rows)
+
+create unique index pi on t(key) where fruit like '%berry';
+insert into v values (23,'Blackberry') on conflict (key) where fruit like '%berry' do nothing;

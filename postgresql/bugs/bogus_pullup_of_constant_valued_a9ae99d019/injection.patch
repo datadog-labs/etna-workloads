@@ -1,0 +1,39 @@
+diff --git a/src/backend/optimizer/prep/prepjointree.c b/src/backend/optimizer/prep/prepjointree.c
+index b150a933aad..eea01332e17 100644
+--- a/src/backend/optimizer/prep/prepjointree.c
++++ b/src/backend/optimizer/prep/prepjointree.c
+@@ -2127,9 +2127,6 @@ pull_up_constant_function(PlannerInfo *root, Node *jtnode,
+ {
+ 	Query	   *parse = root->parse;
+ 	RangeTblFunction *rtf;
+-	TypeFuncClass functypclass;
+-	Oid			funcrettype;
+-	TupleDesc	tupdesc;
+ 	pullup_replace_vars_context rvcontext;
+ 
+ 	/* Fail if the RTE has ORDINALITY - we don't implement that here. */
+@@ -2143,24 +2140,6 @@ pull_up_constant_function(PlannerInfo *root, Node *jtnode,
+ 	if (!IsA(rtf->funcexpr, Const))
+ 		return jtnode;
+ 
+-	/*
+-	 * If the function's result is not a scalar, we punt.  In principle we
+-	 * could break the composite constant value apart into per-column
+-	 * constants, but for now it seems not worth the work.
+-	 */
+-	if (rtf->funccolcount != 1)
+-		return jtnode;			/* definitely composite */
+-
+-	/* If it has a coldeflist, it certainly returns RECORD */
+-	if (rtf->funccolnames != NIL)
+-		return jtnode;			/* must be a one-column RECORD type */
+-
+-	functypclass = get_expr_result_type(rtf->funcexpr,
+-										&funcrettype,
+-										&tupdesc);
+-	if (functypclass != TYPEFUNC_SCALAR)
+-		return jtnode;			/* must be a one-column composite type */
+-
+ 	/* Create context for applying pullup_replace_vars */
+ 	rvcontext.root = root;
+ 	rvcontext.targetlist = list_make1(makeTargetEntry((Expr *) rtf->funcexpr,

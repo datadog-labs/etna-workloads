@@ -1,0 +1,4 @@
+SELECT pg_catalog.set_config('search_path', ' ', false);
+CREATE SCHEMA test_ns_schema_1
+       CREATE TABLE abc (a serial, b int UNIQUE);
+SELECT count(*) FROM pg_catalog.pg_class WHERE relname = 'abc';

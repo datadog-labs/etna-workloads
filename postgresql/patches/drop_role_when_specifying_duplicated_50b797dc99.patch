@@ -1,0 +1,47 @@
+diff --git a/src/backend/commands/user.c b/src/backend/commands/user.c
+index 5ce8ffa863a..7c8a0befdd5 100644
+--- a/src/backend/commands/user.c
++++ b/src/backend/commands/user.c
+@@ -1092,7 +1092,7 @@ DropRole(DropRoleStmt *stmt)
+ 	Relation	pg_authid_rel,
+ 				pg_auth_members_rel;
+ 	ListCell   *item;
+-	List	   *role_oids = NIL;
++	List	   *role_addresses = NIL;
+ 
+ 	if (!have_createrole_privilege())
+ 		ereport(ERROR,
+@@ -1118,6 +1118,7 @@ DropRole(DropRoleStmt *stmt)
+ 		ScanKeyData scankey;
+ 		SysScanDesc sscan;
+ 		Oid			roleid;
++		ObjectAddress *role_address;
+ 
+ 		if (rolspec->roletype != ROLESPEC_CSTRING)
+ 			ereport(ERROR,
+@@ -1258,16 +1259,21 @@ DropRole(DropRoleStmt *stmt)
+ 		 */
+ 		CommandCounterIncrement();
+ 
+-		/* Looks tentatively OK, add it to the list if not there yet. */
+-		role_oids = list_append_unique_oid(role_oids, roleid);
++		/* Looks tentatively OK, add it to the list. */
++		role_address = palloc(sizeof(ObjectAddress));
++		role_address->classId = AuthIdRelationId;
++		role_address->objectId = roleid;
++		role_address->objectSubId = 0;
++		role_addresses = lappend(role_addresses, role_address);
+ 	}
+ 
+ 	/*
+ 	 * Second pass over the roles to be removed.
+ 	 */
+-	foreach(item, role_oids)
++	foreach(item, role_addresses)
+ 	{
+-		Oid			roleid = lfirst_oid(item);
++		ObjectAddress *role_address = lfirst(item);
++		Oid			roleid = role_address->objectId;
+ 		HeapTuple	tuple;
+ 		Form_pg_authid roleform;
+ 		char	   *detail;

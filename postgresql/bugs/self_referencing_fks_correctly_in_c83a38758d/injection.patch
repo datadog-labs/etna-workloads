@@ -1,0 +1,50 @@
+diff --git a/src/backend/commands/tablecmds.c b/src/backend/commands/tablecmds.c
+index ca6e5edabef..2615cb34e5c 100644
+--- a/src/backend/commands/tablecmds.c
++++ b/src/backend/commands/tablecmds.c
+@@ -11231,14 +11231,14 @@ CloneForeignKeyConstraints(List **wqueue, Relation parentRel,
+ 	Assert(parentRel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE);
+ 
+ 	/*
+-	 * First, clone constraints where the parent is on the referencing side.
++	 * Clone constraints for which the parent is on the referenced side.
+ 	 */
+-	CloneFkReferencing(wqueue, parentRel, partitionRel);
++	CloneFkReferenced(parentRel, partitionRel);
+ 
+ 	/*
+-	 * Clone constraints for which the parent is on the referenced side.
++	 * Now clone constraints where the parent is on the referencing side.
+ 	 */
+-	CloneFkReferenced(parentRel, partitionRel);
++	CloneFkReferencing(wqueue, parentRel, partitionRel);
+ }
+ 
+ /*
+@@ -11249,6 +11249,8 @@ CloneForeignKeyConstraints(List **wqueue, Relation parentRel,
+  * clone those constraints to the given partition.  This is to be called
+  * when the partition is being created or attached.
+  *
++ * This ignores self-referencing FKs; those are handled by CloneFkReferencing.
++ *
+  * This recurses to partitions, if the relation being attached is partitioned.
+  * Recursion is done by calling addFkRecurseReferenced.
+  */
+@@ -11339,6 +11341,17 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
+ 			continue;
+ 		}
+ 
++		/*
++		 * Don't clone self-referencing foreign keys, which can be in the
++		 * partitioned table or in the partition-to-be.
++		 */
++		if (constrForm->conrelid == RelationGetRelid(parentRel) ||
++			constrForm->conrelid == RelationGetRelid(partitionRel))
++		{
++			ReleaseSysCache(tuple);
++			continue;
++		}
++
+ 		/* We need the same lock level that CreateTrigger will acquire */
+ 		fkRel = table_open(constrForm->conrelid, ShareRowExclusiveLock);
+ 

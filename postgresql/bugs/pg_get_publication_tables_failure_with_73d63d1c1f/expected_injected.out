@@ -1,0 +1,18 @@
+create table t1(a int);
+create table t2(a int);
+create publication p for all tables;
+psql:<REPRO>:3: WARNING:  "wal_level" is insufficient to publish logical changes
+HINT:  Set "wal_level" to "logical" before creating subscriptions.
+begin;
+declare d cursor for select pg_get_publication_tables('p') is not null;
+fetch 1 from d;
+ ?column? 
+----------
+ f
+(1 row)
+
+drop table t1;
+drop table t2;
+fetch all from d;
+psql:<REPRO>:9: ERROR:  could not open relation with OID 16387
+commit;

@@ -1,0 +1,3 @@
+CREATE TABLE t1(id int, a int);
+CREATE PUBLICATION p FOR TABLE t1 (id);
+ALTER PUBLICATION p SET TABLE t1 (id, ctid);

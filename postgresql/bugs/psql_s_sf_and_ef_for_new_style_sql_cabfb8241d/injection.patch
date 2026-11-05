@@ -1,0 +1,109 @@
+diff --git a/src/backend/utils/adt/ruleutils.c b/src/backend/utils/adt/ruleutils.c
+index 507fa69860d..b1db44fc520 100644
+--- a/src/backend/utils/adt/ruleutils.c
++++ b/src/backend/utils/adt/ruleutils.c
+@@ -2922,8 +2922,8 @@ pg_get_serial_sequence(PG_FUNCTION_ARGS)
+  *
+  * Note: if you change the output format of this function, be careful not
+  * to break psql's rules (in \ef and \sf) for identifying the start of the
+- * function body.  To wit: the function body starts on a line that begins with
+- * "AS ", "BEGIN ", or "RETURN ", and no preceding line will look like that.
++ * function body.  To wit: the function body starts on a line that begins
++ * with "AS ", and no preceding line will look like that.
+  */
+ Datum
+ pg_get_functiondef(PG_FUNCTION_ARGS)
+diff --git a/src/bin/psql/command.c b/src/bin/psql/command.c
+index 09a1e79a6a7..8e060a15966 100644
+--- a/src/bin/psql/command.c
++++ b/src/bin/psql/command.c
+@@ -184,7 +184,8 @@ static bool get_create_object_cmd(EditableObjectType obj_type, Oid oid,
+ 								  PQExpBuffer buf);
+ static int	strip_lineno_from_objdesc(char *obj);
+ static int	count_lines_in_buf(PQExpBuffer buf);
+-static void print_with_linenumbers(FILE *output, char *lines, bool is_func);
++static void print_with_linenumbers(FILE *output, char *lines,
++								   const char *header_keyword);
+ static void minimal_error_message(PGresult *res);
+ 
+ static void printSSLInfo(void);
+@@ -1501,19 +1502,17 @@ exec_command_ef_ev(PsqlScanState scan_state, bool active_branch,
+ 				/*
+ 				 * lineno "1" should correspond to the first line of the
+ 				 * function body.  We expect that pg_get_functiondef() will
+-				 * emit that on a line beginning with "AS ", "BEGIN ", or
+-				 * "RETURN ", and that there can be no such line before the
+-				 * real start of the function body.  Increment lineno by the
+-				 * number of lines before that line, so that it becomes
+-				 * relative to the first line of the function definition.
++				 * emit that on a line beginning with "AS ", and that there
++				 * can be no such line before the real start of the function
++				 * body.  Increment lineno by the number of lines before that
++				 * line, so that it becomes relative to the first line of the
++				 * function definition.
+ 				 */
+ 				const char *lines = query_buf->data;
+ 
+ 				while (*lines != '\0')
+ 				{
+-					if (strncmp(lines, "AS ", 3) == 0 ||
+-						strncmp(lines, "BEGIN ", 6) == 0 ||
+-						strncmp(lines, "RETURN ", 7) == 0)
++					if (strncmp(lines, "AS ", 3) == 0)
+ 						break;
+ 					lineno++;
+ 					/* find start of next line */
+@@ -3036,8 +3035,15 @@ exec_command_sf_sv(PsqlScanState scan_state, bool active_branch,
+ 
+ 			if (show_linenumbers)
+ 			{
+-				/* add line numbers */
+-				print_with_linenumbers(output, buf->data, is_func);
++				/*
++				 * For functions, lineno "1" should correspond to the first
++				 * line of the function body.  We expect that
++				 * pg_get_functiondef() will emit that on a line beginning
++				 * with "AS ", and that there can be no such line before the
++				 * real start of the function body.
++				 */
++				print_with_linenumbers(output, buf->data,
++									   is_func ? "AS " : NULL);
+ 			}
+ 			else
+ 			{
+@@ -6442,28 +6448,24 @@ count_lines_in_buf(PQExpBuffer buf)
+ /*
+  * Write text at *lines to output with line numbers.
+  *
+- * For functions, lineno "1" should correspond to the first line of the
+- * function body; lines before that are unnumbered.  We expect that
+- * pg_get_functiondef() will emit that on a line beginning with "AS ",
+- * "BEGIN ", or "RETURN ", and that there can be no such line before
+- * the real start of the function body.
++ * If header_keyword isn't NULL, then line 1 should be the first line beginning
++ * with header_keyword; lines before that are unnumbered.
+  *
+  * Caution: this scribbles on *lines.
+  */
+ static void
+-print_with_linenumbers(FILE *output, char *lines, bool is_func)
++print_with_linenumbers(FILE *output, char *lines,
++					   const char *header_keyword)
+ {
+-	bool		in_header = is_func;
++	bool		in_header = (header_keyword != NULL);
++	size_t		header_sz = in_header ? strlen(header_keyword) : 0;
+ 	int			lineno = 0;
+ 
+ 	while (*lines != '\0')
+ 	{
+ 		char	   *eol;
+ 
+-		if (in_header &&
+-			(strncmp(lines, "AS ", 3) == 0 ||
+-			 strncmp(lines, "BEGIN ", 6) == 0 ||
+-			 strncmp(lines, "RETURN ", 7) == 0))
++		if (in_header && strncmp(lines, header_keyword, header_sz) == 0)
+ 			in_header = false;
+ 
+ 		/* increment lineno only for body's lines */

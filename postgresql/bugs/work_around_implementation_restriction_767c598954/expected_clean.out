@@ -1,0 +1,22 @@
+create temp table t4(f1 int);
+explain (verbose, costs off)
+select * from t4 left join (
+  select text 'foo' union all select text 'bar'
+) ss(x) on true
+where ss.x is null;
+               QUERY PLAN                
+-----------------------------------------
+ Nested Loop Left Join
+   Output: t4.f1, ('foo'::text)
+   Filter: (('foo'::text) IS NULL)
+   ->  Seq Scan on pg_temp.t4
+         Output: t4.f1
+   ->  Materialize
+         Output: ('foo'::text)
+         ->  Append
+               ->  Result
+                     Output: 'foo'::text
+               ->  Result
+                     Output: 'bar'::text
+(12 rows)
+

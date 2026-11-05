@@ -1,0 +1,75 @@
+diff --git a/src/backend/commands/typecmds.c b/src/backend/commands/typecmds.c
+index 2ed7973d1b4..2eda6b7134c 100644
+--- a/src/backend/commands/typecmds.c
++++ b/src/backend/commands/typecmds.c
+@@ -1310,7 +1310,7 @@ DefineEnum(CreateEnumStmt *stmt)
+  *		Adds a new label to an existing enum.
+  */
+ ObjectAddress
+-AlterEnum(AlterEnumStmt *stmt)
++AlterEnum(AlterEnumStmt *stmt, bool isTopLevel)
+ {
+ 	Oid			enum_type_oid;
+ 	TypeName   *typename;
+@@ -1328,8 +1328,6 @@ AlterEnum(AlterEnumStmt *stmt)
+ 	/* Check it's an enum and check user has permission to ALTER the enum */
+ 	checkEnumOwner(tup);
+ 
+-	ReleaseSysCache(tup);
+-
+ 	if (stmt->oldVal)
+ 	{
+ 		/* Rename an existing label */
+@@ -1338,6 +1336,17 @@ AlterEnum(AlterEnumStmt *stmt)
+ 	else
+ 	{
+ 		/* Add a new label */
++
++		/*
++		 * Disallow adding values within transaction blocks, unless the enum
++		 * type was created in the current transaction.
++		 */
++		if (HeapTupleHeaderGetXmin(tup->t_data) == GetCurrentTransactionId() &&
++			!(tup->t_data->t_infomask & HEAP_UPDATED))
++			 /* safe to do inside transaction block */ ;
++		else
++			PreventInTransactionBlock(isTopLevel, "ALTER TYPE ... ADD");
++
+ 		AddEnumLabel(enum_type_oid, stmt->newVal,
+ 					 stmt->newValNeighbor, stmt->newValIsAfter,
+ 					 stmt->skipIfNewValExists);
+@@ -1347,6 +1356,8 @@ AlterEnum(AlterEnumStmt *stmt)
+ 
+ 	ObjectAddressSet(address, TypeRelationId, enum_type_oid);
+ 
++	ReleaseSysCache(tup);
++
+ 	return address;
+ }
+ 
+diff --git a/src/backend/tcop/utility.c b/src/backend/tcop/utility.c
+index 6dabd7e1560..7d9131d1c37 100644
+--- a/src/backend/tcop/utility.c
++++ b/src/backend/tcop/utility.c
+@@ -1641,7 +1641,7 @@ ProcessUtilitySlow(ParseState *pstate,
+ 				break;
+ 
+ 			case T_AlterEnumStmt:	/* ALTER TYPE (enum) */
+-				address = AlterEnum((AlterEnumStmt *) parsetree);
++				address = AlterEnum((AlterEnumStmt *) parsetree, isTopLevel);
+ 				break;
+ 
+ 			case T_ViewStmt:	/* CREATE VIEW */
+diff --git a/src/include/commands/typecmds.h b/src/include/commands/typecmds.h
+index b2ffec8c3be..13806a89faf 100644
+--- a/src/include/commands/typecmds.h
++++ b/src/include/commands/typecmds.h
+@@ -26,7 +26,7 @@ extern void RemoveTypeById(Oid typeOid);
+ extern ObjectAddress DefineDomain(ParseState *pstate, CreateDomainStmt *stmt);
+ extern ObjectAddress DefineEnum(CreateEnumStmt *stmt);
+ extern ObjectAddress DefineRange(ParseState *pstate, CreateRangeStmt *stmt);
+-extern ObjectAddress AlterEnum(AlterEnumStmt *stmt);
++extern ObjectAddress AlterEnum(AlterEnumStmt *stmt, bool isTopLevel);
+ extern ObjectAddress DefineCompositeType(RangeVar *typevar, List *coldeflist);
+ extern Oid	AssignTypeArrayOid(void);
+ extern Oid	AssignTypeMultirangeOid(void);

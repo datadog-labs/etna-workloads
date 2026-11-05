@@ -1,0 +1,8 @@
+create table pcd (u1 int, id int, u2 int, d int, b int, u3 int) partition by range (id);
+alter table pcd drop column u1;
+alter table pcd drop column u2;
+alter table pcd drop column u3;
+create index pcd_b on pcd(b) where b = 1;
+create index pcd_e on pcd((d = 2));
+create table pcd_1 partition of pcd for values from (1) to (10);
+\d pcd_1

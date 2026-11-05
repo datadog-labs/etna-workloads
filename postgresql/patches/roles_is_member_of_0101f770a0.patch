@@ -1,0 +1,26 @@
+diff --git a/src/backend/utils/adt/acl.c b/src/backend/utils/adt/acl.c
+index 0ec8c19d64b..5fdbc9bad02 100644
+--- a/src/backend/utils/adt/acl.c
++++ b/src/backend/utils/adt/acl.c
+@@ -5215,6 +5215,10 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
+ 			Form_pg_auth_members form = (Form_pg_auth_members) GETSTRUCT(tup);
+ 			Oid			otherid = form->roleid;
+ 
++			/* If we're supposed to ignore non-heritable grants, do so. */
++			if (type == ROLERECURSE_PRIVS && !form->inherit_option)
++				continue;
++
+ 			/*
+ 			 * While otherid==InvalidOid shouldn't appear in the catalog, the
+ 			 * OidIsValid() avoids crashing if that arises.
+@@ -5223,10 +5227,6 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
+ 				OidIsValid(admin_of) && !OidIsValid(*admin_role))
+ 				*admin_role = memberid;
+ 
+-			/* If we're supposed to ignore non-heritable grants, do so. */
+-			if (type == ROLERECURSE_PRIVS && !form->inherit_option)
+-				continue;
+-
+ 			/* If we're supposed to ignore non-SET grants, do so. */
+ 			if (type == ROLERECURSE_SETROLE && !form->set_option)
+ 				continue;

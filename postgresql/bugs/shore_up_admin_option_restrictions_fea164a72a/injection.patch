@@ -1,0 +1,21 @@
+diff --git a/src/backend/utils/adt/acl.c b/src/backend/utils/adt/acl.c
+index 0ec8c19d64b..e3a0e843c46 100644
+--- a/src/backend/utils/adt/acl.c
++++ b/src/backend/utils/adt/acl.c
+@@ -5416,12 +5416,12 @@ is_admin_of_role(Oid member, Oid role)
+ {
+ 	Oid			admin_role;
+ 
+-	if (superuser_arg(member))
++	/* Fast path for simple case */
++	if (member == role)
+ 		return true;
+ 
+-	/* By policy, a role cannot have WITH ADMIN OPTION on itself. */
+-	if (member == role)
+-		return false;
++	if (superuser_arg(member))
++		return true;
+ 
+ 	(void) roles_is_member_of(member, ROLERECURSE_MEMBERS, role, &admin_role);
+ 	return OidIsValid(admin_role);

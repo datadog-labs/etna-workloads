@@ -1,0 +1,13 @@
+CREATE TABLE pkpart (a int) PARTITION BY LIST (a);
+CREATE TABLE pkpart1 PARTITION OF pkpart FOR VALUES IN (1);
+ALTER TABLE pkpart1 ADD PRIMARY KEY (a);
+ALTER TABLE pkpart ADD PRIMARY KEY (a);
+SELECT relname, relispartition FROM pg_class WHERE relname LIKE 'pkpart%pkey' ORDER BY 1;
+   relname    | relispartition 
+--------------+----------------
+ pkpart1_pkey | f
+ pkpart_pkey  | f
+(2 rows)
+
+CREATE TABLE fk (a int REFERENCES pkpart);
+psql:<REPRO>:6: ERROR:  index for 16394 not found in partition pkpart1

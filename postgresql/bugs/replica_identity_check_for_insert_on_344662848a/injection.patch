@@ -1,0 +1,104 @@
+diff --git a/src/backend/commands/copyfrom.c b/src/backend/commands/copyfrom.c
+index 12781963b4f..fbbbc09a97b 100644
+--- a/src/backend/commands/copyfrom.c
++++ b/src/backend/commands/copyfrom.c
+@@ -919,7 +919,7 @@ CopyFrom(CopyFromState cstate)
+ 	ExecInitResultRelation(estate, resultRelInfo, 1);
+ 
+ 	/* Verify the named relation is a valid target for INSERT */
+-	CheckValidResultRel(resultRelInfo, CMD_INSERT, ONCONFLICT_NONE, NIL);
++	CheckValidResultRel(resultRelInfo, CMD_INSERT, NIL);
+ 
+ 	ExecOpenIndices(resultRelInfo, false);
+ 
+diff --git a/src/backend/executor/execMain.c b/src/backend/executor/execMain.c
+index f4d2f41e28b..7f770ed9681 100644
+--- a/src/backend/executor/execMain.c
++++ b/src/backend/executor/execMain.c
+@@ -1040,9 +1040,6 @@ InitPlan(QueryDesc *queryDesc, int eflags)
+  * Generally the parser and/or planner should have noticed any such mistake
+  * already, but let's make sure.
+  *
+- * For INSERT ON CONFLICT, the result relation is required to support the
+- * onConflictAction, regardless of whether a conflict actually occurs.
+- *
+  * For MERGE, mergeActions is the list of actions that may be performed.  The
+  * result relation is required to support every action, regardless of whether
+  * or not they are all executed.
+@@ -1052,7 +1049,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
+  */
+ void
+ CheckValidResultRel(ResultRelInfo *resultRelInfo, CmdType operation,
+-					OnConflictAction onConflictAction, List *mergeActions)
++					List *mergeActions)
+ {
+ 	Relation	resultRel = resultRelInfo->ri_RelationDesc;
+ 	FdwRoutine *fdwroutine;
+@@ -1075,13 +1072,6 @@ CheckValidResultRel(ResultRelInfo *resultRelInfo, CmdType operation,
+ 					CheckCmdReplicaIdentity(resultRel, action->commandType);
+ 			else
+ 				CheckCmdReplicaIdentity(resultRel, operation);
+-
+-			/*
+-			 * For INSERT ON CONFLICT DO UPDATE, additionally check that the
+-			 * target relation supports UPDATE.
+-			 */
+-			if (onConflictAction == ONCONFLICT_UPDATE)
+-				CheckCmdReplicaIdentity(resultRel, CMD_UPDATE);
+ 			break;
+ 		case RELKIND_SEQUENCE:
+ 			ereport(ERROR,
+diff --git a/src/backend/executor/execPartition.c b/src/backend/executor/execPartition.c
+index 1f2da072632..514eae1037d 100644
+--- a/src/backend/executor/execPartition.c
++++ b/src/backend/executor/execPartition.c
+@@ -360,12 +360,8 @@ ExecFindPartition(ModifyTableState *mtstate,
+ 											   true, false);
+ 				if (rri)
+ 				{
+-					ModifyTable *node = (ModifyTable *) mtstate->ps.plan;
+-
+ 					/* Verify this ResultRelInfo allows INSERTs */
+-					CheckValidResultRel(rri, CMD_INSERT,
+-										node ? node->onConflictAction : ONCONFLICT_NONE,
+-										NIL);
++					CheckValidResultRel(rri, CMD_INSERT, NIL);
+ 
+ 					/*
+ 					 * Initialize information needed to insert this and
+@@ -531,8 +527,7 @@ ExecInitPartitionInfo(ModifyTableState *mtstate, EState *estate,
+ 	 * partition-key becomes a DELETE+INSERT operation, so this check is still
+ 	 * required when the operation is CMD_UPDATE.
+ 	 */
+-	CheckValidResultRel(leaf_part_rri, CMD_INSERT,
+-						node ? node->onConflictAction : ONCONFLICT_NONE, NIL);
++	CheckValidResultRel(leaf_part_rri, CMD_INSERT, NIL);
+ 
+ 	/*
+ 	 * Open partition indices.  The user may have asked to check for conflicts
+diff --git a/src/backend/executor/nodeModifyTable.c b/src/backend/executor/nodeModifyTable.c
+index df99a204e0c..f34cae994d0 100644
+--- a/src/backend/executor/nodeModifyTable.c
++++ b/src/backend/executor/nodeModifyTable.c
+@@ -4869,8 +4869,7 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
+ 		/*
+ 		 * Verify result relation is a valid target for the current operation
+ 		 */
+-		CheckValidResultRel(resultRelInfo, operation, node->onConflictAction,
+-							mergeActions);
++		CheckValidResultRel(resultRelInfo, operation, mergeActions);
+ 
+ 		resultRelInfo++;
+ 		i++;
+diff --git a/src/include/executor/executor.h b/src/include/executor/executor.h
+index ac5190c0ef8..54a68f74d43 100644
+--- a/src/include/executor/executor.h
++++ b/src/include/executor/executor.h
+@@ -243,7 +243,6 @@ extern bool ExecCheckPermissions(List *rangeTable,
+ 								 List *rteperminfos, bool ereport_on_violation);
+ extern bool ExecCheckOneRelPerms(RTEPermissionInfo *perminfo);
+ extern void CheckValidResultRel(ResultRelInfo *resultRelInfo, CmdType operation,
+-								OnConflictAction onConflictAction,
+ 								List *mergeActions);
+ extern void InitResultRelInfo(ResultRelInfo *resultRelInfo,
+ 							  Relation resultRelationDesc,

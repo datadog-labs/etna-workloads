@@ -1,0 +1,29 @@
+diff --git a/src/backend/access/heap/heapam.c b/src/backend/access/heap/heapam.c
+index d72b41ef92f..074e32a2bd5 100644
+--- a/src/backend/access/heap/heapam.c
++++ b/src/backend/access/heap/heapam.c
+@@ -4832,9 +4832,7 @@ l3:
+ 		result = TM_Invisible;
+ 		goto out_locked;
+ 	}
+-	else if (result == TM_BeingModified ||
+-			 result == TM_Updated ||
+-			 result == TM_Deleted)
++	else if (result == TM_BeingModified)
+ 	{
+ 		TransactionId xwait;
+ 		uint16		infomask;
+@@ -5130,12 +5128,7 @@ l3:
+ 		 * or we must wait for the locking transaction or multixact; so below
+ 		 * we ensure that we grab buffer lock after the sleep.
+ 		 */
+-		if (require_sleep && (result == TM_Updated || result == TM_Deleted))
+-		{
+-			LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
+-			goto failed;
+-		}
+-		else if (require_sleep)
++		if (require_sleep)
+ 		{
+ 			/*
+ 			 * Acquire tuple lock to establish our priority for the tuple, or

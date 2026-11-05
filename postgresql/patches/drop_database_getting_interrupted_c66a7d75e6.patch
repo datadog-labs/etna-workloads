@@ -1,0 +1,260 @@
+diff --git a/src/backend/commands/dbcommands.c b/src/backend/commands/dbcommands.c
+index 5eb6caffe6d..e9bf7847ba4 100644
+--- a/src/backend/commands/dbcommands.c
++++ b/src/backend/commands/dbcommands.c
+@@ -1003,16 +1003,6 @@ createdb(ParseState *pstate, const CreatedbStmt *stmt)
+ 				 errmsg("template database \"%s\" does not exist",
+ 						dbtemplate)));
+ 
+-	/*
+-	 * If the source database was in the process of being dropped, we can't
+-	 * use it as a template.
+-	 */
+-	if (database_is_invalid_oid(src_dboid))
+-		ereport(ERROR,
+-				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+-				errmsg("cannot use invalid database \"%s\" as template", dbtemplate),
+-				errhint("Use DROP DATABASE to drop invalid databases."));
+-
+ 	/*
+ 	 * Permission check: to copy a DB that's not marked datistemplate, you
+ 	 * must be superuser or the owner thereof.
+@@ -1676,9 +1666,6 @@ dropdb(const char *dbname, bool missing_ok, bool force)
+ 	bool		db_istemplate;
+ 	Relation	pgdbrel;
+ 	HeapTuple	tup;
+-	ScanKeyData scankey;
+-	void	   *inplace_state;
+-	Form_pg_database datform;
+ 	int			notherbackends;
+ 	int			npreparedxacts;
+ 	int			nslots,
+@@ -1794,6 +1781,17 @@ dropdb(const char *dbname, bool missing_ok, bool force)
+ 						dbname),
+ 				 errdetail_busy_db(notherbackends, npreparedxacts)));
+ 
++	/*
++	 * Remove the database's tuple from pg_database.
++	 */
++	tup = SearchSysCache1(DATABASEOID, ObjectIdGetDatum(db_id));
++	if (!HeapTupleIsValid(tup))
++		elog(ERROR, "cache lookup failed for database %u", db_id);
++
++	CatalogTupleDelete(pgdbrel, &tup->t_self);
++
++	ReleaseSysCache(tup);
++
+ 	/*
+ 	 * Delete any comments or security labels associated with the database.
+ 	 */
+@@ -1810,42 +1808,6 @@ dropdb(const char *dbname, bool missing_ok, bool force)
+ 	 */
+ 	dropDatabaseDependencies(db_id);
+ 
+-	/*
+-	 * Tell the cumulative stats system to forget it immediately, too.
+-	 */
+-	pgstat_drop_database(db_id);
+-
+-	/*
+-	 * Except for the deletion of the catalog row, subsequent actions are not
+-	 * transactional (consider DropDatabaseBuffers() discarding modified
+-	 * buffers). But we might crash or get interrupted below. To prevent
+-	 * accesses to a database with invalid contents, mark the database as
+-	 * invalid using an in-place update.
+-	 *
+-	 * We need to flush the WAL before continuing, to guarantee the
+-	 * modification is durable before performing irreversible filesystem
+-	 * operations.
+-	 */
+-	ScanKeyInit(&scankey,
+-				Anum_pg_database_datname,
+-				BTEqualStrategyNumber, F_NAMEEQ,
+-				CStringGetDatum(dbname));
+-	systable_inplace_update_begin(pgdbrel, DatabaseNameIndexId, true,
+-								  NULL, 1, &scankey, &tup, &inplace_state);
+-	if (!HeapTupleIsValid(tup))
+-		elog(ERROR, "cache lookup failed for database %u", db_id);
+-	datform = (Form_pg_database) GETSTRUCT(tup);
+-	datform->datconnlimit = DATCONNLIMIT_INVALID_DB;
+-	systable_inplace_update_finish(inplace_state, tup);
+-	XLogFlush(XactLastRecEnd);
+-
+-	/*
+-	 * Also delete the tuple - transactionally. If this transaction commits,
+-	 * the row will be gone, but if we fail, dropdb() can be invoked again.
+-	 */
+-	CatalogTupleDelete(pgdbrel, &tup->t_self);
+-	heap_freetuple(tup);
+-
+ 	/*
+ 	 * Drop db-specific replication slots.
+ 	 */
+@@ -1858,6 +1820,11 @@ dropdb(const char *dbname, bool missing_ok, bool force)
+ 	 */
+ 	DropDatabaseBuffers(db_id);
+ 
++	/*
++	 * Tell the cumulative stats system to forget it immediately, too.
++	 */
++	pgstat_drop_database(db_id);
++
+ 	/*
+ 	 * Tell checkpointer to forget any pending fsync and unlink requests for
+ 	 * files in the database; else the fsyncs will fail at next checkpoint, or
+@@ -2476,14 +2443,6 @@ AlterDatabase(ParseState *pstate, AlterDatabaseStmt *stmt, bool isTopLevel)
+ 	datform = (Form_pg_database) GETSTRUCT(tuple);
+ 	dboid = datform->oid;
+ 
+-	if (database_is_invalid_form(datform))
+-	{
+-		ereport(FATAL,
+-				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+-				errmsg("cannot alter invalid database \"%s\"", stmt->dbname),
+-				errhint("Use DROP DATABASE to drop invalid databases."));
+-	}
+-
+ 	if (!object_ownercheck(DatabaseRelationId, dboid, GetUserId()))
+ 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_DATABASE,
+ 					   stmt->dbname);
+diff --git a/src/backend/commands/vacuum.c b/src/backend/commands/vacuum.c
+index 934b645efd6..2895f2473ab 100644
+--- a/src/backend/commands/vacuum.c
++++ b/src/backend/commands/vacuum.c
+@@ -1892,20 +1892,6 @@ vac_truncate_clog(TransactionId frozenXID,
+ 		Assert(TransactionIdIsNormal(datfrozenxid));
+ 		Assert(MultiXactIdIsValid(datminmxid));
+ 
+-		/*
+-		 * If database is in the process of getting dropped, or has been
+-		 * interrupted while doing so, no connections to it are possible
+-		 * anymore. Therefore we don't need to take it into account here.
+-		 * Which is good, because it can't be processed by autovacuum either.
+-		 */
+-		if (database_is_invalid_form((Form_pg_database) dbform))
+-		{
+-			elog(DEBUG2,
+-				 "skipping invalid database \"%s\" while computing relfrozenxid",
+-				 NameStr(dbform->datname));
+-			continue;
+-		}
+-
+ 		/*
+ 		 * If things are working properly, no database should have a
+ 		 * datfrozenxid or datminmxid that is "in the future".  However, such
+diff --git a/src/backend/postmaster/autovacuum.c b/src/backend/postmaster/autovacuum.c
+index de43a87f74d..7e5a93c3f1a 100644
+--- a/src/backend/postmaster/autovacuum.c
++++ b/src/backend/postmaster/autovacuum.c
+@@ -1831,18 +1831,6 @@ get_database_list(void)
+ 		avw_dbase  *avdb;
+ 		MemoryContext oldcxt;
+ 
+-		/*
+-		 * If database has partially been dropped, we can't, nor need to,
+-		 * vacuum it.
+-		 */
+-		if (database_is_invalid_form(pgdatabase))
+-		{
+-			elog(DEBUG2,
+-				 "autovacuum: skipping invalid database \"%s\"",
+-				 NameStr(pgdatabase->datname));
+-			continue;
+-		}
+-
+ 		/*
+ 		 * Allocate our results in the caller's context, not the
+ 		 * transaction's. We do this inside the loop, and restore the original
+diff --git a/src/backend/utils/init/postinit.c b/src/backend/utils/init/postinit.c
+index c86ceefda94..a45ba238d02 100644
+--- a/src/backend/utils/init/postinit.c
++++ b/src/backend/utils/init/postinit.c
+@@ -1087,14 +1087,6 @@ InitPostgres(const char *in_dbname, Oid dboid,
+ 
+ 		strlcpy(dbname, NameStr(datform->datname), sizeof(dbname));
+ 
+-		if (database_is_invalid_form(datform))
+-		{
+-			ereport(FATAL,
+-					errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+-					errmsg("cannot connect to invalid database \"%s\"", dbname),
+-					errhint("Use DROP DATABASE to drop invalid databases."));
+-		}
+-
+ 		MyDatabaseTableSpace = datform->dattablespace;
+ 		MyDatabaseHasLoginEventTriggers = datform->dathasloginevt;
+ 		/* pass the database name back to the caller */
+diff --git a/src/bin/pg_amcheck/pg_amcheck.c b/src/bin/pg_amcheck/pg_amcheck.c
+index 2b1fd566c35..f2ea4b96a9e 100644
+--- a/src/bin/pg_amcheck/pg_amcheck.c
++++ b/src/bin/pg_amcheck/pg_amcheck.c
+@@ -1638,7 +1638,7 @@ compile_database_list(PGconn *conn, SimplePtrList *databases,
+ 						 "FROM pg_catalog.pg_database d "
+ 						 "LEFT OUTER JOIN exclude_raw e "
+ 						 "ON d.datname ~ e.rgx "
+-						 "\nWHERE d.datallowconn AND datconnlimit != -2 "
++						 "\nWHERE d.datallowconn "
+ 						 "AND e.pattern_id IS NULL"
+ 						 "),"
+ 
+diff --git a/src/bin/pg_dump/pg_dumpall.c b/src/bin/pg_dump/pg_dumpall.c
+index 40b133bb230..de56f90baaa 100644
+--- a/src/bin/pg_dump/pg_dumpall.c
++++ b/src/bin/pg_dump/pg_dumpall.c
+@@ -1495,7 +1495,7 @@ dropDBs(PGconn *conn)
+ 	res = executeQuery(conn,
+ 					   "SELECT datname "
+ 					   "FROM pg_database d "
+-					   "WHERE datallowconn AND datconnlimit != -2 "
++					   "WHERE datallowconn "
+ 					   "ORDER BY datname");
+ 
+ 	if (PQntuples(res) > 0)
+@@ -1644,7 +1644,7 @@ dumpDatabases(PGconn *conn)
+ 	res = executeQuery(conn,
+ 					   "SELECT datname "
+ 					   "FROM pg_database d "
+-					   "WHERE datallowconn AND datconnlimit != -2 "
++					   "WHERE datallowconn "
+ 					   "ORDER BY (datname <> 'template1'), datname");
+ 
+ 	if (PQntuples(res) > 0)
+diff --git a/src/bin/scripts/clusterdb.c b/src/bin/scripts/clusterdb.c
+index a0aa950b784..f4c7c2b0102 100644
+--- a/src/bin/scripts/clusterdb.c
++++ b/src/bin/scripts/clusterdb.c
+@@ -234,7 +234,7 @@ cluster_all_databases(ConnParams *cparams, SimpleStringList *tables,
+ 
+ 	conn = connectMaintenanceDatabase(cparams, progname, echo);
+ 	result = executeQuery(conn,
+-						  "SELECT datname FROM pg_database WHERE datallowconn AND datconnlimit <> -2 ORDER BY 1;",
++						  "SELECT datname FROM pg_database WHERE datallowconn ORDER BY 1;",
+ 						  echo);
+ 	PQfinish(conn);
+ 
+diff --git a/src/bin/scripts/reindexdb.c b/src/bin/scripts/reindexdb.c
+index 8ddcc5312f7..3b60e57bdbe 100644
+--- a/src/bin/scripts/reindexdb.c
++++ b/src/bin/scripts/reindexdb.c
+@@ -841,7 +841,7 @@ reindex_all_databases(ConnParams *cparams,
+ 
+ 	conn = connectMaintenanceDatabase(cparams, progname, echo);
+ 	result = executeQuery(conn,
+-						  "SELECT datname FROM pg_database WHERE datallowconn AND datconnlimit <> -2 ORDER BY 1;",
++						  "SELECT datname FROM pg_database WHERE datallowconn ORDER BY 1;",
+ 						  echo);
+ 	PQfinish(conn);
+ 
+diff --git a/src/bin/scripts/vacuumdb.c b/src/bin/scripts/vacuumdb.c
+index fa04109f2d7..ab0a4cb1834 100644
+--- a/src/bin/scripts/vacuumdb.c
++++ b/src/bin/scripts/vacuumdb.c
+@@ -1080,7 +1080,7 @@ vacuum_all_databases(ConnParams *cparams,
+ 
+ 	conn = connectMaintenanceDatabase(cparams, progname, echo);
+ 	result = executeQuery(conn,
+-						  "SELECT datname FROM pg_database WHERE datallowconn AND datconnlimit <> -2 ORDER BY 1;",
++						  "SELECT datname FROM pg_database WHERE datallowconn ORDER BY 1;",
+ 						  echo);
+ 	PQfinish(conn);
+ 

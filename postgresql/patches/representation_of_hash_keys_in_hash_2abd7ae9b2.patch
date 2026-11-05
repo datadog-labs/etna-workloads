@@ -1,0 +1,35 @@
+diff --git a/src/backend/executor/nodeHash.c b/src/backend/executor/nodeHash.c
+index 2b114f12b22..cd2db16b519 100644
+--- a/src/backend/executor/nodeHash.c
++++ b/src/backend/executor/nodeHash.c
+@@ -166,7 +166,7 @@ MultiExecPrivateHash(HashState *node)
+ 		if (TupIsNull(slot))
+ 			break;
+ 		/* We have to compute the hash value */
+-		econtext->ecxt_outertuple = slot;
++		econtext->ecxt_innertuple = slot;
+ 
+ 		ResetExprContext(econtext);
+ 
+@@ -287,7 +287,7 @@ MultiExecParallelHash(HashState *node)
+ 				slot = ExecProcNode(outerNode);
+ 				if (TupIsNull(slot))
+ 					break;
+-				econtext->ecxt_outertuple = slot;
++				econtext->ecxt_innertuple = slot;
+ 
+ 				ResetExprContext(econtext);
+ 
+diff --git a/src/backend/optimizer/plan/setrefs.c b/src/backend/optimizer/plan/setrefs.c
+index d706546f332..62f882d79d8 100644
+--- a/src/backend/optimizer/plan/setrefs.c
++++ b/src/backend/optimizer/plan/setrefs.c
+@@ -1966,7 +1966,7 @@ set_hash_references(PlannerInfo *root, Plan *plan, int rtoffset)
+ 		fix_upper_expr(root,
+ 					   (Node *) hplan->hashkeys,
+ 					   outer_itlist,
+-					   OUTER_VAR,
++					   INNER_VAR,
+ 					   rtoffset,
+ 					   NRM_EQUAL,
+ 					   NUM_EXEC_QUAL(plan));

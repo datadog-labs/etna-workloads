@@ -1,0 +1,25 @@
+diff --git a/src/backend/parser/parse_merge.c b/src/backend/parser/parse_merge.c
+index 51d7703eff7..59609c498b4 100644
+--- a/src/backend/parser/parse_merge.c
++++ b/src/backend/parser/parse_merge.c
+@@ -143,11 +143,7 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
+ 		MergeWhenClause *mergeWhenClause = (MergeWhenClause *) lfirst(l);
+ 
+ 		/*
+-		 * Collect permissions to check, according to action types. We require
+-		 * SELECT privileges for DO NOTHING because it'd be irregular to have
+-		 * a target relation with zero privileges checked, in case DO NOTHING
+-		 * is the only action.  There's no damage from that: any meaningful
+-		 * MERGE command requires at least some access to the table anyway.
++		 * Collect action types so we can check target permissions
+ 		 */
+ 		switch (mergeWhenClause->commandType)
+ 		{
+@@ -161,7 +157,6 @@ transformMergeStmt(ParseState *pstate, MergeStmt *stmt)
+ 				targetPerms |= ACL_DELETE;
+ 				break;
+ 			case CMD_NOTHING:
+-				targetPerms |= ACL_SELECT;
+ 				break;
+ 			default:
+ 				elog(ERROR, "unknown action in MERGE WHEN clause");

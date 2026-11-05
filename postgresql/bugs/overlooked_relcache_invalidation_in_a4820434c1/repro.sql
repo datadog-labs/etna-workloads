@@ -1,0 +1,13 @@
+CREATE TABLE pk (id int primary key);
+CREATE TABLE fk (id int, r int references pk deferrable initially immediate);
+INSERT INTO pk VALUES (1);
+INSERT INTO fk VALUES (1,1);
+DELETE FROM pk WHERE id = 2;
+ALTER TABLE fk ALTER CONSTRAINT fk_r_fkey DEFERRABLE INITIALLY DEFERRED;
+BEGIN;
+UPDATE pk SET id = 5 WHERE id = 1;
+SET CONSTRAINTS ALL IMMEDIATE;
+COMMIT;
+BEGIN;
+UPDATE pk SET id = 6 WHERE id = 1;
+COMMIT;

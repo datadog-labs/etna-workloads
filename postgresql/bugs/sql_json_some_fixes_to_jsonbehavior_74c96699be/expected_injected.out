@@ -1,0 +1,16 @@
+SELECT JSON_VALUE(jsonb '"aaa"', '$' RETURNING char(5) DEFAULT 'abcdefgh' ON ERROR);
+psql:<REPRO>:1: ERROR:  value too long for type character(5)
+SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING char(3) DEFAULT 'abcdefgh' ON EMPTY);
+psql:<REPRO>:2: ERROR:  value too long for type character(3)
+SELECT JSON_VALUE(jsonb '1', '$.a' RETURNING char(3) DEFAULT 'abc' ON EMPTY);
+ json_value 
+------------
+ abc
+(1 row)
+
+SELECT * FROM JSON_TABLE(jsonb '1', '$' COLUMNS (a char(2) EXISTS PATH '$.a'));
+psql:<REPRO>:4: ERROR:  value too long for type character(2)
+SELECT JSON_QUERY(jsonb '1', '$.a' RETURNING bit(3) DEFAULT '1' ON EMPTY);
+psql:<REPRO>:5: ERROR:  cannot cast behavior expression of type text to bit
+LINE 1: ...N_QUERY(jsonb '1', '$.a' RETURNING bit(3) DEFAULT '1' ON EMP...
+                                                             ^

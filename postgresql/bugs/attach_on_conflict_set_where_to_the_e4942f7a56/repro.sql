@@ -1,0 +1,3 @@
+create table t(key int primary key, fruit text);
+explain (costs off) insert into t values(0,'a') on conflict (key) do update set fruit = excluded.fruit
+  where exists (select 1 from t ii where ii.key = excluded.key);

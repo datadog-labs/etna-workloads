@@ -1,0 +1,27 @@
+create table innertab (id int8 primary key, dat1 int8);
+create table i8 (q1 int8, q2 int8);
+create table i4 (f1 int);
+create table tk (unique1 int unique, unique2 int unique);
+insert into i8 values (1,2),(3,4);
+insert into i4 values (1),(2);
+insert into tk select g,g from generate_series(1,10000) g;
+analyze;
+EXPLAIN (COSTS OFF)
+SELECT f1, x
+FROM i4
+     JOIN ((SELECT 42 AS x FROM i8 LEFT JOIN innertab ON q1 = id) AS ss1
+           RIGHT JOIN tk ON NULL)
+        ON tk.unique1 = ss1.x OR tk.unique2 = ss1.x;
+                          QUERY PLAN                          
+--------------------------------------------------------------
+ Nested Loop
+   ->  Nested Loop Left Join
+         Join Filter: NULL::boolean
+         Filter: ((tk.unique1 = (42)) OR (tk.unique2 = (42)))
+         ->  Seq Scan on tk
+         ->  Result
+               One-Time Filter: false
+   ->  Materialize
+         ->  Seq Scan on i4
+(9 rows)
+
