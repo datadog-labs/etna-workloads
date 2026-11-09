@@ -1,0 +1,54 @@
+diff --git a/src/services/codefixes/fixAddMissingMember.ts b/src/services/codefixes/fixAddMissingMember.ts
+index 17ff128..b898745 100644
+--- a/src/services/codefixes/fixAddMissingMember.ts
++++ b/src/services/codefixes/fixAddMissingMember.ts
+@@ -563,6 +563,11 @@ function getActionsForMissingMethodDeclaration(context: CodeFixContext, info: Ty
+         return undefined;
+     }
+ 
++    // Private methods are not implemented yet.
++    if (isPrivateIdentifier(token)) {
++        return undefined;
++    }
++
+     const methodName = token.text;
+     const addMethodDeclarationChanges = (modifierFlags: ModifierFlags) => textChanges.ChangeTracker.with(context, t => addMethodDeclaration(context, t, call, token, modifierFlags, parentDeclaration, declSourceFile));
+     const actions = [createCodeFixAction(fixMissingMember, addMethodDeclarationChanges(modifierFlags & ModifierFlags.Static), [modifierFlags & ModifierFlags.Static ? Diagnostics.Declare_static_method_0 : Diagnostics.Declare_method_0, methodName], fixMissingMember, Diagnostics.Add_all_missing_members)];
+@@ -576,7 +581,7 @@ function addMethodDeclaration(
+     context: CodeFixContextBase,
+     changes: textChanges.ChangeTracker,
+     callExpression: CallExpression,
+-    name: Identifier | PrivateIdentifier,
++    name: Identifier,
+     modifierFlags: ModifierFlags,
+     parentDeclaration: ClassLikeDeclaration | InterfaceDeclaration | TypeLiteralNode,
+     sourceFile: SourceFile,
+diff --git a/src/services/codefixes/helpers.ts b/src/services/codefixes/helpers.ts
+index ebb58ba..8c654c9 100644
+--- a/src/services/codefixes/helpers.ts
++++ b/src/services/codefixes/helpers.ts
+@@ -78,7 +78,6 @@ import {
+     ObjectLiteralExpression,
+     ObjectType,
+     ParameterDeclaration,
+-    PrivateIdentifier,
+     Program,
+     PropertyAssignment,
+     PropertyDeclaration,
+@@ -491,7 +490,7 @@ export function createSignatureDeclarationFromCallExpression(
+     context: CodeFixContextBase,
+     importAdder: ImportAdder,
+     call: CallExpression,
+-    name: Identifier | PrivateIdentifier | string,
++    name: Identifier | string,
+     modifierFlags: ModifierFlags,
+     contextNode: Node,
+ ): MethodDeclaration | FunctionDeclaration | MethodSignature {
+@@ -550,7 +549,6 @@ export function createSignatureDeclarationFromCallExpression(
+                 type === undefined ? factory.createKeywordTypeNode(SyntaxKind.UnknownKeyword) : type,
+             );
+         case SyntaxKind.FunctionDeclaration:
+-            Debug.assert(typeof name === "string" || isIdentifier(name), "Unexpected name");
+             return factory.createFunctionDeclaration(
+                 modifiers,
+                 asteriskToken,

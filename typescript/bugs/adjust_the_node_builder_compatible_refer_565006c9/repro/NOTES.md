@@ -1,0 +1,3 @@
+`input.ts` declares `type Point = [number, number]` and a function `increment(point: Point)`. The script asks the public API (`checker.typeToTypeNode`) to build a type node for the function's type, then checks whether the `point` parameter's type node was reused from the source (`pos >= 0`) or synthesized (`pos < 0`).
+Clean: the aliased-tuple reference `Point` is reused from source, so it prints `reused from source: true`.
+Injected: the reuse check wrongly compares type-argument counts of the alias with the tuple target, so the node is rebuilt, and it prints `reused from source: false`. The printed text is the same in both builds.

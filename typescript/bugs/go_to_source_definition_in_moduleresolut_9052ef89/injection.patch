@@ -1,0 +1,55 @@
+diff --git a/src/compiler/binder.ts b/src/compiler/binder.ts
+index 5980b11..f045970 100644
+--- a/src/compiler/binder.ts
++++ b/src/compiler/binder.ts
+@@ -90,6 +90,7 @@ import {
+     getContainingClass,
+     getEffectiveContainerForJSDocTemplateTag,
+     getElementOrPropertyAccessName,
++    getEmitModuleResolutionKind,
+     getEmitScriptTarget,
+     getEnclosingBlockScopeContainer,
+     getEnclosingContainer,
+@@ -244,6 +245,7 @@ import {
+     ModifierFlags,
+     ModuleBlock,
+     ModuleDeclaration,
++    ModuleResolutionKind,
+     moduleExportNameIsDefault,
+     Mutable,
+     NamespaceExportDeclaration,
+@@ -3654,6 +3656,7 @@ function createBinder(): (file: SourceFile, options: CompilerOptions) => void {
+             const possibleVariableDecl = node.kind === SyntaxKind.VariableDeclaration ? node : node.parent.parent;
+             if (
+                 isInJSFile(node) &&
++                getEmitModuleResolutionKind(options) !== ModuleResolutionKind.Bundler &&
+                 isVariableDeclarationInitializedToBareOrAccessedRequire(possibleVariableDecl) &&
+                 !getJSDocTypeTag(node) &&
+                 !(getCombinedModifierFlags(node) & ModifierFlags.Export)
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..f7ac32e 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -37844,7 +37844,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         }
+ 
+         // In JavaScript files, calls to any identifier 'require' are treated as external module imports
+-        if (isInJSFile(node) && isCommonJsRequire(node)) {
++        if (isInJSFile(node) && getEmitModuleResolutionKind(compilerOptions) !== ModuleResolutionKind.Bundler && isCommonJsRequire(node)) {
+             return resolveExternalModuleTypeByLiteral(node.arguments![0] as StringLiteral);
+         }
+ 
+diff --git a/src/compiler/program.ts b/src/compiler/program.ts
+index b44a155..8f3a0e0 100644
+--- a/src/compiler/program.ts
++++ b/src/compiler/program.ts
+@@ -3349,7 +3349,8 @@ export function createProgram(_rootNamesOrOptions: readonly string[] | CreatePro
+             collectModuleReferences(node, /*inAmbientModule*/ false);
+         }
+ 
+-        if ((file.flags & NodeFlags.PossiblyContainsDynamicImport) || isJavaScriptFile) {
++        const shouldProcessRequires = isJavaScriptFile && getEmitModuleResolutionKind(options) !== ModuleResolutionKind.Bundler;
++        if ((file.flags & NodeFlags.PossiblyContainsDynamicImport) || shouldProcessRequires) {
+             forEachDynamicImportOrRequireCall(file, /*includeTypeSpaceImports*/ true, /*requireStringLiteralLikeArgument*/ true, (node, moduleSpecifier) => {
+                 setParentRecursive(node, /*incremental*/ false); // we need parent data on imports before the program is fully bound, so we ensure it's set here
+                 imports = append(imports, moduleSpecifier);

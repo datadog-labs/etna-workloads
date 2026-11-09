@@ -1,0 +1,47 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..b0426ef 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -4910,10 +4910,14 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 error(errorNode, resolutionDiagnostic, moduleReference, resolvedModule.resolvedFileName);
+             }
+             else {
++                const tsExtension = tryExtractTSExtension(moduleReference);
+                 const isExtensionlessRelativePathImport = pathIsRelative(moduleReference) && !hasExtension(moduleReference);
+                 const resolutionIsNode16OrNext = moduleResolutionKind === ModuleResolutionKind.Node16 ||
+                     moduleResolutionKind === ModuleResolutionKind.NodeNext;
+-                if (
++                if (tsExtension) {
++                    errorOnTSExtensionImport(tsExtension);
++                }
++                else if (
+                     !getResolveJsonModule(compilerOptions) &&
+                     fileExtensionIs(moduleReference, Extension.Json) &&
+                     moduleResolutionKind !== ModuleResolutionKind.Classic &&
+@@ -4944,6 +4948,11 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         }
+         return undefined;
+ 
++        function errorOnTSExtensionImport(tsExtension: string) {
++            const diag = Diagnostics.An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead;
++            error(errorNode, diag, tsExtension, getSuggestedImportSource(tsExtension));
++        }
++
+         function getSuggestedImportSource(tsExtension: string) {
+             const importSourceWithoutExtension = removeExtension(moduleReference, tsExtension);
+             /**
+diff --git a/src/compiler/diagnosticMessages.json b/src/compiler/diagnosticMessages.json
+index 46c2807..4d5dfa3 100644
+--- a/src/compiler/diagnosticMessages.json
++++ b/src/compiler/diagnosticMessages.json
+@@ -3305,6 +3305,10 @@
+         "category": "Error",
+         "code": 2690
+     },
++    "An import path cannot end with a '{0}' extension. Consider importing '{1}' instead.": {
++        "category": "Error",
++        "code": 2691
++    },
+     "'{0}' is a primitive, but '{1}' is a wrapper object. Prefer using '{0}' when possible.": {
+         "category": "Error",
+         "code": 2692

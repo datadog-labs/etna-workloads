@@ -1,0 +1,55 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..6e2ac2e 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -739,6 +739,7 @@ import {
+     isRightSideOfQualifiedNameOrPropertyAccess,
+     isRightSideOfQualifiedNameOrPropertyAccessOrJSDocMemberName,
+     isSameEntityName,
++    isSatisfiesExpression,
+     isSetAccessor,
+     isSetAccessorDeclaration,
+     isShorthandAmbientModuleSymbol,
+@@ -36141,10 +36142,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+     }
+ 
+     function getEffectiveCheckNode(argument: Expression): Expression {
+-        const flags = isInJSFile(argument)
+-            ? OuterExpressionKinds.Parentheses | OuterExpressionKinds.Satisfies | OuterExpressionKinds.ExcludeJSDocTypeAssertion
+-            : OuterExpressionKinds.Parentheses | OuterExpressionKinds.Satisfies;
+-        return skipOuterExpressions(argument, flags);
++        argument = skipParentheses(argument);
++        return isSatisfiesExpression(argument) ? skipParentheses(argument.expression) : argument;
+     }
+ 
+     function getSignatureApplicabilityError(
+diff --git a/src/compiler/factory/utilities.ts b/src/compiler/factory/utilities.ts
+index d58b118..2d84505 100644
+--- a/src/compiler/factory/utilities.ts
++++ b/src/compiler/factory/utilities.ts
+@@ -637,9 +637,8 @@ export function isOuterExpression(node: Node, kinds: OuterExpressionKinds = Oute
+             return (kinds & OuterExpressionKinds.Parentheses) !== 0;
+         case SyntaxKind.TypeAssertionExpression:
+         case SyntaxKind.AsExpression:
+-            return (kinds & OuterExpressionKinds.TypeAssertions) !== 0;
+         case SyntaxKind.SatisfiesExpression:
+-            return (kinds & (OuterExpressionKinds.TypeAssertions | OuterExpressionKinds.Satisfies)) !== 0;
++            return (kinds & OuterExpressionKinds.TypeAssertions) !== 0;
+         case SyntaxKind.ExpressionWithTypeArguments:
+             return (kinds & OuterExpressionKinds.ExpressionsWithTypeArguments) !== 0;
+         case SyntaxKind.NonNullExpression:
+diff --git a/src/compiler/types.ts b/src/compiler/types.ts
+index 4d8d22a..73c2db3 100644
+--- a/src/compiler/types.ts
++++ b/src/compiler/types.ts
+@@ -8636,9 +8636,8 @@ export const enum OuterExpressionKinds {
+     NonNullAssertions = 1 << 2,
+     PartiallyEmittedExpressions = 1 << 3,
+     ExpressionsWithTypeArguments = 1 << 4,
+-    Satisfies = 1 << 5,
+ 
+-    Assertions = TypeAssertions | NonNullAssertions | Satisfies,
++    Assertions = TypeAssertions | NonNullAssertions,
+     All = Parentheses | Assertions | PartiallyEmittedExpressions | ExpressionsWithTypeArguments,
+ 
+     ExcludeJSDocTypeAssertion = 1 << 31,

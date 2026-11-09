@@ -1,0 +1,25 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..3ef91e1 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -31890,6 +31890,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             if (contextualSignature) {
+                 const thisParameter = contextualSignature.thisParameter;
+                 if (thisParameter) {
++
+                     return getTypeOfSymbol(thisParameter);
+                 }
+             }
+@@ -36165,10 +36166,10 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             return undefined;
+         }
+         const thisType = getThisTypeOfSignature(signature);
+-        if (thisType && thisType !== voidType && !(isNewExpression(node) || isCallExpression(node) && isSuperProperty(node.expression))) {
++        if (thisType && thisType !== voidType && node.kind !== SyntaxKind.NewExpression) {
+             // If the called expression is not of the form `x.f` or `x["f"]`, then sourceType = voidType
+             // If the signature's 'this' type is voidType, then the check is skipped -- anything is compatible.
+-            // If the expression is a new expression or super call expression, then the check is skipped.
++            // If the expression is a new expression, then the check is skipped.
+             const thisArgumentNode = getThisArgumentOfCall(node);
+             const thisArgumentType = getThisArgumentType(thisArgumentNode);
+             const errorNode = reportErrors ? (thisArgumentNode || node) : undefined;

@@ -1,0 +1,29 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..2110b2b 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -31172,8 +31172,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         const isOuterVariable = flowContainer !== declarationContainer;
+         const isSpreadDestructuringAssignmentTarget = node.parent && node.parent.parent && isSpreadAssignment(node.parent) && isDestructuringAssignmentTarget(node.parent.parent);
+         const isModuleExports = symbol.flags & SymbolFlags.ModuleExports;
+-        const typeIsAutomatic = type === autoType || type === autoArrayType;
+-        const isAutomaticTypeInNonNull = typeIsAutomatic && node.parent.kind === SyntaxKind.NonNullExpression;
+         // When the control flow originates in a function expression, arrow function, method, or accessor, and
+         // we are referencing a closed-over const variable or parameter or mutable local variable past its last
+         // assignment, we extend the origin of the control flow analysis to include the immediately enclosing
+@@ -31202,11 +31200,10 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             node.parent.kind === SyntaxKind.NonNullExpression ||
+             declaration.kind === SyntaxKind.VariableDeclaration && (declaration as VariableDeclaration).exclamationToken ||
+             declaration.flags & NodeFlags.Ambient;
+-        const initialType = isAutomaticTypeInNonNull ? undefinedType :
+-            assumeInitialized ? (isParameter ? removeOptionalityFromDeclaredType(type, declaration as VariableLikeDeclaration) : type) :
+-            typeIsAutomatic ? undefinedType : getOptionalType(type);
+-        const flowType = isAutomaticTypeInNonNull ? getNonNullableType(getFlowTypeOfReference(node, type, initialType, flowContainer)) :
+-            getFlowTypeOfReference(node, type, initialType, flowContainer);
++        const initialType = assumeInitialized ? (isParameter ? removeOptionalityFromDeclaredType(type, declaration as VariableLikeDeclaration) : type) :
++            type === autoType || type === autoArrayType ? undefinedType :
++            getOptionalType(type);
++        const flowType = getFlowTypeOfReference(node, type, initialType, flowContainer);
+         // A variable is considered uninitialized when it is possible to analyze the entire control flow graph
+         // from declaration to use, and when the variable's declared type doesn't include undefined but the
+         // control flow based type does include undefined.

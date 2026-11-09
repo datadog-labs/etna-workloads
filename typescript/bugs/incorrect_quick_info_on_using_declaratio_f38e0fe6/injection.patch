@@ -1,0 +1,62 @@
+diff --git a/src/services/symbolDisplay.ts b/src/services/symbolDisplay.ts
+index 03b2b59..d2ef71a 100644
+--- a/src/services/symbolDisplay.ts
++++ b/src/services/symbolDisplay.ts
+@@ -61,9 +61,7 @@ import {
+     isThisInTypeQuery,
+     isTransientSymbol,
+     isTypeAliasDeclaration,
+-    isVarAwaitUsing,
+     isVarConst,
+-    isVarUsing,
+     JSDocTagInfo,
+     JsxOpeningLikeElement,
+     keywordPart,
+@@ -166,12 +164,6 @@ function getSymbolKindOfConstructorPropertyMethodAccessorFunctionOrVar(typeCheck
+         else if (symbol.valueDeclaration && isVarConst(symbol.valueDeclaration as VariableDeclaration)) {
+             return ScriptElementKind.constElement;
+         }
+-        else if (symbol.valueDeclaration && isVarUsing(symbol.valueDeclaration as VariableDeclaration)) {
+-            return ScriptElementKind.variableUsingElement;
+-        }
+-        else if (symbol.valueDeclaration && isVarAwaitUsing(symbol.valueDeclaration as VariableDeclaration)) {
+-            return ScriptElementKind.variableAwaitUsingElement;
+-        }
+         else if (forEach(symbol.declarations, isLet)) {
+             return ScriptElementKind.letElement;
+         }
+@@ -689,8 +681,6 @@ function getSymbolDisplayPartsDocumentationAndSymbolKindWorker(
+                     symbolFlags & SymbolFlags.Variable ||
+                     symbolKind === ScriptElementKind.localVariableElement ||
+                     symbolKind === ScriptElementKind.indexSignatureElement ||
+-                    symbolKind === ScriptElementKind.variableUsingElement ||
+-                    symbolKind === ScriptElementKind.variableAwaitUsingElement ||
+                     isThisExpression
+                 ) {
+                     displayParts.push(punctuationPart(SyntaxKind.ColonToken));
+@@ -967,8 +957,6 @@ function getSymbolDisplayPartsDocumentationAndSymbolKindWorker(
+             case ScriptElementKind.letElement:
+             case ScriptElementKind.constElement:
+             case ScriptElementKind.constructorImplementationElement:
+-            case ScriptElementKind.variableUsingElement:
+-            case ScriptElementKind.variableAwaitUsingElement:
+                 displayParts.push(textOrKeywordPart(symbolKind));
+                 return;
+             default:
+diff --git a/src/services/types.ts b/src/services/types.ts
+index 5329fe9..3201c7d 100644
+--- a/src/services/types.ts
++++ b/src/services/types.ts
+@@ -1733,12 +1733,6 @@ export const enum ScriptElementKind {
+     /** Inside function */
+     localVariableElement = "local var",
+ 
+-    /** using foo = ... */
+-    variableUsingElement = "using",
+-
+-    /** await using foo = ... */
+-    variableAwaitUsingElement = "await using",
+-
+     /**
+      * Inside module and script only
+      * function f() { }

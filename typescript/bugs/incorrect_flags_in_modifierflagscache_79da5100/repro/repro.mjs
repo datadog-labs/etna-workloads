@@ -1,0 +1,14 @@
+import { createRequire } from "module";
+const ts = createRequire(import.meta.url)(process.env.TYPESCRIPT);
+const f = "a.js";
+const src = "class C {\n  /** @private */\n  x = 1;\n}\n";
+const host = ts.createCompilerHost({ allowJs: true });
+const orig = host.getSourceFile;
+host.getSourceFile = (n, l) => n === f ? ts.createSourceFile(n, src, l, true, ts.ScriptKind.JS) : orig(n, l);
+host.fileExists = n => n === f;
+host.readFile = n => n === f ? src : undefined;
+const p = ts.createProgram([f], { allowJs: true, noEmit: true }, host);
+const sf = p.getSourceFile(f);
+const prop = sf.statements[0].members[0];
+console.log("effective", ts.getEffectiveModifierFlags(prop));
+console.log("syntactic", ts.getSyntacticModifierFlags(prop));

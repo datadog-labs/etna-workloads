@@ -1,0 +1,43 @@
+diff --git a/src/compiler/resolutionCache.ts b/src/compiler/resolutionCache.ts
+index da7c2f2..0a1c76e 100644
+--- a/src/compiler/resolutionCache.ts
++++ b/src/compiler/resolutionCache.ts
+@@ -269,7 +269,7 @@ export function removeIgnoredPath(path: Path): Path | undefined {
+ function perceivedOsRootLengthForWatching(pathComponents: Readonly<PathPathComponents>, length: number) {
+     // Ignore "/", "c:/"
+     if (length <= 1) return 1;
+-    let indexAfterOsRoot = 1;
++    let userCheckIndex = 1;
+     let isDosStyle = pathComponents[0].search(/[a-z]:/i) === 0;
+     if (
+         pathComponents[0] !== directorySeparator &&
+@@ -278,25 +278,20 @@ function perceivedOsRootLengthForWatching(pathComponents: Readonly<PathPathCompo
+     ) {
+         // ignore "//vda1cs4850/c$/folderAtRoot"
+         if (length === 2) return 2;
+-        indexAfterOsRoot = 2;
++        userCheckIndex = 2;
+         isDosStyle = true;
+     }
+ 
+     if (
+         isDosStyle &&
+-        !pathComponents[indexAfterOsRoot].match(/^users$/i)
++        !pathComponents[userCheckIndex].match(/^users$/i)
+     ) {
+         // Paths like c:/notUsers
+-        return indexAfterOsRoot;
+-    }
+-
+-    if (pathComponents[indexAfterOsRoot].match(/^workspaces$/i)) {
+-        // Paths like: /workspaces as codespaces hoist the repos in /workspaces so we have to exempt these from "2" level from root rule
+-        return indexAfterOsRoot + 1;
++        return userCheckIndex;
+     }
+ 
+     // Paths like: c:/users/username or /home/username
+-    return indexAfterOsRoot + 2;
++    return userCheckIndex + 2;
+ }
+ 
+ /**

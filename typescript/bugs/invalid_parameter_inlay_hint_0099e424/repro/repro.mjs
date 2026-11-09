@@ -1,0 +1,10 @@
+import {createRequire} from 'module';
+const ts=createRequire(import.meta.url)(process.env.TYPESCRIPT);
+const src=`declare function f(a: number, b: string, c: boolean): void;
+const x = 1;
+f(x, "hi", true);
+`;
+const host={getScriptFileNames:()=>["a.ts"],getScriptVersion:()=>"1",getScriptSnapshot:n=>n=="a.ts"?ts.ScriptSnapshot.fromString(src):undefined,getCurrentDirectory:()=>"/",getCompilationSettings:()=>({}),getDefaultLibFileName:()=>"lib.d.ts",fileExists:n=>n=="a.ts",readFile:n=>n=="a.ts"?src:undefined};
+const ls=ts.createLanguageService(host);
+const h=ls.provideInlayHints("a.ts",{start:0,length:src.length},{includeInlayParameterNameHints:"literals"});
+for(const i of h)console.log(i.text,i.position);

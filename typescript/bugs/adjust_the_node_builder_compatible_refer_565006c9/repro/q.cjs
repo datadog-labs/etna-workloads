@@ -1,0 +1,10 @@
+const ts = require(process.env.TYPESCRIPT);
+const p = ts.createProgram(["input.ts"], {target: 9, strict: true});
+const c = p.getTypeChecker();
+const sf = p.getSourceFile("input.ts");
+const decl = sf.statements[1];
+const t = c.getTypeAtLocation(decl.name);
+const tn = c.typeToTypeNode(t, decl.parent, ts.NodeBuilderFlags.NoTruncation | ts.NodeBuilderFlags.IgnoreErrors);
+const pt = tn.parameters[0].type;
+console.log(ts.createPrinter().printNode(4, tn, sf));
+console.log("param type kind:", ts.SyntaxKind[pt.kind], "reused from source:", pt.pos >= 0);

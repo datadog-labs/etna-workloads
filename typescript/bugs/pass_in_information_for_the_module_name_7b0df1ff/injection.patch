@@ -1,0 +1,28 @@
+diff --git a/src/compiler/resolutionCache.ts b/src/compiler/resolutionCache.ts
+index da7c2f2..81c2cd8 100644
+--- a/src/compiler/resolutionCache.ts
++++ b/src/compiler/resolutionCache.ts
+@@ -18,6 +18,8 @@ import {
+     extensionIsTS,
+     fileExtensionIs,
+     FileReference,
++    getModeForResolutionAtIndex,
++    isStringLiteralLike,
+     FileWatcher,
+     FileWatcherCallback,
+     firstDefinedIterator,
+@@ -882,9 +884,13 @@ export function createResolutionCache(resolutionHost: ResolutionCacheHost, rootD
+             !!redirectedReference;
+ 
+         const seenNamesInFile = createModeAwareCache<true>();
++        let i = 0;
+         for (const entry of entries) {
+             const name = loader.nameAndMode.getName(entry);
+-            const mode = loader.nameAndMode.getMode(entry, containingSourceFile, redirectedReference?.commandLine.options || options);
++            const mode = containingSourceFile && isStringLiteralLike(entry as any) ?
++                getModeForResolutionAtIndex(containingSourceFile as any, i, redirectedReference?.commandLine.options || options) :
++                loader.nameAndMode.getMode(entry, containingSourceFile, redirectedReference?.commandLine.options || options);
++            i++;
+             let resolution = resolutionsInFile.get(name, mode);
+             // Resolution is valid if it is present and not invalidated
+             if (

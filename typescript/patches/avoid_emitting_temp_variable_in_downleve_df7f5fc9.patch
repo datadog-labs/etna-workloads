@@ -1,0 +1,80 @@
+diff --git a/src/compiler/transformers/module/module.ts b/src/compiler/transformers/module/module.ts
+index 1c43d18..3203af3 100644
+--- a/src/compiler/transformers/module/module.ts
++++ b/src/compiler/transformers/module/module.ts
+@@ -1337,53 +1337,29 @@ export function transformModule(context: TransformationContext): (x: SourceFile
+         // if we simply do require in resolve callback in Promise constructor. We will execute the loading immediately
+         // If the arg is not inlineable, we have to evaluate and ToString() it in the current scope
+         // Otherwise, we inline it in require() so that it's statically analyzable
+-        const needSyncEval = arg && !isSimpleInlineableExpression(arg) && !isInlineable;
++        const temp = arg && !isSimpleInlineableExpression(arg) && !isInlineable ? factory.createTempVariable(hoistVariableDeclaration) : undefined;
+ 
+         const promiseResolveCall = factory.createCallExpression(
+             factory.createPropertyAccessExpression(factory.createIdentifier("Promise"), "resolve"),
+             /*typeArguments*/ undefined,
+-            /*argumentsArray*/ needSyncEval
+-                ? languageVersion >= ScriptTarget.ES2015
+-                    ? [
+-                        factory.createTemplateExpression(factory.createTemplateHead(""), [
+-                            factory.createTemplateSpan(arg, factory.createTemplateTail("")),
+-                        ]),
+-                    ]
+-                    : [
+-                        factory.createCallExpression(
+-                            factory.createPropertyAccessExpression(factory.createStringLiteral(""), "concat"),
+-                            /*typeArguments*/ undefined,
+-                            [arg],
+-                        ),
+-                    ]
+-                : [],
++            /*argumentsArray*/ [],
+         );
+ 
+         let requireCall: Expression = factory.createCallExpression(
+             factory.createIdentifier("require"),
+             /*typeArguments*/ undefined,
+-            needSyncEval ? [factory.createIdentifier("s")] : arg ? [arg] : [],
++            temp ? [temp] : arg ? [arg] : [],
+         );
+         if (getESModuleInterop(compilerOptions)) {
+             requireCall = emitHelpers().createImportStarHelper(requireCall);
+         }
+ 
+-        const parameters = needSyncEval
+-            ? [
+-                factory.createParameterDeclaration(
+-                    /*modifiers*/ undefined,
+-                    /*dotDotDotToken*/ undefined,
+-                    /*name*/ "s",
+-                ),
+-            ]
+-            : [];
+-
+         let func: FunctionExpression | ArrowFunction;
+         if (languageVersion >= ScriptTarget.ES2015) {
+             func = factory.createArrowFunction(
+                 /*modifiers*/ undefined,
+                 /*typeParameters*/ undefined,
+-                /*parameters*/ parameters,
++                /*parameters*/ [],
+                 /*type*/ undefined,
+                 /*equalsGreaterThanToken*/ undefined,
+                 requireCall,
+@@ -1395,7 +1371,7 @@ export function transformModule(context: TransformationContext): (x: SourceFile
+                 /*asteriskToken*/ undefined,
+                 /*name*/ undefined,
+                 /*typeParameters*/ undefined,
+-                /*parameters*/ parameters,
++                /*parameters*/ [],
+                 /*type*/ undefined,
+                 factory.createBlock([factory.createReturnStatement(requireCall)]),
+             );
+@@ -1403,7 +1379,7 @@ export function transformModule(context: TransformationContext): (x: SourceFile
+ 
+         const downleveledImport = factory.createCallExpression(factory.createPropertyAccessExpression(promiseResolveCall, "then"), /*typeArguments*/ undefined, [func]);
+ 
+-        return downleveledImport;
++        return temp === undefined ? downleveledImport : factory.createCommaListExpression([factory.createAssignment(temp, arg!), downleveledImport]);
+     }
+ 
+     function getHelperExpressionForExport(node: ExportDeclaration, innerExpr: Expression) {

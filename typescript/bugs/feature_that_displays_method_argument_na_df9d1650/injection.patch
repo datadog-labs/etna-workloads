@@ -1,0 +1,26 @@
+diff --git a/src/services/inlayHints.ts b/src/services/inlayHints.ts
+index 43dad7e..b06dd39 100644
+--- a/src/services/inlayHints.ts
++++ b/src/services/inlayHints.ts
+@@ -109,6 +109,7 @@ import {
+     PrefixUnaryExpression,
+     PropertyDeclaration,
+     QuotePreference,
++    Signature,
+     SignatureDeclarationBase,
+     skipParentheses,
+     some,
+@@ -298,8 +299,11 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
+             return;
+         }
+ 
+-        const signature = checker.getResolvedSignature(expr);
+-        if (signature === undefined) return;
++        const candidates: Signature[] = [];
++        const signature = checker.getResolvedSignatureForSignatureHelp(expr, candidates);
++        if (!signature || !candidates.length) {
++            return;
++        }
+ 
+         let signatureParamPos = 0;
+         for (const originalArg of args) {

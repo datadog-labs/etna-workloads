@@ -1,0 +1,86 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..6ad540e 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -9126,13 +9126,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             if (typeFromTypeNode === type) {
+                 return true;
+             }
+-            if (!annotatedDeclaration) {
+-                return false;
+-            }
+-            if ((isPropertySignature(annotatedDeclaration) || isPropertyDeclaration(annotatedDeclaration)) && annotatedDeclaration.questionToken) {
+-                return getTypeWithFacts(type, TypeFacts.NEUndefined) === typeFromTypeNode;
+-            }
+-            if (isParameter(annotatedDeclaration) && hasEffectiveQuestionToken(annotatedDeclaration)) {
++            if (annotatedDeclaration && (isParameter(annotatedDeclaration) || isPropertySignature(annotatedDeclaration) || isPropertyDeclaration(annotatedDeclaration)) && annotatedDeclaration.questionToken) {
+                 return getTypeWithFacts(type, TypeFacts.NEUndefined) === typeFromTypeNode;
+             }
+             return false;
+@@ -9614,9 +9608,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 const skipMembershipCheck = !isPrivate; // We only call this on exported symbols when we know they're in the correct scope
+                 if (skipMembershipCheck || (!!length(symbol.declarations) && some(symbol.declarations, d => !!findAncestor(d, n => n === enclosingDeclaration)))) {
+                     const scopeCleanup = cloneNodeBuilderContext(context);
+-                    context.tracker.pushErrorFallbackNode(find(symbol.declarations, d => getSourceFileOfNode(d) === context.enclosingFile));
+                     serializeSymbolWorker(symbol, isPrivate, propertyAsAlias);
+-                    context.tracker.popErrorFallbackNode();
+                     scopeCleanup();
+                 }
+             }
+@@ -54423,12 +54415,4 @@ class SymbolTrackerImpl implements SymbolTracker {
+             this.inner.reportInferenceFallback(node);
+         }
+     }
+-
+-    pushErrorFallbackNode(node: Declaration | undefined): void {
+-        return this.inner?.pushErrorFallbackNode?.(node);
+-    }
+-
+-    popErrorFallbackNode(): void {
+-        return this.inner?.popErrorFallbackNode?.();
+-    }
+ }
+diff --git a/src/compiler/transformers/declarations.ts b/src/compiler/transformers/declarations.ts
+index b1340cc..ae671b7 100644
+--- a/src/compiler/transformers/declarations.ts
++++ b/src/compiler/transformers/declarations.ts
+@@ -271,7 +271,6 @@ export function transformDeclarations(context: TransformationContext): Transform
+ 
+     const { factory } = context;
+     const host = context.getEmitHost();
+-    let restoreFallbackNode = () => void 0;
+     const symbolTracker: SymbolTracker = {
+         trackSymbol,
+         reportInaccessibleThisError,
+@@ -284,18 +283,6 @@ export function transformDeclarations(context: TransformationContext): Transform
+         reportNonlocalAugmentation,
+         reportNonSerializableProperty,
+         reportInferenceFallback,
+-        pushErrorFallbackNode(node) {
+-            const currentFallback = errorFallbackNode;
+-            const currentRestore = restoreFallbackNode;
+-            restoreFallbackNode = () => {
+-                restoreFallbackNode = currentRestore;
+-                errorFallbackNode = currentFallback;
+-            };
+-            errorFallbackNode = node;
+-        },
+-        popErrorFallbackNode() {
+-            restoreFallbackNode();
+-        },
+     };
+     let errorNameNode: DeclarationName | undefined;
+     let errorFallbackNode: Declaration | undefined;
+diff --git a/src/compiler/types.ts b/src/compiler/types.ts
+index 4d8d22a..b01cb2f 100644
+--- a/src/compiler/types.ts
++++ b/src/compiler/types.ts
+@@ -10056,8 +10056,6 @@ export interface SymbolTracker {
+     reportNonlocalAugmentation?(containingFile: SourceFile, parentSymbol: Symbol, augmentingSymbol: Symbol): void;
+     reportNonSerializableProperty?(propertyName: string): void;
+     reportInferenceFallback?(node: Node): void;
+-    pushErrorFallbackNode?(node: Declaration | undefined): void;
+-    popErrorFallbackNode?(): void;
+ }
+ 
+ export interface TextSpan {

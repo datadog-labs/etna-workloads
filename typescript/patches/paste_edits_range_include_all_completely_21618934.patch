@@ -1,0 +1,89 @@
+diff --git a/src/services/pasteEdits.ts b/src/services/pasteEdits.ts
+index 3fffc8c..d3c84b1 100644
+--- a/src/services/pasteEdits.ts
++++ b/src/services/pasteEdits.ts
+@@ -5,7 +5,6 @@ import {
+     fileShouldUseJavaScriptRequire,
+     findAncestor,
+     findIndex,
+-    findTokenOnLeftOfPosition,
+     forEachChild,
+     formatting,
+     getNewLineOrDefaultFromHost,
+@@ -51,16 +50,11 @@ export function pasteEditsProvider(
+     return { edits: changes, fixId };
+ }
+ 
+-interface CopiedFromInfo {
+-    file: SourceFile;
+-    range: TextRange[];
+-}
+-
+ function pasteEdits(
+     targetFile: SourceFile,
+     pastedText: string[],
+     pasteLocations: TextRange[],
+-    copiedFrom: CopiedFromInfo | undefined,
++    copiedFrom: { file: SourceFile; range: TextRange[]; } | undefined,
+     host: LanguageServiceHost,
+     preferences: UserPreferences,
+     formatContext: formatting.FormatContext,
+@@ -99,13 +93,11 @@ function pasteEdits(
+                 }
+                 statements.push(...statementsInSourceFile.slice(startNodeIndex, endNodeIndex === -1 ? statementsInSourceFile.length : endNodeIndex + 1));
+             });
+-            Debug.assertIsDefined(originalProgram, "no original program found");
+-            const originalProgramTypeChecker = originalProgram.getTypeChecker();
+-            const usageInfoRange = getUsageInfoRangeForPasteEdits(copiedFrom);
+-            const usage = getUsageInfo(copiedFrom.file, statements, originalProgramTypeChecker, getExistingLocals(updatedFile, statements, originalProgramTypeChecker), usageInfoRange);
++            const usage = getUsageInfo(copiedFrom.file, statements, originalProgram!.getTypeChecker(), getExistingLocals(updatedFile, statements, originalProgram!.getTypeChecker()), { pos: copiedFrom.range[0].pos, end: copiedFrom.range[copiedFrom.range.length - 1].end });
++            Debug.assertIsDefined(originalProgram);
+             const useEsModuleSyntax = !fileShouldUseJavaScriptRequire(targetFile.fileName, originalProgram, host, !!copiedFrom.file.commonJsModuleIndicator);
+             addExportsInOldFile(copiedFrom.file, usage.targetFileImportsFromOldFile, changes, useEsModuleSyntax);
+-            addTargetFileImports(copiedFrom.file, usage.oldImportsNeededByTargetFile, usage.targetFileImportsFromOldFile, originalProgramTypeChecker, updatedProgram, importAdder);
++            addTargetFileImports(copiedFrom.file, usage.oldImportsNeededByTargetFile, usage.targetFileImportsFromOldFile, originalProgram.getTypeChecker(), updatedProgram, importAdder);
+         }
+         else {
+             const context: CodeFixContextBase = {
+@@ -175,18 +167,3 @@ function pasteEdits(
+         );
+     });
+ }
+-
+-/**
+- * Adjusts the range for `getUsageInfo` to correctly include identifiers at the edges of the copied text.
+- */
+-function getUsageInfoRangeForPasteEdits({ file: sourceFile, range }: CopiedFromInfo) {
+-    const pos = range[0].pos;
+-    const end = range[range.length - 1].end;
+-    const startToken = getTokenAtPosition(sourceFile, pos);
+-    const endToken = findTokenOnLeftOfPosition(sourceFile, pos) ?? getTokenAtPosition(sourceFile, end);
+-    // Since the range is only used to check identifiers, we do not need to adjust range when the tokens at the edges are not identifiers.
+-    return {
+-        pos: isIdentifier(startToken) && pos <= startToken.getStart(sourceFile) ? startToken.getFullStart() : pos,
+-        end: isIdentifier(endToken) && end === endToken.getEnd() ? textChanges.getAdjustedEndPosition(sourceFile, endToken, {}) : end,
+-    };
+-}
+diff --git a/src/services/textChanges.ts b/src/services/textChanges.ts
+index cca568d..196f538 100644
+--- a/src/services/textChanges.ts
++++ b/src/services/textChanges.ts
+@@ -352,7 +352,7 @@ function getAdjustedRange(sourceFile: SourceFile, startNode: Node, endNode: Node
+     return { pos: getAdjustedStartPosition(sourceFile, startNode, options), end: getAdjustedEndPosition(sourceFile, endNode, options) };
+ }
+ 
+-function getAdjustedStartPosition(sourceFile: SourceFile, node: Node, options: ConfigurableStartEnd, hasTrailingComment = false): number {
++function getAdjustedStartPosition(sourceFile: SourceFile, node: Node, options: ConfigurableStartEnd, hasTrailingComment = false) {
+     const { leadingTriviaOption } = options;
+     if (leadingTriviaOption === LeadingTriviaOption.Exclude) {
+         return node.getStart(sourceFile);
+@@ -436,8 +436,7 @@ function getEndPositionOfMultilineTrailingComment(sourceFile: SourceFile, node:
+     return undefined;
+ }
+ 
+-/** @internal */
+-export function getAdjustedEndPosition(sourceFile: SourceFile, node: Node, options: ConfigurableEnd): number {
++function getAdjustedEndPosition(sourceFile: SourceFile, node: Node, options: ConfigurableEnd): number {
+     const { end } = node;
+     const { trailingTriviaOption } = options;
+     if (trailingTriviaOption === TrailingTriviaOption.Exclude) {

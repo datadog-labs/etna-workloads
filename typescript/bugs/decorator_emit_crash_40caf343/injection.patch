@@ -1,0 +1,92 @@
+diff --git a/src/compiler/transformers/esDecorators.ts b/src/compiler/transformers/esDecorators.ts
+index 9f76d6f..7609ab9 100644
+--- a/src/compiler/transformers/esDecorators.ts
++++ b/src/compiler/transformers/esDecorators.ts
+@@ -686,7 +686,7 @@ export function transformESDecorators(context: TransformationContext): (x: Sourc
+         let shouldTransformPrivateStaticElementsInClass = false;
+ 
+         // 1. Class decorators are evaluated outside of the private name scope of the class.
+-        const classDecorators = transformAllDecoratorsOfDeclaration(getAllDecoratorsOfClass(node, /*useLegacyDecorators*/ false));
++        const classDecorators = transformAllDecoratorsOfDeclaration(getAllDecoratorsOfClass(node));
+         if (classDecorators) {
+             // - Since class decorators don't have privileged access to private names defined inside the class,
+             //   they must be evaluated outside of the class body.
+diff --git a/src/compiler/transformers/legacyDecorators.ts b/src/compiler/transformers/legacyDecorators.ts
+index 8edba2a..6ef7745 100644
+--- a/src/compiler/transformers/legacyDecorators.ts
++++ b/src/compiler/transformers/legacyDecorators.ts
+@@ -679,7 +679,7 @@ export function transformLegacyDecorators(context: TransformationContext): (x: S
+      * @param node The class node.
+      */
+     function generateConstructorDecorationExpression(node: ClassExpression | ClassDeclaration) {
+-        const allDecorators = getAllDecoratorsOfClass(node, /*useLegacyDecorators*/ true);
++        const allDecorators = getAllDecoratorsOfClass(node);
+         const decoratorExpressions = transformAllDecoratorsOfDeclaration(allDecorators);
+         if (!decoratorExpressions) {
+             return undefined;
+diff --git a/src/compiler/transformers/utilities.ts b/src/compiler/transformers/utilities.ts
+index 584cb86..0658ae8 100644
+--- a/src/compiler/transformers/utilities.ts
++++ b/src/compiler/transformers/utilities.ts
+@@ -679,9 +679,9 @@ function getDecoratorsOfParameters(node: FunctionLikeDeclaration | undefined) {
+  *
+  * @internal
+  */
+-export function getAllDecoratorsOfClass(node: ClassLikeDeclaration, useLegacyDecorators: boolean): AllDecorators | undefined {
++export function getAllDecoratorsOfClass(node: ClassLikeDeclaration): AllDecorators | undefined {
+     const decorators = getDecorators(node);
+-    const parameters = useLegacyDecorators ? getDecoratorsOfParameters(getFirstConstructorWithBody(node)) : undefined;
++    const parameters = getDecoratorsOfParameters(getFirstConstructorWithBody(node));
+     if (!some(decorators) && !some(parameters)) {
+         return undefined;
+     }
+@@ -705,12 +705,12 @@ export function getAllDecoratorsOfClassElement(member: ClassElement, parent: Cla
+         case SyntaxKind.GetAccessor:
+         case SyntaxKind.SetAccessor:
+             if (!useLegacyDecorators) {
+-                return getAllDecoratorsOfMethod(member as AccessorDeclaration, /*useLegacyDecorators*/ false);
++                return getAllDecoratorsOfMethod(member as AccessorDeclaration);
+             }
+-            return getAllDecoratorsOfAccessors(member as AccessorDeclaration, parent, /*useLegacyDecorators*/ true);
++            return getAllDecoratorsOfAccessors(member as AccessorDeclaration, parent);
+ 
+         case SyntaxKind.MethodDeclaration:
+-            return getAllDecoratorsOfMethod(member as MethodDeclaration, useLegacyDecorators);
++            return getAllDecoratorsOfMethod(member as MethodDeclaration);
+ 
+         case SyntaxKind.PropertyDeclaration:
+             return getAllDecoratorsOfProperty(member as PropertyDeclaration);
+@@ -726,7 +726,7 @@ export function getAllDecoratorsOfClassElement(member: ClassElement, parent: Cla
+  * @param parent The class node that contains the accessor.
+  * @param accessor The class accessor member.
+  */
+-function getAllDecoratorsOfAccessors(accessor: AccessorDeclaration, parent: ClassExpression | ClassDeclaration, useLegacyDecorators: boolean): AllDecorators | undefined {
++function getAllDecoratorsOfAccessors(accessor: AccessorDeclaration, parent: ClassExpression | ClassDeclaration): AllDecorators | undefined {
+     if (!accessor.body) {
+         return undefined;
+     }
+@@ -741,7 +741,7 @@ function getAllDecoratorsOfAccessors(accessor: AccessorDeclaration, parent: Clas
+     }
+ 
+     const decorators = getDecorators(firstAccessorWithDecorators);
+-    const parameters = useLegacyDecorators ? getDecoratorsOfParameters(setAccessor) : undefined;
++    const parameters = getDecoratorsOfParameters(setAccessor);
+     if (!some(decorators) && !some(parameters)) {
+         return undefined;
+     }
+@@ -759,13 +759,13 @@ function getAllDecoratorsOfAccessors(accessor: AccessorDeclaration, parent: Clas
+  *
+  * @param method The class method member.
+  */
+-function getAllDecoratorsOfMethod(method: MethodDeclaration | AccessorDeclaration, useLegacyDecorators: boolean): AllDecorators | undefined {
++function getAllDecoratorsOfMethod(method: MethodDeclaration | AccessorDeclaration): AllDecorators | undefined {
+     if (!method.body) {
+         return undefined;
+     }
+ 
+     const decorators = getDecorators(method);
+-    const parameters = useLegacyDecorators ? getDecoratorsOfParameters(method) : undefined;
++    const parameters = getDecoratorsOfParameters(method);
+     if (!some(decorators) && !some(parameters)) {
+         return undefined;
+     }

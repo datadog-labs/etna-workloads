@@ -1,0 +1,54 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..51f4374 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -32078,19 +32078,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 if (!node.asteriskToken && contextualReturnType.flags & TypeFlags.Union) {
+                     contextualReturnType = filterType(contextualReturnType, type => !!getIterationTypeOfGeneratorFunctionReturnType(IterationTypeKind.Return, type, isAsyncGenerator));
+                 }
+-                if (node.asteriskToken) {
+-                    const iterationTypes = getIterationTypesOfGeneratorFunctionReturnType(contextualReturnType, isAsyncGenerator);
+-                    const yieldType = iterationTypes?.yieldType ?? silentNeverType;
+-                    const returnType = getContextualType(node, contextFlags) ?? silentNeverType;
+-                    const nextType = iterationTypes?.nextType ?? unknownType;
+-                    const generatorType = createGeneratorType(yieldType, returnType, nextType, /*isAsyncGenerator*/ false);
+-                    if (isAsyncGenerator) {
+-                        const asyncGeneratorType = createGeneratorType(yieldType, returnType, nextType, /*isAsyncGenerator*/ true);
+-                        return getUnionType([generatorType, asyncGeneratorType]);
+-                    }
+-                    return generatorType;
+-                }
+-                return getIterationTypeOfGeneratorFunctionReturnType(IterationTypeKind.Yield, contextualReturnType, isAsyncGenerator);
++                return node.asteriskToken
++                    ? contextualReturnType
++                    : getIterationTypeOfGeneratorFunctionReturnType(IterationTypeKind.Yield, contextualReturnType, isAsyncGenerator);
+             }
+         }
+ 
+@@ -39279,7 +39269,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         }
+ 
+         if (isGenerator) {
+-            return createGeneratorType(
++            return createGeneratorReturnType(
+                 yieldType || neverType,
+                 returnType || fallbackReturnType,
+                 nextType || getContextualIterationType(IterationTypeKind.Next, func) || unknownType,
+@@ -39296,7 +39286,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         }
+     }
+ 
+-    function createGeneratorType(yieldType: Type, returnType: Type, nextType: Type, isAsyncGenerator: boolean) {
++    function createGeneratorReturnType(yieldType: Type, returnType: Type, nextType: Type, isAsyncGenerator: boolean) {
+         const resolver = isAsyncGenerator ? asyncIterationTypesResolver : syncIterationTypesResolver;
+         const globalGeneratorType = resolver.getGlobalGeneratorType(/*reportErrors*/ false);
+         yieldType = resolver.resolveIterationType(yieldType, /*errorNode*/ undefined) || unknownType;
+@@ -42229,7 +42219,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         const generatorYieldType = getIterationTypeOfGeneratorFunctionReturnType(IterationTypeKind.Yield, returnType, (functionFlags & FunctionFlags.Async) !== 0) || anyType;
+         const generatorReturnType = getIterationTypeOfGeneratorFunctionReturnType(IterationTypeKind.Return, returnType, (functionFlags & FunctionFlags.Async) !== 0) || generatorYieldType;
+         const generatorNextType = getIterationTypeOfGeneratorFunctionReturnType(IterationTypeKind.Next, returnType, (functionFlags & FunctionFlags.Async) !== 0) || unknownType;
+-        const generatorInstantiation = createGeneratorType(generatorYieldType, generatorReturnType, generatorNextType, !!(functionFlags & FunctionFlags.Async));
++        const generatorInstantiation = createGeneratorReturnType(generatorYieldType, generatorReturnType, generatorNextType, !!(functionFlags & FunctionFlags.Async));
+ 
+         return checkTypeAssignableTo(generatorInstantiation, returnType, errorNode);
+     }

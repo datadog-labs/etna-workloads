@@ -1,0 +1,2 @@
+Single hunk: checker.ts, JSON-import attribute check in checkImportDeclaration. The fix restricted the "requires type: json import attribute" error to NodeNext (not node16, where attributes are not allowed). In today's code the guard is `Node18 <= moduleKind <= NodeNext`; I widened it to `Node16 <= moduleKind`, so node16 again reports the error and suggests an unavailable attribute.
+Final: SUMMARY: 1/24 oracle cases failing (0 fix-added). The failing case is nodeModulesJson (module=node16) errors baseline.

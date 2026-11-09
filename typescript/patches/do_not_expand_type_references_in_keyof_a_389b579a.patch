@@ -1,0 +1,43 @@
+diff --git a/src/compiler/expressionToTypeNode.ts b/src/compiler/expressionToTypeNode.ts
+index 0df3a39..436a709 100644
+--- a/src/compiler/expressionToTypeNode.ts
++++ b/src/compiler/expressionToTypeNode.ts
+@@ -408,22 +408,12 @@ export function createSyntacticTypeNodeBuilder(
+                     visitNode(node.default, visitExistingNodeTreeSymbols, isTypeNode),
+                 );
+             }
+-            if (isIndexedAccessTypeNode(node)) {
+-                const result = tryVisitIndexedAccess(node);
+-                if (!result) {
+-                    markError();
+-                    return node;
+-                }
+-                return result;
+-            }
+-
+             if (isTypeReferenceNode(node)) {
+                 const result = tryVisitTypeReference(node);
+                 if (result) {
+                     return result;
+                 }
+-                markError();
+-                return node;
++                return resolver.serializeExistingTypeNode(context, node);
+             }
+             if (isLiteralImportTypeNode(node)) {
+                 // assert keyword in imported attributes is deprecated, so we don't reuse types that contain it
+@@ -563,14 +553,6 @@ export function createSyntacticTypeNodeBuilder(
+                         return node;
+                     }
+                 }
+-                else if (node.operator === SyntaxKind.KeyOfKeyword) {
+-                    const result = tryVisitKeyOf(node);
+-                    if (!result) {
+-                        markError();
+-                        return node;
+-                    }
+-                    return result;
+-                }
+             }
+ 
+             return visitEachChild(node, visitExistingNodeTreeSymbols);

@@ -1,0 +1,29 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..90870cf 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -49886,7 +49886,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         return node.parent.kind === SyntaxKind.TypeReference;
+     }
+ 
+-    function isInNameOfExpressionWithTypeArguments(node: Node): boolean {
++    function isHeritageClauseElementIdentifier(node: Node): boolean {
+         while (node.parent.kind === SyntaxKind.PropertyAccessExpression) {
+             node = node.parent;
+         }
+@@ -50031,12 +50031,11 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             name = name.parent as QualifiedName | PropertyAccessEntityNameExpression | JSDocMemberName;
+         }
+ 
+-        if (isInNameOfExpressionWithTypeArguments(name)) {
++        if (isHeritageClauseElementIdentifier(name)) {
+             let meaning = SymbolFlags.None;
++            // In an interface or class, we're definitely interested in a type.
+             if (name.parent.kind === SyntaxKind.ExpressionWithTypeArguments) {
+-                // An 'ExpressionWithTypeArguments' may appear in type space (interface Foo extends Bar<T>),
+-                // value space (return foo<T>), or both(class Foo extends Bar<T>); ensure the meaning matches.
+-                meaning = isPartOfTypeNode(name) ? SymbolFlags.Type : SymbolFlags.Value;
++                meaning = SymbolFlags.Type;
+ 
+                 // In a class 'extends' clause we are also looking for a value.
+                 if (isExpressionWithTypeArgumentsInClassExtendsClause(name.parent)) {

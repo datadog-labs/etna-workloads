@@ -1,0 +1,2 @@
+Calls a generic function whose parameter has a property typed as an intersection of a mapped type (with an `as` clause filtering keys via a conditional type) and `{ "*"?: Action<TEvent> }`, and passes an arrow function `(ev) => ...` for property `FOO`.
+Clean: no errors; `ev` is contextually typed. Injected: error TS7006 "Parameter 'ev' implicitly has an 'any' type" because the intersection's contextual property type is lost.

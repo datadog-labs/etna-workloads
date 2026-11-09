@@ -1,0 +1,3 @@
+One hunk in getResolvedApparentTypeOfMappedType (checker.ts). The fix made instantiations of homomorphic mapped types derive the constraint from the instantiated modifiers type (getModifiersTypeFromMappedType) rather than from the original type parameter's constraint. Today's code does this via modifiersType/baseConstraint; I reverted to `getConstraintOfTypeParameter(typeVariable)`, the pre-fix behaviour, so a non-homomorphic instantiation gets the wrong apparent type.
+The fix's resolvingApparentMappedType cycle guard is not re-expressed (not needed for the failure).
+SUMMARY: 1/6 oracle cases failing (1 fix-added).

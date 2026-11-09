@@ -1,0 +1,34 @@
+diff --git a/src/services/documentHighlights.ts b/src/services/documentHighlights.ts
+index 644f0a1..0cb7654 100644
+--- a/src/services/documentHighlights.ts
++++ b/src/services/documentHighlights.ts
+@@ -69,6 +69,7 @@ import {
+     modifierToFlag,
+     ModuleBlock,
+     Node,
++    ObjectLiteralExpression,
+     ObjectTypeDeclaration,
+     Program,
+     ReturnStatement,
+@@ -293,7 +294,7 @@ export namespace DocumentHighlights {
+ 
+     function getNodesToSearchForModifier(declaration: Node, modifierFlag: ModifierFlags): readonly Node[] | undefined {
+         // Types of node whose children might have modifiers.
+-        const container = declaration.parent as ModuleBlock | SourceFile | Block | CaseClause | DefaultClause | ConstructorDeclaration | MethodDeclaration | FunctionDeclaration | ObjectTypeDeclaration;
++        const container = declaration.parent as ModuleBlock | SourceFile | Block | CaseClause | DefaultClause | ConstructorDeclaration | MethodDeclaration | FunctionDeclaration | ObjectTypeDeclaration | ObjectLiteralExpression;
+         switch (container.kind) {
+             case SyntaxKind.ModuleBlock:
+             case SyntaxKind.SourceFile:
+@@ -331,8 +332,11 @@ export namespace DocumentHighlights {
+                 return nodes;
+ 
+             // Syntactically invalid positions that the parser might produce anyway
+-            default:
++            case SyntaxKind.ObjectLiteralExpression:
+                 return undefined;
++
++            default:
++                Debug.assertNever(container, "Invalid container kind.");
+         }
+     }
+ 

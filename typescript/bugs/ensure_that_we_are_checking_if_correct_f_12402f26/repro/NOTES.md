@@ -1,0 +1,3 @@
+A nodenext watch program (public `createWatchProgram`, with a recording fake `watchFile`) imports `src/a.ts` from a referenced composite project. The script deletes `tsconfig.a.json`, so `src/a.ts` is loaded as source, then restores it, so the import redirects to `out/src/a.d.ts`.
+It prints the active package.json watchers after each step. The clean build drops the `src/package.json` watcher after the restore.
+The injected build leaks it: a source file at that path still exists in the new program, but it is the redirected `.d.ts` whose resolvedPath differs, and the injected check no longer notices.

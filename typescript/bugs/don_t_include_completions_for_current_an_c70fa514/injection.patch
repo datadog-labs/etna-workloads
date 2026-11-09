@@ -1,0 +1,36 @@
+diff --git a/src/services/completions.ts b/src/services/completions.ts
+index 28d2913..e39bbf6 100644
+--- a/src/services/completions.ts
++++ b/src/services/completions.ts
+@@ -2753,31 +2753,6 @@ export function getCompletionEntriesFromSymbols(
+             }
+         }
+ 
+-        // Filter out current and latter parameters from defaults
+-        // `function f(a = /* no 'a' and 'b' here */, b) { }` or
+-        // `function f<T = /* no 'T' and 'T2' here */>(a: T, b: T2) { }`
+-        const symbolDeclaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+-        if (closestSymbolDeclaration && symbolDeclaration) {
+-            if (isParameter(closestSymbolDeclaration) && isParameter(symbolDeclaration)) {
+-                const parameters = closestSymbolDeclaration.parent.parameters;
+-                if (symbolDeclaration.pos >= closestSymbolDeclaration.pos && symbolDeclaration.pos < parameters.end) {
+-                    return false;
+-                }
+-            }
+-            else if (isTypeParameterDeclaration(closestSymbolDeclaration) && isTypeParameterDeclaration(symbolDeclaration)) {
+-                if (closestSymbolDeclaration === symbolDeclaration && contextToken?.kind === SyntaxKind.ExtendsKeyword) {
+-                    // filter out the directly self-recursive type parameters
+-                    // `type A<K extends /* no 'K' here*/> = K`
+-                    return false;
+-                }
+-                if (isInTypeParameterDefault(contextToken) && !isInferTypeNode(closestSymbolDeclaration.parent)) {
+-                    const typeParameters = closestSymbolDeclaration.parent.typeParameters;
+-                    if (typeParameters && symbolDeclaration.pos >= closestSymbolDeclaration.pos && symbolDeclaration.pos < typeParameters.end) {
+-                        return false;
+-                    }
+-                }
+-            }
+-        }
+ 
+         // External modules can have global export declarations that will be
+         // available as global keywords in all scopes. But if the external module

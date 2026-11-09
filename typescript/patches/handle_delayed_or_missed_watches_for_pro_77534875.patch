@@ -1,0 +1,124 @@
+diff --git a/src/compiler/watchUtilities.ts b/src/compiler/watchUtilities.ts
+index 82c9dbf..a8d966c 100644
+--- a/src/compiler/watchUtilities.ts
++++ b/src/compiler/watchUtilities.ts
+@@ -21,7 +21,6 @@ import {
+     FileWatcherCallback,
+     FileWatcherEventKind,
+     find,
+-    forEachAncestorDirectory,
+     getAllowJSCompilerOption,
+     getBaseFileName,
+     getDirectoryPath,
+@@ -292,13 +291,6 @@ export function createCachedDirectoryStructureHost(host: DirectoryStructureHost,
+         return host.realpath ? host.realpath(s) : s;
+     }
+ 
+-    function clearFirstAncestorEntry(fileOrDirectoryPath: Path) {
+-        forEachAncestorDirectory(
+-            getDirectoryPath(fileOrDirectoryPath),
+-            ancestor => cachedReadDirectoryResult.delete(ensureTrailingDirectorySeparator(ancestor)) ? true : undefined,
+-        );
+-    }
+-
+     function addOrDeleteFileOrDirectory(fileOrDirectory: string, fileOrDirectoryPath: Path) {
+         const existingResult = getCachedFileSystemEntries(fileOrDirectoryPath);
+         if (existingResult !== undefined) {
+@@ -310,7 +302,6 @@ export function createCachedDirectoryStructureHost(host: DirectoryStructureHost,
+ 
+         const parentResult = getCachedFileSystemEntriesForBaseDir(fileOrDirectoryPath);
+         if (!parentResult) {
+-            clearFirstAncestorEntry(fileOrDirectoryPath);
+             return undefined;
+         }
+ 
+@@ -348,9 +339,6 @@ export function createCachedDirectoryStructureHost(host: DirectoryStructureHost,
+         if (parentResult) {
+             updateFilesOfFileSystemEntry(parentResult, getBaseNameOfFileName(fileName), eventKind === FileWatcherEventKind.Created);
+         }
+-        else {
+-            clearFirstAncestorEntry(filePath);
+-        }
+     }
+ 
+     function updateFilesOfFileSystemEntry(parentResult: SortedAndCanonicalizedMutableFileSystemEntries, baseName: string, fileExists: boolean): void {
+diff --git a/src/server/editorServices.ts b/src/server/editorServices.ts
+index aa578c7..3ac66e2 100644
+--- a/src/server/editorServices.ts
++++ b/src/server/editorServices.ts
+@@ -84,7 +84,6 @@ import {
+     map,
+     mapDefinedIterator,
+     matchesExcludeWorker,
+-    memoize,
+     missingFileModifiedTime,
+     MultiMap,
+     noop,
+@@ -2019,11 +2018,6 @@ export class ProjectService {
+             this.watchPackageJsonFile(file, fileOrDirectoryPath, wildCardWatcher);
+         }
+ 
+-        if (!fsResult?.fileExists) {
+-            // Ensure we send sourceFileChange
+-            this.sendSourceFileChange(fileOrDirectoryPath);
+-        }
+-
+         const configuredProjectForConfig = this.findConfiguredProjectByProjectName(configFileName);
+         if (
+             isIgnoredFileFromWildCardWatching({
+@@ -4031,34 +4025,6 @@ export class ProjectService {
+         this.logger.close();
+     }
+ 
+-    private sendSourceFileChange(inPath: Path | undefined) {
+-        this.filenameToScriptInfo.forEach(info => {
+-            if (this.openFiles.has(info.path)) return; // Skip open files
+-            if (!info.fileWatcher) return; // not watched file
+-            const eventKind = memoize(() =>
+-                this.host.fileExists(info.fileName) ?
+-                    info.deferredDelete ?
+-                        FileWatcherEventKind.Created :
+-                        FileWatcherEventKind.Changed :
+-                    FileWatcherEventKind.Deleted
+-            );
+-            if (inPath) {
+-                // Skip node modules and files that are not in path
+-                if (isScriptInfoWatchedFromNodeModules(info) || !info.path.startsWith(inPath)) return;
+-                // If we are sending delete event and its already deleted, ignore
+-                if (eventKind() === FileWatcherEventKind.Deleted && info.deferredDelete) return;
+-                // In change cases, its hard to know if this is marked correctly across files and projects, so just send the event
+-                this.logger.info(`Invoking sourceFileChange on ${info.fileName}:: ${eventKind()}`);
+-            }
+-
+-            // Handle as if file is changed or deleted
+-            this.onSourceFileChanged(
+-                info,
+-                eventKind(),
+-            );
+-        });
+-    }
+-
+     /**
+      * This function rebuilds the project for every file opened by the client
+      * This does not reload contents of open files from disk. But we could do that if needed
+@@ -4071,7 +4037,19 @@ export class ProjectService {
+         // as there is no need to load contents of the files from the disk
+ 
+         // Reload script infos
+-        this.sendSourceFileChange(/*inPath*/ undefined);
++        this.filenameToScriptInfo.forEach(info => {
++            if (this.openFiles.has(info.path)) return; // Skip open files
++            if (!info.fileWatcher) return; // not watched file
++            // Handle as if file is changed or deleted
++            this.onSourceFileChanged(
++                info,
++                this.host.fileExists(info.fileName) ?
++                    info.deferredDelete ?
++                        FileWatcherEventKind.Created :
++                        FileWatcherEventKind.Changed :
++                    FileWatcherEventKind.Deleted,
++            );
++        });
+         // Cancel all project updates since we will be updating them now
+         this.pendingProjectUpdates.forEach((_project, projectName) => {
+             this.throttledOperations.cancel(projectName);

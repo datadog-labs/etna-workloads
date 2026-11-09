@@ -1,0 +1,56 @@
+diff --git a/src/services/refactors/moveToFile.ts b/src/services/refactors/moveToFile.ts
+index 603f049..22f63cd 100644
+--- a/src/services/refactors/moveToFile.ts
++++ b/src/services/refactors/moveToFile.ts
+@@ -796,15 +796,10 @@ function getRangeToMove(context: RefactorContext): RangeToMove | undefined {
+     const range = createTextRangeFromSpan(getRefactorContextSpan(context));
+     const { statements } = file;
+ 
+-    let startNodeIndex = findIndex(statements, s => s.end > range.pos);
++    const startNodeIndex = findIndex(statements, s => s.end > range.pos);
+     if (startNodeIndex === -1) return undefined;
+     const startStatement = statements[startNodeIndex];
+ 
+-    const overloadRangeToMove = getOverloadRangeToMove(file, startStatement);
+-    if (overloadRangeToMove) {
+-        startNodeIndex = overloadRangeToMove.start;
+-    }
+-
+     let endNodeIndex = findIndex(statements, s => s.end >= range.end, startNodeIndex);
+     /**
+      * [|const a = 2;
+@@ -815,11 +810,6 @@ function getRangeToMove(context: RefactorContext): RangeToMove | undefined {
+     if (endNodeIndex !== -1 && range.end <= statements[endNodeIndex].getStart()) {
+         endNodeIndex--;
+     }
+-    const endingOverloadRangeToMove = getOverloadRangeToMove(file, statements[endNodeIndex]);
+-    if (endingOverloadRangeToMove) {
+-        endNodeIndex = endingOverloadRangeToMove.end;
+-    }
+-
+     return {
+         toMove: statements.slice(startNodeIndex, endNodeIndex === -1 ? statements.length : endNodeIndex + 1),
+         afterLast: endNodeIndex === -1 ? undefined : statements[endNodeIndex + 1],
+@@ -1100,22 +1090,6 @@ function moveStatementsToTargetFile(changes: textChanges.ChangeTracker, program:
+     }
+ }
+ 
+-function getOverloadRangeToMove(sourceFile: SourceFile, statement: Statement) {
+-    if (isFunctionLikeDeclaration(statement)) {
+-        const declarations = statement.symbol.declarations;
+-        if (declarations === undefined || length(declarations) <= 1 || !contains(declarations, statement)) {
+-            return undefined;
+-        }
+-        const firstDecl = declarations[0];
+-        const lastDecl = declarations[length(declarations) - 1];
+-        const statementsToMove = mapDefined(declarations, d => getSourceFileOfNode(d) === sourceFile && isStatement(d) ? d : undefined);
+-        const end = findIndex(sourceFile.statements, s => s.end >= lastDecl.end);
+-        const start = findIndex(sourceFile.statements, s => s.end >= firstDecl.end);
+-        return { toMove: statementsToMove, start, end };
+-    }
+-    return undefined;
+-}
+-
+ /** @internal */
+ export function getExistingLocals(sourceFile: SourceFile, statements: readonly Statement[], checker: TypeChecker): Set<Symbol> {
+     const existingLocals = new Set<Symbol>();

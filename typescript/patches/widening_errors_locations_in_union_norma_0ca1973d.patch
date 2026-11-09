@@ -1,0 +1,44 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..249864e 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -26072,28 +26072,27 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 }
+                 else {
+                     for (const t of (type as UnionType).types) {
+-                        errorReported ||= reportWideningErrorsInType(t);
++                        if (reportWideningErrorsInType(t)) {
++                            errorReported = true;
++                        }
+                     }
+                 }
+             }
+-            else if (isArrayOrTupleType(type)) {
++            if (isArrayOrTupleType(type)) {
+                 for (const t of getTypeArguments(type)) {
+-                    errorReported ||= reportWideningErrorsInType(t);
++                    if (reportWideningErrorsInType(t)) {
++                        errorReported = true;
++                    }
+                 }
+             }
+-            else if (isObjectLiteralType(type)) {
++            if (isObjectLiteralType(type)) {
+                 for (const p of getPropertiesOfObjectType(type)) {
+                     const t = getTypeOfSymbol(p);
+                     if (getObjectFlags(t) & ObjectFlags.ContainsWideningType) {
+-                        errorReported = reportWideningErrorsInType(t);
+-                        if (!errorReported) {
+-                            // we need to account for property types coming from object literal type normalization in unions
+-                            const valueDeclaration = p.declarations?.find(d => d.symbol.valueDeclaration?.parent === type.symbol.valueDeclaration);
+-                            if (valueDeclaration) {
+-                                error(valueDeclaration, Diagnostics.Object_literal_s_property_0_implicitly_has_an_1_type, symbolToString(p), typeToString(getWidenedType(t)));
+-                                errorReported = true;
+-                            }
++                        if (!reportWideningErrorsInType(t)) {
++                            error(p.valueDeclaration, Diagnostics.Object_literal_s_property_0_implicitly_has_an_1_type, symbolToString(p), typeToString(getWidenedType(t)));
+                         }
++                        errorReported = true;
+                     }
+                 }
+             }

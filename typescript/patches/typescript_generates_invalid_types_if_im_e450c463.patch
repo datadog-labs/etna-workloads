@@ -1,0 +1,71 @@
+diff --git a/src/compiler/parser.ts b/src/compiler/parser.ts
+index 68133ac..445b724 100644
+--- a/src/compiler/parser.ts
++++ b/src/compiler/parser.ts
+@@ -2648,7 +2648,7 @@ namespace Parser {
+     function createIdentifier(isIdentifier: boolean, diagnosticMessage?: DiagnosticMessage, privateIdentifierDiagnosticMessage?: DiagnosticMessage): Identifier {
+         if (isIdentifier) {
+             identifierCount++;
+-            const pos = scanner.hasPrecedingJSDocLeadingAsterisks() ? scanner.getTokenStart() : getNodePos();
++            const pos = getNodePos();
+             // Store original token kind if it is not just an Identifier so we can report appropriate error later in type checker
+             const originalKeywordKind = token();
+             const text = internIdentifier(scanner.getTokenValue());
+diff --git a/src/compiler/scanner.ts b/src/compiler/scanner.ts
+index 343df39..f858fc7 100644
+--- a/src/compiler/scanner.ts
++++ b/src/compiler/scanner.ts
+@@ -66,8 +66,6 @@ export interface Scanner {
+     hasPrecedingLineBreak(): boolean;
+     /** @internal */
+     hasPrecedingJSDocComment(): boolean;
+-    /** @internal */
+-    hasPrecedingJSDocLeadingAsterisks(): boolean;
+     isIdentifier(): boolean;
+     isReservedWord(): boolean;
+     isUnterminated(): boolean;
+@@ -1071,7 +1069,6 @@ export function createScanner(
+         hasExtendedUnicodeEscape: () => (tokenFlags & TokenFlags.ExtendedUnicodeEscape) !== 0,
+         hasPrecedingLineBreak: () => (tokenFlags & TokenFlags.PrecedingLineBreak) !== 0,
+         hasPrecedingJSDocComment: () => (tokenFlags & TokenFlags.PrecedingJSDocComment) !== 0,
+-        hasPrecedingJSDocLeadingAsterisks: () => (tokenFlags & TokenFlags.PrecedingJSDocLeadingAsterisks) !== 0,
+         isIdentifier: () => token === SyntaxKind.Identifier || token > SyntaxKind.LastReservedWord,
+         isReservedWord: () => token >= SyntaxKind.FirstReservedWord && token <= SyntaxKind.LastReservedWord,
+         isUnterminated: () => (tokenFlags & TokenFlags.Unterminated) !== 0,
+@@ -1891,6 +1888,7 @@ export function createScanner(
+     function scan(): SyntaxKind {
+         fullStartPos = pos;
+         tokenFlags = TokenFlags.None;
++        let asteriskSeen = false;
+         while (true) {
+             tokenStart = pos;
+             if (pos >= end) {
+@@ -2011,13 +2009,9 @@ export function createScanner(
+                         return pos += 2, token = SyntaxKind.AsteriskAsteriskToken;
+                     }
+                     pos++;
+-                    if (
+-                        skipJsDocLeadingAsterisks &&
+-                        (tokenFlags & TokenFlags.PrecedingJSDocLeadingAsterisks) === 0 &&
+-                        (tokenFlags & TokenFlags.PrecedingLineBreak)
+-                    ) {
++                    if (skipJsDocLeadingAsterisks && !asteriskSeen && (tokenFlags & TokenFlags.PrecedingLineBreak)) {
+                         // decoration at the start of a JSDoc comment line
+-                        tokenFlags |= TokenFlags.PrecedingJSDocLeadingAsterisks;
++                        asteriskSeen = true;
+                         continue;
+                     }
+                     return token = SyntaxKind.AsteriskToken;
+diff --git a/src/compiler/types.ts b/src/compiler/types.ts
+index 4d8d22a..a74c86e 100644
+--- a/src/compiler/types.ts
++++ b/src/compiler/types.ts
+@@ -2840,8 +2840,6 @@ export const enum TokenFlags {
+     /** @internal */
+     ContainsInvalidSeparator = 1 << 14, // e.g. `0_1`
+     /** @internal */
+-    PrecedingJSDocLeadingAsterisks = 1 << 15,
+-    /** @internal */
+     BinaryOrOctalSpecifier = BinarySpecifier | OctalSpecifier,
+     /** @internal */
+     WithSpecifier = HexSpecifier | BinaryOrOctalSpecifier,

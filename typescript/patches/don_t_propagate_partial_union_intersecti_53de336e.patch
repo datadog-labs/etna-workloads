@@ -1,0 +1,26 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..254d557 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -15754,9 +15754,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+     // these partial properties when identifying discriminant properties, but otherwise they are filtered out
+     // and do not appear to be present in the union type.
+     function getUnionOrIntersectionProperty(type: UnionOrIntersectionType, name: __String, skipObjectFunctionPropertyAugment?: boolean): Symbol | undefined {
+-        let property = skipObjectFunctionPropertyAugment ?
+-            type.propertyCacheWithoutObjectFunctionPropertyAugment?.get(name) :
+-            type.propertyCache?.get(name);
++        let property = type.propertyCacheWithoutObjectFunctionPropertyAugment?.get(name) ||
++                !skipObjectFunctionPropertyAugment ? type.propertyCache?.get(name) : undefined;
+         if (!property) {
+             property = createUnionOrIntersectionProperty(type, name, skipObjectFunctionPropertyAugment);
+             if (property) {
+@@ -15764,8 +15763,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                     type.propertyCacheWithoutObjectFunctionPropertyAugment ||= createSymbolTable() :
+                     type.propertyCache ||= createSymbolTable();
+                 properties.set(name, property);
+-                // Propagate an entry from the non-augmented cache to the augmented cache unless the property is partial.
+-                if (skipObjectFunctionPropertyAugment && !(getCheckFlags(property) & CheckFlags.Partial) && !type.propertyCache?.get(name)) {
++                if (skipObjectFunctionPropertyAugment && !type.propertyCache?.get(name)) {
+                     const properties = type.propertyCache ||= createSymbolTable();
+                     properties.set(name, property);
+                 }

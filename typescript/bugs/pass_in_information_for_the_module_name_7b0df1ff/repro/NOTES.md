@@ -1,0 +1,3 @@
+Uses the public watch API (`createWatchProgram` with a fake `sys` that captures watchers/timeouts) on node16 project: index.ts imports "pkg" (import mode) and "pkg1" (require mode, which has no require entry), plus ./a. Then a.ts is edited to add a single import of "pkg" with `resolution-mode: import`.
+On the edit, index.ts resolutions are partially reused, and the injected build computes the resolution mode from the wrong index (position in the filtered list rather than the file).
+Clean: stays "Cannot find module 'pkg1'" (2307) after the edit. Injected: pkg1 is resolved in the wrong mode, giving 2305 "no exported member 'RequireInterface'" and an extra import.d.ts.

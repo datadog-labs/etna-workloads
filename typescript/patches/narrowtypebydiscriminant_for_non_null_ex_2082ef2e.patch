@@ -1,0 +1,54 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..346e434 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -687,7 +687,6 @@ import {
+     isNamespaceReexportDeclaration,
+     isNewExpression,
+     isNodeDescendantOf,
+-    isNonNullAccess,
+     isNonNullExpression,
+     isNumericLiteral,
+     isNumericLiteralName,
+@@ -29535,13 +29534,12 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             if (propName === undefined) {
+                 return type;
+             }
+-            const optionalChain = isOptionalChain(access);
+-            const removeNullable = strictNullChecks && (optionalChain || isNonNullAccess(access)) && maybeTypeOfKind(type, TypeFlags.Nullable);
++            const removeNullable = strictNullChecks && isOptionalChain(access) && maybeTypeOfKind(type, TypeFlags.Nullable);
+             let propType = getTypeOfPropertyOfType(removeNullable ? getTypeWithFacts(type, TypeFacts.NEUndefinedOrNull) : type, propName);
+             if (!propType) {
+                 return type;
+             }
+-            propType = removeNullable && optionalChain ? getOptionalType(propType) : propType;
++            propType = removeNullable ? getOptionalType(propType) : propType;
+             const narrowedPropType = narrowType(propType);
+             return filterType(type, t => {
+                 const discriminantType = getTypeOfPropertyOrIndexSignatureOfType(t, propName) || unknownType;
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..89e1d0c 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -342,7 +342,6 @@ import {
+     isNamespaceExport,
+     isNamespaceExportDeclaration,
+     isNamespaceImport,
+-    isNonNullExpression,
+     isNoSubstitutionTemplateLiteral,
+     isNullishCoalesce,
+     isNumericLiteral,
+@@ -11100,13 +11099,6 @@ export function isOptionalDeclaration(declaration: Declaration): boolean {
+     }
+ }
+ 
+-/** @internal */
+-export function isNonNullAccess(node: Node): node is AccessExpression {
+-    const kind = node.kind;
+-    return (kind === SyntaxKind.PropertyAccessExpression
+-        || kind === SyntaxKind.ElementAccessExpression) && isNonNullExpression((node as AccessExpression).expression);
+-}
+-
+ /** @internal */
+ export function isJSDocSatisfiesExpression(node: Node): node is JSDocSatisfiesExpression {
+     return isInJSFile(node) && isParenthesizedExpression(node) && hasJSDocNodes(node) && !!getJSDocSatisfiesTag(node);

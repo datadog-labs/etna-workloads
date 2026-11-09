@@ -1,0 +1,30 @@
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..298fd3f 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -553,7 +553,6 @@ import {
+     TemplateExpression,
+     TemplateLiteral,
+     TemplateLiteralLikeNode,
+-    TemplateLiteralToken,
+     TemplateLiteralTypeSpan,
+     TemplateSpan,
+     TextRange,
+@@ -6141,15 +6140,11 @@ export function escapeTemplateSubstitution(str: string): string {
+     return str.replace(templateSubstitutionRegExp, "\\${");
+ }
+ 
+-function containsInvalidEscapeFlag(node: TemplateLiteralToken): boolean {
+-    return !!((node.templateFlags || 0) & TokenFlags.ContainsInvalidEscape);
+-}
+-
+ /** @internal */
+ export function hasInvalidEscape(template: TemplateLiteral): boolean {
+     return template && !!(isNoSubstitutionTemplateLiteral(template)
+-        ? containsInvalidEscapeFlag(template)
+-        : (containsInvalidEscapeFlag(template.head) || some(template.templateSpans, span => containsInvalidEscapeFlag(span.literal))));
++        ? template.templateFlags
++        : (template.head.templateFlags || some(template.templateSpans, span => !!span.literal.templateFlags)));
+ }
+ 
+ // This consists of the first 19 unprintable ASCII characters, canonical escapes, lineSeparator,

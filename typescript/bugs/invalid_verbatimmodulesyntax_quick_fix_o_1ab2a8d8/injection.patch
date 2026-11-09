@@ -1,0 +1,38 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..53f56a0 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -1623,7 +1623,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         isArgumentsSymbol: symbol => symbol === argumentsSymbol,
+         isUnknownSymbol: symbol => symbol === unknownSymbol,
+         getMergedSymbol,
+-        symbolIsValue,
+         getDiagnostics,
+         getGlobalDiagnostics,
+         getRecursionIdentity,
+diff --git a/src/compiler/types.ts b/src/compiler/types.ts
+index 4d8d22a..8d376b4 100644
+--- a/src/compiler/types.ts
++++ b/src/compiler/types.ts
+@@ -5250,7 +5250,6 @@ export interface TypeChecker {
+     isArgumentsSymbol(symbol: Symbol): boolean;
+     isUnknownSymbol(symbol: Symbol): boolean;
+     getMergedSymbol(symbol: Symbol): Symbol;
+-    /** @internal */ symbolIsValue(symbol: Symbol, includeTypeOnlyMembers?: boolean): boolean;
+ 
+     getConstantValue(node: EnumMember | PropertyAccessExpression | ElementAccessExpression): string | number | undefined;
+     isValidPropertyAccess(node: PropertyAccessExpression | QualifiedName | ImportTypeNode, propertyName: string): boolean;
+diff --git a/src/services/codefixes/convertToTypeOnlyImport.ts b/src/services/codefixes/convertToTypeOnlyImport.ts
+index a5f2b19..210a481 100644
+--- a/src/services/codefixes/convertToTypeOnlyImport.ts
++++ b/src/services/codefixes/convertToTypeOnlyImport.ts
+@@ -104,8 +104,7 @@ function canConvertImportDeclarationForSpecifier(specifier: ImportSpecifier, sou
+     const checker = program.getTypeChecker();
+     for (const specifier of nonTypeOnlySpecifiers) {
+         const isUsedAsValue = FindAllReferences.Core.eachSymbolReferenceInFile(specifier.name, checker, sourceFile, usage => {
+-            const symbol = checker.getSymbolAtLocation(usage);
+-            return !!symbol && checker.symbolIsValue(symbol) || !isValidTypeOnlyAliasUseSite(usage);
++            return !isValidTypeOnlyAliasUseSite(usage);
+         });
+         if (isUsedAsValue) {
+             return false;

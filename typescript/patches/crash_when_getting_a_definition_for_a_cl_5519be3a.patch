@@ -1,0 +1,51 @@
+diff --git a/src/services/goToDefinition.ts b/src/services/goToDefinition.ts
+index 0a45cc3..fc98faa 100644
+--- a/src/services/goToDefinition.ts
++++ b/src/services/goToDefinition.ts
+@@ -52,7 +52,6 @@ import {
+     isClassExpression,
+     isClassLike,
+     isClassStaticBlockDeclaration,
+-    isComputedPropertyName,
+     isConstructorDeclaration,
+     isDeclarationFileName,
+     isDefaultClause,
+@@ -66,7 +65,6 @@ import {
+     isJSDocOverrideTag,
+     isJsxOpeningLikeElement,
+     isJumpStatementTarget,
+-    isKnownSymbol,
+     isModifier,
+     isModuleSpecifierLike,
+     isNamedDeclaration,
+@@ -343,26 +341,10 @@ function getDefinitionFromOverriddenMember(typeChecker: TypeChecker, node: Node)
+     const expression = skipParentheses(baseTypeNode.expression);
+     const base = isClassExpression(expression) ? expression.symbol : typeChecker.getSymbolAtLocation(expression);
+     if (!base) return;
+-    const baseType = hasStaticModifier(classElement) ? typeChecker.getTypeOfSymbol(base) : typeChecker.getDeclaredTypeOfSymbol(base);
+-    let baseProp: Symbol | undefined;
+-
+-    if (isComputedPropertyName(classElement.name)) {
+-        const prop = typeChecker.getSymbolAtLocation(classElement.name);
+-
+-        if (!prop) {
+-            return;
+-        }
+-
+-        if (isKnownSymbol(prop)) {
+-            baseProp = find(typeChecker.getPropertiesOfType(baseType), s => s.escapedName === prop.escapedName);
+-        }
+-        else {
+-            baseProp = typeChecker.getPropertyOfType(baseType, unescapeLeadingUnderscores(prop.escapedName));
+-        }
+-    }
+-    else {
+-        baseProp = typeChecker.getPropertyOfType(baseType, unescapeLeadingUnderscores(getTextOfPropertyName(classElement.name)));
+-    }
++    const name = unescapeLeadingUnderscores(getTextOfPropertyName(classElement.name));
++    const baseProp = hasStaticModifier(classElement)
++        ? typeChecker.getPropertyOfType(typeChecker.getTypeOfSymbol(base), name)
++        : typeChecker.getPropertyOfType(typeChecker.getDeclaredTypeOfSymbol(base), name);
+     if (!baseProp) return;
+ 
+     return getDefinitionFromSymbol(typeChecker, baseProp, node);

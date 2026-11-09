@@ -1,0 +1,34 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..4d7fbda 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -46630,7 +46630,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         let hasDuplicateDefaultClause = false;
+ 
+         const expressionType = checkExpression(node.expression);
+-
++        const expressionIsLiteral = isLiteralType(expressionType);
+         forEach(node.caseBlock.clauses, clause => {
+             // Grammar check for duplicate default clauses, skip if we already report duplicate default clause
+             if (clause.kind === SyntaxKind.DefaultClause && !hasDuplicateDefaultClause) {
+@@ -46656,11 +46656,16 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                     // TypeScript 1.0 spec (April 2014): 5.9
+                     // In a 'switch' statement, each 'case' expression must be of a type that is comparable
+                     // to or from the type of the 'switch' expression.
+-                    const caseType = checkExpression(clause.expression);
+-
+-                    if (!isTypeEqualityComparableTo(expressionType, caseType)) {
++                    let caseType = checkExpression(clause.expression);
++                    const caseIsLiteral = isLiteralType(caseType);
++                    let comparedExpressionType = expressionType;
++                    if (!caseIsLiteral || !expressionIsLiteral) {
++                        caseType = caseIsLiteral ? getBaseTypeOfLiteralType(caseType) : caseType;
++                        comparedExpressionType = getBaseTypeOfLiteralType(expressionType);
++                    }
++                    if (!isTypeEqualityComparableTo(comparedExpressionType, caseType)) {
+                         // expressionType is not comparable to caseType, try the reversed check and report errors if it fails
+-                        checkTypeComparableTo(caseType, expressionType, clause.expression, /*headMessage*/ undefined);
++                        checkTypeComparableTo(caseType, comparedExpressionType, clause.expression, /*headMessage*/ undefined);
+                     }
+                 };
+             }

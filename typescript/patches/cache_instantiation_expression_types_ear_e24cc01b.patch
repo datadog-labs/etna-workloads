@@ -1,0 +1,34 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..3b3cc09 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -38189,17 +38189,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         if (exprType === silentNeverType || isErrorType(exprType) || !some(typeArguments)) {
+             return exprType;
+         }
+-        const links = getNodeLinks(node);
+-        if (!links.instantiationExpressionTypes) {
+-            links.instantiationExpressionTypes = new Map();
+-        }
+-        if (links.instantiationExpressionTypes.has(exprType.id)) {
+-            return links.instantiationExpressionTypes.get(exprType.id)!;
+-        }
+         let hasSomeApplicableSignature = false;
+         let nonApplicableType: Type | undefined;
+         const result = getInstantiatedType(exprType);
+-        links.instantiationExpressionTypes.set(exprType.id, result);
+         const errorType = hasSomeApplicableSignature ? nonApplicableType : exprType;
+         if (errorType) {
+             diagnostics.add(createDiagnosticForNodeArray(getSourceFileOfNode(node), typeArguments, Diagnostics.Type_0_has_no_signatures_for_which_the_type_argument_list_is_applicable, typeToString(errorType)));
+diff --git a/src/compiler/types.ts b/src/compiler/types.ts
+index 4d8d22a..4fe52cd 100644
+--- a/src/compiler/types.ts
++++ b/src/compiler/types.ts
+@@ -6306,7 +6306,6 @@ export interface NodeLinks {
+     potentialReflectCollisions?: Node[];
+     potentialUnusedRenamedBindingElementsInTypes?: BindingElement[];
+     externalHelpersModule?: Symbol;     // Resolved symbol for the external helpers module
+-    instantiationExpressionTypes?: Map<number, Type>; // Cache of instantiation expression types for the node
+     nonExistentPropCheckCache?: Set<string>;
+ }
+ 

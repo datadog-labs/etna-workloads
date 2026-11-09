@@ -1,0 +1,37 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..ab8979e 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -52804,6 +52804,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                         return true;
+                     }
+                 }
++                return false;
+             }
+         }
+ 
+diff --git a/src/compiler/transformers/esnext.ts b/src/compiler/transformers/esnext.ts
+index 67bc97d..4364751 100644
+--- a/src/compiler/transformers/esnext.ts
++++ b/src/compiler/transformers/esnext.ts
+@@ -13,7 +13,6 @@ import {
+     ExportAssignment,
+     ExportSpecifier,
+     Expression,
+-    firstOrUndefined,
+     ForOfStatement,
+     ForStatement,
+     GeneratedIdentifierFlags,
+@@ -301,7 +300,11 @@ export function transformESNext(context: TransformationContext): (x: SourceFile
+             //
+             // before handing the shallow transformation back to the visitor for an in-depth transformation.
+             const forInitializer = node.initializer;
+-            const forDecl = firstOrUndefined(forInitializer.declarations) || factory.createVariableDeclaration(factory.createTempVariable(/*recordTempVariable*/ undefined));
++            Debug.assertNode(forInitializer, isUsingVariableDeclarationList);
++            Debug.assert(forInitializer.declarations.length === 1, "ForInitializer may only have one declaration");
++
++            const forDecl = forInitializer.declarations[0];
++            Debug.assert(!forDecl.initializer, "ForInitializer may not have an initializer");
+ 
+             const isAwaitUsing = getUsingKindOfVariableDeclarationList(forInitializer) === UsingKind.Async;
+             const temp = factory.getGeneratedNameForNode(forDecl.name);

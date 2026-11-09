@@ -1,0 +1,26 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..6a23914 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -51010,19 +51010,13 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             forEachNodeRecursively(node, checkIdentifiers);
+         }
+ 
+-        function isExpressionNodeOrShorthandPropertyAssignmentName(node: Identifier) {
+-            // TODO(jakebailey): Just use isExpressionNode once that considers these identifiers to be expressions.
+-            return isExpressionNode(node)
+-                || isShorthandPropertyAssignment(node.parent) && (node.parent.objectAssignmentInitializer ?? node.parent.name) === node;
+-        }
+-
+         function checkSingleIdentifier(node: Node) {
+             const nodeLinks = getNodeLinks(node);
+             nodeLinks.calculatedFlags |= NodeCheckFlags.ConstructorReference;
+             if (isIdentifier(node)) {
+                 nodeLinks.calculatedFlags |= NodeCheckFlags.BlockScopedBindingInLoop | NodeCheckFlags.CapturedBlockScopedBinding; // Can't set on all arbitrary nodes (these nodes have this flag set by `checkSingleBlockScopeBinding` only)
+-                if (isExpressionNodeOrShorthandPropertyAssignmentName(node) && !(isPropertyAccessExpression(node.parent) && node.parent.name === node)) {
+-                    const s = getResolvedSymbol(node);
++                if (isExpressionNode(node) && !(isPropertyAccessExpression(node.parent) && node.parent.name === node)) {
++                    const s = getSymbolAtLocation(node, /*ignoreErrors*/ true);
+                     if (s && s !== unknownSymbol) {
+                         checkIdentifierCalculateNodeCheckFlags(node, s);
+                     }

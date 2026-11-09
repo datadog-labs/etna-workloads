@@ -1,0 +1,35 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..78fb2be 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -18217,7 +18217,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+     }
+ 
+     function removeStringLiteralsMatchedByTemplateLiterals(types: Type[]) {
+-        const templates = filter(types, isPatternLiteralType) as (TemplateLiteralType | StringMappingType)[];
++        const templates = filter(types, t =>
++            isPatternLiteralType(t) &&
++            !(t.flags & TypeFlags.TemplateLiteral && (t as TemplateLiteralType).types.some(t => !!(t.flags & TypeFlags.Intersection) && (t as IntersectionType).types.length === 2 && (t as IntersectionType).types.includes(emptyTypeLiteralType)))) as (TemplateLiteralType | StringMappingType)[];
+         if (templates.length) {
+             let i = types.length;
+             while (i > 0) {
+@@ -19436,18 +19438,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+ 
+     function isPatternLiteralPlaceholderType(type: Type): boolean {
+         if (type.flags & TypeFlags.Intersection) {
+-            // Return true if the intersection consists of one or more placeholders and zero or
+-            // more object type tags.
+-            let seenPlaceholder = false;
+-            for (const t of (type as IntersectionType).types) {
+-                if (t.flags & (TypeFlags.Literal | TypeFlags.Nullable) || isPatternLiteralPlaceholderType(t)) {
+-                    seenPlaceholder = true;
+-                }
+-                else if (!(t.flags & TypeFlags.Object)) {
+-                    return false;
+-                }
+-            }
+-            return seenPlaceholder;
++            return !isGenericType(type) && some((type as IntersectionType).types, t => !!(t.flags & (TypeFlags.Literal | TypeFlags.Nullable)) || isPatternLiteralPlaceholderType(t));
+         }
+         return !!(type.flags & (TypeFlags.Any | TypeFlags.String | TypeFlags.Number | TypeFlags.BigInt)) || isPatternLiteralType(type);
+     }

@@ -1,0 +1,41 @@
+diff --git a/src/compiler/moduleSpecifiers.ts b/src/compiler/moduleSpecifiers.ts
+index 8860677..4c0bac4 100644
+--- a/src/compiler/moduleSpecifiers.ts
++++ b/src/compiler/moduleSpecifiers.ts
+@@ -207,9 +207,7 @@ export function getModuleSpecifierPreferences(
+                 return [ModuleSpecifierEnding.JsExtension];
+             }
+             if (getEmitModuleResolutionKind(compilerOptions) === ModuleResolutionKind.Classic) {
+-                return preferredEnding === ModuleSpecifierEnding.JsExtension
+-                    ? [ModuleSpecifierEnding.JsExtension, ModuleSpecifierEnding.Index]
+-                    : [ModuleSpecifierEnding.Index, ModuleSpecifierEnding.JsExtension];
++                return [ModuleSpecifierEnding.Index, ModuleSpecifierEnding.JsExtension];
+             }
+             const allowImportingTsExtension = shouldAllowImportingTsExtension(compilerOptions, importingSourceFile.fileName);
+             switch (preferredEnding) {
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..b111be1 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -10052,9 +10052,7 @@ export const enum ModuleSpecifierEnding {
+ 
+ function usesExtensionsOnImports({ imports }: SourceFile, hasExtension: (text: string) => boolean = or(hasJSFileExtension, hasTSFileExtension)): boolean {
+     return firstDefined(imports, ({ text }) =>
+-        pathIsRelative(text) && !fileExtensionIsOneOf(text, extensionsNotSupportingExtensionlessResolution)
+-            ? hasExtension(text)
+-            : undefined) || false;
++        pathIsRelative(text) ? hasExtension(text) : undefined) || false;
+ }
+ 
+ /** @internal */
+@@ -10105,10 +10103,6 @@ export function getModuleSpecifierEndingPreference(preference: UserPreferences["
+                     // We're trying to decide a preference for a CommonJS module specifier, but looking at an ESM import.
+                     continue;
+                 }
+-                if (fileExtensionIsOneOf(specifier.text, extensionsNotSupportingExtensionlessResolution)) {
+-                    // These extensions are not optional, so do not indicate a preference.
+-                    continue;
+-                }
+                 if (hasTSFileExtension(specifier.text)) {
+                     return ModuleSpecifierEnding.TsExtension;
+                 }

@@ -1,0 +1,43 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..45da7c4 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -46018,7 +46018,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         let noCache = false;
+ 
+         if (use & IterationUse.AllowsAsyncIterablesFlag) {
+-            let iterationTypes = getIterationTypesOfIterableCached(type, asyncIterationTypesResolver) ||
++            const iterationTypes = getIterationTypesOfIterableCached(type, asyncIterationTypesResolver) ||
+                 getIterationTypesOfIterableFast(type, asyncIterationTypesResolver);
+             if (iterationTypes) {
+                 if (iterationTypes === noIterationTypes && errorNode) {
+@@ -46031,10 +46031,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                         iterationTypes;
+                 }
+             }
+-            iterationTypes = getIterationTypesOfIterableSlow(type, asyncIterationTypesResolver, errorNode, errorOutputContainer, noCache);
+-            if (iterationTypes !== noIterationTypes) {
+-                return iterationTypes;
+-            }
+         }
+ 
+         if (use & IterationUse.AllowsSyncIterablesFlag) {
+@@ -46058,8 +46054,17 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                     }
+                 }
+             }
++        }
+ 
+-            iterationTypes = getIterationTypesOfIterableSlow(type, syncIterationTypesResolver, errorNode, errorOutputContainer, noCache);
++        if (use & IterationUse.AllowsAsyncIterablesFlag) {
++            const iterationTypes = getIterationTypesOfIterableSlow(type, asyncIterationTypesResolver, errorNode, errorOutputContainer, noCache);
++            if (iterationTypes !== noIterationTypes) {
++                return iterationTypes;
++            }
++        }
++
++        if (use & IterationUse.AllowsSyncIterablesFlag) {
++            let iterationTypes = getIterationTypesOfIterableSlow(type, syncIterationTypesResolver, errorNode, errorOutputContainer, noCache);
+             if (iterationTypes !== noIterationTypes) {
+                 if (use & IterationUse.AllowsAsyncIterablesFlag) {
+                     iterationTypes = getAsyncFromSyncIterationTypes(iterationTypes, errorNode);

@@ -1,0 +1,29 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..a3a60bf 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -50862,17 +50862,15 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+     }
+ 
+     function requiresAddingImplicitUndefined(parameter: ParameterDeclaration | JSDocParameterTag, enclosingDeclaration: Node | undefined) {
+-        return (isRequiredInitializedParameter(parameter, enclosingDeclaration) || isOptionalUninitializedParameterProperty(parameter)) && !declaredParameterTypeContainsUndefined(parameter);
++        return (isRequiredInitializedParameter(parameter) || isOptionalUninitializedParameterProperty(parameter)) && !declaredParameterTypeContainsUndefined(parameter);
+     }
+ 
+-    function isRequiredInitializedParameter(parameter: ParameterDeclaration | JSDocParameterTag, enclosingDeclaration: Node | undefined): boolean {
+-        if (!strictNullChecks || isOptionalParameter(parameter) || isJSDocParameterTag(parameter) || !parameter.initializer) {
+-            return false;
+-        }
+-        if (hasSyntacticModifier(parameter, ModifierFlags.ParameterPropertyModifier)) {
+-            return !!enclosingDeclaration && isFunctionLikeDeclaration(enclosingDeclaration);
+-        }
+-        return true;
++    function isRequiredInitializedParameter(parameter: ParameterDeclaration | JSDocParameterTag): boolean {
++        return !!strictNullChecks &&
++            !isOptionalParameter(parameter) &&
++            !isJSDocParameterTag(parameter) &&
++            !!parameter.initializer &&
++            !hasSyntacticModifier(parameter, ModifierFlags.ParameterPropertyModifier);
+     }
+ 
+     function isOptionalUninitializedParameterProperty(parameter: ParameterDeclaration | JSDocParameterTag) {

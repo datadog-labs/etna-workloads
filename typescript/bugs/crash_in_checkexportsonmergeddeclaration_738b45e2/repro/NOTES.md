@@ -1,0 +1,2 @@
+Input mimics lodash typings: a module augmentation of `./index` adds a method to interface `LoDashStatic`, merged with an `export =` const/namespace, plus a conflicting import/local `pick` in index.ts.
+Clean tsc reports normal diagnostics (e.g. duplicate identifier) and exits 2; the injected build crashes in checkExportsOnMergedDeclarationsWorker (Debug Failure on MethodSignature/PropertySignature).

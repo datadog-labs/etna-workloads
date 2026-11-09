@@ -1,0 +1,43 @@
+diff --git a/src/services/codefixes/fixAddMissingMember.ts b/src/services/codefixes/fixAddMissingMember.ts
+index 17ff128..deb7c44 100644
+--- a/src/services/codefixes/fixAddMissingMember.ts
++++ b/src/services/codefixes/fixAddMissingMember.ts
+@@ -88,7 +88,6 @@ import {
+     isYieldExpression,
+     JsxOpeningLikeElement,
+     LanguageVariant,
+-    lastOrUndefined,
+     length,
+     map,
+     MethodDeclaration,
+@@ -604,15 +603,22 @@ function addEnumMemberDeclaration(changes: textChanges.ChangeTracker, checker: T
+         const type = checker.getTypeAtLocation(member);
+         return !!(type && type.flags & TypeFlags.StringLike);
+     });
+-    const sourceFile = parentDeclaration.getSourceFile();
++
+     const enumMember = factory.createEnumMember(token, hasStringInitializer ? factory.createStringLiteral(token.text) : undefined);
+-    const last = lastOrUndefined(parentDeclaration.members);
+-    if (last) {
+-        changes.insertNodeInListAfter(sourceFile, last, enumMember, parentDeclaration.members);
+-    }
+-    else {
+-        changes.insertMemberAtStart(sourceFile, parentDeclaration, enumMember);
+-    }
++    changes.replaceNode(
++        parentDeclaration.getSourceFile(),
++        parentDeclaration,
++        factory.updateEnumDeclaration(
++            parentDeclaration,
++            parentDeclaration.modifiers,
++            parentDeclaration.name,
++            concatenate(parentDeclaration.members, singleElementArray(enumMember)),
++        ),
++        {
++            leadingTriviaOption: textChanges.LeadingTriviaOption.IncludeAll,
++            trailingTriviaOption: textChanges.TrailingTriviaOption.Exclude,
++        },
++    );
+ }
+ 
+ function addFunctionDeclaration(changes: textChanges.ChangeTracker, context: CodeFixContextBase, info: FunctionInfo | SignatureInfo) {

@@ -1,0 +1,2 @@
+Input: a declared generic function returning a mapped type (with `as` clause) whose members are `() => Id<{ status: ...; originalArgs?: undefined }>`; index.ts destructures an export from the call result. Compiled with `--strictNullChecks false --declaration --emitDeclarationOnly`.
+Clean: emits the .d.ts without error. Injected: the optional property's implicit `undefined` is added (getOptionalType instead of addOptionality) outside strictNullChecks, so the declaration emit differs and/or errors (exit status and output differ).

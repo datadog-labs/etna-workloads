@@ -1,0 +1,2 @@
+Input: `events.d.ts` declares module "events" with `export = EventEmitter` (a class) and an ambient "node:events" doing `import events = require("events"); export = events;`; `input.ts` does the same re-export. Compiled with `--isolatedModules`.
+Clean: no diagnostics. Injected: reports TS1291 ("'events' resolves to a type and must be marked type-only...") on the `export = events` lines, since the isolatedModules check lost the ambient exclusion and the "not also a value" condition.

@@ -1,0 +1,37 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..bd45a2d 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -24443,7 +24443,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                     const sourceArity = getTypeReferenceArity(source);
+                     const targetArity = getTypeReferenceArity(target);
+                     const sourceRestFlag = isTupleType(source) ? source.target.combinedFlags & ElementFlags.Rest : ElementFlags.Rest;
+-                    const targetHasRestElement = !!(target.target.combinedFlags & ElementFlags.Variable);
++                    const targetRestFlag = target.target.combinedFlags & ElementFlags.Rest;
+                     const sourceMinLength = isTupleType(source) ? source.target.minLength : 0;
+                     const targetMinLength = target.target.minLength;
+                     if (!sourceRestFlag && sourceArity < targetMinLength) {
+@@ -24452,13 +24452,13 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                         }
+                         return Ternary.False;
+                     }
+-                    if (!targetHasRestElement && targetArity < sourceMinLength) {
++                    if (!targetRestFlag && targetArity < sourceMinLength) {
+                         if (reportErrors) {
+                             reportError(Diagnostics.Source_has_0_element_s_but_target_allows_only_1, sourceMinLength, targetArity);
+                         }
+                         return Ternary.False;
+                     }
+-                    if (!targetHasRestElement && (sourceRestFlag || targetArity < sourceArity)) {
++                    if (!targetRestFlag && (sourceRestFlag || targetArity < sourceArity)) {
+                         if (reportErrors) {
+                             if (sourceMinLength < targetMinLength) {
+                                 reportError(Diagnostics.Target_requires_0_element_s_but_source_may_have_fewer, targetMinLength);
+@@ -24473,6 +24473,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                     const targetTypeArguments = getTypeArguments(target);
+                     const targetStartCount = getStartElementCount(target.target, ElementFlags.NonRest);
+                     const targetEndCount = getEndElementCount(target.target, ElementFlags.NonRest);
++                    const targetHasRestElement = target.target.hasRestElement;
+                     let canExcludeDiscriminants = !!excludedProperties;
+                     for (let sourcePosition = 0; sourcePosition < sourceArity; sourcePosition++) {
+                         const sourceFlags = isTupleType(source) ? source.target.elementFlags[sourcePosition] : ElementFlags.Rest;

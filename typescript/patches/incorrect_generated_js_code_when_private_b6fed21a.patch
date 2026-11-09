@@ -1,0 +1,30 @@
+diff --git a/src/compiler/transformers/classFields.ts b/src/compiler/transformers/classFields.ts
+index 7d8bc6f..037a111 100644
+--- a/src/compiler/transformers/classFields.ts
++++ b/src/compiler/transformers/classFields.ts
+@@ -165,7 +165,6 @@ import {
+     nodeIsSynthesized,
+     ObjectLiteralElement,
+     OmittedExpression,
+-    OuterExpressionKinds,
+     ParameterDeclaration,
+     ParenthesizedExpression,
+     PostfixUnaryExpression,
+@@ -1537,14 +1536,13 @@ export function transformClassFields(context: TransformationContext): (x: Source
+                 Debug.assertNode(node, isAssignmentExpression);
+             }
+ 
+-            const left = skipOuterExpressions(node.left, OuterExpressionKinds.PartiallyEmittedExpressions | OuterExpressionKinds.Parentheses);
+-            if (isPrivateIdentifierPropertyAccessExpression(left)) {
++            if (isPrivateIdentifierPropertyAccessExpression(node.left)) {
+                 // obj.#x = ...
+-                const info = accessPrivateIdentifier(left.name);
++                const info = accessPrivateIdentifier(node.left.name);
+                 if (info) {
+                     return setTextRange(
+                         setOriginalNode(
+-                            createPrivateIdentifierAssignment(info, left.expression, node.right, node.operatorToken.kind),
++                            createPrivateIdentifierAssignment(info, node.left.expression, node.right, node.operatorToken.kind),
+                             node,
+                         ),
+                         node,

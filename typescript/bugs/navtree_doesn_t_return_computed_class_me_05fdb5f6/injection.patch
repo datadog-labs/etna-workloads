@@ -1,0 +1,70 @@
+diff --git a/src/services/navigationBar.ts b/src/services/navigationBar.ts
+index 69b36b9..4848818 100644
+--- a/src/services/navigationBar.ts
++++ b/src/services/navigationBar.ts
+@@ -47,8 +47,10 @@ import {
+     getSyntacticModifierFlags,
+     getTextOfIdentifierOrLiteral,
+     getTextOfNode,
++    hasDynamicName,
+     hasJSDocNodes,
+     Identifier,
++    idText,
+     ImportClause,
+     InterfaceDeclaration,
+     InternalSymbolName,
+@@ -61,10 +63,8 @@ import {
+     isClassDeclaration,
+     isClassExpression,
+     isClassLike,
+-    isComputedPropertyName,
+     isDeclaration,
+     isElementAccessExpression,
+-    isEntityNameExpression,
+     isExportAssignment,
+     isExpression,
+     isExternalModule,
+@@ -74,7 +74,6 @@ import {
+     isJSDocTypeAlias,
+     isModuleBlock,
+     isModuleDeclaration,
+-    isNumericLiteral,
+     isObjectLiteralExpression,
+     isParameterPropertyDeclaration,
+     isPrivateIdentifier,
+@@ -84,7 +83,6 @@ import {
+     isPropertyNameLiteral,
+     isStatic,
+     isStringLiteralLike,
+-    isStringOrNumericLiteralLike,
+     isTemplateLiteral,
+     isToken,
+     isVariableDeclaration,
+@@ -311,15 +309,19 @@ function addNodeWithRecursiveInitializer(node: VariableDeclaration | PropertyAss
+     }
+ }
+ 
++/**
++ * Historically, we've elided dynamic names from the nav tree (including late bound names),
++ * but included certain "well known" symbol names. While we no longer distinguish those well-known
++ * symbols from other unique symbols, we do the below to retain those members in the nav tree.
++ */
+ function hasNavigationBarName(node: Declaration) {
+-    const name = getNameOfDeclaration(node);
+-    if (name === undefined) return false;
+-
+-    if (isComputedPropertyName(name)) {
+-        const expression = name.expression;
+-        return isEntityNameExpression(expression) || isNumericLiteral(expression) || isStringOrNumericLiteralLike(expression);
+-    }
+-    return !!name;
++    return !hasDynamicName(node) ||
++        (
++            node.kind !== SyntaxKind.BinaryExpression &&
++            isPropertyAccessExpression(node.name.expression) &&
++            isIdentifier(node.name.expression.expression) &&
++            idText(node.name.expression.expression) === "Symbol"
++        );
+ }
+ 
+ /** Look for navigation bar items in node's subtree, adding them to the current `parent`. */
