@@ -13,7 +13,7 @@ back the behaviour that commit fixed.
     same test cases. The adapted tier covers fixes from 2023 onwards.
 - Injected code: 637 Python, 411 C, 28 C and Python
 - Symptoms: 470 wrong_result, 244 error_handling, 203 crash, 69 other, 30 hang, 27 resource_leak, 24 assert, 9 corruption
-- Standalone reproducers: 1035 of 1076 (repro.py, run with the built interpreter)
+- Standalone reproducers: 1034 of 1076 (repro.py, run with the built interpreter)
 - Locality: 1032 subset, 28 disjoint, 16 overlap
 
 Every bug is "strict": a test case the upstream fix itself added fails with
