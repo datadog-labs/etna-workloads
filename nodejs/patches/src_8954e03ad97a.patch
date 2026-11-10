@@ -1,0 +1,22 @@
+diff -uN a/src/crypto/crypto_cipher.h b/src/crypto/crypto_cipher.h
+--- a/src/crypto/crypto_cipher.h
++++ b/src/crypto/crypto_cipher.h
+@@ -254,13 +254,17 @@
+     Environment* env = AsyncWrap::env();
+     CryptoErrorStore* errors = CryptoJob<CipherTraits>::errors();
+ 
+-    if (errors->Empty()) {
++    if (out_.size() > 0) {
++      CHECK(errors->Empty());
+       *err = v8::Undefined(env->isolate());
+       *result = out_.ToArrayBuffer(env);
+       if (result->IsEmpty()) {
+         return v8::Nothing<void>();
+       }
+     } else {
++      if (errors->Empty())
++        errors->Capture();
++      CHECK(!errors->Empty());
+       *result = v8::Undefined(env->isolate());
+       if (!errors->ToException(env).ToLocal(err)) {
+         return v8::Nothing<void>();

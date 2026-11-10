@@ -1,0 +1,71 @@
+diff -uN a/src/dataqueue/queue.cc b/src/dataqueue/queue.cc
+--- a/src/dataqueue/queue.cc
++++ b/src/dataqueue/queue.cc
+@@ -868,19 +868,13 @@
+   // the race
+   //   condition described in the comment above.
+  public:
+-  static std::unique_ptr<FdEntry> Create(Environment* env,
+-                                         Local<Value> path,
+-                                         int* status) {
++  static std::unique_ptr<FdEntry> Create(Environment* env, Local<Value> path) {
+     // We're only going to create the FdEntry if the file exists.
+     uv_fs_t req = uv_fs_t();
+     auto cleanup = OnScopeLeave([&] { uv_fs_req_cleanup(&req); });
+ 
+     auto buf = std::make_shared<BufferValue>(env->isolate(), path);
+-    int err = uv_fs_stat(nullptr, &req, buf->out(), nullptr);
+-    if (err < 0) {
+-      if (status != nullptr) *status = err;
+-      return nullptr;
+-    }
++    if (uv_fs_stat(nullptr, &req, buf->out(), nullptr) < 0) return nullptr;
+ 
+     return std::make_unique<FdEntry>(
+         env, std::move(buf), req.statbuf, 0, req.statbuf.st_size);
+@@ -1189,9 +1183,8 @@
+ }
+ 
+ std::unique_ptr<DataQueue::Entry> DataQueue::CreateFdEntry(Environment* env,
+-                                                           Local<Value> path,
+-                                                           int* status) {
+-  return FdEntry::Create(env, path, status);
++                                                           Local<Value> path) {
++  return FdEntry::Create(env, path);
+ }
+ 
+ void DataQueue::Initialize(Environment* env, v8::Local<v8::Object> target) {
+diff -uN a/src/dataqueue/queue.h b/src/dataqueue/queue.h
+--- a/src/dataqueue/queue.h
++++ b/src/dataqueue/queue.h
+@@ -226,11 +226,8 @@
+   static std::unique_ptr<Entry> CreateDataQueueEntry(
+       std::shared_ptr<DataQueue> data_queue);
+ 
+-  // Returns nullptr if the file cannot be stat'd. When `status` is given, it
+-  // is set to the libuv error code so callers can report why.
+   static std::unique_ptr<Entry> CreateFdEntry(Environment* env,
+-                                              v8::Local<v8::Value> path,
+-                                              int* status = nullptr);
++                                              v8::Local<v8::Value> path);
+ 
+   // Creates a Reader for the given queue. If the queue is idempotent,
+   // any number of readers can be created, all of which are guaranteed
+diff -uN a/src/node_blob.cc b/src/node_blob.cc
+--- a/src/node_blob.cc
++++ b/src/node_blob.cc
+@@ -110,12 +110,9 @@
+   ToNamespacedPath(env, &path);
+   THROW_IF_INSUFFICIENT_PERMISSIONS(
+       env, permission::PermissionScope::kFileSystemRead, path.ToStringView());
+-  int status = 0;
+-  auto entry = DataQueue::CreateFdEntry(env, args[0], &status);
++  auto entry = DataQueue::CreateFdEntry(env, args[0]);
+   if (entry == nullptr) {
+-    // The file could not be stat'd. Report the libuv error so callers can tell
+-    // ENOENT apart from any other reason the path could not be used.
+-    return env->ThrowUVException(status, "stat", nullptr, *path);
++    return THROW_ERR_INVALID_ARG_VALUE(env, "Unable to open file as blob");
+   }
+ 
+   std::vector<std::unique_ptr<DataQueue::Entry>> entries;

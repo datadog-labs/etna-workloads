@@ -1,0 +1,80 @@
+diff -uN a/lib/internal/vfs/providers/ziparchive.js b/lib/internal/vfs/providers/ziparchive.js
+--- a/lib/internal/vfs/providers/ziparchive.js
++++ b/lib/internal/vfs/providers/ziparchive.js
+@@ -28,7 +28,6 @@
+ const {
+   createEBADF,
+   createEEXIST,
+-  createEINVAL,
+   createEISDIR,
+   createENOENT,
+   createENOTDIR,
+@@ -94,28 +93,6 @@
+ }
+ 
+ /**
+- * Finds the entries belonging to an implicit directory and maps their names
+- * from the old directory prefix to the new one.
+- * @param {ZipBuffer | ZipFile} source
+- * @param {string} oldName
+- * @param {string} newName
+- * @returns {Array<{ oldName: string, newName: string }>}
+- */
+-function getDirectoryRenames(source, oldName, newName) {
+-  const entries = [];
+-  const prefix = `${oldName}/`;
+-  for (const name of source.keys()) {
+-    if (StringPrototypeStartsWith(name, prefix)) {
+-      ArrayPrototypePush(entries, {
+-        oldName: name,
+-        newName: newName + StringPrototypeSlice(name, oldName.length),
+-      });
+-    }
+-  }
+-  return entries;
+-}
+-
+-/**
+  * A file handle over one ZIP entry. ZIP members can't be edited in place
+  * (they're a single compressed blob), so writes accumulate in memory and are
+  * only committed - as a brand-new entry - when the handle is closed. Since
+@@ -582,16 +559,9 @@
+     const newName = normalize(newPath);
+     const entry = await this.#getEntry(oldName);
+     let entries;
+-    if (entry === null) {
+-      entries = getDirectoryRenames(this.#source, oldName, newName);
+-      if (entries.length === 0) throw createENOENT('rename', oldPath);
+-      if (StringPrototypeStartsWith(newName, `${oldName}/`)) {
+-        throw createEINVAL('rename', oldPath);
+-      }
+-    } else {
+-      if (this.#isDirectory(newName)) throw createEISDIR('rename', newPath);
+-      entries = [{ oldName, newName, entry }];
+-    }
++    if (entry === null) throw createENOENT('rename', oldPath);
++    if (this.#isDirectory(newName)) throw createEISDIR('rename', newPath);
++    entries = [{ oldName, newName, entry }];
+     if (oldName === newName) return;
+     this.#validateParentDirectories(newName, 'rename', newPath);
+ 
+@@ -611,16 +581,9 @@
+     const newName = normalize(newPath);
+     const entry = this.#getEntrySync(oldName);
+     let entries;
+-    if (entry === null) {
+-      entries = getDirectoryRenames(this.#source, oldName, newName);
+-      if (entries.length === 0) throw createENOENT('rename', oldPath);
+-      if (StringPrototypeStartsWith(newName, `${oldName}/`)) {
+-        throw createEINVAL('rename', oldPath);
+-      }
+-    } else {
+-      if (this.#isDirectory(newName)) throw createEISDIR('rename', newPath);
+-      entries = [{ oldName, newName, entry }];
+-    }
++    if (entry === null) throw createENOENT('rename', oldPath);
++    if (this.#isDirectory(newName)) throw createEISDIR('rename', newPath);
++    entries = [{ oldName, newName, entry }];
+     if (oldName === newName) return;
+     this.#validateParentDirectories(newName, 'rename', newPath);
+ 

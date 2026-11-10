@@ -1,0 +1,82 @@
+diff -uN a/lib/internal/streams/iter/pull.js b/lib/internal/streams/iter/pull.js
+--- a/lib/internal/streams/iter/pull.js
++++ b/lib/internal/streams/iter/pull.js
+@@ -487,19 +487,18 @@
+       yield* processTransformResultSync(current);
+     }
+   }
+-  // Flush each transform after all upstream data, including data emitted by
+-  // earlier flushes, has been processed by that transform.
+-  let pending = [];
++  // Flush
++  let current = null;
+   for (let i = 0; i < run.length; i++) {
+-    const next = [];
+-    for (let j = 0; j < pending.length; j++) {
+-      appendTransformResultSync(next, run[i](pending[j]));
++    const result = run[i](current);
++    if (result === null) {
++      current = null;
++      continue;
+     }
+-    appendTransformResultSync(next, run[i](null));
+-    pending = next;
++    current = result;
+   }
+-  for (let i = 0; i < pending.length; i++) {
+-    yield pending[i];
++  if (current != null) {
++    yield* processTransformResultSync(current);
+   }
+ }
+ 
+@@ -618,29 +617,30 @@
+       yield* processTransformResultAsync(current);
+     }
+   }
+-  // Flush each transform after all upstream data, including data emitted by
+-  // earlier flushes, has been processed by that transform.
+-  let pending = [];
++  // Flush: send null through each transform in order
++  let current = null;
+   for (let i = 0; i < run.length; i++) {
+-    const next = [];
+-    for (let j = 0; j < pending.length; j++) {
+-      const pendingResult = appendTransformResultAsync(
+-        next,
+-        run[i](pending[j], { __proto__: null, signal }));
+-      if (pendingResult !== undefined) {
+-        await pendingResult;
+-      }
++    const result = run[i](current, { __proto__: null, signal });
++    if (result === null) {
++      current = null;
++      continue;
+     }
+-    const flushResult = appendTransformResultAsync(
+-      next,
+-      run[i](null, { __proto__: null, signal }));
+-    if (flushResult !== undefined) {
+-      await flushResult;
++    if (isPromise(result)) {
++      current = await result;
++    } else {
++      current = result;
+     }
+-    pending = next;
+   }
+-  for (let i = 0; i < pending.length; i++) {
+-    yield pending[i];
++  if (current !== null) {
++    if (isUint8ArrayBatch(current)) {
++      if (current.length > 0) yield current;
++    } else if (isUint8Array(current)) {
++      yield [current];
++    } else if (typeof current === 'string') {
++      yield [toUint8Array(current)];
++    } else {
++      yield* processTransformResultAsync(current);
++    }
+   }
+ }
+ 

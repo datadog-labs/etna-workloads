@@ -1,0 +1,35 @@
+diff -uN a/src/crypto/crypto_sig.cc b/src/crypto/crypto_sig.cc
+--- a/src/crypto/crypto_sig.cc
++++ b/src/crypto/crypto_sig.cc
+@@ -779,10 +779,12 @@
+   })();
+ 
+   if (!ctx.has_value()) [[unlikely]] {
++    crypto::CheckThrow(env, SignBase::Error::Init);
+     return false;
+   }
+ 
+   if (!ApplyRSAOptions(key, *ctx, padding, salt_length)) {
++    crypto::CheckThrow(env, SignBase::Error::PrivateKey);
+     return false;
+   }
+ 
+@@ -812,6 +814,7 @@
+           return static_cast<bool>(*out);
+         }
+         if (!data) [[unlikely]] {
++          crypto::CheckThrow(env, SignBase::Error::PrivateKey);
+           return false;
+         }
+         DCHECK(!data.isSecure());
+diff -uN a/src/crypto/crypto_util.h b/src/crypto/crypto_util.h
+--- a/src/crypto/crypto_util.h
++++ b/src/crypto/crypto_util.h
+@@ -625,7 +625,6 @@
+             env, object, DeriveBitsTraits::Provider, mode, std::move(params)) {}
+ 
+   void DoThreadPoolWork() override {
+-    ncrypto::ClearErrorOnReturn clear_error_on_return;
+     CryptoErrorStore* errors = CryptoJob<DeriveBitsTraits>::errors();
+     if (!DeriveBitsTraits::DeriveBits(AsyncWrap::env(),
+                                       *CryptoJob<DeriveBitsTraits>::params(),

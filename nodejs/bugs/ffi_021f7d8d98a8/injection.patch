@@ -1,0 +1,176 @@
+diff -uN a/lib/internal/ffi-shared-buffer.js b/lib/internal/ffi-shared-buffer.js
+--- a/lib/internal/ffi-shared-buffer.js
++++ b/lib/internal/ffi-shared-buffer.js
+@@ -1,7 +1,6 @@
+ 'use strict';
+ 
+ const {
+-  BigInt,
+   DataView,
+   DataViewPrototypeGetBigInt64,
+   DataViewPrototypeGetBigUint64,
+@@ -24,7 +23,6 @@
+   DataViewPrototypeSetUint32,
+   DataViewPrototypeSetUint8,
+   NumberIsInteger,
+-  NumberIsSafeInteger,
+   ObjectDefineProperty,
+   ReflectApply,
+   TypeError,
+@@ -134,25 +132,14 @@
+     return;
+   }
+   if (kind === 'i64') {
+-    if (typeof arg === 'number') {
+-      if (!NumberIsSafeInteger(arg)) {
+-        throwFFIArgError(`Argument ${index} must be ${info.label}`);
+-      }
+-      arg = BigInt(arg);
+-    } else if (typeof arg !== 'bigint' || arg < I64_MIN || arg > I64_MAX) {
++    if (typeof arg !== 'bigint' || arg < I64_MIN || arg > I64_MAX) {
+       throwFFIArgError(`Argument ${index} must be ${info.label}`);
+     }
+     sI64(view, offset, arg, true);
+     return;
+   }
+-
+   if (kind === 'u64') {
+-    if (typeof arg === 'number') {
+-      if (!NumberIsSafeInteger(arg) || arg < 0) {
+-        throwFFIArgError(`Argument ${index} must be ${info.label}`);
+-      }
+-      arg = BigInt(arg);
+-    } else if (typeof arg !== 'bigint' || arg < 0n || arg > U64_MAX) {
++    if (typeof arg !== 'bigint' || arg < 0n || arg > U64_MAX) {
+       throwFFIArgError(`Argument ${index} must be ${info.label}`);
+     }
+     sU64(view, offset, arg, true);
+diff -uN a/lib/internal/ffi/fast-api.js b/lib/internal/ffi/fast-api.js
+--- a/lib/internal/ffi/fast-api.js
++++ b/lib/internal/ffi/fast-api.js
+@@ -3,10 +3,8 @@
+ const {
+   ArrayBufferPrototypeGetDetached,
+   ArrayPrototypeIncludes,
+-  BigInt,
+   DataViewPrototypeGetBuffer,
+   NumberIsInteger,
+-  NumberIsSafeInteger,
+   ObjectDefineProperty,
+   ReflectApply,
+   SafeWeakMap,
+@@ -85,26 +83,15 @@
+     `Invalid argument count: expected ${expected}, got ${actual}`);
+ }
+ 
+-function validateAndConvertFastIntegerArg(type, value, index) {
++function validateFastIntegerArg(type, value, index) {
+   const info = fastIntegerTypeInfo[type];
+-  if (info === undefined) return value;
+-
+-  // The native Fast API expects BigInt for 64-bit integer arguments.
+-  if (info.kind === 'bigint' && typeof value === 'number') {
+-    if (!NumberIsSafeInteger(value) || (info.min === 0n && value < 0)) {
+-      throwFFIArgError(`Argument ${index} must be ${info.label}`);
+-    }
+-    return BigInt(value);
+-  }
+-
++  if (info === undefined) return;
+   const validType = info.kind === 'number' ?
+     typeof value === 'number' && NumberIsInteger(value) :
+     typeof value === 'bigint';
+   if (!validType || value < info.min || value > info.max) {
+     throwFFIArgError(`Argument ${index} must be ${info.label}`);
+   }
+-
+-  return value;
+ }
+ 
+ function needsRawPointerConversion(type) {
+@@ -236,8 +223,7 @@
+ }
+ 
+ function convertFastArg(type, value, stringState, index) {
+-  value = validateAndConvertFastIntegerArg(type, value, index);
+-
++  validateFastIntegerArg(type, value, index);
+   return needsPointerConversion(type) ?
+     convertPointerArg(type, value, stringState, index) : value;
+ }
+@@ -309,8 +295,9 @@
+       if (arguments.length !== 1) {
+         throwFFIArgCountError(1, arguments.length);
+       }
+-      let arg = validateAndConvertFastIntegerArg(t0, a0, 0);
++      validateFastIntegerArg(t0, a0, 0);
+       validateFastPointerArg(t0, a0, 0);
++      let arg = a0;
+       if (needsNullPointerConversion(t0) &&
+           (arg === null || arg === undefined)) {
+         arg = 0n;
+diff -uN a/src/ffi/types.cc b/src/ffi/types.cc
+--- a/src/ffi/types.cc
++++ b/src/ffi/types.cc
+@@ -648,43 +648,28 @@
+ 
+     *static_cast<uint32_t*>(ret) = arg->Uint32Value(context).FromJust();
+   } else if (type == &ffi_type_sint64) {
+-    if (arg->IsBigInt()) {
+-      bool lossless;
+-      int64_t value = arg.As<BigInt>()->Int64Value(&lossless);
+-      if (!lossless) {
+-        THROW_ERR_INVALID_ARG_VALUE(env, "Argument %u must be an int64", index);
+-        return {};
+-      }
+-
+-      *static_cast<int64_t*>(ret) = value;
+-    } else {
+-      int64_t value;
+-      if (!GetStrictSignedInteger(
+-              arg, -kMaxSafeJsInteger, kMaxSafeJsInteger, &value)) {
+-        THROW_ERR_INVALID_ARG_VALUE(env, "Argument %u must be an int64", index);
+-        return {};
+-      }
++    if (!arg->IsBigInt()) {
++      THROW_ERR_INVALID_ARG_VALUE(env, "Argument %u must be an int64", index);
++      return {};
++    }
+ 
+-      *static_cast<int64_t*>(ret) = value;
++    bool lossless;
++    *static_cast<int64_t*>(ret) = arg.As<BigInt>()->Int64Value(&lossless);
++    if (!lossless) {
++      THROW_ERR_INVALID_ARG_VALUE(env, "Argument %u must be an int64", index);
++      return {};
+     }
+   } else if (type == &ffi_type_uint64) {
+-    if (arg->IsBigInt()) {
+-      bool lossless;
+-      uint64_t value = arg.As<BigInt>()->Uint64Value(&lossless);
+-      if (!lossless) {
+-        THROW_ERR_INVALID_ARG_VALUE(env, "Argument %u must be a uint64", index);
+-        return {};
+-      }
+-
+-      *static_cast<uint64_t*>(ret) = value;
+-    } else {
+-      uint64_t value;
+-      if (!GetStrictUnsignedInteger(arg, kMaxSafeJsInteger, &value)) {
+-        THROW_ERR_INVALID_ARG_VALUE(env, "Argument %u must be a uint64", index);
+-        return {};
+-      }
++    if (!arg->IsBigInt()) {
++      THROW_ERR_INVALID_ARG_VALUE(env, "Argument %u must be a uint64", index);
++      return {};
++    }
+ 
+-      *static_cast<uint64_t*>(ret) = value;
++    bool lossless;
++    *static_cast<uint64_t*>(ret) = arg.As<BigInt>()->Uint64Value(&lossless);
++    if (!lossless) {
++      THROW_ERR_INVALID_ARG_VALUE(env, "Argument %u must be a uint64", index);
++      return {};
+     }
+   } else if (type == &ffi_type_float) {
+     if (!arg->IsNumber()) {

@@ -1,0 +1,46 @@
+diff -uN a/lib/internal/modules/esm/loader.js b/lib/internal/modules/esm/loader.js
+--- a/lib/internal/modules/esm/loader.js
++++ b/lib/internal/modules/esm/loader.js
+@@ -38,7 +38,7 @@
+ } = require('internal/util');
+ const {
+   compileSourceTextModule,
+-  SourceTextModuleTypes: { kUser },
++  SourceTextModuleTypes: { kUser, kInternal },
+   getDefaultConditions,
+   shouldSpawnLoaderHookWorker,
+   requestTypes: { kImportInRequiredESM, kRequireInImportedCJS, kImportInImportedESM },
+@@ -247,7 +247,8 @@
+    */
+   eval(source, url, isEntryPoint = false) {
+     const context = isEntryPoint ? { isMain: true } : undefined;
+-    const wrap = this.createModuleWrap(source, url, context);
++    // No dynamic import callback is registered for the eval'd module.
++    const wrap = compileSourceTextModule(url, source, kInternal, context);
+     return this.executeModuleJob(url, wrap, isEntryPoint);
+   }
+ 
+diff -uN a/lib/internal/process/execution.js b/lib/internal/process/execution.js
+--- a/lib/internal/process/execution.js
++++ b/lib/internal/process/execution.js
+@@ -414,11 +414,6 @@
+  */
+ function compileScript(name, body, baseUrl) {
+   const hostDefinedOptionId = Symbol(name);
+-  async function importModuleDynamically(specifier, _, importAttributes, phase) {
+-    const cascadedLoader = require('internal/modules/esm/loader').getOrInitializeCascadedLoader();
+-    return cascadedLoader.import(specifier, baseUrl, importAttributes,
+-                                 phase === 'source' ? kSourcePhase : kEvaluationPhase);
+-  }
+   return makeContextifyScript(
+     body,                    // code
+     name,                    // filename,
+@@ -428,7 +423,7 @@
+     false,                   // produceCachedData
+     undefined,               // parsingContext
+     hostDefinedOptionId,     // hostDefinedOptionId
+-    importModuleDynamically, // importModuleDynamically
++    undefined,               // importModuleDynamically
+   );
+ }
+ 

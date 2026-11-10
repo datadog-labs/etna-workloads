@@ -1,0 +1,20 @@
+diff -uN a/lib/internal/streams/iter/pull.js b/lib/internal/streams/iter/pull.js
+--- a/lib/internal/streams/iter/pull.js
++++ b/lib/internal/streams/iter/pull.js
+@@ -717,11 +717,14 @@
+ 
+   // Fast path: no transforms, just yield normalized source directly
+   if (transforms.length === 0) {
+-    yield* yieldAbortable(source, signal);
++    for await (const batch of source) {
++      signal?.throwIfAborted();
++      yield batch;
++    }
+     return;
+   }
+ 
+-  const normalized = yieldAbortable(source, signal);
++  const normalized = source;
+ 
+   // Create internal controller for transform cancellation.
+   // Note: if signal was already aborted, we threw above - no need to check here.

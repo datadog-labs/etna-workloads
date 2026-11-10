@@ -1,0 +1,76 @@
+diff -uN a/lib/internal/crypto/mac.js b/lib/internal/crypto/mac.js
+--- a/lib/internal/crypto/mac.js
++++ b/lib/internal/crypto/mac.js
+@@ -14,7 +14,7 @@
+ } = internalBinding('crypto');
+ 
+ const {
+-  getBlockSize,
++  getHashLength,
+   getUsagesMask,
+   jobPromise,
+   normalizeHashName,
+@@ -76,7 +76,7 @@
+ 
+   const usageSet = validateKeyUsages(usages, kUsages, name);
+   validateAlgorithm(algorithm, 'generateKey');
+-  const { length = getBlockSize(hash.name) } = algorithm;
++  const { length = getHashLength(hash.name) } = algorithm;
+   validateUsagesNotEmpty(usageSet);
+ 
+   return jobPromise(() => new SecretKeyGenJob(
+diff -uN a/lib/internal/crypto/util.js b/lib/internal/crypto/util.js
+--- a/lib/internal/crypto/util.js
++++ b/lib/internal/crypto/util.js
+@@ -1198,16 +1198,16 @@
+   return result;
+ }
+ 
+-function getBlockSize(name) {
++function getHashLength(name) {
+   switch (name) {
+     case 'SHA-1':
+-      // Fall through
++      return 160;
+     case 'SHA-256':
+-      return 512;
++      return 256;
+     case 'SHA-384':
+-      // Fall through
++      return 384;
+     case 'SHA-512':
+-      return 1024;
++      return 512;
+     case 'SHA3-256':
+       // Fall through
+     case 'SHA3-384':
+@@ -1297,7 +1297,7 @@
+   truncateToBitLength,
+   bigIntArrayToUnsignedBigInt,
+   bigIntArrayToUnsignedInt,
+-  getBlockSize,
++  getHashLength,
+   getStringOption,
+   getUsagesMask,
+   getUsagesFromMask,
+diff -uN a/lib/internal/crypto/webcrypto.js b/lib/internal/crypto/webcrypto.js
+--- a/lib/internal/crypto/webcrypto.js
++++ b/lib/internal/crypto/webcrypto.js
+@@ -62,7 +62,7 @@
+ 
+ const {
+   cleanupWebCryptoResult,
+-  getBlockSize,
++  getHashLength,
+   getUsagesFromMask,
+   jobPromiseThen,
+   normalizeAlgorithm,
+@@ -334,7 +334,7 @@
+       if (length === 0)
+         throw new ERR_INVALID_ARG_VALUE('algorithm.length', length, 'must not be zero');
+       if (length === undefined) {
+-        return getBlockSize(hash?.name);
++        return getHashLength(hash?.name);
+       }
+ 
+       if (typeof length === 'number' && length !== 0) {

@@ -1,0 +1,67 @@
+diff -uN a/lib/internal/util/inspect.js b/lib/internal/util/inspect.js
+--- a/lib/internal/util/inspect.js
++++ b/lib/internal/util/inspect.js
+@@ -47,6 +47,7 @@
+   MapPrototypeEntries,
+   MapPrototypeGetSize,
+   MathFloor,
++  MathCeil,
+   MathMax,
+   MathMin,
+   MathRound,
+@@ -102,6 +103,7 @@
+   StringPrototypeIncludes,
+   StringPrototypeIndexOf,
+   StringPrototypeLastIndexOf,
++  StringPrototypeMatch,
+   StringPrototypeNormalize,
+   StringPrototypePadEnd,
+   StringPrototypePadStart,
+@@ -255,6 +257,8 @@
+ // eslint-disable-next-line node-core/no-unescaped-regexp-dot
+ const stripCommentsRegExp = /(\/\/.*?\n)|(\/\*(.|\n)*?\*\/)/g;
+ 
++const readableRegExps = { __proto__: null };
++
+ const kMinLineLength = 16;
+ 
+ // Constants to map the iterator state.
+@@ -2251,15 +2255,29 @@
+         // We do not support handling unicode characters width with
+         // the readline getStringWidth function as there are
+         // performance implications.
+-        value.length > kMinLineLength &&
+-        value.length > ctx.breakLength - ctx.indentationLvl - 4) {
+-      return ArrayPrototypeJoin(
+-        ArrayPrototypeMap(
+-          RegExpPrototypeSymbolSplit(/(?<=\n)/, value),
+-          (line) => fn(strEscape(line), 'string'),
+-        ),
+-        ` +\n${StringPrototypeRepeat(' ', ctx.indentationLvl + 2)}`,
+-      ) + trailer;
++        ctx.indentationLvl + value.length + 4 > ctx.breakLength &&
++        value.length > kMinLineLength) {
++      // Subtract the potential quotes, the space and the plus as well (4).
++      const rawMaxLineLength = ctx.breakLength - ctx.indentationLvl - 4;
++      const maxLineLength = MathMax(rawMaxLineLength, kMinLineLength);
++      const lines = MathCeil(value.length / maxLineLength);
++      const averageLineLength = MathCeil(value.length / lines);
++      const divisor = MathMax(averageLineLength, kMinLineLength);
++      if (readableRegExps[divisor] === undefined) {
++        // eslint-disable-next-line node-core/no-unescaped-regexp-dot
++        readableRegExps[divisor] = new RegExp(`(.|\\n){1,${divisor}}(\\s|$)|(\\n|.)+?(\\s|$)`, 'gm');
++      }
++      const matches = StringPrototypeMatch(value, readableRegExps[divisor]);
++      if (matches.length > 1) {
++        const indent = StringPrototypeRepeat(' ', ctx.indentationLvl);
++        let res = `${fn(strEscape(matches[0]), 'string')} +\n`;
++        const lastIndex = matches.length - 1;
++        for (let i = 1; i < lastIndex; i++) {
++          res += `${indent}  ${fn(strEscape(matches[i]), 'string')} +\n`;
++        }
++        res += `${indent}  ${fn(strEscape(matches[lastIndex]), 'string')}`;
++        return res + trailer;
++      }
+     }
+     return fn(strEscape(value), 'string') + trailer;
+   }

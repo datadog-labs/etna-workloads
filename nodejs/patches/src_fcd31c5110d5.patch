@@ -1,0 +1,49 @@
+diff -uN a/src/crypto/crypto_context.cc b/src/crypto/crypto_context.cc
+--- a/src/crypto/crypto_context.cc
++++ b/src/crypto/crypto_context.cc
+@@ -1828,8 +1828,8 @@
+       max_version = TLS1_2_VERSION;
+       method = TLS_client_method();
+     } else {
+-      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(
+-          env, "Unknown method: %s", sslmethod);
++      const std::string msg("Unknown method: ");
++      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(env, (msg + *sslmethod).c_str());
+       return;
+     }
+   }
+diff -uN a/src/node_binding.cc b/src/node_binding.cc
+--- a/src/node_binding.cc
++++ b/src/node_binding.cc
+@@ -865,8 +865,12 @@
+         mp = dlib->GetSavedModuleFromGlobalHandleMap();
+         if (mp == nullptr || mp->nm_context_register_func == nullptr) {
+           dlib->Close();
+-          THROW_ERR_DLOPEN_FAILED(
+-              env, "Module did not self-register: '%s'.", filename);
++          char errmsg[1024];
++          snprintf(errmsg,
++                   sizeof(errmsg),
++                   "Module did not self-register: '%s'.",
++                   *filename);
++          THROW_ERR_DLOPEN_FAILED(env, errmsg);
+           return false;
+         }
+       }
+diff -uN a/src/node_errors.h b/src/node_errors.h
+--- a/src/node_errors.h
++++ b/src/node_errors.h
+@@ -148,12 +148,7 @@
+   template <typename... Args>                                                  \
+   inline v8::Local<v8::Object> code(                                           \
+       v8::Isolate* isolate, std::string_view format, Args&&... args) {         \
+-    std::string message;                                                       \
+-    if (sizeof...(Args) == 0) {                                                \
+-      message = format;                                                        \
+-    } else {                                                                   \
+-      message = SPrintF(format, std::forward<Args>(args)...);                  \
+-    }                                                                          \
++    std::string message = SPrintF(format, std::forward<Args>(args)...);        \
+     v8::Local<v8::String> js_code = FIXED_ONE_BYTE_STRING(isolate, #code);     \
+     v8::Local<v8::String> js_msg =                                             \
+         v8::String::NewFromUtf8(isolate,                                       \

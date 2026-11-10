@@ -1,0 +1,70 @@
+diff -uN a/lib/internal/crypto/keys.js b/lib/internal/crypto/keys.js
+--- a/lib/internal/crypto/keys.js
++++ b/lib/internal/crypto/keys.js
+@@ -1205,10 +1205,6 @@
+       cloned.hash !== undefined) {
+     cloned.hash = { ...cloned.hash };
+   }
+-  if (ObjectPrototypeHasOwnProperty(cloned, 'publicExponent') &&
+-      cloned.publicExponent !== undefined) {
+-    cloned.publicExponent = new Uint8Array(cloned.publicExponent);
+-  }
+   return cloned;
+ }
+ 
+@@ -1218,10 +1214,6 @@
+       cloned.hash !== undefined) {
+     cloned.hash = { __proto__: null, ...cloned.hash };
+   }
+-  if (ObjectPrototypeHasOwnProperty(cloned, 'publicExponent') &&
+-      cloned.publicExponent !== undefined) {
+-    cloned.publicExponent = new Uint8Array(cloned.publicExponent);
+-  }
+   return cloned;
+ }
+ 
+diff -uN a/lib/internal/crypto/rsa.js b/lib/internal/crypto/rsa.js
+--- a/lib/internal/crypto/rsa.js
++++ b/lib/internal/crypto/rsa.js
+@@ -2,8 +2,6 @@
+ 
+ const {
+   TypedArrayPrototypeGetBuffer,
+-  TypedArrayPrototypeGetByteOffset,
+-  TypedArrayPrototypeGetLength,
+   Uint8Array,
+ } = primordials;
+ 
+@@ -116,17 +114,10 @@
+   const usagesSet = validateKeyUsages(usages, allowedUsages.keygen, name);
+   validateAlgorithm(algorithm, 'generateKey');
+   const publicExponentConverted = bigIntArrayToUnsignedInt(publicExponent);
+-  let firstNonzeroByte = 0;
+-  while (publicExponent[firstNonzeroByte] === 0)
+-    firstNonzeroByte++;
+-
+   const keyAlgorithm = {
+     name,
+     modulusLength,
+-    publicExponent: new Uint8Array(
+-      TypedArrayPrototypeGetBuffer(publicExponent),
+-      TypedArrayPrototypeGetByteOffset(publicExponent) + firstNonzeroByte,
+-      TypedArrayPrototypeGetLength(publicExponent) - firstNonzeroByte),
++    publicExponent,
+     hash,
+   };
+ 
+diff -uN a/lib/internal/crypto/util.js b/lib/internal/crypto/util.js
+--- a/lib/internal/crypto/util.js
++++ b/lib/internal/crypto/util.js
+@@ -666,9 +666,7 @@
+   AesCbcParams: { iv: 'BufferSource' },
+   AesCtrParams: { counter: 'BufferSource' },
+   AeadParams: { iv: 'BufferSource', additionalData: 'BufferSource' },
+-  // publicExponent is not strictly a BufferSource but it is a Uint8Array that we normalize
+-  // this way
+-  RsaHashedKeyGenParams: { hash: 'HashAlgorithmIdentifier', publicExponent: 'BufferSource' },
++  RsaHashedKeyGenParams: { hash: 'HashAlgorithmIdentifier' },
+   EcKeyGenParams: {},
+   HmacKeyGenParams: { hash: 'HashAlgorithmIdentifier' },
+   RsaPssParams: {},

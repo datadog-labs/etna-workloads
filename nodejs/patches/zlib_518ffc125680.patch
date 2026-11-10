@@ -1,0 +1,66 @@
+diff -uN a/lib/zlib.js b/lib/zlib.js
+--- a/lib/zlib.js
++++ b/lib/zlib.js
+@@ -87,7 +87,6 @@
+   setMaxZipContentSize,
+ } = require('internal/zip');
+ 
+-const kFlushFlag = Symbol('kFlushFlag');
+ const kError = Symbol('kError');
+ 
+ const constants = internalBinding('constants').zlib;
+@@ -297,6 +296,7 @@
+   this._chunkSize = chunkSize;
+   this._defaultFlushFlag = flush;
+   this._finishFlushFlag = finishFlush;
++  this._nextFlush = -1;
+   this._defaultFullFlushFlag = fullFlush;
+   this._flushBoundIdx = flushBoundIdx;
+   this._info = opts?.info;
+@@ -362,18 +362,7 @@
+   return flushiness[a] > flushiness[b] ? a : b;
+ }
+ 
+-// Set up a list of 'special' buffers that can be written using .write()
+-// from the .flush() code as a way of introducing flushing operations into the
+-// write sequence.
+-const kFlushBuffers = [];
+-{
+-  const dummyArrayBuffer = new ArrayBuffer();
+-  for (const flushFlag of kFlushFlagList) {
+-    kFlushBuffers[flushFlag] = Buffer.from(dummyArrayBuffer);
+-    kFlushBuffers[flushFlag][kFlushFlag] = flushFlag;
+-  }
+-}
+-
++const flushBuffer = Buffer.alloc(0);
+ ZlibBase.prototype.flush = function(kind, callback) {
+   if (typeof kind === 'function' || (kind === undefined && !callback)) {
+     callback = kind;
+@@ -391,8 +380,13 @@
+   } else if (this.writableEnded) {
+     if (callback)
+       this.once('end', callback);
++  } else if (this._nextFlush !== -1) {
++    // This means that there is a flush currently in the write queue.
++    // We currently coalesce this flush into the pending one.
++    this._nextFlush = maxFlush(this._nextFlush, kind);
+   } else {
+-    this.write(kFlushBuffers[kind], '', callback);
++    this._nextFlush = kind;
++    this.write(flushBuffer, '', callback);
+   }
+ };
+ 
+@@ -414,8 +408,9 @@
+   let flushFlag = this._defaultFlushFlag;
+   // We use a 'fake' zero-length chunk to carry information about flushes from
+   // the public API to the actual stream implementation.
+-  if (typeof chunk[kFlushFlag] === 'number') {
+-    flushFlag = chunk[kFlushFlag];
++  if (chunk === flushBuffer) {
++    flushFlag = this._nextFlush;
++    this._nextFlush = -1;
+   }
+ 
+   // For the last chunk, also apply `_finishFlushFlag`.

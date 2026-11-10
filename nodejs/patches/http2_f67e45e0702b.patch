@@ -1,0 +1,67 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -63,7 +63,6 @@
+     owner_symbol,
+   },
+ } = require('internal/async_hooks');
+-const { AsyncResource } = require('async_hooks');
+ 
+ const {
+   AbortError,
+@@ -265,7 +264,6 @@
+ const kPendingRequestCalls = Symbol('kPendingRequestCalls');
+ const kProceed = Symbol('proceed');
+ const kRemoteSettings = Symbol('remote-settings');
+-const kRequestAsyncResource = Symbol('requestAsyncResource');
+ const kSentHeaders = Symbol('sent-headers');
+ const kRawHeaders = Symbol('raw-headers');
+ const kSentTrailers = Symbol('sent-trailers');
+@@ -463,11 +461,7 @@
+       originSet.delete(stream[kOrigin]);
+     }
+     debugStream(id, type, "emitting stream '%s' event", event);
+-    const reqAsync = stream[kRequestAsyncResource];
+-    if (reqAsync)
+-      reqAsync.runInAsyncScope(process.nextTick, null, emit, stream, event, obj, flags, headers);
+-    else
+-      process.nextTick(emit, stream, event, obj, flags, headers);
++    process.nextTick(emit, stream, event, obj, flags, headers);
+     if ((event === 'response' ||
+          event === 'push') &&
+         onClientStreamFinishChannel.hasSubscribers) {
+@@ -479,11 +473,7 @@
+     }
+   }
+   if (endOfStream) {
+-    const reqAsync = stream[kRequestAsyncResource];
+-    if (reqAsync)
+-      reqAsync.runInAsyncScope(() => stream.push(null));
+-    else
+-      stream.push(null);
++    stream.push(null);
+   }
+ }
+ 
+@@ -1903,8 +1893,6 @@
+     stream[kSentHeaders] = headersObject; // N.b. Only set for object headers, not raw headers
+     stream[kRawHeaders] = rawHeaders; // N.b. Only set for raw headers, not object headers
+     stream[kOrigin] = `${scheme}://${authority}`;
+-    const reqAsync = new AsyncResource('PendingRequest');
+-    stream[kRequestAsyncResource] = reqAsync;
+ 
+     // Close the writable side of the stream if options.endStream is set.
+     if (options.endStream)
+@@ -1928,10 +1916,9 @@
+     }
+ 
+     if (requestError) {
+-      process.nextTick(reqAsync.bind(requestOnError.bind(stream, requestError)));
++      process.nextTick(requestOnError.bind(stream, requestError));
+     } else {
+-      const onConnect = reqAsync.bind(
+-        requestOnConnect.bind(stream, headersList, options));
++      const onConnect = requestOnConnect.bind(stream, headersList, options);
+       if (this.connecting) {
+         if (this[kPendingRequestCalls] !== null) {
+           this[kPendingRequestCalls].push(onConnect);

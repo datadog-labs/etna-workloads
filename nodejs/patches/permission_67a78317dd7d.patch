@@ -1,0 +1,83 @@
+diff -uN a/lib/fs.js b/lib/fs.js
+--- a/lib/fs.js
++++ b/lib/fs.js
+@@ -2020,8 +2020,7 @@
+ 
+   callback = makeStatsCallback(callback);
+   path = getValidatedPath(path);
+-  if (permission.isEnabled() && !permission.has('fs.read', path) &&
+-      !permission.isAuditMode()) {
++  if (permission.isEnabled() && !permission.has('fs.read', path)) {
+     const resource = BufferIsBuffer(path) ? BufferToString(path) : path;
+     callback(new ERR_ACCESS_DENIED('Access to this API has been restricted', 'FileSystemRead', resource));
+     return;
+@@ -2145,8 +2144,7 @@
+     }
+   }
+   path = getValidatedPath(path);
+-  if (permission.isEnabled() && !permission.has('fs.read', path) &&
+-      !permission.isAuditMode()) {
++  if (permission.isEnabled() && !permission.has('fs.read', path)) {
+     const resource = BufferIsBuffer(path) ? BufferToString(path) : path;
+     throw new ERR_ACCESS_DENIED('Access to this API has been restricted', 'FileSystemRead', resource);
+   }
+@@ -2273,8 +2271,7 @@
+   // Due to the nature of Node.js runtime, symlinks has different edge cases that can bypass
+   // the permission model security guarantees. Thus, this API is disabled unless fs.read
+   // and fs.write permission has been given.
+-  if (permission.isEnabled() && !permission.has('fs') &&
+-      !permission.isAuditMode()) {
++  if (permission.isEnabled() && !permission.has('fs')) {
+     callback(new ERR_ACCESS_DENIED('fs.symlink API requires full fs.read and fs.write permissions.'));
+     return;
+   }
+@@ -2348,8 +2345,7 @@
+   // Due to the nature of Node.js runtime, symlinks has different edge cases that can bypass
+   // the permission model security guarantees. Thus, this API is disabled unless fs.read
+   // and fs.write permission has been given.
+-  if (permission.isEnabled() && !permission.has('fs') &&
+-      !permission.isAuditMode()) {
++  if (permission.isEnabled() && !permission.has('fs')) {
+     throw new ERR_ACCESS_DENIED('fs.symlink API requires full fs.read and fs.write permissions.');
+   }
+ 
+diff -uN a/lib/internal/fs/promises.js b/lib/internal/fs/promises.js
+--- a/lib/internal/fs/promises.js
++++ b/lib/internal/fs/promises.js
+@@ -1833,8 +1833,7 @@
+   // Due to the nature of Node.js runtime, symlinks has different edge cases that can bypass
+   // the permission model security guarantees. Thus, this API is disabled unless fs.read
+   // and fs.write permission has been given.
+-  if (permission.isEnabled() && !permission.has('fs') &&
+-      !permission.isAuditMode()) {
++  if (permission.isEnabled() && !permission.has('fs')) {
+     throw new ERR_ACCESS_DENIED('fs.symlink API requires full fs.read and fs.write permissions.');
+   }
+ 
+@@ -1879,8 +1878,7 @@
+     if (promise !== undefined) return await promise;
+   }
+   path = getValidatedPath(path);
+-  if (permission.isEnabled() && !permission.has('fs.read', path) &&
+-      !permission.isAuditMode()) {
++  if (permission.isEnabled() && !permission.has('fs.read', path)) {
+     const resource = pathModule.toNamespacedPath(BufferIsBuffer(path) ? BufferToString(path) : path);
+     throw new ERR_ACCESS_DENIED('Access to this API has been restricted', 'FileSystemRead', resource);
+   }
+diff -uN a/src/env.cc b/src/env.cc
+--- a/src/env.cc
++++ b/src/env.cc
+@@ -1109,12 +1109,7 @@
+     // spawn/worker nor use addons or enable inspector
+     // unless explicitly allowed by the user
+     if (!options_->allow_addons) {
+-      // In audit mode addon loading must stay enabled: the denial is
+-      // published through the diagnostics channel by the permission
+-      // check in DLOpen() instead of being rejected upfront.
+-      if (!options_->permission_audit) {
+-        options_->allow_native_addons = false;
+-      }
++      options_->allow_native_addons = false;
+       permission()->Apply(this, args, permission::PermissionScope::kAddon);
+     }
+     if (!options_->allow_inspector) {

@@ -1,0 +1,56 @@
+diff -uN a/lib/internal/webidl.js b/lib/internal/webidl.js
+--- a/lib/internal/webidl.js
++++ b/lib/internal/webidl.js
+@@ -37,8 +37,6 @@
+   isTypedArray,
+ } = require('internal/util/types');
+ 
+-const { getSharedArrayBufferGrowable } = internalBinding('util');
+-
+ const BIGINT_2_63 = 1n << 63n;
+ const BIGINT_2_64 = 1n << 64n;
+ 
+@@ -959,8 +957,12 @@
+ function validateAllowGrowableSharedArrayBuffer(buffer, options) {
+   // SharedArrayBuffer and ArrayBufferView conversion step 3:
+   // IsFixedLengthArrayBuffer(buffer) must be true without [AllowResizable].
+-  if (!options.allowResizable &&
+-      FunctionPrototypeCall(getSharedArrayBufferGrowable, buffer)) {
++  // Do not use a primordial getter here. When this module is included in the
++  // startup snapshot, an early-captured SharedArrayBuffer.prototype.growable
++  // getter does not detect growable buffers created after deserialization.
++  // Lazily capturing the getter would work, but it would observe the runtime
++  // prototype at first comparison, so it would not be an actual primordial.
++  if (!options.allowResizable && buffer.growable) {
+     throw makeException(
+       'is backed by a growable SharedArrayBuffer, which is not allowed.',
+       options);
+diff -uN a/src/node_util.cc b/src/node_util.cc
+--- a/src/node_util.cc
++++ b/src/node_util.cc
+@@ -521,25 +521,6 @@
+   Isolate* isolate = env->isolate();
+ 
+   {
+-    const Local<Object> prototype =
+-        SharedArrayBuffer::New(isolate, 0)->GetPrototypeV2().As<Object>();
+-    const Local<Object> descriptor =
+-        prototype
+-            ->GetOwnPropertyDescriptor(
+-                context, FIXED_ONE_BYTE_STRING(isolate, "growable"))
+-            .ToLocalChecked()
+-            .As<Object>();
+-    const Local<Value> getter =
+-        descriptor->Get(context, env->get_string()).ToLocalChecked();
+-    CHECK(getter->IsFunction());
+-    target
+-        ->Set(context,
+-              FIXED_ONE_BYTE_STRING(isolate, "getSharedArrayBufferGrowable"),
+-              getter)
+-        .Check();
+-  }
+-
+-  {
+     Local<ObjectTemplate> tmpl = ObjectTemplate::New(isolate);
+ #define V(PropertyName, _)                                                     \
+   tmpl->Set(FIXED_ONE_BYTE_STRING(env->isolate(), #PropertyName),              \

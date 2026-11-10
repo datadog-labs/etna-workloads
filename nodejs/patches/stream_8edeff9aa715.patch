@@ -1,0 +1,38 @@
+diff -uN a/lib/internal/streams/fast-utf8-stream.js b/lib/internal/streams/fast-utf8-stream.js
+--- a/lib/internal/streams/fast-utf8-stream.js
++++ b/lib/internal/streams/fast-utf8-stream.js
+@@ -1110,27 +1110,13 @@
+  * @returns {{writingBuf: string | Buffer, len: number}} released writingBuf and length
+  */
+ function releaseWritingBuf(writingBuf, len, n) {
+-  if (typeof writingBuf === 'string') {
+-    const byteLength = Buffer.byteLength(writingBuf);
+-    // `fs.write` returns the number of bytes written, but `len` is tracked in
+-    // characters and `writingBuf` is sliced by character index below, so `n`
+-    // must be converted from bytes to characters in both cases.
+-    if (byteLength === n) {
+-      // The whole string was written: advance past every character.
+-      n = writingBuf.length;
+-    } else {
+-      // A partial write may split a multi-byte UTF-8 character, so we must back
+-      // up to the start of that character to avoid data corruption.
+-      const buf = Buffer.from(writingBuf);
+-      // Back up from position n to find a valid UTF-8 character boundary.
+-      // UTF-8 continuation bytes have the pattern 10xxxxxx (0x80-0xBF).
+-      // We need to find the start of the character that was split.
+-      while (n > 0 && (buf[n] & 0xC0) === 0x80) {
+-        n--;
+-      }
+-      // Decode the properly-aligned bytes to get the character count.
+-      n = buf.subarray(0, n).toString().length;
+-    }
++  // if Buffer.byteLength is equal to n, that means writingBuf contains no multi-byte character
++  if (typeof writingBuf === 'string' && Buffer.byteLength(writingBuf) !== n) {
++    // Since the fs.write callback parameter `n` means how many bytes the passed of string
++    // We calculate the original string length for avoiding the multi-byte character issue
++    n = Buffer.from(writingBuf).subarray(0, n).toString().length;
++  } else if (typeof writingBuf === 'string') {
++    n = writingBuf.length;
+   }
+   len = MathMax(len - n, 0);
+   writingBuf = writingBuf.slice(n);

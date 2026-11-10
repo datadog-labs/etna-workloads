@@ -1,0 +1,36 @@
+diff -uN a/src/node_worker.cc b/src/node_worker.cc
+--- a/src/node_worker.cc
++++ b/src/node_worker.cc
+@@ -175,12 +175,12 @@
+     loop_init_failed_ = false;
+     uv_loop_configure(&loop_, UV_METRICS_IDLE_TIME);
+ 
+-    std::shared_ptr<ArrayBufferAllocator> allocator =
+-        ArrayBufferAllocator::Create();
++    allocator_ = ArrayBufferAllocator::Create();
++    ArrayBufferAllocator* allocator = allocator_.get();
+     Isolate::CreateParams params;
+     SetIsolateCreateParamsForNode(&params);
+     w->UpdateResourceConstraints(&params.constraints);
+-    params.array_buffer_allocator_shared = allocator;
++    params.array_buffer_allocator = allocator;
+     Isolate* isolate =
+         NewIsolate(&params, &loop_, w->platform_, w->snapshot_data());
+     if (isolate == nullptr) {
+@@ -208,7 +208,7 @@
+           IsolateData::CreateIsolateData(isolate,
+                                          &loop_,
+                                          w_->platform_,
+-                                         allocator.get(),
++                                         allocator,
+                                          w->snapshot_data(),
+                                          std::move(w_->per_isolate_opts_)));
+       CHECK(isolate_data_);
+@@ -264,6 +264,7 @@
+  private:
+   Worker* const w_;
+   uv_loop_t loop_;
++  std::shared_ptr<ArrayBufferAllocator> allocator_;
+   bool loop_init_failed_ = true;
+   DeleteFnPtr<IsolateData, FreeIsolateData> isolate_data_;
+   friend class Worker;

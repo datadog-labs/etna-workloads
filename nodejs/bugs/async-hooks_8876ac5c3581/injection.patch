@@ -1,0 +1,77 @@
+diff -uN a/lib/_http_client.js b/lib/_http_client.js
+--- a/lib/_http_client.js
++++ b/lib/_http_client.js
+@@ -138,13 +138,6 @@
+   return host;
+ }
+ 
+-class HTTPClientAsyncResource {
+-  constructor(type, req) {
+-    this.type = type;
+-    this.req = req;
+-  }
+-}
+-
+ // The only documented shape is [k, v, k, v, ...]. Here we also accept [[k, v], [k, v], ...].
+ // for backward compatibility, and reject others. Also reject if there are duplicate Host entries.
+ // Returns the Host header value, or undefined if absent.
+@@ -1115,7 +1108,7 @@
+   req.socket = socket;
+   const lenientFlags = calculateLenientFlags(req.httpValidation, req.insecureHTTPParser);
+   parser.initialize(HTTPParser.RESPONSE,
+-                    new HTTPClientAsyncResource('HTTPINCOMINGMESSAGE', req),
++                    req,
+                     req.maxHeaderSize || 0,
+                     lenientFlags);
+   parser.socket = socket;
+diff -uN a/lib/_http_common.js b/lib/_http_common.js
+--- a/lib/_http_common.js
++++ b/lib/_http_common.js
+@@ -164,7 +164,7 @@
+ 
+ 
+ const parsers = new FreeList('parsers', 1000, function parsersCb() {
+-  const parser = new HTTPParser();
++  const parser = new HTTPParser(HTTPParser.REQUEST);
+ 
+   cleanParser(parser);
+ 
+diff -uN a/src/node_http_parser.cc b/src/node_http_parser.cc
+--- a/src/node_http_parser.cc
++++ b/src/node_http_parser.cc
+@@ -305,8 +305,12 @@
+   friend class ConnectionsList;
+ 
+  public:
+-  Parser(BindingData* binding_data, Local<Object> wrap)
+-      : AsyncWrap(binding_data->env(), wrap),
++  Parser(BindingData* binding_data, Local<Object> wrap, llhttp_type_t type)
++      : AsyncWrap(binding_data->env(),
++                  wrap,
++                  type == HTTP_REQUEST ?
++                      AsyncWrap::PROVIDER_HTTPINCOMINGMESSAGE :
++                      AsyncWrap::PROVIDER_HTTPCLIENTREQUEST),
+         current_buffer_len_(0),
+         current_buffer_data_(nullptr),
+         binding_data_(binding_data) {}
+@@ -610,7 +614,11 @@
+ 
+   static void New(const FunctionCallbackInfo<Value>& args) {
+     BindingData* binding_data = Realm::GetBindingData<BindingData>(args);
+-    new Parser(binding_data, args.This());
++    CHECK(args[0]->IsInt32());
++    llhttp_type_t type =
++        static_cast<llhttp_type_t>(args[0].As<Int32>()->Value());
++    CHECK(type == HTTP_REQUEST || type == HTTP_RESPONSE);
++    new Parser(binding_data, args.This(), type);
+   }
+ 
+   // TODO(@anonrig): Add V8 Fast API
+@@ -728,7 +736,6 @@
+             : AsyncWrap::PROVIDER_HTTPCLIENTREQUEST);
+ 
+     parser->set_provider_type(provider);
+-    parser->AsyncReset(args[1].As<Object>());
+     parser->Init(type, max_http_header_size, lenient_flags);
+ 
+     if (connectionsList != nullptr) {

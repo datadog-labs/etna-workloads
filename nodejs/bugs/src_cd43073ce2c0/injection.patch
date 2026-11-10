@@ -1,0 +1,43 @@
+diff -uN a/src/api/environment.cc b/src/api/environment.cc
+--- a/src/api/environment.cc
++++ b/src/api/environment.cc
+@@ -1124,10 +1124,10 @@
+   CHECK_NOT_NULL(env);
+   Mutex::ScopedLock lock(env->extra_linked_bindings_mutex());
+ 
+-  node_module* prev_tail = env->extra_linked_bindings_tail();
++  node_module* prev_head = env->extra_linked_bindings_head();
+   env->extra_linked_bindings()->push_back(mod);
+-  if (prev_tail != nullptr)
+-    prev_tail->nm_link = &env->extra_linked_bindings()->back();
++  if (prev_head != nullptr)
++    prev_head->nm_link = &env->extra_linked_bindings()->back();
+ }
+ 
+ void AddLinkedBinding(Environment* env, const napi_module& mod) {
+diff -uN a/src/env-inl.h b/src/env-inl.h
+--- a/src/env-inl.h
++++ b/src/env-inl.h
+@@ -759,11 +759,6 @@
+       &extra_linked_bindings_.front() : nullptr;
+ }
+ 
+-inline node_module* Environment::extra_linked_bindings_tail() {
+-  return extra_linked_bindings_.size() > 0 ?
+-      &extra_linked_bindings_.back() : nullptr;
+-}
+-
+ inline const Mutex& Environment::extra_linked_bindings_mutex() const {
+   return extra_linked_bindings_mutex_;
+ }
+diff -uN a/src/env.h b/src/env.h
+--- a/src/env.h
++++ b/src/env.h
+@@ -950,7 +950,6 @@
+   inline void set_stopping(bool value);
+   inline std::list<node_module>* extra_linked_bindings();
+   inline node_module* extra_linked_bindings_head();
+-  inline node_module* extra_linked_bindings_tail();
+   inline const Mutex& extra_linked_bindings_mutex() const;
+ 
+   inline void set_source_maps_enabled(bool on);

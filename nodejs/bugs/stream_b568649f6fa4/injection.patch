@@ -1,0 +1,50 @@
+diff -uN a/lib/internal/streams/iter/classic.js b/lib/internal/streams/iter/classic.js
+--- a/lib/internal/streams/iter/classic.js
++++ b/lib/internal/streams/iter/classic.js
+@@ -464,9 +464,6 @@
+ 
+   const ReadableCtor = lazyReadable();
+   const iterator = source[SymbolIterator]();
+-  let hasBatch = false;
+-  let batch;
+-  let batchIndex = 0;
+ 
+   return new ReadableCtor({
+     __proto__: null,
+@@ -474,23 +471,14 @@
+     read() {
+       try {
+         for (;;) {
+-          if (hasBatch) {
+-            while (batchIndex < batch.length) {
+-              if (!this.push(batch[batchIndex++])) return;
+-            }
+-            batch = undefined;
+-            hasBatch = false;
+-            batchIndex = 0;
+-          }
+-
+-          const result = iterator.next();
+-          const { done } = result;
++          const { value: batch, done } = iterator.next();
+           if (done) {
+             this.push(null);
+             return;
+           }
+-          batch = result.value;
+-          hasBatch = true;
++          for (let i = 0; i < batch.length; i++) {
++            if (!this.push(batch[i])) return;
++          }
+         }
+       } catch (error) {
+         const classicError = toClassicError(error);
+@@ -498,8 +486,6 @@
+       }
+     },
+     destroy(err, cb) {
+-      batch = undefined;
+-      hasBatch = false;
+       try {
+         const returnMethod = iterator.return;
+         if (typeof returnMethod === 'function') {

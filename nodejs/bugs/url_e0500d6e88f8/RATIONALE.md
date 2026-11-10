@@ -1,0 +1,7 @@
+# Re-introduced bug: URL.canParse wrong when V8 optimizes
+
+**Bug:** `URL.canParse(url, base)` always called one binding function, `bindingUrl.canParse(url, base)`, whether or not a base was given. `base` could be `undefined`. After `URL.canParse` is optimized by V8, the call goes through the Fast API. That path picks an overload from the argument types seen at the call site, so `canParse` returns false for calls that should be true. In the test, an optimized `URL.canParse` returns false for a valid input.
+
+**Hunk (lib/internal/url.js, `URL.canParse`):** corresponds to the fix's hunk in the same function. The fix split the call into `canParse(url, base)` for the with-base case and `canParse(url)` for the no-base case. I reverted it to a single `bindingUrl.canParse(url, base)` call. `base` is stringified only when it is defined. The C++ side (the `FastCanParse` and `FastCanParseWithBase` overloads) is unchanged, because the release already has the overload infrastructure that the fix's C++ hunks added.
+
+**Failing test:** `parallel/test-whatwg-url-canparse` gives `not ok` in every run, including the two final runs. The message is `AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: actual: false, expected: true`. It is thrown in `testFastPaths`, after `%OptimizeFunctionOnNextCall(URL.canParse)`. I did not reproduce the failure in a plain script, so I did not determine which of the two asserts in `testFastPaths` fails.

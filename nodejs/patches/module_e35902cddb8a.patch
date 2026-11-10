@@ -1,0 +1,26 @@
+diff -uN a/lib/internal/modules/esm/get_format.js b/lib/internal/modules/esm/get_format.js
+--- a/lib/internal/modules/esm/get_format.js
++++ b/lib/internal/modules/esm/get_format.js
+@@ -198,14 +198,15 @@
+     // The controlling `package.json` file has no `type` field.
+     // `source` is undefined when this is called from `defaultResolve`;
+     // but this gets called again from `defaultLoad`/`defaultLoadSync`.
+-    // Since strip-types depends on detect-module, we always return null if source is undefined.
+-    if (!source) { return null; }
+-    const { stringify } = require('internal/modules/helpers');
+-    const { stripTypeScriptModuleTypes } = require('internal/modules/typescript');
+-    const stringifiedSource = stringify(source);
+-    const parsedSource = stripTypeScriptModuleTypes(stringifiedSource, fileURLToPath(url));
++    let parsedSource;
++    if (source) {
++      const { stringify } = require('internal/modules/helpers');
++      const { stripTypeScriptModuleTypes } = require('internal/modules/typescript');
++      parsedSource = stripTypeScriptModuleTypes(stringify(source), fileURLToPath(url));
++    }
+     const detectedFormat = detectModuleFormat(parsedSource, url);
+-    const format = `${detectedFormat}-typescript`;
++    // When source is undefined, default to module-typescript.
++    const format = detectedFormat ? `${detectedFormat}-typescript` : 'module-typescript';
+     if (format === 'module-typescript' && foundPackageJson) {
+       // This module has a .js extension, a package.json with no `type` field, and ESM syntax.
+       // Warn about the missing `type` field so that the user can avoid the performance penalty of detection.

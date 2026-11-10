@@ -1,0 +1,56 @@
+diff -uN a/lib/internal/tls/wrap.js b/lib/internal/tls/wrap.js
+--- a/lib/internal/tls/wrap.js
++++ b/lib/internal/tls/wrap.js
+@@ -110,8 +110,6 @@
+ const kEnableTrace = Symbol('enableTrace');
+ const kPskCallback = Symbol('pskcallback');
+ const kPskIdentityHint = Symbol('pskidentityhint');
+-const kPendingSession = Symbol('pendingSession');
+-const kIsVerified = Symbol('verified');
+ 
+ const noop = () => {};
+ 
+@@ -430,11 +428,7 @@
+   debug('client emit session');
+   const owner = this[owner_symbol];
+   const wrappedSession = wrapSessionState(session, owner[kConnectOptions]);
+-  if (owner[kIsVerified]) {
+-    owner.emit('session', wrappedSession);
+-  } else {
+-    owner[kPendingSession] = wrappedSession;
+-  }
++  owner.emit('session', wrappedSession);
+ }
+ 
+ function onnewsession(sessionId, session) {
+@@ -652,8 +646,6 @@
+   this.authorizationError = null;
+   this[kRes] = null;
+   this[kSecureContext] = null;
+-  this[kIsVerified] = false;
+-  this[kPendingSession] = null;
+ 
+   let wrap;
+   let handle;
+@@ -907,8 +899,6 @@
+   // TLSWrap.close() may already have cleared `ssl` on the way here.
+   closeSingleUseContext(this[kSecureContext]);
+   this[kSecureContext] = null;
+-  this[kPendingSession] = null;
+-  this[kIsVerified] = false;
+ };
+ 
+ function keylogNewListener(event) {
+@@ -1822,12 +1812,6 @@
+   this.secureConnecting = false;
+   this.emit('secureConnect');
+ 
+-  this[kIsVerified] = true;
+-  const session = this[kPendingSession];
+-  this[kPendingSession] = null;
+-  if (session)
+-    this.emit('session', session);
+-
+   this.removeListener('end', onConnectEnd);
+ }
+ 

@@ -1,0 +1,26 @@
+diff -uN a/lib/internal/modules/run_main.js b/lib/internal/modules/run_main.js
+--- a/lib/internal/modules/run_main.js
++++ b/lib/internal/modules/run_main.js
+@@ -84,12 +84,22 @@
+   return type === 'module';
+ }
+ 
++let hasInitializedEntryPoint = false;
+ /**
+  * @param {function(ModuleLoader):ModuleWrap|undefined} callback
+  */
+ async function asyncRunEntryPointWithESMLoader(callback) {
+   const cascadedLoader = require('internal/modules/esm/loader').getOrInitializeCascadedLoader();
+   try {
++    const userLoaders = getOptionValue('--experimental-loader');
++    if (hasInitializedEntryPoint) {
++      // Re-running (e.g. via Module.runMain()) registers the custom loaders again.
++      const loaderParentURL = getCWDURL().href;
++      for (let i = 0; i < userLoaders.length; i++) {
++        cascadedLoader.register(userLoaders[i], loaderParentURL);
++      }
++    }
++    hasInitializedEntryPoint = true;
+     const userImports = getOptionValue('--import');
+     if (userImports.length > 0) {
+       const parentURL = getCWDURL().href;

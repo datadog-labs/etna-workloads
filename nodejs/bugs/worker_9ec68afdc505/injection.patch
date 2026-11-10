@@ -1,0 +1,138 @@
+diff -uN a/src/api/environment.cc b/src/api/environment.cc
+--- a/src/api/environment.cc
++++ b/src/api/environment.cc
+@@ -587,19 +587,8 @@
+ 
+ NODE_EXTERN std::unique_ptr<InspectorParentHandle> GetInspectorParentHandle(
+     Environment* env, ThreadId thread_id, const char* url, const char* name) {
+-  if (url == nullptr) url = "";
+-  if (name == nullptr) name = "";
+-  std::string_view url_view(url);
+-  std::string_view name_view(name);
+-  return GetInspectorParentHandle(env, thread_id, url_view, name_view);
+-}
+-
+-NODE_EXTERN std::unique_ptr<InspectorParentHandle> GetInspectorParentHandle(
+-    Environment* env,
+-    ThreadId thread_id,
+-    std::string_view url,
+-    std::string_view name) {
+   CHECK_NOT_NULL(env);
++  if (name == nullptr) name = "";
+   CHECK_NE(thread_id.id, static_cast<uint64_t>(-1));
+   if (!env->should_create_inspector()) {
+     return nullptr;
+diff -uN a/src/inspector/worker_inspector.cc b/src/inspector/worker_inspector.cc
+--- a/src/inspector/worker_inspector.cc
++++ b/src/inspector/worker_inspector.cc
+@@ -57,10 +57,10 @@
+ 
+ ParentInspectorHandle::ParentInspectorHandle(
+     uint64_t id,
+-    std::string_view url,
++    const std::string& url,
+     std::shared_ptr<MainThreadHandle> parent_thread,
+     bool wait_for_connect,
+-    std::string_view name,
++    const std::string& name,
+     std::shared_ptr<NetworkResourceManager> network_resource_manager)
+     : id_(id),
+       url_(url),
+@@ -104,8 +104,8 @@
+ 
+ std::unique_ptr<ParentInspectorHandle> WorkerManager::NewParentHandle(
+     uint64_t thread_id,
+-    std::string_view url,
+-    std::string_view name,
++    const std::string& url,
++    const std::string& name,
+     std::shared_ptr<NetworkResourceManager> network_resource_manager) {
+   bool wait = !delegates_waiting_on_start_.empty();
+   return std::make_unique<ParentInspectorHandle>(
+diff -uN a/src/inspector/worker_inspector.h b/src/inspector/worker_inspector.h
+--- a/src/inspector/worker_inspector.h
++++ b/src/inspector/worker_inspector.h
+@@ -57,14 +57,14 @@
+  public:
+   ParentInspectorHandle(
+       uint64_t id,
+-      std::string_view url,
++      const std::string& url,
+       std::shared_ptr<MainThreadHandle> parent_thread,
+       bool wait_for_connect,
+-      std::string_view name,
++      const std::string& name,
+       std::shared_ptr<NetworkResourceManager> network_resource_manager);
+   ~ParentInspectorHandle();
+   std::unique_ptr<ParentInspectorHandle> NewParentInspectorHandle(
+-      uint64_t thread_id, std::string_view url, std::string_view name) {
++      uint64_t thread_id, const std::string& url, const std::string& name) {
+     return std::make_unique<ParentInspectorHandle>(
+         thread_id, url, parent_thread_, wait_, name, network_resource_manager_);
+   }
+@@ -97,8 +97,8 @@
+ 
+   std::unique_ptr<ParentInspectorHandle> NewParentHandle(
+       uint64_t thread_id,
+-      std::string_view url,
+-      std::string_view name,
++      const std::string& url,
++      const std::string& name,
+       std::shared_ptr<NetworkResourceManager> network_resource_manager);
+   void WorkerStarted(uint64_t session_id, const WorkerInfo& info, bool waiting);
+   void WorkerFinished(uint64_t session_id);
+diff -uN a/src/inspector_agent.cc b/src/inspector_agent.cc
+--- a/src/inspector_agent.cc
++++ b/src/inspector_agent.cc
+@@ -1225,7 +1225,7 @@
+ }
+ 
+ std::unique_ptr<ParentInspectorHandle> Agent::GetParentHandle(
+-    uint64_t thread_id, std::string_view url, std::string_view name) {
++    uint64_t thread_id, const std::string& url, const std::string& name) {
+   THROW_IF_INSUFFICIENT_PERMISSIONS(parent_env_,
+                                     permission::PermissionScope::kInspector,
+                                     "GetParentHandle",
+diff -uN a/src/inspector_agent.h b/src/inspector_agent.h
+--- a/src/inspector_agent.h
++++ b/src/inspector_agent.h
+@@ -94,9 +94,8 @@
+   void SetAsyncHookTrackingEnabled(bool enabled);
+ 
+   void SetParentHandle(std::unique_ptr<ParentInspectorHandle> parent_handle);
+-  std::unique_ptr<ParentInspectorHandle> GetParentHandle(uint64_t thread_id,
+-                                                         std::string_view url,
+-                                                         std::string_view name);
++  std::unique_ptr<ParentInspectorHandle> GetParentHandle(
++      uint64_t thread_id, const std::string& url, const std::string& name);
+ 
+   // Called to create inspector sessions that can be used from the same thread.
+   // The inspector responds by using the delegate to send messages back.
+diff -uN a/src/node.h b/src/node.h
+--- a/src/node.h
++++ b/src/node.h
+@@ -771,12 +771,6 @@
+     const char* child_url,
+     const char* name);
+ 
+-NODE_EXTERN std::unique_ptr<InspectorParentHandle> GetInspectorParentHandle(
+-    Environment* parent_env,
+-    ThreadId child_thread_id,
+-    std::string_view child_url,
+-    std::string_view name);
+-
+ struct StartExecutionCallbackInfo {
+   v8::Local<v8::Object> process_object;
+   v8::Local<v8::Function> native_require;
+diff -uN a/src/node_worker.cc b/src/node_worker.cc
+--- a/src/node_worker.cc
++++ b/src/node_worker.cc
+@@ -112,7 +112,7 @@
+   if (env->permission()->is_granted(
+           env, node::permission::PermissionScope::kInspector)) {
+     inspector_parent_handle_ =
+-        GetInspectorParentHandle(env, thread_id_, url, name);
++        GetInspectorParentHandle(env, thread_id_, url.c_str(), name.c_str());
+   }
+ 
+   argv_ = std::vector<std::string>{env->argv()[0]};

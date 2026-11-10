@@ -1,0 +1,32 @@
+diff -uN a/lib/trace_events.js b/lib/trace_events.js
+--- a/lib/trace_events.js
++++ b/lib/trace_events.js
+@@ -14,13 +14,12 @@
+   ERR_TRACE_EVENTS_UNAVAILABLE,
+ } = require('internal/errors').codes;
+ 
+-const { ownsProcessState } = require('internal/worker');
+ const {
+   CategorySet,
+   getEnabledCategories,
+   hasAgent,
+ } = internalBinding('trace_events');
+-if (!hasTracing || !ownsProcessState || !hasAgent())
++if (!hasTracing || !hasAgent())
+   throw new ERR_TRACE_EVENTS_UNAVAILABLE();
+ 
+ const { customInspectSymbol } = require('internal/util');
+diff -uN a/src/inspector/tracing_agent.cc b/src/inspector/tracing_agent.cc
+--- a/src/inspector/tracing_agent.cc
++++ b/src/inspector/tracing_agent.cc
+@@ -148,10 +148,6 @@
+     return DispatchResponse::InvalidRequest(
+         "Call NodeTracing::end to stop tracing before updating the config");
+   }
+-  if (!env_->owns_process_state()) {
+-    return DispatchResponse::InvalidRequest(
+-        "Tracing properties can only be changed through main thread sessions");
+-  }
+ 
+   std::set<std::string> categories_set;
+   protocol::Array<std::string>* categories =

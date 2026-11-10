@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/streams/pipeline.js b/lib/internal/streams/pipeline.js
+--- a/lib/internal/streams/pipeline.js
++++ b/lib/internal/streams/pipeline.js
+@@ -48,7 +48,7 @@
+ let Readable;
+ let addAbortListener;
+ 
+-function destroyer(stream, reading, writing) {
++function destroyer(stream, reading, writing, final) {
+   let finished = false;
+   stream.on('close', () => {
+     finished = true;
+@@ -60,8 +60,13 @@
+ 
+   return {
+     destroy: (err) => {
+-      if (finished) return;
++      if (finished && !final) return;
++      const wasFinished = finished;
+       finished = true;
++      if (wasFinished && !err) {
++        stream.destroy();
++        return;
++      }
+       destroyImpl.destroyer(stream, err || new ERR_STREAM_DESTROYED('pipe'));
+     },
+     cleanup,
+@@ -265,7 +270,7 @@
+       }
+ 
+       if (end) {
+-        const { destroy, cleanup } = destroyer(stream, reading, writing);
++        const { destroy, cleanup } = destroyer(stream, reading, writing, isLastStream);
+         destroys.push(destroy);
+ 
+         if (isReadable(stream) && isLastStream) {

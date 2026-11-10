@@ -1,0 +1,34 @@
+diff -uN a/lib/internal/blob.js b/lib/internal/blob.js
+--- a/lib/internal/blob.js
++++ b/lib/internal/blob.js
+@@ -80,7 +80,6 @@
+ const kHandle = Symbol('kHandle');
+ const kType = Symbol('kType');
+ const kLength = Symbol('kLength');
+-const kNotCloneable = Symbol('kNotCloneable');
+ 
+ const disallowedTypeCharacters = /[^\u{0020}-\u{007E}]/u;
+ 
+@@ -202,11 +201,6 @@
+   }
+ 
+   [kClone]() {
+-    if (this[kNotCloneable]) {
+-      // We do not currently allow file-backed Blobs to be cloned or passed across
+-      // worker threads.
+-      throw new ERR_INVALID_STATE.TypeError('File-backed Blobs are not cloneable');
+-    }
+     const handle = this[kHandle];
+     const type = this[kType];
+     const length = this[kLength];
+@@ -426,9 +420,7 @@
+     return lazyDOMException('The blob could not be read', 'NotReadableError');
+   }
+   const { 0: blob, 1: length } = maybeBlob;
+-  const res = createBlob(blob, length, options?.type);
+-  res[kNotCloneable] = true;
+-  return res;
++  return createBlob(blob, length, options?.type);
+ }
+ 
+ function arrayBuffer(blob) {

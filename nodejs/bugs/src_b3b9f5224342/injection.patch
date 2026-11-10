@@ -1,0 +1,110 @@
+diff -uN a/lib/internal/bootstrap/node.js b/lib/internal/bootstrap/node.js
+--- a/lib/internal/bootstrap/node.js
++++ b/lib/internal/bootstrap/node.js
+@@ -104,10 +104,11 @@
+     configurable: true,
+   });
+ 
++  let exitCode;
+   ObjectDefineProperty(process, 'exitCode', {
+     __proto__: null,
+     get() {
+-      return fields[kHasExitCode] ? fields[kExitCode] : undefined;
++      return exitCode;
+     },
+     set(code) {
+       if (code !== null && code !== undefined) {
+@@ -122,6 +123,7 @@
+       } else {
+         fields[kHasExitCode] = 0;
+       }
++      exitCode = code;
+     },
+     enumerable: true,
+     configurable: false,
+diff -uN a/src/api/embed_helpers.cc b/src/api/embed_helpers.cc
+--- a/src/api/embed_helpers.cc
++++ b/src/api/embed_helpers.cc
+@@ -74,7 +74,20 @@
+ 
+   env->PrintInfoForSnapshotIfDebug();
+   env->ForEachRealm([](Realm* realm) { realm->VerifyNoStrongBaseObjects(); });
+-  return EmitProcessExitInternal(env);
++  Maybe<ExitCode> exit_code = EmitProcessExitInternal(env);
++  if (exit_code.FromMaybe(ExitCode::kGenericUserError) !=
++      ExitCode::kNoFailure) {
++    return exit_code;
++  }
++
++  auto unsettled_tla = env->CheckUnsettledTopLevelAwait();
++  if (unsettled_tla.IsNothing()) {
++    return Nothing<ExitCode>();
++  }
++  if (!unsettled_tla.FromJust()) {
++    return Just(ExitCode::kUnsettledTopLevelAwait);
++  }
++  return Just(ExitCode::kNoFailure);
+ }
+ 
+ struct CommonEnvironmentSetup::Impl {
+diff -uN a/src/api/hooks.cc b/src/api/hooks.cc
+--- a/src/api/hooks.cc
++++ b/src/api/hooks.cc
+@@ -61,26 +61,14 @@
+     return Nothing<ExitCode>();
+   }
+ 
+-  ExitCode exit_code = env->exit_code(ExitCode::kNoFailure);
++  Local<Integer> exit_code = Integer::New(
++      isolate, static_cast<int32_t>(env->exit_code(ExitCode::kNoFailure)));
+ 
+-  // the exit code wasn't already set, so let's check for unsettled tlas
+-  if (exit_code == ExitCode::kNoFailure) {
+-    auto unsettled_tla = env->CheckUnsettledTopLevelAwait();
+-    if (!unsettled_tla.FromJust()) {
+-      exit_code = ExitCode::kUnsettledTopLevelAwait;
+-      env->set_exit_code(exit_code);
+-    }
+-  }
+-
+-  Local<Integer> exit_code_int =
+-      Integer::New(isolate, static_cast<int32_t>(exit_code));
+-
+-  if (ProcessEmit(env, "exit", exit_code_int).IsEmpty()) {
++  if (ProcessEmit(env, "exit", exit_code).IsEmpty()) {
+     return Nothing<ExitCode>();
+   }
+-
+   // Reload exit code, it may be changed by `emit('exit')`
+-  return Just(env->exit_code(exit_code));
++  return Just(env->exit_code(ExitCode::kNoFailure));
+ }
+ 
+ Maybe<int> EmitProcessExit(Environment* env) {
+diff -uN a/src/env-inl.h b/src/env-inl.h
+--- a/src/env-inl.h
++++ b/src/env-inl.h
+@@ -364,11 +364,6 @@
+              : static_cast<ExitCode>(exit_info_[kExitCode]);
+ }
+ 
+-inline void Environment::set_exit_code(const ExitCode code) {
+-  exit_info_[kExitCode] = static_cast<int>(code);
+-  exit_info_[kHasExitCode] = 1;
+-}
+-
+ inline AliasedInt32Array& Environment::exit_info() {
+   return exit_info_;
+ }
+diff -uN a/src/env.h b/src/env.h
+--- a/src/env.h
++++ b/src/env.h
+@@ -860,8 +860,6 @@
+   bool exiting() const;
+   inline ExitCode exit_code(const ExitCode default_code) const;
+ 
+-  inline void set_exit_code(const ExitCode code);
+-
+   // This stores whether the --abort-on-uncaught-exception flag was passed
+   // to Node.
+   inline bool abort_on_uncaught_exception() const;

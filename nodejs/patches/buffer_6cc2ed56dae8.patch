@@ -1,0 +1,76 @@
+diff -uN a/lib/buffer.js b/lib/buffer.js
+--- a/lib/buffer.js
++++ b/lib/buffer.js
+@@ -150,13 +150,6 @@
+   utf8Write,
+ } = require('internal/buffer');
+ 
+-const {
+-  namespace: {
+-    addDeserializeCallback,
+-    isBuildingSnapshot,
+-  },
+-} = require('internal/v8/startup_snapshot');
+-
+ FastBuffer.prototype.constructor = Buffer;
+ Buffer.prototype = FastBuffer.prototype;
+ addBufferPrototypeMethods(Buffer.prototype);
+@@ -201,13 +194,6 @@
+   poolOffset = 0;
+ }
+ createPool();
+-if (isBuildingSnapshot()) {
+-  addDeserializeCallback(() => {
+-    // TODO(legendecas): ArrayBuffer.[[ArrayBufferDetachKey]] is not been serialized.
+-    // Remove this callback when snapshot serialization supports it.
+-    createPool();
+-  });
+-}
+ 
+ function alignPool() {
+   // Ensure aligned slices
+diff -uN a/lib/internal/buffer.js b/lib/internal/buffer.js
+--- a/lib/internal/buffer.js
++++ b/lib/internal/buffer.js
+@@ -7,7 +7,6 @@
+   MathFloor,
+   MathMax,
+   Number,
+-  Symbol,
+   Uint8Array,
+ } = primordials;
+ 
+@@ -17,7 +16,6 @@
+   ERR_OUT_OF_RANGE,
+ } = require('internal/errors').codes;
+ const { validateNumber } = require('internal/validators');
+-const { isArrayBuffer } = require('util/types');
+ 
+ const {
+   asciiSlice,
+@@ -36,7 +34,6 @@
+   utf8WriteStatic,
+   arrayBufferAlignedOffset,
+   createUnsafeArrayBuffer,
+-  setDetachKey,
+ } = internalBinding('buffer');
+ 
+ const {
+@@ -1083,17 +1080,12 @@
+   proto.utf8Write = function(string, offset, length) { return utf8Write(this, string, offset, length); };
+ }
+ 
+-const kDetachKey = Symbol('detach_key_for_untransferable_arraybuffer');
+ // This would better be placed in internal/worker/io.js, but that doesn't work
+ // because Buffer needs this and that would introduce a cyclic dependency.
+ function markAsUntransferable(obj) {
+   if ((typeof obj !== 'object' && typeof obj !== 'function') || obj === null)
+     return;  // This object is a primitive and therefore already untransferable.
+   obj[untransferable_object_private_symbol] = true;
+-
+-  if (isArrayBuffer(obj)) {
+-    setDetachKey(obj, kDetachKey);
+-  }
+ }
+ 
+ // This simply checks if the object is marked as untransferable and doesn't

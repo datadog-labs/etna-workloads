@@ -1,0 +1,50 @@
+diff -uN a/lib/trace_events.js b/lib/trace_events.js
+--- a/lib/trace_events.js
++++ b/lib/trace_events.js
+@@ -15,14 +15,10 @@
+ } = require('internal/errors').codes;
+ 
+ const { ownsProcessState } = require('internal/worker');
+-const {
+-  CategorySet,
+-  getEnabledCategories,
+-  hasAgent,
+-} = internalBinding('trace_events');
+-if (!hasTracing || !ownsProcessState || !hasAgent())
++if (!hasTracing || !ownsProcessState)
+   throw new ERR_TRACE_EVENTS_UNAVAILABLE();
+ 
++const { CategorySet, getEnabledCategories } = internalBinding('trace_events');
+ const { customInspectSymbol } = require('internal/util');
+ const { format } = require('internal/util/inspect');
+ const {
+diff -uN a/src/node_trace_events.cc b/src/node_trace_events.cc
+--- a/src/node_trace_events.cc
++++ b/src/node_trace_events.cc
+@@ -113,10 +113,6 @@
+   }
+ }
+ 
+-static void HasAgent(const FunctionCallbackInfo<Value>& args) {
+-  args.GetReturnValue().Set(tracing::Agent::GetInstance() != nullptr);
+-}
+-
+ void GetEnabledCategories(const FunctionCallbackInfo<Value>& args) {
+   Environment* env = Environment::GetCurrent(args);
+   std::string categories =
+@@ -166,7 +162,6 @@
+   Environment* env = Environment::GetCurrent(context);
+   Isolate* isolate = env->isolate();
+ 
+-  SetMethod(context, target, "hasAgent", HasAgent);
+   SetMethod(context, target, "getEnabledCategories", GetEnabledCategories);
+   SetMethod(context,
+             target,
+@@ -208,7 +203,6 @@
+ 
+ void NodeCategorySet::RegisterExternalReferences(
+     ExternalReferenceRegistry* registry) {
+-  registry->Register(HasAgent);
+   registry->Register(GetEnabledCategories);
+   registry->Register(SetTraceCategoryStateUpdateHandler);
+   registry->Register(GetCategoryEnabledBuffer);

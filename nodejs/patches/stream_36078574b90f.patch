@@ -1,0 +1,73 @@
+diff -uN a/lib/internal/streams/duplexify.js b/lib/internal/streams/duplexify.js
+--- a/lib/internal/streams/duplexify.js
++++ b/lib/internal/streams/duplexify.js
+@@ -248,17 +248,7 @@
+       _resolve({ __proto__: null, done: true, cb });
+     },
+     destroy(err, cb) {
+-      ac.abort(err);
+-
+-      // If the source async iterator is waiting for the next write/final
+-      // signal, unblock it so the readable side can observe the abort and
+-      // finish destroying.
+-      if (resolve !== null) {
+-        const _resolve = resolve;
+-        resolve = null;
+-        _resolve({ __proto__: null, done: true, cb() {} });
+-      }
+-
++      ac.abort();
+       cb(err);
+     },
+   };
+diff -uN a/lib/internal/streams/from.js b/lib/internal/streams/from.js
+--- a/lib/internal/streams/from.js
++++ b/lib/internal/streams/from.js
+@@ -8,12 +8,9 @@
+ const { Buffer } = require('buffer');
+ 
+ const {
+-  aggregateTwoErrors,
+-  codes: {
+-    ERR_INVALID_ARG_TYPE,
+-    ERR_STREAM_NULL_VALUES,
+-  },
+-} = require('internal/errors');
++  ERR_INVALID_ARG_TYPE,
++  ERR_STREAM_NULL_VALUES,
++} = require('internal/errors').codes;
+ 
+ function from(Readable, iterable, opts) {
+   let iterator;
+@@ -46,7 +43,6 @@
+     // TODO(ronag): What options should be allowed?
+     ...opts,
+   });
+-  const originalDestroy = readable._destroy;
+ 
+   // Flag to protect against _read
+   // being called before last iteration completion.
+@@ -68,18 +64,11 @@
+   };
+ 
+   readable._destroy = function(error, cb) {
+-    originalDestroy.call(this, error, (destroyError) => {
+-      const combinedError = destroyError || error;
+-      PromisePrototypeThen(
+-        close(combinedError),
+-        // nextTick is here in case cb throws
+-        () => process.nextTick(cb, combinedError),
+-        (closeError) => process.nextTick(
+-          cb,
+-          aggregateTwoErrors(combinedError, closeError),
+-        ),
+-      );
+-    });
++    PromisePrototypeThen(
++      close(error),
++      () => process.nextTick(cb, error), // nextTick is here in case cb throws
++      (e) => process.nextTick(cb, e || error),
++    );
+   };
+ 
+   async function close(error) {

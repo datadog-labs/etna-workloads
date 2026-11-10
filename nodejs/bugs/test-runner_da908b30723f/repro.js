@@ -1,0 +1,16 @@
+'use strict';
+const fs = require('fs'), os = require('os'), path = require('path');
+const { run } = require('node:test');
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'r-'));
+const f = path.join(dir, 'x.mjs');
+fs.writeFileSync(f, `import { test } from 'node:test';
+test('registered before the error', () => {});
+null.x;
+`);
+const r = run({ files: [f], isolation: 'none' });
+const out = [];
+r.on('test:pass', (t) => out.push('pass ' + t.name));
+r.on('test:fail', (t) => out.push('fail ' + (t.name === f ? '<file>' : t.name) + ' ' + /TypeError/.test(String(t.details.error))));
+r.on('close', () => {}); 
+r.resume();
+r.on('end', () => { console.log(out.sort().join('\n')); fs.rmSync(dir, { recursive: true }); });

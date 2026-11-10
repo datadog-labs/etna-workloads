@@ -1,0 +1,48 @@
+diff -uN a/lib/async_hooks.js b/lib/async_hooks.js
+--- a/lib/async_hooks.js
++++ b/lib/async_hooks.js
+@@ -5,7 +5,6 @@
+   ArrayPrototypeIndexOf,
+   ArrayPrototypePush,
+   ArrayPrototypeSplice,
+-  ArrayPrototypeUnshift,
+   FunctionPrototypeBind,
+   NumberIsSafeInteger,
+   ObjectDefineProperties,
+@@ -247,19 +246,15 @@
+     return this[trigger_async_id_symbol];
+   }
+ 
+-  bind(fn, thisArg) {
++  bind(fn, thisArg = this) {
+     validateFunction(fn, 'fn');
+-    let bound;
+-    if (thisArg === undefined) {
+-      const resource = this;
+-      bound = function(...args) {
+-        ArrayPrototypeUnshift(args, fn, this);
+-        return ReflectApply(resource.runInAsyncScope, resource, args);
+-      };
+-    } else {
+-      bound = FunctionPrototypeBind(this.runInAsyncScope, this, fn, thisArg);
+-    }
+-    ObjectDefineProperties(bound, {
++    const ret =
++      FunctionPrototypeBind(
++        this.runInAsyncScope,
++        this,
++        fn,
++        thisArg);
++    ObjectDefineProperties(ret, {
+       'length': {
+         __proto__: null,
+         configurable: true,
+@@ -268,7 +263,7 @@
+         writable: false,
+       },
+     });
+-    return bound;
++    return ret;
+   }
+ 
+   static bind(fn, type, thisArg) {

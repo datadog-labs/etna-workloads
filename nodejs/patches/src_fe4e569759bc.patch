@@ -1,0 +1,23 @@
+diff -uN a/src/node_task_runner.cc b/src/node_task_runner.cc
+--- a/src/node_task_runner.cc
++++ b/src/node_task_runner.cc
+@@ -374,13 +374,14 @@
+   // If the "--" flag is not found, return an empty optional
+   // Otherwise, return the positional arguments as a single string
+   if (auto dash_dash = std::ranges::find(args, "--"); dash_dash != args.end()) {
+-    PositionalArgs positional_args{};
+-    positional_args.reserve(args.size() - (dash_dash - args.begin()));
++    // Pre-fix behavior: all arguments are concatenated into one string.
++    static std::string joined;
++    joined.clear();
+     for (auto it = dash_dash + 1; it != args.end(); ++it) {
+-      // SAFETY: The following code is safe because the lifetime of the
+-      // arguments is guaranteed to be valid until the end of the task runner.
+-      positional_args.emplace_back(it->c_str(), it->size());
++      joined += it->c_str();
+     }
++    PositionalArgs positional_args{};
++    positional_args.emplace_back(joined);
+     return positional_args;
+   }
+ 

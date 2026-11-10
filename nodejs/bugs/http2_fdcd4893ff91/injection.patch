@@ -1,0 +1,30 @@
+diff -uN a/lib/internal/http2/compat.js b/lib/internal/http2/compat.js
+--- a/lib/internal/http2/compat.js
++++ b/lib/internal/http2/compat.js
+@@ -827,6 +827,11 @@
+     const stream = this[kStream];
+     const state = this[kState];
+ 
++    if ((state.closed || state.ending) &&
++        state.headRequest === stream.headRequest) {
++      return this;
++    }
++
+     if (typeof chunk === 'function') {
+       cb = chunk;
+       chunk = null;
+@@ -835,14 +840,6 @@
+       encoding = 'utf8';
+     }
+ 
+-    if ((state.closed || state.ending) &&
+-        state.headRequest === stream.headRequest) {
+-      if (typeof cb === 'function') {
+-        process.nextTick(cb);
+-      }
+-      return this;
+-    }
+-
+     if (chunk !== null && chunk !== undefined)
+       this.write(chunk, encoding);
+ 

@@ -1,0 +1,20 @@
+diff -uN a/lib/tls.js b/lib/tls.js
+--- a/lib/tls.js
++++ b/lib/tls.js
+@@ -466,14 +466,8 @@
+   let valid = false;
+   let reason = 'Unknown reason';
+ 
+-  // An IP literal must not be IDNA-normalized: domainToASCII() returns '' for
+-  // an IPv6 literal (it is not a domain), so matching against the normalized
+-  // host would skip IP-SAN matching for IPv6 entirely. Match IP hosts against
+-  // the original hostname (net.isIP() rejects non-ASCII, so there is no IDNA
+-  // confusion to guard against here); the normalized form is kept for the
+-  // DNS-name path below.
+-  if (hostnameIsIP) {
+-    valid = ips.includes(canonicalizeIP(hostname));
++  if (hostnameASCIIIsIP) {
++    valid = ips.includes(canonicalizeIP(hostnameASCIIWithoutFQDN));
+     if (!valid) {
+       reason =
+         `IP: ${hostname} is not in the cert's list: ` + ips.join(', ');

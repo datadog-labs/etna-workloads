@@ -1,0 +1,119 @@
+diff -uN a/lib/_http_outgoing.js b/lib/_http_outgoing.js
+--- a/lib/_http_outgoing.js
++++ b/lib/_http_outgoing.js
+@@ -103,9 +103,6 @@
+ let keepAliveTimeoutCache = -1;
+ let keepAliveMaxCache = -1;
+ let keepAliveHeaderCache = '';
+-const kWritableFinished = Symbol('kWritableFinished');
+-const kEndCallbacks = Symbol('kEndCallbacks');
+-const kFlushError = Symbol('kFlushError');
+ const kHighWaterMark = Symbol('kHighWaterMark');
+ const kRejectNonStandardBodyWrites = Symbol('kRejectNonStandardBodyWrites');
+ 
+@@ -186,9 +183,6 @@
+   this._onPendingData = nop;
+ 
+   this[kErrored] = null;
+-  this[kWritableFinished] = false;
+-  this[kEndCallbacks] = null;
+-  this[kFlushError] = null;
+   this[kHighWaterMark] = options?.highWaterMark ?? getDefaultHighWaterMark();
+   this[kRejectNonStandardBodyWrites] = options?.rejectNonStandardBodyWrites ?? false;
+   this[kLenientCache] = null;
+@@ -247,7 +241,11 @@
+ ObjectDefineProperty(OutgoingMessage.prototype, 'writableFinished', {
+   __proto__: null,
+   get() {
+-    return this[kWritableFinished];
++    return (
++      this.finished &&
++      this.outputSize === 0 &&
++      (!this[kSocket] || this[kSocket].writableLength === 0)
++    );
+   },
+ });
+ 
+@@ -1230,48 +1228,8 @@
+   }
+ };
+ 
+-// Deliver end() callbacks, mirroring Writable: null on successful finish,
+-// otherwise the error that prevented all data from being flushed.
+-function flushEndCallbacks(msg, err) {
+-  const callbacks = msg[kEndCallbacks];
+-  if (callbacks === null)
+-    return;
+-  msg[kEndCallbacks] = null;
+-  for (let i = 0; i < callbacks.length; i++)
+-    callbacks[i](err);
+-}
+-
+-function getEndCallbackError(msg) {
+-  return msg[kErrored] ??
+-    msg[kSocket]?.errored ??
+-    new ERR_STREAM_DESTROYED('end');
+-}
+-
+-function queueEndCallback(msg, callback) {
+-  if (msg[kWritableFinished]) {
+-    callback(new ERR_STREAM_ALREADY_FINISHED('end'));
+-    return;
+-  }
+-  if (msg[kFlushError] !== null) {
+-    process.nextTick(callback, msg[kFlushError]);
+-    return;
+-  }
+-  msg[kEndCallbacks] ??= [];
+-  msg[kEndCallbacks].push(callback);
+-}
+-
+-function onFinish(outmsg, err) {
+-  if (err ||
+-      outmsg[kErrored] ||
+-      outmsg[kSocket]?.errored ||
+-      outmsg[kSocket]?._hadError) {
+-    outmsg[kFlushError] = err ?? getEndCallbackError(outmsg);
+-    flushEndCallbacks(outmsg, outmsg[kFlushError]);
+-    return;
+-  }
+-
+-  outmsg[kWritableFinished] = true;
+-  flushEndCallbacks(outmsg, null);
++function onFinish(outmsg) {
++  if (outmsg?.socket?._hadError) return;
+   outmsg.emit('finish');
+ }
+ 
+@@ -1303,17 +1261,17 @@
+       // If just one final write is required, with nothing to follow, we
+       // attach finish to the write to avoid a separate send() & tick step
+       // later on - this is purely a performance optimization.
+-      if (typeof callback === 'function') {
+-        queueEndCallback(this, callback);
+-        callback = undefined;
+-      }
+       finishCallback = onFinish.bind(undefined, this);
+     }
+ 
+     write_(this, chunk, encoding, finishCallback, true);
+   } else if (this.finished) {
+     if (typeof callback === 'function') {
+-      queueEndCallback(this, callback);
++      if (!this.writableFinished) {
++        this.on('finish', callback);
++      } else {
++        callback(new ERR_STREAM_ALREADY_FINISHED('end'));
++      }
+     }
+     return this;
+   } else if (!this._header) {
+@@ -1326,7 +1284,7 @@
+   }
+ 
+   if (typeof callback === 'function')
+-    queueEndCallback(this, callback);
++    this.once('finish', callback);
+ 
+   if (strictContentLength(this) && this[kBytesWritten] !== this._contentLength) {
+     throw new ERR_HTTP_CONTENT_LENGTH_MISMATCH(this[kBytesWritten], this._contentLength);

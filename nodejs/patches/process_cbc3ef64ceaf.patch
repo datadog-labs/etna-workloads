@@ -1,0 +1,25 @@
+diff -uN a/lib/internal/bootstrap/switches/is_main_thread.js b/lib/internal/bootstrap/switches/is_main_thread.js
+--- a/lib/internal/bootstrap/switches/is_main_thread.js
++++ b/lib/internal/bootstrap/switches/is_main_thread.js
+@@ -112,6 +112,9 @@
+ }
+ 
+ function dummyDestroy(err, cb) {
++  const { ERR_STDOUT_CLOSE, ERR_STDERR_CLOSE } = require('internal/errors').codes;
++  // Avoid errors if we already emitted
++  err = err || (this.fd === 2 ? new ERR_STDERR_CLOSE() : new ERR_STDOUT_CLOSE());
+   cb(err);
+   this._undestroy();
+ 
+diff -uN a/lib/internal/errors.js b/lib/internal/errors.js
+--- a/lib/internal/errors.js
++++ b/lib/internal/errors.js
+@@ -1834,6 +1834,8 @@
+ E('ERR_STREAM_ALREADY_FINISHED',
+   'Cannot call %s after a stream was finished',
+   Error);
++E('ERR_STDERR_CLOSE', 'process.stderr cannot be closed', Error);
++E('ERR_STDOUT_CLOSE', 'process.stdout cannot be closed', Error);
+ E('ERR_STREAM_CANNOT_PIPE', 'Cannot pipe, not readable', Error);
+ E('ERR_STREAM_DESTROYED', 'Cannot call %s after a stream was destroyed', Error);
+ E('ERR_STREAM_ITER_MISSING_FLAG',

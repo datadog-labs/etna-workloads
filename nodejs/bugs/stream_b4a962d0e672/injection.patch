@@ -1,0 +1,30 @@
+diff -uN a/lib/internal/streams/pipeline.js b/lib/internal/streams/pipeline.js
+--- a/lib/internal/streams/pipeline.js
++++ b/lib/internal/streams/pipeline.js
+@@ -40,7 +40,6 @@
+   isTransformStream,
+   isWebStream,
+   isReadableStream,
+-  isReadableFinished,
+ } = require('internal/streams/utils');
+ const { AbortController } = require('internal/abort_controller');
+ 
+@@ -430,16 +429,10 @@
+     // pipe() did/does not end() stdio destinations.
+     // Now they allow it but "secretly" don't close the underlying fd.
+ 
+-    function endFn() {
++    src.once('end', () => {
+       ended = true;
+       dst.end();
+-    }
+-
+-    if (isReadableFinished(src)) { // End the destination if the source has already ended.
+-      process.nextTick(endFn);
+-    } else {
+-      src.once('end', endFn);
+-    }
++    });
+   } else {
+     finish();
+   }

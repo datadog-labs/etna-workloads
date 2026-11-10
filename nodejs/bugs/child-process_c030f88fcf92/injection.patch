@@ -1,0 +1,25 @@
+diff -uN a/lib/child_process.js b/lib/child_process.js
+--- a/lib/child_process.js
++++ b/lib/child_process.js
+@@ -1013,17 +1013,16 @@
+  * @returns {Buffer | string | null}
+  */
+ function execFileSync(file, args, options) {
+-  ({ file, args, options } = normalizeExecFileArgs(file, args, options));
++  options = normalizeSpawnArguments(file, args, options);
+ 
+   const inheritStderr = !options.stdio;
+-  const ret = spawnSync(file, args, options);
++  const ret = spawnSync(options.file,
++                        ArrayPrototypeSlice(options.args, 1), options);
+ 
+   if (inheritStderr && ret.stderr)
+     process.stderr.write(ret.stderr);
+ 
+-  const errArgs = [options.argv0 || file];
+-  ArrayPrototypePushApply(errArgs, args);
+-  const err = checkExecSyncError(ret, errArgs);
++  const err = checkExecSyncError(ret, options.args, undefined);
+ 
+   if (err)
+     throw err;

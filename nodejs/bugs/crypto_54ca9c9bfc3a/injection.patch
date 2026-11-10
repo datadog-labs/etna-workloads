@@ -1,0 +1,28 @@
+diff -uN a/lib/internal/crypto/aes.js b/lib/internal/crypto/aes.js
+--- a/lib/internal/crypto/aes.js
++++ b/lib/internal/crypto/aes.js
+@@ -46,7 +46,14 @@
+   validateUsagesNotEmpty,
+ } = require('internal/crypto/webcrypto_util');
+ 
+-const kCipherUsages = ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey'];
++const {
++  validateInteger,
++  validateOneOf,
++} = require('internal/validators');
++
++const kAesKeyLengths = [128, 192, 256];
++
++const kCipherUsages =['encrypt', 'decrypt', 'wrapKey', 'unwrapKey'];
+ const kWrapUsages = ['wrapKey', 'unwrapKey'];
+ 
+ const kUsages = {
+@@ -186,6 +193,8 @@
+ 
+ function aesGenerateKey(algorithm, extractable, usages) {
+   const { name, length } = algorithm;
++  validateInteger(length, 'algorithm.length');
++  validateOneOf(length, 'algorithm.length', kAesKeyLengths);
+ 
+   const usagesSet = validateKeyUsages(usages, kUsages[name], name);
+   validateAlgorithm(algorithm, 'generateKey');

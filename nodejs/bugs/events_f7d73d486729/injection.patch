@@ -1,0 +1,23 @@
+diff -uN a/lib/events.js b/lib/events.js
+--- a/lib/events.js
++++ b/lib/events.js
+@@ -1026,8 +1026,6 @@
+     const opts = { __proto__: null, once: true, [kResistStopPropagation]: true };
+     eventTargetAgnosticAddListener(emitter, name, resolver, opts);
+     if (name !== 'error' && typeof emitter.once === 'function') {
+-      // EventTarget does not have `error` event semantics like Node
+-      // EventEmitters, we listen to `error` events only on EventEmitters.
+       emitter.once('error', errorListener);
+     }
+     function abortListener() {
+@@ -1064,7 +1062,9 @@
+       emitter.on(name, listener);
+     }
+   } else if (typeof emitter.addEventListener === 'function') {
+-    emitter.addEventListener(name, listener, flags);
++    // EventTarget does not have `error` event semantics like Node
++    // EventEmitters, we do not listen to `error` events here.
++    emitter.addEventListener(name, (arg) => { listener(arg); }, flags);
+   } else {
+     throw new ERR_INVALID_ARG_TYPE('emitter', 'EventEmitter', emitter);
+   }

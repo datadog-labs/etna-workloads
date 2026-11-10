@@ -1,0 +1,17 @@
+diff -uN a/src/node_dotenv.cc b/src/node_dotenv.cc
+--- a/src/node_dotenv.cc
++++ b/src/node_dotenv.cc
+@@ -219,7 +219,12 @@
+     // Expand new line if \n it's inside double quotes
+     // Example: EXPAND_NEWLINES = 'expand\nnew\nlines'
+     if (content.front() == '"') {
+-      auto closing_quote = content.find(content.front(), 1);
++      auto line_end = content.find('\n');
++      auto closing_quote = content.substr(0, line_end).rfind(content.front());
++      if (closing_quote == 0) closing_quote = std::string_view::npos;
++      if (closing_quote == std::string_view::npos) {
++        closing_quote = content.find(content.front(), 1);
++      }
+       if (closing_quote != std::string_view::npos) {
+         value = content.substr(1, closing_quote - 1);
+         std::string multi_line_value = std::string(value);

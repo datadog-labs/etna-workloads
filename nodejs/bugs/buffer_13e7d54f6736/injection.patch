@@ -1,0 +1,61 @@
+diff -uN a/lib/internal/buffer.js b/lib/internal/buffer.js
+--- a/lib/internal/buffer.js
++++ b/lib/internal/buffer.js
+@@ -961,39 +961,30 @@
+ 
+ class FastBuffer extends Uint8Array {}
+ 
+-function asciiWrite(buf, string, offset = 0, length) {
+-  offset = Number(offset);
++function asciiWrite(buf, string, offset = 0, length = buf.byteLength - offset) {
+   if (offset < 0 || offset > buf.byteLength) {
+     throw new ERR_BUFFER_OUT_OF_BOUNDS('offset');
+   }
+-  if (length === undefined) length = buf.byteLength - offset;
+-  else length = Number(length);
+   if (length < 0 || length > buf.byteLength - offset) {
+     throw new ERR_BUFFER_OUT_OF_BOUNDS('length');
+   }
+   return asciiWriteStatic(buf, string, offset, length);
+ }
+ 
+-function latin1Write(buf, string, offset = 0, length) {
+-  offset = Number(offset);
++function latin1Write(buf, string, offset = 0, length = buf.byteLength - offset) {
+   if (offset < 0 || offset > buf.byteLength) {
+     throw new ERR_BUFFER_OUT_OF_BOUNDS('offset');
+   }
+-  if (length === undefined) length = buf.byteLength - offset;
+-  else length = Number(length);
+   if (length < 0 || length > buf.byteLength - offset) {
+     throw new ERR_BUFFER_OUT_OF_BOUNDS('length');
+   }
+   return latin1WriteStatic(buf, string, offset, length);
+ }
+ 
+-function utf8Write(buf, string, offset = 0, length) {
+-  offset = Number(offset);
++function utf8Write(buf, string, offset = 0, length = buf.byteLength - offset) {
+   if (offset < 0 || offset > buf.byteLength) {
+     throw new ERR_BUFFER_OUT_OF_BOUNDS('offset');
+   }
+-  if (length === undefined) length = buf.byteLength - offset;
+-  else length = Number(length);
+   if (length < 0 || length > buf.byteLength - offset) {
+     throw new ERR_BUFFER_OUT_OF_BOUNDS('length');
+   }
+diff -uN a/src/node_buffer.cc b/src/node_buffer.cc
+--- a/src/node_buffer.cc
++++ b/src/node_buffer.cc
+@@ -1954,11 +1954,6 @@
+   size_t max_length = 0;
+ 
+   THROW_AND_RETURN_IF_OOB(ParseArrayIndex(env, args[2], 0, &offset));
+-  if (offset > ts_obj_length) {
+-    return node::THROW_ERR_BUFFER_OUT_OF_BOUNDS(
+-        env, "\"offset\" is outside of buffer bounds");
+-  }
+-
+   THROW_AND_RETURN_IF_OOB(
+       ParseArrayIndex(env, args[3], ts_obj_length - offset, &max_length));
+ 

@@ -1,0 +1,68 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -3197,7 +3197,7 @@
+   CHECK_ERROR_OR_THROW(env->isolate(), db, r, SQLITE_OK, void());
+ 
+   BaseObjectPtr<Session> session =
+-      Session::Create(env, BaseObjectPtr<Database>(db), pSession);
++      Session::Create(env, BaseObjectWeakPtr<Database>(db), pSession);
+   if (!session) {
+     return;
+   }
+@@ -5149,7 +5149,7 @@
+ 
+ Session::Session(Environment* env,
+                  Local<Object> object,
+-                 BaseObjectPtr<Database> database,
++                 BaseObjectWeakPtr<Database> database,
+                  sqlite3_session* session)
+     : BaseObject(env, object),
+       session_(std::unique_ptr<sqlite3_session, SessionDeleter>(session)),
+@@ -5163,7 +5163,7 @@
+ }
+ 
+ BaseObjectPtr<Session> Session::Create(Environment* env,
+-                                       BaseObjectPtr<Database> database,
++                                       BaseObjectWeakPtr<Database> database,
+                                        sqlite3_session* session) {
+   Local<Object> obj;
+   if (!GetConstructorTemplate(env)
+@@ -5198,7 +5198,6 @@
+ }
+ 
+ void Session::MemoryInfo(MemoryTracker* tracker) const {
+-  tracker->TrackField("database", database_);
+ }
+ 
+ template <Sqlite3ChangesetGenFunc sqliteChangesetFunc>
+diff -uN a/src/node_sqlite.h b/src/node_sqlite.h
+--- a/src/node_sqlite.h
++++ b/src/node_sqlite.h
+@@ -457,7 +457,7 @@
+  public:
+   Session(Environment* env,
+           v8::Local<v8::Object> object,
+-          BaseObjectPtr<Database> database,
++          BaseObjectWeakPtr<Database> database,
+           sqlite3_session* session);
+   ~Session() override;
+   template <Sqlite3ChangesetGenFunc sqliteChangesetFunc>
+@@ -467,7 +467,7 @@
+   static v8::Local<v8::FunctionTemplate> GetConstructorTemplate(
+       Environment* env);
+   static BaseObjectPtr<Session> Create(Environment* env,
+-                                       BaseObjectPtr<Database> database,
++                                       BaseObjectWeakPtr<Database> database,
+                                        sqlite3_session* session);
+ 
+   void MemoryInfo(MemoryTracker* tracker) const override;
+@@ -480,7 +480,7 @@
+     void operator()(sqlite3_session* s) const { sqlite3session_delete(s); }
+   };
+   std::unique_ptr<sqlite3_session, SessionDeleter> session_;
+-  BaseObjectPtr<Database> database_;  // The Parent Database
++  BaseObjectWeakPtr<Database> database_;  // The Parent Database
+   bool is_generating_changeset_ = false;
+ 
+   friend class Database;

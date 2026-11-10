@@ -1,0 +1,38 @@
+diff -uN a/lib/internal/abort_controller.js b/lib/internal/abort_controller.js
+--- a/lib/internal/abort_controller.js
++++ b/lib/internal/abort_controller.js
+@@ -49,6 +49,7 @@
+ } = require('internal/webidl');
+ 
+ const {
++  validateAbortSignalArray,
+   validateObject,
+   validateUint32,
+   kValidateObjectAllowObjects,
+@@ -320,13 +321,9 @@
+    * @returns {AbortSignal}
+    */
+   static any(signals) {
+-    const signalsArray = converters['sequence<AbortSignal>'](
+-      signals,
+-      { __proto__: null, context: 'signals' },
+-    );
+-
++    validateAbortSignalArray(signals, 'signals');
+     const resultSignal = new AbortSignal(kDontThrowSymbol, { composite: true });
+-    if (!signalsArray.length) {
++    if (!signals.length) {
+       return resultSignal;
+     }
+ 
+@@ -335,8 +332,8 @@
+     // Track if we have any timeout signals
+     let hasTimeoutSignals = false;
+ 
+-    for (let i = 0; i < signalsArray.length; i++) {
+-      const signal = signalsArray[i];
++    for (let i = 0; i < signals.length; i++) {
++      const signal = signals[i];
+ 
+       // Check if this is a timeout signal
+       if (signal[kTimeout]) {

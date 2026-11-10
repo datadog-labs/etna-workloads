@@ -1,0 +1,58 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -553,39 +553,14 @@
+  * @returns {any}
+  */
+ function tryPackage(requestPath, exts, isMain, originalPath) {
+-  const { main: pkg, pjsonPath } = _readPackage(requestPath);
++  const { main: pkg } = _readPackage(requestPath);
+ 
+-  if (!pkg) {
+-    return tryExtensions(path.resolve(requestPath, 'index'), exts, isMain);
+-  }
++  if (!pkg) return false;
+ 
+   const filename = path.resolve(requestPath, pkg);
+-  let actual = tryFile(filename, isMain) ||
+-    tryExtensions(filename, exts, isMain) ||
+-    tryExtensions(path.resolve(filename, 'index'), exts, isMain);
+-  if (actual === false) {
+-    actual = tryExtensions(path.resolve(requestPath, 'index'), exts, isMain);
+-    if (!actual) {
+-      // eslint-disable-next-line no-restricted-syntax
+-      const err = new Error(
+-        `Cannot find module '${filename}'. ` +
+-        'Please verify that the package.json has a valid "main" entry',
+-      );
+-      err.code = 'MODULE_NOT_FOUND';
+-      err.path = pjsonPath;
+-      err.requestPath = originalPath;
+-      // TODO(BridgeAR): Add the requireStack as well.
+-      throw err;
+-    } else {
+-      process.emitWarning(
+-        `Invalid 'main' field in '${pjsonPath}' of '${pkg}'. ` +
+-          'Please either fix that or report it to the module author',
+-        'DeprecationWarning',
+-        'DEP0128',
+-      );
+-    }
+-  }
+-  return actual;
++  return tryFile(filename, isMain) ||
++         tryExtensions(filename, exts, isMain) ||
++         tryExtensions(path.resolve(filename, 'index'), exts, isMain);
+ }
+ 
+ /**
+@@ -877,6 +852,9 @@
+         exts = ObjectKeys(Module._extensions);
+       }
+       filename = tryPackage(basePath, exts, isMain, request);
++      if (!filename) {
++        filename = tryExtensions(path.resolve(basePath, 'index'), exts, isMain);
++      }
+     }
+ 
+     if (filename) {

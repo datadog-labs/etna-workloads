@@ -1,0 +1,94 @@
+diff -uN a/lib/internal/async_hooks.js b/lib/internal/async_hooks.js
+--- a/lib/internal/async_hooks.js
++++ b/lib/internal/async_hooks.js
+@@ -149,9 +149,8 @@
+ 
+   const index = async_hook_fields[kStackLength] - 1;
+   if (index === -1) return topLevelResource;
+-  const resource = execution_async_resources[index] ||
++  return execution_async_resources[index] ||
+     executionAsyncResource_(index);
+-  return lookupPublicResource(resource);
+ }
+ 
+ function inspectExceptionValue(e) {
+diff -uN a/src/api/callback.cc b/src/api/callback.cc
+--- a/src/api/callback.cc
++++ b/src/api/callback.cc
+@@ -213,7 +213,6 @@
+ }
+ 
+ MaybeLocal<Value> InternalMakeCallback(Environment* env,
+-                                       Local<Object> resource,
+                                        Local<Object> recv,
+                                        const Local<Function> callback,
+                                        int argc,
+@@ -241,7 +240,7 @@
+   }
+ 
+   InternalCallbackScope scope(
+-      env, resource, asyncContext, flags, context_frame);
++      env, recv, asyncContext, flags, context_frame);
+   if (scope.Failed()) {
+     return MaybeLocal<Value>();
+   }
+@@ -252,7 +251,7 @@
+   if (use_async_hooks_trampoline) {
+     MaybeStackBuffer<Value, 16> args(env->isolate(), 3 + argc);
+     args[0] = Number::New(env->isolate(), asyncContext.async_id);
+-    args[1] = resource;
++    args[1] = recv;
+     args[2] = callback;
+     for (int i = 0; i < argc; i++) {
+       args[i + 3] = argv[i];
+@@ -350,7 +349,7 @@
+   CHECK_NOT_NULL(env);
+   Context::Scope context_scope(env->context());
+   MaybeLocal<Value> ret = InternalMakeCallback(
+-      env, recv, recv, callback, argc, argv, asyncContext, context_frame);
++      env, recv, callback, argc, argv, asyncContext, context_frame);
+   if (ret.IsEmpty() && env->async_callback_scope_depth() == 0) {
+     // This is only for legacy compatibility and we may want to look into
+     // removing/adjusting it.
+@@ -386,7 +385,6 @@
+   // This is a toplevel invocation and the caller (intentionally)
+   // didn't provide any async_context to run in. Install a default context.
+   MaybeLocal<Value> ret = InternalMakeCallback(env,
+-                                               env->process_object(),
+                                                recv,
+                                                callback,
+                                                argc,
+diff -uN a/src/async_wrap.cc b/src/async_wrap.cc
+--- a/src/async_wrap.cc
++++ b/src/async_wrap.cc
+@@ -680,7 +680,7 @@
+   ProviderType provider = provider_type();
+   async_context context { get_async_id(), get_trigger_async_id() };
+   MaybeLocal<Value> ret = InternalMakeCallback(
+-      env(), object(), object(), cb, argc, argv, context, context_frame());
++      env(), object(), cb, argc, argv, context, context_frame());
+ 
+   // This is a static call with cached values because the `this` object may
+   // no longer be alive at this point.
+diff -uN a/src/node_api.cc b/src/node_api.cc
+--- a/src/node_api.cc
++++ b/src/node_api.cc
+@@ -620,7 +620,6 @@
+       v8::Local<v8::Value> argv[]) {
+     return node::InternalMakeCallback(
+         node_env(),
+-        resource(),
+         recv,
+         callback,
+         argc,
+diff -uN a/src/node_internals.h b/src/node_internals.h
+--- a/src/node_internals.h
++++ b/src/node_internals.h
+@@ -213,7 +213,6 @@
+ 
+ v8::MaybeLocal<v8::Value> InternalMakeCallback(
+     Environment* env,
+-    v8::Local<v8::Object> resource,
+     v8::Local<v8::Object> recv,
+     const v8::Local<v8::Function> callback,
+     int argc,

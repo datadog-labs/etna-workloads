@@ -1,0 +1,41 @@
+diff -uN a/lib/internal/util/inspect.js b/lib/internal/util/inspect.js
+--- a/lib/internal/util/inspect.js
++++ b/lib/internal/util/inspect.js
+@@ -106,7 +106,6 @@
+   StringPrototypePadEnd,
+   StringPrototypePadStart,
+   StringPrototypeRepeat,
+-  StringPrototypeReplace,
+   StringPrototypeReplaceAll,
+   StringPrototypeSlice,
+   StringPrototypeSplit,
+@@ -1806,14 +1805,6 @@
+   // for "regular errors" (errors that "look normal") for now.
+   let len = name.length;
+ 
+-  if (typeof name !== 'string') {
+-    stack = StringPrototypeReplace(
+-      stack,
+-      `${name}`,
+-      `${name} [${StringPrototypeSlice(getPrefix(constructor, tag, 'Error'), 0, -1)}]`,
+-    );
+-  }
+-
+   if (constructor === null ||
+       (StringPrototypeEndsWith(name, 'Error') &&
+       StringPrototypeStartsWith(stack, name) &&
+@@ -1967,12 +1958,12 @@
+     if (!nameIsGetterThatThrows) {
+       const index = ArrayPrototypeIndexOf(keys, 'name');
+       // Only hide the property if it's a string and if it's part of the original stack
+-      if (index !== -1 && (typeof name !== 'string' || StringPrototypeIncludes(stack, name))) {
++      if (index !== -1 && StringPrototypeIncludes(stack, name)) {
+         ArrayPrototypeSplice(keys, index, 1);
+       }
+     }
+   }
+-  name ??= 'Error';
++  name = name != null ? String(name) : 'Error';
+ 
+   if (ObjectPrototypeHasOwnProperty(err, 'cause') &&
+       (keys.length === 0 || !ArrayPrototypeIncludes(keys, 'cause'))) {

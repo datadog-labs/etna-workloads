@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/util/parse_args/parse_args.js b/lib/internal/util/parse_args/parse_args.js
+--- a/lib/internal/util/parse_args/parse_args.js
++++ b/lib/internal/util/parse_args/parse_args.js
+@@ -2,6 +2,7 @@
+ 
+ const {
+   ArrayPrototypeForEach,
++  ArrayPrototypeIncludes,
+   ArrayPrototypeMap,
+   ArrayPrototypePush,
+   ArrayPrototypePushApply,
+@@ -53,16 +54,20 @@
+   kEmptyObject,
+ } = require('internal/util');
+ 
+-const { getOptionValue } = require('internal/options');
+ 
+ function getMainArgs() {
+-  // -p / --print internally sets --eval, so this works for all cases
+-  const evalValue = getOptionValue('--eval');
++  // Work out where to slice process.argv for user supplied arguments.
+ 
+-  if (evalValue.length !== 0) {
++  // Check node options for scenarios where user CLI args follow executable.
++  const execArgv = process.execArgv;
++  if (ArrayPrototypeIncludes(execArgv, '-e') ||
++      ArrayPrototypeIncludes(execArgv, '--eval') ||
++      ArrayPrototypeIncludes(execArgv, '-p') ||
++      ArrayPrototypeIncludes(execArgv, '--print')) {
+     return ArrayPrototypeSlice(process.argv, 1);
+   }
+ 
++  // Normally first two arguments are executable and script, then CLI arguments
+   return ArrayPrototypeSlice(process.argv, 2);
+ }
+ 

@@ -1,0 +1,29 @@
+diff -uN a/src/inspector_agent.cc b/src/inspector_agent.cc
+--- a/src/inspector_agent.cc
++++ b/src/inspector_agent.cc
+@@ -550,11 +550,6 @@
+   }
+ 
+   void maxAsyncCallStackDepthChanged(int depth) override {
+-    if (waiting_for_sessions_disconnect_) {
+-      // V8 isolate is mostly done and is only letting Inspector protocol
+-      // clients gather data.
+-      return;
+-    }
+     if (auto agent = env_->inspector_agent()) {
+       agent->SetAsyncHookTrackingEnabled(depth != 0);
+     }
+@@ -1122,13 +1117,6 @@
+   Isolate* isolate = parent_env_->isolate();
+   HandleScope scope(isolate);
+   while (async_hook_wanted_ != async_hook_enabled_) {
+-    // Guard against running this during cleanup -- no async events will be
+-    // emitted anyway at that point anymore, and calling into JS is not
+-    // possible. This should probably not be something we're attempting in the
+-    // first place,
+-    // Refs: https://github.com/nodejs/node/pull/34362#discussion_r456006039
+-    if (!parent_env_->can_call_into_js()) return;
+-
+     bool enable = async_hook_wanted_;
+     Local<Function> fn = enable ? parent_env_->inspector_enable_async_hooks()
+                                 : parent_env_->inspector_disable_async_hooks();

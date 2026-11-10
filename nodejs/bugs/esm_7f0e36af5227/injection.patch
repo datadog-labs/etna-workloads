@@ -1,0 +1,43 @@
+diff -uN a/lib/internal/modules/esm/translators.js b/lib/internal/modules/esm/translators.js
+--- a/lib/internal/modules/esm/translators.js
++++ b/lib/internal/modules/esm/translators.js
+@@ -9,7 +9,6 @@
+   SafeMap,
+   SafeSet,
+   SafeWeakMap,
+-  StringPrototypeIncludes,
+   StringPrototypeReplaceAll,
+   StringPrototypeSlice,
+   StringPrototypeStartsWith,
+@@ -492,12 +491,9 @@
+   debug(`Loading JSONModule ${url}`);
+   const pathname = StringPrototypeStartsWith(url, 'file:') ?
+     fileURLToPath(url) : null;
+-  const shouldCheckAndPopulateCJSModuleCache =
+-    // We want to involve the CJS loader cache only for `file:` URL with no search query and no hash.
+-    pathname && !StringPrototypeIncludes(url, '?') && !StringPrototypeIncludes(url, '#');
+   let modulePath;
+   let module;
+-  if (shouldCheckAndPopulateCJSModuleCache) {
++  if (pathname) {
+     modulePath = isWindows ?
+       StringPrototypeReplaceAll(pathname, '/', '\\') : pathname;
+     module = CJSModule._cache[modulePath];
+@@ -509,7 +505,7 @@
+     }
+   }
+   source = stringify(source);
+-  if (shouldCheckAndPopulateCJSModuleCache) {
++  if (pathname) {
+     // A require call could have been called on the same file during loading and
+     // that resolves synchronously. To make sure we always return the identical
+     // export, we have to check again if the module already exists or not.
+@@ -536,7 +532,7 @@
+     err.message = errPath(url) + ': ' + err.message;
+     throw err;
+   }
+-  if (shouldCheckAndPopulateCJSModuleCache) {
++  if (pathname) {
+     CJSModule._cache[modulePath] = module;
+   }
+   cjsCache.set(url, module);

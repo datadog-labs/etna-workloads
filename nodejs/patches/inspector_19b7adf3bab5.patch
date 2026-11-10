@@ -1,0 +1,40 @@
+diff -uN a/lib/internal/inspector/network_http.js b/lib/internal/inspector/network_http.js
+--- a/lib/internal/inspector/network_http.js
++++ b/lib/internal/inspector/network_http.js
+@@ -5,7 +5,6 @@
+   DateNow,
+   ObjectEntries,
+   String,
+-  StringPrototypeStartsWith,
+   Symbol,
+ } = primordials;
+ 
+@@ -23,19 +22,6 @@
+ 
+ const kRequestUrl = Symbol('kRequestUrl');
+ 
+-function isAbsoluteURLPath(path) {
+-  return typeof path === 'string' &&
+-    (StringPrototypeStartsWith(path, 'http://') ||
+-     StringPrototypeStartsWith(path, 'https://'));
+-}
+-
+-function getRequestURL(request, host) {
+-  if (isAbsoluteURLPath(request.path)) {
+-    return request.path;
+-  }
+-  return `${request.protocol}//${host}${request.path}`;
+-}
+-
+ // Convert a Headers object (Map<string, number | string | string[]>) to a plain object (Map<string, string>)
+ const convertHeaderObject = (headers = kEmptyObject) => {
+   // The 'host' header that contains the host and port of the URL.
+@@ -77,7 +63,7 @@
+   request[kInspectorRequestId] = getNextRequestId();
+ 
+   const { 0: headers, 1: host, 2: charset } = convertHeaderObject(request.getHeaders());
+-  const url = getRequestURL(request, host);
++  const url = `${request.protocol}//${host}${request.path}`;
+   request[kRequestUrl] = url;
+ 
+   Network.requestWillBeSent({

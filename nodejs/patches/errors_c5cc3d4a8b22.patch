@@ -1,0 +1,79 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -135,6 +135,8 @@
+ const { BuiltinModule } = require('internal/bootstrap/realm');
+ const {
+   maybeCacheSourceMap,
++  getSourceMapsSupport,
++  rekeySourceMap,
+ } = require('internal/source_map/source_map_cache');
+ const { pathToFileURL, fileURLToPath, isURL, URL } = require('internal/url');
+ const {
+@@ -1477,7 +1479,16 @@
+ 
+   let threw = true;
+   try {
+-    module.load(filename);
++    if (getSourceMapsSupport().enabled) {
++      try {
++        module.load(filename);
++      } catch (err) {
++        rekeySourceMap(Module._cache[filename], err);
++        throw err; /* node-do-not-add-exception-line */
++      }
++    } else {
++      module.load(filename);
++    }
+     threw = false;
+   } finally {
+     if (threw) {
+diff -uN a/lib/internal/source_map/source_map_cache.js b/lib/internal/source_map/source_map_cache.js
+--- a/lib/internal/source_map/source_map_cache.js
++++ b/lib/internal/source_map/source_map_cache.js
+@@ -8,6 +8,7 @@
+   RegExpPrototypeExec,
+   RegExpPrototypeSymbolSplit,
+   SafeMap,
++  SafeWeakRef,
+   StringPrototypeCodePointAt,
+   StringPrototypeIndexOf,
+   StringPrototypeSplit,
+@@ -26,6 +27,11 @@
+   setSourceMapsEnabled: setSourceMapsNative,
+ } = internalBinding('errors');
+ const {
++  privateSymbols: {
++    source_map_data_private_symbol,
++  },
++} = internalBinding('util');
++const {
+   defaultPrepareStackTrace,
+   setInternalPrepareStackTrace,
+ } = require('internal/errors');
+@@ -198,6 +204,17 @@
+   getModuleSourceMapCache().set(keys, entry, moduleInstance);
+ }
+ 
++// Move source map from garbage collected module to alternate key.
++function rekeySourceMap(cjsModuleInstance, newInstance) {
++  const { normalizeReferrerURL } = require('internal/modules/helpers');
++  const entry = getModuleSourceMapCache().get(normalizeReferrerURL(cjsModuleInstance?.filename));
++  if (entry) {
++    // Throws a TypeError if newInstance is a primitive value.
++    new SafeWeakRef(newInstance);
++    newInstance[source_map_data_private_symbol] = entry;
++  }
++}
++
+ /**
+  * Caches the source map if it is present in the eval'd source.
+  * @param {string} content - the eval'd source code
+@@ -495,6 +512,7 @@
+   getSourceMapsSupport,
+   setSourceMapsSupport,
+   maybeCacheSourceMap,
++  rekeySourceMap,
+   maybeCacheGeneratedSourceMap,
+   sourceMapCacheToObject,
+ };

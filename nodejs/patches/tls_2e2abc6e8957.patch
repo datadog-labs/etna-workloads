@@ -1,0 +1,48 @@
+diff -uN a/lib/internal/tls/wrap.js b/lib/internal/tls/wrap.js
+--- a/lib/internal/tls/wrap.js
++++ b/lib/internal/tls/wrap.js
+@@ -295,27 +295,23 @@
+     return requestOCSP(owner, info);
+ 
+   let once = false;
+-  try {
+-    owner._SNICallback(servername, (err, context) => {
+-      if (once)
+-        return owner.destroy(new ERR_MULTIPLE_CALLBACK());
+-      once = true;
+-
+-      if (err)
+-        return owner.destroy(err);
+-
+-      if (owner._handle === null)
+-        return owner.destroy(new ERR_SOCKET_CLOSED());
+-
+-      // TODO(indutny): eventually disallow raw `SecureContext`
+-      if (context)
+-        owner._handle.sni_context = context.context || context;
+-
+-      requestOCSP(owner, info);
+-    });
+-  } catch (err) {
+-    owner.destroy(err);
+-  }
++  owner._SNICallback(servername, (err, context) => {
++    if (once)
++      return owner.destroy(new ERR_MULTIPLE_CALLBACK());
++    once = true;
++
++    if (err)
++      return owner.destroy(err);
++
++    if (owner._handle === null)
++      return owner.destroy(new ERR_SOCKET_CLOSED());
++
++    // TODO(indutny): eventually disallow raw `SecureContext`
++    if (context)
++      owner._handle.sni_context = context.context || context;
++
++    requestOCSP(owner, info);
++  });
+ }
+ 
+ 

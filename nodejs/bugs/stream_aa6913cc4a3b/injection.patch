@@ -1,0 +1,49 @@
+diff -uN a/lib/internal/streams/iter/classic.js b/lib/internal/streams/iter/classic.js
+--- a/lib/internal/streams/iter/classic.js
++++ b/lib/internal/streams/iter/classic.js
+@@ -19,7 +19,6 @@
+   PromiseReject,
+   PromiseResolve,
+   PromiseWithResolvers,
+-  SafeMap,
+   SafeWeakMap,
+   SymbolAsyncDispose,
+   SymbolAsyncIterator,
+@@ -545,6 +544,10 @@
+     throw new ERR_INVALID_ARG_TYPE('writable', 'Writable', writable);
+   }
+ 
++  // Return cached adapter if available.
++  const cached = fromWritableCache.get(writable);
++  if (cached !== undefined) return cached;
++
+   validateObject(options, 'options');
+   const {
+     backpressure = 'strict',
+@@ -573,17 +576,6 @@
+                                     'drop-oldest is not supported for classic stream.Writable');
+   }
+ 
+-  // Return cached adapter if available. Backpressure policy changes writer
+-  // behavior, so cache one adapter per policy.
+-  let cachedByBackpressure = fromWritableCache.get(writable);
+-  if (cachedByBackpressure !== undefined) {
+-    const cached = cachedByBackpressure.get(backpressure);
+-    if (cached !== undefined) return cached;
+-  } else {
+-    cachedByBackpressure = new SafeMap();
+-    fromWritableCache.set(writable, cachedByBackpressure);
+-  }
+-
+   // Fall back to sensible defaults for duck-typed streams that may not
+   // expose the full stream.Writable property set.
+   const hwm = writable.writableHighWaterMark ?? 16384;
+@@ -1048,7 +1040,7 @@
+     return promise;
+   };
+ 
+-  cachedByBackpressure.set(backpressure, writer);
++  fromWritableCache.set(writable, writer);
+   return writer;
+ }
+ 

@@ -1,0 +1,32 @@
+diff -uN a/lib/internal/fs/utils.js b/lib/internal/fs/utils.js
+--- a/lib/internal/fs/utils.js
++++ b/lib/internal/fs/utils.js
+@@ -15,6 +15,7 @@
+   Number,
+   NumberIsFinite,
+   ObjectDefineProperties,
++  ObjectHasOwn,
+   ObjectIs,
+   ObjectSetPrototypeOf,
+   ReflectOwnKeys,
+@@ -1108,7 +1109,19 @@
+ });
+ 
+ const validateStringAfterArrayBufferView = hideStackFrames((buffer, name) => {
+-  if (typeof buffer !== 'string') {
++  if (typeof buffer === 'string')
++    return;
++
++  if (
++    typeof buffer === 'object' &&
++    buffer !== null &&
++    typeof buffer.toString === 'function' &&
++    ObjectHasOwn(buffer, 'toString')
++  ) {
++    return;
++  }
++
++  {
+     throw new ERR_INVALID_ARG_TYPE.HideStackFramesError(
+       name,
+       ['string', 'Buffer', 'TypedArray', 'DataView'],

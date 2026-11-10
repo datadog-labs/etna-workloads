@@ -1,0 +1,27 @@
+diff -uN a/lib/internal/streams/iter/share.js b/lib/internal/streams/iter/share.js
+--- a/lib/internal/streams/iter/share.js
++++ b/lib/internal/streams/iter/share.js
+@@ -433,9 +433,7 @@
+         this.#sourceError = error;
+         this.#sourceExhausted = true;
+       } finally {
+-        if (this.#sourceExhausted && this.#consumers.size === 0) {
+-          this.#cleanupFactorySignal();
+-        }
++        if (this.#sourceExhausted) this.#cleanupFactorySignal();
+         this.#pulling = false;
+         for (let i = 0; i < this.#pullWaiters.length; i++) {
+           this.#pullWaiters[i]();
+@@ -523,11 +521,7 @@
+ 
+   #deleteConsumer(consumer) {
+     if (this.#consumers.delete(consumer)) {
+-      const shouldTrimBuffer = this.#deleteConsumerFromMin(consumer);
+-      if (this.#sourceExhausted && this.#consumers.size === 0) {
+-        this.#cleanupFactorySignal();
+-      }
+-      return shouldTrimBuffer;
++      return this.#deleteConsumerFromMin(consumer);
+     }
+     return false;
+   }

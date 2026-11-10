@@ -1,0 +1,42 @@
+diff -uN a/lib/_http_client.js b/lib/_http_client.js
+--- a/lib/_http_client.js
++++ b/lib/_http_client.js
+@@ -855,7 +855,6 @@
+     socket.removeListener('drain', ondrain);
+ 
+     if (req.timeoutCb) socket.removeListener('timeout', req.timeoutCb);
+-    socket.removeListener('timeout', responseOnTimeout);
+ 
+     parser.finish();
+     freeParser(parser, req, socket);
+@@ -994,7 +993,6 @@
+   // Add our listener first, so that we guarantee socket cleanup
+   res.on('end', responseOnEnd);
+   req.on('finish', requestOnFinish);
+-  socket.on('timeout', responseOnTimeout);
+ 
+   // If the user did not listen for the 'response' event, then they
+   // can't possibly read the data, so we ._dump() it into the void
+@@ -1053,7 +1051,6 @@
+ 
+   if (socket) {
+     if (req.timeoutCb) socket.removeListener('timeout', emitRequestTimeout);
+-    socket.removeListener('timeout', responseOnTimeout);
+   }
+ 
+   req._ended = true;
+@@ -1081,14 +1078,6 @@
+   }
+ }
+ 
+-function responseOnTimeout() {
+-  const req = this._httpMessage;
+-  if (!req) return;
+-  const res = req.res;
+-  if (!res) return;
+-  res.emit('timeout');
+-}
+-
+ // This function is necessary in the case where we receive the entire response
+ // from the server before we finish sending out the request.
+ function requestOnFinish() {

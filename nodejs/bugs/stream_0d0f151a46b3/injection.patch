@@ -1,0 +1,26 @@
+diff -uN a/lib/internal/streams/readable.js b/lib/internal/streams/readable.js
+--- a/lib/internal/streams/readable.js
++++ b/lib/internal/streams/readable.js
+@@ -1191,7 +1191,8 @@
+     state.pipes = [];
+     state.pipeOnData = null;
+     state.pipePause = null;
+-    this.pause();
++    state[kState] |= kHasFlowing;
++    state[kState] &= ~kFlowing;
+ 
+     for (let i = 0; i < dests.length; i++)
+       dests[i].emit('unpipe', this, { hasUnpiped: false });
+@@ -1206,8 +1207,10 @@
+   state.pipes.splice(index, 1);
+   state.pipeOnData = null;
+   state.pipePause = null;
+-  if (state.pipes.length === 0)
+-    this.pause();
++  if (state.pipes.length === 0) {
++    state[kState] |= kHasFlowing;
++    state[kState] &= ~kFlowing;
++  }
+ 
+   dest.emit('unpipe', this, unpipeInfo);
+ 

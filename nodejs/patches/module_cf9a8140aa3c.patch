@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -611,6 +611,14 @@
+  * @param {boolean} isMain Whether the module is the main module
+  * @returns {string|false}
+  */
++function getDefaultExtensions() {
++  const extensions = ObjectKeys(Module._extensions);
++  if (getOptionValue('--strip-types')) {
++    ArrayPrototypePush(extensions, '.ts', '.cts');
++  }
++  return extensions;
++}
++
+ function tryExtensions(basePath, exts, isMain) {
+   for (let i = 0; i < exts.length; i++) {
+     const filename = tryFile(basePath + exts[i], isMain);
+@@ -865,7 +873,7 @@
+       if (!filename) {
+         // Try it with each of the extensions
+         if (exts === undefined) {
+-          exts = ObjectKeys(Module._extensions);
++          exts = getDefaultExtensions();
+         }
+         filename = tryExtensions(basePath, exts, isMain);
+       }
+@@ -874,7 +882,7 @@
+     if (!filename && rc === 1) {  // Directory.
+       // try it with each of the extensions at "index"
+       if (exts === undefined) {
+-        exts = ObjectKeys(Module._extensions);
++        exts = getDefaultExtensions();
+       }
+       filename = tryPackage(basePath, exts, isMain, request);
+     }

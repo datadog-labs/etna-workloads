@@ -1,0 +1,41 @@
+diff -uN a/lib/zlib.js b/lib/zlib.js
+--- a/lib/zlib.js
++++ b/lib/zlib.js
+@@ -675,11 +675,9 @@
+          mode === UNZIP)) {
+       windowBits = 0;
+     } else {
+-      // `{ windowBits: 8 }` is valid for deflate but not gzip.
+-      const min = Z_MIN_WINDOWBITS + (mode === GZIP ? 1 : 0);
+       windowBits = checkRangesOrGetDefault(
+         opts.windowBits, 'options.windowBits',
+-        min, Z_MAX_WINDOWBITS, Z_DEFAULT_WINDOWBITS);
++        Z_MIN_WINDOWBITS, Z_MAX_WINDOWBITS, Z_DEFAULT_WINDOWBITS);
+     }
+ 
+     level = checkRangesOrGetDefault(
+diff -uN a/src/node_zlib.cc b/src/node_zlib.cc
+--- a/src/node_zlib.cc
++++ b/src/node_zlib.cc
+@@ -165,11 +165,7 @@
+ 
+ struct CompressionError {
+   CompressionError(const char* message, const char* code, int err)
+-      : message(message),
+-        code(code),
+-        err(err) {
+-    CHECK_NOT_NULL(message);
+-  }
++    : message(message), code(code), err(err) {}
+ 
+   CompressionError() = default;
+ 
+@@ -1271,7 +1267,7 @@
+       return ErrorForMessage("Bad dictionary");
+   default:
+     // something else.
+-    return ErrorForMessage("Zlib error");
++    return ErrorForMessage(nullptr);
+   }
+ 
+   return CompressionError {};

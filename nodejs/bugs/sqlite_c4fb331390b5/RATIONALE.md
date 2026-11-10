@@ -1,0 +1,7 @@
+# Re-introduced bug: conflicting SQLite and JS errors (c4fb331390b)
+
+**Bug.** When a user-defined SQL function hits a JS exception (arg conversion failure, or the callback throwing), the code calls `sqlite3_result_error`, so SQLite reports an error while a JS exception is already pending. Without telling the database to ignore the next SQLite error, `THROW_ERR_SQLITE_ERROR` throws a generic SQLite error (empty message) over the original JS exception, so the real error (e.g. ERR_OUT_OF_RANGE or the user's `Error('boom')`) is lost.
+
+**Change (src/node_sqlite.cc, scalar-function `xFunc` of `UserDefinedFunction`).** The release has refactored the fix's structure (`Database`, `ShouldIgnoreSQLiteError` etc. still exist). I removed the three `self->db_->SetIgnoreNextSQLiteError(true);` calls in the scalar `xFunc`. These correspond to the fix's hunks adding that call (with `sqlite3_result_error(ctx, "", 0)`) at: the out-of-range/arg-conversion failure (`!js_val.ToLocal`, and `js_val.IsEmpty()` which today covers the too-large-integer case), and after `fn->Call` fails (`!retval.ToLocal`). Without them the pre-fix behaviour returns: the SQLite error masks the JS exception. Aggregate and virtual-table paths untouched.
+
+**Failing test.** `parallel/test-sqlite-custom-functions` (not ok, stable across runs): `+ message: ''` vs expected `/Value is too large to be represented as a JavaScript number: 9007199254740992/`.

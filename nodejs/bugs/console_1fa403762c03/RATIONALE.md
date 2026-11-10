@@ -1,0 +1,7 @@
+# Rationale
+
+**Bug:** `util.inspect` of an object whose prototype chain has no constructor (e.g. nested null-prototype objects) recursed via `inspect(firstProto, ...)` with the same ctx and without regard to depth, so the prototype was inspected without a recursion limit (potentially infinite for obscure object creations). The depth-aware `<Complex prototype>` cutoff and the chained `A <B <C>>` naming were missing.
+
+**Change (lib/internal/util/inspect.js, `getConstructorName`):** Corresponds to the fix's hunk in `getConstructorName` (the `recurseTimes` parameter hunk is left in place since callers still pass it; harmless). I replaced the tail (the `recurseTimes > ctx.depth` -> `<Complex prototype>` check, the recursive `getConstructorName(firstProto, ctx, recurseTimes + 1, ...)` call, and the `depth: -1` fallback) with the old single return: `` `${internalGetConstructorName(tmp)} <${inspect(firstProto, {...ctx, customInspect: false})}>` ``. This restores the pre-fix behaviour: no depth check and full-depth inspect of the prototype. The call-site hunk in `formatRaw` is unchanged since today's code passes recurseTimes there (needed for the other uses).
+
+**Failing test:** `parallel/test-util-inspect` fails (not ok), in the new StorageObject nested null-prototype assertions: expected `'StorageObject <Object <Object <[Object: null prototype] {}>>> {}'` and `'... <Complex prototype>>> {}'` with depth 1; the old code yields a different string (see test output).

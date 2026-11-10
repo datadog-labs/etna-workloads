@@ -1,0 +1,32 @@
+diff -uN a/lib/internal/modules/esm/get_format.js b/lib/internal/modules/esm/get_format.js
+--- a/lib/internal/modules/esm/get_format.js
++++ b/lib/internal/modules/esm/get_format.js
+@@ -199,13 +199,12 @@
+     // `source` is undefined when this is called from `defaultResolve`;
+     // but this gets called again from `defaultLoad`/`defaultLoadSync`.
+     // Since strip-types depends on detect-module, we always return null if source is undefined.
+-    if (!source) { return null; }
+     const { stringify } = require('internal/modules/helpers');
+     const { stripTypeScriptModuleTypes } = require('internal/modules/typescript');
+-    const stringifiedSource = stringify(source);
+-    const parsedSource = stripTypeScriptModuleTypes(stringifiedSource, fileURLToPath(url));
++    const parsedSource = source ?
++      stripTypeScriptModuleTypes(stringify(source), fileURLToPath(url)) : undefined;
+     const detectedFormat = detectModuleFormat(parsedSource, url);
+-    const format = `${detectedFormat}-typescript`;
++    const format = detectedFormat ? `${detectedFormat}-typescript` : 'commonjs-typescript';
+     if (format === 'module-typescript' && foundPackageJson) {
+       // This module has a .js extension, a package.json with no `type` field, and ESM syntax.
+       // Warn about the missing `type` field so that the user can avoid the performance penalty of detection.
+diff -uN a/lib/internal/modules/run_main.js b/lib/internal/modules/run_main.js
+--- a/lib/internal/modules/run_main.js
++++ b/lib/internal/modules/run_main.js
+@@ -69,7 +69,7 @@
+   if (!mainPath || StringPrototypeEndsWith(mainPath, '.cjs')) { return false; }
+ 
+   if (getOptionValue('--strip-types')) {
+-    if (!mainPath || StringPrototypeEndsWith(mainPath, '.cts')) { return false; }
++    if (mainPath && StringPrototypeEndsWith(mainPath, '.cts')) { return false; }
+     // This will likely change in the future to start with commonjs loader by default
+     if (mainPath && StringPrototypeEndsWith(mainPath, '.mts')) { return true; }
+   }

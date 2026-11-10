@@ -1,0 +1,43 @@
+diff -uN a/lib/internal/crypto/hash.js b/lib/internal/crypto/hash.js
+--- a/lib/internal/crypto/hash.js
++++ b/lib/internal/crypto/hash.js
+@@ -49,7 +49,8 @@
+ 
+ const {
+   codes: {
+-    ERR_CRYPTO_HASH_FINALIZED,
++    ERR_CRYPTO_HASH_DIGEST_NO_UTF16,
++  ERR_CRYPTO_HASH_FINALIZED,
+     ERR_CRYPTO_HASH_UPDATE_FAILED,
+     ERR_INVALID_ARG_TYPE,
+     ERR_INVALID_ARG_VALUE,
+@@ -198,6 +199,8 @@
+   const state = this[kState];
+   if (state[kFinalized])
+     throw new ERR_CRYPTO_HASH_FINALIZED();
++  if (normalizeEncoding(outputEncoding) === 'utf16le')
++    throw new ERR_CRYPTO_HASH_DIGEST_NO_UTF16();
+ 
+   // Explicit conversion of truthy values for backward compatibility.
+   const ret = this[kHandle].digest(outputEncoding && `${outputEncoding}`);
+@@ -226,6 +229,8 @@
+ 
+ Hmac.prototype.digest = function digest(outputEncoding) {
+   const state = this[kState];
++  if (normalizeEncoding(outputEncoding) === 'utf16le')
++    throw new ERR_CRYPTO_HASH_DIGEST_NO_UTF16();
+ 
+   if (state[kFinalized]) {
+     const buf = Buffer.from('');
+diff -uN a/lib/internal/errors.js b/lib/internal/errors.js
+--- a/lib/internal/errors.js
++++ b/lib/internal/errors.js
+@@ -1182,6 +1182,8 @@
+   'Cannot set FIPS mode, it was forced with --force-fips at startup.', Error);
+ E('ERR_CRYPTO_FIPS_UNAVAILABLE', 'Cannot set FIPS mode in a non-FIPS build.',
+   Error);
++E('ERR_CRYPTO_HASH_DIGEST_NO_UTF16', 'hash.digest() does not support UTF-16',
++  Error);
+ E('ERR_CRYPTO_HASH_FINALIZED', 'Digest already called', Error);
+ E('ERR_CRYPTO_HASH_UPDATE_FAILED', 'Hash update failed', Error);
+ E('ERR_CRYPTO_INCOMPATIBLE_KEY', 'Incompatible %s: %s', Error);

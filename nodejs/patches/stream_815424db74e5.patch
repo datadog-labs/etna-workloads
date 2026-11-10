@@ -1,0 +1,55 @@
+diff -uN a/lib/internal/streams/iter/broadcast.js b/lib/internal/streams/iter/broadcast.js
+--- a/lib/internal/streams/iter/broadcast.js
++++ b/lib/internal/streams/iter/broadcast.js
+@@ -159,18 +159,6 @@
+     });
+     const { signal } = options;
+ 
+-    // Avoid registering a consumer that the pre-aborted pipeline will never
+-    // read or detach.
+-    if (signal?.aborted) {
+-      return {
+-        __proto__: null,
+-        // eslint-disable-next-line require-yield
+-        async *[SymbolAsyncIterator]() {
+-          throw signal.reason;
+-        },
+-      };
+-    }
+-
+     const rawConsumer = this.#createRawConsumer();
+ 
+     // When transforms are present, delegate to pull() which creates its
+diff -uN a/lib/internal/streams/iter/pull.js b/lib/internal/streams/iter/pull.js
+--- a/lib/internal/streams/iter/pull.js
++++ b/lib/internal/streams/iter/pull.js
+@@ -961,7 +961,6 @@
+   }
+ 
+   if (signal?.aborted) {
+-    closeSource('throw', signal.reason);
+     return {
+       __proto__: null,
+       // eslint-disable-next-line require-yield
+diff -uN a/lib/internal/streams/iter/share.js b/lib/internal/streams/iter/share.js
+--- a/lib/internal/streams/iter/share.js
++++ b/lib/internal/streams/iter/share.js
+@@ -123,18 +123,6 @@
+     });
+     const { signal } = options;
+ 
+-    // Avoid registering a consumer that the pre-aborted pipeline will never
+-    // read or detach.
+-    if (signal?.aborted) {
+-      return {
+-        __proto__: null,
+-        // eslint-disable-next-line require-yield
+-        async *[SymbolAsyncIterator]() {
+-          throw signal.reason;
+-        },
+-      };
+-    }
+-
+     const rawConsumer = this.#createRawConsumer();
+ 
+     if (transforms.length > 0 || signal) {

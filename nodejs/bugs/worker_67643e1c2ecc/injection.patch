@@ -1,0 +1,35 @@
+diff -uN a/src/node_messaging.cc b/src/node_messaging.cc
+--- a/src/node_messaging.cc
++++ b/src/node_messaging.cc
+@@ -194,7 +194,8 @@
+   // Attach all transferred SharedArrayBuffers to their new Isolate.
+   for (uint32_t i = 0; i < shared_array_buffers_.size(); ++i) {
+     Local<SharedArrayBuffer> sab =
+-        SharedArrayBuffer::New(env->isolate(), shared_array_buffers_[i]);
++        SharedArrayBuffer::New(env->isolate(),
++                               std::move(shared_array_buffers_[i]));
+     shared_array_buffers.push_back(sab);
+   }
+ 
+@@ -1538,7 +1539,7 @@
+ 
+   // Transferables cannot be used when there is more
+   // than a single destination.
+-  if (size() > 2 && message->has_transferables()) {
++  if (size() > 2 && message->transferables().size()) {
+     if (error != nullptr)
+       *error = "Transferables cannot be used with multiple destinations.";
+     return Nothing<bool>();
+diff -uN a/src/node_messaging.h b/src/node_messaging.h
+--- a/src/node_messaging.h
++++ b/src/node_messaging.h
+@@ -99,9 +99,6 @@
+   const std::vector<std::unique_ptr<TransferData>>& transferables() const {
+     return transferables_;
+   }
+-  bool has_transferables() const {
+-    return !transferables_.empty() || !array_buffers_.empty();
+-  }
+ 
+   void MemoryInfo(MemoryTracker* tracker) const override;
+ 

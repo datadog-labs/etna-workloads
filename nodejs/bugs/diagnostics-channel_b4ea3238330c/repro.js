@@ -1,0 +1,11 @@
+const dc = require('diagnostics_channel');
+const ch = dc.tracingChannel('x');
+ch.subscribe({ start() {}, end() {}, asyncStart() { console.log('asyncStart'); }, asyncEnd() { console.log('asyncEnd'); }, error() {} });
+process.removeAllListeners('warning');
+process.on('warning', (w) => console.log('warning:', w.message));
+const r = ch.tracePromise(() => 42, {}, null);
+console.log('plain returns', r);
+const th = { then(a) { a(1); } };
+const r2 = ch.tracePromise(() => th, {}, null);
+console.log('thenable same object:', r2 === th);
+setTimeout(() => {}, 50);

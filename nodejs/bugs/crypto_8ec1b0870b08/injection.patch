@@ -1,0 +1,30 @@
+diff -uN a/lib/internal/crypto/ec.js b/lib/internal/crypto/ec.js
+--- a/lib/internal/crypto/ec.js
++++ b/lib/internal/crypto/ec.js
+@@ -98,25 +98,7 @@
+           handle.exportECPublicRaw(POINT_CONVERSION_UNCOMPRESSED));
+       }
+       case kWebCryptoKeyFormatSPKI: {
+-        let spki = handle.export(kKeyFormatDER, kWebCryptoKeyFormatSPKI);
+-        // WebCrypto requires uncompressed point format for SPKI exports.
+-        // This is a very rare edge case dependent on the imported key
+-        // using compressed point format.
+-        // Expected SPKI DER byte lengths with uncompressed points:
+-        // P-256: 91 = 26 bytes of SPKI ASN.1 + 65-byte uncompressed point.
+-        // P-384: 120 = 23 bytes of SPKI ASN.1 + 97-byte uncompressed point.
+-        // P-521: 158 = 25 bytes of SPKI ASN.1 + 133-byte uncompressed point.
+-        // Difference in initial SPKI ASN.1 is caused by OIDs and length encoding.
+-        const { namedCurve } = getCryptoKeyAlgorithm(key);
+-        if (TypedArrayPrototypeGetByteLength(spki) !== {
+-          '__proto__': null, 'P-256': 91, 'P-384': 120, 'P-521': 158,
+-        }[namedCurve]) {
+-          const raw = handle.exportECPublicRaw(POINT_CONVERSION_UNCOMPRESSED);
+-          const tmp = new KeyObjectHandle();
+-          tmp.init(kKeyTypePublic, raw, kKeyFormatRawPublic,
+-                   'ec', null, namedCurve);
+-          spki = tmp.export(kKeyFormatDER, kWebCryptoKeyFormatSPKI);
+-        }
++        const spki = handle.export(kKeyFormatDER, kWebCryptoKeyFormatSPKI);
+         return TypedArrayPrototypeGetBuffer(spki);
+       }
+       case kWebCryptoKeyFormatPKCS8: {

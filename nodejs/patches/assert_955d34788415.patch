@@ -1,0 +1,54 @@
+diff -uN a/lib/internal/util/comparisons.js b/lib/internal/util/comparisons.js
+--- a/lib/internal/util/comparisons.js
++++ b/lib/internal/util/comparisons.js
+@@ -699,18 +699,14 @@
+   const comparator = mode !== kLoose ? objectComparisonStart : innerDeepEqual;
+   const extraChecks = mode === kLoose || array.length !== a.size;
+   for (const val1 of a) {
+-    // Primitive and null members can only match by identity, and must never
+-    // reach objectComparisonStart (which throws on `val.constructor` for
+-    // null/undefined). Resolve them directly for every such member.
+-    if (typeof val1 !== 'object' || val1 === null) {
+-      if (b.has(val1)) {
++    if (extraChecks) {
++      if (typeof val1 !== 'object' || val1 === null) {
++        if (mode !== kLoose || b.has(val1)) {
++          continue;
++        }
++      } else if (b.has(val1)) {
+         continue;
+       }
+-      if (mode !== kLoose) {
+-        return false;
+-      }
+-    } else if (extraChecks && b.has(val1)) {
+-      continue;
+     }
+ 
+     let innerStart = start;
+@@ -852,20 +848,13 @@
+   let start = 0;
+   let end = array.length - 1;
+   const comparator = mode !== kLoose ? objectComparisonStart : innerDeepEqual;
++  const extraChecks = mode === kLoose || array.length !== a.size;
+ 
+   for (const { 0: key1, 1: item1 } of a) {
+-    // Primitive and `null` keys can never match an object key collected in
+-    // `array`, so resolve them directly against `b`. `null` is `typeof
+-    // 'object'`, so without this it would reach the object comparator, which
+-    // reads `key1.constructor` and throws a `TypeError`.
+-    if (typeof key1 !== 'object' || key1 === null) {
+-      if (b.has(key1)) {
+-        if (mode !== kLoose || innerDeepEqual(item1, b.get(key1), mode, memo)) {
+-          continue;
+-        }
+-      } else if (mode !== kLoose) {
+-        return false;
+-      }
++    if (extraChecks && (typeof key1 !== 'object' || key1 === null) &&
++        (mode !== kLoose ||
++          (b.has(key1) && innerDeepEqual(item1, b.get(key1), mode, memo)))) {
++      continue;
+     }
+ 
+     let innerStart = start;

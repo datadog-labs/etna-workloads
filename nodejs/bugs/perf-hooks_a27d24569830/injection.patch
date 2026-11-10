@@ -1,0 +1,47 @@
+diff -uN a/lib/internal/perf/observe.js b/lib/internal/perf/observe.js
+--- a/lib/internal/perf/observe.js
++++ b/lib/internal/perf/observe.js
+@@ -116,10 +116,9 @@
+   isPending = true;
+   setImmediate(() => {
+     isPending = false;
+-    const pendings = ArrayFrom(kPending.values());
+-    kPending.clear();
+-    for (const pending of pendings)
++    for (const pending of kPending)
+       pending[kDispatch]();
++    kPending.clear();
+   });
+ }
+ 
+@@ -210,17 +209,12 @@
+       (entry) => entry.entryType === type);
+   }
+ 
+-  getEntriesByName(name, type = undefined) {
++  getEntriesByName(name) {
+     validateThisInternalField(this, kBuffer, 'PerformanceObserverEntryList');
+     if (arguments.length === 0) {
+       throw new ERR_MISSING_ARGS('name');
+     }
+     name = `${name}`;
+-    if (type != null /** not nullish */) {
+-      return ArrayPrototypeFilter(
+-        this[kBuffer],
+-        (entry) => entry.name === name && entry.entryType === type);
+-    }
+     return ArrayPrototypeFilter(
+       this[kBuffer],
+       (entry) => entry.name === name);
+@@ -270,11 +264,6 @@
+     } = { ...options };
+     if (entryTypes === undefined && type === undefined)
+       throw new ERR_MISSING_ARGS('options.entryTypes', 'options.type');
+-    if (entryTypes != null && type != null)
+-      throw new ERR_INVALID_ARG_VALUE('options.entryTypes',
+-                                      entryTypes,
+-                                      'options.entryTypes can not set with ' +
+-                                      'options.type together');
+ 
+     switch (this.#type) {
+       case undefined:

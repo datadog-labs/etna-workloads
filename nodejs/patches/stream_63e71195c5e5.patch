@@ -1,0 +1,31 @@
+diff -uN a/lib/internal/streams/iter/consumers.js b/lib/internal/streams/iter/consumers.js
+--- a/lib/internal/streams/iter/consumers.js
++++ b/lib/internal/streams/iter/consumers.js
+@@ -490,10 +490,8 @@
+       if (normalized.length === 0) return;
+ 
+       if (normalized.length === 1) {
+-        const source = signal !== undefined && isAsyncIterable(sources[0]) ?
+-          from(yieldAbortable(sources[0], signal)) :
+-          yieldAbortable(normalized[0], signal);
+-        for await (const batch of source) {
++        for await (const batch of normalized[0]) {
++          signal?.throwIfAborted();
+           yield batch;
+         }
+         return;
+diff -uN a/lib/internal/streams/iter/utils.js b/lib/internal/streams/iter/utils.js
+--- a/lib/internal/streams/iter/utils.js
++++ b/lib/internal/streams/iter/utils.js
+@@ -141,10 +141,7 @@
+         if (!completed && typeof iterator.return === 'function') {
+           const result = iterator.return();
+           if (aborted) {
+-            // PromiseResolve(result) can reject if result is a thenable that
+-            // rejects, so mark it as handled even though the abort takes
+-            // precedence over the result of iterator.return().
+-            markPromiseAsHandled(PromiseResolve(result));
++            markPromiseAsHandled(result);
+           } else {
+             await result;
+           }

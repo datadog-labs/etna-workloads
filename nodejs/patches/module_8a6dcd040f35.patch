@@ -1,0 +1,33 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -233,7 +233,7 @@
+ 
+ let requireDepth = 0;
+ let isPreloading = false;
+-let statCache = null;
++let statCache = new SafeMap();
+ 
+ /**
+  * Internal method to add tracing capabilities for Module._load.
+@@ -274,15 +274,11 @@
+   assert(typeof filename === 'string');
+ 
+   filename = path.toNamespacedPath(filename);
+-  if (statCache !== null) {
+-    const result = statCache.get(filename);
+-    if (result !== undefined) { return result; }
+-  }
+-  const result = loaderMethods.internalModuleStat(filename);
+-  if (statCache !== null && result >= 0) {
+-    // Only set cache when `internalModuleStat(filename)` succeeds.
+-    statCache.set(filename, result);
+-  }
++  if (statCache === null) { statCache = new SafeMap(); }
++  let result = statCache.get(filename);
++  if (result !== undefined) { return result; }
++  result = loaderMethods.internalModuleStat(filename);
++  statCache.set(filename, result);
+   return result;
+ }
+ 

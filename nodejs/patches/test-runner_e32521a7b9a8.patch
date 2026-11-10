@@ -1,0 +1,68 @@
+diff -uN a/lib/internal/test_runner/test.js b/lib/internal/test_runner/test.js
+--- a/lib/internal/test_runner/test.js
++++ b/lib/internal/test_runner/test.js
+@@ -22,7 +22,6 @@
+   ObjectFreeze,
+   ObjectKeys,
+   ObjectSeal,
+-  Promise,
+   PromisePrototypeThen,
+   PromiseResolve,
+   PromiseWithResolvers,
+@@ -30,7 +29,6 @@
+   RegExpPrototypeExec,
+   SafeMap,
+   SafePromiseAll,
+-  SafePromiseAllReturnVoid,
+   SafePromiseRace,
+   SafeSet,
+   SetPrototypeUnion,
+@@ -65,7 +63,6 @@
+   createSeededGenerator,
+   countCompletedTest,
+   isTestFailureError,
+-  reporterScope,
+   testChannel,
+ } = require('internal/test_runner/utils');
+ const {
+@@ -1471,25 +1468,10 @@
+       // any remaining ref'ed handles, then do that now. It is theoretically
+       // possible that a ref'ed handle could asynchronously create more tests,
+       // but the user opted into this behavior.
+-      const promises = [];
+-
+-      for (let i = 0; i < reporterScope.reporters.length; i++) {
+-        const { destination } = reporterScope.reporters[i];
+-
+-        ArrayPrototypePush(promises, new Promise((resolve) => {
+-          destination.on('unpipe', () => {
+-            if (!destination.closed && typeof destination.close === 'function') {
+-              destination.close(resolve);
+-            } else {
+-              resolve();
+-            }
+-          });
+-        }));
+-      }
+-
++      this.reporter.once('close', () => {
++        process.exit();
++      });
+       this.harness.teardown();
+-      await SafePromiseAllReturnVoid(promises);
+-      process.exit();
+     }
+   }
+ 
+diff -uN a/lib/internal/test_runner/utils.js b/lib/internal/test_runner/utils.js
+--- a/lib/internal/test_runner/utils.js
++++ b/lib/internal/test_runner/utils.js
+@@ -200,7 +200,7 @@
+ async function getReportersMap(reporters, destinations) {
+   return SafePromiseAllReturnArrayLike(reporters, async (name, i) => {
+     const destination = kBuiltinDestinations.get(destinations[i]) ??
+-      createWriteStream(destinations[i], { __proto__: null, flush: true });
++      createWriteStream(destinations[i]);
+ 
+     // Load the test reporter passed to --test-reporter
+     let reporter = tryBuiltinReporter(name);

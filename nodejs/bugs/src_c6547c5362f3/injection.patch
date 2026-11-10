@@ -1,0 +1,36 @@
+diff -uN a/src/node_constants.cc b/src/node_constants.cc
+--- a/src/node_constants.cc
++++ b/src/node_constants.cc
+@@ -98,15 +98,9 @@
+ #include <dlfcn.h>
+ #endif
+ 
+-#if defined(_WIN32)
+-#include <io.h>  // _S_IREAD _S_IWRITE
+-#ifndef S_IRUSR
+-#define S_IRUSR _S_IREAD
+-#endif  // S_IRUSR
+-#ifndef S_IWUSR
+-#define S_IWUSR _S_IWRITE
+-#endif  // S_IWUSR
+-#endif
++// Without aliases to _S_IREAD/_S_IWRITE (as on Windows before the fix),
++// S_IRUSR and S_IWUSR are not exposed in fs.constants.
++#define NODE_NO_USR_RW_ALIASES 1
+ 
+ #include <cerrno>
+ #include <csignal>
+@@ -1211,11 +1205,11 @@
+   NODE_DEFINE_CONSTANT(target, S_IRWXU);
+ #endif
+ 
+-#ifdef S_IRUSR
++#if defined(S_IRUSR) && !defined(NODE_NO_USR_RW_ALIASES)
+   NODE_DEFINE_CONSTANT(target, S_IRUSR);
+ #endif
+ 
+-#ifdef S_IWUSR
++#if defined(S_IWUSR) && !defined(NODE_NO_USR_RW_ALIASES)
+   NODE_DEFINE_CONSTANT(target, S_IWUSR);
+ #endif
+ 

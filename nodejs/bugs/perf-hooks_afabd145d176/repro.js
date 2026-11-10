@@ -1,0 +1,12 @@
+const { PerformanceObserver } = require('perf_hooks');
+const v8 = require('v8'), vm = require('vm');
+v8.setFlagsFromString('--expose-gc');
+const gc = vm.runInNewContext('gc');
+const o1 = new PerformanceObserver(() => {});
+o1.observe({ entryTypes: ['gc'] });
+o1.disconnect();
+let got = false;
+const o2 = new PerformanceObserver((l) => { got = true; o2.disconnect(); });
+o2.observe({ entryTypes: ['gc'] });
+gc();
+setTimeout(() => { console.log('gc entry received after re-observe:', got); o2.disconnect(); }, 1000);

@@ -1,0 +1,30 @@
+diff -uN a/src/crypto/crypto_util.cc b/src/crypto/crypto_util.cc
+--- a/src/crypto/crypto_util.cc
++++ b/src/crypto/crypto_util.cc
+@@ -710,11 +710,10 @@
+ 
+   if (!Empty()) {
+     Local<Value> stack;
+-    if (!ToV8Value(env->context(), errors_).ToLocal(&stack) ||
+-        exception->Set(env->context(), env->openssl_error_stack(), stack)
+-            .IsNothing()) {
++    if (!ToV8Value(env->context(), errors_).ToLocal(&stack)) {
+       return MaybeLocal<Value>();
+     }
++    exception->Set(env->context(), env->openssl_error_stack(), stack).Check();
+   }
+ 
+   if (primary_openssl_error_ != 0) {
+@@ -910,10 +909,8 @@
+   Local<Context> context = isolate->GetCurrentContext();
+ 
+   if (ls != nullptr) {
+-    if (obj->Set(context, env->library_string(),
+-                 OneByteString(isolate, ls)).IsNothing()) {
+-      return Nothing<void>();
+-    }
++    obj->Set(context, env->library_string(), OneByteString(isolate, ls))
++        .Check();
+   }
+   if (fs != nullptr) {
+     if (obj->Set(context, env->function_string(),

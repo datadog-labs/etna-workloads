@@ -1,0 +1,26 @@
+diff -uN a/src/ffi/fast.cc b/src/ffi/fast.cc
+--- a/src/ffi/fast.cc
++++ b/src/ffi/fast.cc
+@@ -187,8 +187,7 @@
+   // where a single pointer-like argument can be satisfied by a Buffer or
+   // ArrayBuffer without allocating or caching a BigInt pointer in JS.
+   return fn.arg_type_names.size() == 1 &&
+-         (IsPointerTypeName(fn.arg_type_names[0]) ||
+-          IsBufferTypeName(fn.arg_type_names[0]));
++         IsPointerTypeName(fn.arg_type_names[0]);
+ }
+ 
+ namespace {
+diff -uN a/src/node_ffi.cc b/src/node_ffi.cc
+--- a/src/node_ffi.cc
++++ b/src/node_ffi.cc
+@@ -290,8 +290,7 @@
+   // Try the generated Fast API path first. If metadata creation rejects the
+   // signature, fall back to SharedBuffer for supported scalar shapes, then to
+   // the generic libffi invoker.
+-  std::shared_ptr<FFIFunction> fast_fn = CloneWithRawPointerArgNames(fn);
+-  if (!CreateFastFFIMetadata(*fast_fn, &fn->closed, isolate)
++  if (!CreateFastFFIMetadata(*fn, &fn->closed, isolate)
+            .MoveTo(&info->fast_metadata)) {
+     return {};
+   }

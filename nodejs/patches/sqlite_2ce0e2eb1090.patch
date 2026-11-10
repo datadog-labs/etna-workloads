@@ -1,0 +1,25 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -5251,17 +5251,11 @@
+ }
+ 
+ void Session::Dispose(const FunctionCallbackInfo<Value>& args) {
+-  Session* session;
+-  ASSIGN_OR_RETURN_UNWRAP(&session, args.This());
+-  Environment* env = Environment::GetCurrent(args);
+-  if (session->session_ == nullptr) {
+-    return;
++  v8::TryCatch try_catch(args.GetIsolate());
++  Close(args);
++  if (try_catch.HasCaught()) {
++    CHECK(try_catch.CanContinue());
+   }
+-  THROW_AND_RETURN_ON_BAD_STATE(
+-      env, session->is_generating_changeset_, "session is currently in use");
+-  THROW_AND_RETURN_IF_SESSION_IN_CALLBACK(env, session);
+-
+-  session->Delete();
+ }
+ 
+ void Session::Delete() {

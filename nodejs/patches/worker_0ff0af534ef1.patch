@@ -1,0 +1,36 @@
+diff -uN a/src/node_messaging.cc b/src/node_messaging.cc
+--- a/src/node_messaging.cc
++++ b/src/node_messaging.cc
+@@ -523,14 +523,6 @@
+         ThrowDataCloneException(context, env->transfer_unsupported_type_str());
+         return Nothing<bool>();
+       }
+-      if (std::ranges::find(array_buffers, ab) != array_buffers.end()) {
+-        ThrowDataCloneException(
+-            context,
+-            FIXED_ONE_BYTE_STRING(
+-                env->isolate(),
+-                "Transfer list contains duplicate ArrayBuffer"));
+-        return Nothing<bool>();
+-      }
+       // We simply use the array index in the `array_buffers` list as the
+       // ID that we write into the serialized buffer.
+       uint32_t id = array_buffers.size();
+@@ -570,17 +562,6 @@
+               "MessagePort in transfer list is already detached"));
+       return Nothing<bool>();
+     }
+-    if (std::ranges::find(delegate.host_objects_, host_object) !=
+-        delegate.host_objects_.end()) {
+-      ThrowDataCloneException(
+-          context,
+-          String::Concat(
+-              env->isolate(),
+-              FIXED_ONE_BYTE_STRING(env->isolate(),
+-                                    "Transfer list contains duplicate "),
+-              entry->GetConstructorName()));
+-      return Nothing<bool>();
+-    }
+     if (host_object &&
+         host_object->GetTransferMode() == TransferMode::kTransferable) {
+       delegate.AddHostObject(host_object);

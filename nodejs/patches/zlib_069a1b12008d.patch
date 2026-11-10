@@ -1,0 +1,41 @@
+diff -uN a/lib/internal/zip/entry.js b/lib/internal/zip/entry.js
+--- a/lib/internal/zip/entry.js
++++ b/lib/internal/zip/entry.js
+@@ -505,14 +505,15 @@
+   // The entry's raw compressed bytes as a bounded-memory chunk stream, read
+   // straight from disk (file-backed entries only). Nothing is retained.
+   async *#rawChunks() {
+-    // Count active reads, but not time paused at a yield.
++    // Count the whole stream as one in-flight read so a concurrent close()
++    // waits for it (the finally runs when the consumer stops iterating); a
++    // stream begun after close() was requested is rejected up front.
+     const handle = this.#fd;
+     if (handle.closing) {
+       throw new ERR_INVALID_STATE(
+         'cannot read a ZipEntry after its backing ZipFile has been closed');
+     }
+     handle.reads++;
+-    let reading = true;
+     try {
+       this.#liveDescriptor();
+       let pos = await this.#resolveContentOffset();
+@@ -524,18 +525,10 @@
+         await readFdFully(this.#liveDescriptor(), chunk, pos);
+         pos += take;
+         remaining -= take;
+-        reading = false;
+-        endHandleRead(handle);
+         yield chunk;
+-        if (handle.closing) {
+-          throw new ERR_INVALID_STATE(
+-            'cannot read a ZipEntry after its backing ZipFile has been closed');
+-        }
+-        handle.reads++;
+-        reading = true;
+       }
+     } finally {
+-      if (reading) endHandleRead(handle);
++      endHandleRead(handle);
+     }
+   }
+   // Sync counterpart of #rawChunks().

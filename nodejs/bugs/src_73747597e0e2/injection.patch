@@ -1,0 +1,88 @@
+diff -uN a/src/async_wrap.cc b/src/async_wrap.cc
+--- a/src/async_wrap.cc
++++ b/src/async_wrap.cc
+@@ -68,8 +68,7 @@
+ void AsyncWrap::DestroyAsyncIdsCallback(Environment* env) {
+   Local<Function> fn = env->async_hooks_destroy_function();
+ 
+-  TryCatchScope try_catch(env,
+-                          TryCatchScope::CatchMode::kFatalRethrowStackOverflow);
++  TryCatchScope try_catch(env, TryCatchScope::CatchMode::kFatal);
+ 
+   do {
+     std::vector<double> destroy_async_id_list;
+@@ -98,8 +97,7 @@
+ 
+   HandleScope handle_scope(env->isolate());
+   Local<Value> async_id_value = Number::New(env->isolate(), async_id);
+-  TryCatchScope try_catch(env,
+-                          TryCatchScope::CatchMode::kFatalRethrowStackOverflow);
++  TryCatchScope try_catch(env, TryCatchScope::CatchMode::kFatal);
+   USE(fn->Call(env->context(), Undefined(env->isolate()), 1, &async_id_value));
+ }
+ 
+@@ -663,8 +661,7 @@
+     object,
+   };
+ 
+-  TryCatchScope try_catch(env,
+-                          TryCatchScope::CatchMode::kFatalRethrowStackOverflow);
++  TryCatchScope try_catch(env, TryCatchScope::CatchMode::kFatal);
+   USE(init_fn->Call(env->context(), object, arraysize(argv), argv));
+ }
+ 
+diff -uN a/src/node_errors.cc b/src/node_errors.cc
+--- a/src/node_errors.cc
++++ b/src/node_errors.cc
+@@ -725,21 +725,11 @@
+ namespace errors {
+ 
+ TryCatchScope::~TryCatchScope() {
+-  if (HasCaught() && !HasTerminated() && mode_ != CatchMode::kNormal) {
++  if (HasCaught() && !HasTerminated() && mode_ == CatchMode::kFatal) {
+     HandleScope scope(env_->isolate());
+     Local<v8::Value> exception = Exception();
+     Local<v8::Message> message = Message();
+ 
+-    // Special handling for stack overflow errors in async_hooks: instead of
+-    // immediately exiting, re-throw the exception. This allows the exception
+-    // to propagate to user code's try-catch blocks.
+-    if (mode_ == CatchMode::kFatalRethrowStackOverflow &&
+-        IsStackOverflowError(env_->isolate(), exception)) {
+-      ReThrow();
+-      Reset();
+-      return;
+-    }
+-
+     EnhanceFatalException enhance = CanContinue() ?
+         EnhanceFatalException::kEnhance : EnhanceFatalException::kDontEnhance;
+     if (message.IsEmpty())
+@@ -1364,26 +1354,8 @@
+   if (env->can_call_into_js()) {
+     // We do not expect the global uncaught exception itself to throw any more
+     // exceptions. If it does, exit the current Node.js instance.
+-    // Special case: if the original error was a stack overflow and calling
+-    // _fatalException causes another stack overflow, rethrow it to allow
+-    // user code's try-catch blocks to potentially catch it.
+-    auto is_stack_overflow = [&] {
+-      return IsStackOverflowError(env->isolate(), error);
+-    };
+-    // Without a JS stack, rethrowing may or may not do anything.
+-    // TODO(addaleax): In V8, expose a way to check whether there is a JS stack
+-    // or TryCatch that would capture the rethrown exception.
+-    auto has_js_stack = [&] {
+-      HandleScope handle_scope(env->isolate());
+-      Local<StackTrace> stack;
+-      return GetCurrentStackTrace(env->isolate(), 1).ToLocal(&stack) &&
+-             stack->GetFrameCount() > 0;
+-    };
+-    errors::TryCatchScope::CatchMode mode =
+-        is_stack_overflow() && has_js_stack()
+-            ? errors::TryCatchScope::CatchMode::kFatalRethrowStackOverflow
+-            : errors::TryCatchScope::CatchMode::kFatal;
+-    errors::TryCatchScope try_catch(env, mode);
++    errors::TryCatchScope try_catch(env,
++                                    errors::TryCatchScope::CatchMode::kFatal);
+     // Explicitly disable verbose exception reporting -
+     // if process._fatalException() throws an error, we don't want it to
+     // trigger the per-isolate message listener which will call this

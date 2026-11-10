@@ -1,0 +1,30 @@
+diff -uN a/src/node_buffer.cc b/src/node_buffer.cc
+--- a/src/node_buffer.cc
++++ b/src/node_buffer.cc
+@@ -198,18 +198,15 @@
+ void CallbackInfo::OnBackingStoreFree() {
+   // This method should always release the memory for `this`.
+   std::unique_ptr<CallbackInfo> self { this };
+-  Mutex::ScopedLock lock(mutex_);
+-  // If callback_ == nullptr, that means that the callback has already run from
+-  // the cleanup hook, and there is nothing left to do here besides to clean
+-  // up the memory involved. In particular, the underlying `Environment` may
+-  // be gone at this point, so don’t attempt to call SetImmediateThreadsafe().
+-  if (callback_ == nullptr) return;
++  {
++    Mutex::ScopedLock lock(mutex_);
++    // If callback_ == nullptr, that means that the callback has already run
++    // from the cleanup hook, and there is nothing left to do here besides to
++    // clean up the memory involved.
++    if (callback_ == nullptr) return;
++  }
+ 
+-  env_->SetImmediateThreadsafe([self = std::move(self)](Environment* env) {
+-    CHECK_EQ(self->env_, env);  // Consistency check.
+-
+-    self->CallAndResetCallback();
+-  });
++  self->CallAndResetCallback();
+ }
+ 
+ 

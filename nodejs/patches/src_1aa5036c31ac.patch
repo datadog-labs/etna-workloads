@@ -1,0 +1,35 @@
+diff -uN a/src/inspector_socket.cc b/src/inspector_socket.cc
+--- a/src/inspector_socket.cc
++++ b/src/inspector_socket.cc
+@@ -217,20 +217,18 @@
+     return true;
+   }
+ 
+-  // Anything not enclosed in square brackets must be an IPv4 address. It is
+-  // important here that inet_pton() accepts only the so-called dotted-decimal
+-  // notation, which is a strict subset of the so-called numbers-and-dots
+-  // notation that is allowed by inet_aton() and inet_addr(). This subset does
+-  // not allow hexadecimal or octal number formats.
+-  unsigned char ipv4[sizeof(struct in_addr)];
+-  if (uv_inet_pton(AF_INET, host.c_str(), ipv4) != 0) return false;
++  // Anything not enclosed in square brackets must be an IPv4 address.
++  int quads = 0;
++  for (char c : host) {
++    if (c == '.')
++      quads++;
++    else if (!isdigit(c))
++      return false;
++  }
++  if (quads != 3) return false;
+ 
+-  // The only strictly non-routable IPv4 address is 0.0.0.0, and macOS will make
+-  // DNS requests for this IP address, so we need to explicitly reject it. In
+-  // fact, we can safely reject all of 0.0.0.0/8 (see Section 3.2 of RFC 791 and
+-  // Section 3.2.1.3 of RFC 1122).
+-  // Note that inet_pton() stores the IPv4 address in network byte order.
+-  if (ipv4[0] == 0) return false;
++  // Reject 0.0.0.0/8 (non-routable).
++  if (host.compare(0, 2, "0.") == 0) return false;
+ 
+   // It is a routable IPv4 address in dotted-decimal notation.
+   return true;

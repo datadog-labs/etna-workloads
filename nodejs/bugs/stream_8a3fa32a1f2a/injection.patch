@@ -1,0 +1,64 @@
+diff -uN a/lib/internal/streams/from.js b/lib/internal/streams/from.js
+--- a/lib/internal/streams/from.js
++++ b/lib/internal/streams/from.js
+@@ -1,14 +1,12 @@
+ 'use strict';
+ 
+ const {
+-  PromisePrototypeThen,
+   SymbolAsyncIterator,
+   SymbolIterator,
+ } = primordials;
+ const { Buffer } = require('buffer');
+ 
+ const {
+-  aggregateTwoErrors,
+   codes: {
+     ERR_INVALID_ARG_TYPE,
+     ERR_STREAM_NULL_VALUES,
+@@ -46,7 +44,6 @@
+     // TODO(ronag): What options should be allowed?
+     ...opts,
+   });
+-  const originalDestroy = readable._destroy;
+ 
+   // Flag to protect against _read
+   // being called before last iteration completion.
+@@ -67,37 +64,6 @@
+     }
+   };
+ 
+-  readable._destroy = function(error, cb) {
+-    originalDestroy.call(this, error, (destroyError) => {
+-      const combinedError = destroyError || error;
+-      PromisePrototypeThen(
+-        close(combinedError),
+-        // nextTick is here in case cb throws
+-        () => process.nextTick(cb, combinedError),
+-        (closeError) => process.nextTick(
+-          cb,
+-          aggregateTwoErrors(combinedError, closeError),
+-        ),
+-      );
+-    });
+-  };
+-
+-  async function close(error) {
+-    const hadError = (error !== undefined) && (error !== null);
+-    const hasThrow = typeof iterator.throw === 'function';
+-    if (hadError && hasThrow) {
+-      const { value, done } = await iterator.throw(error);
+-      await value;
+-      if (done) {
+-        return;
+-      }
+-    }
+-    if (typeof iterator.return === 'function') {
+-      const { value } = await iterator.return();
+-      await value;
+-    }
+-  }
+-
+   // There are a lot of duplication here, it's done on purpose for performance
+   // reasons - avoid await when not needed.
+ 

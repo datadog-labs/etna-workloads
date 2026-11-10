@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/streams/iter/from.js b/lib/internal/streams/iter/from.js
+--- a/lib/internal/streams/iter/from.js
++++ b/lib/internal/streams/iter/from.js
+@@ -732,20 +732,15 @@
+     }
+   }
+ 
+-  const isIterable = isSyncIterable(input);
+-
+-  // Reject explicit async-only inputs
+-  if (!isIterable && isAsyncIterable(input)) {
++  // Reject explicit async inputs
++  if (isAsyncIterable(input)) {
+     throw new ERR_INVALID_ARG_TYPE(
+       'input',
+       'a synchronous input, not an async iterable',
+       input,
+     );
+   }
+-  if (!isIterable &&
+-      typeof input === 'object' &&
+-      input !== null &&
+-      typeof input.then === 'function') {
++  if (typeof input === 'object' && input !== null && typeof input.then === 'function') {
+     throw new ERR_INVALID_ARG_TYPE(
+       'input',
+       'a synchronous input, not a promise',
+@@ -754,7 +749,7 @@
+   }
+ 
+   // Must be a SyncStreamable
+-  if (!isIterable) {
++  if (!isSyncIterable(input)) {
+     throw new ERR_INVALID_ARG_TYPE(
+       'input',
+       ['string', 'ArrayBuffer', 'ArrayBufferView', 'Iterable', 'toStreamable'],

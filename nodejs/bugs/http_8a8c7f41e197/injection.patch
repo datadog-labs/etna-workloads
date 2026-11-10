@@ -1,0 +1,33 @@
+diff -uN a/lib/https.js b/lib/https.js
+--- a/lib/https.js
++++ b/lib/https.js
+@@ -62,8 +62,8 @@
+   httpServerPreClose,
+   Server: HttpServer,
+   setupConnectionsTracking,
+-  storeHTTPOptions,
+   _connectionListener,
++  kServerResponse,
+ } = require('_http_server');
+ const { ClientRequest } = require('_http_client');
+ let debug = require('internal/util/debuglog').debuglog('https', (fn) => {
+@@ -76,6 +76,8 @@
+ const { isIP } = require('internal/net');
+ const assert = require('internal/assert');
+ const { getOptionValue } = require('internal/options');
++const { IncomingMessage, ServerResponse } = require('http');
++const { kIncomingMessage } = require('_http_common');
+ 
+ function Server(opts, requestListener) {
+   if (!(this instanceof Server)) return new Server(opts, requestListener);
+@@ -94,7 +96,9 @@
+       ALPNProtocols = undefined;
+   }
+ 
+-  FunctionPrototypeCall(storeHTTPOptions, this, opts);
++  this[kIncomingMessage] = opts.IncomingMessage || IncomingMessage;
++  this[kServerResponse] = opts.ServerResponse || ServerResponse;
++
+   FunctionPrototypeCall(tls.Server, this,
+                         {
+                           noDelay: true,

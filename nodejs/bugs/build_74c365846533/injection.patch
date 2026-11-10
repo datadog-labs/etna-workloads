@@ -1,0 +1,92 @@
+diff -uN a/lib/util.js b/lib/util.js
+--- a/lib/util.js
++++ b/lib/util.js
+@@ -69,7 +69,6 @@
+   validateString,
+   validateOneOf,
+   validateObject,
+-  validateInteger,
+ } = require('internal/validators');
+ const {
+   isReadableStream,
+@@ -576,7 +575,7 @@
+   }
+ 
+   // Using kDefaultMaxCallStackSizeToCapture as reference
+-  validateInteger(frameCount, 'frameCount', 1, 200);
++  validateNumber(frameCount, 'frameCount', 1, 200);
+   // If options.sourceMaps is true or if sourceMaps are enabled but the option.sourceMaps is not set explicitly to false
+   if (options.sourceMap === true || (getOptionValue('--enable-source-maps') && options.sourceMap !== false)) {
+     return mapCallSite(binding.getCallSites(frameCount));
+diff -uN a/src/heap_utils.cc b/src/heap_utils.cc
+--- a/src/heap_utils.cc
++++ b/src/heap_utils.cc
+@@ -86,7 +86,7 @@
+   }
+ 
+   Node* V8Node(const Local<v8::Value>& value) override {
+-    return V8Node(v8::Local<v8::Data>(value));
++    return V8Node(value.As<v8::Data>());
+   }
+ 
+   Node* AddNode(std::unique_ptr<Node> node) override {
+diff -uN a/src/node_builtins.cc b/src/node_builtins.cc
+--- a/src/node_builtins.cc
++++ b/src/node_builtins.cc
+@@ -11,7 +11,6 @@
+ #include "quic/guard.h"
+ #include "simdutf.h"
+ #include "util-inl.h"
+-#include "v8-value.h"
+ 
+ namespace node {
+ 
+@@ -456,7 +455,7 @@
+     new_cached_data.reset(
+         ScriptCompiler::CreateCodeCache(mod->GetUnboundModuleScript()));
+   } else {
+-    Local<Function> fun = data.As<Value>().As<Function>();
++    Local<Function> fun = data.As<Function>();
+     new_cached_data.reset(ScriptCompiler::CreateCodeCacheForFunction(fun));
+   }
+   CHECK_NOT_NULL(new_cached_data);
+diff -uN a/src/node_util.cc b/src/node_util.cc
+--- a/src/node_util.cc
++++ b/src/node_util.cc
+@@ -261,7 +261,7 @@
+   Environment* env = Environment::GetCurrent(context);
+ 
+   CHECK_EQ(args.Length(), 1);
+-  CHECK(args[0]->IsUint32());
++  CHECK(args[0]->IsNumber());
+   const uint32_t frames = args[0].As<Uint32>()->Value();
+   CHECK(frames >= 1 && frames <= 200);
+ 
+diff -uN a/src/util-inl.h b/src/util-inl.h
+--- a/src/util-inl.h
++++ b/src/util-inl.h
+@@ -22,7 +22,6 @@
+ #ifndef SRC_UTIL_INL_H_
+ #define SRC_UTIL_INL_H_
+ 
+-#include "v8-isolate.h"
+ #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+ 
+ #include <cmath>
+@@ -688,15 +687,10 @@
+         "Type is out of unsigned integer range");
+     if constexpr (!loose) {
+       CHECK(value->IsUint32());
+-      return static_cast<T>(value.As<v8::Uint32>()->Value());
+     } else {
+       CHECK(value->IsNumber());
+-      v8::Isolate* isolate = v8::Isolate::GetCurrent();
+-      v8::Local<v8::Context> context = isolate->GetCurrentContext();
+-      v8::Maybe<uint32_t> maybe = value->Uint32Value(context);
+-      CHECK(!maybe.IsNothing());
+-      return static_cast<T>(maybe.FromJust());
+     }
++    return static_cast<T>(value.As<v8::Uint32>()->Value());
+   } else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>) {
+     static_assert(
+         std::numeric_limits<T>::max() <= std::numeric_limits<int32_t>::max() &&

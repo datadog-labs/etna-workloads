@@ -1,0 +1,73 @@
+diff -uN a/lib/internal/main/watch_mode.js b/lib/internal/main/watch_mode.js
+--- a/lib/internal/main/watch_mode.js
++++ b/lib/internal/main/watch_mode.js
+@@ -24,7 +24,7 @@
+ const { getOptionValue, parseNodeOptionsEnvVar } = require('internal/options');
+ const { FilesWatcher } = require('internal/watch_mode/files_watcher');
+ const { green, blue, red, white, clear } = require('internal/util/colors');
+-const { convertToValidSignal, kEmptyObject } = require('internal/util');
++const { convertToValidSignal } = require('internal/util');
+ 
+ const { spawn } = require('child_process');
+ const { inspect } = require('util');
+@@ -231,14 +231,11 @@
+ 
+ let restarting = false;
+ 
+-async function restart(child, trigger) {
++async function restart(child) {
+   if (restarting) return;
+   restarting = true;
+   try {
+     if (!kPreserveOutput) process.stdout.write(clear);
+-    if (trigger) {
+-      process.stdout.write(`${blue}Change detected in ${inspect(trigger)}${white}\n`);
+-    }
+     process.stdout.write(`${green}Restarting ${kCommandStr}${white}\n`);
+     await stop(child);
+     return start();
+@@ -249,8 +246,8 @@
+ 
+ async function init() {
+   let child = start();
+-  const restartChild = async ({ trigger } = kEmptyObject) => {
+-    child = await restart(child, trigger);
++  const restartChild = async () => {
++    child = await restart(child);
+   };
+   watcher
+     .on('changed', restartChild)
+diff -uN a/lib/internal/watch_mode/files_watcher.js b/lib/internal/watch_mode/files_watcher.js
+--- a/lib/internal/watch_mode/files_watcher.js
++++ b/lib/internal/watch_mode/files_watcher.js
+@@ -42,7 +42,6 @@
+   #ownerDependencies = new SafeMap();
+   #debounceOwners = new SafeSet();
+   #debounceTimer;
+-  #debounceTrigger;
+   #debounce;
+   #mode;
+   #signal;
+@@ -102,13 +101,11 @@
+         this.#debounceOwners.add(owner);
+       }
+     }
+-    this.#debounceTrigger = trigger;
+     clearTimeout(this.#debounceTimer);
+     this.#debounceTimer = setTimeout(() => {
+       this.#debounceTimer = null;
+-      this.emit('changed', { owners: this.#debounceOwners, eventType, trigger: this.#debounceTrigger });
++      this.emit('changed', { owners: this.#debounceOwners, eventType });
+       this.#debounceOwners.clear();
+-      this.#debounceTrigger = undefined;
+     }, this.#debounce).unref();
+   }
+ 
+@@ -221,7 +218,6 @@
+     clearTimeout(this.#debounceTimer);
+     this.#debounceTimer = null;
+     this.#debounceOwners.clear();
+-    this.#debounceTrigger = undefined;
+     this.#watchers.forEach(this.#unwatch);
+     this.#watchers.clear();
+     this.#filteredFiles.clear();

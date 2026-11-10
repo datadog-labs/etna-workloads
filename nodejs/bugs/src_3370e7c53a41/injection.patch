@@ -1,0 +1,74 @@
+diff -uN a/src/api/environment.cc b/src/api/environment.cc
+--- a/src/api/environment.cc
++++ b/src/api/environment.cc
+@@ -856,19 +856,6 @@
+   Isolate* isolate = Isolate::GetCurrent();
+   HandleScope handle_scope(isolate);
+ 
+-  // When `IsCodeGenerationFromStringsAllowed` is true, V8 takes the fast path
+-  // and ignores the ModifyCodeGenerationFromStrings callback. Set it to false
+-  // to delegate the code generation validation to
+-  // node::ModifyCodeGenerationFromStrings.
+-  // The `IsCodeGenerationFromStringsAllowed` can be refreshed by V8 according
+-  // to the runtime flags, propagate the value to the embedder data.
+-  bool is_code_generation_from_strings_allowed =
+-      context->IsCodeGenerationFromStringsAllowed();
+-  context->AllowCodeGenerationFromStrings(false);
+-  context->SetEmbedderData(
+-      ContextEmbedderIndex::kAllowCodeGenerationFromStrings,
+-      Boolean::New(isolate, is_code_generation_from_strings_allowed));
+-
+   if (per_process::cli_options->disable_proto == "") {
+     return JustVoid();
+   }
+@@ -960,11 +947,11 @@
+   Isolate* isolate = Isolate::GetCurrent();
+   HandleScope handle_scope(isolate);
+ 
+-  // Initialize the default values.
+-  context->SetEmbedderData(ContextEmbedderIndex::kAllowWasmCodeGeneration,
+-                           True(isolate));
++  context->AllowCodeGenerationFromStrings(false);
+   context->SetEmbedderData(
+       ContextEmbedderIndex::kAllowCodeGenerationFromStrings, True(isolate));
++  context->SetEmbedderData(ContextEmbedderIndex::kAllowWasmCodeGeneration,
++                           True(isolate));
+ 
+   if (InitializeBaseContextForSnapshot(context).IsNothing()) {
+     return Nothing<void>();
+diff -uN a/src/node_snapshotable.cc b/src/node_snapshotable.cc
+--- a/src/node_snapshotable.cc
++++ b/src/node_snapshotable.cc
+@@ -882,16 +882,6 @@
+ )";
+ }
+ 
+-// Reset context settings that need to be initialized again after
+-// deserialization.
+-static void ResetContextSettingsBeforeSnapshot(Local<Context> context) {
+-  // Reset the AllowCodeGenerationFromStrings flag to true (default value) so
+-  // that it can be re-initialized with v8 flag
+-  // --disallow-code-generation-from-strings and recognized in
+-  // node::InitializeContextRuntime.
+-  context->AllowCodeGenerationFromStrings(true);
+-}
+-
+ const std::vector<intptr_t>& SnapshotBuilder::CollectExternalReferences() {
+   static auto registry = std::make_unique<ExternalReferenceRegistry>();
+   static const std::vector<intptr_t>& references =
+@@ -1235,7 +1225,6 @@
+     if (base_context.IsEmpty()) {
+       return ExitCode::kBootstrapFailure;
+     }
+-    ResetContextSettingsBeforeSnapshot(base_context);
+ 
+     {
+       Context::Scope context_scope(main_context);
+@@ -1257,7 +1246,6 @@
+       out->isolate_data_info = setup->isolate_data()->Serialize(creator);
+       out->env_info = env->Serialize(creator);
+ 
+-      ResetContextSettingsBeforeSnapshot(main_context);
+     }
+ 
+     // Global handles to the contexts can't be disposed before the

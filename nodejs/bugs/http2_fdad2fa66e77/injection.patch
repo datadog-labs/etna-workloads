@@ -1,0 +1,42 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -711,21 +711,15 @@
+   if (originSet === undefined) {
+     const socket = session[kSocket];
+     session[kState].originSet = originSet = new SafeSet();
+-    let hostName = socket.servername;
+-    if (hostName === null || hostName === false) {
+-      if (socket.remoteFamily === 'IPv6') {
+-        hostName = `[${socket.remoteAddress}]`;
+-      } else {
+-        hostName = socket.remoteAddress;
+-      }
++    if (socket.servername != null) {
++      let originString = `https://${socket.servername}`;
++      if (socket.remotePort != null)
++        originString += `:${socket.remotePort}`;
++      // We have to ensure that it is a properly serialized
++      // ASCII origin string. The socket.servername might not
++      // be properly ASCII encoded.
++      originSet.add(getURLOrigin(originString));
+     }
+-    let originString = `https://${hostName}`;
+-    if (socket.remotePort != null)
+-      originString += `:${socket.remotePort}`;
+-    // We have to ensure that it is a properly serialized
+-    // ASCII origin string. The socket.servername might not
+-    // be properly ASCII encoded.
+-    originSet.add(getURLOrigin(originString));
+   }
+   return originSet;
+ }
+@@ -3709,7 +3703,7 @@
+         socket = net.connect({ port, host, ...options });
+         break;
+       case 'https:':
+-        socket = tls.connect(port, host, initializeTLSOptions(options, net.isIP(host) ? undefined : host));
++        socket = tls.connect(port, host, initializeTLSOptions(options, host));
+         break;
+       default:
+         throw new ERR_HTTP2_UNSUPPORTED_PROTOCOL(protocol);

@@ -1,0 +1,66 @@
+diff -uN a/lib/internal/streams/operators.js b/lib/internal/streams/operators.js
+--- a/lib/internal/streams/operators.js
++++ b/lib/internal/streams/operators.js
+@@ -34,7 +34,7 @@
+ const kEmpty = Symbol('kEmpty');
+ const kEof = Symbol('kEof');
+ 
+-function map(fn, options) {
++async function* map(fn, options) {
+   validateFunction(fn, 'fn');
+   if (options != null) {
+     validateObject(options, 'options');
+@@ -58,7 +58,7 @@
+ 
+   highWaterMark += concurrency;
+ 
+-  return async function* map() {
++  {
+     const signal = AbortSignal.any([options?.signal].filter(Boolean));
+     const stream = this;
+     const queue = [];
+@@ -178,7 +178,7 @@
+         resume = null;
+       }
+     }
+-  }.call(this);
++  }
+ }
+ 
+ async function some(fn, options = undefined) {
+@@ -213,7 +213,7 @@
+   for await (const unused of map.call(this, forEachFn, options));
+ }
+ 
+-function filter(fn, options) {
++async function* filter(fn, options) {
+   validateFunction(fn, 'fn');
+   async function filterFn(value, options) {
+     if (await fn(value, options)) {
+@@ -221,7 +221,7 @@
+     }
+     return kEmpty;
+   }
+-  return map.call(this, filterFn, options);
++  yield* map.call(this, filterFn, options);
+ }
+ 
+ // Specific to provide better error to reduce since the argument is only
+@@ -296,13 +296,10 @@
+   return result;
+ }
+ 
+-function flatMap(fn, options) {
+-  const values = map.call(this, fn, options);
+-  return async function* flatMap() {
+-    for await (const val of values) {
+-      yield* val;
+-    }
+-  }.call(this);
++async function* flatMap(fn, options) {
++  for await (const val of map.call(this, fn, options)) {
++    yield* val;
++  }
+ }
+ 
+ function toIntegerOrInfinity(number) {

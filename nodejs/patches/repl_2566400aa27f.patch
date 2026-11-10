@@ -1,0 +1,40 @@
+diff -uN a/lib/internal/repl/utils.js b/lib/internal/repl/utils.js
+--- a/lib/internal/repl/utils.js
++++ b/lib/internal/repl/utils.js
+@@ -367,7 +367,7 @@
+     }, () => callback(new ERR_INSPECTOR_NOT_AVAILABLE()));
+   }
+ 
+-  const showPreview = (showCompletion = true) => {
++  const showPreview = () => {
+     // Prevent duplicated previews after a refresh or in a multiline command.
+     if (inputPreview !== null ||
+         repl[kIsMultiline] ||
+@@ -386,10 +386,8 @@
+     hasCompletions = false;
+ 
+     // Add the autocompletion preview.
+-    if (showCompletion) {
+-      const insertPreview = false;
+-      showCompletionPreview(repl.line, insertPreview);
+-    }
++    const insertPreview = false;
++    showCompletionPreview(repl.line, insertPreview);
+ 
+     // Do not preview if the command is buffered.
+     if (repl[bufferSymbol]) {
+diff -uN a/lib/repl.js b/lib/repl.js
+--- a/lib/repl.js
++++ b/lib/repl.js
+@@ -927,8 +927,9 @@
+         clearPreview(key);
+         if (!reverseSearch(d, key)) {
+           ttyWrite(d, key);
+-          const showCompletionPreview = key.name !== 'escape';
+-          showPreview(showCompletionPreview);
++          if (key.name !== 'escape') {
++            showPreview();
++          }
+         }
+         return;
+       }

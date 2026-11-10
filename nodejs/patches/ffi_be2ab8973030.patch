@@ -1,0 +1,170 @@
+diff -uN a/lib/internal/ffi/fast-api.js b/lib/internal/ffi/fast-api.js
+--- a/lib/internal/ffi/fast-api.js
++++ b/lib/internal/ffi/fast-api.js
+@@ -1,10 +1,8 @@
+ 'use strict';
+ 
+ const {
+-  ArrayBufferPrototypeGetDetached,
+   ArrayPrototypeIncludes,
+   BigInt,
+-  DataViewPrototypeGetBuffer,
+   NumberIsInteger,
+   NumberIsSafeInteger,
+   ObjectDefineProperty,
+@@ -12,7 +10,6 @@
+   SafeWeakMap,
+   StringPrototypeIncludes,
+   TypeError,
+-  TypedArrayPrototypeGetBuffer,
+ } = primordials;
+ 
+ const {
+@@ -22,7 +19,6 @@
+ const {
+   isArrayBuffer,
+   isArrayBufferView,
+-  isDataView,
+ } = require('internal/util/types');
+ 
+ const {
+@@ -181,28 +177,6 @@
+   return entry.pointer;
+ }
+ 
+-function getRawPointerArg(value, index) {
+-  let buffer;
+-  let isView = false;
+-  if (isArrayBuffer(value)) {
+-    buffer = value;
+-  } else if (isArrayBufferView(value)) {
+-    isView = true;
+-    buffer = isDataView(value) ?
+-      DataViewPrototypeGetBuffer(value) :
+-      TypedArrayPrototypeGetBuffer(value);
+-  }
+-
+-  if (buffer !== undefined && isArrayBuffer(buffer) &&
+-      ArrayBufferPrototypeGetDetached(buffer)) {
+-    throwFFIArgError(isView ?
+-      `Argument ${index} is an ArrayBufferView backed by a detached ArrayBuffer` :
+-      `Argument ${index} is a detached ArrayBuffer`);
+-  }
+-
+-  return getRawPointer(value);
+-}
+-
+ function convertPointerArg(type, value, stringState, index) {
+   validateFastPointerArg(type, value, index);
+   if (needsNullPointerConversion(type) &&
+@@ -213,7 +187,7 @@
+     return getStringConversionPointer(stringState, value, index);
+   }
+   if (hasPointerMemoryArg(type, value)) {
+-    return getRawPointerArg(value, index);
++    return getRawPointer(value);
+   }
+   // Pointer-like values (e.g. BigInt addresses) are passed through, matching
+   // ToFFIArgument in src/ffi/types.cc and the single-argument fast path.
+@@ -325,7 +299,7 @@
+         if (fastBufferInvoke !== undefined) {
+           return fastBufferInvoke(arg);
+         }
+-        arg = getRawPointerArg(arg, 0);
++        arg = getRawPointer(arg);
+       }
+       return rawFn(arg);
+     } }.invoke;
+diff -uN a/src/ffi/data.cc b/src/ffi/data.cc
+--- a/src/ffi/data.cc
++++ b/src/ffi/data.cc
+@@ -783,21 +783,11 @@
+   std::shared_ptr<BackingStore> store;
+ 
+   if (args[0]->IsArrayBuffer()) {
+-    Local<ArrayBuffer> buffer = args[0].As<ArrayBuffer>();
+-    if (buffer->WasDetached()) {
+-      THROW_ERR_INVALID_ARG_VALUE(env, "ArrayBuffer is detached");
+-      return;
+-    }
+-    store = buffer->GetBackingStore();
++    store = args[0].As<ArrayBuffer>()->GetBackingStore();
+   } else if (args[0]->IsSharedArrayBuffer()) {
+     store = args[0].As<SharedArrayBuffer>()->GetBackingStore();
+   } else if (args[0]->IsArrayBufferView()) {
+     Local<ArrayBufferView> view = args[0].As<ArrayBufferView>();
+-    if (view->Buffer()->WasDetached()) {
+-      THROW_ERR_INVALID_ARG_VALUE(
+-          env, "ArrayBufferView is backed by a detached ArrayBuffer");
+-      return;
+-    }
+     // Access the store here to ensure that it exists. Small typed arrays
+     // may not have a store until this point and can instead be stored
+     // entirely in-heap.
+diff -uN a/src/ffi/fast.cc b/src/ffi/fast.cc
+--- a/src/ffi/fast.cc
++++ b/src/ffi/fast.cc
+@@ -252,33 +252,9 @@
+   // SharedArrayBuffers, stay in the JS wrapper so validation and temporary
+   // lifetimes match the generic path.
+   if (value->IsArrayBufferView()) {
+-    v8::Local<v8::ArrayBufferView> view = value.As<v8::ArrayBufferView>();
+-    if (view->Buffer()->WasDetached()) {
+-      if (isolate != nullptr) {
+-        // No HandleScope is active during a Fast API call, so open one before
+-        // creating the error object.
+-        v8::HandleScope scope(isolate);
+-        THROW_ERR_INVALID_ARG_VALUE(
+-            isolate,
+-            "Argument %u is an ArrayBufferView backed by a detached "
+-            "ArrayBuffer",
+-            index);
+-      }
+-      return kInvalidBuffer;
+-    }
+     return PointerFromValue(value);
+   }
+   if (value->IsArrayBuffer()) {
+-    if (value.As<v8::ArrayBuffer>()->WasDetached()) {
+-      if (isolate != nullptr) {
+-        // No HandleScope is active during a Fast API call, so open one before
+-        // creating the error object.
+-        v8::HandleScope scope(isolate);
+-        THROW_ERR_INVALID_ARG_VALUE(
+-            isolate, "Argument %u is a detached ArrayBuffer", index);
+-      }
+-      return kInvalidBuffer;
+-    }
+     return PointerFromValue(value);
+   }
+ 
+diff -uN a/src/ffi/types.cc b/src/ffi/types.cc
+--- a/src/ffi/types.cc
++++ b/src/ffi/types.cc
+@@ -714,14 +714,6 @@
+       // invalidating that backing store during the active FFI call is
+       // unsupported and dangerous.
+       Local<ArrayBufferView> view = arg.As<ArrayBufferView>();
+-      if (view->Buffer()->WasDetached()) {
+-        THROW_ERR_INVALID_ARG_VALUE(
+-            env,
+-            "Argument %u is an ArrayBufferView backed by a detached "
+-            "ArrayBuffer",
+-            index);
+-        return {};
+-      }
+       std::shared_ptr<BackingStore> store = view->Buffer()->GetBackingStore();
+ 
+       if (!store) {
+@@ -743,11 +735,6 @@
+       // that backing store during the active FFI call is unsupported and
+       // dangerous.
+       Local<ArrayBuffer> buffer = arg.As<ArrayBuffer>();
+-      if (buffer->WasDetached()) {
+-        THROW_ERR_INVALID_ARG_VALUE(
+-            env, "Argument %u is a detached ArrayBuffer", index);
+-        return {};
+-      }
+       std::shared_ptr<BackingStore> store = buffer->GetBackingStore();
+ 
+       if (!store) {

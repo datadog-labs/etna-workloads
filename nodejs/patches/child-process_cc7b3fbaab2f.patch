@@ -1,0 +1,42 @@
+diff -uN a/lib/internal/child_process.js b/lib/internal/child_process.js
+--- a/lib/internal/child_process.js
++++ b/lib/internal/child_process.js
+@@ -87,7 +87,6 @@
+ 
+ const MAX_HANDLE_RETRANSMISSIONS = 3;
+ const kChannelHandle = Symbol('kChannelHandle');
+-const kIsUsedAsStdio = Symbol('kIsUsedAsStdio');
+ const kPendingMessages = Symbol('kPendingMessages');
+ 
+ // Store the handle after successfully sending it, so it can be closed when
+@@ -353,7 +352,7 @@
+     // TODO(addaleax): This doesn't necessarily account for all the ways in
+     // which data can be read from a stream, e.g. being consumed on the
+     // native layer directly as a StreamBase.
+-    if (!stream || !stream.readable || stream[kIsUsedAsStdio]) {
++    if (!stream || !stream.readable) {
+       continue;
+     }
+     stream.resume();
+@@ -503,16 +502,12 @@
+       continue;
+     }
+ 
+-    // The stream is already cloned and piped, thus stop its readable side,
+-    // otherwise we might attempt to read from the stream when at the same time
+-    // the child process does.
++    // The stream is already cloned and piped, thus close it.
+     if (stream.type === 'wrap') {
+-      stream.handle.reading = false;
+-      stream.handle.readStop();
+-      stream._stdio.pause();
+-      stream._stdio.readableFlowing = false;
+-      stream._stdio._readableState.reading = false;
+-      stream._stdio[kIsUsedAsStdio] = true;
++      stream.handle.close();
++      if (stream._stdio && stream._stdio instanceof EventEmitter) {
++        stream._stdio.emit('close');
++      }
+       continue;
+     }
+ 

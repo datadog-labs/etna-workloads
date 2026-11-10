@@ -1,0 +1,52 @@
+diff -uN a/src/crypto/crypto_cipher.cc b/src/crypto/crypto_cipher.cc
+--- a/src/crypto/crypto_cipher.cc
++++ b/src/crypto/crypto_cipher.cc
+@@ -513,7 +513,9 @@
+   if (auth_tag_len == kNoAuthTagLength) {
+     // GCM, SIV, and ChaCha20-Poly1305 have a default tag length of 16 bytes.
+     // Other modes (CCM, OCB) require an explicit tag length.
+-    if (ctx_.isGcmMode() || is_siv) {
++    if (ctx_.isGcmMode() && kind_ == kDecipher) {
++      // Leave the tag length unset; it is inferred from setAuthTag().
++    } else if (ctx_.isGcmMode() || is_siv) {
+       auth_tag_len = EVP_GCM_TLS_TAG_LEN;
+ #ifdef EVP_CHACHAPOLY_TLS_TAG_LEN
+     } else if (ctx_.isChaCha20Poly1305()) {
+@@ -609,16 +611,31 @@
+   }
+   unsigned int tag_len = auth_tag.size();
+ 
+-  // Older versions of Node.js did allow setting the auth tag length implicitly
+-  // for GCM mode (see DEP0182). We now require knowledge of the expected tag
+-  // length up front, so it must have been set during initialization.
+-  // The configured tag length must match the length of the given auth tag.
+-  CHECK_NE(cipher->auth_tag_len_, kNoAuthTagLength);
+-  if (cipher->auth_tag_len_ != tag_len) {
++  bool is_valid;
++  if (cipher->auth_tag_len_ == kNoAuthTagLength) {
++    is_valid = Cipher::IsValidGCMTagLength(tag_len);
++  } else {
++    is_valid = cipher->auth_tag_len_ == tag_len;
++  }
++
++  if (!is_valid) {
+     return THROW_ERR_CRYPTO_INVALID_AUTH_TAG(
+       env, "Invalid authentication tag length: %u", tag_len);
+   }
+ 
++  if (cipher->ctx_.isGcmMode() && cipher->auth_tag_len_ == kNoAuthTagLength &&
++      tag_len != EVP_GCM_TLS_TAG_LEN && env->EmitProcessEnvWarning()) {
++    if (ProcessEmitDeprecationWarning(
++            env,
++            "Using AES-GCM authentication tags of less than 128 bits without "
++            "specifying the authTagLength option when initializing decryption "
++            "is deprecated.",
++            "DEP0182")
++            .IsNothing())
++      return;
++  }
++
++  cipher->auth_tag_len_ = tag_len;
+   CHECK_LE(cipher->auth_tag_len_, ncrypto::Cipher::MAX_AUTH_TAG_LENGTH);
+   if (!cipher->ctx_.setAeadTag({auth_tag.data(), cipher->auth_tag_len_})) {
+     return args.GetReturnValue().Set(false);

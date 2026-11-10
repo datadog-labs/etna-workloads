@@ -1,0 +1,49 @@
+diff -uN a/lib/internal/webstreams/adapters.js b/lib/internal/webstreams/adapters.js
+--- a/lib/internal/webstreams/adapters.js
++++ b/lib/internal/webstreams/adapters.js
+@@ -165,6 +165,7 @@
+     failed: false,
+     failure: undefined,
+     callback: undefined,
++    writev: false,
+     error: undefined,
+     hasError: false,
+     dispatching: false,
+@@ -188,7 +189,9 @@
+     },
+     settle() {
+       const callback = this.callback;
++      const writev = this.writev;
+       this.callback = undefined;
++      this.writev = false;
+       let error;
+       if (this.hasError) {
+         error = this.error;
+@@ -205,8 +208,10 @@
+         // writableStreamFinishErroring), and the callback typically
+         // destroys the stream, which re-enters the machinery.
+         PromisePrototypeThen(kResolvedPromise, () => {
++          if (writev)
++            error = error.filter((e) => e);
+           try {
+-            callback(error);
++            callback(writev && error.length === 0 ? undefined : error);
+           } catch (err) {
+             process.nextTick(() => destroy(getDestination(), err));
+           }
+@@ -423,6 +428,7 @@
+ 
+     writev(chunks, callback) {
+       writeTracker.callback = callback;
++      writeTracker.writev = true;
+       dispatchWritev(writer, chunks, writeTracker);
+     },
+ 
+@@ -878,6 +884,7 @@
+ 
+     writev(chunks, callback) {
+       writeTracker.callback = callback;
++      writeTracker.writev = true;
+       dispatchWritev(writer, chunks, writeTracker);
+     },
+ 

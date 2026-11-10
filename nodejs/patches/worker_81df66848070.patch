@@ -1,0 +1,30 @@
+diff -uN a/src/node_messaging.cc b/src/node_messaging.cc
+--- a/src/node_messaging.cc
++++ b/src/node_messaging.cc
+@@ -434,6 +434,13 @@
+ 
+  private:
+   Maybe<bool> WriteHostObject(BaseObjectPtr<BaseObject> host_object) {
++    for (uint32_t i = 0; i < host_objects_.size(); i++) {
++      if (host_objects_[i] == host_object) {
++        serializer->WriteUint32(i);
++        return Just(true);
++      }
++    }
++
+     BaseObject::TransferMode mode = host_object->GetTransferMode();
+     if (mode == TransferMode::kDisallowCloneAndTransfer) {
+       ThrowDataCloneError(env_->clone_unsupported_type_str());
+@@ -441,12 +448,6 @@
+     }
+ 
+     if (mode & TransferMode::kTransferable) {
+-      for (uint32_t i = 0; i < host_objects_.size(); i++) {
+-        if (host_objects_[i] == host_object) {
+-          serializer->WriteUint32(i);
+-          return Just(true);
+-        }
+-      }
+       ThrowDataCloneError(env_->clone_transfer_needed_str());
+       return Nothing<bool>();
+     }

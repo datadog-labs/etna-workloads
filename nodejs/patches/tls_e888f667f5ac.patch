@@ -1,0 +1,16 @@
+diff -uN a/src/crypto/crypto_common.cc b/src/crypto/crypto_common.cc
+--- a/src/crypto/crypto_common.cc
++++ b/src/crypto/crypto_common.cc
+@@ -77,8 +77,10 @@
+ }
+ 
+ MaybeLocal<Value> GetCert(Environment* env, const SSLPointer& ssl) {
+-  if (auto cert = ssl.getCertificate()) {
+-    return X509Certificate::toObject(env, cert);
++  // Bug: takes ownership of an internal pointer that must not be freed.
++  X509Pointer cert(SSL_get_certificate(ssl.get()));
++  if (cert) {
++    return X509Certificate::toObject(env, cert.view());
+   }
+   return Undefined(env->isolate());
+ }

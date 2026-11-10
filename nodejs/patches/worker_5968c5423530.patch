@@ -1,0 +1,26 @@
+diff -uN a/lib/internal/worker.js b/lib/internal/worker.js
+--- a/lib/internal/worker.js
++++ b/lib/internal/worker.js
+@@ -392,10 +392,6 @@
+     drainMessagePort(this[kPublicPort]);
+     drainMessagePort(this[kPort]);
+     destroyMainThreadPort(this.threadId);
+-    this.removeAllListeners('message');
+-    this.removeAllListeners('messageerror');
+-    this[kPublicPort].unref();
+-    this[kPort].unref();
+     this[kDispose]();
+     if (customErr) {
+       debug(`[${threadId}] failing with custom error ${customErr} \
+diff -uN a/src/node_messaging.cc b/src/node_messaging.cc
+--- a/src/node_messaging.cc
++++ b/src/node_messaging.cc
+@@ -1149,7 +1149,7 @@
+ void MessagePort::Drain(const FunctionCallbackInfo<Value>& args) {
+   MessagePort* port;
+   ASSIGN_OR_RETURN_UNWRAP(&port, args[0].As<Object>());
+-  port->OnMessage(MessageProcessingMode::kForceReadMessages);
++  port->OnMessage(MessageProcessingMode::kNormalOperation);
+ }
+ 
+ void MessagePort::ReceiveMessage(const FunctionCallbackInfo<Value>& args) {

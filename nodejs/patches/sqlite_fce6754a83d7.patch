@@ -1,0 +1,35 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -171,15 +171,6 @@
+       (db)->IsInAuthorizerCallback(),                                          \
+       "database cannot be accessed from an authorizer callback")
+ 
+-// Finalizing a busy statement from an authorizer can release its locks and
+-// change the outer statement's outcome.
+-#define THROW_AND_RETURN_IF_BUSY_IN_AUTHORIZER(env, stmt)                      \
+-  THROW_AND_RETURN_ON_BAD_STATE(                                               \
+-      (env),                                                                   \
+-      (stmt)->db_->IsInAuthorizerCallback() &&                                 \
+-          sqlite3_stmt_busy((stmt)->statement_.get()),                         \
+-      "database cannot be accessed from an authorizer callback")
+-
+ // SQLite's session module reaches back into JavaScript from inside the
+ // pre-update hook, while it is still walking the connection's session list and
+ // reading the table it found there. Deleting a session frees memory that walk
+@@ -3826,7 +3817,6 @@
+   THROW_AND_RETURN_ON_BAD_STATE(
+       env, stmt->IsFinalized(), "statement has been finalized");
+   THROW_AND_RETURN_IF_STEPPING(env, stmt);
+-  THROW_AND_RETURN_IF_BUSY_IN_AUTHORIZER(env, stmt);
+   stmt->Close();
+ }
+ 
+@@ -3840,7 +3830,6 @@
+     return;
+   }
+   THROW_AND_RETURN_IF_STEPPING(env, stmt);
+-  THROW_AND_RETURN_IF_BUSY_IN_AUTHORIZER(env, stmt);
+   stmt->Close();
+ }
+ 

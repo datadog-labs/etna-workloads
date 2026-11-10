@@ -1,0 +1,43 @@
+diff -uN a/lib/internal/main/worker_thread.js b/lib/internal/main/worker_thread.js
+--- a/lib/internal/main/worker_thread.js
++++ b/lib/internal/main/worker_thread.js
+@@ -58,7 +58,6 @@
+ 
+ const assert = require('internal/assert');
+ const { getOptionValue } = require('internal/options');
+-const { exitCodes: { kGenericUserError } } = internalBinding('errors');
+ 
+ prepareWorkerThreadExecution();
+ 
+@@ -268,12 +267,10 @@
+ function workerOnGlobalUncaughtException(error, fromPromise) {
+   debug(`[${threadId}] gets uncaught exception`);
+   let handled = false;
+-  let handlerThrew = false;
+   try {
+     handled = onGlobalUncaughtException(error, fromPromise);
+   } catch (e) {
+     error = e;
+-    handlerThrew = true;
+   }
+   debug(`[${threadId}] uncaught exception handled = ${handled}`);
+ 
+@@ -281,18 +278,6 @@
+     return true;
+   }
+ 
+-  if (!process._exiting) {
+-    try {
+-      process._exiting = true;
+-      process.exitCode = kGenericUserError;
+-      if (!handlerThrew) {
+-        process.emit('exit', process.exitCode);
+-      }
+-    } catch {
+-      // Continue regardless of error.
+-    }
+-  }
+-
+   let serialized;
+   try {
+     const { serializeError } = require('internal/error_serdes');

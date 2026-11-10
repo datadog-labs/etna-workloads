@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/streams/transform.js b/lib/internal/streams/transform.js
+--- a/lib/internal/streams/transform.js
++++ b/lib/internal/streams/transform.js
+@@ -73,7 +73,6 @@
+   ERR_METHOD_NOT_IMPLEMENTED,
+ } = require('internal/errors').codes;
+ const Duplex = require('internal/streams/duplex');
+-const { getHighWaterMark } = require('internal/streams/state');
+ ObjectSetPrototypeOf(Transform.prototype, Duplex.prototype);
+ ObjectSetPrototypeOf(Transform, Duplex);
+ 
+@@ -83,22 +82,6 @@
+   if (!(this instanceof Transform))
+     return new Transform(options);
+ 
+-  // TODO (ronag): This should preferably always be
+-  // applied but would be semver-major. Or even better;
+-  // make Transform a Readable with the Writable interface.
+-  const readableHighWaterMark = options ? getHighWaterMark(this, options, 'readableHighWaterMark', true) : null;
+-  if (readableHighWaterMark === 0) {
+-    // A Duplex will buffer both on the writable and readable side while
+-    // a Transform just wants to buffer hwm number of elements. To avoid
+-    // buffering twice we disable buffering on the writable side.
+-    options = {
+-      ...options,
+-      highWaterMark: null,
+-      readableHighWaterMark,
+-      writableHighWaterMark: options.writableHighWaterMark || 0,
+-    };
+-  }
+-
+   Duplex.call(this, options);
+ 
+   // We have implemented the _read method, and done the other things
+@@ -186,7 +169,9 @@
+     } else if (
+       wState.ended || // Backwards compat.
+       length === rState.length || // Backwards compat.
+-      rState.length < rState.highWaterMark
++      rState.length < rState.highWaterMark ||
++      rState.highWaterMark === 0 ||
++      rState.length === 0
+     ) {
+       callback();
+     } else {

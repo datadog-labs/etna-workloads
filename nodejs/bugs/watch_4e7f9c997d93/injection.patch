@@ -1,0 +1,28 @@
+diff -uN a/lib/internal/main/watch_mode.js b/lib/internal/main/watch_mode.js
+--- a/lib/internal/main/watch_mode.js
++++ b/lib/internal/main/watch_mode.js
+@@ -37,8 +37,7 @@
+ 
+ const kKillSignal = convertToValidSignal(getOptionValue('--watch-kill-signal'));
+ const kShouldFilterModules = getOptionValue('--watch-path').length === 0;
+-const kEnvFiles = getOptionValue('--env-file');
+-const kOptionalEnvFiles = getOptionValue('--env-file-if-exists');
++const kEnvFile = getOptionValue('--env-file') || getOptionValue('--env-file-if-exists');
+ const kWatchedPaths = ArrayPrototypeMap(getOptionValue('--watch-path'), (path) => resolve(path));
+ const kPreserveOutput = getOptionValue('--watch-preserve-output');
+ const kCommand = ArrayPrototypeSlice(process.argv, 1);
+@@ -161,12 +160,8 @@
+     },
+   });
+   watcher.watchChildProcessModules(child);
+-  if (kEnvFiles.length > 0) {
+-    ArrayPrototypeForEach(kEnvFiles, (file) => watcher.filterFile(resolve(file)));
+-  }
+-  if (kOptionalEnvFiles.length > 0) {
+-    ArrayPrototypeForEach(kOptionalEnvFiles,
+-                          (file) => watcher.filterFile(resolve(file), undefined, { allowMissing: true }));
++  if (kEnvFile) {
++    watcher.filterFile(resolve(kEnvFile));
+   }
+   childExitPromise = once(child, 'exit').then(({ 0: code }) => {
+     exited = true;

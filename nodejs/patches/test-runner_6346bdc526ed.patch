@@ -1,0 +1,33 @@
+diff -uN a/lib/internal/test_runner/harness.js b/lib/internal/test_runner/harness.js
+--- a/lib/internal/test_runner/harness.js
++++ b/lib/internal/test_runner/harness.js
+@@ -260,8 +260,8 @@
+   setupFailureStateFile(root, globalOptions);
+ 
+   const exitHandler = async (kill) => {
+-    if (root.subtests.length === 0 && (root.hooks.before.length > 0 || root.hooks.after.length > 0)) {
+-      // Run global before/after hooks in case there are no tests
++    if (root.startTime === null) {
++      // Run global before/after hooks at process exit
+       await root.run();
+     }
+ 
+diff -uN a/lib/internal/test_runner/test.js b/lib/internal/test_runner/test.js
+--- a/lib/internal/test_runner/test.js
++++ b/lib/internal/test_runner/test.js
+@@ -1629,15 +1629,6 @@
+     this.report();
+     this.parent.waitingOn++;
+     this.finished = true;
+-
+-    if (this.parent === this.root &&
+-        this.root.waitingOn > this.root.subtests.length) {
+-      // At this point all of the tests have finished running. However, there
+-      // might be ref'ed handles keeping the event loop alive. This gives the
+-      // global after() hook a chance to clean them up. The user may also
+-      // want to force the test runner to exit despite ref'ed handles.
+-      this.root.run();
+-    }
+   }
+ 
+   duration() {

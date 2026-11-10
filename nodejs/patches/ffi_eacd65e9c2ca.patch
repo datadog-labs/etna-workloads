@@ -1,0 +1,29 @@
+diff -uN a/lib/ffi.js b/lib/ffi.js
+--- a/lib/ffi.js
++++ b/lib/ffi.js
+@@ -333,13 +333,7 @@
+ 
+   validateInteger(len, 'len', 0);
+ 
+-  // Reading byteLength throws for a detached DataView. Let the native binding
+-  // reject detached views consistently with detached ArrayBuffers.
+-  const buffer = isDataView(source) ?
+-    DataViewPrototypeGetBuffer(source) : TypedArrayPrototypeGetBuffer(source);
+-  if ((isSharedArrayBuffer(buffer) ||
+-       !ArrayBufferPrototypeGetDetached(buffer)) &&
+-      len < source.byteLength) {
++  if (len < source.byteLength) {
+     throw new ERR_OUT_OF_RANGE('len', `>= ${source.byteLength}`, len);
+   }
+ 
+diff -uN a/src/util-inl.h b/src/util-inl.h
+--- a/src/util-inl.h
++++ b/src/util-inl.h
+@@ -598,7 +598,6 @@
+ template <typename T, size_t S>
+   requires(sizeof(T) == 1)
+ void ArrayBufferViewContents<T, S>::Read(v8::Local<v8::ArrayBufferView> abv) {
+-  was_detached_ = abv->Buffer()->WasDetached();
+   length_ = abv->ByteLength();
+   if (length_ > sizeof(stack_storage_) || abv->HasBuffer()) {
+     auto buf_data = abv->Buffer()->Data();

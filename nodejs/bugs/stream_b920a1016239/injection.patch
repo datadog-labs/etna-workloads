@@ -1,0 +1,25 @@
+diff -uN a/lib/internal/streams/pipeline.js b/lib/internal/streams/pipeline.js
+--- a/lib/internal/streams/pipeline.js
++++ b/lib/internal/streams/pipeline.js
+@@ -180,14 +180,17 @@
+ }
+ 
+ function pipeline(...streams) {
+-  return pipelineImpl(streams, once(popCallback(streams)));
+-}
++  const callback = once(popCallback(streams));
+ 
+-function pipelineImpl(streams, callback, opts) {
+-  if (streams.length === 1 && ArrayIsArray(streams[0])) {
++  // stream.pipeline(streams, callback)
++  if (ArrayIsArray(streams[0]) && streams.length === 1) {
+     streams = streams[0];
+   }
+ 
++  return pipelineImpl(streams, callback);
++}
++
++function pipelineImpl(streams, callback, opts) {
+   if (streams.length < 2) {
+     throw new ERR_MISSING_ARGS('streams');
+   }

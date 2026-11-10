@@ -1,0 +1,42 @@
+diff -uN a/lib/_http_client.js b/lib/_http_client.js
+--- a/lib/_http_client.js
++++ b/lib/_http_client.js
+@@ -1133,6 +1133,7 @@
+   parser.joinDuplicateHeaders = req.joinDuplicateHeaders;
+ 
+   parser.onIncoming = parserOnIncomingClient;
++  socket.on('error', socketErrorListener);
+   socket.on('data', socketOnData);
+   socket.on('end', socketOnEnd);
+   socket.on('close', socketCloseListener);
+@@ -1171,15 +1172,8 @@
+ }
+ 
+ ClientRequest.prototype.onSocket = function onSocket(socket, err) {
+-  // Attach the error listener synchronously so that any errors emitted on
+-  // the socket before onSocketNT runs (e.g. from a blocklist check or other
+-  // next-tick error) are forwarded to the request and can be caught by the
+-  // user's error handler. socketErrorListener requires socket._httpMessage
+-  // to be set so we set it here too.
+-  if (socket && !err) {
+-    socket._httpMessage = this;
+-    socket.on('error', socketErrorListener);
+-  }
++  // TODO(ronag): Between here and onSocketNT the socket
++  // has no 'error' handler.
+   process.nextTick(onSocketNT, this, socket, err);
+ };
+ 
+@@ -1191,10 +1185,8 @@
+       if (!req.aborted && !err) {
+         err = new ConnResetException('socket hang up');
+       }
+-      // ERR_PROXY_TUNNEL is handled by the proxying logic.
+-      // Skip if the error was already emitted by the early socketErrorListener.
+-      if (err && err.code !== 'ERR_PROXY_TUNNEL' &&
+-          !socket?._hadError) {
++      // ERR_PROXY_TUNNEL is handled by the proxying logic
++      if (err && err.code !== 'ERR_PROXY_TUNNEL') {
+         emitErrorEvent(req, err);
+       }
+       req._closed = true;
