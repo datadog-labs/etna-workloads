@@ -1,0 +1,66 @@
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..125700a 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -9450,15 +9450,9 @@ export function hasZeroOrOneAsteriskCharacter(str: string): boolean {
+ 
+ /** @internal */
+ export interface SymlinkedDirectory {
+-    /**
+-     * Matches the casing returned by `realpath`.  Used to compute the `realpath` of children.
+-     * Always has trailing directory separator
+-     */
++    /** Matches the casing returned by `realpath`.  Used to compute the `realpath` of children. */
+     real: string;
+-    /**
+-     * toPath(real).  Stored to avoid repeated recomputation.
+-     * Always has trailing directory separator
+-     */
++    /** toPath(real).  Stored to avoid repeated recomputation. */
+     realPath: Path;
+ }
+ 
+@@ -9515,7 +9509,7 @@ export function createSymlinkCache(cwd: string, getCanonicalFileName: GetCanonic
+             if (!containsIgnoredPath(symlinkPath)) {
+                 symlinkPath = ensureTrailingDirectorySeparator(symlinkPath);
+                 if (real !== false && !symlinkedDirectories?.has(symlinkPath)) {
+-                    (symlinkedDirectoriesByRealpath ||= createMultiMap()).add(real.realPath, symlink);
++                    (symlinkedDirectoriesByRealpath ||= createMultiMap()).add(ensureTrailingDirectorySeparator(real.realPath), symlink);
+                 }
+                 (symlinkedDirectories || (symlinkedDirectories = new Map())).set(symlinkPath, real);
+             }
+@@ -9546,10 +9540,7 @@ export function createSymlinkCache(cwd: string, getCanonicalFileName: GetCanonic
+         if (commonResolved && commonOriginal) {
+             cache.setSymlinkedDirectory(
+                 commonOriginal,
+-                {
+-                    real: ensureTrailingDirectorySeparator(commonResolved),
+-                    realPath: ensureTrailingDirectorySeparator(toPath(commonResolved, cwd, getCanonicalFileName)),
+-                },
++                { real: commonResolved, realPath: toPath(commonResolved, cwd, getCanonicalFileName) },
+             );
+         }
+     }
+diff --git a/src/server/project.ts b/src/server/project.ts
+index 88fa23c..d4144bf 100644
+--- a/src/server/project.ts
++++ b/src/server/project.ts
+@@ -31,7 +31,6 @@ import {
+     DirectoryStructureHost,
+     DirectoryWatcherCallback,
+     DocumentPositionMapper,
+-    ensureTrailingDirectorySeparator,
+     enumerateInsertsAndDeletes,
+     every,
+     explainFiles,
+@@ -2712,8 +2711,8 @@ export class AutoImportProviderProject extends Project {
+                 const isSymlink = realPath && realPath !== hostProject.toPath(packageJson.packageDirectory);
+                 if (isSymlink) {
+                     symlinkCache.setSymlinkedDirectory(packageJson.packageDirectory, {
+-                        real: ensureTrailingDirectorySeparator(real!),
+-                        realPath: ensureTrailingDirectorySeparator(realPath),
++                        real: real!,
++                        realPath,
+                     });
+                 }
+ 

@@ -1,0 +1,33 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..e8073ac 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -21828,8 +21828,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             const elem = node.elements[i];
+             if (isOmittedExpression(elem)) continue;
+             const nameType = getNumberLiteralType(i);
+-            const checkNode = getEffectiveCheckNode(elem);
+-            yield { errorNode: checkNode, innerExpression: checkNode, nameType };
++            yield { errorNode: elem, innerExpression: elem, nameType };
+         }
+     }
+ 
+@@ -36190,8 +36189,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 // we obtain the regular type of any object literal arguments because we may not have inferred complete
+                 // parameter types yet and therefore excess property checks may yield false positives (see #17041).
+                 const checkArgType = checkMode & CheckMode.SkipContextSensitive ? getRegularTypeOfObjectLiteral(argType) : argType;
+-                const effectiveCheckArgumentNode = getEffectiveCheckNode(arg);
+-                if (!checkTypeRelatedToAndOptionallyElaborate(checkArgType, paramType, relation, reportErrors ? effectiveCheckArgumentNode : undefined, effectiveCheckArgumentNode, headMessage, containingMessageChain, errorOutputContainer)) {
++                if (!checkTypeRelatedToAndOptionallyElaborate(checkArgType, paramType, relation, reportErrors ? arg : undefined, arg,headMessage, containingMessageChain, errorOutputContainer)) {
+                     Debug.assert(!reportErrors || !!errorOutputContainer.errors, "parameter should have errors when reporting errors");
+                     maybeAddMissingAwaitInfo(arg, checkArgType, paramType);
+                     return errorOutputContainer.errors || emptyArray;
+@@ -36203,7 +36201,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             const restArgCount = args.length - argCount;
+             const errorNode = !reportErrors ? undefined :
+                 restArgCount === 0 ? node :
+-                restArgCount === 1 ? getEffectiveCheckNode(args[argCount]) :
++                restArgCount === 1 ? args[argCount] :
+                 setTextRangePosEnd(createSyntheticExpression(node, spreadType), args[argCount].pos, args[args.length - 1].end);
+             if (!checkTypeRelatedTo(spreadType, restType, relation, errorNode, headMessage, /*containingMessageChain*/ undefined, errorOutputContainer)) {
+                 Debug.assert(!reportErrors || !!errorOutputContainer.errors, "rest parameter should have errors when reporting errors");

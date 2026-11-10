@@ -1,0 +1,39 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..1250973 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -4827,7 +4827,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 }
+                 if (errorNode && (moduleKind === ModuleKind.Node16 || moduleKind === ModuleKind.Node18)) {
+                     const isSyncImport = (currentSourceFile.impliedNodeFormat === ModuleKind.CommonJS && !findAncestor(location, isImportCall)) || !!findAncestor(location, isImportEqualsDeclaration);
+-                    const overrideHost = findAncestor(location, l => isImportTypeNode(l) || isExportDeclaration(l) || isImportDeclaration(l) || isJSDocImportTag(l));
++                    const overrideHost = findAncestor(location, l => isImportTypeNode(l) || isExportDeclaration(l) || isImportDeclaration(l));
+                     // An override clause will take effect for type-only imports and import types, and allows importing the types across formats, regardless of
+                     // normal mode restrictions
+                     if (isSyncImport && sourceFile.impliedNodeFormat === ModuleKind.ESNext && !hasResolutionModeOverride(overrideHost)) {
+diff --git a/src/compiler/program.ts b/src/compiler/program.ts
+index b44a155..01c750d 100644
+--- a/src/compiler/program.ts
++++ b/src/compiler/program.ts
+@@ -934,7 +934,7 @@ export function getModeForUsageLocation(file: SourceFile, usage: StringLiteralLi
+ }
+ 
+ function getModeForUsageLocationWorker(file: Pick<SourceFile, "fileName" | "impliedNodeFormat" | "packageJsonScope">, usage: StringLiteralLike, compilerOptions?: CompilerOptions) {
+-    if (isImportDeclaration(usage.parent) || isExportDeclaration(usage.parent) || isJSDocImportTag(usage.parent)) {
++    if (isImportDeclaration(usage.parent) || isExportDeclaration(usage.parent)) {
+         const isTypeOnly = isExclusivelyTypeOnlyImportOrExport(usage.parent);
+         if (isTypeOnly) {
+             const override = getResolutionModeOverride(usage.parent.attributes);
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..2d00623 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -11183,7 +11183,7 @@ export function isExpandoPropertyDeclaration(declaration: Declaration | undefine
+ }
+ 
+ /** @internal */
+-export function hasResolutionModeOverride(node: ImportTypeNode | ImportDeclaration | ExportDeclaration | JSDocImportTag | undefined): boolean {
++export function hasResolutionModeOverride(node: ImportTypeNode | ImportDeclaration | ExportDeclaration | undefined): boolean {
+     if (node === undefined) {
+         return false;
+     }

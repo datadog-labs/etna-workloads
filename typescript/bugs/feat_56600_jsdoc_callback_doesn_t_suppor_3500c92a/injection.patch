@@ -1,0 +1,85 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..da3bd95 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -636,7 +636,6 @@ import {
+     isJSDocSatisfiesTag,
+     isJSDocSignature,
+     isJSDocTemplateTag,
+-    isJSDocThisTag,
+     isJSDocTypeAlias,
+     isJSDocTypeAssertion,
+     isJSDocTypedefTag,
+@@ -16181,7 +16180,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             let flags = SignatureFlags.None;
+             let minArgumentCount = 0;
+             let thisParameter: Symbol | undefined;
+-            let thisTag: JSDocThisTag | undefined = isInJSFile(declaration) ? getJSDocThisTag(declaration) : undefined;
+             let hasThisParameter = false;
+             const iife = getImmediatelyInvokedFunctionExpression(declaration);
+             const isJSConstructSignature = isJSDocConstructSignature(declaration);
+@@ -16201,10 +16199,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             // signature.
+             for (let i = isJSConstructSignature ? 1 : 0; i < declaration.parameters.length; i++) {
+                 const param = declaration.parameters[i];
+-                if (isInJSFile(param) && isJSDocThisTag(param)) {
+-                    thisTag = param;
+-                    continue;
+-                }
+ 
+                 let paramSymbol = param.symbol;
+                 const type = isJSDocParameterTag(param) ? (param.typeExpression && param.typeExpression.type) : param.type;
+@@ -16247,8 +16241,11 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 }
+             }
+ 
+-            if (thisTag && thisTag.typeExpression) {
+-                thisParameter = createSymbolWithType(createSymbol(SymbolFlags.FunctionScopedVariable, InternalSymbolName.This), getTypeFromTypeNode(thisTag.typeExpression));
++            if (isInJSFile(declaration)) {
++                const thisTag = getJSDocThisTag(declaration);
++                if (thisTag && thisTag.typeExpression) {
++                    thisParameter = createSymbolWithType(createSymbol(SymbolFlags.FunctionScopedVariable, InternalSymbolName.This), getTypeFromTypeNode(thisTag.typeExpression));
++                }
+             }
+ 
+             const hostDeclaration = isJSDocSignature(declaration) ? getEffectiveJSDocHost(declaration) : declaration;
+diff --git a/src/compiler/parser.ts b/src/compiler/parser.ts
+index 68133ac..d3eb5a7 100644
+--- a/src/compiler/parser.ts
++++ b/src/compiler/parser.ts
+@@ -9446,7 +9446,7 @@ namespace Parser {
+             function parseNestedTypeLiteral(typeExpression: JSDocTypeExpression | undefined, name: EntityName, target: PropertyLikeParse, indent: number) {
+                 if (typeExpression && isObjectOrObjectArrayTypeReference(typeExpression.type)) {
+                     const pos = getNodePos();
+-                    let child: JSDocPropertyLikeTag | JSDocTypeTag | JSDocTemplateTag | JSDocThisTag | false;
++                    let child: JSDocPropertyLikeTag | JSDocTypeTag | JSDocTemplateTag | false;
+                     let children: JSDocPropertyLikeTag[] | undefined;
+                     while (child = tryParse(() => parseChildParameterOrPropertyTag(target, indent, name))) {
+                         if (child.kind === SyntaxKind.JSDocParameterTag || child.kind === SyntaxKind.JSDocPropertyTag) {
+@@ -9755,7 +9755,7 @@ namespace Parser {
+                 return parseChildParameterOrPropertyTag(PropertyLikeParse.Property, indent) as JSDocTypeTag | JSDocPropertyTag | JSDocTemplateTag | false;
+             }
+ 
+-            function parseChildParameterOrPropertyTag(target: PropertyLikeParse, indent: number, name?: EntityName): JSDocTypeTag | JSDocPropertyTag | JSDocParameterTag | JSDocTemplateTag | JSDocThisTag | false {
++            function parseChildParameterOrPropertyTag(target: PropertyLikeParse, indent: number, name?: EntityName): JSDocTypeTag | JSDocPropertyTag | JSDocParameterTag | JSDocTemplateTag | false {
+                 let canParseTag = true;
+                 let seenAsterisk = false;
+                 while (true) {
+@@ -9792,7 +9792,7 @@ namespace Parser {
+                 }
+             }
+ 
+-            function tryParseChildTag(target: PropertyLikeParse, indent: number): JSDocTypeTag | JSDocPropertyTag | JSDocParameterTag | JSDocTemplateTag | JSDocThisTag | false {
++            function tryParseChildTag(target: PropertyLikeParse, indent: number): JSDocTypeTag | JSDocPropertyTag | JSDocParameterTag | JSDocTemplateTag | false {
+                 Debug.assert(token() === SyntaxKind.AtToken);
+                 const start = scanner.getTokenFullStart();
+                 nextTokenJSDoc();
+@@ -9814,8 +9814,6 @@ namespace Parser {
+                         break;
+                     case "template":
+                         return parseTemplateTag(start, tagName, indent, indentText);
+-                    case "this":
+-                        return parseThisTag(start, tagName, indent, indentText);
+                     default:
+                         return false;
+                 }

@@ -1,0 +1,45 @@
+diff --git a/src/services/inlayHints.ts b/src/services/inlayHints.ts
+index 43dad7e..79aad1c 100644
+--- a/src/services/inlayHints.ts
++++ b/src/services/inlayHints.ts
+@@ -104,6 +104,7 @@ import {
+     Node,
+     NodeArray,
+     NodeBuilderFlags,
++    NumericLiteral,
+     ParameterDeclaration,
+     parameterIsThisKeyword,
+     PrefixUnaryExpression,
+@@ -112,6 +113,7 @@ import {
+     SignatureDeclarationBase,
+     skipParentheses,
+     some,
++    StringLiteral,
+     Symbol,
+     SymbolFlags,
+     SyntaxKind,
+@@ -535,11 +537,6 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
+                 return;
+             }
+ 
+-            if (isLiteralExpression(node)) {
+-                parts.push({ text: getLiteralText(node) });
+-                return;
+-            }
+-
+             switch (node.kind) {
+                 case SyntaxKind.Identifier:
+                     Debug.assertNode(node, isIdentifier);
+@@ -552,6 +549,12 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
+                         parts.push({ text: identifierText });
+                     }
+                     break;
++                case SyntaxKind.NumericLiteral:
++                    parts.push({ text: (node as NumericLiteral).text });
++                    break;
++                case SyntaxKind.StringLiteral:
++                    parts.push({ text: `"${(node as StringLiteral).text}"` });
++                    break;
+                 case SyntaxKind.QualifiedName:
+                     Debug.assertNode(node, isQualifiedName);
+                     visitForDisplayParts(node.left);

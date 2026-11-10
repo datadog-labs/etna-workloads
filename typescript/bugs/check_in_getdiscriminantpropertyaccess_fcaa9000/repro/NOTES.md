@@ -1,0 +1,1 @@
+Input: type guard to a discriminated union on a Record<string, any> | undefined variable, then discriminant check and property access. Clean: no error. Injected: TS2339 aProp does not exist on type U.

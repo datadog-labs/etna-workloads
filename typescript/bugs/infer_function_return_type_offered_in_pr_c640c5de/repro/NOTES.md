@@ -1,0 +1,2 @@
+Input: `let x = 10;` followed by a blank line and a function with an inferable return type. The script asks the language service for "Infer function return type" refactors at the position just after the `;` (trailing trivia, before the next function).
+Clean: no refactor offered (`[]`). Injected: the refactor is offered for the following function (`getTokenAtPosition` instead of `getTouchingPropertyName`).

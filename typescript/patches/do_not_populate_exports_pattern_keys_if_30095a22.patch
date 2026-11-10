@@ -1,0 +1,25 @@
+diff --git a/src/compiler/moduleNameResolver.ts b/src/compiler/moduleNameResolver.ts
+index bfa3384..36ad97a 100644
+--- a/src/compiler/moduleNameResolver.ts
++++ b/src/compiler/moduleNameResolver.ts
+@@ -2712,7 +2712,7 @@ function loadModuleFromExportsOrImports(extensions: Extensions, state: ModuleRes
+         const target = (lookupTable as MapLike<unknown>)[moduleName];
+         return loadModuleFromTargetExportOrImport(target, /*subpath*/ "", /*pattern*/ false, moduleName);
+     }
+-    const expandingKeys = toSorted(filter(getOwnKeys(lookupTable as MapLike<unknown>), k => hasOneAsterisk(k) || endsWith(k, "/")), comparePatternKeys);
++    const expandingKeys = toSorted(filter(getOwnKeys(lookupTable as MapLike<unknown>), k => k.includes("*") || endsWith(k, "/")), comparePatternKeys);
+     for (const potentialTarget of expandingKeys) {
+         if (state.features & NodeResolutionFeatures.ExportsPatternTrailers && matchesPatternWithTrailer(potentialTarget, moduleName)) {
+             const target = (lookupTable as MapLike<unknown>)[potentialTarget];
+@@ -2740,11 +2740,6 @@ function loadModuleFromExportsOrImports(extensions: Extensions, state: ModuleRes
+     }
+ }
+ 
+-function hasOneAsterisk(patternKey: string): boolean {
+-    const firstStar = patternKey.indexOf("*");
+-    return firstStar !== -1 && firstStar === patternKey.lastIndexOf("*");
+-}
+-
+ /**
+  * Gets the self-recursive function specialized to retrieving the targeted import/export element for the given resolution configuration
+  */

@@ -1,0 +1,2 @@
+Hunk: checker.ts (getTypePredicateFromBody / false-condition flow check). The fix changed the declared type of the false-branch getFlowTypeOfReference call from trueType to initType (second hunk of fix.diff; the first, a property reorder, is behaviourally irrelevant). Reverted by passing trueType as declaredType again, so discriminated-union narrowing in the false branch is computed against the already narrowed type and wrong predicates are inferred.
+Final: SUMMARY: 3/6 oracle cases failing (0 fix-added); inferTypePredicates.ts compiler test baselines fail.

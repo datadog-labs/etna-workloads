@@ -1,0 +1,31 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..2494370 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -1986,26 +1986,16 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         node = findAncestor(node, isCallLikeOrFunctionLikeExpression);
+         if (node) {
+             const cachedResolvedSignatures = [];
+-            const cachedTypes = [];
+             while (node) {
+                 const nodeLinks = getNodeLinks(node);
+                 cachedResolvedSignatures.push([nodeLinks, nodeLinks.resolvedSignature] as const);
+                 nodeLinks.resolvedSignature = undefined;
+-                if (isFunctionExpressionOrArrowFunction(node)) {
+-                    const symbolLinks = getSymbolLinks(getSymbolOfDeclaration(node));
+-                    const type = symbolLinks.type;
+-                    cachedTypes.push([symbolLinks, type] as const);
+-                    symbolLinks.type = undefined;
+-                }
+                 node = findAncestor(node.parent, isCallLikeOrFunctionLikeExpression);
+             }
+             const result = fn();
+             for (const [nodeLinks, resolvedSignature] of cachedResolvedSignatures) {
+                 nodeLinks.resolvedSignature = resolvedSignature;
+             }
+-            for (const [symbolLinks, type] of cachedTypes) {
+-                symbolLinks.type = type;
+-            }
+             return result;
+         }
+         return fn();

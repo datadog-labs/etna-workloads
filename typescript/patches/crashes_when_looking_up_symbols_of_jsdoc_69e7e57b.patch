@@ -1,0 +1,58 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..f489c4f 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -11903,10 +11903,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         }
+ 
+         if (isParameter(declaration)) {
+-            if (!declaration.symbol) {
+-                // parameters of function types defined in JSDoc in TS files don't have symbols
+-                return;
+-            }
+             const func = declaration.parent as FunctionLikeDeclaration;
+             // For a parameter of a set accessor, use the type of the get accessor if one is present
+             if (func.kind === SyntaxKind.SetAccessor && hasBindableName(func)) {
+diff --git a/src/services/services.ts b/src/services/services.ts
+index 9885093..ddcd6ae 100644
+--- a/src/services/services.ts
++++ b/src/services/services.ts
+@@ -160,7 +160,6 @@ import {
+     isIdentifier,
+     isImportMeta,
+     isInComment,
+-    isInJSFile,
+     isInsideJsxElement,
+     isInsideJsxElementOrAttribute,
+     isInString,
+@@ -263,7 +262,6 @@ import {
+     PrivateIdentifier,
+     Program,
+     PropertyName,
+-    PropertySignature,
+     QuickInfo,
+     refactor,
+     RefactorContext,
+@@ -2287,6 +2285,7 @@ export function createLanguageService(
+         const typeChecker = program.getTypeChecker();
+         const nodeForQuickInfo = getNodeForQuickInfo(node);
+         const symbol = getSymbolAtLocationForQuickInfo(nodeForQuickInfo, typeChecker);
++
+         if (!symbol || typeChecker.isUnknownSymbol(symbol)) {
+             const type = shouldGetType(sourceFile, nodeForQuickInfo, position) ? typeChecker.getTypeAtLocation(nodeForQuickInfo) : undefined;
+             return type && {
+@@ -2370,14 +2369,6 @@ export function createLanguageService(
+     function shouldGetType(sourceFile: SourceFile, node: Node, position: number): boolean {
+         switch (node.kind) {
+             case SyntaxKind.Identifier:
+-                if (
+-                    node.flags & NodeFlags.JSDoc && !isInJSFile(node) &&
+-                    ((node.parent.kind === SyntaxKind.PropertySignature && (node.parent as PropertySignature).name === node) ||
+-                        findAncestor(node, n => n.kind === SyntaxKind.Parameter))
+-                ) {
+-                    // if we'd request type at those locations we'd get `errorType` that displays confusingly as `any`
+-                    return false;
+-                }
+                 return !isLabelName(node) && !isTagName(node) && !isConstTypeReference(node.parent);
+             case SyntaxKind.PropertyAccessExpression:
+             case SyntaxKind.QualifiedName:

@@ -1,0 +1,2 @@
+Changed tree/src/services/codefixes/requireInTs.ts, reverting every hunk of fix.diff: removed the quote-preference/template-literal imports, the `preferences` parameter of getInfo (and its two call sites), and the conversion of NoSubstitutionTemplateLiteral to a string literal; `moduleSpecifier` is renamed back to `required` and holds `first(parent.arguments)` unchanged. So require(`foo`) becomes import ... from `foo` (template literal) again.
+Final: SUMMARY: 1/2 oracle cases failing (1 fix-added).

@@ -1,0 +1,1 @@
+Input is a regex literal whose flags are non-BMP (astral) identifier characters, plus a non-BMP group modifier. Clean tsc reports six TS1499 unknown-flag errors; the injected build scans flags by UTF-16 unit, so it reports TS1005/TS7005 at the flags instead.

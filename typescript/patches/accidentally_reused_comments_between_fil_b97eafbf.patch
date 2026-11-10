@@ -1,0 +1,64 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..854bdf5 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -6417,7 +6417,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 const context = syntacticContext as NodeBuilderContext;
+                 if (context.bundled || context.enclosingFile !== getSourceFileOfNode(lit)) {
+                     let name = lit.text;
+-                    const originalName = name;
+                     const nodeSymbol = getNodeLinks(parent).resolvedSymbol;
+                     const meaning = parent.isTypeOf ? SymbolFlags.Value : SymbolFlags.Type;
+                     const parentSymbol = nodeSymbol
+@@ -6438,9 +6437,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                             context.tracker.reportLikelyUnsafeImportRequiredError(name, nodeSymbol ? unescapeLeadingUnderscores(nodeSymbol.escapedName) : undefined);
+                         }
+                     }
+-                    if (name !== originalName) {
+-                        return name;
+-                    }
++                    return name;
+                 }
+             },
+             canReuseTypeNode(context, typeNode) {
+@@ -9269,7 +9266,10 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                     return setTextRange(context, setEmitFlags(name, EmitFlags.NoAsciiEscaping), node);
+                 }
+                 const updated = visitEachChildWorker(node, c => attachSymbolToLeftmostIdentifier(c), /*context*/ undefined);
+-                return setTextRange(context, updated, node);
++                if (updated !== node) {
++                    setTextRange(context, updated, node);
++                }
++                return updated;
+             }
+         }
+ 
+diff --git a/src/compiler/expressionToTypeNode.ts b/src/compiler/expressionToTypeNode.ts
+index 0df3a39..8ed0cc7 100644
+--- a/src/compiler/expressionToTypeNode.ts
++++ b/src/compiler/expressionToTypeNode.ts
+@@ -435,11 +435,9 @@ export function createSyntacticTypeNodeBuilder(
+                 if (!resolver.canReuseTypeNode(context, node)) {
+                     return resolver.serializeExistingTypeNode(context, node);
+                 }
+-                const specifier = rewriteModuleSpecifier(node, node.argument.literal);
+-                const literal = specifier === node.argument.literal ? reuseNode(context, node.argument.literal) : specifier;
+                 return factory.updateImportTypeNode(
+                     node,
+-                    literal === node.argument.literal ? reuseNode(context, node.argument) : factory.createLiteralTypeNode(literal),
++                    factory.updateLiteralTypeNode(node.argument, rewriteModuleSpecifier(node, node.argument.literal)),
+                     visitNode(node.attributes, visitExistingNodeTreeSymbols, isImportAttributes),
+                     visitNode(node.qualifier, visitExistingNodeTreeSymbols, isEntityName),
+                     visitNodes(node.typeArguments, visitExistingNodeTreeSymbols, isTypeNode),
+@@ -614,7 +612,10 @@ export function createSyntacticTypeNodeBuilder(
+ 
+             function rewriteModuleSpecifier(parent: ImportTypeNode, lit: StringLiteral) {
+                 const newName = resolver.getModuleSpecifierOverride(context, parent, lit);
+-                return newName ? setOriginalNode(factory.createStringLiteral(newName), lit) : lit;
++                if (newName) {
++                    return setOriginalNode(factory.createStringLiteral(newName), lit);
++                }
++                return visitNode(lit, visitExistingNodeTreeSymbols, isStringLiteral)!;
+             }
+         }
+     }

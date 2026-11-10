@@ -1,0 +1,52 @@
+diff --git a/src/services/inlayHints.ts b/src/services/inlayHints.ts
+index 43dad7e..9b1791b 100644
+--- a/src/services/inlayHints.ts
++++ b/src/services/inlayHints.ts
+@@ -105,7 +105,6 @@ import {
+     NodeArray,
+     NodeBuilderFlags,
+     ParameterDeclaration,
+-    parameterIsThisKeyword,
+     PrefixUnaryExpression,
+     PropertyDeclaration,
+     QuotePreference,
+@@ -440,26 +439,24 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
+             return;
+         }
+ 
+-        let pos = 0;
+-        for (const param of node.parameters) {
+-            if (isHintableDeclaration(param)) {
+-                addParameterTypeHint(param, parameterIsThisKeyword(param) ? signature.thisParameter : signature.parameters[pos]);
+-            }
+-            if (parameterIsThisKeyword(param)) {
++        for (let i = 0; i < node.parameters.length && i < signature.parameters.length; ++i) {
++            const param = node.parameters[i];
++            if (!isHintableDeclaration(param)) {
+                 continue;
+             }
+-            pos++;
+-        }
+-    }
+ 
+-    function addParameterTypeHint(node: ParameterDeclaration, symbol: Symbol | undefined) {
+-        const effectiveTypeAnnotation = getEffectiveTypeAnnotationNode(node);
+-        if (effectiveTypeAnnotation || symbol === undefined) return;
++            const effectiveTypeAnnotation = getEffectiveTypeAnnotationNode(param);
++            if (effectiveTypeAnnotation) {
++                continue;
++            }
+ 
+-        const typeHints = getParameterDeclarationTypeHints(symbol);
+-        if (typeHints === undefined) return;
++            const typeHints = getParameterDeclarationTypeHints(signature.parameters[i]);
++            if (!typeHints) {
++                continue;
++            }
+ 
+-        addTypeHints(typeHints, node.questionToken ? node.questionToken.end : node.name.end);
++            addTypeHints(typeHints, param.questionToken ? param.questionToken.end : param.name.end);
++        }
+     }
+ 
+     function getParameterDeclarationTypeHints(symbol: Symbol) {

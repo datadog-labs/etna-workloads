@@ -1,0 +1,11 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const ts = require(process.env.TYPESCRIPT);
+import fs from "fs";
+const opts = { noEmit: true };
+const host = ts.createCompilerHost(opts);
+const p = ts.createProgram(["input.ts"], opts, host);
+const sf = p.getSourceFile("input.ts");
+const ds = p.getSemanticDiagnostics(sf);
+console.log(ds.length);
+for (const d of ds) console.log(d.start, ts.flattenDiagnosticMessageText(d.messageText, "\n"));

@@ -1,0 +1,13 @@
+const ts=require(process.env.TYPESCRIPT);const fs=require("fs");
+const set=new Set();let cbs=new Map();
+const host=ts.createWatchCompilerHost("tests/tsconfig.json",{},ts.sys,ts.createSemanticDiagnosticsBuilderProgram,()=>{},()=>{});
+const w=host.watchFile;
+host.watchFile=(f,cb,i,o)=>{set.add(f);cbs.set(f,cb);const r=w.call(host,f,cb,i,o);return {close(){set.delete(f);cbs.delete(f);r.close()}}};
+const wp=ts.createWatchProgram(host);
+const cwd=process.cwd()+"/";
+const show=()=>console.log([...set].filter(f=>f.startsWith(cwd)&&f.endsWith("package.json")).map(f=>f.slice(cwd.length)).sort().join("\n"));
+show();
+console.log("--edit");
+fs.appendFileSync("tests/index.ts","\nexport const z = 1;\n");
+cbs.get(process.cwd()+"/tests/index.ts")(process.cwd()+"/tests/index.ts",ts.FileWatcherEventKind.Changed);
+setTimeout(()=>{show();wp.close();},1500);

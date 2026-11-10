@@ -1,0 +1,34 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..5e39ab5 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -49971,20 +49971,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         return undefined;
+     }
+ 
+-    function isThisPropertyAndThisTyped(node: PropertyAccessExpression) {
+-        if (node.expression.kind === SyntaxKind.ThisKeyword) {
+-            const container = getThisContainer(node, /*includeArrowFunctions*/ false, /*includeClassComputedPropertyName*/ false);
+-            if (isFunctionLike(container)) {
+-                const containingLiteral = getContainingObjectLiteral(container);
+-                if (containingLiteral) {
+-                    const contextualType = getApparentTypeOfContextualType(containingLiteral, /*contextFlags*/ undefined);
+-                    const type = getThisTypeOfObjectLiteralFromContextualType(containingLiteral, contextualType);
+-                    return type && !isTypeAny(type);
+-                }
+-            }
+-        }
+-    }
+-
+     function getSymbolOfNameOrPropertyAccessExpression(name: EntityName | PrivateIdentifier | PropertyAccessExpression | JSDocMemberName): Symbol | undefined {
+         if (isDeclarationName(name)) {
+             return getSymbolOfNode(name.parent);
+@@ -49996,7 +49982,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             name.parent === (name.parent.parent as BinaryExpression).left
+         ) {
+             // Check if this is a special property assignment
+-            if (!isPrivateIdentifier(name) && !isJSDocMemberName(name) && !isThisPropertyAndThisTyped(name.parent as PropertyAccessExpression)) {
++            if (!isPrivateIdentifier(name) && !isJSDocMemberName(name)) {
+                 const specialPropertyAssignmentSymbol = getSpecialPropertyAssignmentSymbolFromEntityName(name);
+                 if (specialPropertyAssignmentSymbol) {
+                     return specialPropertyAssignmentSymbol;

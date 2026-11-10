@@ -1,0 +1,96 @@
+diff --git a/src/services/codefixes/requireInTs.ts b/src/services/codefixes/requireInTs.ts
+index b627fbb..c95d444 100644
+--- a/src/services/codefixes/requireInTs.ts
++++ b/src/services/codefixes/requireInTs.ts
+@@ -10,12 +10,10 @@ import {
+     factory,
+     first,
+     getAllowSyntheticDefaultImports,
+-    getQuotePreference,
+     getTokenAtPosition,
+     Identifier,
+     ImportSpecifier,
+     isIdentifier,
+-    isNoSubstitutionTemplateLiteral,
+     isObjectBindingPattern,
+     isRequireCall,
+     isVariableDeclaration,
+@@ -23,12 +21,10 @@ import {
+     NamedImports,
+     ObjectBindingPattern,
+     Program,
+-    QuotePreference,
+     SourceFile,
+     StringLiteralLike,
+     textChanges,
+     tryCast,
+-    UserPreferences,
+     VariableStatement,
+ } from "../_namespaces/ts.js";
+ 
+@@ -37,7 +33,7 @@ const errorCodes = [Diagnostics.require_call_may_be_converted_to_an_import.code]
+ registerCodeFix({
+     errorCodes,
+     getCodeActions(context) {
+-        const info = getInfo(context.sourceFile, context.program, context.span.start, context.preferences);
++        const info = getInfo(context.sourceFile, context.program, context.span.start);
+         if (!info) {
+             return undefined;
+         }
+@@ -47,7 +43,7 @@ registerCodeFix({
+     fixIds: [fixId],
+     getAllCodeActions: context =>
+         codeFixAll(context, errorCodes, (changes, diag) => {
+-            const info = getInfo(diag.file, context.program, diag.start, context.preferences);
++            const info = getInfo(diag.file, context.program, diag.start);
+             if (info) {
+                 doChange(changes, context.sourceFile, info);
+             }
+@@ -55,13 +51,13 @@ registerCodeFix({
+ });
+ 
+ function doChange(changes: textChanges.ChangeTracker, sourceFile: SourceFile, info: Info) {
+-    const { allowSyntheticDefaults, defaultImportName, namedImports, statement, moduleSpecifier } = info;
++    const { allowSyntheticDefaults, defaultImportName, namedImports, statement, required } = info;
+     changes.replaceNode(
+         sourceFile,
+         statement,
+         defaultImportName && !allowSyntheticDefaults
+-            ? factory.createImportEqualsDeclaration(/*modifiers*/ undefined, /*isTypeOnly*/ false, defaultImportName, factory.createExternalModuleReference(moduleSpecifier))
+-            : factory.createImportDeclaration(/*modifiers*/ undefined, factory.createImportClause(/*phaseModifier*/ undefined, defaultImportName, namedImports), moduleSpecifier, /*attributes*/ undefined),
++            ? factory.createImportEqualsDeclaration(/*modifiers*/ undefined, /*isTypeOnly*/ false, defaultImportName, factory.createExternalModuleReference(required))
++            : factory.createImportDeclaration(/*modifiers*/ undefined, factory.createImportClause(/*phaseModifier*/ undefined, defaultImportName, namedImports), required, /*attributes*/ undefined),
+     );
+ }
+ 
+@@ -70,27 +66,25 @@ interface Info {
+     readonly defaultImportName: Identifier | undefined;
+     readonly namedImports: NamedImports | undefined;
+     readonly statement: VariableStatement;
+-    readonly moduleSpecifier: StringLiteralLike;
++    readonly required: StringLiteralLike;
+ }
+ 
+-function getInfo(sourceFile: SourceFile, program: Program, pos: number, preferences: UserPreferences): Info | undefined {
++function getInfo(sourceFile: SourceFile, program: Program, pos: number): Info | undefined {
+     const { parent } = getTokenAtPosition(sourceFile, pos);
+     if (!isRequireCall(parent, /*requireStringLiteralLikeArgument*/ true)) {
+         Debug.failBadSyntaxKind(parent);
+     }
+ 
+     const decl = cast(parent.parent, isVariableDeclaration);
+-    const quotePreference = getQuotePreference(sourceFile, preferences);
+     const defaultImportName = tryCast(decl.name, isIdentifier);
+     const namedImports = isObjectBindingPattern(decl.name) ? tryCreateNamedImportsFromObjectBindingPattern(decl.name) : undefined;
+     if (defaultImportName || namedImports) {
+-        const moduleSpecifier = first(parent.arguments);
+         return {
+             allowSyntheticDefaults: getAllowSyntheticDefaultImports(program.getCompilerOptions()),
+             defaultImportName,
+             namedImports,
+             statement: cast(decl.parent.parent, isVariableStatement),
+-            moduleSpecifier: isNoSubstitutionTemplateLiteral(moduleSpecifier) ? factory.createStringLiteral(moduleSpecifier.text, quotePreference === QuotePreference.Single) : moduleSpecifier,
++            required: first(parent.arguments),
+         };
+     }
+ }

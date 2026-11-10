@@ -1,0 +1,52 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..d6d49d0 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -18929,20 +18929,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         if (isPrivateIdentifier(name)) {
+             return neverType;
+         }
+-        if (isNumericLiteral(name)) {
+-            return getRegularTypeOfLiteralType(checkExpression(name));
+-        }
+-        if (isComputedPropertyName(name)) {
+-            return getRegularTypeOfLiteralType(checkComputedPropertyName(name));
+-        }
+-        const propertyName = getPropertyNameForPropertyNameNode(name);
+-        if (propertyName !== undefined) {
+-            return getStringLiteralType(unescapeLeadingUnderscores(propertyName));
+-        }
+-        if (isExpression(name)) {
+-            return getRegularTypeOfLiteralType(checkExpression(name));
+-        }
+-        return neverType;
++        return isIdentifier(name) ? getStringLiteralType(unescapeLeadingUnderscores(name.escapedText)) :
++            getRegularTypeOfLiteralType(isComputedPropertyName(name) ? checkComputedPropertyName(name) : checkExpression(name));
+     }
+ 
+     function getLiteralTypeFromProperty(prop: Symbol, include: TypeFlags, includeNonPublic?: boolean) {
+diff --git a/src/compiler/types.ts b/src/compiler/types.ts
+index 4d8d22a..aff9e85 100644
+--- a/src/compiler/types.ts
++++ b/src/compiler/types.ts
+@@ -3228,7 +3228,7 @@ export interface JsxAttributes extends PrimaryExpression, Declaration {
+     readonly parent: JsxOpeningLikeElement;
+ }
+ 
+-export interface JsxNamespacedName extends Node {
++export interface JsxNamespacedName extends PrimaryExpression {
+     readonly kind: SyntaxKind.JsxNamespacedName;
+     readonly name: Identifier;
+     readonly namespace: Identifier;
+diff --git a/src/compiler/utilitiesPublic.ts b/src/compiler/utilitiesPublic.ts
+index 0724243..e0fa0ef 100644
+--- a/src/compiler/utilitiesPublic.ts
++++ b/src/compiler/utilitiesPublic.ts
+@@ -2005,6 +2005,7 @@ function isLeftHandSideExpressionKind(kind: SyntaxKind): boolean {
+         case SyntaxKind.JsxElement:
+         case SyntaxKind.JsxSelfClosingElement:
+         case SyntaxKind.JsxFragment:
++        case SyntaxKind.JsxNamespacedName:
+         case SyntaxKind.TaggedTemplateExpression:
+         case SyntaxKind.ArrayLiteralExpression:
+         case SyntaxKind.ParenthesizedExpression:

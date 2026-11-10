@@ -1,0 +1,35 @@
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..5d77f0b 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -2442,11 +2442,14 @@ export function createDiagnosticForNodeArrayFromMessageChain(sourceFile: SourceF
+     return createFileDiagnosticFromMessageChain(sourceFile, start, nodes.end - start, messageChain, relatedInformation);
+ }
+ 
+-function assertDiagnosticLocation(sourceText: string, start: number, length: number) {
++function assertDiagnosticLocation(sourceText: string | undefined, start: number, length: number) {
+     Debug.assertGreaterThanOrEqual(start, 0);
+     Debug.assertGreaterThanOrEqual(length, 0);
+-    Debug.assertLessThanOrEqual(start, sourceText.length);
+-    Debug.assertLessThanOrEqual(start + length, sourceText.length);
++
++    if (sourceText !== undefined) {
++        Debug.assertLessThanOrEqual(start, sourceText.length);
++        Debug.assertLessThanOrEqual(start + length, sourceText.length);
++    }
+ }
+ 
+ /** @internal */
+@@ -8607,11 +8610,7 @@ export function getLocaleSpecificMessage(message: DiagnosticMessage): string {
+ 
+ /** @internal */
+ export function createDetachedDiagnostic(fileName: string, sourceText: string, start: number, length: number, message: DiagnosticMessage, ...args: DiagnosticArguments): DiagnosticWithDetachedLocation {
+-    if ((start + length) > sourceText.length) {
+-        length = sourceText.length - start;
+-    }
+-
+-    assertDiagnosticLocation(sourceText, start, length);
++    assertDiagnosticLocation(/*sourceText*/ undefined, start, length);
+     let text = getLocaleSpecificMessage(message);
+ 
+     if (some(args)) {

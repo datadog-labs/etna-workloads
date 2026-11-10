@@ -1,0 +1,30 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..8f627c4 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -32661,7 +32661,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         const key = `D${getNodeId(node)},${getTypeId(contextualType)}`;
+         const cached = getCachedType(key);
+         if (cached) return cached;
+-        const jsxChildrenPropertyName = getJsxElementChildrenPropertyName(getJsxNamespaceAt(node));
+         return setCachedType(
+             key,
+             discriminateTypeByDiscriminableItems(
+@@ -32672,16 +32671,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                         prop => ([!(prop as JsxAttribute).initializer ? (() => trueType) : (() => getContextFreeTypeOfExpression((prop as JsxAttribute).initializer!)), prop.symbol.escapedName] as const),
+                     ),
+                     map(
+-                        filter(getPropertiesOfType(contextualType), s => {
+-                            if (!(s.flags & SymbolFlags.Optional) || !node?.symbol?.members) {
+-                                return false;
+-                            }
+-                            const element = node.parent.parent;
+-                            if (s.escapedName === jsxChildrenPropertyName && isJsxElement(element) && getSemanticJsxChildren(element.children).length) {
+-                                return false;
+-                            }
+-                            return !node.symbol.members.has(s.escapedName) && isDiscriminantProperty(contextualType, s.escapedName);
+-                        }),
++                        filter(getPropertiesOfType(contextualType), s => !!(s.flags & SymbolFlags.Optional) && !!node?.symbol?.members && !node.symbol.members.has(s.escapedName) && isDiscriminantProperty(contextualType, s.escapedName)),
+                         s => [() => undefinedType, s.escapedName] as const,
+                     ),
+                 ),

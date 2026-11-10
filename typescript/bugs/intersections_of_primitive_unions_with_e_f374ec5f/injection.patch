@@ -1,0 +1,37 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..d2f7dc6 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -18530,16 +18530,10 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+ 
+     // Check that the given type has a match in every union. A given type is matched by
+     // an identical type, and a literal type is additionally matched by its corresponding
+-    // primitive type, and missingType is matched by undefinedType (and vice versa).
++    // primitive type.
+     function eachUnionContains(unionTypes: UnionType[], type: Type) {
+         for (const u of unionTypes) {
+             if (!containsType(u.types, type)) {
+-                if (type === missingType) {
+-                    return containsType(u.types, undefinedType);
+-                }
+-                if (type === undefinedType) {
+-                    return containsType(u.types, missingType);
+-                }
+                 const primitive = type.flags & TypeFlags.StringLiteral ? stringType :
+                     type.flags & (TypeFlags.Enum | TypeFlags.NumberLiteral) ? numberType :
+                     type.flags & TypeFlags.BigIntLiteral ? bigintType :
+@@ -18619,14 +18613,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             for (const t of u.types) {
+                 if (insertType(checked, t)) {
+                     if (eachUnionContains(unionTypes, t)) {
+-                        // undefinedType/missingType should always come sorted first so we leverage that here
+-                        if (t === undefinedType && result.length && result[0] === missingType) {
+-                            continue;
+-                        }
+-                        if (t === missingType && result.length && result[0] === undefinedType) {
+-                            result[0] = missingType;
+-                            continue;
+-                        }
+                         insertType(result, t);
+                     }
+                 }

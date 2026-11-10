@@ -1,0 +1,1 @@
+Input calls describe(`suite ${a}`, function(){}) (template with substitution) and prints the navigation bar. Clean names the callback describe(`suite ${a}`) callback; injected drops the template argument: describe() callback.

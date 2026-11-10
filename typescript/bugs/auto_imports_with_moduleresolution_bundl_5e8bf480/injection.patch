@@ -1,0 +1,20 @@
+diff --git a/src/compiler/moduleSpecifiers.ts b/src/compiler/moduleSpecifiers.ts
+index 8860677..a7e219e 100644
+--- a/src/compiler/moduleSpecifiers.ts
++++ b/src/compiler/moduleSpecifiers.ts
+@@ -1255,13 +1255,13 @@ function tryGetModuleNameAsNodeModule({ path, isRedirect }: ModulePath, { getCan
+         if (isPackageJsonInfo(cachedPackageJson) || cachedPackageJson === undefined && host.fileExists(packageJsonPath)) {
+             const packageJsonContent: Record<string, any> | undefined = cachedPackageJson?.contents.packageJsonContent || tryParseJson(host.readFile!(packageJsonPath)!);
+             const importMode = overrideMode || getDefaultResolutionModeForFile(importingSourceFile, host, options);
+-            if (getResolvePackageJsonExports(options)) {
++            if (getEmitModuleResolutionKind(options) === ModuleResolutionKind.Node16 || getEmitModuleResolutionKind(options) === ModuleResolutionKind.NodeNext) {
+                 // The package name that we found in node_modules could be different from the package
+                 // name in the package.json content via url/filepath dependency specifiers. We need to
+                 // use the actual directory name, so don't look at `packageJsonContent.name` here.
+                 const nodeModulesDirectoryName = packageRootPath.substring(parts.topLevelPackageNameIndex + 1);
+                 const packageName = getPackageNameFromTypesPackageName(nodeModulesDirectoryName);
+-                const conditions = getConditions(options, importMode);
++                const conditions = ["node", importMode === ModuleKind.ESNext ? "import" : "require", "types"];
+                 const fromExports = packageJsonContent?.exports
+                     ? tryGetModuleNameFromExports(
+                         options,

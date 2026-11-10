@@ -1,0 +1,49 @@
+diff --git a/src/services/codefixes/generateAccessors.ts b/src/services/codefixes/generateAccessors.ts
+index 76ffd62..feb6c67 100644
+--- a/src/services/codefixes/generateAccessors.ts
++++ b/src/services/codefixes/generateAccessors.ts
+@@ -34,7 +34,6 @@ import {
+     isWriteAccess,
+     ModifierFlags,
+     ModifierLike,
+-    Mutable,
+     Node,
+     nodeOverlapsWithStartEnd,
+     ObjectLiteralExpression,
+@@ -254,14 +253,7 @@ function updatePropertyDeclaration(changeTracker: textChanges.ChangeTracker, fil
+ }
+ 
+ function updatePropertyAssignmentDeclaration(changeTracker: textChanges.ChangeTracker, file: SourceFile, declaration: PropertyAssignment, fieldName: AcceptedNameType) {
+-    let assignment = factory.updatePropertyAssignment(declaration, fieldName, declaration.initializer);
+-    // Remove grammar errors from assignment
+-    if (assignment.modifiers || assignment.questionToken || assignment.exclamationToken) {
+-        if (assignment === declaration) assignment = factory.cloneNode(assignment);
+-        (assignment as Mutable<PropertyAssignment>).modifiers = undefined;
+-        (assignment as Mutable<PropertyAssignment>).questionToken = undefined;
+-        (assignment as Mutable<PropertyAssignment>).exclamationToken = undefined;
+-    }
++    const assignment = factory.updatePropertyAssignment(declaration, fieldName, declaration.initializer);
+     changeTracker.replacePropertyAssignment(file, declaration, assignment);
+ }
+ 
+diff --git a/src/services/formatting/formatting.ts b/src/services/formatting/formatting.ts
+index e641b0f..a785dcf 100644
+--- a/src/services/formatting/formatting.ts
++++ b/src/services/formatting/formatting.ts
+@@ -45,7 +45,6 @@ import {
+     InterfaceDeclaration,
+     isComment,
+     isDecorator,
+-    isGrammarError,
+     isJSDoc,
+     isLineBreak,
+     isModifier,
+@@ -816,7 +815,7 @@ function formatSpanWorker(
+         ): number {
+             Debug.assert(!nodeIsSynthesized(child));
+ 
+-            if (nodeIsMissing(child) || isGrammarError(parent, child)) {
++            if (nodeIsMissing(child)) {
+                 return inheritedIndentation;
+             }
+ 

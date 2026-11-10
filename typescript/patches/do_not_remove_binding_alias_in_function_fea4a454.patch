@@ -1,0 +1,31 @@
+diff --git a/src/compiler/transformers/declarations.ts b/src/compiler/transformers/declarations.ts
+index b1340cc..73b99bd 100644
+--- a/src/compiler/transformers/declarations.ts
++++ b/src/compiler/transformers/declarations.ts
+@@ -111,6 +111,8 @@ import {
+     isFunctionDeclaration,
+     isFunctionLike,
+     isGlobalScopeAugmentation,
++    isIdentifier,
++    isIdentifierANonContextualKeyword,
+     isIdentifierText,
+     isImportEqualsDeclaration,
+     isIndexSignatureDeclaration,
+@@ -625,6 +627,17 @@ export function transformDeclarations(context: TransformationContext): Transform
+                 checkEntityNameVisibility(elem.propertyName.expression, enclosingDeclaration);
+             }
+ 
++            if (elem.propertyName && isIdentifier(elem.propertyName) && isIdentifier(elem.name) && !isIdentifierANonContextualKeyword(elem.propertyName)) {
++                // Remove rename.
++                return factory.updateBindingElement(
++                    elem,
++                    elem.dotDotDotToken,
++                    /*propertyName*/ undefined,
++                    elem.propertyName,
++                    /*initializer*/ undefined,
++                );
++            }
++
+             return factory.updateBindingElement(
+                 elem,
+                 elem.dotDotDotToken,

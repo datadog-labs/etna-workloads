@@ -1,0 +1,91 @@
+diff --git a/src/compiler/watchUtilities.ts b/src/compiler/watchUtilities.ts
+index 82c9dbf..65b0ece 100644
+--- a/src/compiler/watchUtilities.ts
++++ b/src/compiler/watchUtilities.ts
+@@ -22,11 +22,9 @@ import {
+     FileWatcherEventKind,
+     find,
+     forEachAncestorDirectory,
+-    getAllowJSCompilerOption,
+     getBaseFileName,
+     getDirectoryPath,
+     getNormalizedAbsolutePath,
+-    getResolveJsonModule,
+     hasExtension,
+     identity,
+     insertSorted,
+@@ -48,7 +46,6 @@ import {
+     removeFileExtension,
+     removeIgnoredPath,
+     returnNoopFileWatcher,
+-    ScriptKind,
+     setSysLog,
+     SortedArray,
+     SortedReadonlyArray,
+@@ -566,7 +563,6 @@ export interface IsIgnoredFileFromWildCardWatchingInput {
+     useCaseSensitiveFileNames: boolean;
+     writeLog: (s: string) => void;
+     toPath: (fileName: string) => Path;
+-    getScriptKind?: (fileName: string) => ScriptKind;
+ }
+ /** @internal */
+ export function isIgnoredFileFromWildCardWatching({
+@@ -581,7 +577,6 @@ export function isIgnoredFileFromWildCardWatching({
+     useCaseSensitiveFileNames,
+     writeLog,
+     toPath,
+-    getScriptKind,
+ }: IsIgnoredFileFromWildCardWatchingInput): boolean {
+     const newPath = removeIgnoredPath(fileOrDirectoryPath);
+     if (!newPath) {
+@@ -593,12 +588,7 @@ export function isIgnoredFileFromWildCardWatching({
+     if (fileOrDirectoryPath === watchedDirPath) return false;
+ 
+     // If the the added or created file or directory is not supported file name, ignore the file
+-    if (
+-        hasExtension(fileOrDirectoryPath) && !(
+-            isSupportedSourceFileName(fileOrDirectory, options, extraFileExtensions) ||
+-            isSupportedScriptKind()
+-        )
+-    ) {
++    if (hasExtension(fileOrDirectoryPath) && !isSupportedSourceFileName(fileOrDirectory, options, extraFileExtensions)) {
+         writeLog(`Project: ${configFileName} Detected file add/remove of non supported extension: ${fileOrDirectory}`);
+         return true;
+     }
+@@ -644,24 +634,6 @@ export function isIgnoredFileFromWildCardWatching({
+             !!find(program as readonly string[], rootFile => toPath(rootFile) === file);
+     }
+ 
+-    function isSupportedScriptKind() {
+-        if (!getScriptKind) return false;
+-        const scriptKind = getScriptKind(fileOrDirectory);
+-        switch (scriptKind) {
+-            case ScriptKind.TS:
+-            case ScriptKind.TSX:
+-            case ScriptKind.Deferred:
+-            case ScriptKind.External:
+-                return true;
+-            case ScriptKind.JS:
+-            case ScriptKind.JSX:
+-                return getAllowJSCompilerOption(options);
+-            case ScriptKind.JSON:
+-                return getResolveJsonModule(options);
+-            case ScriptKind.Unknown:
+-                return false;
+-        }
+-    }
+ }
+ 
+ /** @internal */
+diff --git a/src/server/editorServices.ts b/src/server/editorServices.ts
+index aa578c7..c122dd3 100644
+--- a/src/server/editorServices.ts
++++ b/src/server/editorServices.ts
+@@ -2038,7 +2038,6 @@ export class ProjectService {
+                 useCaseSensitiveFileNames: this.host.useCaseSensitiveFileNames,
+                 writeLog: s => this.logger.info(s),
+                 toPath: s => this.toPath(s),
+-                getScriptKind: configuredProjectForConfig ? (fileName => configuredProjectForConfig.getScriptKind(fileName)) : undefined,
+             })
+         ) return;
+ 

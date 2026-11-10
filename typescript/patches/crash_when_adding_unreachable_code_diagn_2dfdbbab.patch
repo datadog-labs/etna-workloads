@@ -1,0 +1,41 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..e4ccb4a 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -384,7 +384,6 @@ import {
+     getTextOfPropertyName,
+     getThisContainer,
+     getThisParameter,
+-    getTokenPosOfNode,
+     getTrailingSemicolonDeferringWriter,
+     getTypeParameterFromJsDoc,
+     getUseDefineForClassFields,
+@@ -49292,8 +49291,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+ 
+         const sourceFile = getSourceFileOfNode(node);
+ 
+-        let startNode = node;
+-        let endNode = node;
++        let start = node.pos;
++        let end = node.end;
+ 
+         const parent = node.parent;
+         if (canHaveStatements(parent)) {
+@@ -49323,13 +49322,13 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                     reportedUnreachableNodes.add(nextNode);
+                 }
+ 
+-                startNode = statements[first];
+-                endNode = statements[last];
++                start = statements[first].pos;
++                end = statements[last].end;
+             }
+         }
+ 
+-        const start = getTokenPosOfNode(startNode, sourceFile);
+-        addErrorOrSuggestion(compilerOptions.allowUnreachableCode === false, createFileDiagnostic(sourceFile, start, endNode.end - start, Diagnostics.Unreachable_code_detected));
++        start = skipTrivia(sourceFile.text, start);
++        addErrorOrSuggestion(compilerOptions.allowUnreachableCode === false, createFileDiagnostic(sourceFile, start, end - start, Diagnostics.Unreachable_code_detected));
+ 
+         return true;
+     }

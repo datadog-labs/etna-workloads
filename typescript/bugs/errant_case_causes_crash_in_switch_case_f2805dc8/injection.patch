@@ -1,0 +1,37 @@
+diff --git a/src/services/completions.ts b/src/services/completions.ts
+index 28d2913..8b6d317 100644
+--- a/src/services/completions.ts
++++ b/src/services/completions.ts
+@@ -2986,7 +2986,7 @@ export function getCompletionEntryDetails(
+             return createSimpleDetails(completionNameForLiteral(sourceFile, preferences, literal), ScriptElementKind.string, typeof literal === "string" ? SymbolDisplayPartKind.stringLiteral : SymbolDisplayPartKind.numericLiteral);
+         }
+         case "cases": {
+-            const snippets = getExhaustiveCaseSnippets(
++            const { entry, importAdder } = getExhaustiveCaseSnippets(
+                 contextToken!.parent as CaseBlock,
+                 sourceFile,
+                 preferences,
+@@ -2994,10 +2994,8 @@ export function getCompletionEntryDetails(
+                 host,
+                 program,
+                 /*formatContext*/ undefined,
+-            );
+-
+-            if (snippets?.importAdder.hasFixes()) {
+-                const { entry, importAdder } = snippets;
++            )!;
++            if (importAdder.hasFixes()) {
+                 const changes = textChanges.ChangeTracker.with(
+                     { host, formatContext, preferences },
+                     importAdder.writeFixes,
+@@ -3014,9 +3012,8 @@ export function getCompletionEntryDetails(
+                     }],
+                 };
+             }
+-
+             return {
+-                name,
++                name: entry.name,
+                 kind: ScriptElementKind.unknown,
+                 kindModifiers: "",
+                 displayParts: [],

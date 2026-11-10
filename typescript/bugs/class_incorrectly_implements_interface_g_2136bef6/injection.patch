@@ -1,0 +1,77 @@
+diff --git a/src/services/codefixes/helpers.ts b/src/services/codefixes/helpers.ts
+index ebb58ba..c21eb24 100644
+--- a/src/services/codefixes/helpers.ts
++++ b/src/services/codefixes/helpers.ts
+@@ -7,7 +7,6 @@ import {
+     Block,
+     CallExpression,
+     CharacterCodes,
+-    CheckFlags,
+     ClassLikeDeclaration,
+     CodeFixContextBase,
+     combine,
+@@ -26,14 +25,12 @@ import {
+     GenericType,
+     GetAccessorDeclaration,
+     getAllAccessorDeclarations,
+-    getCheckFlags,
+     getEffectiveModifierFlags,
+     getEmitScriptTarget,
+     getFirstIdentifier,
+     getModuleSpecifierResolverHost,
+     getNameForExportedSymbol,
+     getNameOfDeclaration,
+-    getPropertyNameFromType,
+     getQuotePreference,
+     getSetAccessorValueParameter,
+     getSynthesizedDeepClone,
+@@ -61,7 +58,6 @@ import {
+     isStringLiteral,
+     isTypeNode,
+     isTypeReferenceNode,
+-    isTypeUsableAsPropertyName,
+     isYieldExpression,
+     LanguageServiceHost,
+     length,
+@@ -100,7 +96,6 @@ import {
+     textChanges,
+     TextSpan,
+     textSpanEnd,
+-    TransientSymbol,
+     tryCast,
+     TsConfigSourceFile,
+     Type,
+@@ -109,7 +104,6 @@ import {
+     TypeNode,
+     TypeParameterDeclaration,
+     TypePredicate,
+-    unescapeLeadingUnderscores,
+     UnionType,
+     UserPreferences,
+     visitEachChild,
+@@ -205,7 +199,7 @@ export function addNewNodeForMemberSymbol(
+      * In such cases, we assume the declaration to be a `PropertySignature`.
+      */
+     const kind = declaration?.kind ?? SyntaxKind.PropertySignature;
+-    const declarationName = createDeclarationName(symbol, declaration);
++    const declarationName = getSynthesizedDeepClone(getNameOfDeclaration(declaration), /*includeTrivia*/ false) as PropertyName;
+     const effectiveModifierFlags = declaration ? getEffectiveModifierFlags(declaration) : ModifierFlags.None;
+     let modifierFlags = effectiveModifierFlags & ModifierFlags.Static;
+     modifierFlags |= effectiveModifierFlags & ModifierFlags.Public ? ModifierFlags.Public :
+@@ -361,16 +355,6 @@ export function addNewNodeForMemberSymbol(
+     function createTypeNode(typeNode: TypeNode | undefined) {
+         return getSynthesizedDeepClone(typeNode, /*includeTrivia*/ false);
+     }
+-
+-    function createDeclarationName(symbol: Symbol, declaration: Declaration | undefined): PropertyName {
+-        if (getCheckFlags(symbol) & CheckFlags.Mapped) {
+-            const nameType = (symbol as TransientSymbol).links.nameType;
+-            if (nameType && isTypeUsableAsPropertyName(nameType)) {
+-                return factory.createIdentifier(unescapeLeadingUnderscores(getPropertyNameFromType(nameType)));
+-            }
+-        }
+-        return getSynthesizedDeepClone(getNameOfDeclaration(declaration), /*includeTrivia*/ false) as PropertyName;
+-    }
+ }
+ 
+ /** @internal */

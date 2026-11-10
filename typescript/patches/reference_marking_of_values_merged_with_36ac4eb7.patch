@@ -1,0 +1,25 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..d89912c 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -30814,9 +30814,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         if (!canCollectSymbolAliasAccessabilityData) {
+             return;
+         }
+-        if (isNonLocalAlias(symbol, /*excludes*/ SymbolFlags.Value) && !isInTypeQuery(location)) {
++        if (isNonLocalAlias(symbol, /*excludes*/ SymbolFlags.Value) && !isInTypeQuery(location) && !getTypeOnlyAliasDeclaration(symbol, SymbolFlags.Value)) {
+             const target = resolveAlias(symbol);
+-            if (getSymbolFlags(symbol, /*excludeTypeOnlyMeanings*/ true) & (SymbolFlags.Value | SymbolFlags.ExportValue)) {
++            if (getSymbolFlags(target) & (SymbolFlags.Value | SymbolFlags.ExportValue)) {
+                 // An alias resolving to a const enum cannot be elided if (1) 'isolatedModules' is enabled
+                 // (because the const enum value will not be inlined), or if (2) the alias is an export
+                 // of a const enum declaration that will be preserved.
+@@ -30859,7 +30859,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         const target = resolveAlias(symbol);
+         if (target) {
+             const markAlias = target === unknownSymbol ||
+-                ((getSymbolFlags(symbol, /*excludeTypeOnlyMeanings*/ true) & SymbolFlags.Value) && !isConstEnumOrConstEnumOnlyModule(target));
++                ((getSymbolFlags(target) & SymbolFlags.Value) && !isConstEnumOrConstEnumOnlyModule(target) && !getTypeOnlyAliasDeclaration(symbol, SymbolFlags.Value));
+ 
+             if (markAlias) {
+                 markAliasSymbolAsReferenced(symbol);

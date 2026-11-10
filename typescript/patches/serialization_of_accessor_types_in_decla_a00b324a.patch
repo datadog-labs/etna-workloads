@@ -1,0 +1,43 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..c166b43 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -7783,7 +7783,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             if (propertySymbol.flags & SymbolFlags.Accessor) {
+                 const writeType = getWriteTypeOfSymbol(propertySymbol);
+                 if (!isErrorType(propertyType) && !isErrorType(writeType)) {
+-                    const symbolMapper = getSymbolLinks(propertySymbol).mapper;
+                     const propDeclaration = getDeclarationOfKind<PropertyDeclaration>(propertySymbol, SyntaxKind.PropertyDeclaration);
+                     if (propertyType !== writeType || propertySymbol.parent!.flags & SymbolFlags.Class && !propDeclaration) {
+                         const getterDeclaration = getDeclarationOfKind<GetAccessorDeclaration>(propertySymbol, SyntaxKind.GetAccessor);
+@@ -7792,7 +7791,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                             typeElements.push(
+                                 setCommentRange(
+                                     context,
+-                                    signatureToSignatureDeclarationHelper(symbolMapper ? instantiateSignature(getterSignature, symbolMapper) : getterSignature, SyntaxKind.GetAccessor, context, { name: propertyName }) as GetAccessorDeclaration,
++                                    signatureToSignatureDeclarationHelper(getterSignature, SyntaxKind.GetAccessor, context, { name: propertyName }) as GetAccessorDeclaration,
+                                     getterDeclaration,
+                                 ),
+                             );
+@@ -7803,7 +7802,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                             typeElements.push(
+                                 setCommentRange(
+                                     context,
+-                                    signatureToSignatureDeclarationHelper(symbolMapper ? instantiateSignature(setterSignature, symbolMapper) : setterSignature, SyntaxKind.SetAccessor, context, { name: propertyName }) as SetAccessorDeclaration,
++                                    signatureToSignatureDeclarationHelper(setterSignature, SyntaxKind.SetAccessor, context, { name: propertyName }) as SetAccessorDeclaration,
+                                     setterDeclaration,
+                                 ),
+                             );
+diff --git a/src/compiler/expressionToTypeNode.ts b/src/compiler/expressionToTypeNode.ts
+index 0df3a39..e28746a 100644
+--- a/src/compiler/expressionToTypeNode.ts
++++ b/src/compiler/expressionToTypeNode.ts
+@@ -763,7 +763,7 @@ export function createSyntacticTypeNodeBuilder(
+             return withNewScope(context, node, () => serializeTypeAnnotationOfDeclaration(accessorType, context, node, symbol) ?? inferTypeOfDeclaration(node, symbol, context));
+         }
+         if (accessorDeclarations.getAccessor) {
+-            return withNewScope(context, accessorDeclarations.getAccessor, () => createReturnFromSignature(accessorDeclarations.getAccessor!, symbol, context));
++            return withNewScope(context, accessorDeclarations.getAccessor, () => createReturnFromSignature(accessorDeclarations.getAccessor!, /*symbol*/ undefined, context));
+         }
+         return undefined;
+     }

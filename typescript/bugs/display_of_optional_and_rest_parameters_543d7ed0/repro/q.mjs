@@ -1,0 +1,10 @@
+import {createRequire} from 'module';
+const require=createRequire(import.meta.url);
+const ts=require(process.env.TYPESCRIPT);
+const p=ts.createProgram(['input.ts'],{});
+const c=p.getTypeChecker();
+const sf=p.getSourceFile('input.ts');
+const d=sf.statements[0].declarationList.declarations[0];
+console.log(c.typeToString(c.getTypeAtLocation(d.name)));
+const sig=c.getTypeAtLocation(d.name).getCallSignatures()[0];
+console.log(c.signatureToString(sig));

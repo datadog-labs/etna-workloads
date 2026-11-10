@@ -1,0 +1,36 @@
+diff --git a/src/services/codefixes/fixAddMissingParam.ts b/src/services/codefixes/fixAddMissingParam.ts
+index 65c9cf8..6c99c69 100644
+--- a/src/services/codefixes/fixAddMissingParam.ts
++++ b/src/services/codefixes/fixAddMissingParam.ts
+@@ -3,9 +3,7 @@ import {
+     createCodeFixAction,
+     createImportAdder,
+     ImportAdder,
+-    importSymbols,
+     registerCodeFix,
+-    tryGetAutoImportableReferenceFromTypeNode,
+ } from "../_namespaces/ts.codefix.js";
+ import {
+     append,
+@@ -304,7 +302,7 @@ function updateParameters(
+                 declaration.dotDotDotToken,
+                 declaration.name,
+                 prev && prev.questionToken ? factory.createToken(SyntaxKind.QuestionToken) : declaration.questionToken,
+-                getParameterType(importAdder, declaration.type, scriptTarget),
++                declaration.type,
+                 declaration.initializer,
+             ),
+         );
+@@ -346,12 +344,3 @@ function createParameter(name: string, type: TypeNode, questionToken: QuestionTo
+ function isOptionalPos(declarations: ConvertibleSignatureDeclaration[], pos: number) {
+     return length(declarations) && some(declarations, d => pos < length(d.parameters) && !!d.parameters[pos] && d.parameters[pos].questionToken === undefined);
+ }
+-
+-function getParameterType(importAdder: ImportAdder, typeNode: TypeNode | undefined, scriptTarget: ScriptTarget) {
+-    const importableReference = tryGetAutoImportableReferenceFromTypeNode(typeNode, scriptTarget);
+-    if (importableReference) {
+-        importSymbols(importAdder, importableReference.symbols);
+-        return importableReference.typeNode;
+-    }
+-    return typeNode;
+-}

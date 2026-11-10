@@ -1,0 +1,17 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..c57f420 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -4745,8 +4745,10 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 (isLiteralImportTypeNode(location) ? location : undefined)?.argument.literal ||
+                 isVariableDeclarationInitializedToBareOrAccessedRequire(location) && getModuleSpecifierOfBareOrAccessedRequire(location) ||
+                 findAncestor(location, isImportCall)?.arguments[0] ||
+-                findAncestor(location, or(isImportDeclaration, isJSDocImportTag, isExportDeclaration))?.moduleSpecifier ||
+-                findAncestor(location, isExternalModuleImportEqualsDeclaration)?.moduleReference.expression;
++                (isInJSFile(location) && isJSDocImportTag(location) ? location.moduleSpecifier : undefined) ||
++                findAncestor(location, isImportDeclaration)?.moduleSpecifier ||
++                findAncestor(location, isExternalModuleImportEqualsDeclaration)?.moduleReference.expression ||
++                findAncestor(location, isExportDeclaration)?.moduleSpecifier;
+         const mode = contextSpecifier && isStringLiteralLike(contextSpecifier)
+             ? host.getModeForUsageLocation(currentSourceFile, contextSpecifier)
+             : host.getDefaultResolutionModeForFile(currentSourceFile);

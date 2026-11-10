@@ -1,0 +1,48 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..0638c24 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -5327,12 +5327,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         return getMergedSymbol(symbol.parent && getLateBoundSymbol(symbol.parent));
+     }
+ 
+-    function getFunctionExpressionParentSymbolOrSymbol(symbol: Symbol) {
+-        return symbol.valueDeclaration?.kind === SyntaxKind.ArrowFunction || symbol.valueDeclaration?.kind === SyntaxKind.FunctionExpression
+-            ? getSymbolOfNode(symbol.valueDeclaration.parent) || symbol
+-            : symbol;
+-    }
+-
+     function getAlternativeContainingModules(symbol: Symbol, enclosingDeclaration: Node): Symbol[] {
+         const containingFile = getSourceFileOfNode(enclosingDeclaration);
+         const id = getNodeId(containingFile);
+@@ -12189,14 +12183,11 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             }
+         }
+         if (symbol.parent?.valueDeclaration) {
+-            const possiblyAnnotatedSymbol = getFunctionExpressionParentSymbolOrSymbol(symbol.parent);
+-            if (possiblyAnnotatedSymbol.valueDeclaration) {
+-                const typeNode = getEffectiveTypeAnnotationNode(possiblyAnnotatedSymbol.valueDeclaration);
+-                if (typeNode) {
+-                    const annotationSymbol = getPropertyOfType(getTypeFromTypeNode(typeNode), symbol.escapedName);
+-                    if (annotationSymbol) {
+-                        return getNonMissingTypeOfSymbol(annotationSymbol);
+-                    }
++            const typeNode = getEffectiveTypeAnnotationNode(symbol.parent.valueDeclaration);
++            if (typeNode) {
++                const annotationSymbol = getPropertyOfType(getTypeFromTypeNode(typeNode), symbol.escapedName);
++                if (annotationSymbol) {
++                    return getNonMissingTypeOfSymbol(annotationSymbol);
+                 }
+             }
+         }
+@@ -13976,7 +13967,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                     }
+                 }
+             }
+-            const assignments = getFunctionExpressionParentSymbolOrSymbol(symbol).assignmentDeclarationMembers;
++            const assignments = (symbol.valueDeclaration?.kind === SyntaxKind.ArrowFunction || symbol.valueDeclaration?.kind === SyntaxKind.FunctionExpression) &&
++                    getSymbolOfNode(symbol.valueDeclaration.parent)?.assignmentDeclarationMembers ||
++                symbol.assignmentDeclarationMembers;
+ 
+             if (assignments) {
+                 const decls = arrayFrom(assignments.values());

@@ -1,0 +1,2 @@
+run.js drives a language service over input.ts (union `Component` where `name` is only on some members, destructured from `components[0]`). It prints semantic diagnostics, then inserts `type C = Component['name']` and prints them again.
+Clean: no errors both times. Injected: the first check reports a spurious "Property 'name' does not exist on type 'Component<{}>'", because the partial property is propagated between the union property caches. After the edit it reports 0.

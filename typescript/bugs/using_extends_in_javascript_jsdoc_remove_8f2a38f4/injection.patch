@@ -1,0 +1,45 @@
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..f4bb368 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -2883,7 +2883,6 @@ export function isPartOfTypeNode(node: Node): boolean {
+ 
+ function isPartOfTypeExpressionWithTypeArguments(node: Node) {
+     return isJSDocImplementsTag(node.parent)
+-        || isJSDocAugmentsTag(node.parent)
+         || isHeritageClause(node.parent) && !isExpressionWithTypeArgumentsInClassExtendsClause(node);
+ }
+ 
+@@ -3670,7 +3669,7 @@ export function isExpressionNode(node: Node): boolean {
+             // `import.defer` in `import.defer(...)` is not an expression
+             return !isImportCall(node.parent) || node.parent.expression !== node;
+         case SyntaxKind.ExpressionWithTypeArguments:
+-            return !isHeritageClause(node.parent) && !isJSDocAugmentsTag(node.parent);
++            return !isHeritageClause(node.parent);
+         case SyntaxKind.QualifiedName:
+             while (node.parent.kind === SyntaxKind.QualifiedName) {
+                 node = node.parent;
+@@ -7453,18 +7452,11 @@ export interface ClassImplementingOrExtendingExpressionWithTypeArguments {
+ }
+ /** @internal */
+ export function tryGetClassImplementingOrExtendingExpressionWithTypeArguments(node: Node): ClassImplementingOrExtendingExpressionWithTypeArguments | undefined {
+-    if (isExpressionWithTypeArguments(node)) {
+-        if (isHeritageClause(node.parent) && isClassLike(node.parent.parent)) {
+-            return { class: node.parent.parent, isImplements: node.parent.token === SyntaxKind.ImplementsKeyword };
+-        }
+-        if (isJSDocAugmentsTag(node.parent)) {
+-            const host = getEffectiveJSDocHost(node.parent);
+-            if (host && isClassLike(host)) {
+-                return { class: host, isImplements: false };
+-            }
+-        }
+-    }
+-    return undefined;
++    return isExpressionWithTypeArguments(node)
++        && isHeritageClause(node.parent)
++        && isClassLike(node.parent.parent)
++        ? { class: node.parent.parent, isImplements: node.parent.token === SyntaxKind.ImplementsKeyword }
++        : undefined;
+ }
+ 
+ /** @internal */

@@ -1,0 +1,2 @@
+Language service script (repro.mjs) edits a file incrementally (with snapshot change ranges): inserts `throw new Error('foo');` at the top (allowUnreachableCode: false), then removes it, printing semantic diagnostic codes after each step.
+Clean: after the delete, the unreachable-code error (7027) is gone. Injected: stale Unreachable flags persist on reused nodes, so the error remains after the edit is undone.

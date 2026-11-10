@@ -1,0 +1,43 @@
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..0ec79f3 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -304,7 +304,6 @@ import {
+     isJSDoc,
+     isJSDocAugmentsTag,
+     isJSDocFunctionType,
+-    isJSDocImplementsTag,
+     isJSDocImportTag,
+     isJSDocLinkLike,
+     isJSDocMemberName,
+@@ -2806,7 +2805,7 @@ export function isPartOfTypeNode(node: Node): boolean {
+         case SyntaxKind.VoidKeyword:
+             return node.parent.kind !== SyntaxKind.VoidExpression;
+         case SyntaxKind.ExpressionWithTypeArguments:
+-            return isPartOfTypeExpressionWithTypeArguments(node);
++            return isHeritageClause(node.parent) && !isExpressionWithTypeArgumentsInClassExtendsClause(node);
+         case SyntaxKind.TypeParameter:
+             return node.parent.kind === SyntaxKind.MappedType || node.parent.kind === SyntaxKind.InferType;
+ 
+@@ -2845,7 +2844,7 @@ export function isPartOfTypeNode(node: Node): boolean {
+             }
+             switch (parent.kind) {
+                 case SyntaxKind.ExpressionWithTypeArguments:
+-                    return isPartOfTypeExpressionWithTypeArguments(parent);
++                    return isHeritageClause(parent.parent) && !isExpressionWithTypeArgumentsInClassExtendsClause(parent);
+                 case SyntaxKind.TypeParameter:
+                     return node === (parent as TypeParameterDeclaration).constraint;
+                 case SyntaxKind.JSDocTemplateTag:
+@@ -2881,12 +2880,6 @@ export function isPartOfTypeNode(node: Node): boolean {
+     return false;
+ }
+ 
+-function isPartOfTypeExpressionWithTypeArguments(node: Node) {
+-    return isJSDocImplementsTag(node.parent)
+-        || isJSDocAugmentsTag(node.parent)
+-        || isHeritageClause(node.parent) && !isExpressionWithTypeArgumentsInClassExtendsClause(node);
+-}
+-
+ // Warning: This has the same semantics as the forEach family of functions,
+ //          in that traversal terminates in the event that 'visitor' supplies a truthy value.
+ /** @internal */

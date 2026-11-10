@@ -1,0 +1,146 @@
+diff --git a/src/services/codefixes/importFixes.ts b/src/services/codefixes/importFixes.ts
+index 6034c9d..8f498cf 100644
+--- a/src/services/codefixes/importFixes.ts
++++ b/src/services/codefixes/importFixes.ts
+@@ -1292,7 +1292,7 @@ function getNewImportFixes(
+                 const exportEquals = checker.resolveExternalModuleSymbol(exportInfo.moduleSymbol);
+                 let namespacePrefix;
+                 if (exportEquals !== exportInfo.moduleSymbol) {
+-                    namespacePrefix = forEachNameOfDefaultExport(exportEquals, checker, getEmitScriptTarget(compilerOptions), identity)!;
++                    namespacePrefix = forEachNameOfDefaultExport(exportEquals, checker, compilerOptions, /*preferCapitalizedNames*/ false, identity)!;
+                 }
+                 namespacePrefix ||= moduleSymbolToValidIdentifier(
+                     exportInfo.moduleSymbol,
+@@ -1650,7 +1650,7 @@ function getExportInfos(
+         if (
+             defaultInfo
+             && symbolFlagsHaveMeaning(checker.getSymbolFlags(defaultInfo.symbol), currentTokenMeaning)
+-            && forEachNameOfDefaultExport(defaultInfo.symbol, checker, getEmitScriptTarget(compilerOptions), (name, capitalizedName) => (isJsxTagName ? capitalizedName ?? name : name) === symbolName)
++            && forEachNameOfDefaultExport(defaultInfo.symbol, checker, compilerOptions, isJsxTagName, name => name === symbolName)
+         ) {
+             addSymbol(moduleSymbol, sourceFile, defaultInfo.symbol, defaultInfo.exportKind, program, isFromPackageJson);
+         }
+diff --git a/src/services/exportInfoMap.ts b/src/services/exportInfoMap.ts
+index dfd00ce..547b036 100644
+--- a/src/services/exportInfoMap.ts
++++ b/src/services/exportInfoMap.ts
+@@ -4,6 +4,7 @@ import {
+     append,
+     arrayIsEqualTo,
+     CancellationToken,
++    CompilerOptions,
+     consumesNodeCoreModules,
+     createMultiMap,
+     Debug,
+@@ -17,7 +18,9 @@ import {
+     GetCanonicalFileName,
+     getDefaultLikeExportNameFromDeclaration,
+     getDirectoryPath,
++    getEmitScriptTarget,
+     getLocalSymbolForExportDefault,
++    getNamesForExportedSymbol,
+     getNodeModulePathParts,
+     getPackageNameFromTypesPackageName,
+     getRegexFromPattern,
+@@ -44,7 +47,6 @@ import {
+     Path,
+     pathContainsNodeModules,
+     Program,
+-    ScriptTarget,
+     shouldUseUriStyleNodeCoreModules,
+     skipAlias,
+     SourceFile,
+@@ -199,7 +201,7 @@ export function createCacheableExportInfoMap(host: CacheableExportInfoMapHost):
+             //    get a better name.
+             const names = exportKind === ExportKind.Named || isExternalModuleSymbol(namedSymbol)
+                 ? unescapeLeadingUnderscores(symbolTableKey)
+-                : getNamesForExportedSymbol(namedSymbol, checker, /*scriptTarget*/ undefined);
++                : getNamesForExportedSymbol(namedSymbol, /*scriptTarget*/ undefined);
+ 
+             const symbolName = typeof names === "string" ? names : names[0];
+             const capitalizedSymbolName = typeof names === "string" ? undefined : names[1];
+@@ -618,21 +620,12 @@ function isImportableSymbol(symbol: Symbol, checker: TypeChecker) {
+     return !checker.isUndefinedSymbol(symbol) && !checker.isUnknownSymbol(symbol) && !isKnownSymbol(symbol) && !isPrivateIdentifierSymbol(symbol);
+ }
+ 
+-function getNamesForExportedSymbol(defaultExport: Symbol, checker: TypeChecker, scriptTarget: ScriptTarget | undefined) {
+-    let names: string | string[] | undefined;
+-    forEachNameOfDefaultExport(defaultExport, checker, scriptTarget, (name, capitalizedName) => {
+-        names = capitalizedName ? [name, capitalizedName] : name;
+-        return true;
+-    });
+-    return Debug.checkDefined(names);
+-}
+-
+ /**
+  * @internal
+  * May call `cb` multiple times with the same name.
+  * Terminates when `cb` returns a truthy value.
+  */
+-export function forEachNameOfDefaultExport<T>(defaultExport: Symbol, checker: TypeChecker, scriptTarget: ScriptTarget | undefined, cb: (name: string, capitalizedName?: string) => T | undefined): T | undefined {
++export function forEachNameOfDefaultExport<T>(defaultExport: Symbol, checker: TypeChecker, compilerOptions: CompilerOptions, preferCapitalizedNames: boolean, cb: (name: string) => T | undefined): T | undefined {
+     let chain: Symbol[] | undefined;
+     let current: Symbol | undefined = defaultExport;
+     const seen = new Set<Symbol>();
+@@ -659,10 +652,7 @@ export function forEachNameOfDefaultExport<T>(defaultExport: Symbol, checker: Ty
+ 
+     for (const symbol of chain ?? emptyArray) {
+         if (symbol.parent && isExternalModuleSymbol(symbol.parent)) {
+-            const final = cb(
+-                moduleSymbolToValidIdentifier(symbol.parent, scriptTarget, /*forceCapitalize*/ false),
+-                moduleSymbolToValidIdentifier(symbol.parent, scriptTarget, /*forceCapitalize*/ true),
+-            );
++            const final = cb(moduleSymbolToValidIdentifier(symbol.parent, getEmitScriptTarget(compilerOptions), preferCapitalizedNames));
+             if (final) return final;
+         }
+     }
+diff --git a/src/services/utilities.ts b/src/services/utilities.ts
+index bec7d4b..3874b29 100644
+--- a/src/services/utilities.ts
++++ b/src/services/utilities.ts
+@@ -3898,13 +3898,22 @@ export function firstOrOnly<T>(valueOrArray: T | readonly T[]): T {
+     return isArray(valueOrArray) ? first(valueOrArray) : valueOrArray;
+ }
+ 
+-/**
+- * If a type checker and multiple files are available, consider using `forEachNameOfDefaultExport`
+- * instead, which searches for names of re-exported defaults/namespaces in target files.
+- * @internal
+- */
++/** @internal */
++export function getNamesForExportedSymbol(symbol: Symbol, scriptTarget: ScriptTarget | undefined): string | [lowercase: string, capitalized: string] {
++    if (needsNameFromDeclaration(symbol)) {
++        const fromDeclaration = getDefaultLikeExportNameFromDeclaration(symbol);
++        if (fromDeclaration) return fromDeclaration;
++        const fileNameCase = moduleSymbolToValidIdentifier(getSymbolParentOrFail(symbol), scriptTarget, /*forceCapitalize*/ false);
++        const capitalized = moduleSymbolToValidIdentifier(getSymbolParentOrFail(symbol), scriptTarget, /*forceCapitalize*/ true);
++        if (fileNameCase === capitalized) return fileNameCase;
++        return [fileNameCase, capitalized];
++    }
++    return symbol.name;
++}
++
++/** @internal */
+ export function getNameForExportedSymbol(symbol: Symbol, scriptTarget: ScriptTarget | undefined, preferCapitalized?: boolean): string {
+-    if (symbol.escapedName === InternalSymbolName.ExportEquals || symbol.escapedName === InternalSymbolName.Default) {
++    if (needsNameFromDeclaration(symbol)) {
+         // Names for default exports:
+         // - export default foo => foo
+         // - export { foo as default } => foo
+@@ -3915,11 +3924,11 @@ export function getNameForExportedSymbol(symbol: Symbol, scriptTarget: ScriptTar
+     return symbol.name;
+ }
+ 
+-/**
+- * If a type checker and multiple files are available, consider using `forEachNameOfDefaultExport`
+- * instead, which searches for names of re-exported defaults/namespaces in target files.
+- * @internal
+- */
++function needsNameFromDeclaration(symbol: Symbol) {
++    return !(symbol.flags & SymbolFlags.Transient) && (symbol.escapedName === InternalSymbolName.ExportEquals || symbol.escapedName === InternalSymbolName.Default);
++}
++
++/** @internal */
+ export function getDefaultLikeExportNameFromDeclaration(symbol: Symbol): string | undefined {
+     return firstDefined(symbol.declarations, d => {
+         // "export default" in this case. See `ExportAssignment`for more details.

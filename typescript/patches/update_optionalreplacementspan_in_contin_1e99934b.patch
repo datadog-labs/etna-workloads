@@ -1,0 +1,34 @@
+diff --git a/src/services/completions.ts b/src/services/completions.ts
+index 28d2913..a4801ed 100644
+--- a/src/services/completions.ts
++++ b/src/services/completions.ts
+@@ -739,7 +739,7 @@ export function getCompletionsAtPosition(
+     // we can continue it from the cached previous response.
+     const incompleteCompletionsCache = preferences.allowIncompleteCompletions ? host.getIncompleteCompletionsCache?.() : undefined;
+     if (incompleteCompletionsCache && completionKind === CompletionTriggerKind.TriggerForIncompleteCompletions && previousToken && isIdentifier(previousToken)) {
+-        const incompleteContinuation = continuePreviousIncompleteResponse(incompleteCompletionsCache, sourceFile, previousToken, program, host, preferences, cancellationToken, position);
++        const incompleteContinuation = continuePreviousIncompleteResponse(incompleteCompletionsCache, sourceFile, previousToken, program, host, preferences, cancellationToken);
+         if (incompleteContinuation) {
+             return incompleteContinuation;
+         }
+@@ -845,12 +845,10 @@ function continuePreviousIncompleteResponse(
+     host: LanguageServiceHost,
+     preferences: UserPreferences,
+     cancellationToken: CancellationToken,
+-    position: number,
+ ): CompletionInfo | undefined {
+     const previousResponse = cache.get();
+     if (!previousResponse) return undefined;
+ 
+-    const touchNode = getTouchingPropertyName(file, position);
+     const lowerCaseTokenText = location.text.toLowerCase();
+     const exportMap = getExportInfoMap(file, host, program, preferences, cancellationToken);
+     const newEntries = resolvingModuleSpecifiers(
+@@ -906,7 +904,6 @@ function continuePreviousIncompleteResponse(
+ 
+     previousResponse.entries = newEntries;
+     previousResponse.flags = (previousResponse.flags || 0) | CompletionInfoFlags.IsContinuation;
+-    previousResponse.optionalReplacementSpan = getOptionalReplacementSpan(touchNode);
+     return previousResponse;
+ }
+ 

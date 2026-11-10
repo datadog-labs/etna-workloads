@@ -1,0 +1,46 @@
+diff --git a/src/compiler/transformers/classFields.ts b/src/compiler/transformers/classFields.ts
+index 7d8bc6f..b5e12fe 100644
+--- a/src/compiler/transformers/classFields.ts
++++ b/src/compiler/transformers/classFields.ts
+@@ -86,9 +86,9 @@ import {
+     isCallChain,
+     isCallToHelper,
+     isCatchClause,
++    isClassDeclaration,
+     isClassElement,
+     isClassExpression,
+-    isClassLike,
+     isClassNamedEvaluationHelperBlock,
+     isClassStaticBlockDeclaration,
+     isClassThisAssignmentBlock,
+@@ -900,9 +900,10 @@ export function transformClassFields(context: TransformationContext): (x: Source
+         }
+     }
+ 
+-    function tryGetClassThis() {
++    function getClassThis() {
+         const lex = getClassLexicalEnvironment();
+-        return lex.classThis ?? lex.classConstructor ?? currentClassContainer?.name;
++        const classThis = lex.classThis ?? lex.classConstructor ?? currentClassContainer?.name;
++        return Debug.checkDefined(classThis);
+     }
+ 
+     function transformAutoAccessor(node: AutoAccessorPropertyDeclaration): VisitResult<Node> {
+@@ -944,7 +945,7 @@ export function transformClassFields(context: TransformationContext): (x: Source
+         setEmitFlags(backingField, EmitFlags.NoComments);
+         setSourceMapRange(backingField, sourceMapRange);
+ 
+-        const receiver = isStatic(node) ? tryGetClassThis() ?? factory.createThis() : factory.createThis();
++        const receiver = isStatic(node) ? getClassThis() : factory.createThis();
+         const getter = createAccessorPropertyGetRedirector(factory, node, modifiers, getterName, receiver);
+         setOriginalNode(getter, node);
+         setCommentRange(getter, commentRange);
+@@ -1711,7 +1712,7 @@ export function transformClassFields(context: TransformationContext): (x: Source
+     function getClassFacts(node: ClassLikeDeclaration) {
+         let facts = ClassFacts.None;
+         const original = getOriginalNode(node);
+-        if (isClassLike(original) && classOrConstructorParameterIsDecorated(legacyDecorators, original)) {
++        if (isClassDeclaration(original) && classOrConstructorParameterIsDecorated(legacyDecorators, original)) {
+             facts |= ClassFacts.ClassWasDecorated;
+         }
+         if (shouldTransformPrivateElementsOrClassStaticBlocks && (classHasClassThisAssignment(node) || classHasExplicitlyAssignedName(node))) {

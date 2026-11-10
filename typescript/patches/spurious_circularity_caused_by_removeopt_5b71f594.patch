@@ -1,0 +1,55 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..ee66210 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -30407,37 +30407,22 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         );
+     }
+ 
+-    function parameterInitializerContainsUndefined(declaration: ParameterDeclaration): boolean {
+-        const links = getNodeLinks(declaration);
+-
+-        if (links.parameterInitializerContainsUndefined === undefined) {
+-            if (!pushTypeResolution(declaration, TypeSystemPropertyName.ParameterInitializerContainsUndefined)) {
+-                reportCircularityError(declaration.symbol);
+-                return true;
+-            }
+-
+-            const containsUndefined = !!(hasTypeFacts(checkDeclarationInitializer(declaration, CheckMode.Normal), TypeFacts.IsUndefined));
+-
+-            if (!popTypeResolution()) {
+-                reportCircularityError(declaration.symbol);
+-                return true;
+-            }
+-
+-            links.parameterInitializerContainsUndefined ??= containsUndefined;
+-        }
+-
+-        return links.parameterInitializerContainsUndefined;
+-    }
+-
+     /** remove undefined from the annotated type of a parameter when there is an initializer (that doesn't include undefined) */
+     function removeOptionalityFromDeclaredType(declaredType: Type, declaration: VariableLikeDeclaration): Type {
+-        const removeUndefined = strictNullChecks &&
+-            declaration.kind === SyntaxKind.Parameter &&
+-            declaration.initializer &&
+-            hasTypeFacts(declaredType, TypeFacts.IsUndefined) &&
+-            !parameterInitializerContainsUndefined(declaration);
++        if (pushTypeResolution(declaration.symbol, TypeSystemPropertyName.DeclaredType)) {
++            const annotationIncludesUndefined = strictNullChecks &&
++                declaration.kind === SyntaxKind.Parameter &&
++                declaration.initializer &&
++                hasTypeFacts(declaredType, TypeFacts.IsUndefined) &&
++                !hasTypeFacts(checkExpression(declaration.initializer), TypeFacts.IsUndefined);
++            popTypeResolution();
+ 
+-        return removeUndefined ? getTypeWithFacts(declaredType, TypeFacts.NEUndefined) : declaredType;
++            return annotationIncludesUndefined ? getTypeWithFacts(declaredType, TypeFacts.NEUndefined) : declaredType;
++        }
++        else {
++            reportCircularityError(declaration.symbol);
++            return declaredType;
++        }
+     }
+ 
+     function isConstraintPosition(type: Type, node: Node) {

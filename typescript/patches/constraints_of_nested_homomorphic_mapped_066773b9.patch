@@ -1,0 +1,32 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..51094b4 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -15504,20 +15504,16 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         return type.resolvedApparentType || (type.resolvedApparentType = getResolvedApparentTypeOfMappedType(type));
+     }
+ 
+-    function getResolvedApparentTypeOfMappedType(type: MappedType): Type {
++    function getResolvedApparentTypeOfMappedType(type: MappedType) {
+         const target = (type.target ?? type) as MappedType;
+         const typeVariable = getHomomorphicTypeVariable(target);
+         if (typeVariable && !target.declaration.nameType) {
+-            // We have a homomorphic mapped type or an instantiation of a homomorphic mapped type, i.e. a type
+-            // of the form { [P in keyof T]: X }. Obtain the modifiers type (the T of the keyof T), and if it is
+-            // another generic mapped type, recursively obtain its apparent type. Otherwise, obtain its base
+-            // constraint. Then, if every constituent of the base constraint is an array or tuple type, apply
+-            // this mapped type to the base constraint. It is safe to recurse when the modifiers type is a
+-            // mapped type because we protect again circular constraints in getTypeFromMappedTypeNode.
+-            const modifiersType = getModifiersTypeFromMappedType(type);
+-            const baseConstraint = isGenericMappedType(modifiersType) ? getApparentTypeOfMappedType(modifiersType) : getBaseConstraintOfType(modifiersType);
+-            if (baseConstraint && everyType(baseConstraint, t => isArrayOrTupleType(t) || isArrayOrTupleOrIntersection(t))) {
+-                return instantiateType(target, prependTypeMapping(typeVariable, baseConstraint, type.mapper));
++            const constraint = getConstraintTypeFromMappedType(type);
++            if (constraint.flags & TypeFlags.Index) {
++                const baseConstraint = getBaseConstraintOfType((constraint as IndexType).type);
++                if (baseConstraint && everyType(baseConstraint, t => isArrayOrTupleType(t) || isArrayOrTupleOrIntersection(t))) {
++                    return instantiateType(target, prependTypeMapping(typeVariable, baseConstraint, type.mapper));
++                }
+             }
+         }
+         return type;

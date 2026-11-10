@@ -1,0 +1,47 @@
+diff --git a/src/services/codefixes/annotateWithTypeFromJSDoc.ts b/src/services/codefixes/annotateWithTypeFromJSDoc.ts
+index 72a9cd7..e875270 100644
+--- a/src/services/codefixes/annotateWithTypeFromJSDoc.ts
++++ b/src/services/codefixes/annotateWithTypeFromJSDoc.ts
+@@ -20,14 +20,12 @@ import {
+     isFunctionLikeDeclaration,
+     isIdentifier,
+     isJSDocIndexSignature,
+-    isOptionalJSDocPropertyLikeTag,
+     isParameter,
+     isTypeNode,
+     JSDocFunctionType,
+     JSDocNonNullableType,
+     JSDocNullableType,
+     JSDocOptionalType,
+-    JSDocTypeLiteral,
+     JSDocVariadicType,
+     last,
+     map,
+@@ -140,8 +138,6 @@ function transformJSDocType(node: Node): Node {
+             return transformJSDocFunctionType(node as JSDocFunctionType);
+         case SyntaxKind.TypeReference:
+             return transformJSDocTypeReference(node as TypeReferenceNode);
+-        case SyntaxKind.JSDocTypeLiteral:
+-            return transformJSDocTypeLiteral(node as JSDocTypeLiteral);
+         default:
+             const visited = visitEachChild(node, transformJSDocType, /*context*/ undefined);
+             setEmitFlags(visited, EmitFlags.SingleLine);
+@@ -149,18 +145,6 @@ function transformJSDocType(node: Node): Node {
+     }
+ }
+ 
+-function transformJSDocTypeLiteral(node: JSDocTypeLiteral) {
+-    const typeNode = factory.createTypeLiteralNode(map(node.jsDocPropertyTags, tag =>
+-        factory.createPropertySignature(
+-            /*modifiers*/ undefined,
+-            isIdentifier(tag.name) ? tag.name : tag.name.right,
+-            isOptionalJSDocPropertyLikeTag(tag) ? factory.createToken(SyntaxKind.QuestionToken) : undefined,
+-            tag.typeExpression && visitNode(tag.typeExpression.type, transformJSDocType, isTypeNode) || factory.createKeywordTypeNode(SyntaxKind.AnyKeyword),
+-        )));
+-    setEmitFlags(typeNode, EmitFlags.SingleLine);
+-    return typeNode;
+-}
+-
+ function transformJSDocOptionalType(node: JSDocOptionalType) {
+     return factory.createUnionTypeNode([visitNode(node.type, transformJSDocType, isTypeNode), factory.createTypeReferenceNode("undefined", emptyArray)]);
+ }

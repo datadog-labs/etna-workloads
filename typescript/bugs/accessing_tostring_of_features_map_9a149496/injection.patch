@@ -1,0 +1,39 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..b656b47 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -352,6 +352,7 @@ import {
+     getObjectFlags,
+     getOriginalNode,
+     getOrUpdate,
++    getOwnKeys,
+     getParameterSymbolFromJSDoc,
+     getParseTreeNode,
+     getPropertyAssignmentAliasLikeExpression,
+@@ -35229,14 +35230,19 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         if (!container) {
+             return undefined;
+         }
+-        const containingTypeName = symbolName(container);
+         const allFeatures = getScriptTargetFeatures();
+-        const typeFeatures = allFeatures.get(containingTypeName);
+-        if (typeFeatures) {
+-            for (const [libTarget, featuresOfType] of typeFeatures) {
+-                if (contains(featuresOfType, missingProperty)) {
+-                    return libTarget;
+-                }
++        const featuresByLib: { [libTarget: string]: { [typeName: string]: string[] | undefined; }; } = {};
++        allFeatures.forEach((typeFeatures, typeName) => {
++            typeFeatures.forEach((featuresOfType, libTarget) => {
++                (featuresByLib[libTarget] ||= {})[typeName] = featuresOfType;
++            });
++        });
++        const libTargets = getOwnKeys(featuresByLib);
++        for (const libTarget of libTargets) {
++            const featuresOfLib = featuresByLib[libTarget];
++            const featuresOfContainingType = featuresOfLib[symbolName(container)];
++            if (featuresOfContainingType !== undefined && featuresOfContainingType.indexOf(missingProperty) >= 0) {
++                return libTarget;
+             }
+         }
+     }

@@ -1,0 +1,37 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..222f367 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -7835,7 +7835,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 const signatures = getSignaturesOfType(filterType(propertyType, t => !(t.flags & TypeFlags.Undefined)), SignatureKind.Call);
+                 for (const signature of signatures) {
+                     const methodDeclaration = signatureToSignatureDeclarationHelper(signature, SyntaxKind.MethodSignature, context, { name: propertyName, questionToken: optionalToken }) as MethodSignature;
+-                    typeElements.push(preserveCommentsOn(methodDeclaration, signature.declaration || propertySymbol.valueDeclaration));
++                    typeElements.push(preserveCommentsOn(methodDeclaration));
+                 }
+                 if (signatures.length || !optionalToken) {
+                     return;
+@@ -7867,9 +7867,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                 propertyTypeNode,
+             );
+ 
+-            typeElements.push(preserveCommentsOn(propertySignature, propertySymbol.valueDeclaration));
++            typeElements.push(preserveCommentsOn(propertySignature));
+ 
+-            function preserveCommentsOn<T extends Node>(node: T, range: Node | undefined) {
++            function preserveCommentsOn<T extends Node>(node: T) {
+                 const jsdocPropertyTag = propertySymbol.declarations?.find((d): d is JSDocPropertyTag => d.kind === SyntaxKind.JSDocPropertyTag);
+                 if (jsdocPropertyTag) {
+                     const commentText = getTextOfJSDocComment(jsdocPropertyTag.comment);
+@@ -7877,9 +7877,9 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                         setSyntheticLeadingComments(node, [{ kind: SyntaxKind.MultiLineCommentTrivia, text: "*\n * " + commentText.replace(/\n/g, "\n * ") + "\n ", pos: -1, end: -1, hasTrailingNewLine: true }]);
+                     }
+                 }
+-                else if (range) {
++                else if (propertySymbol.valueDeclaration) {
+                     // Copy comments to node for declaration emit
+-                    setCommentRange(context, node, range);
++                    setCommentRange(context, node, propertySymbol.valueDeclaration);
+                 }
+                 return node;
+             }

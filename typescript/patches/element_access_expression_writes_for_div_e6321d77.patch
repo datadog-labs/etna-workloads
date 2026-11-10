@@ -1,0 +1,45 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..36dd534 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -734,7 +734,6 @@ import {
+     isRequireCall,
+     isRestParameter,
+     isRestTypeNode,
+-    isRightSideOfAccessExpression,
+     isRightSideOfInstanceofExpression,
+     isRightSideOfQualifiedNameOrPropertyAccess,
+     isRightSideOfQualifiedNameOrPropertyAccessOrJSDocMemberName,
+@@ -19254,7 +19253,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+                         return autoType;
+                     }
+                 }
+-                const propType = accessFlags & AccessFlags.Writing ? getWriteTypeOfSymbol(prop) : getTypeOfSymbol(prop);
++                const propType = getTypeOfSymbol(prop);
+                 return accessExpression && getAssignmentTargetKind(accessExpression) !== AssignmentKind.Definite ? getFlowTypeOfReference(accessExpression, propType) :
+                     accessNode && isIndexedAccessTypeNode(accessNode) && containsMissingType(propType) ? getUnionType([propType, undefinedType]) :
+                     propType;
+@@ -30250,7 +30249,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         // to it at the given location. Since we have no control flow information for the
+         // hypothetical reference (control flow information is created and attached by the
+         // binder), we simply return the declared type of the symbol.
+-        return isRightSideOfAccessExpression(location) && isWriteAccess(location.parent) ? getWriteTypeOfSymbol(symbol) : getNonMissingTypeOfSymbol(symbol);
++        return getNonMissingTypeOfSymbol(symbol);
+     }
+ 
+     function getControlFlowContainer(node: Node): Node {
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..92367ef 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -7573,8 +7573,8 @@ export function isRightSideOfQualifiedNameOrPropertyAccess(node: Node): boolean
+ 
+ /** @internal */
+ export function isRightSideOfAccessExpression(node: Node): boolean {
+-    return !!node.parent && (isPropertyAccessExpression(node.parent) && node.parent.name === node
+-        || isElementAccessExpression(node.parent) && node.parent.argumentExpression === node);
++    return isPropertyAccessExpression(node.parent) && node.parent.name === node
++        || isElementAccessExpression(node.parent) && node.parent.argumentExpression === node;
+ }
+ 
+ /** @internal */

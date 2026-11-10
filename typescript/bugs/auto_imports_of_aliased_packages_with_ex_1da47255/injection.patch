@@ -1,0 +1,26 @@
+diff --git a/src/compiler/moduleSpecifiers.ts b/src/compiler/moduleSpecifiers.ts
+index 8860677..ad48fdf 100644
+--- a/src/compiler/moduleSpecifiers.ts
++++ b/src/compiler/moduleSpecifiers.ts
+@@ -1256,19 +1256,14 @@ function tryGetModuleNameAsNodeModule({ path, isRedirect }: ModulePath, { getCan
+             const packageJsonContent: Record<string, any> | undefined = cachedPackageJson?.contents.packageJsonContent || tryParseJson(host.readFile!(packageJsonPath)!);
+             const importMode = overrideMode || getDefaultResolutionModeForFile(importingSourceFile, host, options);
+             if (getResolvePackageJsonExports(options)) {
+-                // The package name that we found in node_modules could be different from the package
+-                // name in the package.json content via url/filepath dependency specifiers. We need to
+-                // use the actual directory name, so don't look at `packageJsonContent.name` here.
+-                const nodeModulesDirectoryName = packageRootPath.substring(parts.topLevelPackageNameIndex + 1);
+-                const packageName = getPackageNameFromTypesPackageName(nodeModulesDirectoryName);
+                 const conditions = getConditions(options, importMode);
+-                const fromExports = packageJsonContent?.exports
++                const fromExports = packageJsonContent?.exports && typeof packageJsonContent.name === "string"
+                     ? tryGetModuleNameFromExports(
+                         options,
+                         host,
+                         path,
+                         packageRootPath,
+-                        packageName,
++                        getPackageNameFromTypesPackageName(packageJsonContent.name),
+                         packageJsonContent.exports,
+                         conditions,
+                     )

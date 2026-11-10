@@ -1,0 +1,34 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..48a2793 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -35929,26 +35929,19 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+     }
+ 
+     function getSpreadArgumentType(args: readonly Expression[], index: number, argCount: number, restType: Type, context: InferenceContext | undefined, checkMode: CheckMode) {
+-        const inConstContext = isConstTypeVariable(restType);
+-
+         if (index >= argCount - 1) {
+             const arg = args[argCount - 1];
+             if (isSpreadArgument(arg)) {
+                 // We are inferring from a spread expression in the last argument position, i.e. both the parameter
+                 // and the argument are ...x forms.
+-                const spreadType = arg.kind === SyntaxKind.SyntheticExpression ? (arg as SyntheticExpression).type :
+-                    checkExpressionWithContextualType((arg as SpreadElement).expression, restType, context, checkMode);
+-
+-                if (isArrayLikeType(spreadType)) {
+-                    return getMutableArrayOrTupleType(spreadType);
+-                }
+-
+-                return createArrayType(checkIteratedTypeOrElementType(IterationUse.Spread, spreadType, undefinedType, arg.kind === SyntaxKind.SpreadElement ? (arg as SpreadElement).expression : arg), inConstContext);
++                return getMutableArrayOrTupleType(arg.kind === SyntaxKind.SyntheticExpression ? (arg as SyntheticExpression).type :
++                    checkExpressionWithContextualType((arg as SpreadElement).expression, restType, context, checkMode));
+             }
+         }
+         const types = [];
+         const flags = [];
+         const names = [];
++        const inConstContext = isConstTypeVariable(restType);
+         for (let i = index; i < argCount; i++) {
+             const arg = args[i];
+             if (isSpreadArgument(arg)) {

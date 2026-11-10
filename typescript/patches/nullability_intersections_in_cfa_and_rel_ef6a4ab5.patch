@@ -1,0 +1,31 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..b46b112 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -22334,7 +22334,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         if (reduced !== type) {
+             return reduced;
+         }
+-        if (type.flags & TypeFlags.Intersection && shouldNormalizeIntersection(type as IntersectionType)) {
++        if (type.flags & TypeFlags.Intersection && some((type as IntersectionType).types, isEmptyAnonymousObjectType)) {
+             // Normalization handles cases like
+             // Partial<T>[K] & ({} | null) ==>
+             // Partial<T>[K] & {} | Partial<T>[K] & null ==>
+@@ -22349,17 +22349,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         return type;
+     }
+ 
+-    function shouldNormalizeIntersection(type: IntersectionType) {
+-        let hasInstantiable = false;
+-        let hasNullableOrEmpty = false;
+-        for (const t of type.types) {
+-            hasInstantiable ||= !!(t.flags & TypeFlags.Instantiable);
+-            hasNullableOrEmpty ||= !!(t.flags & TypeFlags.Nullable) || isEmptyAnonymousObjectType(t);
+-            if (hasInstantiable && hasNullableOrEmpty) return true;
+-        }
+-        return false;
+-    }
+-
+     function getNormalizedTupleType(type: TupleTypeReference, writing: boolean): Type {
+         const elements = getElementTypes(type);
+         const normalizedElements = sameMap(elements, t => t.flags & TypeFlags.Simplifiable ? getSimplifiedType(t, writing) : t);

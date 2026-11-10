@@ -1,0 +1,78 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..cc7ba28 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -31023,8 +31023,8 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         // To avoid that we will give an error to users if they use arguments objects in arrow function so that they
+         // can explicitly bound arguments objects
+         if (symbol === argumentsSymbol) {
+-            if (isInPropertyInitializerOrClassStaticBlock(node, /*ignoreArrowFunctions*/ true)) {
+-                error(node, Diagnostics.arguments_cannot_be_referenced_in_property_initializers_or_class_static_initialization_blocks);
++            if (isInPropertyInitializerOrClassStaticBlock(node)) {
++                error(node, Diagnostics.arguments_cannot_be_referenced_in_property_initializers);
+                 return;
+             }
+ 
+@@ -31091,7 +31091,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         checkIdentifierCalculateNodeCheckFlags(node, symbol);
+ 
+         if (symbol === argumentsSymbol) {
+-            if (isInPropertyInitializerOrClassStaticBlock(node, /*ignoreArrowFunctions*/ true)) {
++            if (isInPropertyInitializerOrClassStaticBlock(node)) {
+                 return errorType;
+             }
+             return getTypeOfSymbol(symbol);
+@@ -35112,21 +35112,31 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         }
+     }
+ 
+-    function isInPropertyInitializerOrClassStaticBlock(node: Node, ignoreArrowFunctions?: boolean): boolean {
++    function isInPropertyInitializerOrClassStaticBlock(node: Node): boolean {
+         return !!findAncestor(node, node => {
+             switch (node.kind) {
+                 case SyntaxKind.PropertyDeclaration:
+-                case SyntaxKind.ClassStaticBlockDeclaration:
+                     return true;
+-                case SyntaxKind.TypeQuery:
+-                case SyntaxKind.JsxClosingElement: // already reported in JsxOpeningElement
+-                    return "quit";
++                case SyntaxKind.PropertyAssignment:
++                case SyntaxKind.MethodDeclaration:
++                case SyntaxKind.GetAccessor:
++                case SyntaxKind.SetAccessor:
++                case SyntaxKind.SpreadAssignment:
++                case SyntaxKind.ComputedPropertyName:
++                case SyntaxKind.TemplateSpan:
++                case SyntaxKind.JsxExpression:
++                case SyntaxKind.JsxAttribute:
++                case SyntaxKind.JsxAttributes:
++                case SyntaxKind.JsxSpreadAttribute:
++                case SyntaxKind.JsxOpeningElement:
++                case SyntaxKind.ExpressionWithTypeArguments:
++                case SyntaxKind.HeritageClause:
++                    return false;
+                 case SyntaxKind.ArrowFunction:
+-                    return ignoreArrowFunctions ? false : "quit";
+-                case SyntaxKind.Block:
+-                    return isFunctionLikeDeclaration(node.parent) && node.parent.kind !== SyntaxKind.ArrowFunction ? "quit" : false;
++                case SyntaxKind.ExpressionStatement:
++                    return isBlock(node.parent) && isClassStaticBlockDeclaration(node.parent.parent) ? true : "quit";
+                 default:
+-                    return false;
++                    return isExpressionNode(node) ? false : "quit";
+             }
+         });
+     }
+diff --git a/src/compiler/diagnosticMessages.json b/src/compiler/diagnosticMessages.json
+index 46c2807..7017fcb 100644
+--- a/src/compiler/diagnosticMessages.json
++++ b/src/compiler/diagnosticMessages.json
+@@ -3794,7 +3794,7 @@
+         "category": "Error",
+         "code": 2814
+     },
+-    "'arguments' cannot be referenced in property initializers or class static initialization blocks.": {
++    "'arguments' cannot be referenced in property initializers.": {
+         "category": "Error",
+         "code": 2815
+     },

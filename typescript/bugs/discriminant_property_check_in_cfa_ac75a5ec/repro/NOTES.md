@@ -1,0 +1,2 @@
+`input.ts` narrows a discriminated union with `value.type !== 'a'` (early return), then `value.type === 'a' && value.variant === 1` (return), and returns `value` as `{type:'a'; variant:2} | null`.
+Clean: no errors (`value` is narrowed to the variant 2 member). Injected: TS2322, because `variant` is no longer treated as a discriminant after the first narrowing, so `value` stays `{variant:1}|{variant:2}`.

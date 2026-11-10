@@ -1,0 +1,2 @@
+checker.ts, isBlockScopedNameDeclaredBeforeUse (the `isUsedInFunctionOrInstanceProperty(usage, declaration)` branch): the condition `emitStandardClassFields` is replaced with `getEmitScriptTarget(compilerOptions) === ScriptTarget.ESNext && useDefineForClassFields`. This matches the single hunk of fix.diff, which changed `=== ESNext` to `>= ES2022`. With the change, ES2022 targets no longer report the parameter-property-used-before-init error.
+Final: SUMMARY: 1/6 oracle cases failing (1 fix-added).

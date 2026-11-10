@@ -1,0 +1,45 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..8189522 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -6312,7 +6312,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             isExpandoFunctionDeclaration,
+             hasLateBindableName,
+             shouldRemoveDeclaration(context: SyntacticTypeNodeBuilderContext, node: DynamicNamedDeclaration) {
+-                return !((context as NodeBuilderContext).internalFlags & InternalNodeBuilderFlags.AllowUnresolvedNames && isEntityNameExpression(node.name.expression) && checkComputedPropertyName(node.name).flags & TypeFlags.Any);
++                return !((context as NodeBuilderContext).internalFlags & InternalNodeBuilderFlags.AllowUnresolvedNames && hasDynamicName(node) && isEntityNameExpression(node.name.expression) && checkComputedPropertyName(node.name).flags & TypeFlags.Any);
+             },
+             createRecoveryBoundary(context) {
+                 return createRecoveryBoundary(context as NodeBuilderContext);
+diff --git a/src/compiler/expressionToTypeNode.ts b/src/compiler/expressionToTypeNode.ts
+index 0df3a39..25fdf8c 100644
+--- a/src/compiler/expressionToTypeNode.ts
++++ b/src/compiler/expressionToTypeNode.ts
+@@ -11,6 +11,7 @@ import {
+     countWhere,
+     Debug,
+     Declaration,
++    DynamicNamedDeclaration,
+     ElementAccessExpression,
+     EmitFlags,
+     Expression,
+@@ -31,7 +32,6 @@ import {
+     getJSDocTypeAssertionType,
+     getSourceFileOfNode,
+     getStrictOptionValue,
+-    hasDynamicName,
+     HasInferredType,
+     Identifier,
+     ImportTypeNode,
+@@ -447,10 +447,7 @@ export function createSyntacticTypeNodeBuilder(
+                 );
+             }
+             if (isNamedDeclaration(node) && node.name.kind === SyntaxKind.ComputedPropertyName && !resolver.hasLateBindableName(node)) {
+-                if (!hasDynamicName(node)) {
+-                    return visitEachChild(node, visitExistingNodeTreeSymbols);
+-                }
+-                if (resolver.shouldRemoveDeclaration(context, node)) {
++                if (resolver.shouldRemoveDeclaration(context, node as DynamicNamedDeclaration)) {
+                     return undefined;
+                 }
+             }

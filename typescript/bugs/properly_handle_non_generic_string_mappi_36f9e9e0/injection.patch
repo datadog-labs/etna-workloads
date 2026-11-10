@@ -1,0 +1,104 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..d39a03f 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -18217,25 +18217,19 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+     }
+ 
+     function removeStringLiteralsMatchedByTemplateLiterals(types: Type[]) {
+-        const templates = filter(types, isPatternLiteralType) as (TemplateLiteralType | StringMappingType)[];
++        const templates = filter(types, t => !!(t.flags & TypeFlags.TemplateLiteral) && isPatternLiteralType(t)) as TemplateLiteralType[];
+         if (templates.length) {
+             let i = types.length;
+             while (i > 0) {
+                 i--;
+                 const t = types[i];
+-                if (t.flags & TypeFlags.StringLiteral && some(templates, template => isTypeMatchedByTemplateLiteralOrStringMapping(t, template))) {
++                if (t.flags & TypeFlags.StringLiteral && some(templates, template => isTypeMatchedByTemplateLiteralType(t, template))) {
+                     orderedRemoveItemAt(types, i);
+                 }
+             }
+         }
+     }
+ 
+-    function isTypeMatchedByTemplateLiteralOrStringMapping(type: Type, template: TemplateLiteralType | StringMappingType) {
+-        return template.flags & TypeFlags.TemplateLiteral ?
+-            isTypeMatchedByTemplateLiteralType(type, template as TemplateLiteralType) :
+-            isMemberOfStringMapping(type, template);
+-    }
+-
+     function removeConstrainedTypeVariables(types: Type[]) {
+         const typeVariables: TypeVariable[] = [];
+         // First collect a list of the type variables occurring in constraining intersections.
+@@ -18351,7 +18345,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             if (includes & (TypeFlags.Enum | TypeFlags.Literal | TypeFlags.UniqueESSymbol | TypeFlags.TemplateLiteral | TypeFlags.StringMapping) || includes & TypeFlags.Void && includes & TypeFlags.Undefined) {
+                 removeRedundantLiteralTypes(typeSet, includes, !!(unionReduction & UnionReduction.Subtype));
+             }
+-            if (includes & TypeFlags.StringLiteral && includes & (TypeFlags.TemplateLiteral | TypeFlags.StringMapping)) {
++            if (includes & TypeFlags.StringLiteral && includes & TypeFlags.TemplateLiteral) {
+                 removeStringLiteralsMatchedByTemplateLiterals(typeSet);
+             }
+             if (includes & TypeFlags.IncludesConstrainedTypeVariable) {
+@@ -18554,8 +18548,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+     }
+ 
+     /**
+-     * Returns true if the intersection of the template literals and string literals is the empty set,
+-     * for example `get${string}` & "setX", and should reduce to never.
++     * Returns `true` if the intersection of the template literals and string literals is the empty set, eg `get${string}` & "setX", and should reduce to `never`
+      */
+     function extractRedundantTemplateLiterals(types: Type[]): boolean {
+         let i = types.length;
+@@ -18563,10 +18556,10 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         while (i > 0) {
+             i--;
+             const t = types[i];
+-            if (!(t.flags & (TypeFlags.TemplateLiteral | TypeFlags.StringMapping))) continue;
++            if (!(t.flags & TypeFlags.TemplateLiteral)) continue;
+             for (const t2 of literals) {
+                 if (isTypeSubtypeOf(t2, t)) {
+-                    // For example, `get${T}` & "getX" is just "getX", and Lowercase<string> & "foo" is just "foo"
++                    // eg, ``get${T}` & "getX"` is just `"getX"`
+                     orderedRemoveItemAt(types, i);
+                     break;
+                 }
+@@ -18684,7 +18677,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+         ) {
+             return neverType;
+         }
+-        if (includes & (TypeFlags.TemplateLiteral | TypeFlags.StringMapping) && includes & TypeFlags.StringLiteral && extractRedundantTemplateLiterals(typeSet)) {
++        if (includes & TypeFlags.TemplateLiteral && includes & TypeFlags.StringLiteral && extractRedundantTemplateLiterals(typeSet)) {
+             return neverType;
+         }
+         if (includes & TypeFlags.Any) {
+diff --git a/src/compiler/types.ts b/src/compiler/types.ts
+index 4d8d22a..312ec85 100644
+--- a/src/compiler/types.ts
++++ b/src/compiler/types.ts
+@@ -6358,8 +6358,6 @@ export const enum TypeFlags {
+     Union           = 1 << 27,  // Union (T | U)
+     Intersection    = 1 << 28,  // Intersection (T & U)
+     /** @internal */
+-    Reserved1       = 1 << 29,  // Used by union/intersection type construction
+-    /** @internal */
+     Reserved2       = 1 << 30,  // Used by union/intersection type construction
+     /** @internal */
+     Reserved3       = 1 << 31,
+@@ -6409,7 +6407,7 @@ export const enum TypeFlags {
+     Narrowable = Any | Unknown | StructuredOrInstantiable | StringLike | NumberLike | BigIntLike | BooleanLike | ESSymbol | UniqueESSymbol | NonPrimitive,
+     // The following flags are aggregated during union and intersection type construction
+     /** @internal */
+-    IncludesMask = Any | Unknown | Primitive | Never | Object | Union | Intersection | NonPrimitive | TemplateLiteral | StringMapping,
++    IncludesMask = Any | Unknown | Primitive | Never | Object | Union | Intersection | NonPrimitive | TemplateLiteral,
+     // The following flags are used for different purposes during union and intersection type construction
+     /** @internal */
+     IncludesMissingType = TypeParameter,
+@@ -6422,7 +6420,7 @@ export const enum TypeFlags {
+     /** @internal */
+     IncludesInstantiable = Substitution,
+     /** @internal */
+-    IncludesConstrainedTypeVariable = Reserved1,
++    IncludesConstrainedTypeVariable = StringMapping,
+     /** @internal */
+     IncludesError = Reserved2,
+     /** @internal */

@@ -1,0 +1,47 @@
+diff --git a/src/services/completions.ts b/src/services/completions.ts
+index 28d2913..540bd5b 100644
+--- a/src/services/completions.ts
++++ b/src/services/completions.ts
+@@ -3069,7 +3069,7 @@ function getCompletionEntryCodeActionsAndSourceDisplay(
+     cancellationToken: CancellationToken,
+ ): CodeActionsAndSourceDisplay {
+     if (data?.moduleSpecifier) {
+-        if (previousToken && getImportStatementCompletionInfo(contextToken || previousToken, sourceFile).replacementSpan) {
++        if (previousToken && getImportStatementCompletionInfo(contextToken || previousToken).replacementSpan) {
+             // Import statement completion: 'import c|'
+             return { codeActions: undefined, sourceDisplay: [textPart(data.moduleSpecifier)] };
+         }
+@@ -3419,7 +3419,7 @@ function getCompletionData(
+     let defaultCommitCharacters: string[] | undefined;
+ 
+     if (contextToken) {
+-        const importStatementCompletionInfo = getImportStatementCompletionInfo(contextToken, sourceFile);
++        const importStatementCompletionInfo = getImportStatementCompletionInfo(contextToken);
+         if (importStatementCompletionInfo.keywordCompletion) {
+             if (importStatementCompletionInfo.isKeywordOnlyCompletion) {
+                 return {
+@@ -5884,7 +5884,7 @@ export interface ImportStatementCompletionInfo {
+     replacementSpan: TextSpan | undefined;
+ }
+ 
+-function getImportStatementCompletionInfo(contextToken: Node, sourceFile: SourceFile): ImportStatementCompletionInfo {
++function getImportStatementCompletionInfo(contextToken: Node): ImportStatementCompletionInfo {
+     let keywordCompletion: TokenSyntaxKind | undefined;
+     let isKeywordOnlyCompletion = false;
+     const candidate = getCandidate();
+@@ -5900,15 +5900,6 @@ function getImportStatementCompletionInfo(contextToken: Node, sourceFile: Source
+     function getCandidate() {
+         const parent = contextToken.parent;
+         if (isImportEqualsDeclaration(parent)) {
+-            // import Foo |
+-            // import Foo f|
+-            const lastToken = parent.getLastToken(sourceFile);
+-            if (isIdentifier(contextToken) && lastToken !== contextToken) {
+-                keywordCompletion = SyntaxKind.FromKeyword;
+-                isKeywordOnlyCompletion = true;
+-                return undefined;
+-            }
+-
+             keywordCompletion = contextToken.kind === SyntaxKind.TypeKeyword ? undefined : SyntaxKind.TypeKeyword;
+             return isModuleSpecifierMissingOrEmpty(parent.moduleReference) ? parent : undefined;
+         }

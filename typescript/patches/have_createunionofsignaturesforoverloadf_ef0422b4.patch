@@ -1,0 +1,39 @@
+diff --git a/src/compiler/checker.ts b/src/compiler/checker.ts
+index 0567712..9bf6a9d 100644
+--- a/src/compiler/checker.ts
++++ b/src/compiler/checker.ts
+@@ -36908,7 +36908,7 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+             parameters.push(createCombinedSymbolFromTypes(symbols, mapDefined(candidates, candidate => tryGetTypeAtPosition(candidate, i))));
+         }
+         const restParameterSymbols = mapDefined(candidates, c => signatureHasRestParameter(c) ? last(c.parameters) : undefined);
+-        let flags = SignatureFlags.IsSignatureCandidateForOverloadFailure;
++        let flags = SignatureFlags.None;
+         if (restParameterSymbols.length !== 0) {
+             const type = createArrayType(getUnionType(mapDefined(candidates, tryGetRestTypeOfSignature), UnionReduction.Subtype));
+             parameters.push(createCombinedSymbolForOverloadFailure(restParameterSymbols, type));
+@@ -37880,7 +37880,6 @@ export function createTypeChecker(host: TypeCheckerHost): TypeChecker {
+     }
+ 
+     function checkDeprecatedSignature(signature: Signature, node: CallLikeExpression) {
+-        if (signature.flags & SignatureFlags.IsSignatureCandidateForOverloadFailure) return;
+         if (signature.declaration && signature.declaration.flags & NodeFlags.Deprecated) {
+             const suggestionNode = getDeprecatedSuggestionNode(node);
+             const name = tryGetPropertyAccessOrIdentifierToString(getInvokedExpression(node));
+diff --git a/src/compiler/types.ts b/src/compiler/types.ts
+index 4d8d22a..cfac29e 100644
+--- a/src/compiler/types.ts
++++ b/src/compiler/types.ts
+@@ -7005,12 +7005,11 @@ export const enum SignatureFlags {
+     IsOuterCallChain = 1 << 4,          // Indicates signature comes from a CallChain that is the outermost chain of an optional expression
+     IsUntypedSignatureInJSFile = 1 << 5, // Indicates signature is from a js file and has no types
+     IsNonInferrable = 1 << 6,           // Indicates signature comes from a non-inferrable type
+-    IsSignatureCandidateForOverloadFailure = 1 << 7,
+ 
+     // We do not propagate `IsInnerCallChain` or `IsOuterCallChain` to instantiated signatures, as that would result in us
+     // attempting to add `| undefined` on each recursive call to `getReturnTypeOfSignature` when
+     // instantiating the return type.
+-    PropagatingFlags = HasRestParameter | HasLiteralTypes | Abstract | IsUntypedSignatureInJSFile | IsSignatureCandidateForOverloadFailure,
++    PropagatingFlags = HasRestParameter | HasLiteralTypes | Abstract | IsUntypedSignatureInJSFile,
+ 
+     CallChainFlags = IsInnerCallChain | IsOuterCallChain,
+ }

@@ -1,0 +1,3 @@
+Watch-mode program (node16, packages `bar`/`foo` whose `exports` only give JS under "import"; types exist only via `@types/bar/index.d.ts` and `foo/index.d.ts`, found by the alternate no-exports lookup). The script deletes/re-adds those .d.ts files and fires the resolution cache's directory watchers.
+Clean: each edit invalidates the resolution and re-creates the program, so the "There are types at ..." (alternate result) diagnostics appear/disappear correctly (extra programs, 4 vs 3 outputs).
+Injected: the alternate lookup's failed/affecting locations are dropped, so some edits do not trigger re-resolution and the diagnostics stay stale (e.g. the final state says "Try npm i @types/bar" instead of "There are types at ...").

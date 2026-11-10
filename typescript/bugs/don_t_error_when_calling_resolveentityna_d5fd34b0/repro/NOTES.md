@@ -1,0 +1,2 @@
+Input: a class with a private constructor and a static arrow-function property (`makeFoo`) using `new Foo<T,C>`, then `Foo.makeFoo<{}>` (issue #53247). The script asks the language service for semantic classifications, then semantic diagnostics.
+Clean: 0 semantic diagnostics. Injected: 2 spurious errors ("Cannot find name 'Foo'" and "'Foo' only refers to a type, but is being used as a namespace here"), because `resolveEntityName` is called without ignoreErrors during classification.

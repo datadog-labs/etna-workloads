@@ -1,0 +1,2 @@
+Watch-mode program (`createWatchProgram` with an in-memory `sys`) whose current directory is `/proj`, a root that is not watchable. It uses `types: ["*"]` and an explicit `typeRoots`, and the script logs every `watchFile` and `watchDirectory` call.
+Clean skips the recursive type-roots watch because the root is not watchable. Injected removed that guard, so it also logs `watchDirectory /proj/types true`.

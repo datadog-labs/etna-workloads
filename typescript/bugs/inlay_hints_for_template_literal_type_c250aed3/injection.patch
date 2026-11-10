@@ -1,0 +1,112 @@
+diff --git a/src/compiler/utilities.ts b/src/compiler/utilities.ts
+index 38425f9..42b430a 100644
+--- a/src/compiler/utilities.ts
++++ b/src/compiler/utilities.ts
+@@ -6136,8 +6136,7 @@ export function createDiagnosticCollection(): DiagnosticCollection {
+ }
+ 
+ const templateSubstitutionRegExp = /\$\{/g;
+-/** @internal */
+-export function escapeTemplateSubstitution(str: string): string {
++function escapeTemplateSubstitution(str: string): string {
+     return str.replace(templateSubstitutionRegExp, "\\${");
+ }
+ 
+diff --git a/src/services/inlayHints.ts b/src/services/inlayHints.ts
+index 43dad7e..e82c64c 100644
+--- a/src/services/inlayHints.ts
++++ b/src/services/inlayHints.ts
+@@ -11,7 +11,6 @@ import {
+     EnumMember,
+     equateStringsCaseInsensitive,
+     escapeString,
+-    escapeTemplateSubstitution,
+     Expression,
+     findChildOfKind,
+     findIndex,
+@@ -81,11 +80,7 @@ import {
+     isQualifiedName,
+     isRestTypeNode,
+     isSpreadElement,
+-    isTemplateHead,
+-    isTemplateLiteralTypeNode,
+-    isTemplateLiteralTypeSpan,
+-    isTemplateMiddle,
+-    isTemplateTail,
++    isStringLiteral,
+     isThisTypeNode,
+     isTupleTypeNode,
+     isTypeLiteralNode,
+@@ -98,7 +93,7 @@ import {
+     isUnionTypeNode,
+     isVarConst,
+     isVariableDeclaration,
+-    LiteralLikeNode,
++    LiteralExpression,
+     MethodDeclaration,
+     NewExpression,
+     Node,
+@@ -115,7 +110,6 @@ import {
+     Symbol,
+     SymbolFlags,
+     SyntaxKind,
+-    TemplateLiteralLikeNode,
+     textSpanIntersectsWith,
+     tokenToString,
+     TupleTypeReference,
+@@ -863,28 +857,6 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
+                     parts.push({ text: tokenToString(node.operator) });
+                     visitForDisplayParts(node.operand);
+                     break;
+-                case SyntaxKind.TemplateLiteralType:
+-                    Debug.assertNode(node, isTemplateLiteralTypeNode);
+-                    visitForDisplayParts(node.head);
+-                    node.templateSpans.forEach(visitForDisplayParts);
+-                    break;
+-                case SyntaxKind.TemplateHead:
+-                    Debug.assertNode(node, isTemplateHead);
+-                    parts.push({ text: getLiteralText(node) });
+-                    break;
+-                case SyntaxKind.TemplateLiteralTypeSpan:
+-                    Debug.assertNode(node, isTemplateLiteralTypeSpan);
+-                    visitForDisplayParts(node.type);
+-                    visitForDisplayParts(node.literal);
+-                    break;
+-                case SyntaxKind.TemplateMiddle:
+-                    Debug.assertNode(node, isTemplateMiddle);
+-                    parts.push({ text: getLiteralText(node) });
+-                    break;
+-                case SyntaxKind.TemplateTail:
+-                    Debug.assertNode(node, isTemplateTail);
+-                    parts.push({ text: getLiteralText(node) });
+-                    break;
+                 case SyntaxKind.ThisType:
+                     Debug.assertNode(node, isThisTypeNode);
+                     parts.push({ text: "this" });
+@@ -926,23 +898,9 @@ export function provideInlayHints(context: InlayHintsContext): InlayHint[] {
+             });
+         }
+ 
+-        function getLiteralText(node: LiteralLikeNode) {
+-            switch (node.kind) {
+-                case SyntaxKind.StringLiteral:
+-                    return quotePreference === QuotePreference.Single ? `'${escapeString(node.text, CharacterCodes.singleQuote)}'` : `"${escapeString(node.text, CharacterCodes.doubleQuote)}"`;
+-                case SyntaxKind.TemplateHead:
+-                case SyntaxKind.TemplateMiddle:
+-                case SyntaxKind.TemplateTail: {
+-                    const rawText = (node as TemplateLiteralLikeNode).rawText ?? escapeTemplateSubstitution(escapeString(node.text, CharacterCodes.backtick));
+-                    switch (node.kind) {
+-                        case SyntaxKind.TemplateHead:
+-                            return "`" + rawText + "${";
+-                        case SyntaxKind.TemplateMiddle:
+-                            return "}" + rawText + "${";
+-                        case SyntaxKind.TemplateTail:
+-                            return "}" + rawText + "`";
+-                    }
+-                }
++        function getLiteralText(node: LiteralExpression) {
++            if (isStringLiteral(node)) {
++                return quotePreference === QuotePreference.Single ? `'${escapeString(node.text, CharacterCodes.singleQuote)}'` : `"${escapeString(node.text, CharacterCodes.doubleQuote)}"`;
+             }
+             return node.text;
+         }

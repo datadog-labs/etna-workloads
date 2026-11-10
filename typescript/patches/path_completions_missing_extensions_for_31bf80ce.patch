@@ -1,0 +1,33 @@
+diff --git a/src/services/stringCompletions.ts b/src/services/stringCompletions.ts
+index 42c72bd..236935e 100644
+--- a/src/services/stringCompletions.ts
++++ b/src/services/stringCompletions.ts
+@@ -869,19 +869,13 @@ function getFilenameWithExtensionOption(name: string, program: Program, extensio
+         return { name, extension: tryGetExtensionFromPath(name) };
+     }
+ 
+-    let allowedEndings = moduleSpecifiers.getModuleSpecifierPreferences(
++    const allowedEndings = moduleSpecifiers.getModuleSpecifierPreferences(
+         { importModuleSpecifierEnding: extensionOptions.endingPreference },
+         program,
+         program.getCompilerOptions(),
+         extensionOptions.importingSourceFile,
+     ).getAllowedEndingsInPreferredOrder(extensionOptions.resolutionMode);
+ 
+-    if (isExportsOrImportsWildcard) {
+-        // If we're completing `import {} from "foo/|"` and subpaths are available via `"exports": { "./*": "./src/*" }`,
+-        // the completion must be a (potentially extension-swapped) file name. Dropping extensions and index files is not allowed.
+-        allowedEndings = allowedEndings.filter(e => e !== ModuleSpecifierEnding.Minimal && e !== ModuleSpecifierEnding.Index);
+-    }
+-
+     if (allowedEndings[0] === ModuleSpecifierEnding.TsExtension) {
+         if (fileExtensionIsOneOf(name, supportedTSImplementationExtensions)) {
+             return { name, extension: tryGetExtensionFromPath(name) };
+@@ -893,7 +887,6 @@ function getFilenameWithExtensionOption(name: string, program: Program, extensio
+     }
+ 
+     if (
+-        !isExportsOrImportsWildcard &&
+         (allowedEndings[0] === ModuleSpecifierEnding.Minimal || allowedEndings[0] === ModuleSpecifierEnding.Index) &&
+         fileExtensionIsOneOf(name, [Extension.Js, Extension.Jsx, Extension.Ts, Extension.Tsx, Extension.Dts])
+     ) {
