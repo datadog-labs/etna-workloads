@@ -1,0 +1,28 @@
+diff -uN a/lib/internal/streams/destroy.js b/lib/internal/streams/destroy.js
+--- a/lib/internal/streams/destroy.js
++++ b/lib/internal/streams/destroy.js
+@@ -57,7 +57,9 @@
+     (r && (r[kState] & kDestroyed) !== 0)
+   ) {
+     if (typeof cb === 'function') {
+-      cb();
++      cb(err);
++    } else if (err) {
++      process.nextTick(emitErrorNT, this, err);
+     }
+ 
+     return this;
+@@ -160,13 +162,6 @@
+     return;
+   }
+ 
+-  if (w) {
+-    w[kState] |= kErrorEmitted;
+-  }
+-  if (r) {
+-    r[kState] |= kErrorEmitted;
+-  }
+-
+   self.emit('error', err);
+ }
+ 

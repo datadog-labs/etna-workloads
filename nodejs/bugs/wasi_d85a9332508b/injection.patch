@@ -1,0 +1,36 @@
+diff -uN a/src/api/hooks.cc b/src/api/hooks.cc
+--- a/src/api/hooks.cc
++++ b/src/api/hooks.cc
+@@ -38,15 +38,11 @@
+   HandleScope handle_scope(isolate);
+   Context::Scope context_scope(env->context());
+ 
+-  if (!env->can_call_into_js()) {
+-    return Nothing<bool>();
+-  }
+-
+   Local<Integer> exit_code = Integer::New(
+       isolate, static_cast<int32_t>(env->exit_code(ExitCode::kNoFailure)));
+ 
+-  return ProcessEmit(env, "beforeExit", exit_code).IsEmpty() ? Nothing<bool>()
+-                                                             : Just(true);
++  ProcessEmit(env, "beforeExit", exit_code).ToLocalChecked();
++  return Just(true);
+ }
+ 
+ Maybe<ExitCode> EmitProcessExitInternal(Environment* env) {
+diff -uN a/src/node_process_events.cc b/src/node_process_events.cc
+--- a/src/node_process_events.cc
++++ b/src/node_process_events.cc
+@@ -50,10 +50,7 @@
+                               Local<Value> message) {
+   Isolate* isolate = env->isolate();
+ 
+-  Local<Value> event_string;
+-  if (!ToV8Value(env->context(), event).ToLocal(&event_string)) {
+-    return MaybeLocal<Value>();
+-  }
++  Local<Value> event_string = ToV8Value(env->context(), event).ToLocalChecked();
+ 
+   Local<Object> process = env->process_object();
+   Local<Value> argv[] = {event_string, message};

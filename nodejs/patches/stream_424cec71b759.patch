@@ -1,0 +1,30 @@
+diff -uN a/lib/internal/streams/iter/consumers.js b/lib/internal/streams/iter/consumers.js
+--- a/lib/internal/streams/iter/consumers.js
++++ b/lib/internal/streams/iter/consumers.js
+@@ -537,6 +537,13 @@
+             iterator,
+             value: result.value,
+           });
++          // Immediately request the next value from this source
++          pendingPulls.add(iterator);
++          PromisePrototypeThen(
++            iterator.next(),
++            (r) => onSettled(iterator, r),
++            (reason) => onRejected(iterator, reason),
++          );
+         }
+         if (waitResolve) {
+           waitResolve();
+@@ -583,12 +590,6 @@
+               throw item.reason;
+             }
+             yield item.value;
+-            pendingPulls.add(item.iterator);
+-            PromisePrototypeThen(
+-              item.iterator.next(),
+-              (r) => onSettled(item.iterator, r),
+-              (reason) => onRejected(item.iterator, reason),
+-            );
+           }
+ 
+           // If sources are still active, wait for the next settlement

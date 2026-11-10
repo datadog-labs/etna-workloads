@@ -1,0 +1,32 @@
+diff -uN a/src/crypto/crypto_tls.cc b/src/crypto/crypto_tls.cc
+--- a/src/crypto/crypto_tls.cc
++++ b/src/crypto/crypto_tls.cc
+@@ -710,13 +710,6 @@
+     return;
+   }
+ 
+-  if (flags_.has_active_write_issued_by_prev_listener) [[unlikely]] {
+-    Debug(this,
+-          "Returning from EncOut(), "
+-          "has_active_write_issued_by_prev_listener_ is true");
+-    return;
+-  }
+-
+   // Split-off queue
+   if (flags_.established && current_write_) {
+     Debug(this, "EncOut() write is scheduled");
+@@ -788,14 +781,6 @@
+ void TLSWrap::OnStreamAfterWrite(WriteWrap* req_wrap, int status) {
+   Debug(this, "OnStreamAfterWrite(status = %d)", status);
+ 
+-  if (flags_.has_active_write_issued_by_prev_listener) [[unlikely]] {
+-    Debug(this, "Notify write finish to the previous_listener_");
+-    CHECK_EQ(write_size_, 0);  // we must have restrained writes
+-
+-    previous_listener_->OnStreamAfterWrite(req_wrap, status);
+-    return;
+-  }
+-
+   if (current_empty_write_) {
+     Debug(this, "Had empty write");
+     BaseObjectPtr<AsyncWrap> current_empty_write =

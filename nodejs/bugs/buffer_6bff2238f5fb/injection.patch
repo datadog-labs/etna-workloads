@@ -1,0 +1,104 @@
+diff -uN a/lib/buffer.js b/lib/buffer.js
+--- a/lib/buffer.js
++++ b/lib/buffer.js
+@@ -144,7 +144,6 @@
+   addBufferPrototypeMethods,
+   createUnsafeBuffer,
+   createUnsafeAlignedBuffer,
+-  alignmentPadding,
+   asciiWrite,
+   latin1Write,
+   utf8Write,
+@@ -486,9 +485,9 @@
+  *
+  * If `alignment` is given, the memory backing the returned buffer starts at an
+  * address that is a multiple of `alignment`, which is required by e.g. reads
+- * and writes on file descriptors opened with `O_DIRECT`. Note that at least
+- * `alignment` extra bytes are allocated to satisfy the request, and that the
+- * returned buffer's `byteOffset` is therefore usually non-zero.
++ * and writes on file descriptors opened with `O_DIRECT`. Note that up to
++ * `alignment - 1` extra bytes are allocated to satisfy the request, and that
++ * the returned buffer's `byteOffset` is therefore usually non-zero.
+  * @param {number} size
+  * @param {number} [alignment] A power of two, at most 2 ** 30
+  * @returns {FastBuffer}
+@@ -508,10 +507,10 @@
+     throw new ERR_INVALID_ARG_VALUE(
+       'alignment', alignment, 'must be a power of two');
+   }
+-  const padding = alignmentPadding(alignment);
+-  if (size > kMaxLength - padding) {
++  // Satisfying the alignment costs up to `alignment - 1` extra bytes.
++  if (size > kMaxLength - (alignment - 1)) {
+     throw new ERR_OUT_OF_RANGE(
+-      'size', `<= ${kMaxLength - padding}`, size);
++      'size', `<= ${kMaxLength - (alignment - 1)}`, size);
+   }
+ }
+ 
+diff -uN a/lib/internal/buffer.js b/lib/internal/buffer.js
+--- a/lib/internal/buffer.js
++++ b/lib/internal/buffer.js
+@@ -5,7 +5,6 @@
+   Float32Array,
+   Float64Array,
+   MathFloor,
+-  MathMax,
+   Number,
+   Symbol,
+   Uint8Array,
+@@ -1115,33 +1114,24 @@
+   return new FastBuffer(createUnsafeArrayBuffer(size));
+ }
+ 
+-// Reaching an aligned address needs at most `alignment - 1` extra bytes, but a
+-// multiple of 8 is padded instead. Backing store addresses are 8 byte aligned
+-// too, so the bytes left over after the buffer then remain a whole number of
+-// elements of any typed array created over its ArrayBuffer.
+-function alignmentPadding(alignment) {
+-  return MathMax(alignment, 8);
+-}
+-
+ // Returns an uninitialized buffer of `size` bytes whose first byte is located at
+ // a memory address that is a multiple of `alignment`. `alignment` must be a
+-// power of two, and `size` plus its padding must not exceed the maximum buffer
+-// length. Since the address of a backing store cannot be chosen, that padding is
+-// allocated and skipped, which leaves the returned buffer with a non-zero
+-// `byteOffset` into a larger ArrayBuffer.
++// power of two, and `size + alignment - 1` must not exceed the maximum buffer
++// length. Since the address of a backing store cannot be chosen, `alignment - 1`
++// extra bytes are allocated and skipped, which leaves the returned buffer with a
++// non-zero `byteOffset` into a larger ArrayBuffer.
+ function createUnsafeAlignedBuffer(size, alignment) {
+   if (size === 0) {
+     return new FastBuffer();
+   }
+ 
+-  const ab = createUnsafeArrayBuffer(size + alignmentPadding(alignment));
++  const ab = createUnsafeArrayBuffer(size + alignment - 1);
+   return new FastBuffer(ab, arrayBufferAlignedOffset(ab, alignment), size);
+ }
+ 
+ module.exports = {
+   FastBuffer,
+   addBufferPrototypeMethods,
+-  alignmentPadding,
+   markAsUntransferable,
+   isMarkedAsUntransferable,
+   createUnsafeBuffer,
+diff -uN a/src/node_buffer.cc b/src/node_buffer.cc
+--- a/src/node_buffer.cc
++++ b/src/node_buffer.cc
+@@ -1881,9 +1881,9 @@
+ // Returns the offset of the first byte of `arrayBuffer` that is located at a
+ // memory address which is a multiple of `alignment`. V8 does not let us choose
+ // the address of a backing store, so an aligned view is obtained by
+-// over-allocating and skipping to that offset. The backing store of a
+-// non-resizable ArrayBuffer never moves, so the offset stays aligned for the
+-// lifetime of the ArrayBuffer.
++// over-allocating `alignment - 1` bytes and skipping to that offset. The
++// backing store of a non-resizable ArrayBuffer never moves, so the offset stays
++// aligned for the lifetime of the ArrayBuffer.
+ void ArrayBufferAlignedOffset(const FunctionCallbackInfo<Value>& args) {
+   Environment* env = Environment::GetCurrent(args);
+   CHECK_EQ(args.Length(), 2);

@@ -1,0 +1,17 @@
+diff -uN a/src/crypto/crypto_hash.cc b/src/crypto/crypto_hash.cc
+--- a/src/crypto/crypto_hash.cc
++++ b/src/crypto/crypto_hash.cc
+@@ -740,12 +740,7 @@
+   // causes hash.digest() to correctly return an empty buffer / string.
+   // See https://github.com/openssl/openssl/issues/9431.
+ 
+-  if (!hash->digest_ && len > 0) {
+-    // Some hash algorithms such as SHA3 do not support calling
+-    // EVP_DigestFinal_ex more than once, however, Hash._flush
+-    // and Hash.digest can both be used to retrieve the digest,
+-    // so we need to cache it.
+-    // See https://github.com/nodejs/node/issues/28245.
++  if (len > 0) {
+     auto data = hash->mdctx_.digestFinal(len);
+     if (!data) [[unlikely]] {
+       return ThrowCryptoError(env, ERR_get_error());

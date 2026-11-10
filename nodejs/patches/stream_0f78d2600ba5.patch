@@ -1,0 +1,37 @@
+diff -uN a/lib/internal/streams/duplexify.js b/lib/internal/streams/duplexify.js
+--- a/lib/internal/streams/duplexify.js
++++ b/lib/internal/streams/duplexify.js
+@@ -223,29 +223,23 @@
+   const signal = ac.signal;
+   const value = fn(async function*() {
+     while (true) {
+-      const _promise = promise;
+-      promise = null;
+-      const { chunk, done, cb } = await _promise;
++      const { chunk, done, cb } = await promise;
+       process.nextTick(cb);
+       if (done) return;
+       if (signal.aborted)
+         throw new AbortError(undefined, { cause: signal.reason });
+-      ({ promise, resolve } = PromiseWithResolvers());
+       yield chunk;
++      ({ promise, resolve } = PromiseWithResolvers());
+     }
+   }(), { signal });
+ 
+   return {
+     value,
+     write(chunk, encoding, cb) {
+-      const _resolve = resolve;
+-      resolve = null;
+-      _resolve({ __proto__: null, chunk, done: false, cb });
++      resolve({ __proto__: null, chunk, done: false, cb });
+     },
+     final(cb) {
+-      const _resolve = resolve;
+-      resolve = null;
+-      _resolve({ __proto__: null, done: true, cb });
++      resolve({ __proto__: null, done: true, cb });
+     },
+     destroy(err, cb) {
+       ac.abort(err);

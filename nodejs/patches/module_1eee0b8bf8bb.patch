@@ -1,0 +1,17 @@
+diff -uN a/src/node_modules.cc b/src/node_modules.cc
+--- a/src/node_modules.cc
++++ b/src/node_modules.cc
+@@ -274,6 +274,13 @@
+     return nullptr;
+   }
+ 
++  // A package.json without "main", "exports" or "type" is treated as absent.
++  if (!package_config.main.has_value() && !package_config.exports.has_value() &&
++      package_config.type == "none") {
++    binding_data->package_configs_.insert({std::string(path), std::nullopt});
++    return nullptr;
++  }
++
+   // package_config could be quite large, so we should move it instead of
+   // copying it.
+   auto cached = binding_data->package_configs_.insert(

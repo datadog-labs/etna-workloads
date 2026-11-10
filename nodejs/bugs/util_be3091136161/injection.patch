@@ -1,0 +1,43 @@
+diff -uN a/lib/internal/util/inspect.js b/lib/internal/util/inspect.js
+--- a/lib/internal/util/inspect.js
++++ b/lib/internal/util/inspect.js
+@@ -2840,17 +2840,29 @@
+                 tempStr = formatNumberNoColor(tempArg, inspectOptions);
+               } else if (typeof tempArg === 'bigint') {
+                 tempStr = formatBigIntNoColor(tempArg, inspectOptions);
+-              } else if (typeof tempArg !== 'object' ||
+-                         tempArg === null ||
+-                         !hasBuiltInToString(tempArg)) {
+-                tempStr = String(tempArg);
+               } else {
+-                tempStr = inspect(tempArg, {
+-                  ...inspectOptions,
+-                  compact: 3,
+-                  colors: false,
+-                  depth: 0,
+-                });
++                let constr;
++                if (typeof tempArg !== 'object' ||
++                    tempArg === null ||
++                    (typeof tempArg.toString === 'function' &&
++                     // A direct own property.
++                     (ObjectPrototypeHasOwnProperty(tempArg, 'toString') ||
++                      // A direct own property on the constructor prototype in
++                      // case the constructor is not an built-in object.
++                      ((constr = tempArg.constructor) &&
++                      !builtInObjects.has(constr.name) &&
++                      constr.prototype &&
++                      ObjectPrototypeHasOwnProperty(constr.prototype,
++                                                    'toString'))))) {
++                  tempStr = String(tempArg);
++                } else {
++                  tempStr = inspect(tempArg, {
++                    ...inspectOptions,
++                    compact: 3,
++                    colors: false,
++                    depth: 0,
++                  });
++                }
+               }
+               break;
+             }

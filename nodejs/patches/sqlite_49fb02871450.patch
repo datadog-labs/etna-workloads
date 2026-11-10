@@ -1,0 +1,26 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -3955,11 +3955,10 @@
+ 
+ bool Statement::BindValue(const Local<Value>& value, const int index) {
+   // SQLite only supports a subset of JavaScript types. Some JS types such as
+-  // functions don't make sense to support. Other JS types such as
++  // functions don't make sense to support. Other JS types such as booleans and
+   // Dates could be supported by converting them to numbers. However, there
+   // would not be a good way to read the values back from SQLite with the
+-  // original type. JS Boolean binds to 1 and 0 because SQLite maps true and
+-  // false keywords to 1 and 0. JS undefined binds to NULL so that passing it
++  // original type. JS undefined binds to NULL so that passing it
+   // explicitly matches omitting the parameter altogether.
+   Isolate* isolate = env()->isolate();
+   int r;
+@@ -3994,8 +3993,6 @@
+                             buf.data(),
+                             static_cast<sqlite3_uint64>(buf.length()),
+                             SQLITE_TRANSIENT);
+-  } else if (value->IsBoolean()) {
+-    r = sqlite3_bind_int(statement_.get(), index, value->IsTrue() ? 1 : 0);
+   } else if (value->IsBigInt()) {
+     bool lossless;
+     int64_t as_int = value.As<BigInt>()->Int64Value(&lossless);

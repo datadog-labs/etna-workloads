@@ -1,0 +1,64 @@
+diff -uN a/lib/internal/modules/esm/hooks.js b/lib/internal/modules/esm/hooks.js
+--- a/lib/internal/modules/esm/hooks.js
++++ b/lib/internal/modules/esm/hooks.js
+@@ -724,13 +724,7 @@
+  * @returns {Function} The next hook in the chain.
+  */
+ function nextHookFactory(current, meta, { validateArgs, validateOutput }) {
+-  // First, prepare the current
+   const { hookName } = meta;
+-  const {
+-    fn: hook,
+-    url: hookFilePath,
+-    next,
+-  } = current;
+ 
+   // ex 'nextResolve'
+   const nextHookName = `next${
+@@ -738,20 +732,25 @@
+     StringPrototypeSlice(hookName, 1)
+   }`;
+ 
+-  let nextNextHook;
+-  if (next) {
+-    nextNextHook = nextHookFactory(next, meta, { validateArgs, validateOutput });
+-  } else {
+-    // eslint-disable-next-line node-core/func-name-matching
+-    nextNextHook = function chainAdvancedTooFar() {
+-      throw new ERR_INTERNAL_ASSERTION(
+-        `ESM custom loader '${hookName}' advanced beyond the end of the chain.`,
+-      );
+-    };
+-  }
++  // Shared pointer into the chain, advanced on every call of next<HookName>.
++  meta.current = current;
+ 
+   return ObjectDefineProperty(
+-    async (arg0 = undefined, context) => {
++    async function nextHook(arg0 = undefined, context) {
++      if (meta.current === undefined) {
++        throw new ERR_INTERNAL_ASSERTION(
++          `ESM custom loader '${hookName}' advanced beyond the end of the chain.`,
++        );
++      }
++      const {
++        fn: hook,
++        url: hookFilePath,
++        next,
++      } = meta.current;
++
++      // `next<HookName>` has been called, so advance the pointer.
++      meta.current = next;
++
+       // Update only when hook is invoked to avoid fingering the wrong filePath
+       meta.hookErrIdentifier = `${hookFilePath} '${hookName}'`;
+ 
+@@ -766,7 +765,7 @@
+         ObjectAssign(meta.context, context);
+       }
+ 
+-      const output = await hook(arg0, meta.context, nextNextHook);
++      const output = await hook(arg0, meta.context, nextHook);
+       validateOutput(outputErrIdentifier, output);
+ 
+       if (output?.shortCircuit === true) { meta.shortCircuited = true; }

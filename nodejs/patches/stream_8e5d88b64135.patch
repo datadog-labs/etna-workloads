@@ -1,0 +1,47 @@
+diff -uN a/lib/internal/streams/pipeline.js b/lib/internal/streams/pipeline.js
+--- a/lib/internal/streams/pipeline.js
++++ b/lib/internal/streams/pipeline.js
+@@ -222,10 +222,6 @@
+     finishImpl(err, --finishCount === 0);
+   }
+ 
+-  function finishOnlyHandleError(err) {
+-    finishImpl(err, false);
+-  }
+-
+   function finishImpl(err, final) {
+     if (err && (!error || error.code === 'ERR_STREAM_PREMATURE_CLOSE' || error.name === 'AbortError')) {
+       error = err;
+@@ -280,7 +276,7 @@
+           err.name !== 'AbortError' &&
+           err.code !== 'ERR_STREAM_PREMATURE_CLOSE'
+         ) {
+-          finishOnlyHandleError(err);
++          finish(err);
+         }
+       }
+       stream.on('error', onError);
+@@ -371,7 +367,7 @@
+     } else if (isNodeStream(stream)) {
+       if (isReadableNodeStream(ret)) {
+         finishCount += 2;
+-        const cleanup = pipe(ret, stream, finish, finishOnlyHandleError, { end });
++        const cleanup = pipe(ret, stream, finish, { end });
+         if (isReadable(stream) && isLastStream) {
+           lastStreamCleanup.push(cleanup);
+         }
+@@ -414,12 +410,12 @@
+   return ret;
+ }
+ 
+-function pipe(src, dst, finish, finishOnlyHandleError, { end }) {
++function pipe(src, dst, finish, { end }) {
+   let ended = false;
+   dst.on('close', () => {
+     if (!ended) {
+       // Finish if the destination closes before the source has completed.
+-      finishOnlyHandleError(new ERR_STREAM_PREMATURE_CLOSE());
++      finish(new ERR_STREAM_PREMATURE_CLOSE());
+     }
+   });
+ 

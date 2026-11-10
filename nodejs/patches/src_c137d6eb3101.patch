@@ -1,0 +1,25 @@
+diff -uN a/src/node_worker.cc b/src/node_worker.cc
+--- a/src/node_worker.cc
++++ b/src/node_worker.cc
+@@ -661,8 +661,9 @@
+         exec_argv.push_back(arg_string);
+       }
+     } else {
++      exec_argv_out = env->exec_argv();
+       exec_argv.insert(
+-          exec_argv.end(), env->exec_argv().begin(), env->exec_argv().end());
++          exec_argv.end(), exec_argv_out.begin(), exec_argv_out.end());
+     }
+ 
+     std::vector<std::string> invalid_args{};
+@@ -683,9 +684,7 @@
+ 
+     // The first argument is program name.
+     invalid_args.erase(invalid_args.begin());
+-    // Only fail for explicitly provided execArgv, this protects from failures
+-    // when execArgv from parent's execArgv is used (which is the default).
+-    if (errors.size() > 0 || (invalid_args.size() > 0 && args[2]->IsArray())) {
++    if (errors.size() > 0 || invalid_args.size() > 0) {
+       Local<Value> error;
+       if (!ToV8Value(env->context(), errors.size() > 0 ? errors : invalid_args)
+                .ToLocal(&error)) {

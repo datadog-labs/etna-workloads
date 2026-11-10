@@ -1,0 +1,43 @@
+diff -uN a/lib/internal/test_runner/runner.js b/lib/internal/test_runner/runner.js
+--- a/lib/internal/test_runner/runner.js
++++ b/lib/internal/test_runner/runner.js
+@@ -18,7 +18,6 @@
+   ObjectAssign,
+   PromisePrototypeThen,
+   PromiseWithResolvers,
+-  RegExpPrototypeSymbolReplace,
+   SafeMap,
+   SafePromiseAll,
+   SafePromiseAllReturnVoid,
+@@ -35,7 +34,6 @@
+ } = primordials;
+ 
+ const { spawn } = require('child_process');
+-const { statSync } = require('fs');
+ const { finished } = require('internal/streams/end-of-stream');
+ const { resolve, sep, isAbsolute } = require('path');
+ const { DefaultDeserializer, DefaultSerializer } = require('v8');
+@@ -158,23 +156,6 @@
+   const hasUserSuppliedPattern = patterns != null;
+   if (!patterns || patterns.length === 0) {
+     patterns = [kDefaultPattern];
+-  } else {
+-    patterns = ArrayPrototypeMap(patterns, (pattern) => {
+-      // A directory argument is expanded to search for the default test files
+-      // within it, matching the behavior from before glob patterns were
+-      // supported. Glob patterns always use forward slashes, so a trailing
+-      // path separator (of either kind) is stripped before appending.
+-      const resolved = isAbsolute(pattern) ? pattern : resolve(cwd, pattern);
+-      try {
+-        if (statSync(resolved).isDirectory()) {
+-          return `${RegExpPrototypeSymbolReplace(/[\\/]+$/, pattern, '')}/${kDefaultPattern}`;
+-        }
+-      } catch {
+-        // Not a directory or not accessible; leave the pattern as-is so the
+-        // existing "Could not find" handling still applies.
+-      }
+-      return pattern;
+-    });
+   }
+   const glob = new Glob(patterns, {
+     __proto__: null,

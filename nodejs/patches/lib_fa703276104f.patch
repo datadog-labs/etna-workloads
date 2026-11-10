@@ -1,0 +1,80 @@
+diff -uN a/lib/internal/process/pre_execution.js b/lib/internal/process/pre_execution.js
+--- a/lib/internal/process/pre_execution.js
++++ b/lib/internal/process/pre_execution.js
+@@ -476,25 +476,8 @@
+   // https://html.spec.whatwg.org/multipage/webstorage.html#webstorage
+   exposeLazyInterfaces(globalThis, 'internal/webstorage', ['Storage']);
+ 
+-  // localStorage is non-enumerable when --localstorage-file is not provided
+-  // to avoid breaking {...globalThis} operations.
+-  const localStorageFile = getOptionValue('--localstorage-file');
+-  let lazyLocalStorage;
+-  ObjectDefineProperty(globalThis, 'localStorage', {
+-    __proto__: null,
+-    enumerable: localStorageFile !== '',
+-    configurable: true,
+-    get() {
+-      lazyLocalStorage ??= require('internal/webstorage').localStorage;
+-      return lazyLocalStorage;
+-    },
+-    set(value) {
+-      lazyLocalStorage = value;
+-    },
+-  });
+-
+   defineReplaceableLazyAttribute(globalThis, 'internal/webstorage', [
+-    'sessionStorage',
++    'localStorage', 'sessionStorage',
+   ]);
+ }
+ 
+diff -uN a/lib/internal/webstorage.js b/lib/internal/webstorage.js
+--- a/lib/internal/webstorage.js
++++ b/lib/internal/webstorage.js
+@@ -4,6 +4,7 @@
+ } = primordials;
+ const { hasInspector } = internalBinding('config');
+ const { getOptionValue } = require('internal/options');
++const { lazyDOMException } = require('internal/util');
+ const { kConstructorKey, Storage } = internalBinding('webstorage');
+ const { getValidatedPath } = require('internal/fs/utils');
+ const kInMemoryPath = ':memory:';
+@@ -13,11 +14,7 @@
+ let lazyLocalStorage;
+ let lazySessionStorage;
+ let lazyInspectorStorage;
+-let localStorageWarned = false;
+ 
+-// Check at load time if localStorage file is provided to determine enumerability.
+-// If not provided, localStorage is non-enumerable to avoid breaking {...globalThis}.
+-const localStorageLocation = getOptionValue('--localstorage-file');
+ const experimentalStorageInspection =
+   hasInspector && getOptionValue('--experimental-storage-inspection');
+ 
+@@ -33,18 +30,17 @@
+   localStorage: {
+     __proto__: null,
+     configurable: true,
+-    enumerable: localStorageLocation !== '',
++    enumerable: true,
+     get() {
+       if (lazyLocalStorage === undefined) {
++        // For consistency with the web specification, throw from the accessor
++        // if the local storage path is not provided.
++        const localStorageLocation = getOptionValue('--localstorage-file');
+         if (localStorageLocation === '') {
+-          if (!localStorageWarned) {
+-            localStorageWarned = true;
+-            process.emitWarning(
+-              'localStorage is not available because --localstorage-file was not provided.',
+-              'ExperimentalWarning',
+-            );
+-          }
+-          return undefined;
++          throw lazyDOMException(
++            'Cannot initialize local storage without a `--localstorage-file` path',
++            'SecurityError',
++          );
+         }
+ 
+         if (experimentalStorageInspection) {

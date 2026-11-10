@@ -1,0 +1,76 @@
+diff -uN a/src/node_errors.h b/src/node_errors.h
+--- a/src/node_errors.h
++++ b/src/node_errors.h
+@@ -109,6 +109,7 @@
+   V(ERR_INVALID_MODULE, Error)                                                 \
+   V(ERR_INVALID_STATE, Error)                                                  \
+   V(ERR_INVALID_THIS, TypeError)                                               \
++  V(ERR_INVALID_TRANSFER_OBJECT, TypeError)                                    \
+   V(ERR_INVALID_URL, TypeError)                                                \
+   V(ERR_INVALID_URL_PATTERN, TypeError)                                        \
+   V(ERR_INVALID_URL_SCHEME, TypeError)                                         \
+@@ -117,6 +118,7 @@
+   V(ERR_MESSAGE_TARGET_CONTEXT_UNAVAILABLE, Error)                             \
+   V(ERR_MISSING_ARGS, TypeError)                                               \
+   V(ERR_MISSING_PASSPHRASE, TypeError)                                         \
++  V(ERR_MISSING_TRANSFERABLE_IN_TRANSFER_LIST, TypeError)                      \
+   V(ERR_MISSING_PLATFORM_FOR_WORKER, Error)                                    \
+   V(ERR_MODULE_NOT_FOUND, Error)                                               \
+   V(ERR_MODULE_NOT_INSTANTIATED, Error)                                        \
+@@ -232,6 +234,7 @@
+   V(ERR_INVALID_MODULE, "No such module")                                      \
+   V(ERR_INVALID_STATE, "Invalid state")                                        \
+   V(ERR_INVALID_THIS, "Value of \"this\" is the wrong type")                   \
++  V(ERR_INVALID_TRANSFER_OBJECT, "Found invalid object in transferList")       \
+   V(ERR_INVALID_URL_SCHEME, "The URL must be of scheme file:")                 \
+   V(ERR_LOAD_SQLITE_EXTENSION, "Failed to load SQLite extension")              \
+   V(ERR_MEMORY_ALLOCATION_FAILED, "Failed to allocate memory")                 \
+@@ -239,6 +242,9 @@
+   V(ERR_MESSAGE_TARGET_CONTEXT_UNAVAILABLE,                                    \
+     "A message object could not be deserialized successfully in the target "   \
+     "vm.Context")                                                              \
++  V(ERR_MISSING_TRANSFERABLE_IN_TRANSFER_LIST,                                 \
++    "Object that needs transfer was found in message but not listed "          \
++    "in transferList")                                                         \
+   V(ERR_MISSING_PLATFORM_FOR_WORKER,                                           \
+     "The V8 platform used by this instance of Node does not support "          \
+     "creating Workers")                                                        \
+diff -uN a/src/node_messaging.cc b/src/node_messaging.cc
+--- a/src/node_messaging.cc
++++ b/src/node_messaging.cc
+@@ -447,7 +447,7 @@
+           return Just(true);
+         }
+       }
+-      ThrowDataCloneError(env_->clone_transfer_needed_str());
++      THROW_ERR_MISSING_TRANSFERABLE_IN_TRANSFER_LIST(env_);
+       return Nothing<bool>();
+     }
+ 
+@@ -491,7 +491,7 @@
+     Local<Value> entry_val = transfer_list_v[i];
+     if (!entry_val->IsObject()) {
+       // Only object can be transferred.
+-      ThrowDataCloneException(context, env->clone_untransferable_str());
++      THROW_ERR_INVALID_TRANSFER_OBJECT(env);
+       return Nothing<bool>();
+     }
+     Local<Object> entry = entry_val.As<Object>();
+@@ -553,7 +553,7 @@
+           BaseObjectPtr<BaseObject>{BaseObject::Unwrap<BaseObject>(entry)};
+     } else {
+       if (!JSTransferable::IsJSTransferable(env, context, entry)) {
+-        ThrowDataCloneException(context, env->clone_untransferable_str());
++        THROW_ERR_INVALID_TRANSFER_OBJECT(env);
+         return Nothing<bool>();
+       }
+       host_object = JSTransferable::Wrap(env, entry);
+@@ -585,7 +585,7 @@
+         host_object->GetTransferMode() == TransferMode::kTransferable) {
+       delegate.AddHostObject(host_object);
+     } else {
+-      ThrowDataCloneException(context, env->clone_untransferable_str());
++      THROW_ERR_INVALID_TRANSFER_OBJECT(env);
+       return Nothing<bool>();
+     }
+   }

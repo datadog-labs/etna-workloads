@@ -1,0 +1,42 @@
+diff -uN a/lib/internal/ffi/fast-api.js b/lib/internal/ffi/fast-api.js
+--- a/lib/internal/ffi/fast-api.js
++++ b/lib/internal/ffi/fast-api.js
+@@ -30,7 +30,6 @@
+   getRawPointer,
+   kFastArguments,
+   kFastBufferInvoke,
+-  uintptrMax,
+ } = internalBinding('ffi');
+ 
+ const {
+@@ -130,14 +129,6 @@
+          needsNullPointerConversion(type) || needsStringPointerConversion(type);
+ }
+ 
+-function validateFastPointerArg(type, value, index) {
+-  if (needsPointerConversion(type) && typeof value === 'bigint' &&
+-      (value < 0n || value > uintptrMax)) {
+-    throwFFIArgError(
+-      `Argument ${index} must be a non-negative pointer bigint`);
+-  }
+-}
+-
+ function hasStringPointerArg(type, value) {
+   return typeof value === 'string' && needsStringPointerConversion(type);
+ }
+@@ -204,7 +195,6 @@
+ }
+ 
+ function convertPointerArg(type, value, stringState, index) {
+-  validateFastPointerArg(type, value, index);
+   if (needsNullPointerConversion(type) &&
+       (value === null || value === undefined)) {
+     return 0n;
+@@ -310,7 +300,6 @@
+         throwFFIArgCountError(1, arguments.length);
+       }
+       let arg = validateAndConvertFastIntegerArg(t0, a0, 0);
+-      validateFastPointerArg(t0, a0, 0);
+       if (needsNullPointerConversion(t0) &&
+           (arg === null || arg === undefined)) {
+         arg = 0n;

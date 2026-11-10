@@ -1,0 +1,38 @@
+diff -uN a/lib/internal/errors.js b/lib/internal/errors.js
+--- a/lib/internal/errors.js
++++ b/lib/internal/errors.js
+@@ -1841,7 +1841,6 @@
+ E('ERR_STREAM_NULL_VALUES', 'May not write null values to stream', TypeError);
+ E('ERR_STREAM_PREMATURE_CLOSE', 'Premature close', Error);
+ E('ERR_STREAM_PUSH_AFTER_EOF', 'stream.push() after EOF', Error);
+-E('ERR_STREAM_UNABLE_TO_PIPE', 'Cannot pipe to a closed or destroyed stream', Error);
+ E('ERR_STREAM_UNSHIFT_AFTER_END_EVENT',
+   'stream.unshift() after end event', Error);
+ E('ERR_STREAM_WRAP', 'Stream has StringDecoder set or is in objectMode', Error);
+diff -uN a/lib/internal/streams/pipeline.js b/lib/internal/streams/pipeline.js
+--- a/lib/internal/streams/pipeline.js
++++ b/lib/internal/streams/pipeline.js
+@@ -23,7 +23,6 @@
+     ERR_MISSING_ARGS,
+     ERR_STREAM_DESTROYED,
+     ERR_STREAM_PREMATURE_CLOSE,
+-    ERR_STREAM_UNABLE_TO_PIPE,
+   },
+ } = require('internal/errors');
+ 
+@@ -255,15 +254,10 @@
+     const stream = streams[i];
+     const reading = i < streams.length - 1;
+     const writing = i > 0;
+-    const next = i + 1 < streams.length ? streams[i + 1] : null;
+     const end = reading || opts?.end !== false;
+     const isLastStream = i === streams.length - 1;
+ 
+     if (isNodeStream(stream)) {
+-      if (next !== null && (next?.closed || next?.destroyed)) {
+-        throw new ERR_STREAM_UNABLE_TO_PIPE();
+-      }
+-
+       if (end) {
+         const { destroy, cleanup } = destroyer(stream, reading, writing);
+         destroys.push(destroy);

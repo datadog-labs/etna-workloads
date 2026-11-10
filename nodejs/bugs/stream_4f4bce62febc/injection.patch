@@ -1,0 +1,77 @@
+diff -uN a/lib/internal/streams/iter/consumers.js b/lib/internal/streams/iter/consumers.js
+--- a/lib/internal/streams/iter/consumers.js
++++ b/lib/internal/streams/iter/consumers.js
+@@ -26,8 +26,6 @@
+   TypedArrayPrototypeGetBuffer,
+   TypedArrayPrototypeGetByteLength,
+   TypedArrayPrototypeGetByteOffset,
+-  TypedArrayPrototypeSet,
+-  Uint8Array,
+ } = primordials;
+ 
+ const {
+@@ -164,17 +162,21 @@
+ 
+ /**
+  * Convert a Uint8Array to its backing ArrayBuffer, slicing if necessary.
++ * Handles both ArrayBuffer and SharedArrayBuffer backing stores.
+  * @param {Uint8Array} data
+- * @returns {ArrayBuffer}
++ * @returns {ArrayBuffer|SharedArrayBuffer}
+  */
+ function toArrayBuffer(data) {
+   const byteOffset = TypedArrayPrototypeGetByteOffset(data);
+   const byteLength = TypedArrayPrototypeGetByteLength(data);
+   const buffer = TypedArrayPrototypeGetBuffer(data);
++  // SharedArrayBuffer is not available in primordials, so use
++  // direct property access for its byteLength and slice.
+   if (isSharedArrayBuffer(buffer)) {
+-    const copy = new Uint8Array(byteLength);
+-    TypedArrayPrototypeSet(copy, data);
+-    return TypedArrayPrototypeGetBuffer(copy);
++    if (byteOffset === 0 && byteLength === buffer.byteLength) {
++      return buffer;
++    }
++    return buffer.slice(byteOffset, byteOffset + byteLength);
+   }
+   if (byteOffset === 0 &&
+       byteLength === ArrayBufferPrototypeGetByteLength(buffer)) {
+diff -uN a/lib/internal/streams/iter/utils.js b/lib/internal/streams/iter/utils.js
+--- a/lib/internal/streams/iter/utils.js
++++ b/lib/internal/streams/iter/utils.js
+@@ -339,12 +339,6 @@
+   return chunks;
+ }
+ 
+-function copyBytes(chunk) {
+-  const copy = new Uint8Array(TypedArrayPrototypeGetByteLength(chunk));
+-  TypedArrayPrototypeSet(copy, chunk);
+-  return copy;
+-}
+-
+ /**
+  * Concatenate multiple Uint8Arrays into a single Uint8Array.
+  * @param {Uint8Array[]} chunks
+@@ -362,15 +356,16 @@
+     // If non-zero offset, skip the remaining buffer checks.
+     if (TypedArrayPrototypeGetByteOffset(chunk) === 0) {
+       const buf = TypedArrayPrototypeGetBuffer(chunk);
+-      if (
+-        !isSharedArrayBuffer(buf) &&
+-        TypedArrayPrototypeGetByteLength(chunk) ===
+-          ArrayBufferPrototypeGetByteLength(buf)
+-      ) {
++      // SharedArrayBuffer is not available in primordials, so use
++      // direct property access for its byteLength.
++      const bufByteLength = isSharedArrayBuffer(buf) ?
++        buf.byteLength :
++        ArrayBufferPrototypeGetByteLength(buf);
++      if (TypedArrayPrototypeGetByteLength(chunk) === bufByteLength) {
+         return chunk;
+       }
+     }
+-    return copyBytes(chunk);
++    return new Uint8Array(chunk);
+   }
+   // Multiple chunks: concatenate
+   let totalByteLength = 0;

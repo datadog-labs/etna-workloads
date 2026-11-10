@@ -1,0 +1,28 @@
+diff -uN a/lib/internal/debugger/inspect_repl.js b/lib/internal/debugger/inspect_repl.js
+--- a/lib/internal/debugger/inspect_repl.js
++++ b/lib/internal/debugger/inspect_repl.js
+@@ -59,7 +59,6 @@
+ 
+ const { customInspectSymbol, SideEffectFreeRegExpPrototypeSymbolReplace } = require('internal/util');
+ const { inspect: utilInspect } = require('internal/util/inspect');
+-const { isObjectLiteral } = require('internal/repl/utils');
+ const { waitForDebugger } = require('internal/debugger/inspect_helpers');
+ const debuglog = require('internal/util/debuglog').debuglog('inspect');
+ 
+@@ -582,15 +581,8 @@
+     if (input === '\n') return lastCommand;
+     // Add parentheses: exec process.title => exec("process.title");
+     const match = RegExpPrototypeExec(/^\s*(?:exec|p)\s+([^\n]*)/, input);
+-    input = match ? match[1] : input;
+-
+-    if (isObjectLiteral(input)) {
+-      // Add parentheses to make sure `input` is parsed as an expression
+-      input = `(${StringPrototypeTrim(input)})\n`;
+-    }
+-
+     if (match) {
+-      lastCommand = `exec(${JSONStringify(input)})`;
++      lastCommand = `exec(${JSONStringify(match[1])})`;
+     } else {
+       lastCommand = input;
+     }

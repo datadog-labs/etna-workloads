@@ -1,0 +1,28 @@
+diff -uN a/src/pipe_wrap.cc b/src/pipe_wrap.cc
+--- a/src/pipe_wrap.cc
++++ b/src/pipe_wrap.cc
+@@ -170,8 +170,7 @@
+   node::Utf8Value name(env->isolate(), args[0]);
+   THROW_IF_INSUFFICIENT_PERMISSIONS(
+       env, permission::PermissionScope::kNet, name.ToStringView());
+-  int err =
+-      uv_pipe_bind2(&wrap->handle_, *name, name.length(), UV_PIPE_NO_TRUNCATE);
++  int err = uv_pipe_bind(&wrap->handle_, *name);
+   args.GetReturnValue().Set(err);
+ }
+ 
+@@ -248,12 +247,8 @@
+ 
+   ConnectWrap* req_wrap =
+       new ConnectWrap(env, req_wrap_obj, AsyncWrap::PROVIDER_PIPECONNECTWRAP);
+-  int err = req_wrap->Dispatch(uv_pipe_connect2,
+-                               &wrap->handle_,
+-                               *name,
+-                               name.length(),
+-                               UV_PIPE_NO_TRUNCATE,
+-                               AfterConnect);
++  int err = req_wrap->Dispatch(
++      uv_pipe_connect, &wrap->handle_, *name, AfterConnect);
+   if (err) {
+     delete req_wrap;
+   } else {

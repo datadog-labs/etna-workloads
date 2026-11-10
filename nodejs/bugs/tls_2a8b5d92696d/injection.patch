@@ -1,0 +1,60 @@
+diff -uN a/src/crypto/crypto_tls_certificates.cc b/src/crypto/crypto_tls_certificates.cc
+--- a/src/crypto/crypto_tls_certificates.cc
++++ b/src/crypto/crypto_tls_certificates.cc
+@@ -57,33 +57,16 @@
+             X509_STORE** cache) {
+   if (!bio) return false;
+ 
+-  using CRLPointer = DeleteFnPtr<X509_CRL, X509_CRL_free>;
+-
+-  // So that ERR_peek_last_error() below only reports errors from this loop.
+-  ERR_clear_error();
+-
+-  bool added = false;
+-  while (CRLPointer crl = CRLPointer(PEM_read_bio_X509_CRL(
+-             bio.get(), nullptr, NoPasswordCallback, nullptr))) {
+-    X509_STORE* cert_store = GetOrCreateOwnedCertStore(env, ctx, cache);
+-    CHECK_EQ(1, X509_STORE_add_crl(cert_store, crl.get()));
+-    CHECK_EQ(
+-        1,
+-        X509_STORE_set_flags(
+-            cert_store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL));
+-    added = true;
+-  }
+-
+-  // The loop stops either because the BIO is exhausted, which OpenSSL reports
+-  // as PEM_R_NO_START_LINE, or because a CRL failed to parse. Only the former
+-  // means every CRL in the bundle made it into the store.
+-  unsigned long err = ERR_peek_last_error();  // NOLINT(runtime/int)
+-  if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
+-      ERR_GET_REASON(err) != PEM_R_NO_START_LINE) {
+-    return false;
+-  }
+-
+-  return added;
++  DeleteFnPtr<X509_CRL, X509_CRL_free> crl(
++      PEM_read_bio_X509_CRL(bio.get(), nullptr, NoPasswordCallback, nullptr));
++  if (!crl) return false;
++
++  X509_STORE* cert_store = GetOrCreateOwnedCertStore(env, ctx, cache);
++  CHECK_EQ(1, X509_STORE_add_crl(cert_store, crl.get()));
++  CHECK_EQ(1,
++           X509_STORE_set_flags(
++               cert_store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL));
++  return true;
+ }
+ 
+ PrivateKeyResult UsePrivateKey(SSL_CTX* ctx,
+diff -uN a/src/crypto/crypto_tls_certificates.h b/src/crypto/crypto_tls_certificates.h
+--- a/src/crypto/crypto_tls_certificates.h
++++ b/src/crypto/crypto_tls_certificates.h
+@@ -30,8 +30,7 @@
+                          const ncrypto::BIOPointer& bio,
+                          X509_STORE** cache = nullptr);
+ 
+-// Add every PEM CRL in |bio| to the context's certificate store and enable CRL
+-// checking. Returns false unless every CRL in the bundle was read.
++// Add one PEM CRL and enable CRL checking.
+ bool AddCRL(Environment* env,
+             SSL_CTX* ctx,
+             const ncrypto::BIOPointer& bio,

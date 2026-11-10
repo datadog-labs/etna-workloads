@@ -1,0 +1,31 @@
+diff -uN a/lib/internal/js_stream_socket.js b/lib/internal/js_stream_socket.js
+--- a/lib/internal/js_stream_socket.js
++++ b/lib/internal/js_stream_socket.js
+@@ -84,12 +84,6 @@
+       if (this._handle)
+         this._handle.emitEOF();
+     });
+-    // Some `Stream` don't pass `hasError` parameters when closed.
+-    stream.once('close', () => {
+-      // Errors emitted from `stream` have also been emitted to this instance
+-      // so that we don't pass errors to `destroy()` again.
+-      this.destroy();
+-    });
+ 
+     super({ handle, manualStart: true });
+     this.stream = stream;
+@@ -244,14 +238,6 @@
+ 
+     const handle = this._handle;
+ 
+-    // When sockets of the "net" module destroyed, they will call
+-    // `this._handle.close()` which will also emit EOF if not emitted before.
+-    // This feature makes sockets on the other side emit "end" and "close"
+-    // even though we haven't called `end()`. As `stream` are likely to be
+-    // instances of `net.Socket`, calling `stream.destroy()` manually will
+-    // avoid issues that don't properly close wrapped connections.
+-    this.stream.destroy();
+-
+     setImmediate(() => {
+       // Should be already set by net.js
+       assert(this._handle === null);

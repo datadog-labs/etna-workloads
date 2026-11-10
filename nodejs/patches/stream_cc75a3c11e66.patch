@@ -1,0 +1,29 @@
+diff -uN a/lib/internal/webstreams/readablestream.js b/lib/internal/webstreams/readablestream.js
+--- a/lib/internal/webstreams/readablestream.js
++++ b/lib/internal/webstreams/readablestream.js
+@@ -1032,7 +1032,11 @@
+       throw new ERR_INVALID_THIS('ReadableStreamDefaultReader');
+     if (this[kState].stream === undefined)
+       return;
+-    readableStreamDefaultReaderRelease(this);
++    if (this[kState].readRequests.length) {
++      throw new ERR_INVALID_STATE.TypeError(
++        'Cannot release with pending read requests');
++    }
++    readableStreamReaderGenericRelease(this);
+   }
+ 
+   /**
+@@ -1120,7 +1124,11 @@
+       throw new ERR_INVALID_THIS('ReadableStreamBYOBReader');
+     if (this[kState].stream === undefined)
+       return;
+-    readableStreamBYOBReaderRelease(this);
++    if (this[kState].readIntoRequests.length) {
++      throw new ERR_INVALID_STATE.TypeError(
++        'Cannot release with pending read requests');
++    }
++    readableStreamReaderGenericRelease(this);
+   }
+ 
+   /**

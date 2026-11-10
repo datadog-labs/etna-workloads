@@ -1,0 +1,23 @@
+diff -uN a/lib/buffer.js b/lib/buffer.js
+--- a/lib/buffer.js
++++ b/lib/buffer.js
+@@ -28,6 +28,7 @@
+   ArrayPrototypeForEach,
+   MathCeil,
+   MathFloor,
++  MathMax,
+   MathMin,
+   MathTrunc,
+   NumberIsInteger,
+@@ -1272,7 +1273,10 @@
+   const bufferLength = TypedArrayPrototypeGetLength(this);
+   // Buffer#write(string);
+   if (offset === undefined) {
+-    return utf8Write(this, string, 0, bufferLength);
++    // Do not truncate: a string longer than the buffer is reported as out of bounds.
++    return utf8Write(this, string, 0,
++                     typeof string === 'string' ?
++                       MathMax(bufferLength, string.length) : bufferLength);
+   }
+   // Buffer#write(string, encoding)
+   if (length === undefined && typeof offset === 'string') {

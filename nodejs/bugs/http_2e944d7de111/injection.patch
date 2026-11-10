@@ -1,0 +1,29 @@
+diff -uN a/lib/_http_agent.js b/lib/_http_agent.js
+--- a/lib/_http_agent.js
++++ b/lib/_http_agent.js
+@@ -373,8 +373,9 @@
+   if (err.code === 'ERR_PROXY_TUNNEL') {
+     if (err.proxyTunnelTimeout) {
+       req.emit('timeout');  // Propagate the timeout from the tunnel to the request.
++    } else {
++      req.emit('error', err);
+     }
+-    req.emit('error', err);
+   }
+ }
+ 
+diff -uN a/lib/_http_client.js b/lib/_http_client.js
+--- a/lib/_http_client.js
++++ b/lib/_http_client.js
+@@ -1191,10 +1191,8 @@
+       if (!req.aborted && !err) {
+         err = new ConnResetException('socket hang up');
+       }
+-      // ERR_PROXY_TUNNEL is handled by the proxying logic.
+       // Skip if the error was already emitted by the early socketErrorListener.
+-      if (err && err.code !== 'ERR_PROXY_TUNNEL' &&
+-          !socket?._hadError) {
++      if (err && !socket?._hadError) {
+         emitErrorEvent(req, err);
+       }
+       req._closed = true;

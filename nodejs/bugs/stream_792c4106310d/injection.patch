@@ -1,0 +1,37 @@
+diff -uN a/lib/internal/streams/iter/pull.js b/lib/internal/streams/iter/pull.js
+--- a/lib/internal/streams/iter/pull.js
++++ b/lib/internal/streams/iter/pull.js
+@@ -24,7 +24,6 @@
+     ERR_INVALID_ARG_TYPE,
+     ERR_INVALID_ARG_VALUE,
+     ERR_INVALID_STATE,
+-    ERR_OUT_OF_RANGE,
+   },
+ } = require('internal/errors');
+ const { lazyDOMException } = require('internal/util');
+@@ -1054,23 +1053,15 @@
+     for (const batch of pipeline) {
+       const entry = createBatchEntry(batch);
+       if (hasWritevSync && batch.length > 1) {
+-        const accepted = writer.writevSync(validateBatchEntry(entry));
++        writer.writevSync(validateBatchEntry(entry));
+         validateBatchEntry(entry);
+-        if (accepted === false) {
+-          throw new ERR_OUT_OF_RANGE(
+-            'write', 'within byte budget', 'budget exhausted');
+-        }
+         totalBytes += entry.byteLength;
+       } else {
+         for (let i = 0; i < entry.views.length; i++) {
+           const view = entry.views[i];
+           const chunk = validateByteView(view);
+-          const accepted = writer.writeSync(chunk);
++          writer.writeSync(chunk);
+           validateByteView(view);
+-          if (accepted === false) {
+-            throw new ERR_OUT_OF_RANGE(
+-              'write', 'within byte budget', 'budget exhausted');
+-          }
+           totalBytes += view.byteLength;
+         }
+       }

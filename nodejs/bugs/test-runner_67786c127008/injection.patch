@@ -1,0 +1,72 @@
+diff -uN a/lib/internal/test_runner/runner.js b/lib/internal/test_runner/runner.js
+--- a/lib/internal/test_runner/runner.js
++++ b/lib/internal/test_runner/runner.js
+@@ -304,7 +304,6 @@
+       column: 1,
+       file: resolve(this.name),
+     };
+-    this.timeout = null;
+   }
+ 
+   willBeFilteredByTags() {
+diff -uN a/lib/internal/test_runner/test.js b/lib/internal/test_runner/test.js
+--- a/lib/internal/test_runner/test.js
++++ b/lib/internal/test_runner/test.js
+@@ -710,12 +710,6 @@
+     if (timeout != null && timeout !== Infinity) {
+       validateNumber(timeout, 'options.timeout', 0, TIMEOUT_MAX);
+       this.timeout = timeout;
+-    } else if (timeout == null) {
+-      const cliTimeout = this.config.timeout;
+-      if (cliTimeout != null && cliTimeout !== Infinity) {
+-        validateNumber(cliTimeout, 'this.config.timeout', 0, TIMEOUT_MAX);
+-        this.timeout = cliTimeout;
+-      }
+     }
+ 
+     if (skip) {
+@@ -1790,9 +1784,6 @@
+   reportedType = 'suite';
+   constructor(options) {
+     super(options);
+-    if (options.timeout == null) {
+-      this.timeout = null;
+-    }
+ 
+     if (this.config.testNamePatterns !== null &&
+         this.config.testSkipPatterns !== null &&
+diff -uN a/lib/internal/test_runner/utils.js b/lib/internal/test_runner/utils.js
+--- a/lib/internal/test_runner/utils.js
++++ b/lib/internal/test_runner/utils.js
+@@ -250,7 +250,6 @@
+   const sourceMaps = getOptionValue('--enable-source-maps');
+   const updateSnapshots = getOptionValue('--test-update-snapshots');
+   const watch = getOptionValue('--watch');
+-  const timeout = getOptionValue('--test-timeout') || Infinity;
+   let randomize = getOptionValue('--test-randomize');
+   const hasRandomSeedOption = getOptionValue('[has_test_random_seed]');
+   const randomSeedOption = getOptionValue('--test-random-seed');
+@@ -270,6 +269,7 @@
+   let only = getOptionValue('--test-only');
+   let reporters;
+   let shard;
++  let timeout;
+   let testNamePatterns = mapPatternFlagToRegExArray('--test-name-pattern');
+   let testSkipPatterns = mapPatternFlagToRegExArray('--test-skip-pattern');
+   let testTagFilters = null;
+@@ -305,6 +305,7 @@
+ 
+   if (isTestRunner) {
+     isolation = getOptionValue('--test-isolation');
++    timeout = getOptionValue('--test-timeout') || Infinity;
+ 
+     const tagFilterFlag = getOptionValue('--experimental-test-tag-filter');
+     if (tagFilterFlag?.length > 0) {
+@@ -347,6 +348,7 @@
+       };
+     }
+   } else {
++    timeout = Infinity;
+     concurrency = 1;
+     const testNamePatternFlag = getOptionValue('--test-name-pattern');
+     only = getOptionValue('--test-only');

@@ -1,0 +1,91 @@
+diff -uN a/lib/internal/fs/promises.js b/lib/internal/fs/promises.js
+--- a/lib/internal/fs/promises.js
++++ b/lib/internal/fs/promises.js
+@@ -342,48 +342,54 @@
+ 
+     validateObject(options, 'options');
+     const {
+-      type = 'bytes',
++      type,
+       autoClose = false,
+     } = options;
+ 
+     validateBoolean(autoClose, 'options.autoClose');
+ 
++    let readable;
++
+     if (type !== 'bytes') {
+-      process.emitWarning(
+-        'A non-"bytes" options.type has no effect. A byte-oriented steam is ' +
+-        'always created.',
+-        'ExperimentalWarning',
+-      );
+-    }
++      const {
++        newReadableStreamFromStreamBase,
++      } = require('internal/webstreams/adapters');
++      readable = newReadableStreamFromStreamBase(
++        this[kHandle],
++        undefined,
++        { ondone: async () => {
++          this[kUnref]();
++          if (autoClose) await this.close();
++        } });
++    } else {
++      const readFn = FunctionPrototypeBind(this.read, this);
++      const ondone = async () => {
++        this[kUnref]();
++        if (autoClose) await this.close();
++      };
++
++      const ReadableStream = lazyReadableStream();
++      readable = new ReadableStream({
++        type: 'bytes',
++        autoAllocateChunkSize: 16384,
++
++        async pull(controller) {
++          const view = controller.byobRequest.view;
++          const { bytesRead } = await readFn(view, 0, view.byteLength);
++
++          if (bytesRead === 0) {
++            controller.close();
++            await ondone();
++          }
+ 
+-    const readFn = FunctionPrototypeBind(this.read, this);
+-    const ondone = async () => {
+-      this[kUnref]();
+-      if (autoClose) await this.close();
+-    };
+-
+-    const ReadableStream = lazyReadableStream();
+-    const readable = new ReadableStream({
+-      type: 'bytes',
+-      autoAllocateChunkSize: 16384,
+-
+-      async pull(controller) {
+-        const view = controller.byobRequest.view;
+-        const { bytesRead } = await readFn(view, 0, view.byteLength);
++          controller.byobRequest.respond(bytesRead);
++        },
+ 
+-        if (bytesRead === 0) {
+-          controller.close();
++        async cancel() {
+           await ondone();
+-        }
+-
+-        controller.byobRequest.respond(bytesRead);
+-      },
+-
+-      async cancel() {
+-        await ondone();
+-      },
+-    });
+-
++        },
++      });
++    }
+ 
+     const {
+       readableStreamCancel,

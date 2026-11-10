@@ -1,0 +1,7 @@
+# Re-introduced bug: http2 maxSessionMemory accounting for received data (b84b4d8c)
+
+**Bug.** `Http2Session` charges received socket data against `maxSessionMemory` when a chunk arrives, and releases it after the chunk is processed. The release used the size of the buffer *after* it had been handed to V8 (as an ArrayBuffer for DATA frames), when its length was already reset to zero. So the increment was never matched by a decrement, and the session appeared to consume ever more memory. Eventually it exceeded `maxSessionMemory` and new streams were refused.
+
+**Change (src/node_http2.cc, `Http2Session::ConsumeHTTP2Data`).** The fix replaced `buf.size()` with `nread` in the decrement, because `buf.size()` was zero after `ToArrayBuffer()`. The code has since been rewritten: the increment is `IncrementCurrentSessionMemory(nread)` in `OnStreamRead`, and the decrement is in `ConsumeHTTP2Data`. I re-expressed the old defect there. The decrement now uses `stream_buf_allocation_ ? stream_buf_allocation_->ByteLength() : 0`. `stream_buf_allocation_` is moved into the ArrayBuffer when a DATA chunk is emitted, so it is null by then and the decrement is 0. This is the same increment-by-size, decrement-by-zeroed-buffer mismatch.
+
+**Failing test.** `parallel/test-http2-max-session-memory-leak` reports `not ok`. It was run twice, and both runs failed. The leaked accounting makes the session hit the 1 MB limit within 1000 requests, and the request fails.

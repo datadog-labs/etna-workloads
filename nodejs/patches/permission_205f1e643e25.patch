@@ -1,0 +1,21 @@
+diff -uN a/src/permission/fs_permission.cc b/src/permission/fs_permission.cc
+--- a/src/permission/fs_permission.cc
++++ b/src/permission/fs_permission.cc
+@@ -34,7 +34,16 @@
+     node::Environment* env,
+     const node::permission::FSPermission::RadixTree* granted_tree,
+     std::string_view param) {
+-  std::string resolved_param = node::PathResolve(env, {param});
++  // Only resolve relative paths; absolute paths are used as-is.
++  const bool is_abs =
++#ifdef _WIN32
++      param.size() >= 2 && (param[0] == '\\' || param[0] == '/' ||
++                            (param[1] == ':'));
++#else
++      !param.empty() && param[0] == '/';
++#endif
++  std::string resolved_param =
++      is_abs ? std::string(param) : node::PathResolve(env, {param});
+ #ifdef _WIN32
+   // Remove leading "\\?\" from UNC path
+   if (resolved_param.starts_with("\\\\?\\")) {

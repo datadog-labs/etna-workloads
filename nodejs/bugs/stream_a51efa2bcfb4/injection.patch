@@ -1,0 +1,49 @@
+diff -uN a/lib/events.js b/lib/events.js
+--- a/lib/events.js
++++ b/lib/events.js
+@@ -870,16 +870,7 @@
+  * @returns {(string | symbol)[]}
+  */
+ EventEmitter.prototype.eventNames = function eventNames() {
+-  if (this._eventsCount === 0)
+-    return [];
+-  const events = this._events;
+-  const names = [];
+-  for (const key of ReflectOwnKeys(events)) {
+-    // Removed listeners leave the key in place with an `undefined` value.
+-    if (events[key] !== undefined)
+-      ArrayPrototypePush(names, key);
+-  }
+-  return names;
++  return this._eventsCount > 0 ? ReflectOwnKeys(this._events) : [];
+ };
+ 
+ function arrayClone(arr) {
+diff -uN a/lib/internal/streams/legacy.js b/lib/internal/streams/legacy.js
+--- a/lib/internal/streams/legacy.js
++++ b/lib/internal/streams/legacy.js
+@@ -3,7 +3,6 @@
+ const {
+   ArrayIsArray,
+   ObjectSetPrototypeOf,
+-  ReflectOwnKeys,
+ } = primordials;
+ 
+ const EE = require('events');
+@@ -95,16 +94,6 @@
+   return dest;
+ };
+ 
+-Stream.prototype.eventNames = function eventNames() {
+-  const names = [];
+-  for (const key of ReflectOwnKeys(this._events)) {
+-    if (typeof this._events[key] === 'function' || (ArrayIsArray(this._events[key]) && this._events[key].length > 0)) {
+-      names.push(key);
+-    }
+-  }
+-  return names;
+-};
+-
+ function prependListener(emitter, event, fn) {
+   // Sadly this is not cacheable as some libraries bundle their own
+   // event emitter implementation with them.

@@ -1,0 +1,38 @@
+diff -uN a/lib/inspector.js b/lib/inspector.js
+--- a/lib/inspector.js
++++ b/lib/inspector.js
+@@ -28,9 +28,7 @@
+ const { queueMicrotask } = require('internal/process/task_queues');
+ const { kEmptyObject } = require('internal/util');
+ const {
+-  isUint32,
+   validateFunction,
+-  validateInt32,
+   validateObject,
+   validateString,
+ } = require('internal/validators');
+@@ -170,13 +168,6 @@
+   if (isEnabled()) {
+     throw new ERR_INSPECTOR_ALREADY_ACTIVATED();
+   }
+-  // inspectorOpen() currently does not typecheck its arguments and adding
+-  // such checks would be a potentially breaking change. However, the native
+-  // open() function requires the port to fit into a 16-bit unsigned integer,
+-  // causing an integer overflow otherwise, so we at least need to prevent that.
+-  if (isUint32(port)) {
+-    validateInt32(port, 'port', 0, 65535);
+-  }
+   if (host && !isLoopback(host)) {
+     process.emitWarning(
+       'Binding the inspector to a public IP with an open port is insecure, ' +
+diff -uN a/src/inspector_js_api.cc b/src/inspector_js_api.cc
+--- a/src/inspector_js_api.cc
++++ b/src/inspector_js_api.cc
+@@ -311,7 +311,6 @@
+ 
+   if (args.Length() > 0 && args[0]->IsUint32()) {
+     uint32_t port = args[0].As<Uint32>()->Value();
+-    CHECK_LE(port, std::numeric_limits<uint16_t>::max());
+     ExclusiveAccess<HostPort>::Scoped host_port(agent->host_port());
+     host_port->set_port(static_cast<int>(port));
+   }

@@ -1,0 +1,42 @@
+diff -uN a/src/crypto/crypto_context.cc b/src/crypto/crypto_context.cc
+--- a/src/crypto/crypto_context.cc
++++ b/src/crypto/crypto_context.cc
+@@ -86,6 +86,7 @@
+ };
+ 
+ static std::string extra_root_certs_file;  // NOLINT(runtime/string)
++static std::vector<ncrypto::X509Pointer>& GetExtraCACertificates();
+ 
+ static std::atomic<bool> has_cached_bundled_root_certs{false};
+ static std::atomic<bool> has_cached_system_root_certs{false};
+@@ -119,7 +120,16 @@
+ 
+ X509_STORE* GetOrCreateRootCertStore(Environment* env) {
+   RootCertStore* root_certs = GetRootCertStore(env);
+-  if (!root_certs->store) root_certs->store.reset(NewRootCertStore(env));
++  if (!root_certs->store) {
++    root_certs->store.reset(NewRootCertStore(env));
++    // Extra CA certs are only added to the shared default store.
++    if (!extra_root_certs_file.empty() &&
++        root_certs->certs_from_users == nullptr) {
++      for (const auto& cert : GetExtraCACertificates()) {
++        CHECK_EQ(1, X509_STORE_add_cert(root_certs->store.get(), cert.get()));
++      }
++    }
++  }
+   return root_certs->store.get();
+ }
+ 
+@@ -1100,12 +1110,6 @@
+     }
+   }
+ 
+-  if (!extra_root_certs_file.empty()) {
+-    for (const auto& cert : GetExtraCACertificates()) {
+-      CHECK_EQ(1, X509_STORE_add_cert(store, cert.get()));
+-    }
+-  }
+-
+   return store;
+ }
+ 

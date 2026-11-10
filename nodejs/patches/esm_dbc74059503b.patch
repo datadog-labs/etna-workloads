@@ -1,0 +1,32 @@
+diff -uN a/lib/internal/modules/esm/module_job.js b/lib/internal/modules/esm/module_job.js
+--- a/lib/internal/modules/esm/module_job.js
++++ b/lib/internal/modules/esm/module_job.js
+@@ -260,9 +260,7 @@
+    */
+   syncLink(requestType) {
+     // Store itself into the cache first before linking in case there are circular
+-    // references in the linking. Track whether we're overwriting an existing entry
+-    // so we know whether to remove the temporary entry in the finally block.
+-    const hadPreviousEntry = this.loader.loadCache.get(this.url, this.type) !== undefined;
++    // references in the linking.
+     this.loader.loadCache.set(this.url, this.type, this);
+     const moduleRequests = this.module.getModuleRequests();
+     // Modules should be aligned with the moduleRequests array in order.
+@@ -286,14 +284,9 @@
+       }
+       this.module.link(modules);
+     } finally {
+-      if (!hadPreviousEntry) {
+-        // Remove the temporary entry. On failure this ensures subsequent attempts
+-        // don't return a broken job. On success the caller
+-        // (#getOrCreateModuleJobAfterResolve) will re-insert under the correct key.
+-        this.loader.loadCache.delete(this.url, this.type);
+-      }
+-      // If there was a previous entry (ensurePhase() path), leave this in cache -
+-      // it is the upgraded job and the caller will not re-insert.
++      // Restore it - if it succeeds, we'll reset in the caller; Otherwise it's
++      // not cached and if the error is caught, subsequent attempt would still fail.
++      this.loader.loadCache.delete(this.url, this.type);
+     }
+ 
+     return evaluationDepJobs;

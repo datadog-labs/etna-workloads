@@ -1,0 +1,135 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -174,7 +174,6 @@
+   kUpdateTimer,
+   kHandle,
+   kSession,
+-  kBoundSession,
+   setStreamTimeout,
+ } = require('internal/stream_base_commons');
+ const { kTimeout } = require('internal/timers');
+@@ -1201,7 +1200,7 @@
+   if (handle)
+     handle.ondone = null;
+   if (socket) {
+-    socket[kBoundSession] = undefined;
++    socket[kSession] = undefined;
+     socket[kServer] = undefined;
+   }
+ }
+@@ -1313,10 +1312,10 @@
+     // If the session property already exists on the socket,
+     // then it has already been bound to an Http2Session instance
+     // and cannot be attached again.
+-    if (socket[kBoundSession] !== undefined)
++    if (socket[kSession] !== undefined)
+       throw new ERR_HTTP2_SOCKET_BOUND();
+ 
+-    socket[kBoundSession] = this;
++    socket[kSession] = this;
+ 
+     if (!socket._handle || !socket._handle.isStreamBase) {
+       socket = new JSStreamSocket(socket);
+@@ -1696,7 +1695,7 @@
+   }
+ 
+   _onTimeout() {
+-    callTimeout(this, this);
++    callTimeout(this);
+   }
+ 
+   ref() {
+@@ -2277,7 +2276,7 @@
+   }
+ 
+   _onTimeout() {
+-    callTimeout(this, this[kSession]);
++    callTimeout(this, kSession);
+   }
+ 
+   // True if the HEADERS frame has been sent
+@@ -2619,7 +2618,7 @@
+     throw new ERR_HTTP2_INVALID_STREAM();
+ }, 'http2Stream.priority is longer supported after priority signalling was deprecated in RFC 9113', 'DEP0194');
+ 
+-function callTimeout(self, session) {
++function callTimeout(self, kSession) {
+   // If the session is destroyed, this should never actually be invoked,
+   // but just in case...
+   if (self.destroyed)
+@@ -2630,7 +2629,7 @@
+   // happens, meaning that if a write is ongoing it should never equal the
+   // newly fetched, updated value.
+   if (self[kState].writeQueueSize > 0) {
+-    const handle = session[kHandle];
++    const handle = kSession ? self[kSession][kHandle] : self[kHandle];
+     const chunksSentSinceLastWrite = handle !== undefined ?
+       handle.chunksSentSinceLastWrite : null;
+     if (chunksSentSinceLastWrite !== null &&
+@@ -3323,7 +3322,7 @@
+ // When the socket emits an error, destroy the associated Http2Session and
+ // forward it the same error.
+ function socketOnError(error) {
+-  const session = this[kBoundSession];
++  const session = this[kSession];
+   if (session !== undefined) {
+     // We can ignore ECONNRESET after GOAWAY was received as there's nothing
+     // we can do and the other side is fully within its rights to do so.
+@@ -3651,7 +3650,7 @@
+ }
+ 
+ function socketOnClose() {
+-  const session = this[kBoundSession];
++  const session = this[kSession];
+   if (session !== undefined) {
+     debugSessionObj(session, 'socket closed');
+     const err = session.connecting ? new ERR_SOCKET_CLOSED() : null;
+diff -uN a/lib/internal/js_stream_socket.js b/lib/internal/js_stream_socket.js
+--- a/lib/internal/js_stream_socket.js
++++ b/lib/internal/js_stream_socket.js
+@@ -17,7 +17,7 @@
+ );
+ const { owner_symbol } = require('internal/async_hooks').symbols;
+ const { ERR_STREAM_WRAP } = require('internal/errors').codes;
+-const { kBoundSession } = require('internal/stream_base_commons');
++const { kSession } = require('internal/stream_base_commons');
+ 
+ const kCurrentWriteRequest = Symbol('kCurrentWriteRequest');
+ const kCurrentShutdownRequest = Symbol('kCurrentShutdownRequest');
+@@ -265,12 +265,12 @@
+     });
+   }
+ 
+-  get [kBoundSession]() {
+-    return this.stream[kBoundSession];
++  get [kSession]() {
++    return this.stream[kSession];
+   }
+ 
+-  set [kBoundSession](session) {
+-    this.stream[kBoundSession] = session;
++  set [kSession](session) {
++    this.stream[kSession] = session;
+   }
+ }
+ 
+diff -uN a/lib/internal/stream_base_commons.js b/lib/internal/stream_base_commons.js
+--- a/lib/internal/stream_base_commons.js
++++ b/lib/internal/stream_base_commons.js
+@@ -32,7 +32,6 @@
+ const kUpdateTimer = Symbol('kUpdateTimer');
+ const kAfterAsyncWrite = Symbol('kAfterAsyncWrite');
+ const kHandle = Symbol('kHandle');
+-const kBoundSession = Symbol('kBoundSession');
+ const kSession = Symbol('kSession');
+ 
+ let debug = require('internal/util/debuglog').debuglog('stream', (fn) => {
+@@ -266,7 +265,6 @@
+     this[kTimeout] =
+       reuseOrCreateUnrefTimeout(this[kTimeout], onStreamTimeout, msecs, this);
+     if (this[kSession]) this[kSession][kUpdateTimer]();
+-    if (this[kBoundSession]) this[kBoundSession][kUpdateTimer]();
+ 
+     if (callback !== undefined) {
+       validateFunction(callback, 'callback');

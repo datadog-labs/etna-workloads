@@ -1,0 +1,130 @@
+diff -uN a/lib/internal/streams/readable.js b/lib/internal/streams/readable.js
+--- a/lib/internal/streams/readable.js
++++ b/lib/internal/streams/readable.js
+@@ -36,7 +36,6 @@
+   PromiseReject,
+   PromiseResolve,
+   ReflectApply,
+-  SafeSet,
+   Symbol,
+   SymbolAsyncDispose,
+   SymbolAsyncIterator,
+@@ -325,9 +324,8 @@
+     throw new ERR_UNKNOWN_ENCODING(defaultEncoding);
+   }
+ 
+-  // Ref the piped dest which we need a drain event on it
+-  // type: null | Writable | Set<Writable>.
+-  this.awaitDrainWriters = null;
++  // The number of writers that are awaiting a drain event in .pipe()s
++  this.awaitDrain = 0;
+ 
+   if (options?.encoding) {
+     this.decoder = new StringDecoder(options.encoding);
+@@ -595,11 +593,7 @@
+   if ((state[kState] & (kFlowing | kSync | kDataListening)) === (kFlowing | kDataListening) && state.length === 0) {
+     // Use the guard to avoid creating `Set()` repeatedly
+     // when we have multiple pipes.
+-    if ((state[kState] & kMultiAwaitDrain) !== 0) {
+-      state.awaitDrainWriters.clear();
+-    } else {
+-      state.awaitDrainWriters = null;
+-    }
++    state.awaitDrain = 0;
+ 
+     state[kState] |= kDataEmitted;
+     stream.emit('data', chunk);
+@@ -819,11 +813,7 @@
+     n = 0;
+   } else {
+     state.length -= n;
+-    if ((state[kState] & kMultiAwaitDrain) !== 0) {
+-      state.awaitDrainWriters.clear();
+-    } else {
+-      state.awaitDrainWriters = null;
+-    }
++    state.awaitDrain = 0;
+   }
+ 
+   if (state.length === 0) {
+@@ -979,15 +969,6 @@
+   const src = this;
+   const state = this._readableState;
+ 
+-  if (state.pipes.length === 1) {
+-    if ((state[kState] & kMultiAwaitDrain) === 0) {
+-      state[kState] |= kMultiAwaitDrain;
+-      state.awaitDrainWriters = new SafeSet(
+-        state.awaitDrainWriters ? [state.awaitDrainWriters] : [],
+-      );
+-    }
+-  }
+-
+   state.pipes.push(dest);
+   // Only a single pipe destination can skip emit('data') and call write()
+   // directly. A second destination, or an extra 'data' listener, must go
+@@ -1056,7 +1037,7 @@
+     // a drain. Guarding on `needDrain` used to skip this for a destination that
+     // errored synchronously, leaving it stuck in the set and starving other
+     // destinations piped from the same source (see #53185).
+-    if (ondrain && state.awaitDrainWriters)
++    if (ondrain && state.awaitDrain)
+       ondrain();
+   }
+ 
+@@ -1065,15 +1046,9 @@
+     // to get stuck in a permanently paused state if that write
+     // also returned false.
+     // => Check whether `dest` is still a piping destination.
+-    if (!cleanedUp) {
+-      if (state.pipes.length === 1 && state.pipes[0] === dest) {
+-        debug('false write response, pause', 0);
+-        state.awaitDrainWriters = dest;
+-        state[kState] &= ~kMultiAwaitDrain;
+-      } else if (state.pipes.length > 1 && state.pipes.includes(dest)) {
+-        debug('false write response, pause', state.awaitDrainWriters.size);
+-        state.awaitDrainWriters.add(dest);
+-      }
++    if (state.pipes.length > 0 && state.pipes.includes(dest) && !cleanedUp) {
++      debug('false write response, pause', state.awaitDrain);
++      state.awaitDrain++;
+       src.pause();
+     }
+     if (!ondrain) {
+@@ -1081,7 +1056,7 @@
+       // on the source.  This would be more elegant with a .once()
+       // handler in flow(), but adding and removing repeatedly is
+       // too slow.
+-      ondrain = pipeOnDrain(src, dest);
++      ondrain = pipeOnDrain(src);
+       dest.on('drain', ondrain);
+     }
+   }
+@@ -1154,22 +1129,15 @@
+   return dest;
+ };
+ 
+-function pipeOnDrain(src, dest) {
++function pipeOnDrain(src) {
+   return function pipeOnDrainFunctionResult() {
+     const state = src._readableState;
+ 
+-    // `ondrain` will call directly,
+-    // `this` maybe not a reference to dest,
+-    // so we use the real dest here.
+-    if (state.awaitDrainWriters === dest) {
+-      debug('pipeOnDrain', 1);
+-      state.awaitDrainWriters = null;
+-    } else if ((state[kState] & kMultiAwaitDrain) !== 0) {
+-      debug('pipeOnDrain', state.awaitDrainWriters.size);
+-      state.awaitDrainWriters.delete(dest);
+-    }
++    debug('pipeOnDrain', state.awaitDrain);
++    if (state.awaitDrain)
++      state.awaitDrain--;
+ 
+-    if ((!state.awaitDrainWriters || state.awaitDrainWriters.size === 0) &&
++    if (state.awaitDrain === 0 &&
+       (state[kState] & kDataListening) !== 0) {
+       src.resume();
+     }

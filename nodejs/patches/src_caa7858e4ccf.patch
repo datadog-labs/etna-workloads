@@ -1,0 +1,28 @@
+diff -uN a/src/tcp_wrap.cc b/src/tcp_wrap.cc
+--- a/src/tcp_wrap.cc
++++ b/src/tcp_wrap.cc
+@@ -88,8 +88,8 @@
+   Environment* env = Environment::GetCurrent(context);
+   Isolate* isolate = env->isolate();
+ 
+-  Local<FunctionTemplate> t = env->tcp_constructor_template();
+-  if (t.IsEmpty()) {
++  Local<FunctionTemplate> t;
++  {
+     t = NewFunctionTemplate(isolate, New);
+     t->InstanceTemplate()->SetInternalFieldCount(TCPWrap::kInternalFieldCount);
+ 
+@@ -126,11 +126,9 @@
+         isolate, t, "setSimultaneousAccepts", SetSimultaneousAccepts);
+ #endif
+ 
+-    t->SetClassName(FIXED_ONE_BYTE_STRING(isolate, "TCP"));
+-    env->set_tcp_constructor_template(t);
+   }
+-  SetConstructorFunction(
+-      context, target, "TCP", t, SetConstructorFunctionFlag::NONE);
++  SetConstructorFunction(context, target, "TCP", t);
++  env->set_tcp_constructor_template(t);
+ 
+   // Create FunctionTemplate for TCPConnectWrap.
+   Local<FunctionTemplate> cwt = AsyncWrap::MakeLazilyInitializedJSTemplate(env);

@@ -1,0 +1,68 @@
+diff -uN a/lib/net.js b/lib/net.js
+--- a/lib/net.js
++++ b/lib/net.js
+@@ -161,6 +161,7 @@
+ 
+ const { clearTimeout, setTimeout } = require('timers');
+ const { kTimeout } = require('internal/timers');
++const kTimeoutTriggered = Symbol('kTimeoutTriggered');
+ 
+ const DEFAULT_IPV4_ADDR = '0.0.0.0';
+ const DEFAULT_IPV6_ADDR = '::';
+@@ -1569,12 +1570,8 @@
+     return;
+   }
+ 
+-  if (current < context.addresses.length - 1) {
+-    debug('connect/multiple: setting the attempt timeout to %d ms', context.timeout);
+-
+-    // If the attempt has not returned an error, start the connection timer
+-    context[kTimeout] = setTimeout(internalConnectMultipleTimeout, context.timeout, context, req, self._handle);
+-  }
++  // If the attempt has not returned an error, start the connection timer
++  context[kTimeout] = setTimeout(internalConnectMultipleTimeout, context.timeout, context, req, self._handle);
+ }
+ 
+ Socket.prototype.connect = function(...args) {
+@@ -1980,6 +1977,7 @@
+         localPort,
+         timeout,
+         [kTimeout]: null,
++        [kTimeoutTriggered]: false,
+         errors: [],
+       };
+ 
+@@ -2137,11 +2135,8 @@
+ function afterConnectMultiple(context, current, status, handle, req, readable, writable) {
+   debug('connect/multiple: connection attempt to %s:%s completed with status %s', req.address, req.port, status);
+ 
+-  // Make sure another connection is not spawned
+-  clearTimeout(context[kTimeout]);
+-
+   // One of the connection has completed and correctly dispatched but after timeout, ignore this one
+-  if (status === 0 && current !== context.current - 1) {
++  if (context[kTimeoutTriggered]) {
+     debug('connect/multiple: ignoring successful but timedout connection to %s:%s', req.address, req.port);
+     handle.close();
+     return;
+@@ -2149,6 +2144,9 @@
+ 
+   const self = context.socket;
+ 
++  // Make sure another connection is not spawned
++  clearTimeout(context[kTimeout]);
++
+   // Some error occurred, add to the list of exceptions
+   if (status !== 0) {
+     const ex = createConnectionError(req, status);
+@@ -2179,9 +2177,8 @@
+   debug('connect/multiple: connection to %s:%s timed out', req.address, req.port);
+   context.socket.emit('connectionAttemptTimeout', req.address, req.port, req.addressType);
+ 
+-  req.oncomplete = undefined;
++  context[kTimeoutTriggered] = true;
+   ArrayPrototypePush(context.errors, createConnectionError(req, UV_ETIMEDOUT));
+-  handle.close();
+ 
+   // Try the next address, unless we were aborted
+   if (context.socket.connecting) {

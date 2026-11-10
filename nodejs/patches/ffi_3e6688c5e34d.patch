@@ -1,0 +1,135 @@
+diff -uN a/lib/ffi.js b/lib/ffi.js
+--- a/lib/ffi.js
++++ b/lib/ffi.js
+@@ -9,8 +9,6 @@
+   ObjectGetOwnPropertyDescriptor,
+   ObjectKeys,
+   ReflectConstruct,
+-  SafeWeakMap,
+-  SafeWeakRef,
+   SymbolDispose,
+   TypedArrayPrototypeGetBuffer,
+ } = primordials;
+@@ -88,36 +86,23 @@
+   };
+ }
+ 
+-// The native layer hands out one raw function per resolved symbol, so the
+-// wrapper composed around it is reused too, otherwise every read of
+-// `library.functions` would return callables that are not identical to the
+-// previous read's. The entry holds a WeakRef because V8 can keep a raw function
+-// alive after user code drops the wrapper, and a strong value would then pin
+-// every wrapper for the lifetime of the library.
+-const wrappedFunctions = new SafeWeakMap();
+-
+ function wrapFFIFunction(rawFn, owner) {
+-  if (rawFn === undefined || rawFn === null) {
+-    return rawFn;
+-  }
+-  const cached = wrappedFunctions.get(rawFn)?.deref();
+-  if (cached !== undefined) {
+-    return cached;
+-  }
++  let argumentTypes;
+   let returnType;
+-  const sbArguments = rawFn[kSbArguments];
+-  const argumentTypes = sbArguments ?? rawFn[kFastArguments];
+-  if (sbArguments !== undefined) {
+-    returnType = rawFn[kSbReturn];
++  if (rawFn !== undefined && rawFn !== null) {
++    const sbArguments = rawFn[kSbArguments];
++    argumentTypes = sbArguments ?? rawFn[kFastArguments];
++    if (sbArguments !== undefined) {
++      returnType = rawFn[kSbReturn];
++    }
+   }
+-  let wrapped = wrapWithSharedBuffer(
++  const wrapped = wrapWithSharedBuffer(
+     rawFn,
+     argumentTypes === undefined ? undefined : makeSignature(argumentTypes, returnType));
+-  if (wrapped === rawFn) {
+-    wrapped = wrapWithRawPointerConversions(rawFn, argumentTypes, owner);
++  if (wrapped !== rawFn) {
++    return wrapped;
+   }
+-  wrappedFunctions.set(rawFn, new SafeWeakRef(wrapped));
+-  return wrapped;
++  return wrapWithRawPointerConversions(rawFn, argumentTypes, owner);
+ }
+ 
+ const { getVfsLibraryReader } = require('internal/ffi/vfs');
+diff -uN a/src/node_ffi.cc b/src/node_ffi.cc
+--- a/src/node_ffi.cc
++++ b/src/node_ffi.cc
+@@ -85,12 +85,6 @@
+   tracker->TrackFieldWithSize(
+       "symbols", symbols_size, "std::unordered_map<std::string, void*>");
+ 
+-  tracker->TrackFieldWithSize(
+-      "function_wrappers",
+-      function_wrappers_.size() *
+-          sizeof(decltype(function_wrappers_)::value_type),
+-      "std::unordered_map<std::string, v8::Global<v8::Function>>");
+-
+   // FFIFunctionInfo instances and their sb_backing ArrayBuffers are
+   // owned by V8 function wrappers and reachable only via weak references,
+   // so they are deliberately not counted here.
+@@ -116,7 +110,6 @@
+ 
+   symbols_.clear();
+   functions_.clear();
+-  function_wrappers_.clear();
+   callbacks_.clear();
+ }
+ 
+@@ -270,19 +263,6 @@
+   Isolate* isolate = env->isolate();
+   Local<Context> context = env->context();
+ 
+-  // Creating a callable emits a trampoline, allocates an FFIFunctionInfo, and
+-  // on the SharedBuffer path allocates an ArrayBuffer, so reuse the one already
+-  // handed out for this symbol. `PrepareFunction()` rejects a request that uses
+-  // a different signature, so a hit always describes the same signature. An
+-  // empty handle means the wrapper was collected; fall through and rebuild.
+-  auto cached = function_wrappers_.find(name);
+-  if (cached != function_wrappers_.end()) {
+-    if (!cached->second.IsEmpty()) {
+-      return cached->second.Get(isolate);
+-    }
+-    function_wrappers_.erase(cached);
+-  }
+-
+   auto info = FFIFunctionInfo::Create(env, fn, this);
+ 
+   DCHECK_EQ(fn->args.size(), fn->arg_type_names.size());
+@@ -491,14 +471,6 @@
+     }
+   }
+ 
+-  // A strong handle would root the callable, which holds the library object
+-  // through FFIFunctionInfo, so neither could ever be collected. Weaken the
+-  // stored handle instead, so the cache lasts exactly as long as user code
+-  // keeps a reference. SetWeak() runs after the move into the map because
+-  // moving a handle relocates the underlying slot.
+-  function_wrappers_.emplace(name, Global<Function>(isolate, ret))
+-      .first->second.SetWeak();
+-
+   return ret;
+ }
+ 
+diff -uN a/src/node_ffi.h b/src/node_ffi.h
+--- a/src/node_ffi.h
++++ b/src/node_ffi.h
+@@ -169,12 +169,6 @@
+   std::string path_;
+   std::unordered_map<std::string, void*> symbols_;
+   std::unordered_map<std::string, std::shared_ptr<FFIFunction>> functions_;
+-  // Callables created for `functions_`, so repeated resolution of the same
+-  // symbol reuses one wrapper instead of emitting another trampoline. The
+-  // handles are weak: an entry disappears once user code drops the wrapper,
+-  // which keeps the map from rooting the library through the wrapper's
+-  // FFIFunctionInfo.
+-  std::unordered_map<std::string, v8::Global<v8::Function>> function_wrappers_;
+   std::unordered_map<void*, std::unique_ptr<FFICallback>> callbacks_;
+ };
+ 

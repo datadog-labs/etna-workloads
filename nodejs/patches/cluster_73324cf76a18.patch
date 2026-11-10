@@ -1,0 +1,29 @@
+diff -uN a/lib/internal/cluster/child.js b/lib/internal/cluster/child.js
+--- a/lib/internal/cluster/child.js
++++ b/lib/internal/cluster/child.js
+@@ -286,23 +286,16 @@
+ 
+ // Extend generic Worker with methods specific to worker processes.
+ Worker.prototype.disconnect = function() {
+-  if (this.state !== 'disconnecting' && this.state !== 'destroying') {
+-    this.state = 'disconnecting';
+-    FunctionPrototypeCall(_disconnect, this);
+-  }
+-
++  FunctionPrototypeCall(_disconnect, this);
+   return this;
+ };
+ 
+ Worker.prototype.destroy = function() {
+-  if (this.state === 'destroying')
+-    return;
+-
+   this.exitedAfterDisconnect = true;
++
+   if (!this.isConnected()) {
+     process.exit(kNoFailure);
+   } else {
+-    this.state = 'destroying';
+     send({ act: 'exitedAfterDisconnect' }, () => process.disconnect());
+     process.once('disconnect', () => process.exit(kNoFailure));
+   }

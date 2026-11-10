@@ -1,0 +1,23 @@
+diff -uN a/src/inspector_agent.cc b/src/inspector_agent.cc
+--- a/src/inspector_agent.cc
++++ b/src/inspector_agent.cc
+@@ -969,11 +969,6 @@
+     ThrowUninitializedInspectorError(parent_env_);
+     return std::unique_ptr<InspectorSession>{};
+   }
+-  if (!parent_handle_) {
+-    THROW_ERR_INSPECTOR_NOT_AVAILABLE(
+-        parent_env_, "The parent thread's inspector is not available");
+-    return std::unique_ptr<InspectorSession>{};
+-  }
+   // A session connected to the main thread can pause it indefinitely.
+   if (ProcessTimeoutWatchdog::IsEnabled()) {
+     THROW_ERR_INSPECTOR_NOT_AVAILABLE(
+@@ -983,6 +978,7 @@
+     return std::unique_ptr<InspectorSession>{};
+   }
+ 
++  CHECK_NOT_NULL(parent_handle_);
+   CHECK_NOT_NULL(client_);
+   auto thread_safe_delegate =
+       client_->getThreadHandle()->MakeDelegateThreadSafe(std::move(delegate));

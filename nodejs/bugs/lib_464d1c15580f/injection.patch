@@ -1,0 +1,70 @@
+diff -uN a/lib/internal/main/run_main_module.js b/lib/internal/main/run_main_module.js
+--- a/lib/internal/main/run_main_module.js
++++ b/lib/internal/main/run_main_module.js
+@@ -1,10 +1,6 @@
+ 'use strict';
+ 
+ const {
+-  RegExpPrototypeExec,
+-} = primordials;
+-
+-const {
+   prepareMainThreadExecution,
+   markBootstrapComplete,
+ } = require('internal/process/pre_execution');
+@@ -16,9 +12,6 @@
+ 
+ markBootstrapComplete();
+ 
+-// Necessary to reset RegExp statics before user code runs.
+-RegExpPrototypeExec(/^/, '');
+-
+ if (isEntryURL) {
+   emitExperimentalWarning('--entry-url');
+ }
+diff -uN a/lib/internal/main/worker_thread.js b/lib/internal/main/worker_thread.js
+--- a/lib/internal/main/worker_thread.js
++++ b/lib/internal/main/worker_thread.js
+@@ -336,7 +336,4 @@
+ 
+ markBootstrapComplete();
+ 
+-// Necessary to reset RegExp statics before user code runs.
+-RegExpPrototypeExec(/^/, '');
+-
+ port.start();
+diff -uN a/lib/internal/process/execution.js b/lib/internal/process/execution.js
+--- a/lib/internal/process/execution.js
++++ b/lib/internal/process/execution.js
+@@ -2,7 +2,6 @@
+ 
+ const {
+   ArrayPrototypePush,
+-  RegExpPrototypeExec,
+   StringPrototypeIndexOf,
+   StringPrototypeSlice,
+   Symbol,
+@@ -76,7 +75,6 @@
+   if (print) {
+     throw new ERR_EVAL_ESM_CANNOT_PRINT();
+   }
+-  RegExpPrototypeExec(/^/, ''); // Necessary to reset RegExp statics before user code runs.
+   return require('internal/modules/run_main').runEntryPointWithESMLoader(
+     (loader) => loader.eval(source, getEvalModuleUrl(), true),
+   );
+@@ -344,7 +342,6 @@
+     throw new ERR_EVAL_ESM_CANNOT_PRINT();
+   }
+ 
+-  RegExpPrototypeExec(/^/, ''); // Necessary to reset RegExp statics before user code runs.
+ 
+   return require('internal/modules/run_main').runEntryPointWithESMLoader(
+     async (loader) => {
+@@ -479,7 +476,6 @@
+       return (main) => main();
+     `;
+   globalThis.__filename = name;
+-  RegExpPrototypeExec(/^/, ''); // Necessary to reset RegExp statics before user code runs.
+   const result = module._compile(script, `${name}-wrapper`)(() => {
+     // If the script was already compiled, use it.
+     return runScriptInThisContext(

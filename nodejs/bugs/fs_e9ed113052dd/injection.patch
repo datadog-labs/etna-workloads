@@ -1,0 +1,86 @@
+diff -uN a/lib/internal/fs/promises.js b/lib/internal/fs/promises.js
+--- a/lib/internal/fs/promises.js
++++ b/lib/internal/fs/promises.js
+@@ -97,6 +97,7 @@
+   validateBuffer,
+   validateEncoding,
+   validateInteger,
++  validateUint32,
+   validateObject,
+   validateOneOf,
+   kValidateObjectAllowNullable,
+@@ -2014,8 +2015,8 @@
+   }
+ 
+   path = getValidatedPath(path);
+-  validateInteger(uid, 'uid', -1, kMaxUserId);
+-  validateInteger(gid, 'gid', -1, kMaxUserId);
++  validateUint32(uid, 'uid');
++  validateUint32(gid, 'gid');
+   return await PromisePrototypeThen(
+     binding.lchown(path, uid, gid, kUsePromises),
+     undefined,
+@@ -2024,8 +2025,8 @@
+ }
+ 
+ async function fchown(handle, uid, gid) {
+-  validateInteger(uid, 'uid', -1, kMaxUserId);
+-  validateInteger(gid, 'gid', -1, kMaxUserId);
++  validateUint32(uid, 'uid');
++  validateUint32(gid, 'gid');
+   if (permission.isEnabled()) {
+     throw new ERR_ACCESS_DENIED('fchown API is disabled when Permission Model is enabled.');
+   }
+@@ -2044,8 +2045,8 @@
+   }
+ 
+   path = getValidatedPath(path);
+-  validateInteger(uid, 'uid', -1, kMaxUserId);
+-  validateInteger(gid, 'gid', -1, kMaxUserId);
++  validateUint32(uid, 'uid');
++  validateUint32(gid, 'gid');
+   return await PromisePrototypeThen(
+     binding.chown(path, uid, gid, kUsePromises),
+     undefined,
+diff -uN a/src/node_file.cc b/src/node_file.cc
+--- a/src/node_file.cc
++++ b/src/node_file.cc
+@@ -4158,10 +4158,10 @@
+   CHECK_NOT_NULL(*path);
+   ToNamespacedPath(env, &path);
+ 
+-  CHECK(IsSafeJsInt(args[1]));
++  CHECK(args[1]->IsUint32());
+   const auto uid = FromV8Value<uv_uid_t, true>(args[1]);
+ 
+-  CHECK(IsSafeJsInt(args[2]));
++  CHECK(args[2]->IsUint32());
+   const auto gid = FromV8Value<uv_gid_t, true>(args[2]);
+ 
+   if (argc > 3) {  // chown(path, uid, gid, req)
+@@ -4210,10 +4210,10 @@
+     return;
+   }
+ 
+-  CHECK(IsSafeJsInt(args[1]));
++  CHECK(args[1]->IsUint32());
+   const auto uid = FromV8Value<uv_uid_t, true>(args[1]);
+ 
+-  CHECK(IsSafeJsInt(args[2]));
++  CHECK(args[2]->IsUint32());
+   const auto gid = FromV8Value<uv_gid_t, true>(args[2]);
+ 
+   if (argc > 3) {  // fchown(fd, uid, gid, req)
+@@ -4248,10 +4248,10 @@
+   CHECK_NOT_NULL(*path);
+   ToNamespacedPath(env, &path);
+ 
+-  CHECK(IsSafeJsInt(args[1]));
++  CHECK(args[1]->IsUint32());
+   const auto uid = FromV8Value<uv_uid_t, true>(args[1]);
+ 
+-  CHECK(IsSafeJsInt(args[2]));
++  CHECK(args[2]->IsUint32());
+   const auto gid = FromV8Value<uv_gid_t, true>(args[2]);
+ 
+   if (argc > 3) {  // lchown(path, uid, gid, req)

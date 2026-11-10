@@ -1,0 +1,26 @@
+diff -uN a/lib/internal/modules/run_main.js b/lib/internal/modules/run_main.js
+--- a/lib/internal/modules/run_main.js
++++ b/lib/internal/modules/run_main.js
+@@ -1,6 +1,7 @@
+ 'use strict';
+ 
+ const {
++  SafePromiseAllReturnVoid,
+   StringPrototypeEndsWith,
+   globalThis,
+ } = primordials;
+@@ -93,9 +94,11 @@
+     const userImports = getOptionValue('--import');
+     if (userImports.length > 0) {
+       const parentURL = getCWDURL().href;
+-      for (let i = 0; i < userImports.length; i++) {
+-        await cascadedLoader.import(userImports[i], parentURL, kEmptyObject);
+-      }
++      await SafePromiseAllReturnVoid(userImports, (specifier) => cascadedLoader.import(
++        specifier,
++        parentURL,
++        kEmptyObject,
++      ));
+     } else {
+       cascadedLoader.waitForAsyncLoaderHookInitialization();
+     }

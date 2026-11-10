@@ -1,0 +1,67 @@
+diff -uN a/src/node_url_pattern.cc b/src/node_url_pattern.cc
+--- a/src/node_url_pattern.cc
++++ b/src/node_url_pattern.cc
+@@ -435,13 +435,13 @@
+   auto tmpl = env->urlpatterncomponentresult_template();
+   if (tmpl.IsEmpty()) {
+     static constexpr std::string_view namesVec[] = {
+-        "groups",
+         "input",
++        "groups",
+     };
+     tmpl = DictionaryTemplate::New(isolate, namesVec);
+     env->set_urlpatterncomponentresult_template(tmpl);
+   }
+-  MaybeLocal<Value> values[] = {parsed_group, input};
++  MaybeLocal<Value> values[] = {input, parsed_group};
+   return NewDictionaryInstance(env->context(), tmpl, values);
+ }
+ 
+@@ -452,15 +452,15 @@
+   auto tmpl = env->urlpatternresult_template();
+   if (tmpl.IsEmpty()) {
+     static constexpr std::string_view namesVec[] = {
+-        "hash",
+-        "hostname",
+         "inputs",
++        "protocol",
++        "username",
+         "password",
+-        "pathname",
++        "hostname",
+         "port",
+-        "protocol",
++        "pathname",
+         "search",
+-        "username",
++        "hash",
+     };
+     tmpl = DictionaryTemplate::New(isolate, namesVec);
+     env->set_urlpatternresult_template(tmpl);
+@@ -468,8 +468,6 @@
+ 
+   size_t index = 0;
+   MaybeLocal<Value> vals[] = {
+-      URLPatternComponentResult::ToJSObject(env, result.hash),
+-      URLPatternComponentResult::ToJSObject(env, result.hostname),
+       Array::New(env->context(),
+                  result.inputs.size(),
+                  [&index, &inputs = result.inputs, env]() {
+@@ -484,12 +482,14 @@
+                      return URLPatternInit::ToJsObject(env, init);
+                    }
+                  }),
++      URLPatternComponentResult::ToJSObject(env, result.protocol),
++      URLPatternComponentResult::ToJSObject(env, result.username),
+       URLPatternComponentResult::ToJSObject(env, result.password),
+-      URLPatternComponentResult::ToJSObject(env, result.pathname),
++      URLPatternComponentResult::ToJSObject(env, result.hostname),
+       URLPatternComponentResult::ToJSObject(env, result.port),
+-      URLPatternComponentResult::ToJSObject(env, result.protocol),
++      URLPatternComponentResult::ToJSObject(env, result.pathname),
+       URLPatternComponentResult::ToJSObject(env, result.search),
+-      URLPatternComponentResult::ToJSObject(env, result.username)};
++      URLPatternComponentResult::ToJSObject(env, result.hash)};
+   return NewDictionaryInstanceNullProto(env->context(), tmpl, vals);
+ }
+ 

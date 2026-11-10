@@ -1,0 +1,38 @@
+diff -uN a/src/inspector_js_api.cc b/src/inspector_js_api.cc
+--- a/src/inspector_js_api.cc
++++ b/src/inspector_js_api.cc
+@@ -174,9 +174,6 @@
+ 
+ void CallAndPauseOnStart(const FunctionCallbackInfo<v8::Value>& args) {
+   Environment* env = Environment::GetCurrent(args);
+-  THROW_IF_INSUFFICIENT_PERMISSIONS(env,
+-                                    permission::PermissionScope::kInspector,
+-                                    "PauseOnNextJavascriptStatement");
+   CHECK_GT(args.Length(), 1);
+   CHECK(args[0]->IsFunction());
+   SlicedArguments call_args(args, /* start */ 2);
+diff -uN a/src/node_contextify.cc b/src/node_contextify.cc
+--- a/src/node_contextify.cc
++++ b/src/node_contextify.cc
+@@ -1264,21 +1264,6 @@
+ 
+ #if HAVE_INSPECTOR
+   if (break_on_first_line) {
+-    if (!env->permission()->is_granted(env,
+-                                       permission::PermissionScope::kInspector,
+-                                       "PauseOnNextJavascriptStatement"))
+-        [[unlikely]] {
+-      node::permission::Permission::ThrowAccessDenied(
+-          env,
+-          permission::PermissionScope::kInspector,
+-          "PauseOnNextJavascriptStatement");
+-      if (display_errors) {
+-        // We should decorate non-termination exceptions
+-        errors::DecorateErrorStack(env, try_catch);
+-      }
+-      try_catch.ReThrow();
+-      return false;
+-    }
+     env->inspector_agent()->PauseOnNextJavascriptStatement("Break on start");
+   }
+ #endif

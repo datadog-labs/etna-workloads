@@ -1,0 +1,38 @@
+diff -uN a/lib/internal/async_local_storage/async_context_frame.js b/lib/internal/async_local_storage/async_context_frame.js
+--- a/lib/internal/async_local_storage/async_context_frame.js
++++ b/lib/internal/async_local_storage/async_context_frame.js
+@@ -65,7 +65,7 @@
+     try {
+       return ReflectApply(fn, null, args);
+     } finally {
+-      this.enterWith(prior);
++      this.enterWith(undefined);
+     }
+   }
+ 
+diff -uN a/lib/internal/async_local_storage/async_hooks.js b/lib/internal/async_local_storage/async_hooks.js
+--- a/lib/internal/async_local_storage/async_hooks.js
++++ b/lib/internal/async_local_storage/async_hooks.js
+@@ -125,21 +125,17 @@
+ 
+     const resource = executionAsyncResource();
+     const resourceStore = getOrCreateResourceStore(resource);
+-    const oldStore = resourceStore[this.kResourceStore];
+ 
+     resourceStore[this.kResourceStore] = store;
+ 
+     try {
+       return ReflectApply(callback, null, args);
+     } finally {
+-      resourceStore[this.kResourceStore] = oldStore;
++      resourceStore[this.kResourceStore] = undefined;
+     }
+   }
+ 
+   exit(callback, ...args) {
+-    if (!this.enabled) {
+-      return ReflectApply(callback, null, args);
+-    }
+     this.disable();
+     try {
+       return ReflectApply(callback, null, args);

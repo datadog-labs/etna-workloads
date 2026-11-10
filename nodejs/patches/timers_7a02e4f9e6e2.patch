@@ -1,0 +1,306 @@
+diff -uN a/lib/internal/async_hooks.js b/lib/internal/async_hooks.js
+--- a/lib/internal/async_hooks.js
++++ b/lib/internal/async_hooks.js
+@@ -105,7 +105,6 @@
+ const after_symbol = Symbol('after');
+ const destroy_symbol = Symbol('destroy');
+ const promise_resolve_symbol = Symbol('promiseResolve');
+-const async_local_storage_context_symbol = Symbol('kAsyncLocalStorageContext');
+ const emitBeforeNative = emitHookFactory(before_symbol, 'emitBeforeNative');
+ const emitAfterNative = emitHookFactory(after_symbol, 'emitAfterNative');
+ const emitDestroyNative = emitHookFactory(destroy_symbol, 'emitDestroyNative');
+@@ -596,8 +595,7 @@
+   symbols: {
+     async_id_symbol, trigger_async_id_symbol,
+     init_symbol, before_symbol, after_symbol, destroy_symbol,
+-    promise_resolve_symbol, async_local_storage_context_symbol,
+-    owner_symbol,
++    promise_resolve_symbol, owner_symbol,
+   },
+   constants: {
+     kInit, kBefore, kAfter, kDestroy, kTotals, kPromiseResolve,
+diff -uN a/lib/internal/async_local_storage/async_hooks.js b/lib/internal/async_local_storage/async_hooks.js
+--- a/lib/internal/async_local_storage/async_hooks.js
++++ b/lib/internal/async_local_storage/async_hooks.js
+@@ -12,11 +12,6 @@
+ const {
+   validateObject,
+ } = require('internal/validators');
+-const {
+-  symbols: {
+-    async_local_storage_context_symbol,
+-  },
+-} = require('internal/async_hooks');
+ 
+ const {
+   AsyncResource,
+@@ -28,11 +23,6 @@
+ const { kEmptyObject } = require('internal/util');
+ 
+ const storageList = [];
+-
+-function getOrCreateResourceStore(resource) {
+-  return resource[async_local_storage_context_symbol] ??= { __proto__: null };
+-}
+-
+ const storageHook = createHook({
+   init(asyncId, type, triggerAsyncId, resource) {
+     const currentResource = executionAsyncResource();
+@@ -101,18 +91,16 @@
+ 
+   // Propagate the context from a parent resource to a child one
+   _propagate(resource, triggerResource, type) {
+-    const store = triggerResource[async_local_storage_context_symbol]?.[this.kResourceStore];
++    const store = triggerResource[this.kResourceStore];
+     if (this.enabled) {
+-      const resourceStore = getOrCreateResourceStore(resource);
+-      resourceStore[this.kResourceStore] = store;
++      resource[this.kResourceStore] = store;
+     }
+   }
+ 
+   enterWith(store) {
+     this._enable();
+     const resource = executionAsyncResource();
+-    const resourceStore = getOrCreateResourceStore(resource);
+-    resourceStore[this.kResourceStore] = store;
++    resource[this.kResourceStore] = store;
+   }
+ 
+   run(store, callback, ...args) {
+@@ -124,15 +112,14 @@
+     this._enable();
+ 
+     const resource = executionAsyncResource();
+-    const resourceStore = getOrCreateResourceStore(resource);
+-    const oldStore = resourceStore[this.kResourceStore];
++    const oldStore = resource[this.kResourceStore];
+ 
+-    resourceStore[this.kResourceStore] = store;
++    resource[this.kResourceStore] = store;
+ 
+     try {
+       return ReflectApply(callback, null, args);
+     } finally {
+-      resourceStore[this.kResourceStore] = oldStore;
++      resource[this.kResourceStore] = oldStore;
+     }
+   }
+ 
+@@ -151,11 +138,10 @@
+   getStore() {
+     if (this.enabled) {
+       const resource = executionAsyncResource();
+-      const resourceStore = resource[async_local_storage_context_symbol];
+-      if (resourceStore === undefined || !(this.kResourceStore in resourceStore)) {
++      if (!(this.kResourceStore in resource)) {
+         return this.#defaultValue;
+       }
+-      return resourceStore[this.kResourceStore];
++      return resource[this.kResourceStore];
+     }
+     return this.#defaultValue;
+   }
+diff -uN a/lib/internal/timers.js b/lib/internal/timers.js
+--- a/lib/internal/timers.js
++++ b/lib/internal/timers.js
+@@ -87,9 +87,6 @@
+   immediateInfo,
+   timeoutInfo,
+ } = binding;
+-const {
+-  enqueueMicrotask,
+-} = internalBinding('task_queue');
+ 
+ const {
+   getDefaultTriggerAsyncId,
+@@ -100,9 +97,6 @@
+   emitBefore,
+   emitAfter,
+   emitDestroy,
+-  symbols: {
+-    async_local_storage_context_symbol,
+-  },
+ } = require('internal/async_hooks');
+ 
+ // Symbols for storing async id state.
+@@ -131,39 +125,6 @@
+ 
+ const async_context_frame = Symbol('kAsyncContextFrame');
+ 
+-function removeStoresFromResource(resource) {
+-  if (AsyncContextFrame.enabled) {
+-    if (resource[async_context_frame] !== undefined) {
+-      resource[async_context_frame] = undefined;
+-    }
+-  } else if (resource[async_local_storage_context_symbol] !== undefined) {
+-    resource[async_local_storage_context_symbol] = undefined;
+-  }
+-}
+-
+-function cleanTimer(timer) {
+-  removeStoresFromResource(timer);
+-  timer._onTimeout = undefined;
+-  timer._timerArgs = undefined;
+-}
+-
+-function cleanImmediate(immediate) {
+-  removeStoresFromResource(immediate);
+-  immediate._onImmediate = undefined;
+-  immediate._argv = undefined;
+-}
+-
+-function enqueueRemoveStoresFromResource(resource) {
+-  enqueueMicrotask(() => removeStoresFromResource(resource));
+-}
+-
+-function enqueueRemoveStoresIfNotReinserted(resource) {
+-  enqueueMicrotask(() => {
+-    if (!resource._idleNext && !resource._idlePrev)
+-      removeStoresFromResource(resource);
+-  });
+-}
+-
+ // *Must* match Environment::ImmediateInfo::Fields in src/env.h.
+ const kCount = 0;
+ const kRefCount = 1;
+@@ -567,22 +528,14 @@
+       const asyncId = immediate[async_id_symbol];
+       emitBefore(asyncId, immediate[trigger_async_id_symbol], immediate);
+ 
+-      let threw = true;
+       try {
+         const argv = immediate._argv;
+         if (!argv)
+           immediate._onImmediate();
+         else
+           immediate._onImmediate(...argv);
+-        threw = false;
+       } finally {
+-        if (threw) {
+-          immediate._onImmediate = undefined;
+-          immediate._argv = undefined;
+-          enqueueRemoveStoresFromResource(immediate);
+-        } else {
+-          cleanImmediate(immediate);
+-        }
++        immediate._onImmediate = null;
+ 
+         emitDestroy(asyncId);
+ 
+@@ -654,8 +607,6 @@
+         if (!timer._destroyed) {
+           timer._destroyed = true;
+ 
+-          cleanTimer(timer);
+-
+           if (timer[kHasPrimitive])
+             delete knownTimersById[asyncId];
+ 
+@@ -678,42 +629,26 @@
+         start = binding.getLibuvNow();
+       }
+ 
+-      let threw = true;
+       try {
+         const args = timer._timerArgs;
+         if (args === undefined)
+           timer._onTimeout();
+         else
+           ReflectApply(timer._onTimeout, timer, args);
+-        threw = false;
+       } finally {
+         if (timer._repeat && timer._idleTimeout !== -1) {
+           timer._idleTimeout = timer._repeat;
+           insert(timer, timer._idleTimeout, start);
+-        } else if (!timer._idleNext && !timer._idlePrev) {
+-          if (timer._destroyed) {
+-            timer._onTimeout = undefined;
+-            timer._timerArgs = undefined;
+-            if (threw)
+-              enqueueRemoveStoresIfNotReinserted(timer);
+-            else
+-              removeStoresFromResource(timer);
+-          } else {
+-            if (threw)
+-              enqueueRemoveStoresIfNotReinserted(timer);
+-            else
+-              removeStoresFromResource(timer);
+-
+-            timer._destroyed = true;
++        } else if (!timer._idleNext && !timer._idlePrev && !timer._destroyed) {
++          timer._destroyed = true;
+ 
+-            if (timer[kHasPrimitive])
+-              delete knownTimersById[asyncId];
++          if (timer[kHasPrimitive])
++            delete knownTimersById[asyncId];
+ 
+-            if (timer[kRefed])
+-              timeoutInfo[0]--;
++          if (timer[kRefed])
++            timeoutInfo[0]--;
+ 
+-            emitDestroy(asyncId);
+-          }
++          emitDestroy(asyncId);
+         }
+       }
+ 
+@@ -793,11 +728,8 @@
+   kTimeout: Symbol('timeout'), // For hiding Timeouts on other internals.
+   async_id_symbol,
+   trigger_async_id_symbol,
+-  async_context_frame,
+   Timeout,
+   Immediate,
+-  cleanImmediate,
+-  cleanTimer,
+   kRefed,
+   kHasPrimitive,
+   initAsyncResource,
+diff -uN a/lib/timers.js b/lib/timers.js
+--- a/lib/timers.js
++++ b/lib/timers.js
+@@ -38,8 +38,6 @@
+   async_id_symbol,
+   Timeout,
+   Immediate,
+-  cleanTimer,
+-  cleanImmediate,
+   decRefCount,
+   immediateInfoFields: {
+     kCount,
+@@ -71,12 +69,9 @@
+ 
+ // Remove a timer. Cancels the timeout and resets the relevant timer properties.
+ function unenroll(item) {
+-  if (item._destroyed) {
+-    cleanTimer(item);
++  if (item._destroyed)
+     return;
+-  }
+ 
+-  const wasEnrolled = item._idleNext !== null || item._idlePrev !== null;
+   item._destroyed = true;
+ 
+   if (item[kHasPrimitive])
+@@ -104,9 +99,6 @@
+     decRefCount();
+   }
+ 
+-  if (wasEnrolled)
+-    cleanTimer(item);
+-
+   // If active is called later, then we want to make sure not to insert again
+   item._idleTimeout = -1;
+ }
+@@ -246,7 +238,7 @@
+ 
+   emitDestroy(immediate[async_id_symbol]);
+ 
+-  cleanImmediate(immediate);
++  immediate._onImmediate = null;
+ 
+   immediateQueue.remove(immediate);
+ }

@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/fs/utils.js b/lib/internal/fs/utils.js
+--- a/lib/internal/fs/utils.js
++++ b/lib/internal/fs/utils.js
+@@ -15,7 +15,6 @@
+   Number,
+   NumberIsFinite,
+   ObjectDefineProperties,
+-  ObjectIs,
+   ObjectSetPrototypeOf,
+   ReflectOwnKeys,
+   RegExpPrototypeSymbolReplace,
+@@ -941,10 +940,6 @@
+ });
+ 
+ const getValidatedFd = hideStackFrames((fd, propName = 'fd') => {
+-  if (ObjectIs(fd, -0)) {
+-    return 0;
+-  }
+-
+   validateInt32(fd, propName, 0);
+ 
+   return fd;
+diff -uN a/src/util.cc b/src/util.cc
+--- a/src/util.cc
++++ b/src/util.cc
+@@ -793,7 +793,9 @@
+   }
+ 
+   const double fd = input.As<v8::Number>()->Value();
+-  const bool is_out_of_range = fd < 0 || fd > INT32_MAX;
++  // Negative zero is rejected as it is not a valid int32 representation.
++  const bool is_out_of_range =
++      fd < 0 || fd > INT32_MAX || (fd == 0 && std::signbit(fd));
+ 
+   if (is_out_of_range || !IsSafeJsInt(input)) {
+     Local<String> str;

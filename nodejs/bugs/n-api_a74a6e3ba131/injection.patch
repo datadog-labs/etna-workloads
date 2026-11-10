@@ -1,0 +1,25 @@
+diff -uN a/src/node_api.cc b/src/node_api.cc
+--- a/src/node_api.cc
++++ b/src/node_api.cc
+@@ -99,18 +99,9 @@
+ 
+ void node_napi_env__::EnqueueFinalizer(v8impl::RefTracker* finalizer) {
+   napi_env__::EnqueueFinalizer(finalizer);
+-  // Schedule a second pass only when it has not been scheduled, and not
+-  // destructing the env.
+-  // When the env is being destructed, queued finalizers are drained in the
+-  // loop of `node_napi_env__::DrainFinalizerQueue`.
+-  if (!finalization_scheduled && !destructing) {
+-    finalization_scheduled = true;
+-    Ref();
+-    node_env()->SetImmediate([this](node::Environment* node_env) {
+-      finalization_scheduled = false;
+-      Unref();
+-      DrainFinalizerQueue();
+-    });
++  // Run the finalizer right away, from within the GC callback.
++  if (!destructing) {
++    DrainFinalizerQueue();
+   }
+ }
+ 

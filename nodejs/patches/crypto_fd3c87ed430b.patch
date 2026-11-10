@@ -1,0 +1,37 @@
+diff -uN a/src/crypto/crypto_x509.cc b/src/crypto/crypto_x509.cc
+--- a/src/crypto/crypto_x509.cc
++++ b/src/crypto/crypto_x509.cc
+@@ -188,20 +188,7 @@
+   bool has_extension = false;
+   auto bio = view.getSubjectAltName(&has_extension);
+   if (!bio) [[unlikely]] {
+-    // An absent SAN maps to undefined. A malformed, present SAN throws for
+-    // direct X509Certificate inspection, while the legacy TLS object uses a
+-    // deliberately nonmatching value to prevent commonName fallback.
+-    if (!has_extension) return Undefined(env->isolate());
+-    if (malformed_name_mode ==
+-        MalformedSubjectAltNameMode::kReturnLegacySentinel) {
+-      // The legacy object is used by TLS hostname verification. Return an
+-      // empty DNS name so verification cannot fall back to the common name,
+-      // while keeping getPeerCertificate() usable for malformed certificates.
+-      return OneByteString(env->isolate(), kMalformedSubjectAltName);
+-    }
+-    THROW_ERR_CRYPTO_OPERATION_FAILED(
+-        env, "Failed to format subject alternative name");
+-    return {};
++    return Undefined(env->isolate());
+   }
+   if (!ToV8Value(env->context(), bio).ToLocal(&ret)) return {};
+   return ret;
+@@ -740,9 +727,8 @@
+   auto bio = BIOPointer::NewMem();
+   if (!bio) [[unlikely]]
+     return {};
+-  if (!BIOPointer::WriteAll(bio, "0x") || BN_print(bio.get(), e) != 1) {
+-    return {};
+-  }
++  BIO_puts(bio.get(), "0x");
++  BN_print(bio.get(), e);
+   return ToV8Value(env->context(), bio);
+ }
+ 

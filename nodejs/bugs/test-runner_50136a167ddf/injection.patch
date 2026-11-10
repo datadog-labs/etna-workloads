@@ -1,0 +1,157 @@
+diff -uN a/lib/internal/test_runner/utils.js b/lib/internal/test_runner/utils.js
+--- a/lib/internal/test_runner/utils.js
++++ b/lib/internal/test_runner/utils.js
+@@ -564,19 +564,11 @@
+   let uncoveredLinesPadLength;
+   let tableWidth;
+ 
+-  // Create a tree of file paths
+-  const { tree, treeDepth, longestFile } = buildFileTree(summary);
+   if (table) {
+-    // Calculate expected column sizes based on the tree
+-    filePadLength = table && longestFile;
+-    filePadLength += (treeDepth - 1);
+-    if (color) {
+-      filePadLength += 2;
+-    }
++    // Get expected column sizes
++    filePadLength = table && ArrayPrototypeReduce(summary.files, (acc, file) =>
++      MathMax(acc, relative(summary.workingDirectory, file.path).length), 0);
+     filePadLength = MathMax(filePadLength, 'all files'.length);
+-    if (filePadLength > (process.stdout.columns / 2)) {
+-      filePadLength = MathFloor(process.stdout.columns / 2);
+-    }
+     const fileWidth = filePadLength + 2;
+ 
+     columnPadLengths = ArrayPrototypeMap(kColumns, (column) => (table ? MathMax(column.length, 6) : 0));
+@@ -589,11 +581,19 @@
+ 
+     tableWidth = fileWidth + columnsWidth + uncoveredLinesWidth;
+ 
++    // Fit with sensible defaults
+     const availableWidth = (process.stdout.columns || Infinity) - prefix.length;
+     const columnsExtras = tableWidth - availableWidth;
+     if (table && columnsExtras > 0) {
+-      filePadLength = MathMin(availableWidth * 0.5, filePadLength);
++      // Ensure file name is sufficiently visible
++      const minFilePad = MathMin(8, filePadLength);
++      filePadLength -= MathFloor(columnsExtras * 0.2);
++      filePadLength = MathMax(filePadLength, minFilePad);
++
++      // Get rest of available space, subtracting margins
+       uncoveredLinesPadLength = MathMax(availableWidth - columnsWidth - (filePadLength + 2) - 2, 1);
++
++      // Update table width
+       tableWidth = availableWidth;
+     } else {
+       uncoveredLinesPadLength = Infinity;
+@@ -614,85 +614,35 @@
+     return result;
+   }
+ 
+-  function writeReportLine({ file, depth = 0, coveragesColumns, fileCoverage, uncoveredLines }) {
+-    const fileColumn = `${prefix}${StringPrototypeRepeat(' ', depth)}${getCell(file, filePadLength - depth, StringPrototypePadEnd, truncateStart, fileCoverage)}`;
+-    const coverageColumns = ArrayPrototypeJoin(ArrayPrototypeMap(coveragesColumns, (coverage, j) => {
+-      const coverageText = typeof coverage === 'number' ? NumberPrototypeToFixed(coverage, 2) : coverage;
+-      return getCell(coverageText, columnPadLengths[j], StringPrototypePadStart, false, coverage);
+-    }), kSeparator);
+-
+-    const uncoveredLinesColumn = getCell(uncoveredLines, uncoveredLinesPadLength, false, truncateEnd);
+-
+-    return `${fileColumn}${kSeparator}${coverageColumns}${kSeparator}${uncoveredLinesColumn}\n`;
+-  }
+-
+-  function printCoverageBodyTree(tree, depth = 0) {
+-    for (const key in tree) {
+-      if (tree[key].file?.path) {
+-        const file = tree[key].file;
+-        const fileName = ArrayPrototypePop(StringPrototypeSplit(file.path, sep));
+-
+-        let fileCoverage = 0;
+-        const coverages = ArrayPrototypeMap(kColumnsKeys, (columnKey) => {
+-          const percent = file[columnKey];
+-          fileCoverage += percent;
+-          return percent;
+-        });
+-        fileCoverage /= kColumnsKeys.length;
+-
+-        const uncoveredLines = formatUncoveredLines(getUncoveredLines(file.lines), table);
+-
+-        report += writeReportLine({
+-          __proto__: null,
+-          file: fileName,
+-          depth: depth,
+-          coveragesColumns: coverages,
+-          fileCoverage: fileCoverage,
+-          uncoveredLines: uncoveredLines,
+-        });
+-      } else {
+-        report += writeReportLine({
+-          __proto__: null,
+-          file: key,
+-          depth: depth,
+-          coveragesColumns: ArrayPrototypeMap(columnPadLengths, () => ''),
+-          fileCoverage: undefined,
+-          uncoveredLines: '',
+-        });
+-        printCoverageBodyTree(tree[key], depth + 1);
+-      }
+-    }
+-  }
+-
+-  // -------------------------- Coverage Report --------------------------
++  // Head
+   if (table) report += addTableLine(prefix, tableWidth);
+-
+-  // Print the header
+-  report += writeReportLine({
+-    __proto__: null,
+-    file: 'file',
+-    coveragesColumns: kColumns,
+-    fileCoverage: undefined,
+-    uncoveredLines: 'uncovered lines',
+-  });
+-
++  report += `${prefix}${getCell('file', filePadLength, StringPrototypePadEnd, truncateEnd)}${kSeparator}` +
++            `${ArrayPrototypeJoin(ArrayPrototypeMap(kColumns, (column, i) => getCell(column, columnPadLengths[i], StringPrototypePadStart)), kSeparator)}${kSeparator}` +
++            `${getCell('uncovered lines', uncoveredLinesPadLength, false, truncateEnd)}\n`;
+   if (table) report += addTableLine(prefix, tableWidth);
+ 
+-  // Print the body
+-  printCoverageBodyTree(tree);
++  // Body
++  for (let i = 0; i < summary.files.length; ++i) {
++    const file = summary.files[i];
++    const relativePath = relative(summary.workingDirectory, file.path);
++
++    let fileCoverage = 0;
++    const coverages = ArrayPrototypeMap(kColumnsKeys, (columnKey) => {
++      const percent = file[columnKey];
++      fileCoverage += percent;
++      return percent;
++    });
++    fileCoverage /= kColumnsKeys.length;
++
++    report += `${prefix}${getCell(relativePath, filePadLength, StringPrototypePadEnd, truncateStart, fileCoverage)}${kSeparator}` +
++              `${ArrayPrototypeJoin(ArrayPrototypeMap(coverages, (coverage, j) => getCell(NumberPrototypeToFixed(coverage, 2), columnPadLengths[j], StringPrototypePadStart, false, coverage)), kSeparator)}${kSeparator}` +
++              `${getCell(formatUncoveredLines(getUncoveredLines(file.lines), table), uncoveredLinesPadLength, false, truncateEnd)}\n`;
++  }
+ 
++  // Foot
+   if (table) report += addTableLine(prefix, tableWidth);
+-
+-  // Print the footer
+-  const allFilesCoverages = ArrayPrototypeMap(kColumnsKeys, (columnKey) => summary.totals[columnKey]);
+-  report += writeReportLine({
+-    __proto__: null,
+-    file: 'all files',
+-    coveragesColumns: allFilesCoverages,
+-    fileCoverage: undefined,
+-    uncoveredLines: '',
+-  });
+-
++  report += `${prefix}${getCell('all files', filePadLength, StringPrototypePadEnd, truncateEnd)}${kSeparator}` +
++            `${ArrayPrototypeJoin(ArrayPrototypeMap(kColumnsKeys, (columnKey, j) => getCell(NumberPrototypeToFixed(summary.totals[columnKey], 2), columnPadLengths[j], StringPrototypePadStart, false, summary.totals[columnKey])), kSeparator)} |\n`;
+   if (table) report += addTableLine(prefix, tableWidth);
+ 
+   report += `${prefix}end of coverage report\n`;

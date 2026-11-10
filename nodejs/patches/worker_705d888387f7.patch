@@ -1,0 +1,55 @@
+diff -uN a/lib/internal/bootstrap/web/exposed-window-or-worker.js b/lib/internal/bootstrap/web/exposed-window-or-worker.js
+--- a/lib/internal/bootstrap/web/exposed-window-or-worker.js
++++ b/lib/internal/bootstrap/web/exposed-window-or-worker.js
+@@ -91,7 +91,7 @@
+ // https://fetch.spec.whatwg.org/#request-class
+ // https://fetch.spec.whatwg.org/#response-class
+ exposeLazyInterfaces(globalThis, 'internal/deps/undici/undici', [
+-  'FormData', 'Headers', 'Request', 'Response', 'MessageEvent', 'CloseEvent', 'ErrorEvent',
++  'FormData', 'Headers', 'Request', 'Response', 'CloseEvent', 'ErrorEvent',
+ ]);
+ 
+ // https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events.org/
+@@ -104,6 +104,8 @@
+   require('internal/wasm_web_api').wasmStreamingCallback(streamState, source);
+ });
+ 
++exposeLazyInterfaces(globalThis, 'internal/worker/io', ['MessageEvent']);
++
+ // WebCryptoAPI
+ if (internalBinding('config').hasOpenSSL) {
+   defineReplaceableLazyAttribute(
+diff -uN a/lib/internal/worker/io.js b/lib/internal/worker/io.js
+--- a/lib/internal/worker/io.js
++++ b/lib/internal/worker/io.js
+@@ -93,12 +93,17 @@
+   LOAD_SCRIPT: 'loadScript',
+ };
+ 
+-// createFastMessageEvent skips webidl argument validation when the arguments
+-// passed are known to be valid.
+-let fastCreateMessageEvent;
++// Pre-fix MessageEvent: a bare Event subclass that takes positional
++// arguments, performs no validation and has no origin/lastEventId/source/ports.
++class MessageEvent extends Event {
++  constructor(data, target, type) {
++    super(type);
++    this.data = data;
++  }
++}
++
+ function lazyMessageEvent(type, init) {
+-  fastCreateMessageEvent ??= require('internal/deps/undici/undici').createFastMessageEvent;
+-  return fastCreateMessageEvent(type, init);
++  return new MessageEvent(init?.data, null, type);
+ }
+ 
+ // We have to mess with the MessagePort prototype a bit, so that a) we can make
+@@ -503,6 +508,7 @@
+ module.exports = {
+   drainMessagePort,
+   lazyMessageEvent,
++  MessageEvent,
+   messageTypes,
+   kPort,
+   kIncrementsPortRef,

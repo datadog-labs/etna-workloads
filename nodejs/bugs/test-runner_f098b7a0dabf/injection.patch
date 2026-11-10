@@ -1,0 +1,42 @@
+diff -uN a/lib/internal/test_runner/harness.js b/lib/internal/test_runner/harness.js
+--- a/lib/internal/test_runner/harness.js
++++ b/lib/internal/test_runner/harness.js
+@@ -14,7 +14,6 @@
+   createHook,
+   executionAsyncId,
+ } = require('async_hooks');
+-const { relative } = require('path');
+ const {
+   codes: {
+     ERR_TEST_FAILURE,
+@@ -131,26 +130,19 @@
+       throw err;
+     }
+ 
+-    // Check if this error is coming from a test or test hook. If it is, fail the test.
+-    if (!test || test.finished || test.hookType) {
++    // Check if this error is coming from a test. If it is, fail the test.
++    if (!test || test.finished) {
+       // If the test is already finished or the resource that created the error
+       // is not mapped to a Test, report this as a top level diagnostic.
+       let msg;
+ 
+       if (test) {
+-        const name = test.hookType ? `Test hook "${test.hookType}"` : `Test "${test.name}"`;
+-        let locInfo = '';
+-        if (test.loc) {
+-          const relPath = relative(rootTest.config.cwd, test.loc.file);
+-          locInfo = ` at ${relPath}:${test.loc.line}:${test.loc.column}`;
+-        }
+-
+-        msg = `Error: ${name}${locInfo} generated asynchronous ` +
++        msg = `Warning: Test "${test.name}" generated asynchronous ` +
+           'activity after the test ended. This activity created the error ' +
+           `"${err}" and would have caused the test to fail, but instead ` +
+           `triggered an ${eventName} event.`;
+       } else {
+-        msg = 'Error: A resource generated asynchronous activity after ' +
++        msg = 'Warning: A resource generated asynchronous activity after ' +
+           `the test ended. This activity created the error "${err}" which ` +
+           `triggered an ${eventName} event, caught by the test runner.`;
+       }

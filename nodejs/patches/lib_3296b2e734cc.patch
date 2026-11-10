@@ -1,0 +1,86 @@
+diff -uN a/lib/fs.js b/lib/fs.js
+--- a/lib/fs.js
++++ b/lib/fs.js
+@@ -2270,13 +2270,18 @@
+   const h = vfsState.handlers;
+   if (h !== null && vfsVoid(h.symlink(target, path, type), callback)) return;
+ 
+-  // Due to the nature of Node.js runtime, symlinks has different edge cases that can bypass
+-  // the permission model security guarantees. Thus, this API is disabled unless fs.read
+-  // and fs.write permission has been given.
+-  if (permission.isEnabled() && !permission.has('fs') &&
+-      !permission.isAuditMode()) {
+-    callback(new ERR_ACCESS_DENIED('fs.symlink API requires full fs.read and fs.write permissions.'));
+-    return;
++  if (permission.isEnabled() && !permission.isAuditMode()) {
++    // The permission model's security guarantees fall apart in the presence of
++    // relative symbolic links. Thus, we have to prevent their creation.
++    if (BufferIsBuffer(target)) {
++      if (!pathModule.isAbsolute(BufferToString(target))) {
++        callback(new ERR_ACCESS_DENIED('relative symbolic link target'));
++        return;
++      }
++    } else if (typeof target !== 'string' || !pathModule.isAbsolute(toPathIfFileURL(target))) {
++      callback(new ERR_ACCESS_DENIED('relative symbolic link target'));
++      return;
++    }
+   }
+ 
+   target = getValidatedPath(target, 'target');
+@@ -2345,12 +2350,16 @@
+     }
+   }
+ 
+-  // Due to the nature of Node.js runtime, symlinks has different edge cases that can bypass
+-  // the permission model security guarantees. Thus, this API is disabled unless fs.read
+-  // and fs.write permission has been given.
+-  if (permission.isEnabled() && !permission.has('fs') &&
+-      !permission.isAuditMode()) {
+-    throw new ERR_ACCESS_DENIED('fs.symlink API requires full fs.read and fs.write permissions.');
++  if (permission.isEnabled() && !permission.isAuditMode()) {
++    // The permission model's security guarantees fall apart in the presence of
++    // relative symbolic links. Thus, we have to prevent their creation.
++    if (BufferIsBuffer(target)) {
++      if (!pathModule.isAbsolute(BufferToString(target))) {
++        throw new ERR_ACCESS_DENIED('relative symbolic link target');
++      }
++    } else if (typeof target !== 'string' || !pathModule.isAbsolute(toPathIfFileURL(target))) {
++      throw new ERR_ACCESS_DENIED('relative symbolic link target');
++    }
+   }
+ 
+   target = getValidatedPath(target, 'target');
+diff -uN a/lib/internal/fs/promises.js b/lib/internal/fs/promises.js
+--- a/lib/internal/fs/promises.js
++++ b/lib/internal/fs/promises.js
+@@ -102,6 +102,7 @@
+   kValidateObjectAllowNullable,
+ } = require('internal/validators');
+ const pathModule = require('path');
++const { toPathIfFileURL } = require('internal/url');
+ const {
+   getLazy,
+   kEmptyObject,
+@@ -1830,12 +1831,16 @@
+     }
+   }
+ 
+-  // Due to the nature of Node.js runtime, symlinks has different edge cases that can bypass
+-  // the permission model security guarantees. Thus, this API is disabled unless fs.read
+-  // and fs.write permission has been given.
+-  if (permission.isEnabled() && !permission.has('fs') &&
+-      !permission.isAuditMode()) {
+-    throw new ERR_ACCESS_DENIED('fs.symlink API requires full fs.read and fs.write permissions.');
++  if (permission.isEnabled() && !permission.isAuditMode()) {
++    // The permission model's security guarantees fall apart in the presence of
++    // relative symbolic links. Thus, we have to prevent their creation.
++    if (BufferIsBuffer(target)) {
++      if (!pathModule.isAbsolute(BufferToString(target))) {
++        throw new ERR_ACCESS_DENIED('relative symbolic link target');
++      }
++    } else if (typeof target !== 'string' || !pathModule.isAbsolute(toPathIfFileURL(target))) {
++      throw new ERR_ACCESS_DENIED('relative symbolic link target');
++    }
+   }
+ 
+   target = getValidatedPath(target, 'target');

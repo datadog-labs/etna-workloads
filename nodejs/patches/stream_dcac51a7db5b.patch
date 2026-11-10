@@ -1,0 +1,122 @@
+diff -uN a/lib/internal/streams/iter/pull.js b/lib/internal/streams/iter/pull.js
+--- a/lib/internal/streams/iter/pull.js
++++ b/lib/internal/streams/iter/pull.js
+@@ -12,7 +12,6 @@
+   ArrayPrototypeSlice,
+   FunctionPrototypeCall,
+   PromisePrototypeThen,
+-  PromiseReject,
+   PromiseResolve,
+   SymbolAsyncIterator,
+   SymbolIterator,
+@@ -851,83 +850,37 @@
+   });
+   const { signal } = options;
+   const normalized = from(source);
++  signal?.throwIfAborted();
+ 
+   return {
+     __proto__: null,
+     [SymbolAsyncIterator]() {
+-      if (signal === undefined) {
+-        const controller = new AbortController();
+-        async function* pipeline() {
+-          yield* createAsyncPipeline(normalized, transforms, controller.signal);
+-        }
+-        const iterator = pipeline();
+-        return {
+-          __proto__: null,
+-          next(value) {
+-            return iterator.next(value);
+-          },
+-          return(value) {
+-            controller.abort(lazyDOMException('Aborted', 'AbortError'));
+-            return iterator.return(value);
+-          },
+-          throw(error) {
+-            abortSignal(controller.signal, error);
+-            return iterator.throw(error);
+-          },
+-          [SymbolAsyncIterator]() {
+-            return this;
+-          },
+-        };
+-      }
+-      return createAbortablePullIterator(normalized, transforms, signal);
+-    },
+-  };
+-}
+-
+-// Once `signal` aborts the pipeline, the pull that observed it rejects and
+-// so does every later pull, with the abort reason. That includes the case of
+-// an already-aborted signal, where the pipeline is never started. A plain
+-// async generator would instead complete after throwing, so later pulls
+-// would report a clean end of the stream.
+-function createAbortablePullIterator(source, transforms, signal) {
+-  let aborted = signal.aborted;
+-  let controller;
+-  let iterator;
+-  if (!aborted) {
+-    controller = new AbortController();
+-    const iteratorSignal = AbortSignal.any([signal, controller.signal]);
+-    async function* pipeline() {
+-      yield* createAsyncPipeline(source, transforms, iteratorSignal);
+-    }
+-    iterator = pipeline();
+-  }
+-
+-  function onRejected(error) {
+-    if (signal.aborted) aborted = true;
+-    throw error;
+-  }
+-
+-  return {
+-    __proto__: null,
+-    next(value) {
+-      if (aborted) return PromiseReject(signal.reason);
+-      return PromisePrototypeThen(iterator.next(value), undefined, onRejected);
+-    },
+-    return(value) {
+-      if (aborted) {
+-        return PromiseResolve({ __proto__: null, done: true, value });
+-      }
+-      controller.abort(lazyDOMException('Aborted', 'AbortError'));
+-      return iterator.return(value);
+-    },
+-    throw(error) {
+-      if (aborted) return PromiseReject(error);
+-      abortSignal(controller.signal, error);
+-      return PromisePrototypeThen(iterator.throw(error), undefined,
+-                                  onRejected);
+-    },
+-    [SymbolAsyncIterator]() {
+-      return this;
++      const controller = new AbortController();
++      const iteratorSignal = signal === undefined ?
++        controller.signal : AbortSignal.any([signal, controller.signal]);
++
++      async function* pipeline() {
++        yield* createAsyncPipeline(normalized, transforms, iteratorSignal);
++      }
++      const iterator = pipeline();
++
++      return {
++        __proto__: null,
++        next(value) {
++          return iterator.next(value);
++        },
++        return(value) {
++          controller.abort(lazyDOMException('Aborted', 'AbortError'));
++          return iterator.return(value);
++        },
++        throw(error) {
++          abortSignal(controller.signal, error);
++          return iterator.throw(error);
++        },
++        [SymbolAsyncIterator]() {
++          return this;
++        },
++      };
+     },
+   };
+ }

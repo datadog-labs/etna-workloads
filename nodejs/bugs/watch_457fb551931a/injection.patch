@@ -1,0 +1,60 @@
+diff -uN a/lib/internal/fs/watchers.js b/lib/internal/fs/watchers.js
+--- a/lib/internal/fs/watchers.js
++++ b/lib/internal/fs/watchers.js
+@@ -35,7 +35,7 @@
+ } = internalBinding('fs');
+ 
+ const { FSEvent } = internalBinding('fs_event_wrap');
+-const { UV_ENOSPC, UV_ENOENT } = internalBinding('uv');
++const { UV_ENOSPC } = internalBinding('uv');
+ const { EventEmitter } = require('events');
+ 
+ const {
+@@ -295,8 +295,7 @@
+                                               persistent,
+                                               recursive,
+                                               encoding,
+-                                              ignore,
+-                                              throwIfNoEntry = true) {
++                                              ignore) {
+   if (this._handle === null) {  // closed
+     return;
+   }
+@@ -316,10 +315,6 @@
+                                  recursive,
+                                  encoding);
+   if (err) {
+-    if (!throwIfNoEntry && err === UV_ENOENT) {
+-      return;
+-    }
+-
+     const error = new UVException({
+       errno: err,
+       syscall: 'watch',
+diff -uN a/lib/internal/main/watch_mode.js b/lib/internal/main/watch_mode.js
+--- a/lib/internal/main/watch_mode.js
++++ b/lib/internal/main/watch_mode.js
+@@ -37,8 +37,10 @@
+ 
+ const kKillSignal = convertToValidSignal(getOptionValue('--watch-kill-signal'));
+ const kShouldFilterModules = getOptionValue('--watch-path').length === 0;
+-const kEnvFiles = getOptionValue('--env-file');
+-const kOptionalEnvFiles = getOptionValue('--env-file-if-exists');
++const kEnvFiles = [
++  ...getOptionValue('--env-file'),
++  ...getOptionValue('--env-file-if-exists'),
++];
+ const kWatchedPaths = ArrayPrototypeMap(getOptionValue('--watch-path'), (path) => resolve(path));
+ const kPreserveOutput = getOptionValue('--watch-preserve-output');
+ const kCommand = ArrayPrototypeSlice(process.argv, 1);
+@@ -164,10 +166,6 @@
+   if (kEnvFiles.length > 0) {
+     ArrayPrototypeForEach(kEnvFiles, (file) => watcher.filterFile(resolve(file)));
+   }
+-  if (kOptionalEnvFiles.length > 0) {
+-    ArrayPrototypeForEach(kOptionalEnvFiles,
+-                          (file) => watcher.filterFile(resolve(file), undefined, { allowMissing: true }));
+-  }
+   childExitPromise = once(child, 'exit').then(({ 0: code }) => {
+     exited = true;
+     if (stopping) {

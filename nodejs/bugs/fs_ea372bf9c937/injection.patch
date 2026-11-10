@@ -1,0 +1,43 @@
+diff -uN a/lib/fs.js b/lib/fs.js
+--- a/lib/fs.js
++++ b/lib/fs.js
+@@ -393,7 +393,6 @@
+   let aborted = false;
+   const onAbort = () => {
+     aborted = true;
+-    req.cancel();
+     callback(new AbortError(undefined, { cause: signal.reason }));
+   };
+   kResistStopPropagation ??= require('internal/event_target').kResistStopPropagation;
+diff -uN a/src/node_file.cc b/src/node_file.cc
+--- a/src/node_file.cc
++++ b/src/node_file.cc
+@@ -763,12 +763,6 @@
+   new FSReqCallback(binding_data, args.This(), args[0]->IsTrue());
+ }
+ 
+-void CancelFSReq(const FunctionCallbackInfo<Value>& args) {
+-  FSReqBase* req_wrap;
+-  ASSIGN_OR_RETURN_UNWRAP(&req_wrap, args.This());
+-  req_wrap->Cancel();
+-}
+-
+ FSReqAfterScope::FSReqAfterScope(FSReqBase* wrap, uv_fs_t* req)
+     : wrap_(wrap),
+       req_(req),
+@@ -5719,7 +5713,6 @@
+   fst->InstanceTemplate()->SetInternalFieldCount(
+       FSReqBase::kInternalFieldCount);
+   fst->Inherit(AsyncWrap::GetConstructorTemplate(isolate_data));
+-  SetProtoMethod(isolate, fst, "cancel", CancelFSReq);
+   SetConstructorFunction(isolate, target, "FSReqCallback", fst);
+ 
+   // Create FunctionTemplate for FileHandleReadWrap. There’s no need
+@@ -5841,7 +5834,6 @@
+   registry->Register(HandleToFd);
+ #endif
+   registry->Register(NewFSReqCallback);
+-  registry->Register(CancelFSReq);
+ 
+   registry->Register(FileHandle::New);
+   registry->Register(FileHandle::Close);

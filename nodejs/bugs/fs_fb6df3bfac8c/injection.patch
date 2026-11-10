@@ -1,0 +1,66 @@
+diff -uN a/lib/fs.js b/lib/fs.js
+--- a/lib/fs.js
++++ b/lib/fs.js
+@@ -1135,7 +1135,8 @@
+     return;
+   }
+ 
+-  validateStringAfterArrayBufferView(buffer, 'buffer');
++  if (typeof buffer !== 'string')
++    buffer += '';
+ 
+   if (typeof position !== 'function') {
+     if (typeof offset === 'function') {
+@@ -1218,7 +1219,8 @@
+     result = binding.writeBuffer(fd, buffer, offset, length, position,
+                                  undefined, ctx);
+   } else {
+-    validateStringAfterArrayBufferView(buffer, 'buffer');
++    if (typeof buffer !== 'string')
++      buffer += '';
+     validateEncoding(buffer, length);
+ 
+     if (offset === undefined)
+@@ -2942,8 +2944,7 @@
+   const flag = options.flag || 'w';
+ 
+   if (!isArrayBufferView(data)) {
+-    validateStringAfterArrayBufferView(data, 'data');
+-    data = Buffer.from(data, options.encoding || 'utf8');
++    data = Buffer.from('' + data, options.encoding || 'utf8');
+   }
+ 
+   if (isFd(path)) {
+@@ -3034,8 +3035,7 @@
+   }
+ 
+   if (!isArrayBufferView(data)) {
+-    validateStringAfterArrayBufferView(data, 'data');
+-    data = Buffer.from(data, options.encoding || 'utf8');
++    data = Buffer.from('' + data, options.encoding || 'utf8');
+   }
+ 
+   const isUserFd = isFd(path); // File descriptor ownership
+diff -uN a/lib/internal/fs/promises.js b/lib/internal/fs/promises.js
+--- a/lib/internal/fs/promises.js
++++ b/lib/internal/fs/promises.js
+@@ -1579,7 +1579,8 @@
+     return { __proto__: null, bytesWritten, buffer };
+   }
+ 
+-  validateStringAfterArrayBufferView(buffer, 'buffer');
++  if (typeof buffer !== 'string')
++    buffer += '';
+   validateEncoding(buffer, length);
+   const bytesWritten = (await PromisePrototypeThen(
+     binding.writeString(handle.fd, buffer, offset, length, kUsePromises),
+@@ -2189,8 +2190,7 @@
+   const flag = options.flag || 'w';
+ 
+   if (!isArrayBufferView(data) && !isCustomIterable(data)) {
+-    validateStringAfterArrayBufferView(data, 'data');
+-    data = Buffer.from(data, options.encoding || 'utf8');
++    data = Buffer.from('' + data, options.encoding || 'utf8');
+   }
+ 
+   validateAbortSignal(options.signal);

@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/modules/esm/loader.js b/lib/internal/modules/esm/loader.js
+--- a/lib/internal/modules/esm/loader.js
++++ b/lib/internal/modules/esm/loader.js
+@@ -54,7 +54,6 @@
+   kEvaluationPhase,
+   kInstantiated,
+   kUninstantiated,
+-  kErrored,
+   kSourcePhase,
+   throwIfPromiseRejected,
+   setImportMetaResolveInitializer,
+@@ -307,9 +306,6 @@
+         mod[kRequiredModuleSymbol] = job.module;
+         const { namespace } = job.runSync(parent);
+         return { wrap: job.module, namespace: namespace || job.module.getNamespace() };
+-      } else if (status === kErrored) {
+-        // If the module was previously imported and errored, throw the error.
+-        throw job.module.getError();
+       }
+       // When the cached async job have already encountered a linking
+       // error that gets wrapped into a rejection, but is still later
+diff -uN a/lib/internal/modules/esm/module_job.js b/lib/internal/modules/esm/module_job.js
+--- a/lib/internal/modules/esm/module_job.js
++++ b/lib/internal/modules/esm/module_job.js
+@@ -628,10 +628,7 @@
+     // This path is hit by a require'd module that is imported again.
+     const status = this.module.getStatus();
+     debug('ModuleJobSync.run()', status, this.module);
+-    // If the module was previously required and errored, reject from import() again.
+-    if (status === kErrored) {
+-      throw this.module.getError();
+-    } else if (status > kInstantiated) {
++    if (status > kInstantiated) {
+       if (this.evaluationPromise) {
+         await this.evaluationPromise;
+       }

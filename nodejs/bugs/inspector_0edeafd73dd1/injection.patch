@@ -1,0 +1,34 @@
+diff -uN a/src/inspector/node_string.cc b/src/inspector/node_string.cc
+--- a/src/inspector/node_string.cc
++++ b/src/inspector/node_string.cc
+@@ -99,12 +99,11 @@
+ }
+ 
+ size_t StringUtil::CharacterCount(const std::string_view s) {
+-  // Return the length of underlying representation storage.
+-  // E.g. for std::basic_string_view<char>, return its byte length.
+-  // If we adopt a variant underlying store string type, like
+-  // `v8_inspector::StringView`, for UTF16, return the length of the
+-  // underlying uint16_t store.
+-  return s.length();
++  // The utf32_length_from_utf8 function calls count_utf8.
++  // The count_utf8 function counts the number of code points
++  // (characters) in the string, assuming that the string is valid Unicode.
++  // TODO(@anonrig): Test to make sure CharacterCount returns correctly.
++  return simdutf::utf32_length_from_utf8(s.data(), s.length());
+ }
+ 
+ String Binary::toBase64() const {
+diff -uN a/src/inspector/node_string.h b/src/inspector/node_string.h
+--- a/src/inspector/node_string.h
++++ b/src/inspector/node_string.h
+@@ -43,9 +43,6 @@
+ using ProtocolMessage = std::string;
+ 
+ // Implements StringUtil methods used in `inspector_protocol/lib/`.
+-// Refer to
+-// https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/core/inspector/v8_inspector_string.h;l=40;drc=2b15d6974a49d3a14d3d67ae099a649d523a828d
+-// for more details about the interface.
+ struct StringUtil {
+   // Convert Utf16 in local endianness to Utf8 if needed.
+   static String StringViewToUtf8(v8_inspector::StringView view);

@@ -1,0 +1,10 @@
+const fs = require('fs'), os = require('os'), path = require('path'), cp = require('child_process');
+const d = fs.mkdtempSync(path.join(os.tmpdir(), 'repro-'));
+fs.writeFileSync(d + '/a.cjs', "global.counter ??= 0;\nglobal.counter++;\nrequire('./b.cjs');\n");
+fs.writeFileSync(d + '/b.cjs', "require('./a.cjs');\n");
+fs.writeFileSync(d + '/main.mjs', "import './a.cjs';\nconsole.log('counter', global.counter);\n");
+const r = cp.spawnSync(process.execPath, [d + '/main.mjs'], { encoding: 'utf8' });
+console.log('status', r.status);
+console.log(r.stdout.trim());
+console.log(r.stderr.split('\n').filter((l) => /^\w*Error|counter/.test(l)).join('\n').replaceAll(d, '<d>'));
+fs.rmSync(d, { recursive: true });

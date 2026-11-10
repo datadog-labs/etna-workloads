@@ -1,0 +1,39 @@
+diff -uN a/src/node_locks.cc b/src/node_locks.cc
+--- a/src/node_locks.cc
++++ b/src/node_locks.cc
+@@ -256,6 +256,11 @@
+            ++queue_iter) {
+         LockRequest* request = queue_iter->get();
+ 
++        // Collect unique environments to wake up later
++        if (request->env() != env) {
++          other_envs_to_wake.insert(request->env());
++        }
++
+         // During a single pass, the first time we see a resource name is the
+         // earliest pending request
+         auto& first_for_resource = first_seen_for_resource[request->name()];
+@@ -279,21 +284,12 @@
+           // If both are shared, they're compatible and can proceed
+         }
+ 
+-        bool is_grantable =
+-            !should_wait_for_earlier_requests && IsGrantable(request);
+-
+-        // Requests must be processed on their Environment's event loop. Wake
+-        // another Environment only when it has a request that can make
+-        // progress; otherwise blocked Environments would continuously wake
+-        // each other.
++        // Only process requests from the current environment
+         if (request->env() != env) {
+-          if (is_grantable || request->if_available()) {
+-            other_envs_to_wake.insert(request->env());
+-          }
+           continue;
+         }
+ 
+-        if (!is_grantable) {
++        if (should_wait_for_earlier_requests || !IsGrantable(request)) {
+           if (request->if_available()) {
+             // ifAvailable request when resource not available: grant with null
+             if_available_request = std::move(*queue_iter);

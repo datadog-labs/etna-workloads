@@ -1,0 +1,11 @@
+const fs=require('fs'),os=require('os'),path=require('path'),cp=require('child_process');
+const d=fs.mkdtempSync(path.join(os.tmpdir(),'r-'));
+const p=path.join(d,'node_modules','pkg');
+fs.mkdirSync(p,{recursive:true});
+fs.writeFileSync(path.join(p,'index.js'),'console.log("Hello World!")');
+fs.writeFileSync(path.join(p,'package.json'),JSON.stringify({main:'./index.js',type:'module'}));
+const r=cp.spawnSync(process.execPath,['--input-type=module','--eval','import "pkg"'],{cwd:d,encoding:'utf8'});
+console.log('stdout:',r.stdout.trim());
+console.log('deprecation warning:',/DEP0151/.test(r.stderr));
+console.log('status:',r.status);
+fs.rmSync(d,{recursive:true,force:true});

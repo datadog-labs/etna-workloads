@@ -1,0 +1,12 @@
+const { Duplex } = require('stream');
+const d = new Duplex({ writable: false, write(c, e, cb) { console.log('write called'); cb(); } });
+console.log('writable', d.writable);
+d.on('error', (e) => console.log('error', e.code));
+d.on('finish', () => console.log('finish'));
+d.write('asd');
+const r = new Duplex({ readable: false });
+console.log('readable', r.readable);
+r.on('error', (e) => console.log('error', e.code));
+r.on('data', () => console.log('data'));
+r.on('end', () => console.log('end'));
+r.push('asd');

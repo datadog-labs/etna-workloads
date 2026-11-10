@@ -1,0 +1,33 @@
+diff -uN a/lib/internal/util/inspect.js b/lib/internal/util/inspect.js
+--- a/lib/internal/util/inspect.js
++++ b/lib/internal/util/inspect.js
+@@ -215,9 +215,6 @@
+   ),
+ );
+ 
+-// https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+-const isUndetectableObject = (v) => typeof v === 'undefined' && v !== undefined;
+-
+ // These options must stay in sync with `getUserOptions`. So if any option will
+ // be added or removed, `getUserOptions` must also be updated accordingly.
+ const inspectDefaultOptions = ObjectSeal({
+@@ -906,7 +903,7 @@
+ function getConstructorName(obj, ctx, recurseTimes, protoProps) {
+   let firstProto;
+   const tmp = obj;
+-  while (obj || isUndetectableObject(obj)) {
++  while (obj) {
+     const wellKnownPrototypeNameAndConstructor = wellKnownPrototypes.get(obj);
+     if (wellKnownPrototypeNameAndConstructor !== undefined) {
+       const { name, constructor } = wellKnownPrototypeNameAndConstructor;
+@@ -1100,9 +1097,7 @@
+ // value afterwards again.
+ function formatValue(ctx, value, recurseTimes, typedArray) {
+   // Primitive types cannot have properties.
+-  if (typeof value !== 'object' &&
+-      typeof value !== 'function' &&
+-      !isUndetectableObject(value)) {
++  if (typeof value !== 'object' && typeof value !== 'function') {
+     return formatPrimitive(ctx.stylize, value, ctx);
+   }
+   if (value === null) {

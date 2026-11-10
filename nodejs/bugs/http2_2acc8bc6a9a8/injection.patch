@@ -1,0 +1,46 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -1131,7 +1131,6 @@
+   handle[kOwner] = this;
+ 
+   handle.consume(socket._handle);
+-  handle.ongracefulclosecomplete = this[kMaybeDestroy].bind(this, null);
+ 
+   this[kHandle] = handle;
+   if (this[kNativeFields]) {
+@@ -1658,10 +1657,6 @@
+     if (typeof callback === 'function')
+       this.once('close', callback);
+     this.goaway();
+-    const handle = this[kHandle];
+-    if (handle) {
+-      handle.setGracefulClose();
+-    }
+     this[kMaybeDestroy]();
+   }
+ 
+@@ -1682,13 +1677,11 @@
+   // * session is closed and there are no more pending or open streams
+   [kMaybeDestroy](error) {
+     if (error == null) {
+-      const handle = this[kHandle];
+-      const hasPendingData = !!handle && handle.hasPendingData();
+       const state = this[kState];
+       // Do not destroy if we're not closed and there are pending/open streams
+       if (!this.closed ||
+           state.streams.size > 0 ||
+-          state.pendingStreams.size > 0 || hasPendingData) {
++          state.pendingStreams.size > 0) {
+         return;
+       }
+     }
+@@ -3659,7 +3652,7 @@
+     state.streams.forEach((stream) => stream.close(NGHTTP2_CANCEL));
+     state.pendingStreams.forEach((stream) => stream.close(NGHTTP2_CANCEL));
+     session.close();
+-    closeSession(session, NGHTTP2_NO_ERROR, err);
++    session[kMaybeDestroy](err);
+   }
+ }
+ 

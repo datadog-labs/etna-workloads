@@ -1,0 +1,148 @@
+diff -uN a/lib/internal/util/comparisons.js b/lib/internal/util/comparisons.js
+--- a/lib/internal/util/comparisons.js
++++ b/lib/internal/util/comparisons.js
+@@ -596,46 +596,86 @@
+ // can match lots of different string values (e.g., 1n == '+00001').
+ function findLooseMatchingPrimitives(prim) {
+   switch (typeof prim) {
++    case 'number':
++      if (prim === 0) {
++        return ['', '0', false];
++      }
++      if (prim === 1) {
++        return ['1', true];
++      }
++      return ['' + prim];
++    case 'string': {
++      if (prim === '' || prim === '0') {
++        return [0, false];
++      }
++      if (prim === '1') {
++        return [1, true];
++      }
++      const number = +prim;
++      if ('' + number === prim) {
++        return [number];
++      }
++      return;
++    }
+     case 'undefined':
+-      return null;
++      return [null];
+     case 'object': // Only pass in null as object!
+-      return undefined;
+-    case 'symbol':
+-      return false;
+-    case 'string':
+-      prim = +prim;
+-      // Loose equal entries exist only if the string is possible to convert to
+-      // a regular number and not NaN.
+-      // Fall through
+-    case 'number':
+-      // Check for NaN
+-      // eslint-disable-next-line no-self-compare
+-      if (prim !== prim) {
+-        return false;
++      return [undefined];
++    case 'boolean':
++      if (prim === false) {
++        return ['', '0', 0];
+       }
++      return ['1', 1];
+   }
+-  return true;
+ }
+ 
+-function setMightHaveLoosePrim(a, b, prim) {
+-  const altValue = findLooseMatchingPrimitives(prim);
+-  if (altValue != null)
+-    return altValue;
+-
+-  return !b.has(altValue) && a.has(altValue);
+-}
+-
+-function mapMightHaveLoosePrim(a, b, prim, item2, memo) {
+-  const altValue = findLooseMatchingPrimitives(prim);
+-  if (altValue != null) {
+-    return altValue;
+-  }
+-  const item1 = a.get(altValue);
+-  if ((item1 === undefined && !a.has(altValue)) ||
+-      !innerDeepEqual(item1, item2, kLoose, memo)) {
++function setHasLoosePrim(a, b, val) {
++  const altValues = findLooseMatchingPrimitives(val);
++  if (altValues === undefined)
++    return false;
++
++  let matches = 1;
++  for (let i = 0; i < altValues.length; i++) {
++    if (b.has(altValues[i])) {
++      matches--;
++    }
++    if (a.has(altValues[i])) {
++      matches++;
++    }
++  }
++  return matches === 0;
++}
++
++function mapHasLoosePrim(a, b, key1, memo, item1, item2) {
++  const altKeys = findLooseMatchingPrimitives(key1);
++  if (altKeys === undefined)
+     return false;
++
++  let keyCount = 1;
++  const itemsA = [item1];
++  const itemsB = [];
++  if (b.has(key1)) {
++    keyCount--;
++    itemsB.push(item2);
++  }
++  for (let i = 0; i < altKeys.length; i++) {
++    const key2 = altKeys[i];
++    if (a.has(key2)) {
++      keyCount++;
++      itemsA.push(a.get(key2));
++    }
++    if (b.has(key2)) {
++      keyCount--;
++      itemsB.push(b.get(key2));
++    }
+   }
+-  return !b.has(altValue) && innerDeepEqual(item1, item2, kLoose, memo);
++  if (keyCount !== 0 || itemsA.length !== itemsB.length)
++    return false;
++  for (let i = 0; i < itemsA.length; i++) {
++    if (!innerDeepEqual(itemsA[i], itemsB[i], kLoose, memo))
++      return false;
++  }
++  return true;
+ }
+ 
+ function partialObjectSetEquiv(array, a, b, mode, memo) {
+@@ -763,8 +803,10 @@
+   for (const val of iteratorB) {
+     if (!a.has(val)) {
+       if ((typeof val !== 'object' || val === null) &&
+-          (mode !== kLoose || !setMightHaveLoosePrim(a, b, val))) {
++          (mode !== kLoose || !setHasLoosePrim(a, b, val))) {
+         return false;
++      } else if (typeof val !== 'object' || val === null) {
++        continue;
+       }
+ 
+       if (array === undefined) {
+@@ -917,12 +959,8 @@
+           return false;
+         // Fast path to detect missing string, symbol, undefined and null
+         // keys.
+-        if (!mapMightHaveLoosePrim(a, b, key2, item2, memo))
++        if (!mapHasLoosePrim(b, a, key2, memo, item2, item1))
+           return false;
+-        if (array === undefined) {
+-          array = [];
+-        }
+-        ArrayPrototypePush(array, key2);
+       }
+     }
+   }

@@ -1,0 +1,40 @@
+diff -uN a/lib/internal/webidl.js b/lib/internal/webidl.js
+--- a/lib/internal/webidl.js
++++ b/lib/internal/webidl.js
+@@ -236,7 +236,7 @@
+   if (r === 0) {
+     return 0;
+   }
+-  return r > 0 ? r : r + y;
++  return r;
+ }
+ 
+ /**
+@@ -471,27 +471,6 @@
+     return x;
+   }
+ 
+-  if (bitLength === 64) {
+-    // Steps 10-12 still wrap over the full 2^64 IDL integer range.
+-    // BigInt keeps x modulo 2^64 and the signed high-bit adjustment exact
+-    // before this helper returns the JavaScript binding result.
+-    let xBigInt = BigInt(x);
+-    xBigInt = bigIntModulo(xBigInt, BIGINT_2_64);
+-
+-    // For long long and unsigned long long values outside the safe-integer
+-    // range, Web IDL says the JS Number value represents the closest numeric
+-    // value, choosing the value with an even significand if there are two
+-    // equally close values. Number(BigInt) performs that final approximation.
+-
+-    // Step 11: wrap into the signed range when the high bit is set.
+-    if (signed && xBigInt >= BIGINT_2_63) {
+-      return Number(xBigInt - BIGINT_2_64);
+-    }
+-
+-    // Step 12: return the unsigned value.
+-    return Number(xBigInt);
+-  }
+-
+   // For 8/16/32-bit conversions, bitwise operators perform the same
+   // power-of-two wrapping as Web IDL step 10 for finite integer Numbers.
+   // The shifts narrow the unsigned value into the signed range when needed.

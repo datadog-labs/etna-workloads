@@ -1,0 +1,171 @@
+diff -uN a/lib/_http_agent.js b/lib/_http_agent.js
+--- a/lib/_http_agent.js
++++ b/lib/_http_agent.js
+@@ -138,18 +138,6 @@
+   }
+ }
+ 
+-// The data guard only runs when the event loop polls for I/O. Data that
+-// reached the OS socket buffer after the last poll has not been seen by it
+-// yet, so check for it directly before handing an idle socket to a request.
+-function hasPendingRead(socket) {
+-  // A socket that is still connecting has nothing to read yet, and a pending
+-  // connect error must be reported to the request rather than swallowed here.
+-  if (socket.connecting) return false;
+-  const handle = socket._handle;
+-  return typeof handle?.hasPendingRead === 'function' &&
+-    handle.hasPendingRead() === true;
+-}
+-
+ function removeFreeSocketDataGuard(socket) {
+   if (socket[kFreeSocketDataGuard]) {
+     socket.removeListener('connect', socket[kFreeSocketDataGuard]);
+@@ -226,12 +214,6 @@
+ 
+     const requests = this.requests[name];
+     if (requests?.length) {
+-      if (hasPendingRead(socket)) {
+-        // onClose() will create a new socket for the pending request.
+-        debug('PENDING DATA on released socket - destroying');
+-        socket.destroy();
+-        return;
+-      }
+       const req = requests.shift();
+       const reqAsyncRes = req[kRequestAsyncResource];
+       if (reqAsyncRes) {
+@@ -409,13 +391,6 @@
+     socket = this.scheduling === 'fifo' ?
+       freeSockets.shift() :
+       freeSockets.pop();
+-    while (socket && hasPendingRead(socket)) {
+-      debug('PENDING DATA on FREE socket - destroying poisoned socket');
+-      socket.destroy();
+-      socket = this.scheduling === 'fifo' ?
+-        freeSockets.shift() :
+-        freeSockets.pop();
+-    }
+     if (!freeSockets.length)
+       delete this.freeSockets[name];
+   }
+diff -uN a/lib/internal/tls/wrap.js b/lib/internal/tls/wrap.js
+--- a/lib/internal/tls/wrap.js
++++ b/lib/internal/tls/wrap.js
+@@ -732,7 +732,7 @@
+ const proxiedMethods = [
+   'ref', 'unref', 'open', 'bind', 'listen', 'connect', 'bind6',
+   'connect6', 'getsockname', 'getpeername', 'setNoDelay', 'setKeepAlive',
+-  'setSimultaneousAccepts', 'setBlocking', 'hasPendingRead',
++  'setSimultaneousAccepts', 'setBlocking',
+ 
+   // PipeWrap
+   'setPendingInstances',
+diff -uN a/src/stream_wrap.cc b/src/stream_wrap.cc
+--- a/src/stream_wrap.cc
++++ b/src/stream_wrap.cc
+@@ -33,9 +33,9 @@
+ #include "udp_wrap.h"
+ #include "util-inl.h"
+ 
+-#include <cerrno>   // errno
+-#include <climits>  // INT_MAX
+ #include <cstring>  // memcpy()
++#include <climits>  // INT_MAX
++
+ 
+ namespace node {
+ 
+@@ -137,7 +137,6 @@
+   registry->Register(IsConstructCallCallback);
+   registry->Register(GetWriteQueueSize);
+   registry->Register(SetBlocking);
+-  registry->Register(HasPendingRead);
+   StreamBase::RegisterExternalReferences(registry);
+ }
+ 
+@@ -176,7 +175,6 @@
+         Local<FunctionTemplate>(),
+         static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+     SetProtoMethod(isolate, tmpl, "setBlocking", SetBlocking);
+-    SetProtoMethod(isolate, tmpl, "hasPendingRead", HasPendingRead);
+     StreamBase::AddMethods(env, tmpl);
+     env->set_libuv_stream_wrap_ctor_template(tmpl);
+   }
+@@ -345,67 +343,6 @@
+   args.GetReturnValue().Set(uv_stream_set_blocking(wrap->stream(), enable));
+ }
+ 
+-// Returns true if a read on the underlying socket would complete right now,
+-// i.e. the OS has data, EOF, or a socket error queued that libuv has not
+-// delivered yet because the event loop has not polled for I/O since it
+-// arrived. Nothing is consumed. Returns false when there is nothing pending
+-// or when the handle type does not support the check.
+-void LibuvStreamWrap::HasPendingRead(const FunctionCallbackInfo<Value>& args) {
+-  LibuvStreamWrap* wrap;
+-  ASSIGN_OR_RETURN_UNWRAP(&wrap, args.This());
+-  args.GetReturnValue().Set(false);
+-
+-  if (!wrap->IsAlive() || wrap->IsClosing()) return;
+-
+-#ifdef _WIN32
+-  // Only TCP sockets can be probed with recv() on Windows.
+-  if (!wrap->is_tcp()) return;
+-#else
+-  if (!wrap->is_tcp() && !wrap->is_named_pipe()) return;
+-#endif
+-
+-  uv_os_fd_t fd;
+-  if (uv_fileno(reinterpret_cast<uv_handle_t*>(wrap->stream()), &fd) != 0)
+-    return;
+-
+-  char c;
+-#ifdef _WIN32
+-  // libuv puts TCP sockets in non-blocking mode and reads with zero-byte
+-  // overlapped reads, so unread data stays in the kernel buffer.
+-  int r = recv(reinterpret_cast<SOCKET>(fd), &c, 1, MSG_PEEK);
+-  if (r == SOCKET_ERROR) {
+-    switch (WSAGetLastError()) {
+-      case WSAEWOULDBLOCK:
+-      case WSAENOTCONN:
+-      case WSAENOTSOCK:
+-        return;
+-    }
+-  }
+-#else
+-  int flags = MSG_PEEK;
+-#ifdef MSG_DONTWAIT
+-  flags |= MSG_DONTWAIT;
+-#endif
+-  ssize_t r;
+-  do {
+-    r = recv(fd, &c, 1, flags);
+-  } while (r == -1 && errno == EINTR);
+-  if (r == -1) {
+-    switch (errno) {
+-      case EAGAIN:
+-#if EWOULDBLOCK != EAGAIN
+-      case EWOULDBLOCK:
+-#endif
+-      case ENOTCONN:
+-      case ENOTSOCK:
+-        return;
+-    }
+-  }
+-#endif
+-
+-  args.GetReturnValue().Set(true);
+-}
+-
+ typedef SimpleShutdownWrap<ReqWrap<uv_shutdown_t>> LibuvShutdownWrap;
+ typedef SimpleWriteWrap<ReqWrap<uv_write_t>> LibuvWriteWrap;
+ 
+diff -uN a/src/stream_wrap.h b/src/stream_wrap.h
+--- a/src/stream_wrap.h
++++ b/src/stream_wrap.h
+@@ -114,7 +114,6 @@
+   static void GetWriteQueueSize(
+       const v8::FunctionCallbackInfo<v8::Value>& info);
+   static void SetBlocking(const v8::FunctionCallbackInfo<v8::Value>& args);
+-  static void HasPendingRead(const v8::FunctionCallbackInfo<v8::Value>& args);
+ 
+   // Callbacks for libuv
+   void OnUvAlloc(size_t suggested_size, uv_buf_t* buf);

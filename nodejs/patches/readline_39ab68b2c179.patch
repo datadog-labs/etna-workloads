@@ -1,0 +1,76 @@
+diff -uN a/lib/internal/main/repl.js b/lib/internal/main/repl.js
+--- a/lib/internal/main/repl.js
++++ b/lib/internal/main/repl.js
+@@ -45,6 +45,7 @@
+       }
+       repl.on('exit', () => {
+         if (repl.historyManager.isFlushing) {
++          repl.pause();
+           return repl.once('flushHistory', () => {
+             process.exit();
+           });
+diff -uN a/lib/internal/readline/interface.js b/lib/internal/readline/interface.js
+--- a/lib/internal/readline/interface.js
++++ b/lib/internal/readline/interface.js
+@@ -575,9 +575,6 @@
+    * @returns {void | Interface}
+    */
+   pause() {
+-    if (this.closed) {
+-      throw new ERR_USE_AFTER_CLOSE('readline');
+-    }
+     if (this.paused) return;
+     this.input.pause();
+     this.paused = true;
+@@ -590,9 +587,6 @@
+    * @returns {void | Interface}
+    */
+   resume() {
+-    if (this.closed) {
+-      throw new ERR_USE_AFTER_CLOSE('readline');
+-    }
+     if (!this.paused) return;
+     this.input.resume();
+     this.paused = false;
+@@ -613,9 +607,6 @@
+    * @returns {void}
+    */
+   write(d, key) {
+-    if (this.closed) {
+-      throw new ERR_USE_AFTER_CLOSE('readline');
+-    }
+     if (this.paused) this.resume();
+     if (this.terminal) {
+       this[kTtyWrite](d, key);
+diff -uN a/lib/internal/repl/history.js b/lib/internal/repl/history.js
+--- a/lib/internal/repl/history.js
++++ b/lib/internal/repl/history.js
+@@ -331,10 +331,8 @@
+       this[kContext].once('exit', this[kOnExit].bind(this));
+ 
+       this[kContext].once('flushHistory', () => {
+-        if (!this[kContext].closed) {
+-          this[kContext].resume();
+-          onReadyCallback(null, this[kContext]);
+-        }
++        this[kContext].resume();
++        onReadyCallback(null, this[kContext]);
+       });
+ 
+       await this[kFlushHistory]();
+diff -uN a/lib/repl.js b/lib/repl.js
+--- a/lib/repl.js
++++ b/lib/repl.js
+@@ -877,9 +877,9 @@
+           self.output.write(self.writer(ret) + '\n');
+         }
+ 
+-        // If the REPL sever hasn't closed display prompt again (unless we already
+-        // did by emitting the 'error' event on the domain instance).
+-        if (!self.closed && !e) {
++        // Display prompt again (unless we already did by emitting the 'error'
++        // event on the domain instance).
++        if (!e) {
+           self[kLastCommandErrored] = false;
+           self.displayPrompt();
+         }

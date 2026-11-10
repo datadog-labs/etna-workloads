@@ -1,0 +1,81 @@
+diff -uN a/src/node_file-inl.h b/src/node_file-inl.h
+--- a/src/node_file-inl.h
++++ b/src/node_file-inl.h
+@@ -6,8 +6,6 @@
+ #include "node_file.h"
+ #include "req_wrap-inl.h"
+ 
+-#include <algorithm>
+-
+ namespace node {
+ namespace fs {
+ 
+@@ -29,15 +27,6 @@
+   }
+ }
+ 
+-bool FSContinuationData::ShouldRetryENOENT(const std::string& path) {
+-  if (std::find(enoent_paths_.begin(), enoent_paths_.end(), path) !=
+-      enoent_paths_.end()) {
+-    return false;
+-  }
+-  enoent_paths_.push_back(path);
+-  return true;
+-}
+-
+ std::string FSContinuationData::PopPath() {
+   CHECK(!paths_.empty());
+   std::string path = std::move(paths_.back());
+diff -uN a/src/node_file.cc b/src/node_file.cc
+--- a/src/node_file.cc
++++ b/src/node_file.cc
+@@ -219,7 +219,6 @@
+ 
+ void FSContinuationData::MemoryInfo(MemoryTracker* tracker) const {
+   tracker->TrackField("paths", paths_);
+-  tracker->TrackField("enoent_paths", enoent_paths_);
+ }
+ 
+ FileHandleReadWrap::~FileHandleReadWrap() = default;
+@@ -1967,9 +1966,6 @@
+           std::string dirname =
+               next_path.substr(0, next_path.find_last_of(kPathSeparator));
+           if (dirname != next_path) {
+-            if (!req_wrap->continuation_data()->ShouldRetryENOENT(next_path)) {
+-              return err;
+-            }
+             req_wrap->continuation_data()->PushPath(std::move(next_path));
+             req_wrap->continuation_data()->PushPath(std::move(dirname));
+           } else if (req_wrap->continuation_data()->paths().empty()) {
+@@ -2051,10 +2047,6 @@
+               std::string dirname =
+                   path.substr(0, path.find_last_of(kPathSeparator));
+               if (dirname != path) {
+-                if (!req_wrap->continuation_data()->ShouldRetryENOENT(path)) {
+-                  req_wrap->continuation_data()->Done(err);
+-                  break;
+-                }
+                 req_wrap->continuation_data()->PushPath(path);
+                 req_wrap->continuation_data()->PushPath(std::move(dirname));
+               } else if (req_wrap->continuation_data()->paths().empty()) {
+diff -uN a/src/node_file.h b/src/node_file.h
+--- a/src/node_file.h
++++ b/src/node_file.h
+@@ -114,9 +114,6 @@
+   inline std::string PopPath();
+   // Used by mkdirp to track the first path created:
+   inline void MaybeSetFirstPath(const std::string& path);
+-  // Used by mkdirp to retry a path that failed with ENOENT only once: its
+-  // parent has been created or checked by then, so retrying again cannot help.
+-  inline bool ShouldRetryENOENT(const std::string& path);
+   inline void Done(int result);
+ 
+   int mode() const { return mode_; }
+@@ -132,7 +129,6 @@
+   uv_fs_t* req_;
+   int mode_;
+   std::vector<std::string> paths_;
+-  std::vector<std::string> enoent_paths_;
+   std::string first_path_;
+ };
+ 

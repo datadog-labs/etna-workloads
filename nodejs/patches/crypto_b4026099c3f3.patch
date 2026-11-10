@@ -1,0 +1,71 @@
+diff -uN a/src/crypto/crypto_cipher.cc b/src/crypto/crypto_cipher.cc
+--- a/src/crypto/crypto_cipher.cc
++++ b/src/crypto/crypto_cipher.cc
+@@ -620,14 +620,24 @@
+   }
+ 
+   CHECK_LE(cipher->auth_tag_len_, ncrypto::Cipher::MAX_AUTH_TAG_LENGTH);
+-  if (!cipher->ctx_.setAeadTag({auth_tag.data(), cipher->auth_tag_len_})) {
+-    return args.GetReturnValue().Set(false);
+-  }
++  memcpy(cipher->auth_tag_, auth_tag.data(), cipher->auth_tag_len_);
++  cipher->auth_tag_pending_ = true;
+   cipher->auth_tag_state_ = kAuthTagSetByUser;
+ 
+   args.GetReturnValue().Set(true);
+ }
+ 
++bool CipherBase::MaybePassAuthTagToOpenSSL() {
++  if (auth_tag_pending_) {
++    if (!ctx_.setAeadTag({reinterpret_cast<const char*>(auth_tag_),
++                          auth_tag_len_})) {
++      return false;
++    }
++    auth_tag_pending_ = false;
++  }
++  return true;
++}
++
+ bool CipherBase::SetAAD(
+     const ArrayBufferOrViewContents<unsigned char>& data,
+     int plaintext_len) {
+@@ -653,6 +663,8 @@
+       return false;
+     }
+ 
++    if (kind_ == kDecipher && !MaybePassAuthTagToOpenSSL()) return false;
++
+     ncrypto::Buffer<const unsigned char> buffer{
+         .data = nullptr,
+         .len = static_cast<size_t>(plaintext_len),
+@@ -712,6 +724,11 @@
+     return kErrorState;
+   }
+ 
++  // Pass the authentication tag to OpenSSL on the first update.
++  if (kind_ == kDecipher && IsAuthenticatedMode()) {
++    CHECK(MaybePassAuthTagToOpenSSL());
++  }
++
+   const int block_size = ctx_.getBlockSize();
+   CHECK_GT(block_size, 0);
+   if (len + block_size > INT_MAX) return kErrorState;
+diff -uN a/src/crypto/crypto_cipher.h b/src/crypto/crypto_cipher.h
+--- a/src/crypto/crypto_cipher.h
++++ b/src/crypto/crypto_cipher.h
+@@ -72,6 +72,7 @@
+   bool IsAuthenticatedMode() const;
+   bool SetAAD(const ArrayBufferOrViewContents<unsigned char>& data,
+               int plaintext_len);
++  bool MaybePassAuthTagToOpenSSL();
+ 
+   static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+   static void Update(const v8::FunctionCallbackInfo<v8::Value>& args);
+@@ -91,6 +92,7 @@
+   unsigned int auth_tag_len_;
+   char auth_tag_[ncrypto::Cipher::MAX_AUTH_TAG_LENGTH];
+   bool pending_auth_failed_;
++  bool auth_tag_pending_ = false;
+   bool has_one_shot_update_;
+   unsigned int siv_aad_components_;
+   int max_message_size_;

@@ -1,0 +1,51 @@
+diff -uN a/lib/internal/crypto/scrypt.js b/lib/internal/crypto/scrypt.js
+--- a/lib/internal/crypto/scrypt.js
++++ b/lib/internal/crypto/scrypt.js
+@@ -14,7 +14,6 @@
+ 
+ const {
+   validateFunction,
+-  validateInteger,
+   validateInt32,
+   validateUint32,
+ } = require('internal/validators');
+@@ -120,7 +119,7 @@
+     }
+     if (options.maxmem !== undefined) {
+       maxmem = options.maxmem;
+-      validateInteger(maxmem, 'maxmem', 0);
++      validateUint32(maxmem, 'maxmem');
+     }
+     if (N === 0) N = defaults.N;
+     if (r === 0) r = defaults.r;
+diff -uN a/src/crypto/crypto_scrypt.cc b/src/crypto/crypto_scrypt.cc
+--- a/src/crypto/crypto_scrypt.cc
++++ b/src/crypto/crypto_scrypt.cc
+@@ -74,13 +74,13 @@
+   CHECK(args[offset + 2]->IsUint32());  // N
+   CHECK(args[offset + 3]->IsUint32());  // r
+   CHECK(args[offset + 4]->IsUint32());  // p
+-  CHECK(args[offset + 5]->IsNumber());  // maxmem
++  CHECK(args[offset + 5]->IsUint32());  // maxmem
+   CHECK(args[offset + 6]->IsInt32());   // length
+ 
+   params->N = args[offset + 2].As<Uint32>()->Value();
+   params->r = args[offset + 3].As<Uint32>()->Value();
+   params->p = args[offset + 4].As<Uint32>()->Value();
+-  params->maxmem = args[offset + 5]->IntegerValue(env->context()).ToChecked();
++  params->maxmem = args[offset + 5].As<Uint32>()->Value();
+ 
+   params->length = args[offset + 6].As<Int32>()->Value();
+   CHECK_GE(params->length, 0);
+diff -uN a/src/crypto/crypto_scrypt.h b/src/crypto/crypto_scrypt.h
+--- a/src/crypto/crypto_scrypt.h
++++ b/src/crypto/crypto_scrypt.h
+@@ -30,7 +30,7 @@
+   uint32_t N;
+   uint32_t r;
+   uint32_t p;
+-  uint64_t maxmem;
++  uint32_t maxmem;
+   int32_t length;
+ 
+   ScryptConfig() = default;

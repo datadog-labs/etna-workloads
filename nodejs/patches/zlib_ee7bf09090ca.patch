@@ -1,0 +1,33 @@
+diff -uN a/src/node_zlib.cc b/src/node_zlib.cc
+--- a/src/node_zlib.cc
++++ b/src/node_zlib.cc
+@@ -1853,13 +1853,8 @@
+ }
+ 
+ void ZstdCompressContext::DoThreadPoolWork() {
+-  // Zstd overrides a configured pledge when the first call uses ZSTD_e_end.
+-  size_t const input_pos = input_.pos;
+   size_t const remaining =
+       ZSTD_compressStream2(cctx_.get(), &output_, &input_, flush_);
+-  if (consumed_src_size_.has_value()) {
+-    *consumed_src_size_ += input_.pos - input_pos;
+-  }
+   if (output_.pos > 0) {
+     frame_output_emitted_ = true;
+   }
+@@ -1871,15 +1866,6 @@
+   } else if (remaining == 0 && flush_ == ZSTD_e_end) {
+     frame_complete_ = true;
+     frame_output_emitted_ = false;
+-    if (consumed_src_size_.has_value()) {
+-      uint64_t const consumed_src_size = *consumed_src_size_;
+-      consumed_src_size_.reset();
+-      if (consumed_src_size != pledged_src_size_) {
+-        error_ = ZSTD_error_srcSize_wrong;
+-        error_code_string_ = ZstdStrerror(error_);
+-        error_string_ = ZSTD_getErrorString(error_);
+-      }
+-    }
+   } else {
+     frame_complete_ = false;
+   }

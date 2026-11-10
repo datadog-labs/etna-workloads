@@ -1,0 +1,43 @@
+diff -uN a/lib/internal/blob.js b/lib/internal/blob.js
+--- a/lib/internal/blob.js
++++ b/lib/internal/blob.js
+@@ -64,6 +64,7 @@
+     ERR_INVALID_ARG_VALUE,
+     ERR_INVALID_STATE,
+     ERR_INVALID_THIS,
++    ERR_OUT_OF_RANGE,
+   },
+ } = require('internal/errors');
+ 
+@@ -248,7 +249,7 @@
+    * @param {string} [contentType]
+    * @returns {Blob}
+    */
+-  slice(start = 0, end = this[kLength], contentType = '') {
++  slice(start = 0, end = this[kLength], contentType = this[kType]) {
+     if (!isBlob(this))
+       throw new ERR_INVALID_THIS('Blob');
+ 
+@@ -261,17 +262,11 @@
+       { __proto__: null, context: 'end', clamp: true },
+     );
+ 
+-    if (start < 0) {
+-      start = MathMax(this[kLength] + start, 0);
+-    } else {
+-      start = MathMin(start, this[kLength]);
+-    }
+-
+-    if (end < 0) {
+-      end = MathMax(this[kLength] + end, 0);
+-    } else {
+-      end = MathMin(end, this[kLength]);
+-    }
++    if (end < 0) end = this[kLength] + end;
++    if (end < start)
++      throw new ERR_OUT_OF_RANGE('end', 'greater than start', end);
++    if (end > this[kLength])
++      throw new ERR_OUT_OF_RANGE('end', 'less than or equal to length', end);
+ 
+     contentType = `${contentType}`;
+     if (RegExpPrototypeExec(disallowedTypeCharacters, contentType) !== null) {

@@ -1,0 +1,76 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -136,7 +136,7 @@
+ const {
+   maybeCacheSourceMap,
+ } = require('internal/source_map/source_map_cache');
+-const { pathToFileURL, fileURLToPath, isURL, URL } = require('internal/url');
++const { pathToFileURL, fileURLToPath, isURL } = require('internal/url');
+ const {
+   pendingDeprecate,
+   emitExperimentalWarning,
+@@ -2140,7 +2140,7 @@
+  * @param {string} filename The path to the module
+  * @returns {any}
+  */
+-function createRequireFromPath(filename, fileURL) {
++function createRequireFromPath(filename) {
+   // Allow a directory to be passed as the filename
+   const trailingSlash =
+     StringPrototypeEndsWith(filename, '/') ||
+@@ -2152,10 +2152,6 @@
+ 
+   const m = new Module(proxyPath);
+   m.filename = proxyPath;
+-  if (fileURL !== undefined) {
+-    // Save the URL if createRequire() was given a URL, to preserve search params, if any.
+-    m[kURL] = fileURL.href;
+-  }
+ 
+   m.paths = Module._nodeModulePaths(m.path);
+   return makeRequireFunction(m, null);
+@@ -2166,32 +2162,28 @@
+ 
+ /**
+  * Creates a new `require` function that can be used to load modules.
+- * @param {string | URL} filenameOrURL The path or URL to the module context for this `require`
++ * @param {string | URL} filename The path or URL to the module context for this `require`
+  * @throws {ERR_INVALID_ARG_VALUE} If `filename` is not a string or URL, or if it is a relative path that cannot be
+  * resolved to an absolute path.
+  * @returns {object}
+  */
+-function createRequire(filenameOrURL) {
+-  let filepath, fileURL;
++function createRequire(filename) {
++  let filepath;
+ 
+-  if (isURL(filenameOrURL) ||
+-      (typeof filenameOrURL === 'string' && !path.isAbsolute(filenameOrURL))) {
++  if (isURL(filename) ||
++      (typeof filename === 'string' && !path.isAbsolute(filename))) {
+     try {
+-      // It might be an URL, try to convert it.
+-      // If it's a relative path, it would not parse and would be considered invalid per
+-      // the documented contract.
+-      fileURL = new URL(filenameOrURL);
+-      filepath = fileURLToPath(fileURL);
++      filepath = fileURLToPath(filename);
+     } catch {
+-      throw new ERR_INVALID_ARG_VALUE('filename', filenameOrURL,
++      throw new ERR_INVALID_ARG_VALUE('filename', filename,
+                                       createRequireError);
+     }
+-  } else if (typeof filenameOrURL !== 'string') {
+-    throw new ERR_INVALID_ARG_VALUE('filename', filenameOrURL, createRequireError);
++  } else if (typeof filename !== 'string') {
++    throw new ERR_INVALID_ARG_VALUE('filename', filename, createRequireError);
+   } else {
+-    filepath = filenameOrURL;
++    filepath = filename;
+   }
+-  return createRequireFromPath(filepath, fileURL);
++  return createRequireFromPath(filepath);
+ }
+ 
+ /**

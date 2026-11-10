@@ -1,0 +1,33 @@
+diff -uN a/lib/internal/streams/duplexify.js b/lib/internal/streams/duplexify.js
+--- a/lib/internal/streams/duplexify.js
++++ b/lib/internal/streams/duplexify.js
+@@ -103,8 +103,6 @@
+     const then = value?.then;
+     if (typeof then === 'function') {
+       let d;
+-      // Tracks whether writable final() has started.
+-      let finalized = false;
+ 
+       const promise = FunctionPrototypeCall(
+         then,
+@@ -113,12 +111,6 @@
+           if (val != null) {
+             throw new ERR_INVALID_RETURN_VALUE('nully', 'body', val);
+           }
+-          // The async function returned without (fully) consuming the input.
+-          // Destroy the duplex so that pipeline propagates destruction
+-          // upstream. See https://github.com/nodejs/node/issues/55077.
+-          if (!finalized) {
+-            destroyer(d);
+-          }
+         },
+         (err) => {
+           destroyer(d, err);
+@@ -131,7 +123,6 @@
+         readable: false,
+         write,
+         final(cb) {
+-          finalized = true;
+           final(async () => {
+             try {
+               await promise;

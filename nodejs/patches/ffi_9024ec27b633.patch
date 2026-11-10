@@ -1,0 +1,361 @@
+diff -uN a/lib/internal/ffi-shared-buffer.js b/lib/internal/ffi-shared-buffer.js
+--- a/lib/internal/ffi-shared-buffer.js
++++ b/lib/internal/ffi-shared-buffer.js
+@@ -213,8 +213,6 @@
+ // arguments out of it into invocation-local storage before `ffi_call` and
+ // reads the return value back only after, so nested/reentrant calls into
+ // the same function are safe.
+-// Concise methods do not have [[Construct]], unlike function expressions, so
+-// use them below to match the native FFI functions' non-constructible behavior.
+ function wrapWithSharedBuffer(rawFn, signature) {
+   if (rawFn == null) return rawFn;
+   const buffer = rawFn[kSbSharedBuffer];
+@@ -271,7 +269,7 @@
+     // so arity specialization wouldn't buy much here.
+     assert(slowInvoke !== undefined,
+            'FFI: shared-buffer raw function with pointer arguments is missing kSbInvokeSlow');
+-    wrapper = { invoke(...args) {
++    wrapper = function(...args) {
+       if (args.length !== nargs) {
+         throwFFIArgCountError(nargs, args.length);
+       }
+@@ -288,7 +286,7 @@
+       }
+       rawFn();
+       return retGetter === null ? undefined : retGetter(view, 0, true);
+-    } }.invoke;
++    };
+   } else {
+     // Arity specialization avoids the per-call `Array` allocation of
+     // `...args`; the void/non-void split removes a per-call branch on
+@@ -312,42 +310,42 @@
+   /* c8 ignore start */
+   if (nargs === 0) {
+     if (retGetter === null) {
+-      return { invoke() {
++      return function() {
+         if (arguments.length !== 0) {
+           throwFFIArgCountError(0, arguments.length);
+         }
+         rawFn();
+-      } }.invoke;
++      };
+     }
+-    return { invoke() {
++    return function() {
+       if (arguments.length !== 0) {
+         throwFFIArgCountError(0, arguments.length);
+       }
+       rawFn();
+       return retGetter(view, 0, true);
+-    } }.invoke;
++    };
+   }
+   /* c8 ignore stop */
+   if (nargs === 1) {
+     const i0 = argInfos[0];
+     const o0 = argOffsets[0];
+     if (retGetter === null) {
+-      return { invoke(a0) {
++      return function(a0) {
+         if (arguments.length !== 1) {
+           throwFFIArgCountError(1, arguments.length);
+         }
+         writeNumericArg(view, i0, o0, a0, 0);
+         rawFn();
+-      } }.invoke;
++      };
+     }
+-    return { invoke(a0) {
++    return function(a0) {
+       if (arguments.length !== 1) {
+         throwFFIArgCountError(1, arguments.length);
+       }
+       writeNumericArg(view, i0, o0, a0, 0);
+       rawFn();
+       return retGetter(view, 0, true);
+-    } }.invoke;
++    };
+   }
+   if (nargs === 2) {
+     const i0 = argInfos[0];
+@@ -355,16 +353,16 @@
+     const o0 = argOffsets[0];
+     const o1 = argOffsets[1];
+     if (retGetter === null) {
+-      return { invoke(a0, a1) {
++      return function(a0, a1) {
+         if (arguments.length !== 2) {
+           throwFFIArgCountError(2, arguments.length);
+         }
+         writeNumericArg(view, i0, o0, a0, 0);
+         writeNumericArg(view, i1, o1, a1, 1);
+         rawFn();
+-      } }.invoke;
++      };
+     }
+-    return { invoke(a0, a1) {
++    return function(a0, a1) {
+       if (arguments.length !== 2) {
+         throwFFIArgCountError(2, arguments.length);
+       }
+@@ -372,7 +370,7 @@
+       writeNumericArg(view, i1, o1, a1, 1);
+       rawFn();
+       return retGetter(view, 0, true);
+-    } }.invoke;
++    };
+   }
+   if (nargs === 3) {
+     const i0 = argInfos[0];
+@@ -382,7 +380,7 @@
+     const o1 = argOffsets[1];
+     const o2 = argOffsets[2];
+     if (retGetter === null) {
+-      return { invoke(a0, a1, a2) {
++      return function(a0, a1, a2) {
+         if (arguments.length !== 3) {
+           throwFFIArgCountError(3, arguments.length);
+         }
+@@ -390,9 +388,9 @@
+         writeNumericArg(view, i1, o1, a1, 1);
+         writeNumericArg(view, i2, o2, a2, 2);
+         rawFn();
+-      } }.invoke;
++      };
+     }
+-    return { invoke(a0, a1, a2) {
++    return function(a0, a1, a2) {
+       if (arguments.length !== 3) {
+         throwFFIArgCountError(3, arguments.length);
+       }
+@@ -401,7 +399,7 @@
+       writeNumericArg(view, i2, o2, a2, 2);
+       rawFn();
+       return retGetter(view, 0, true);
+-    } }.invoke;
++    };
+   }
+   if (nargs === 4) {
+     const i0 = argInfos[0];
+@@ -413,7 +411,7 @@
+     const o2 = argOffsets[2];
+     const o3 = argOffsets[3];
+     if (retGetter === null) {
+-      return { invoke(a0, a1, a2, a3) {
++      return function(a0, a1, a2, a3) {
+         if (arguments.length !== 4) {
+           throwFFIArgCountError(4, arguments.length);
+         }
+@@ -422,9 +420,9 @@
+         writeNumericArg(view, i2, o2, a2, 2);
+         writeNumericArg(view, i3, o3, a3, 3);
+         rawFn();
+-      } }.invoke;
++      };
+     }
+-    return { invoke(a0, a1, a2, a3) {
++    return function(a0, a1, a2, a3) {
+       if (arguments.length !== 4) {
+         throwFFIArgCountError(4, arguments.length);
+       }
+@@ -434,7 +432,7 @@
+       writeNumericArg(view, i3, o3, a3, 3);
+       rawFn();
+       return retGetter(view, 0, true);
+-    } }.invoke;
++    };
+   }
+   if (nargs === 5) {
+     const i0 = argInfos[0];
+@@ -448,7 +446,7 @@
+     const o3 = argOffsets[3];
+     const o4 = argOffsets[4];
+     if (retGetter === null) {
+-      return { invoke(a0, a1, a2, a3, a4) {
++      return function(a0, a1, a2, a3, a4) {
+         if (arguments.length !== 5) {
+           throwFFIArgCountError(5, arguments.length);
+         }
+@@ -458,9 +456,9 @@
+         writeNumericArg(view, i3, o3, a3, 3);
+         writeNumericArg(view, i4, o4, a4, 4);
+         rawFn();
+-      } }.invoke;
++      };
+     }
+-    return { invoke(a0, a1, a2, a3, a4) {
++    return function(a0, a1, a2, a3, a4) {
+       if (arguments.length !== 5) {
+         throwFFIArgCountError(5, arguments.length);
+       }
+@@ -471,7 +469,7 @@
+       writeNumericArg(view, i4, o4, a4, 4);
+       rawFn();
+       return retGetter(view, 0, true);
+-    } }.invoke;
++    };
+   }
+   if (nargs === 6) {
+     const i0 = argInfos[0];
+@@ -487,7 +485,7 @@
+     const o4 = argOffsets[4];
+     const o5 = argOffsets[5];
+     if (retGetter === null) {
+-      return { invoke(a0, a1, a2, a3, a4, a5) {
++      return function(a0, a1, a2, a3, a4, a5) {
+         if (arguments.length !== 6) {
+           throwFFIArgCountError(6, arguments.length);
+         }
+@@ -498,9 +496,9 @@
+         writeNumericArg(view, i4, o4, a4, 4);
+         writeNumericArg(view, i5, o5, a5, 5);
+         rawFn();
+-      } }.invoke;
++      };
+     }
+-    return { invoke(a0, a1, a2, a3, a4, a5) {
++    return function(a0, a1, a2, a3, a4, a5) {
+       if (arguments.length !== 6) {
+         throwFFIArgCountError(6, arguments.length);
+       }
+@@ -512,12 +510,12 @@
+       writeNumericArg(view, i5, o5, a5, 5);
+       rawFn();
+       return retGetter(view, 0, true);
+-    } }.invoke;
++    };
+   }
+   // 7+ args: further specialization is diminishing returns and bloats
+   // this builder.
+   if (retGetter === null) {
+-    return { invoke(...args) {
++    return function(...args) {
+       if (args.length !== nargs) {
+         throwFFIArgCountError(nargs, args.length);
+       }
+@@ -525,9 +523,9 @@
+         writeNumericArg(view, argInfos[i], argOffsets[i], args[i], i);
+       }
+       rawFn();
+-    } }.invoke;
++    };
+   }
+-  return { invoke(...args) {
++  return function(...args) {
+     if (args.length !== nargs) {
+       throwFFIArgCountError(nargs, args.length);
+     }
+@@ -536,7 +534,7 @@
+     }
+     rawFn();
+     return retGetter(view, 0, true);
+-  } }.invoke;
++  };
+ }
+ 
+ module.exports = {
+diff -uN a/lib/internal/ffi/fast-api.js b/lib/internal/ffi/fast-api.js
+--- a/lib/internal/ffi/fast-api.js
++++ b/lib/internal/ffi/fast-api.js
+@@ -269,8 +269,6 @@
+   }
+ }
+ 
+-// Concise methods do not have [[Construct]], unlike function expressions.
+-// Keep wrappers non-constructible to match the native FFI functions.
+ function wrapWithRawPointerConversions(rawFn, argumentTypes, owner) {
+   if (rawFn === undefined || rawFn === null) {
+     return rawFn;
+@@ -304,7 +302,7 @@
+     const memory0 = needsRawPointerConversion(t0) || string0;
+     const fastBufferInvoke = needsPointerLikeConversion(t0) ?
+       rawFn[kFastBufferInvoke] : undefined;
+-    wrapper = { invoke(a0) {
++    wrapper = function(a0) {
+       throwIfFastLibraryClosed(state);
+       if (arguments.length !== 1) {
+         throwFFIArgCountError(1, arguments.length);
+@@ -328,13 +326,13 @@
+         arg = getRawPointerArg(arg, 0);
+       }
+       return rawFn(arg);
+-    } }.invoke;
++    };
+   } else if (nargs === 2) {
+     const c0 = ArrayPrototypeIncludes(indexes, 0);
+     const c1 = ArrayPrototypeIncludes(indexes, 1);
+     const t0 = argumentTypes[0];
+     const t1 = argumentTypes[1];
+-    wrapper = { invoke(a0, a1) {
++    wrapper = function(a0, a1) {
+       throwIfFastLibraryClosed(state);
+       if (arguments.length !== 2) {
+         throwFFIArgCountError(2, arguments.length);
+@@ -348,7 +346,7 @@
+       } finally {
+         if (stringCall) exitStringConversion(stringState);
+       }
+-    } }.invoke;
++    };
+   } else if (nargs === 3) {
+     const c0 = ArrayPrototypeIncludes(indexes, 0);
+     const c1 = ArrayPrototypeIncludes(indexes, 1);
+@@ -356,7 +354,7 @@
+     const t0 = argumentTypes[0];
+     const t1 = argumentTypes[1];
+     const t2 = argumentTypes[2];
+-    wrapper = { invoke(a0, a1, a2) {
++    wrapper = function(a0, a1, a2) {
+       throwIfFastLibraryClosed(state);
+       if (arguments.length !== 3) {
+         throwFFIArgCountError(3, arguments.length);
+@@ -372,9 +370,9 @@
+       } finally {
+         if (stringCall) exitStringConversion(stringState);
+       }
+-    } }.invoke;
++    };
+   } else {
+-    wrapper = { invoke(...args) {
++    wrapper = function(...args) {
+       throwIfFastLibraryClosed(state);
+       if (args.length !== nargs) {
+         throwFFIArgCountError(nargs, args.length);
+@@ -398,7 +396,7 @@
+       } finally {
+         if (stringCall) exitStringConversion(stringState);
+       }
+-    } }.invoke;
++    };
+   }
+ 
+   return inheritMetadata(wrapper, rawFn, nargs);
+diff -uN a/src/node_ffi.cc b/src/node_ffi.cc
+--- a/src/node_ffi.cc
++++ b/src/node_ffi.cc
+@@ -334,9 +334,7 @@
+     maybe_ret = Function::New(context,
+                               use_sb ? DynamicLibrary::InvokeFunctionSB
+                                      : DynamicLibrary::InvokeFunction,
+-                              info->object(),
+-                              0,
+-                              v8::ConstructorBehavior::kThrow);
++                              info->object());
+   }
+ 
+   Local<Function> ret;
+@@ -389,11 +387,8 @@
+     // (strings, Buffers, ArrayBuffers, and ArrayBufferViews).
+     if (has_ptr_args) {
+       Local<Function> slow_fn;
+-      if (!Function::New(context,
+-                         DynamicLibrary::InvokeFunction,
+-                         info->object(),
+-                         0,
+-                         v8::ConstructorBehavior::kThrow)
++      if (!Function::New(
++               context, DynamicLibrary::InvokeFunction, info->object())
+                .ToLocal(&slow_fn)) {
+         return MaybeLocal<Function>();
+       }

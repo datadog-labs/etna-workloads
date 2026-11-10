@@ -1,0 +1,28 @@
+diff -uN a/lib/internal/modules/esm/module_job.js b/lib/internal/modules/esm/module_job.js
+--- a/lib/internal/modules/esm/module_job.js
++++ b/lib/internal/modules/esm/module_job.js
+@@ -486,20 +486,15 @@
+ 
+         if (isCommonJS) {
+           const importStatement = splitStack[1];
+-          // TODO(@ctavan): The original error stack only provides the single
+-          // line which causes the error. For multi-line import statements we
+-          // cannot generate an equivalent object destructuring assignment by
+-          // just parsing the error stack.
+-          const oneLineNamedImports = RegExpPrototypeExec(/{.*}/, importStatement);
+-          const destructuringAssignment = oneLineNamedImports &&
+-            RegExpPrototypeSymbolReplace(/\s+as\s+/g, oneLineNamedImports, ': ');
++          const namedImports = RegExpPrototypeExec(/{.*}/, importStatement)[0];
++          const destructuringAssignment =
++            RegExpPrototypeSymbolReplace(/\s+as\s+/g, namedImports, ': ');
+           e.message = `Named export '${name}' not found. The requested module` +
+             ` '${childSpecifier}' is a CommonJS module, which may not support` +
+             ' all module.exports as named exports.\nCommonJS modules can ' +
+             'always be imported via the default export, for example using:' +
+             `\n\nimport pkg from '${childSpecifier}';\n${
+-              destructuringAssignment ?
+-                `const ${destructuringAssignment} = pkg;\n` : ''}`;
++              `const ${destructuringAssignment} = pkg;\n`}`;
+           const newStack = StringPrototypeSplit(e.stack, '\n');
+           newStack[3] = `SyntaxError: ${e.message}`;
+           e.stack = ArrayPrototypeJoin(newStack, '\n');

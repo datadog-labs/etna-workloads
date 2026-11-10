@@ -1,0 +1,70 @@
+diff -uN a/lib/internal/streams/iter/transform.js b/lib/internal/streams/iter/transform.js
+--- a/lib/internal/streams/iter/transform.js
++++ b/lib/internal/streams/iter/transform.js
+@@ -259,6 +259,16 @@
+   validateParams(options.params, maxParam, ERR_ZSTD_INVALID_PARAM);
+ 
+   const pledgedSrcSize = options.pledgedSrcSize;
++  if (pledgedSrcSize !== undefined) {
++    if (typeof pledgedSrcSize !== 'number' || NumberIsNaN(pledgedSrcSize)) {
++      throw new ERR_INVALID_ARG_TYPE('options.pledgedSrcSize', 'number',
++                                     pledgedSrcSize);
++    }
++    if (pledgedSrcSize < 0) {
++      throw new ERR_OUT_OF_RANGE('options.pledgedSrcSize', '>= 0',
++                                 pledgedSrcSize);
++    }
++  }
+ 
+   const handle = isCompress ?
+     new binding.ZstdCompress() : new binding.ZstdDecompress();
+diff -uN a/lib/zlib.js b/lib/zlib.js
+--- a/lib/zlib.js
++++ b/lib/zlib.js
+@@ -991,7 +991,7 @@
+     const handle = mode === ZSTD_COMPRESS ?
+       new binding.ZstdCompress() : new binding.ZstdDecompress();
+ 
+-    const pledgedSrcSize = opts?.pledgedSrcSize;
++    const pledgedSrcSize = opts?.pledgedSrcSize ?? undefined;
+ 
+     const writeState = new Uint32Array(2);
+ 
+diff -uN a/src/node_zlib.cc b/src/node_zlib.cc
+--- a/src/node_zlib.cc
++++ b/src/node_zlib.cc
+@@ -1005,24 +1005,21 @@
+     wrap->InitStream(write_result, write_js_callback);
+ 
+     uint64_t pledged_src_size = ZSTD_CONTENTSIZE_UNKNOWN;
+-    if (!args[1]->IsUndefined()) {
+-      if (!args[1]->IsNumber()) {
+-        THROW_ERR_INVALID_ARG_TYPE(wrap->env(),
+-                                   "pledgedSrcSize must be a number");
++    if (args[1]->IsNumber()) {
++      int64_t signed_pledged_src_size;
++      if (!args[1]
++               ->IntegerValue(wrap->env()->context())
++               .To(&signed_pledged_src_size)) {
++        THROW_ERR_INVALID_ARG_VALUE(wrap->env(),
++                                    "pledgedSrcSize should be an integer");
+         return;
+       }
+-      if (!IsSafeJsInt(args[1])) {
+-        THROW_ERR_OUT_OF_RANGE(wrap->env(),
+-                               "pledgedSrcSize must be a safe integer");
+-        return;
+-      }
+-      const int64_t signed_pledged_src_size = args[1].As<Integer>()->Value();
+       if (signed_pledged_src_size < 0) {
+-        THROW_ERR_OUT_OF_RANGE(wrap->env(),
+-                               "pledgedSrcSize must be non-negative");
++        THROW_ERR_INVALID_ARG_VALUE(wrap->env(),
++                                    "pledgedSrcSize may not be negative");
+         return;
+       }
+-      pledged_src_size = static_cast<uint64_t>(signed_pledged_src_size);
++      pledged_src_size = signed_pledged_src_size;
+     }
+ 
+     AllocScope alloc_scope(wrap);

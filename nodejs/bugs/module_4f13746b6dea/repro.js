@@ -1,0 +1,10 @@
+const fs = require('fs'), os = require('os'), path = require('path');
+const { spawnSync } = require('child_process');
+const d = fs.mkdtempSync(path.join(os.tmpdir(), 'repro-'));
+fs.writeFileSync(path.join(d, 'package.json'), '{"type":"commonjs"}');
+fs.writeFileSync(path.join(d, 'entry'), 'import fs from "fs";\nconsole.log("ran as esm");\n');
+const r = spawnSync(process.execPath, [path.join(d, 'entry')], { encoding: 'utf8', cwd: d });
+console.log('status', r.status);
+console.log('stdout', r.stdout.trim());
+console.log('SyntaxError', /SyntaxError/.test(r.stderr));
+fs.rmSync(d, { recursive: true, force: true });

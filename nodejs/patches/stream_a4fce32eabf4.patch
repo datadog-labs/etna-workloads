@@ -1,0 +1,29 @@
+diff -uN a/lib/internal/streams/writable.js b/lib/internal/streams/writable.js
+--- a/lib/internal/streams/writable.js
++++ b/lib/internal/streams/writable.js
+@@ -858,12 +858,8 @@
+ 
+   let err;
+ 
+-  if (chunk != null) {
+-    const ret = _write(this, chunk, encoding);
+-    if (ret instanceof Error) {
+-      err = ret;
+-    }
+-  }
++  if (chunk != null)
++    this.write(chunk, encoding);
+ 
+   // .end() fully uncorks.
+   if ((state[kState] & kCorked) !== 0) {
+@@ -871,9 +867,7 @@
+     this.uncork();
+   }
+ 
+-  if (err) {
+-    // Do nothing...
+-  } else if ((state[kState] & (kEnding | kErrored)) === 0) {
++  if ((state[kState] & (kEnding | kErrored)) === 0) {
+     // This is forgiving in terms of unnecessary calls to end() and can hide
+     // logic errors. However, usually such errors are harmless and causing a
+     // hard error can be disproportionately destructive. It is not always

@@ -1,0 +1,26 @@
+diff -uN a/lib/internal/streams/pipeline.js b/lib/internal/streams/pipeline.js
+--- a/lib/internal/streams/pipeline.js
++++ b/lib/internal/streams/pipeline.js
+@@ -415,14 +415,6 @@
+ }
+ 
+ function pipe(src, dst, finish, finishOnlyHandleError, { end }) {
+-  let ended = false;
+-  dst.on('close', () => {
+-    if (!ended) {
+-      // Finish if the destination closes before the source has completed.
+-      finishOnlyHandleError(new ERR_STREAM_PREMATURE_CLOSE());
+-    }
+-  });
+-
+   src.pipe(dst, { end: false }); // If end is true we already will have a listener to end dst.
+ 
+   if (end) {
+@@ -431,7 +423,6 @@
+     // Now they allow it but "secretly" don't close the underlying fd.
+ 
+     function endFn() {
+-      ended = true;
+       dst.end();
+     }
+ 

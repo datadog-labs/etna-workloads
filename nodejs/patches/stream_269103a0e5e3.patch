@@ -1,0 +1,38 @@
+diff -uN a/lib/internal/streams/readable.js b/lib/internal/streams/readable.js
+--- a/lib/internal/streams/readable.js
++++ b/lib/internal/streams/readable.js
+@@ -858,28 +858,12 @@
+   }
+   state[kState] |= kEnded;
+ 
+-  if ((state[kState] & kSync) !== 0) {
+-    // If we are sync, wait until next tick to emit the data.
+-    // Otherwise we risk emitting data in the flow()
+-    // the readable code triggers during a read() call.
+-    if ((state[kState] & (kFlowing | kNeedReadable)) !== 0 ||
+-        stream.listenerCount('readable') > 0) {
+-      emitReadable(stream);
+-    } else {
+-      // Nobody is observing the stream: do not schedule the 'readable'
+-      // emission at all. A 'readable' listener attached later redeems it
+-      // (see Readable.prototype.on), and read() and resume() reach the
+-      // end of the stream on their own.
+-      state[kState] |= kEofReadablePending;
+-    }
+-  } else {
+-    // Emit 'readable' now to make sure it gets picked up.
+-    state[kState] &= ~kNeedReadable;
+-    state[kState] |= kEmittedReadable;
+-    // We have to emit readable now that we are EOF. Modules
+-    // in the ecosystem (e.g. dicer) rely on this event being sync.
+-    emitReadable_(stream);
+-  }
++  state[kState] &= ~kNeedReadable;
++
++  // We are not protecting if emittedReadable = true,
++  // so 'readable' gets scheduled anyway.
++  state[kState] |= kEmittedReadable;
++  process.nextTick(emitReadable_, stream);
+ }
+ 
+ // Don't emit readable right away in sync mode, because this can trigger

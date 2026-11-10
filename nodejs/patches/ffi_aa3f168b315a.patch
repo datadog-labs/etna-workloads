@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/ffi/fast-api.js b/lib/internal/ffi/fast-api.js
+--- a/lib/internal/ffi/fast-api.js
++++ b/lib/internal/ffi/fast-api.js
+@@ -148,19 +148,17 @@
+ }
+ 
+ function enterStringConversion(state) {
+-  if (state.buffers[state.depth] === undefined) {
+-    state.buffers[state.depth] = [];
++  if (state.buffers[0] === undefined) {
++    state.buffers[0] = [];
+   }
+-  state.depth++;
+ }
+ 
+-function exitStringConversion(state) {
+-  state.depth--;
++function exitStringConversion(_state) {
+ }
+ 
+ function getStringConversionPointer(state, value, index) {
+   const size = value.length * 3 + 1;
+-  const buffers = state.buffers[state.depth - 1];
++  const buffers = state.buffers[0];
+   let entry = buffers[index];
+   if (StringPrototypeIncludes(value, '\0')) {
+     throwFFIArgError(`Argument ${index} must not contain null bytes`);
+@@ -290,7 +288,7 @@
+ 
+   const indexes = getFastArgumentIndexes(argumentTypes) ?? [];
+ 
+-  const stringState = {
++  const stringState = state.stringState ??= {
+     __proto__: null,
+     buffers: [],
+     depth: 0,

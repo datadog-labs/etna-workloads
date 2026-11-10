@@ -1,0 +1,285 @@
+diff -uN a/lib/internal/histogram.js b/lib/internal/histogram.js
+--- a/lib/internal/histogram.js
++++ b/lib/internal/histogram.js
+@@ -1041,10 +1041,8 @@
+   isHistogram,
+   kDestroy,
+   kHandle,
+-  kMaxInt64,
+   kSkipThrow,
+   createHistogram,
+   createSlidingWindowHistogram,
+   importHistogram,
+-  validateHistogramOptions,
+ };
+diff -uN a/lib/internal/perf/event_loop_delay.js b/lib/internal/perf/event_loop_delay.js
+--- a/lib/internal/perf/event_loop_delay.js
++++ b/lib/internal/perf/event_loop_delay.js
+@@ -1,6 +1,5 @@
+ 'use strict';
+ const {
+-  BigInt,
+   Symbol,
+   SymbolDispose,
+ } = primordials;
+@@ -25,9 +24,7 @@
+ const {
+   Histogram,
+   kHandle,
+-  kMaxInt64,
+   kSkipThrow,
+-  validateHistogramOptions,
+ } = require('internal/histogram');
+ 
+ const {
+@@ -40,12 +37,6 @@
+ 
+ const kEnabled = Symbol('kEnabled');
+ 
+-// Default histogram options. The lowest discernible delay is in nanoseconds,
+-// and its default depends on the sampling mode.
+-const kDefaultIntervalLowest = 1000;
+-const kDefaultIterationLowest = 1;
+-const kDefaultFigures = 3;
+-
+ class ELDHistogram extends Histogram {
+   constructor(skipThrowSymbol = undefined) {
+     if (skipThrowSymbol !== kSkipThrow) {
+@@ -85,11 +76,8 @@
+ 
+ /**
+  * @param {{
+- *   samplePerIteration? : boolean,
+- *   resolution? : number,
+- *   lowest? : number|bigint,
+- *   highest? : number|bigint,
+- *   figures? : number,
++ *   samplePerIteration : boolean,
++ *   resolution : number
+  * }} [options]
+  * @returns {ELDHistogram}
+  */
+@@ -100,22 +88,10 @@
+   validateBoolean(samplePerIteration, 'options.samplePerIteration');
+   validateInteger(resolution, 'options.resolution', 1);
+ 
+-  const {
+-    lowest = samplePerIteration ?
+-      kDefaultIterationLowest : kDefaultIntervalLowest,
+-    highest = kMaxInt64,
+-    figures = kDefaultFigures,
+-  } = options;
+-  validateHistogramOptions(lowest, highest, figures);
+-
+-  // Throws if the native histogram cannot be created with these options.
+-  const handle = createELDHistogram(
+-    resolution, samplePerIteration, BigInt(lowest), BigInt(highest), figures);
+-
+   const histogram = new ELDHistogram(kSkipThrow);
+   markTransferMode(histogram, true, false);
+   histogram[kEnabled] = false;
+-  histogram[kHandle] = handle;
++  histogram[kHandle] = createELDHistogram(resolution, samplePerIteration);
+   return histogram;
+ }
+ 
+diff -uN a/src/histogram.cc b/src/histogram.cc
+--- a/src/histogram.cc
++++ b/src/histogram.cc
+@@ -2616,11 +2616,11 @@
+ IntervalHistogram::IntervalHistogram(Environment* env,
+                                      Local<Object> wrap,
+                                      AsyncWrap::ProviderType type,
+-                                     uint64_t interval,
++                                     int32_t interval,
+                                      OnInterval on_interval,
+-                                     std::shared_ptr<Histogram> histogram)
++                                     const Histogram::Options& options)
+     : HandleWrap(env, wrap, reinterpret_cast<uv_handle_t*>(&timer_), type),
+-      HistogramImpl(std::move(histogram)),
++      HistogramImpl(options),
+       interval_(interval),
+       on_interval_(on_interval) {
+   MakeWeak();
+@@ -2633,9 +2633,9 @@
+ 
+ BaseObjectPtr<IntervalHistogram> IntervalHistogram::Create(
+     Environment* env,
+-    uint64_t interval,
++    int32_t interval,
+     OnInterval on_interval,
+-    std::shared_ptr<Histogram> histogram,
++    const Histogram::Options& options,
+     AsyncWrap::ProviderType type) {
+   Local<Object> obj;
+   if (!GetConstructorTemplate(env)
+@@ -2646,7 +2646,7 @@
+   }
+ 
+   return MakeBaseObject<IntervalHistogram>(
+-      env, obj, type, interval, on_interval, std::move(histogram));
++      env, obj, type, interval, on_interval, options);
+ }
+ 
+ void IntervalHistogram::TimerCB(uv_timer_t* handle) {
+@@ -2712,10 +2712,10 @@
+ IterationHistogram::IterationHistogram(Environment* env,
+                                        Local<Object> wrap,
+                                        AsyncWrap::ProviderType type,
+-                                       std::shared_ptr<Histogram> histogram)
++                                       const Histogram::Options& options)
+     : HandleWrap(
+           env, wrap, reinterpret_cast<uv_handle_t*>(&check_handle_), type),
+-      HistogramImpl(std::move(histogram)) {
++      HistogramImpl(options) {
+   MakeWeak();
+   wrap->SetAlignedPointerInInternalField(
+       HistogramImpl::InternalFields::kImplField,
+@@ -2729,7 +2729,7 @@
+ 
+ BaseObjectPtr<IterationHistogram> IterationHistogram::Create(
+     Environment* env,
+-    std::shared_ptr<Histogram> histogram,
++    const Histogram::Options& options,
+     AsyncWrap::ProviderType type) {
+   Local<Object> obj;
+   if (!GetConstructorTemplate(env)
+@@ -2739,8 +2739,7 @@
+     return nullptr;
+   }
+ 
+-  return MakeBaseObject<IterationHistogram>(
+-      env, obj, type, std::move(histogram));
++  return MakeBaseObject<IterationHistogram>(env, obj, type, options);
+ }
+ 
+ void IterationHistogram::PrepareCB(uv_prepare_t* handle) {
+diff -uN a/src/histogram.h b/src/histogram.h
+--- a/src/histogram.h
++++ b/src/histogram.h
+@@ -499,17 +499,17 @@
+ 
+   static BaseObjectPtr<IntervalHistogram> Create(
+       Environment* env,
+-      uint64_t interval,
++      int32_t interval,
+       OnInterval on_interval,
+-      std::shared_ptr<Histogram> histogram,
++      const Histogram::Options& options,
+       AsyncWrap::ProviderType type = AsyncWrap::PROVIDER_ELDHISTOGRAM);
+ 
+   IntervalHistogram(Environment* env,
+                     v8::Local<v8::Object> wrap,
+                     AsyncWrap::ProviderType type,
+-                    uint64_t interval,
++                    int32_t interval,
+                     OnInterval on_interval,
+-                    std::shared_ptr<Histogram> histogram);
++                    const Histogram::Options& options = Histogram::Options{});
+ 
+   static void FastStart(v8::Local<v8::Value> receiver, bool reset);
+   static void FastStop(v8::Local<v8::Value> receiver);
+@@ -534,7 +534,7 @@
+   template <typename T>
+   friend void StopHandleHistogram(v8::Local<v8::Value>);
+ 
+-  uint64_t interval_ = 0;
++  int32_t interval_ = 0;
+   OnInterval on_interval_ = nullptr;
+   uv_timer_t timer_;
+ 
+@@ -559,13 +559,13 @@
+ 
+   static BaseObjectPtr<IterationHistogram> Create(
+       Environment* env,
+-      std::shared_ptr<Histogram> histogram,
++      const Histogram::Options& options,
+       AsyncWrap::ProviderType type = AsyncWrap::PROVIDER_ELDHISTOGRAM);
+ 
+   IterationHistogram(Environment* env,
+                      v8::Local<v8::Object> wrap,
+                      AsyncWrap::ProviderType type,
+-                     std::shared_ptr<Histogram> histogram);
++                     const Histogram::Options& options = Histogram::Options{});
+ 
+   static void FastStart(v8::Local<v8::Value> receiver, bool reset);
+   static void FastStop(v8::Local<v8::Value> receiver);
+diff -uN a/src/node_perf.cc b/src/node_perf.cc
+--- a/src/node_perf.cc
++++ b/src/node_perf.cc
+@@ -4,7 +4,6 @@
+ #include "histogram-inl.h"
+ #include "memory_tracker-inl.h"
+ #include "node_buffer.h"
+-#include "node_errors.h"
+ #include "node_external_reference.h"
+ #include "node_internals.h"
+ #include "node_process-inl.h"
+@@ -15,7 +14,6 @@
+ namespace node {
+ namespace performance {
+ 
+-using v8::BigInt;
+ using v8::Context;
+ using v8::DontDelete;
+ using v8::Function;
+@@ -30,7 +28,6 @@
+ using v8::ObjectTemplate;
+ using v8::PropertyAttribute;
+ using v8::ReadOnly;
+-using v8::Uint32;
+ using v8::Value;
+ 
+ // Microseconds in a millisecond, as a float.
+@@ -321,34 +318,14 @@
+   Environment* env = Environment::GetCurrent(args);
+   int64_t interval = args[0].As<Integer>()->Value();
+   CHECK_GT(interval, 0);
+-  CHECK(args[2]->IsBigInt());
+-  CHECK(args[3]->IsBigInt());
+-  CHECK(args[4]->IsUint32());
+-  bool lossless = true;
+-  const int64_t lowest = args[2].As<BigInt>()->Int64Value(&lossless);
+-  CHECK(lossless);
+-  const int64_t highest = args[3].As<BigInt>()->Int64Value(&lossless);
+-  CHECK(lossless);
+-  const int figures = static_cast<int>(args[4].As<Uint32>()->Value());
+-
+-  // The options are validated in JS, but hdr_init() still rejects some
+-  // combinations, such as a very large lowest value.
+-  std::shared_ptr<Histogram> histogram =
+-      Histogram::Create(Histogram::Options{lowest, highest, figures});
+-  if (!histogram) {
+-    return THROW_ERR_INVALID_ARG_VALUE(env, "Invalid histogram options");
+-  }
+-
+   if (args[1]->IsTrue()) {
+-    BaseObjectPtr<IterationHistogram> eld =
+-        IterationHistogram::Create(env, std::move(histogram));
+-    if (eld) args.GetReturnValue().Set(eld->object());
++    BaseObjectPtr<IterationHistogram> histogram =
++        IterationHistogram::Create(env, Histogram::Options{1});
++    args.GetReturnValue().Set(histogram->object());
+     return;
+   }
+-  BaseObjectPtr<IntervalHistogram> eld = IntervalHistogram::Create(
+-      env,
+-      interval,
+-      [](Histogram& histogram) {
++  BaseObjectPtr<IntervalHistogram> histogram =
++      IntervalHistogram::Create(env, interval, [](Histogram& histogram) {
+         uint64_t delta = histogram.RecordDelta();
+         TRACE_COUNTER1(TRACING_CATEGORY_NODE2(perf, event_loop),
+                         "delay", delta);
+@@ -360,9 +337,8 @@
+                       "mean", histogram.Mean());
+         TRACE_COUNTER1(TRACING_CATEGORY_NODE2(perf, event_loop),
+                       "stddev", histogram.Stddev());
+-      },
+-      std::move(histogram));
+-  if (eld) args.GetReturnValue().Set(eld->object());
++      }, Histogram::Options { 1000 });
++  args.GetReturnValue().Set(histogram->object());
+ }
+ 
+ void MarkBootstrapComplete(const FunctionCallbackInfo<Value>& args) {

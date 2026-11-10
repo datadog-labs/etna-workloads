@@ -1,0 +1,73 @@
+diff -uN a/lib/internal/streams/iter/pull.js b/lib/internal/streams/iter/pull.js
+--- a/lib/internal/streams/iter/pull.js
++++ b/lib/internal/streams/iter/pull.js
+@@ -425,16 +425,6 @@
+   }
+ }
+ 
+-function normalizeTransformResultFast(result) {
+-  if (isUint8ArrayBatch(result)) {
+-    return result.length === 0 ? null : result;
+-  }
+-  if (isUint8Array(result)) return [result];
+-  if (typeof result === 'string') return [toUint8Array(result)];
+-  if (isAnyArrayBuffer(result)) return [new Uint8Array(result)];
+-  if (ArrayBufferIsView(result)) return [arrayBufferViewToUint8Array(result)];
+-}
+-
+ // =============================================================================
+ // Sync Pipeline Implementation
+ // =============================================================================
+@@ -458,17 +448,7 @@
+         current = null;
+         break;
+       }
+-      if (i === run.length - 1) {
+-        current = result;
+-        continue;
+-      }
+-      current = normalizeTransformResultFast(result);
+-      if (current === undefined) {
+-        const normalized = [];
+-        appendTransformResultSync(normalized, result);
+-        current = normalized.length === 0 ? null : normalized[0];
+-      }
+-      if (current === null) break;
++      current = result;
+     }
+     if (current === null) continue;
+     // Inline normalization with Uint8Array[] batch as the fast path,
+@@ -583,24 +563,21 @@
+   for await (const chunks of source) {
+     let current = chunks;
+     for (let i = 0; i < run.length; i++) {
+-      let result = run[i](current, { __proto__: null, signal });
+-      if (isPromise(result)) result = await result;
++      const result = run[i](current, { __proto__: null, signal });
+       if (result === null) {
+         current = null;
+         break;
+       }
+-      if (i === run.length - 1) {
++      if (isPromise(result)) {
++        const resolved = await result;
++        if (resolved === null) {
++          current = null;
++          break;
++        }
++        current = resolved;
++      } else {
+         current = result;
+-        continue;
+-      }
+-      current = normalizeTransformResultFast(result);
+-      if (current === undefined) {
+-        const normalized = [];
+-        const pendingResult = appendTransformResultAsync(normalized, result);
+-        if (pendingResult !== undefined) await pendingResult;
+-        current = normalized.length === 0 ? null : normalized[0];
+       }
+-      if (current === null) break;
+     }
+     if (current === null) continue;
+     // Normalize the final output

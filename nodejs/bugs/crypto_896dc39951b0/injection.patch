@@ -1,0 +1,86 @@
+diff -uN a/lib/internal/crypto/diffiehellman.js b/lib/internal/crypto/diffiehellman.js
+--- a/lib/internal/crypto/diffiehellman.js
++++ b/lib/internal/crypto/diffiehellman.js
+@@ -411,7 +411,7 @@
+ 
+   // If a length is not specified, return the full derived secret
+   if (length === null)
+-    return bits;
++    return jobPromiseThen(bits, (bits) => Buffer.from(bits));
+ 
+   return jobPromiseThen(bits, (bits) => {
+     const sliceLength = numBitsToBytes(length);
+@@ -422,9 +422,9 @@
+       throw lazyDOMException('derived bit length is too small', 'OperationError');
+ 
+     if (length % 8 === 0 && byteLength === sliceLength)
+-      return bits;
++      return Buffer.from(bits);
+ 
+-    return TypedArrayPrototypeGetBuffer(truncateToBitLength(length, bits));
++    return Buffer.from(TypedArrayPrototypeGetBuffer(truncateToBitLength(length, bits)));
+   });
+ }
+ 
+diff -uN a/lib/internal/crypto/hkdf.js b/lib/internal/crypto/hkdf.js
+--- a/lib/internal/crypto/hkdf.js
++++ b/lib/internal/crypto/hkdf.js
+@@ -1,5 +1,7 @@
+ 'use strict';
+ 
++const { Buffer } = require('buffer');
++
+ const {
+   ArrayBuffer,
+   FunctionPrototypeCall,
+@@ -26,6 +28,7 @@
+ const {
+   getBufferSourceByteLength,
+   jobPromise,
++  jobPromiseThen,
+   normalizeHashName,
+   toBuf,
+   validateByteSource,
+@@ -188,13 +191,13 @@
+   if (length === 0)
+     return PromiseResolve(new ArrayBuffer(0));
+ 
+-  return jobPromise(() => new HKDFJob(
++  return jobPromiseThen(jobPromise(() => new HKDFJob(
+     kCryptoJobWebCrypto,
+     normalizeHashName(hash.name),
+     getCryptoKeyHandle(baseKey),
+     salt,
+     info,
+-    length / 8));
++    length / 8)), (bits) => Buffer.from(bits));
+ }
+ 
+ module.exports = {
+diff -uN a/lib/internal/crypto/pbkdf2.js b/lib/internal/crypto/pbkdf2.js
+--- a/lib/internal/crypto/pbkdf2.js
++++ b/lib/internal/crypto/pbkdf2.js
+@@ -24,6 +24,7 @@
+ 
+ const {
+   getArrayBufferOrView,
++  jobPromiseThen,
+   normalizeHashName,
+   jobPromise,
+ } = require('internal/crypto/util');
+@@ -123,13 +124,13 @@
+   if (length === 0)
+     return PromiseResolve(new ArrayBuffer(0));
+ 
+-  return jobPromise(() => new PBKDF2Job(
++  return jobPromiseThen(jobPromise(() => new PBKDF2Job(
+     kCryptoJobWebCrypto,
+     getCryptoKeyHandle(baseKey),
+     salt,
+     iterations,
+     length / 8,
+-    normalizeHashName(hash.name)));
++    normalizeHashName(hash.name))), (bits) => Buffer.from(bits));
+ }
+ 
+ module.exports = {

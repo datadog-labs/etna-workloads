@@ -1,0 +1,57 @@
+diff -uN a/lib/internal/streams/pipeline.js b/lib/internal/streams/pipeline.js
+--- a/lib/internal/streams/pipeline.js
++++ b/lib/internal/streams/pipeline.js
+@@ -6,6 +6,7 @@
+ const {
+   ArrayIsArray,
+   Promise,
++  PromiseResolve,
+   SymbolAsyncIterator,
+   SymbolDispose,
+ } = primordials;
+@@ -246,7 +247,7 @@
+       if (!error) {
+         lastStreamCleanup.forEach((fn) => fn());
+       }
+-      process.nextTick(callback, error, value);
++      callback(error, value);
+     }
+   }
+ 
+@@ -333,21 +334,21 @@
+         const then = ret?.then;
+         if (typeof then === 'function') {
+           finishCount++;
+-          then.call(ret,
+-                    (val) => {
+-                      value = val;
+-                      if (val != null) {
+-                        pt.write(val);
+-                      }
+-                      if (end) {
+-                        pt.end();
+-                      }
+-                      process.nextTick(finish);
+-                    }, (err) => {
+-                      pt.destroy(err);
+-                      process.nextTick(finish, err);
+-                    },
+-          );
++          PromiseResolve(then.call(ret,
++                                   (val) => {
++                                     value = val;
++                                     if (val != null) {
++                                       pt.write(val);
++                                     }
++                                     if (end) {
++                                       pt.end();
++                                     }
++                                     finish();
++                                   }),
++          ).catch((err) => {
++            pt.destroy(err);
++            finish(err);
++          });
+         } else if (isIterable(ret, true)) {
+           finishCount++;
+           pumpToNode(ret, pt, finish, { end });

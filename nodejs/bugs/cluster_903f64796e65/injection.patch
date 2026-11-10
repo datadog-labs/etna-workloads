@@ -1,0 +1,77 @@
+diff -uN a/lib/internal/cluster/primary.js b/lib/internal/cluster/primary.js
+--- a/lib/internal/cluster/primary.js
++++ b/lib/internal/cluster/primary.js
+@@ -271,12 +271,8 @@
+     return;
+ 
+   const key = `${message.address}:${message.port}:${message.addressType}:` +
+-              `${message.fd}` + (message.port === 0 ? `:${message.index}` : '');
+-  const cachedHandle = handles.get(key);
+-  let handle;
+-  if (cachedHandle && !cachedHandle.has(worker)) {
+-    handle = cachedHandle;
+-  }
++              `${message.fd}:${message.index}`;
++  let handle = handles.get(key);
+ 
+   if (handle === undefined) {
+     let address = message.address;
+@@ -302,22 +298,17 @@
+       handle = new RoundRobinHandle(key, address, message);
+     }
+ 
+-    if (!cachedHandle) {
+-      handles.set(key, handle);
+-    }
++    handles.set(key, handle);
+   }
+ 
+   handle.data ||= message.data;
+ 
+   // Set custom server data
+-  handle.add(worker, (errno, reply, serverHandle) => {
+-    if (!errno) {
+-      handles.set(key, handle);  // Update in case it was replaced.
+-    }
++  handle.add(worker, (errno, reply, handle) => {
+     const { data } = handles.get(key);
+-    if (!cachedHandle && errno) {
+-      handles.delete(key);
+-    }
++
++    if (errno)
++      handles.delete(key);  // Gives other workers a chance to retry.
+ 
+     send(worker, {
+       errno,
+@@ -325,7 +316,7 @@
+       ack: message.seq,
+       data,
+       ...reply,
+-    }, serverHandle);
++    }, handle);
+   });
+ }
+ 
+diff -uN a/lib/internal/cluster/round_robin_handle.js b/lib/internal/cluster/round_robin_handle.js
+--- a/lib/internal/cluster/round_robin_handle.js
++++ b/lib/internal/cluster/round_robin_handle.js
+@@ -137,7 +137,3 @@
+     this.handoff(worker);
+   });
+ };
+-
+-RoundRobinHandle.prototype.has = function(worker) {
+-  return this.all.has(worker.id);
+-};
+diff -uN a/lib/internal/cluster/shared_handle.js b/lib/internal/cluster/shared_handle.js
+--- a/lib/internal/cluster/shared_handle.js
++++ b/lib/internal/cluster/shared_handle.js
+@@ -47,7 +47,3 @@
+   this.handle = null;
+   return true;
+ };
+-
+-SharedHandle.prototype.has = function(worker) {
+-  return this.workers.has(worker.id);
+-};

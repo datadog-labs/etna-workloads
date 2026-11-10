@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/streams/readable.js b/lib/internal/streams/readable.js
+--- a/lib/internal/streams/readable.js
++++ b/lib/internal/streams/readable.js
+@@ -862,23 +862,14 @@
+     // If we are sync, wait until next tick to emit the data.
+     // Otherwise we risk emitting data in the flow()
+     // the readable code triggers during a read() call.
+-    if ((state[kState] & (kFlowing | kNeedReadable)) !== 0 ||
+-        stream.listenerCount('readable') > 0) {
+-      emitReadable(stream);
+-    } else {
+-      // Nobody is observing the stream: do not schedule the 'readable'
+-      // emission at all. A 'readable' listener attached later redeems it
+-      // (see Readable.prototype.on), and read() and resume() reach the
+-      // end of the stream on their own.
+-      state[kState] |= kEofReadablePending;
+-    }
++    emitReadable(stream);
+   } else {
+     // Emit 'readable' now to make sure it gets picked up.
+     state[kState] &= ~kNeedReadable;
+-    state[kState] |= kEmittedReadable;
+-    // We have to emit readable now that we are EOF. Modules
+-    // in the ecosystem (e.g. dicer) rely on this event being sync.
+-    emitReadable_(stream);
++    if ((state[kState] & kEmittedReadable) === 0) {
++      state[kState] |= kEmittedReadable;
++      emitReadable_(stream);
++    }
+   }
+ }
+ 
+diff -uN a/lib/internal/streams/transform.js b/lib/internal/streams/transform.js
+--- a/lib/internal/streams/transform.js
++++ b/lib/internal/streams/transform.js
+@@ -101,6 +101,9 @@
+ 
+   Duplex.call(this, options);
+ 
++  // Start out asking for a readable event once data is transformed.
++  this._readableState.needReadable = true;
++
+   // We have implemented the _read method, and done the other things
+   // that Readable wants before the first _read call, so unset the
+   // sync guard flag.

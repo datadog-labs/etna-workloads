@@ -1,0 +1,59 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -809,8 +809,18 @@
+       )
+     ));
+ 
++  const isRelative = StringPrototypeCharCodeAt(request, 0) === CHAR_DOT &&
++    (
++      request.length === 1 ||
++      StringPrototypeCharCodeAt(request, 1) === CHAR_FORWARD_SLASH ||
++      (isWindows && StringPrototypeCharCodeAt(request, 1) === CHAR_BACKWARD_SLASH) ||
++      (StringPrototypeCharCodeAt(request, 1) === CHAR_DOT && ((
++        request.length === 2 ||
++        StringPrototypeCharCodeAt(request, 2) === CHAR_FORWARD_SLASH) ||
++        (isWindows && StringPrototypeCharCodeAt(request, 2) === CHAR_BACKWARD_SLASH)))
++    );
+   let insidePath = true;
+-  if (isRelative(request)) {
++  if (isRelative) {
+     const normalizedRequest = path.normalize(request);
+     if (StringPrototypeStartsWith(normalizedRequest, '..')) {
+       insidePath = false;
+@@ -1534,7 +1544,12 @@
+ 
+   if (typeof options === 'object' && options !== null) {
+     if (ArrayIsArray(options.paths)) {
+-      if (isRelative(request)) {
++      const isRelative = StringPrototypeStartsWith(request, './') ||
++          StringPrototypeStartsWith(request, '../') ||
++          ((isWindows && StringPrototypeStartsWith(request, '.\\')) ||
++          StringPrototypeStartsWith(request, '..\\'));
++
++      if (isRelative) {
+         paths = options.paths;
+       } else {
+         const fakeParent = new Module('', null);
+@@ -2194,21 +2209,6 @@
+   return createRequireFromPath(filepath, fileURL);
+ }
+ 
+-/**
+- * Checks if a path is relative
+- * @param {string} path the target path
+- * @returns {boolean} true if the path is relative, false otherwise
+- */
+-function isRelative(path) {
+-  if (StringPrototypeCharCodeAt(path, 0) !== CHAR_DOT) { return false; }
+-
+-  return path.length === 1 || path === '..' ||
+-  StringPrototypeStartsWith(path, './') ||
+-  StringPrototypeStartsWith(path, '../') ||
+-  ((isWindows && StringPrototypeStartsWith(path, '.\\')) ||
+-  StringPrototypeStartsWith(path, '..\\'));
+-}
+-
+ Module.createRequire = createRequire;
+ 
+ /**

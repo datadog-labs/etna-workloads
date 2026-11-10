@@ -1,0 +1,75 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -679,7 +679,7 @@
+   if (request === pkg.data.name) {
+     expansion = '.';
+   } else if (StringPrototypeStartsWith(request, `${pkg.data.name}/`)) {
+-    expansion = '.' + StringPrototypeSlice(request, pkg.data.name.length);
++    expansion = '.' + StringPrototypeSlice(request, pkg.data.name.length + 1);
+   } else {
+     return false;
+   }
+@@ -1583,7 +1583,11 @@
+     }
+   }
+ 
+-  // Try module self resolution first
++  // Look up the filename first, since that's the cache key.
++  const filename = Module._findPath(request, paths, isMain, conditions);
++  if (filename) { return filename; }
++
++  // Try module self resolution only after node_modules lookup
+   const selfResolved = trySelf(parentPath, request, conditions);
+   if (selfResolved) {
+     const cacheKey = request + '\x00' +
+@@ -1592,10 +1596,6 @@
+     return selfResolved;
+   }
+ 
+-  // Look up the filename first, since that's the cache key.
+-  const filename = Module._findPath(request, paths, isMain, conditions);
+-  if (filename) { return filename; }
+-
+   const requireStack = getRequireStack(parent);
+   const message = getRequireStackMessage(request, requireStack);
+ 
+diff -uN a/lib/internal/modules/package_json_reader.js b/lib/internal/modules/package_json_reader.js
+--- a/lib/internal/modules/package_json_reader.js
++++ b/lib/internal/modules/package_json_reader.js
+@@ -300,15 +300,6 @@
+ function getPackageJSONURL(specifier, base) {
+   const { packageName, packageSubpath, isScoped } = parsePackageName(specifier, base);
+ 
+-  // ResolveSelf
+-  const packageConfig = getPackageScopeConfig(base);
+-  if (packageConfig.exists) {
+-    if (packageConfig.exports != null && packageConfig.name === packageName) {
+-      const packageJSONPath = packageConfig.pjsonPath;
+-      return { packageJSONUrl: pathToFileURL(packageJSONPath), packageJSONPath, packageSubpath };
+-    }
+-  }
+-
+   let packageJSONUrl = new URL(`./node_modules/${packageName}/package.json`, base);
+   let packageJSONPath = fileURLToPath(packageJSONUrl);
+   // The walk stops at the resolution root (e.g. a VFS mount point)
+@@ -340,6 +331,19 @@
+     return { packageJSONUrl, packageJSONPath, packageSubpath };
+   } while (packageJSONPath.length !== lastPath.length);
+ 
++  // ResolveSelf
++  const packageConfig = getPackageScopeConfig(base);
++  if (packageConfig.exists) {
++    if (packageConfig.exports != null && packageConfig.name === packageName) {
++      const packageJSONPath = packageConfig.pjsonPath;
++      return {
++        packageJSONUrl: pathToFileURL(packageJSONPath),
++        packageJSONPath,
++        packageSubpath: packageSubpath === '.' ? '.' : '.' + StringPrototypeSlice(packageSubpath, 2),
++      };
++    }
++  }
++
+   throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+ }
+ 

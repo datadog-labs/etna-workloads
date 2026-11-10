@@ -1,0 +1,29 @@
+diff -uN a/src/node_messaging.cc b/src/node_messaging.cc
+--- a/src/node_messaging.cc
++++ b/src/node_messaging.cc
+@@ -361,14 +361,11 @@
+       Local<SharedArrayBuffer> shared_array_buffer) override {
+     uint32_t i;
+     for (i = 0; i < seen_shared_array_buffers_.size(); ++i) {
+-      if (PersistentToLocal::Strong(seen_shared_array_buffers_[i]) ==
+-          shared_array_buffer) {
++      if (seen_shared_array_buffers_[i] == shared_array_buffer)
+         return Just(i);
+-      }
+     }
+ 
+-    seen_shared_array_buffers_.emplace_back(
+-      Global<SharedArrayBuffer> { isolate, shared_array_buffer });
++    seen_shared_array_buffers_.push_back(shared_array_buffer);
+     msg_->AddSharedArrayBuffer(shared_array_buffer->GetBackingStore());
+     return Just(i);
+   }
+@@ -462,7 +459,7 @@
+   Environment* env_;
+   Local<Context> context_;
+   Message* msg_;
+-  std::vector<Global<SharedArrayBuffer>> seen_shared_array_buffers_;
++  std::vector<Local<SharedArrayBuffer>> seen_shared_array_buffers_;
+   std::vector<BaseObjectPtr<BaseObject>> host_objects_;
+   size_t first_cloned_object_index_ = SIZE_MAX;
+ 

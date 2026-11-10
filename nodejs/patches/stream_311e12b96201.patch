@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/streams/destroy.js b/lib/internal/streams/destroy.js
+--- a/lib/internal/streams/destroy.js
++++ b/lib/internal/streams/destroy.js
+@@ -52,21 +52,23 @@
+   // With duplex streams we use the writable side for state.
+   const s = w || r;
+ 
++  checkError(err, w, r);
++
+   if (
+     (w && (w[kState] & kDestroyed) !== 0) ||
+     (r && (r[kState] & kDestroyed) !== 0)
+   ) {
+-    if (typeof cb === 'function') {
+-      cb();
++    if (cb) {
++      cb(err);
++    } else if (err) {
++      process.nextTick(emitErrorNT, this, err);
+     }
+ 
+     return this;
+   }
+ 
+-
+   // We set destroyed to true before firing error callbacks in order
+   // to make it re-entrance safe in case destroy() is called within callbacks
+-  checkError(err, w, r);
+ 
+   if (w) {
+     w[kState] |= kDestroyed;
+@@ -213,13 +215,6 @@
+   const w = stream._writableState;
+ 
+   if (
+-    (w && (w[kState] ? (w[kState] & kDestroyed) !== 0 : w.destroyed)) ||
+-    (r && (r[kState] ? (r[kState] & kDestroyed) !== 0 : r.destroyed))
+-  ) {
+-    return this;
+-  }
+-
+-  if (
+     (r && (r[kState] & kAutoDestroy) !== 0) ||
+     (w && (w[kState] & kAutoDestroy) !== 0)
+   ) {

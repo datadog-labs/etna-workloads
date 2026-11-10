@@ -1,0 +1,41 @@
+diff -uN a/lib/internal/blob.js b/lib/internal/blob.js
+--- a/lib/internal/blob.js
++++ b/lib/internal/blob.js
+@@ -1,6 +1,7 @@
+ 'use strict';
+ 
+ const {
++  ArrayBuffer,
+   ArrayPrototypePush,
+   MathMax,
+   MathMin,
+@@ -9,6 +10,7 @@
+   ObjectSetPrototypeOf,
+   PromisePrototypeThen,
+   PromiseReject,
++  PromiseResolve,
+   PromiseWithResolvers,
+   RegExpPrototypeExec,
+   RegExpPrototypeSymbolReplace,
+@@ -330,6 +332,11 @@
+   stream() {
+     if (!isBlob(this))
+       throw new ERR_INVALID_THIS('Blob');
++    if (this.size === 0) {
++      return new lazyReadableStream({
++        start(c) { c.close(); },
++      });
++    }
+     return createBlobReaderStream(this[kHandle].getReader());
+   }
+ 
+@@ -432,6 +439,9 @@
+ }
+ 
+ function arrayBuffer(blob) {
++  if (blob.size === 0) {
++    return PromiseResolve(new ArrayBuffer(0));
++  }
+   const { promise, resolve, reject } = PromiseWithResolvers();
+   const reader = blob[kHandle].getReader();
+   const buffers = [];

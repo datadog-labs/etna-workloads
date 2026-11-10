@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/util/inspect.js b/lib/internal/util/inspect.js
+--- a/lib/internal/util/inspect.js
++++ b/lib/internal/util/inspect.js
+@@ -907,17 +907,6 @@
+   let firstProto;
+   const tmp = obj;
+   while (obj || isUndetectableObject(obj)) {
+-    const wellKnownPrototypeNameAndConstructor = wellKnownPrototypes.get(obj);
+-    if (wellKnownPrototypeNameAndConstructor !== undefined) {
+-      const { name, constructor } = wellKnownPrototypeNameAndConstructor;
+-      if (FunctionPrototypeSymbolHasInstance(constructor, tmp)) {
+-        if (protoProps !== undefined && firstProto !== obj) {
+-          addPrototypeProperties(
+-            ctx, tmp, firstProto || tmp, recurseTimes, protoProps);
+-        }
+-        return name;
+-      }
+-    }
+     const descriptor = ObjectGetOwnPropertyDescriptor(obj, 'constructor');
+     if (descriptor !== undefined &&
+         typeof descriptor.value === 'function' &&
+@@ -1314,11 +1303,7 @@
+   if (noIterator) {
+     keys = getKeys(value, ctx.showHidden);
+     braces = ['{', '}'];
+-    if (typeof value === 'function') {
+-      base = getFunctionBase(ctx, value, constructor, tag);
+-      if (keys.length === 0 && protoProps === undefined)
+-        return ctx.stylize(base, 'special');
+-    } else if (constructor === 'Object') {
++    if (constructor === 'Object') {
+       if (isArgumentsObject(value)) {
+         braces[0] = '[Arguments] {';
+       } else if (tag !== '') {
+@@ -1327,6 +1312,10 @@
+       if (keys.length === 0 && protoProps === undefined) {
+         return `${braces[0]}}`;
+       }
++    } else if (typeof value === 'function') {
++      base = getFunctionBase(ctx, value, constructor, tag);
++      if (keys.length === 0 && protoProps === undefined)
++        return ctx.stylize(base, 'special');
+     } else if (isRegExp(value)) {
+       // Make RegExps say that they are RegExps
+       base = RegExpPrototypeToString(

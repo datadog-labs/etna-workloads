@@ -1,0 +1,58 @@
+diff -uN a/lib/internal/modules/esm/translators.js b/lib/internal/modules/esm/translators.js
+--- a/lib/internal/modules/esm/translators.js
++++ b/lib/internal/modules/esm/translators.js
+@@ -674,7 +674,7 @@
+ // Strategy for loading a commonjs TypeScript module
+ translators.set('commonjs-typescript', function(url, translateContext, parentURL) {
+   const { source } = translateContext;
+-  assertBufferSource(source, true, 'load');
++  assertBufferSource(source, false, 'load');
+   debug(`Translating TypeScript ${url}`, translateContext);
+   translateContext.source = stripTypeScriptModuleTypes(stringify(source), url);
+   return FunctionPrototypeCall(translators.get('commonjs'), this, url, translateContext, parentURL);
+@@ -683,7 +683,7 @@
+ // Strategy for loading an esm TypeScript module
+ translators.set('module-typescript', function(url, translateContext, parentURL) {
+   const { source } = translateContext;
+-  assertBufferSource(source, true, 'load');
++  assertBufferSource(source, false, 'load');
+   debug(`Translating TypeScript ${url}`, translateContext);
+   translateContext.source = stripTypeScriptModuleTypes(stringify(source), url);
+   return FunctionPrototypeCall(translators.get('module'), this, url, translateContext, parentURL);
+diff -uN a/lib/internal/test_runner/mock/loader.js b/lib/internal/test_runner/mock/loader.js
+--- a/lib/internal/test_runner/mock/loader.js
++++ b/lib/internal/test_runner/mock/loader.js
+@@ -87,7 +87,7 @@
+ function createSourceFromMock(mock, format) {
+   // Create mock implementation from provided exports.
+   const { exportNames, hasDefaultExport, url } = mock;
+-  const useESM = format === 'module' || format === 'module-typescript';
++  const useESM = format === 'module';
+   const source = `${testImportSource(useESM)}
+ if (!$__test.mock._mockExports.has(${JSONStringify(url)})) {
+   throw new Error(${JSONStringify(`mock exports not found for "${url}"`)});
+diff -uN a/lib/internal/test_runner/mock/mock.js b/lib/internal/test_runner/mock/mock.js
+--- a/lib/internal/test_runner/mock/mock.js
++++ b/lib/internal/test_runner/mock/mock.js
+@@ -69,10 +69,8 @@
+ const enableModuleMocking = getOptionValue('--experimental-test-module-mocks');
+ const kSupportedFormats = [
+   'builtin',
+-  'commonjs-typescript',
+   'commonjs',
+   'json',
+-  'module-typescript',
+   'module',
+ ];
+ let sharedModuleState;
+@@ -685,9 +683,7 @@
+     // Get the file that called this function. We need four stack frames:
+     // vm context -> getStructuredStack() -> this function -> actual caller.
+     const filename = getStructuredStack()[3]?.getFileName();
+-    // If the caller is already a file URL, use it as is. Otherwise, convert it.
+-    const hasFileProtocol = StringPrototypeStartsWith(filename, 'file://');
+-    const caller = hasFileProtocol ? filename : pathToFileURL(filename).href;
++    const caller = pathToFileURL(filename).href;
+     const request = { __proto__: null, specifier: mockSpecifier, attributes: kEmptyObject };
+     const { format, url } = sharedState.moduleLoader.resolveSync(caller, request);
+     debug('module mock, url = "%s", format = "%s", caller = "%s"', url, format, caller);

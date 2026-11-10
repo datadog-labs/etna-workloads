@@ -1,0 +1,24 @@
+diff -uN a/lib/internal/streams/readable.js b/lib/internal/streams/readable.js
+--- a/lib/internal/streams/readable.js
++++ b/lib/internal/streams/readable.js
+@@ -1765,6 +1765,20 @@
+           finalize();
+           return PromiseResolve({ done: true, value: undefined });
+         }
++        if (stream.destroyed) {
++          // Defer a tick; an error that arrives later is not propagated.
++          return new Promise((resolve, reject) => {
++            process.nextTick(() => {
++              if (error) {
++                finalize();
++                reject(error);
++              } else {
++                finalize();
++                resolve({ done: true, value: undefined });
++              }
++            });
++          });
++        }
+         // No data buffered yet; wait for 'readable' or end-of-stream.
+         inFlight = true;
+         return new Promise((resolve, reject) => {

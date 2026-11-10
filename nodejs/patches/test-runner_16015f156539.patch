@@ -1,0 +1,38 @@
+diff -uN a/lib/internal/test_runner/test.js b/lib/internal/test_runner/test.js
+--- a/lib/internal/test_runner/test.js
++++ b/lib/internal/test_runner/test.js
+@@ -1843,22 +1843,15 @@
+         publishError(err);
+       }
+       this.fail(new ERR_TEST_FAILURE(err, kTestCodeFailure));
++    } finally {
++      if (testChannel.end.hasSubscribers) {
++        publishEnd();
++      }
+     }
+ 
+-    this.#publishEnd = publishEnd;
+     this.buildPhaseFinished = true;
+   }
+ 
+-  #publishEnd = null;
+-
+-  #publishSuiteEnd() {
+-    const publishEnd = this.#publishEnd;
+-    this.#publishEnd = null;
+-    if (publishEnd !== null && testChannel.end.hasSubscribers) {
+-      publishEnd();
+-    }
+-  }
+-
+   #ctx;
+   getCtx() {
+     this.#ctx ??= new TestContext(this);
+@@ -1915,7 +1908,6 @@
+       }
+     } finally {
+       stopPromise?.[SymbolDispose]();
+-      this.#publishSuiteEnd();
+     }
+ 
+     this.postRun();

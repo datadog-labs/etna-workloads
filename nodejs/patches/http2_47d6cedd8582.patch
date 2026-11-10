@@ -1,0 +1,48 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -46,7 +46,7 @@
+ const net = require('net');
+ const { Duplex } = require('stream');
+ const tls = require('tls');
+-const { setImmediate, setTimeout, clearTimeout } = require('timers');
++const { setImmediate } = require('timers');
+ 
+ const {
+   Server: HttpServer,
+@@ -3375,22 +3375,6 @@
+     debug('Unknown protocol from %s:%s',
+           socket.remoteAddress, socket.remotePort);
+     if (!this.emit('unknownProtocol', socket)) {
+-      debug('Unknown protocol timeout:  %s', options.unknownProtocolTimeout);
+-      // Install a timeout if the socket was not successfully closed, then
+-      // destroy the socket to ensure that the underlying resources are
+-      // released.
+-      const timer = setTimeout(() => {
+-        if (!socket.destroyed) {
+-          debug('UnknownProtocol socket timeout, destroy socket');
+-          socket.destroy();
+-        }
+-      }, options.unknownProtocolTimeout);
+-      // Un-reference the timer to avoid blocking of application shutdown and
+-      // clear the timeout if the socket was successfully closed.
+-      timer.unref();
+-
+-      socket.once('close', () => clearTimeout(timer));
+-
+       // We don't know what to do, so let's just tell the other side what's
+       // going on in a format that they *might* understand.
+       socket.end('HTTP/1.0 403 Forbidden\r\n' +
+@@ -3462,12 +3446,6 @@
+     );
+   }
+ 
+-  if (options.unknownProtocolTimeout !== undefined)
+-    validateUint32(options.unknownProtocolTimeout, 'options.unknownProtocolTimeout');
+-  else
+-    // TODO(danbev): is this a good default value?
+-    options.unknownProtocolTimeout = 10000;
+-
+   // Initialize http1Options bag for HTTP/1 fallback when allowHTTP1 is true.
+   // This bag is passed to storeHTTPOptions() to configure HTTP/1 server
+   // behavior (timeouts, IncomingMessage/ServerResponse classes, etc.).

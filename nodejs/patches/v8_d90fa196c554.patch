@@ -1,0 +1,70 @@
+diff -uN a/lib/v8.js b/lib/v8.js
+--- a/lib/v8.js
++++ b/lib/v8.js
+@@ -42,8 +42,8 @@
+   validateUint32,
+ } = require('internal/validators');
+ const {
+-  Serializer,
+-  Deserializer,
++  Serializer: _Serializer,
++  Deserializer: _Deserializer,
+ } = internalBinding('serdes');
+ const {
+   namespace: startupSnapshot,
+@@ -114,6 +114,13 @@
+ // it's re-initialized after deserialization.
+ const binding = internalBinding('v8');
+ 
++// Calling exposed c++ functions directly throws exception as it expected to be
++// called with new operator and caused an assert to fire.
++// Creating JS wrapper so that it gets caught at JS layer.
++class Serializer extends _Serializer { }
++
++class Deserializer extends _Deserializer { }
++
+ const {
+   cachedDataVersionTag,
+   setFlagsFromString: _setFlagsFromString,
+diff -uN a/src/node_serdes.cc b/src/node_serdes.cc
+--- a/src/node_serdes.cc
++++ b/src/node_serdes.cc
+@@ -172,10 +172,6 @@
+ 
+ void SerializerContext::New(const FunctionCallbackInfo<Value>& args) {
+   Environment* env = Environment::GetCurrent(args);
+-  if (!args.IsConstructCall()) {
+-    return THROW_ERR_CONSTRUCT_CALL_REQUIRED(
+-        env, "Class constructor Serializer cannot be invoked without 'new'");
+-  }
+ 
+   new SerializerContext(env, args.This());
+ }
+@@ -329,10 +325,6 @@
+ 
+ void DeserializerContext::New(const FunctionCallbackInfo<Value>& args) {
+   Environment* env = Environment::GetCurrent(args);
+-  if (!args.IsConstructCall()) {
+-    return THROW_ERR_CONSTRUCT_CALL_REQUIRED(
+-        env, "Class constructor Deserializer cannot be invoked without 'new'");
+-  }
+ 
+   if (!args[0]->IsArrayBufferView()) {
+     return node::THROW_ERR_INVALID_ARG_TYPE(
+@@ -492,7 +484,6 @@
+                  "_setTreatArrayBufferViewsAsHostObjects",
+                  SerializerContext::SetTreatArrayBufferViewsAsHostObjects);
+ 
+-  ser->ReadOnlyPrototype();
+   SetConstructorFunction(context, target, "Serializer", ser);
+ 
+   Local<FunctionTemplate> des =
+@@ -517,8 +508,6 @@
+   SetProtoMethod(
+       isolate, des, "_readRawBytes", DeserializerContext::ReadRawBytes);
+ 
+-  des->SetLength(1);
+-  des->ReadOnlyPrototype();
+   SetConstructorFunction(context, target, "Deserializer", des);
+ }
+ 

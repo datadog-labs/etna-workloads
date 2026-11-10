@@ -1,0 +1,42 @@
+diff -uN a/lib/_http_client.js b/lib/_http_client.js
+--- a/lib/_http_client.js
++++ b/lib/_http_client.js
+@@ -596,16 +596,7 @@
+     // No agent, default to Connection:close.
+     this._last = true;
+     this.shouldKeepAlive = false;
+-    let opts = optsWithoutSignal;
+-    if (opts.path || opts.socketPath) {
+-      opts = { ...optsWithoutSignal };
+-      if (opts.socketPath) {
+-        opts.path = opts.socketPath;
+-      } else {
+-        opts.path &&= undefined;
+-      }
+-    }
+-    if (typeof opts.createConnection === 'function') {
++    if (typeof optsWithoutSignal.createConnection === 'function') {
+       const oncreate = once((err, socket) => {
+         if (err) {
+           process.nextTick(() => emitErrorEvent(this, err));
+@@ -615,7 +606,8 @@
+       });
+ 
+       try {
+-        const newSocket = opts.createConnection(opts, oncreate);
++        const newSocket = optsWithoutSignal.createConnection(optsWithoutSignal,
++                                                             oncreate);
+         if (newSocket) {
+           oncreate(null, newSocket);
+         }
+@@ -623,8 +615,8 @@
+         oncreate(err);
+       }
+     } else {
+-      debug('CLIENT use net.createConnection', opts);
+-      this.onSocket(net.createConnection(opts));
++      debug('CLIENT use net.createConnection', optsWithoutSignal);
++      this.onSocket(net.createConnection(optsWithoutSignal));
+     }
+   }
+   if (onClientRequestCreatedChannel.hasSubscribers) {

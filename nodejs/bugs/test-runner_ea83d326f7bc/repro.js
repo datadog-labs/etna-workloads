@@ -1,0 +1,12 @@
+const { run } = require('node:test');
+const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rp-'));
+const f = path.join(dir, 'a.test.js');
+fs.writeFileSync(f, "require('node:test')('p', { expectFailure: true }, () => {});");
+const s = run({ files: [f], isolation: 'none' });
+s.on('test:pass', (e) => console.log('pass event:', e.name));
+s.on('test:fail', (e) => console.log('fail event:', e.name, '-', e.details.error.cause?.message ?? e.details.error.message));
+s.on('test:summary', (e) => { console.log('success:', e.success, 'passed:', e.counts.passed, 'failed:', e.counts.failed); fs.rmSync(dir, { recursive: true }); });
+s.resume();

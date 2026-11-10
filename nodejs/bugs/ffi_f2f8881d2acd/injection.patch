@@ -1,0 +1,63 @@
+diff -uN a/lib/ffi.js b/lib/ffi.js
+--- a/lib/ffi.js
++++ b/lib/ffi.js
+@@ -96,7 +96,7 @@
+ // every wrapper for the lifetime of the library.
+ const wrappedFunctions = new SafeWeakMap();
+ 
+-function wrapFFIFunction(rawFn, owner) {
++function wrapFFIFunction(rawFn, argumentTypes, returnType, owner) {
+   if (rawFn === undefined || rawFn === null) {
+     return rawFn;
+   }
+@@ -104,11 +104,12 @@
+   if (cached !== undefined) {
+     return cached;
+   }
+-  let returnType;
+-  const sbArguments = rawFn[kSbArguments];
+-  const argumentTypes = sbArguments ?? rawFn[kFastArguments];
+-  if (sbArguments !== undefined) {
+-    returnType = rawFn[kSbReturn];
++  if (argumentTypes === undefined) {
++    const sbArguments = rawFn[kSbArguments];
++    argumentTypes = sbArguments ?? rawFn[kFastArguments];
++    if (sbArguments !== undefined) {
++      returnType = rawFn[kSbReturn];
++    }
+   }
+   let wrapped = wrapWithSharedBuffer(
+     rawFn,
+@@ -177,7 +178,7 @@
+ 
+ DynamicLibrary.prototype.getFunction = function getFunction(name, signature) {
+   const raw = FunctionPrototypeCall(rawGetFunction, this, name, signature);
+-  return wrapFFIFunction(raw, this);
++  return wrapFFIFunction(raw, signature.arguments, signature.return, this);
+ };
+ 
+ DynamicLibrary.prototype.getFunctions = function getFunctions(definitions) {
+@@ -189,7 +190,13 @@
+   const out = { __proto__: null };
+   for (let i = 0; i < keys.length; i++) {
+     const name = keys[i];
+-    out[name] = wrapFFIFunction(raw[name], this);
++    if (definitions === undefined) {
++      out[name] = wrapFFIFunction(raw[name], undefined, undefined, this);
++    } else {
++      const signature = definitions[name];
++      out[name] = wrapFFIFunction(
++        raw[name], signature.arguments, signature.return, this);
++    }
+   }
+   return out;
+ };
+@@ -213,7 +220,7 @@
+       const keys = ObjectKeys(raw);
+       for (let i = 0; i < keys.length; i++) {
+         const name = keys[i];
+-        wrapped[name] = wrapFFIFunction(raw[name], this);
++        wrapped[name] = wrapFFIFunction(raw[name], undefined, undefined, this);
+       }
+       return wrapped;
+     },

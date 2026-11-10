@@ -1,0 +1,21 @@
+diff -uN a/lib/internal/streams/readable.js b/lib/internal/streams/readable.js
+--- a/lib/internal/streams/readable.js
++++ b/lib/internal/streams/readable.js
+@@ -1611,9 +1611,16 @@
+   function finalize() {
+     completed = true;
+ 
++    const preserveHalfOpenDuplex =
++      error === null &&
++      stream.allowHalfOpen === true &&
++      stream.writable === true &&
++      stream.writableEnded !== true;
++
+     if (
+       (error || options?.destroyOnReturn !== false) &&
+-      (error === undefined || stream._readableState.autoDestroy)
++      (error === undefined || stream._readableState.autoDestroy) &&
++      !preserveHalfOpenDuplex
+     ) {
+       destroyImpl.destroyer(stream, null);
+     } else {

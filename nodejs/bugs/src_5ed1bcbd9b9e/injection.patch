@@ -1,0 +1,71 @@
+diff -uN a/lib/internal/fs/cp/cp-sync.js b/lib/internal/fs/cp/cp-sync.js
+--- a/lib/internal/fs/cp/cp-sync.js
++++ b/lib/internal/fs/cp/cp-sync.js
+@@ -203,7 +203,7 @@
+   if (!verbatimSymlinks && !isAbsolute(resolvedSrc)) {
+     resolvedSrc = resolve(dirname(src), resolvedSrc);
+   }
+-  const srcIsDir = fsBinding.internalModuleStat(src) === 1;
++  const srcIsDir = fsBinding.internalModuleStat(fsBinding, src) === 1;
+   const symlinkType = srcIsDir ? 'dir' : 'file';
+   if (!destStat) {
+     return symlinkSync(resolvedSrc, dest, symlinkType);
+diff -uN a/lib/internal/fs/cp/cp.js b/lib/internal/fs/cp/cp.js
+--- a/lib/internal/fs/cp/cp.js
++++ b/lib/internal/fs/cp/cp.js
+@@ -364,7 +364,7 @@
+   if (!opts.verbatimSymlinks && !isAbsolute(resolvedSrc)) {
+     resolvedSrc = resolve(dirname(src), resolvedSrc);
+   }
+-  const srcIsDir = fsBinding.internalModuleStat(src) === 1;
++  const srcIsDir = fsBinding.internalModuleStat(fsBinding, src) === 1;
+   const symlinkType = srcIsDir ? 'dir' : 'file';
+   if (!destStat) {
+     return symlink(resolvedSrc, dest, symlinkType);
+diff -uN a/lib/internal/fs/utils.js b/lib/internal/fs/utils.js
+--- a/lib/internal/fs/utils.js
++++ b/lib/internal/fs/utils.js
+@@ -389,13 +389,13 @@
+       ArrayPrototypePush(context.results, dirent);
+       // https://github.com/nodejs/node/issues/52663
+       isDirectory = dirent.isDirectory() ||
+-        (dirent.isSymbolicLink() && binding.internalModuleStat(pathModule.join(dir, name)) === 1);
++        (dirent.isSymbolicLink() && binding.internalModuleStat(binding, pathModule.join(dir, name)) === 1);
+     } else {
+       ArrayPrototypePush(context.results, relative);
+       const type = types[i];
+       isDirectory = type === UV_DIRENT_DIR ||
+         ((type === UV_DIRENT_LINK || type === UV_DIRENT_UNKNOWN) &&
+-         binding.internalModuleStat(pathModule.join(dir, name)) === 1);
++         binding.internalModuleStat(binding, pathModule.join(dir, name)) === 1);
+     }
+     if (isDirectory) {
+       ArrayPrototypePush(context.dirs, pathModule.join(dir, name));
+diff -uN a/lib/internal/modules/helpers.js b/lib/internal/modules/helpers.js
+--- a/lib/internal/modules/helpers.js
++++ b/lib/internal/modules/helpers.js
+@@ -72,7 +72,7 @@
+ // Toggleable loader hooks for VFS support. Overrides that return
+ // `undefined` fall through to the pinned native implementation.
+ const nativeLoaderMethods = {
+-  internalModuleStat: (filename) => internalFsBinding.internalModuleStat(filename),
++  internalModuleStat: (filename) => internalFsBinding.internalModuleStat(internalFsBinding, filename),
+   readFileSync: (filename, options) => fs.readFileSync(filename, options),
+   realpathSync: (requestPath) => fs.realpathSync(requestPath, {
+     [internalFS.realpathCacheKey]: realpathCache,
+diff -uN a/src/node_file.cc b/src/node_file.cc
+--- a/src/node_file.cc
++++ b/src/node_file.cc
+@@ -1119,9 +1119,9 @@
+ static void InternalModuleStat(const FunctionCallbackInfo<Value>& args) {
+   Environment* env = Environment::GetCurrent(args);
+ 
+-  CHECK_EQ(args.Length(), 1);
+-  CHECK(args[0]->IsString());
+-  BufferValue path(env->isolate(), args[0]);
++  CHECK_GE(args.Length(), 2);
++  CHECK(args[1]->IsString());
++  BufferValue path(env->isolate(), args[1]);
+   CHECK_NOT_NULL(*path);
+   ToNamespacedPath(env, &path);
+ 

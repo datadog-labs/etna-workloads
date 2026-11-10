@@ -1,0 +1,70 @@
+diff -uN a/lib/internal/errors/error_source.js b/lib/internal/errors/error_source.js
+--- a/lib/internal/errors/error_source.js
++++ b/lib/internal/errors/error_source.js
+@@ -42,7 +42,7 @@
+   }
+ 
+   const sm = findSourceMap(scriptResourceName);
+-  if (sm === undefined) {
++  if (sm === null) {
+     // No source map for this file; use the generated source line.
+     return { sourceLine, startColumn };
+   }
+diff -uN a/lib/internal/source_map/prepare_stack_trace.js b/lib/internal/source_map/prepare_stack_trace.js
+--- a/lib/internal/source_map/prepare_stack_trace.js
++++ b/lib/internal/source_map/prepare_stack_trace.js
+@@ -184,7 +184,7 @@
+  */
+ function getSourceMapErrorSource(fileName, lineNumber, columnNumber) {
+   const sm = findSourceMap(fileName);
+-  if (sm === undefined) {
++  if (sm === null) {
+     return;
+   }
+   const {
+diff -uN a/lib/internal/source_map/source_map_cache.js b/lib/internal/source_map/source_map_cache.js
+--- a/lib/internal/source_map/source_map_cache.js
++++ b/lib/internal/source_map/source_map_cache.js
+@@ -397,20 +397,20 @@
+  * This function may be invoked from user code or test runner, this must not throw
+  * any exceptions.
+  * @param {string} sourceURL - actual source URL or path
+- * @returns {import('internal/source_map/source_map').SourceMap | undefined} a source map or undefined if not found
++ * @returns {import("internal/source_map/source_map").SourceMap | null} a source map or null if not found
+  */
+ function findSourceMap(sourceURL) {
+   if (typeof sourceURL !== 'string') {
+-    return undefined;
++    return null;
+   }
+ 
+   // No source maps for builtin modules.
+   if (sourceURL.startsWith('node:')) {
+-    return undefined;
++    return null;
+   }
+ 
+   if (!getSourceMapsSupport().nodeModules && isUnderNodeModules(sourceURL)) {
+-    return undefined;
++    return null;
+   }
+ 
+   SourceMap ??= require('internal/source_map/source_map').SourceMap;
+@@ -421,7 +421,7 @@
+     }
+     const entry = getModuleSourceMapCache().get(sourceURL) ?? generatedSourceMapCache.get(sourceURL);
+     if (entry === undefined || sourceMapData(entry) === null) {
+-      return undefined;
++      return null;
+     }
+ 
+     let sourceMap = entry.sourceMap;
+@@ -432,7 +432,7 @@
+     return sourceMap;
+   } catch (err) {
+     debug(err);
+-    return undefined;
++    return null;
+   }
+ }
+ 

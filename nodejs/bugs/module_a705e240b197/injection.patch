@@ -1,0 +1,39 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -1164,7 +1164,7 @@
+     if (!normalized) {
+       throw new ERR_UNKNOWN_BUILTIN_MODULE(specifier);
+     }
+-    return { __proto__: null, url: specifier, format: 'builtin', filename: normalized };
++    return { __proto__: null, format: 'builtin', filename: normalized };
+   }
+   return wrapResolveFilename(specifier, parent, isMain, options);
+ }
+diff -uN a/lib/internal/modules/customization_hooks.js b/lib/internal/modules/customization_hooks.js
+--- a/lib/internal/modules/customization_hooks.js
++++ b/lib/internal/modules/customization_hooks.js
+@@ -6,7 +6,6 @@
+   ArrayPrototypeSplice,
+   ObjectAssign,
+   ObjectFreeze,
+-  StringPrototypeSlice,
+   StringPrototypeStartsWith,
+   Symbol,
+   SymbolDispose,
+@@ -125,12 +124,9 @@
+  */
+ function convertCJSFilenameToURL(filename) {
+   if (!filename) { return filename; }
+-  let normalizedId = filename;
+-  if (StringPrototypeStartsWith(filename, 'node:')) {
+-    normalizedId = StringPrototypeSlice(filename, 5);
+-  }
+-  if (BuiltinModule.canBeRequiredByUsers(normalizedId)) {
+-    return `node:${normalizedId}`;
++  const builtinId = BuiltinModule.normalizeRequirableId(filename);
++  if (builtinId) {
++    return `node:${builtinId}`;
+   }
+   // Handle the case where filename is neither a path, nor a built-in id,
+   // which is possible via monkey-patching.

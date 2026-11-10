@@ -1,0 +1,26 @@
+diff -uN a/lib/_http_incoming.js b/lib/_http_incoming.js
+--- a/lib/_http_incoming.js
++++ b/lib/_http_incoming.js
+@@ -202,10 +202,12 @@
+     if (this[kAbortController] === null) {
+       const ac = new AbortController();
+       this[kAbortController] = ac;
+-      if (this.destroyed && (!this.readableEnded || !this.complete)) {
++      if (this.destroyed) {
+         ac.abort();
+       } else {
+-        this[kAttachAbortSignal]();
++        this.once('close', function() {
++          ac.abort();
++        });
+       }
+     }
+     return this[kAbortController].signal;
+@@ -274,7 +276,6 @@
+   if (!this.readableEnded || !this.complete) {
+     this.aborted = true;
+     this.emit('aborted');
+-    abortSignal(this);
+   }
+ 
+   // If aborted and the underlying socket is not already destroyed,

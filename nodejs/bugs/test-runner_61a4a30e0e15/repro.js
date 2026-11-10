@@ -1,0 +1,11 @@
+const { run } = require('node:test');
+const fs = require('fs'), os = require('os'), path = require('path');
+const d = fs.mkdtempSync(path.join(os.tmpdir(), 'r-'));
+const f = path.join(d, 'bad.mjs');
+fs.writeFileSync(f, 'const x = true true;\n');
+const t = run({ files: [f], isolation: 'none' });
+t.on('test:enqueue', (e) => console.log('enqueue file matches:', e.file === f, 'line:', e.line, 'col:', e.column));
+t.on('test:fail', (e) => console.log('fail file matches:', e.file === f));
+t.on('test:diagnostic', () => {});
+t.resume();
+t.on('close', () => { fs.rmSync(d, { recursive: true, force: true }); });

@@ -1,0 +1,30 @@
+diff -uN a/lib/internal/blocklist.js b/lib/internal/blocklist.js
+--- a/lib/internal/blocklist.js
++++ b/lib/internal/blocklist.js
+@@ -44,6 +44,7 @@
+ const {
+   ERR_INVALID_ARG_VALUE,
+   ERR_INVALID_ARG_TYPE,
++  ERR_OUT_OF_RANGE,
+ } = require('internal/errors').codes;
+ 
+ const { validateArray, validateInt32, validateString } = require('internal/validators');
+@@ -190,12 +191,16 @@
+     }
+     switch (network.family) {
+       case 'ipv4':
+-        validateInt32(prefix, 'prefix', 0, 32);
++        if (prefix < 0 || prefix > 32)
++          throw new ERR_OUT_OF_RANGE('prefix', '>= 0 and <= 32', prefix);
+         break;
+       case 'ipv6':
+-        validateInt32(prefix, 'prefix', 0, 128);
++        if (prefix < 0 || prefix > 128)
++          throw new ERR_OUT_OF_RANGE('prefix', '>= 0 and <= 128', prefix);
+         break;
+     }
++    if (typeof prefix !== 'number')
++      throw new ERR_INVALID_ARG_TYPE('prefix', 'number', prefix);
+     // Coerce -0 to +0.
+     prefix += 0;
+     this[kHandle].addSubnet(network[kSocketAddressHandle], prefix);

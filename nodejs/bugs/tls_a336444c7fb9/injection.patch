@@ -1,0 +1,136 @@
+diff -uN a/lib/internal/tls/common.js b/lib/internal/tls/common.js
+--- a/lib/internal/tls/common.js
++++ b/lib/internal/tls/common.js
+@@ -127,10 +127,33 @@
+ // Translate some fields from the handle's C-friendly format into more idiomatic
+ // javascript object representations before passing them back to the user.  Can
+ // be used on any cert object, but changing the name would be semver-major.
++function parseCertString(s) {
++  const out = { __proto__: null };
++  const parts = s.split('\n');
++  for (const part of parts) {
++    const sepIndex = part.indexOf('=');
++    if (sepIndex > 0) {
++      const key = part.slice(0, sepIndex);
++      const value = part.slice(sepIndex + 1);
++      if (key in out) {
++        if (!Array.isArray(out[key])) {
++          out[key] = [out[key]];
++        }
++        out[key].push(value);
++      } else {
++        out[key] = value;
++      }
++    }
++  }
++  return out;
++}
++
+ function translatePeerCertificate(c) {
+   if (!c)
+     return null;
+ 
++  if (c.issuer != null) c.issuer = parseCertString(c.issuer);
++  if (c.subject != null) c.subject = parseCertString(c.subject);
+   if (c.issuerCertificate != null && c.issuerCertificate !== c) {
+     c.issuerCertificate = translatePeerCertificate(c.issuerCertificate);
+   }
+diff -uN a/src/crypto/crypto_x509.cc b/src/crypto/crypto_x509.cc
+--- a/src/crypto/crypto_x509.cc
++++ b/src/crypto/crypto_x509.cc
+@@ -648,78 +648,6 @@
+   return !target->Set(env->context(), index, value).IsNothing();
+ }
+ 
+-// Convert an X509_NAME* into a JavaScript object.
+-// Each entry of the name is converted into a property of the object.
+-// The property value may be a single string or an array of strings.
+-static MaybeLocal<Value> GetX509NameObject(Environment* env,
+-                                           const X509Name& name) {
+-  if (!name) return {};
+-
+-  Local<Value> v8_name;
+-  Local<Value> v8_value;
+-  // Note the the resulting object uses a null prototype.
+-  Local<Object> result =
+-      Object::New(env->isolate(), Null(env->isolate()), nullptr, nullptr, 0);
+-  if (result.IsEmpty()) return {};
+-
+-  for (auto entry : name) {
+-    if (!entry.has_value()) [[unlikely]] {
+-      THROW_ERR_CRYPTO_OPERATION_FAILED(env,
+-                                        "Failed to convert X509 name to UTF-8");
+-      return {};
+-    }
+-
+-    const auto& [key, value] = *entry;
+-    // The legacy object can only represent string values. Preserve valid
+-    // sibling attributes and omit values that cannot be converted to UTF-8.
+-    if (!value.has_value()) continue;
+-
+-    if (!ToV8Value(env, key).ToLocal(&v8_name) ||
+-        !ToV8Value(env, *value).ToLocal(&v8_value)) {
+-      return {};
+-    }
+-
+-    // For backward compatibility, we only create arrays if multiple values
+-    // exist for the same key. That is not great but there is not much we can
+-    // change here without breaking things. Note that this creates nested data
+-    // structures, yet still does not allow representing Distinguished Names
+-    // accurately.
+-    bool multiple;
+-    if (!result->Has(env->context(), v8_name).To(&multiple)) {
+-      return {};
+-    }
+-
+-    if (multiple) {
+-      Local<Value> accum;
+-      if (!result->Get(env->context(), v8_name).ToLocal(&accum)) {
+-        return {};
+-      }
+-      if (!accum->IsArray()) {
+-        Local<Value> items[] = {
+-            accum,
+-            v8_value,
+-        };
+-        accum = Array::New(env->isolate(), items, arraysize(items));
+-        if (!Set<Value>(env, result, v8_name, accum)) {
+-          return {};
+-        }
+-      } else {
+-        Local<Array> array = accum.As<Array>();
+-        if (!Set<Value>(env, array, array->Length(), v8_value)) {
+-          return {};
+-        }
+-      }
+-      continue;
+-    }
+-
+-    if (!Set<Value>(env, result, v8_name, v8_value)) {
+-      return {};
+-    }
+-  }
+-
+-  return result;
+-}
+-
+ MaybeLocal<Object> GetPubKey(Environment* env, const ncrypto::Rsa& rsa) {
+   auto bio = rsa.derPublicKey();
+   Local<Value> ret;
+@@ -805,13 +733,14 @@
+     env->set_x509_dictionary_template(tmpl);
+   }
+ 
++  // Subject and issuer are represented as strings again; the JS layer parses.
+   Local<Value> subject;
+-  if (!GetX509NameObject(env, cert.getSubjectName()).ToLocal(&subject)) {
++  if (!ToV8Value(env->context(), cert.getSubject()).ToLocal(&subject)) {
+     return {};
+   }
+ 
+   Local<Value> issuer;
+-  if (!GetX509NameObject(env, cert.getIssuerName()).ToLocal(&issuer)) {
++  if (!ToV8Value(env->context(), cert.getIssuer()).ToLocal(&issuer)) {
+     return {};
+   }
+ 

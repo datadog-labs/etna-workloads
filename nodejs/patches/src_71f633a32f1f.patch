@@ -1,0 +1,22 @@
+diff -uN a/src/string_decoder.cc b/src/string_decoder.cc
+--- a/src/string_decoder.cc
++++ b/src/string_decoder.cc
+@@ -41,7 +41,17 @@
+   // only falls back to v8::String::NewFromUtf8() (the previous unconditional
+   // path here) for input containing invalid sequences, so U+FFFD replacement
+   // is unchanged.
+-  MaybeLocal<Value> ret = StringBytes::Encode(isolate, data, length, encoding);
++  MaybeLocal<Value> ret;
++  if (encoding == UCS2) {
++#ifdef DEBUG
++    CHECK_EQ(reinterpret_cast<uintptr_t>(data) % 2, 0);
++    CHECK_EQ(length % 2, 0);
++#endif
++    ret = StringBytes::Encode(
++        isolate, reinterpret_cast<const uint16_t*>(data), length / 2);
++  } else {
++    ret = StringBytes::Encode(isolate, data, length, encoding);
++  }
+ 
+   if (ret.IsEmpty()) {
+     return {};

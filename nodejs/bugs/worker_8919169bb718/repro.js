@@ -1,0 +1,14 @@
+'use strict';
+const { Worker, isMainThread } = require('worker_threads');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repro-'));
+const f = path.join(dir, 'w.mjs');
+fs.writeFileSync(f, `import { workerData, parentPort } from 'worker_threads';
+parentPort.postMessage(workerData);
+`);
+const w = new Worker(f, { workerData: 'hello' });
+w.on('message', (m) => console.log('message:', m));
+w.on('error', (e) => console.log('error:', e.name, e.message));
+w.on('exit', (c) => { console.log('exit', c); fs.rmSync(dir, { recursive: true, force: true }); });

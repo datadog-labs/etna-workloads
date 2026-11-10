@@ -1,0 +1,22 @@
+diff -uN a/lib/internal/streams/iter/push.js b/lib/internal/streams/iter/push.js
+--- a/lib/internal/streams/iter/push.js
++++ b/lib/internal/streams/iter/push.js
+@@ -22,6 +22,7 @@
+     ERR_INVALID_STATE,
+   },
+ } = require('internal/errors');
++const { isError, lazyDOMException } = require('internal/util');
+ 
+ const {
+   drainableProtocol,
+@@ -138,7 +139,9 @@
+ 
+     if (this.#signal) {
+       this.#abortHandler = () => {
+-        this.fail(this.#signal.reason);
++        this.fail(isError(this.#signal.reason) ?
++          this.#signal.reason :
++          lazyDOMException('Aborted', 'AbortError'));
+       };
+       onSignalAbort(this.#signal, this.#abortHandler);
+     }

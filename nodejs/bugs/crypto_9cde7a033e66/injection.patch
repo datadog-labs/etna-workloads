@@ -1,0 +1,21 @@
+diff -uN a/lib/internal/tls/secure-context.js b/lib/internal/tls/secure-context.js
+--- a/lib/internal/tls/secure-context.js
++++ b/lib/internal/tls/secure-context.js
+@@ -166,10 +166,15 @@
+     cipherSuites,
+   } = processCiphers(ciphers, `${name}.ciphers`);
+ 
+-  if (cipherSuites !== '')
+-    context.setCipherSuites(cipherSuites);
++  context.setCipherSuites(cipherSuites);
+   context.setCiphers(cipherList);
+ 
++  if (cipherSuites === '' &&
++      context.getMaxProto() > TLS1_2_VERSION &&
++      context.getMinProto() < TLS1_3_VERSION) {
++    context.setMaxProto(TLS1_2_VERSION);
++  }
++
+   if (cipherList === '' &&
+       context.getMinProto() < TLS1_3_VERSION &&
+       context.getMaxProto() > TLS1_2_VERSION) {

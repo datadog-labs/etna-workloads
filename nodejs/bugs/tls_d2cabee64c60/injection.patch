@@ -1,0 +1,28 @@
+diff -uN a/lib/internal/tls/wrap.js b/lib/internal/tls/wrap.js
+--- a/lib/internal/tls/wrap.js
++++ b/lib/internal/tls/wrap.js
+@@ -1198,10 +1198,7 @@
+     return;
+ 
+   this.alpnProtocol = this._handle.getALPNNegotiatedProtocol();
+-  // The servername could be set by TLSWrap::SelectSNIContextCallback().
+-  if (this.servername === null) {
+-    this.servername = this._handle.getServername();
+-  }
++  this.servername = this._handle.getServername();
+ 
+   debug('%s _finishInit',
+         this._tlsOptions.isServer ? 'server' : 'client',
+diff -uN a/src/crypto/crypto_tls.cc b/src/crypto/crypto_tls.cc
+--- a/src/crypto/crypto_tls.cc
++++ b/src/crypto/crypto_tls.cc
+@@ -1504,8 +1504,7 @@
+   Context::Scope context_scope(env->context());
+ 
+   auto servername = SSLPointer::GetServerName(s);
+-  if (!servername.has_value() ||
+-      !Set(env, p->GetOwner(), env->servername_string(), servername.value()))
++  if (!servername.has_value())
+     return SSL_TLSEXT_ERR_NOACK;
+ 
+   Local<Value> ctx = p->object()->Get(env->context(), env->sni_context_string())

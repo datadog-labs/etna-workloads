@@ -1,0 +1,43 @@
+diff -uN a/lib/internal/streams/iter/classic.js b/lib/internal/streams/iter/classic.js
+--- a/lib/internal/streams/iter/classic.js
++++ b/lib/internal/streams/iter/classic.js
+@@ -939,7 +939,7 @@
+     },
+ 
+     writev(chunks, options) {
+-      chunks = convertChunks(chunks);
++      const rawChunks = chunks;
+       const signal = getWriterSignal(options);
+       syncWritableError();
+       if (errored) return PromiseReject(error);
+@@ -947,9 +947,10 @@
+         return PromiseReject(new ERR_STREAM_WRITE_AFTER_END.TypeError());
+       }
+       if (signal?.aborted) return PromiseReject(signal.reason);
+-      if (chunks.length === 0) return PromiseResolve();
++      if (chunks?.length === 0) return PromiseResolve();
+ 
+       if (pendingWrites.length !== 0 || isFull()) {
++        chunks = convertChunks(rawChunks);
+         if (backpressure === 'drop-newest') {
+           for (let i = 0; i < chunks.length; i++) {
+             totalBytes += TypedArrayPrototypeGetByteLength(chunks[i]);
+@@ -964,11 +965,17 @@
+         return queueWrite(chunks, signal);
+       }
+ 
++      const canCork = typeof writable.cork === 'function' &&
++                      typeof writable.uncork === 'function';
++      if (canCork) writable.cork();
++      chunks = convertChunks(rawChunks);
+       try {
+-        writeBatch(chunks);
++        writeChunks(chunks);
+       } catch (reason) {
++        if (canCork) writable.uncork();
+         return PromiseReject(reason);
+       }
++      if (canCork) writable.uncork();
+ 
+       if (errored) return PromiseReject(error);
+       return PromiseResolve();

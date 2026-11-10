@@ -1,0 +1,11 @@
+const fs = require('fs'), os = require('os'), path = require('path');
+const { spawnSync } = require('child_process');
+const d = fs.mkdtempSync(path.join(os.tmpdir(), 'selfref-'));
+fs.writeFileSync(path.join(d, 'package.json'), JSON.stringify({ name: 'self_ref', exports: './index.js' }));
+fs.writeFileSync(path.join(d, 'index.js'), 'module.exports = 42;\n');
+fs.writeFileSync(path.join(d, 'main.js'), 'console.log("main");\n');
+const r = spawnSync(process.execPath, ['-r', 'self_ref', 'main.js'], { cwd: d, encoding: 'utf8' });
+console.log('status', r.status);
+console.log(r.stdout.trim());
+console.log(r.stderr.includes('MODULE_NOT_FOUND') ? 'MODULE_NOT_FOUND' : r.stderr.trim());
+fs.rmSync(d, { recursive: true, force: true });

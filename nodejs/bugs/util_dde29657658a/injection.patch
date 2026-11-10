@@ -1,0 +1,64 @@
+diff -uN a/lib/internal/util/inspect.js b/lib/internal/util/inspect.js
+--- a/lib/internal/util/inspect.js
++++ b/lib/internal/util/inspect.js
+@@ -116,7 +116,6 @@
+   SymbolIterator,
+   SymbolPrototypeToString,
+   SymbolPrototypeValueOf,
+-  SymbolToPrimitive,
+   SymbolToStringTag,
+   TypeError,
+   TypeErrorPrototype,
+@@ -2729,32 +2728,22 @@
+     return hasBuiltInToString(proxyTarget);
+   }
+ 
+-  let hasOwnToString = ObjectPrototypeHasOwnProperty;
+-  let hasOwnToPrimitive = ObjectPrototypeHasOwnProperty;
+-
+-  // Count objects without `toString` and `Symbol.toPrimitive` function as built-in.
++  // Count objects that have no `toString` function as built-in.
+   if (typeof value.toString !== 'function') {
+-    if (typeof value[SymbolToPrimitive] !== 'function') {
+-      return true;
+-    } else if (ObjectPrototypeHasOwnProperty(value, SymbolToPrimitive)) {
+-      return false;
+-    }
+-    hasOwnToString = returnFalse;
+-  } else if (ObjectPrototypeHasOwnProperty(value, 'toString')) {
+-    return false;
+-  } else if (typeof value[SymbolToPrimitive] !== 'function') {
+-    hasOwnToPrimitive = returnFalse;
+-  } else if (ObjectPrototypeHasOwnProperty(value, SymbolToPrimitive)) {
++    return true;
++  }
++
++  // The object has a own `toString` property.
++  if (ObjectPrototypeHasOwnProperty(value, 'toString')) {
+     return false;
+   }
+ 
+-  // Find the object that has the `toString` property or `Symbol.toPrimitive` property
+-  // as own property in the prototype chain.
++  // Find the object that has the `toString` property as own property in the
++  // prototype chain.
+   let pointer = value;
+   do {
+     pointer = ObjectGetPrototypeOf(pointer);
+-  } while (!hasOwnToString(pointer, 'toString') &&
+-    !hasOwnToPrimitive(pointer, SymbolToPrimitive));
++  } while (!ObjectPrototypeHasOwnProperty(pointer, 'toString'));
+ 
+   // Check closer if the object is a built-in.
+   const descriptor = ObjectGetOwnPropertyDescriptor(pointer, 'constructor');
+@@ -2763,10 +2752,6 @@
+     builtInObjects.has(descriptor.value.name);
+ }
+ 
+-function returnFalse() {
+-  return false;
+-}
+-
+ const firstErrorLine = (error) => StringPrototypeSplit(error.message, '\n', 1)[0];
+ let CIRCULAR_ERROR_MESSAGE;
+ function tryStringify(arg) {

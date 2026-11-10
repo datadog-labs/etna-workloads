@@ -1,0 +1,21 @@
+const fs = require('fs'), os = require('os'), path = require('path');
+const { spawnSync } = require('child_process');
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repro-'));
+const w = (n, c) => fs.writeFileSync(path.join(dir, n), c);
+w('simple.wasm', Buffer.from('0061736d010000000113046000017f60000060027f7f017f60017f017f0231020e2e2f7761736d2d6465702e6d6a73046a73466e00000e2e2f7761736d2d6465702e6d6a73086a73496e6974466e00010304030102030715020361646400030b616464496d706f7274656400040801020a1603040010010b0700200020016a0b0700200010006a0b', 'hex'));
+w('wasm-dep.mjs', `export function jsFn(){ state='x'; return 42; }
+export let state='JS Function Executed';
+export function jsInitFn(){ state='WASM Start Executed'; }`);
+w('parent.mjs', `import * as mod1 from './simple.wasm';
+import * as mod2 from './simple.wasm';
+import source mod3 from './simple.wasm';
+import source mod4 from './simple.wasm';
+export { mod1, mod2, mod3, mod4 };`);
+w('main.mjs', `const p = await import.source('./simple.wasm');
+const { mod1, mod2, mod3, mod4 } = await import('./parent.mjs');
+console.log('eval identical:', mod1 === mod2);
+console.log('source identical:', mod3 === mod4);`);
+const r = spawnSync(process.execPath, ['--no-warnings', path.join(dir, 'main.mjs')], { encoding: 'utf8' });
+console.log(r.stdout); console.log(r.status);
+console.log((r.stderr.match(/^\w*Error.*$/m) || [''])[0]);
+fs.rmSync(dir, { recursive: true });

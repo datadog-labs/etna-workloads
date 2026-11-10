@@ -1,0 +1,37 @@
+diff -uN a/lib/internal/modules/esm/resolve.js b/lib/internal/modules/esm/resolve.js
+--- a/lib/internal/modules/esm/resolve.js
++++ b/lib/internal/modules/esm/resolve.js
+@@ -879,21 +879,10 @@
+     } else if (isBareSpecifier(specifier)) {
+       // If it is a bare specifier return the relative path within the
+       // module
+-      const i = StringPrototypeIndexOf(specifier, '/');
+-      const pkg = i === -1 ? specifier : StringPrototypeSlice(specifier, 0, i);
+-      const needle = `${sep}node_modules${sep}${pkg}${sep}`;
+-      const index = StringPrototypeLastIndexOf(found, needle);
++      const pkg = StringPrototypeSplit(specifier, '/')[0];
++      const index = StringPrototypeIndexOf(found, pkg);
+       if (index !== -1) {
+-        found = pkg + '/' + ArrayPrototypeJoin(
+-          ArrayPrototypeMap(
+-            StringPrototypeSplit(StringPrototypeSlice(found, index + needle.length), sep),
+-            // Escape URL-special characters to avoid generating a incorrect suggestion
+-            encodeURIComponent,
+-          ),
+-          '/',
+-        );
+-      } else {
+-        found = `${pathToFileURL(found)}`;
++        found = StringPrototypeSlice(found, index);
+       }
+     }
+     return found;
+@@ -1009,7 +998,7 @@
+   if (found && found !== specifier) { // Don't suggest the same input the user provided.
+     // Modify the stack and message string to include the hint
+     const endOfFirstLine = StringPrototypeIndexOf(error.stack, '\n');
+-    const hint = `Did you mean to import ${JSONStringify(found)}?`;
++    const hint = `Did you mean to import ${found}?`;
+     error.stack =
+       StringPrototypeSlice(error.stack, 0, endOfFirstLine) + '\n' +
+       hint +

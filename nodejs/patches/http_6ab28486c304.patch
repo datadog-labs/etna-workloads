@@ -1,0 +1,31 @@
+diff -uN a/lib/_http_server.js b/lib/_http_server.js
+--- a/lib/_http_server.js
++++ b/lib/_http_server.js
+@@ -1200,19 +1200,6 @@
+   }
+ }
+ 
+-function clearIncoming(req) {
+-  req ||= this;
+-  const parser = req.socket?.parser;
+-  // Reset the .incoming property so that the request object can be gc'ed.
+-  if (parser && parser.incoming === req) {
+-    if (req.readableEnded) {
+-      parser.incoming = null;
+-    } else {
+-      req.on('end', clearIncoming);
+-    }
+-  }
+-}
+-
+ function resOnFinish(req, res, socket, state, server) {
+   if (onResponseFinishChannel.hasSubscribers) {
+     onResponseFinishChannel.publish({
+@@ -1238,7 +1225,6 @@
+     req._dump();
+ 
+   res.detachSocket(socket);
+-  clearIncoming(req);
+   process.nextTick(emitCloseNT, res);
+ 
+   if (res._last) {

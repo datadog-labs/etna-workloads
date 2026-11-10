@@ -1,0 +1,42 @@
+diff -uN a/lib/internal/vfs/providers/memory.js b/lib/internal/vfs/providers/memory.js
+--- a/lib/internal/vfs/providers/memory.js
++++ b/lib/internal/vfs/providers/memory.js
+@@ -668,13 +668,10 @@
+       const segments = this.#splitPath(normalized);
+       let current = this[kRoot];
+       let currentPath = '/';
+-      let resolvedCurrentPath = '/';
+       let firstCreated;
+ 
+       for (const segment of segments) {
+         currentPath = pathPosix.join(currentPath, segment);
+-        const resolvedPath = pathPosix.join(resolvedCurrentPath, segment);
+-        this.#ensurePopulated(current, resolvedCurrentPath);
+         let entry = current.children.get(segment);
+         if (!entry) {
+           entry = new MemoryEntry(TYPE_DIR, { mode: options?.mode });
+@@ -683,23 +680,7 @@
+           if (firstCreated === undefined) {
+             firstCreated = currentPath;
+           }
+-          resolvedCurrentPath = resolvedPath;
+-        } else if (entry.isSymbolicLink()) {
+-          const targetPath = this.#resolveSymlinkTarget(resolvedPath, entry.target);
+-          const result = this.#lookupEntry(targetPath, true, 0);
+-          if (result.eloop) {
+-            throw createELOOP('mkdir', path);
+-          }
+-          if (!result.entry) {
+-            throw createENOENT('mkdir', path);
+-          }
+-          entry = result.entry;
+-          resolvedCurrentPath = result.resolvedPath;
+-        } else {
+-          resolvedCurrentPath = resolvedPath;
+-        }
+-
+-        if (!entry.isDirectory()) {
++        } else if (!entry.isDirectory()) {
+           throw createENOTDIR('mkdir', path);
+         }
+         current = entry;

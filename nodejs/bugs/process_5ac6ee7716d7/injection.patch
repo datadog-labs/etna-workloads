@@ -1,0 +1,124 @@
+diff -uN a/src/node_process.h b/src/node_process.h
+--- a/src/node_process.h
++++ b/src/node_process.h
+@@ -3,7 +3,6 @@
+ 
+ #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+ 
+-#include "node_debug.h"
+ #include "node_snapshotable.h"
+ #include "v8-fast-api-calls.h"
+ #include "v8.h"
+@@ -73,23 +72,23 @@
+   SET_SELF_SIZE(BindingData)
+ 
+   static BindingData* FromV8Value(v8::Local<v8::Value> receiver);
+-  static void HrtimeImpl(BindingData* receiver);
++  static void NumberImpl(BindingData* receiver);
+ 
+-  static void FastHrtime(v8::Local<v8::Value> receiver) {
+-    TRACK_V8_FAST_API_CALL("process.hrtime");
+-    HrtimeImpl(FromV8Value(receiver));
++  static void FastNumber(v8::Local<v8::Value> unused,
++                         v8::Local<v8::Value> receiver) {
++    NumberImpl(FromV8Value(receiver));
+   }
+ 
+-  static void SlowHrtime(const v8::FunctionCallbackInfo<v8::Value>& args);
++  static void SlowNumber(const v8::FunctionCallbackInfo<v8::Value>& args);
+ 
+-  static void HrtimeBigIntImpl(BindingData* receiver);
++  static void BigIntImpl(BindingData* receiver);
+ 
+-  static void FastHrtimeBigInt(v8::Local<v8::Value> receiver) {
+-    TRACK_V8_FAST_API_CALL("process.hrtimeBigInt");
+-    HrtimeBigIntImpl(FromV8Value(receiver));
++  static void FastBigInt(v8::Local<v8::Value> unused,
++                         v8::Local<v8::Value> receiver) {
++    BigIntImpl(FromV8Value(receiver));
+   }
+ 
+-  static void SlowHrtimeBigInt(const v8::FunctionCallbackInfo<v8::Value>& args);
++  static void SlowBigInt(const v8::FunctionCallbackInfo<v8::Value>& args);
+ 
+   static void LoadEnvFile(const v8::FunctionCallbackInfo<v8::Value>& args);
+ 
+@@ -102,8 +101,8 @@
+   // These need to be static so that we have their addresses available to
+   // register as external references in the snapshot at environment creation
+   // time.
+-  static v8::CFunction fast_hrtime_;
+-  static v8::CFunction fast_hrtime_bigint_;
++  static v8::CFunction fast_number_;
++  static v8::CFunction fast_bigint_;
+ };
+ 
+ }  // namespace process
+diff -uN a/src/node_process_methods.cc b/src/node_process_methods.cc
+--- a/src/node_process_methods.cc
++++ b/src/node_process_methods.cc
+@@ -677,22 +677,22 @@
+   hrtime_buffer_.MakeWeak();
+ }
+ 
+-CFunction BindingData::fast_hrtime_(CFunction::Make(FastHrtime));
+-CFunction BindingData::fast_hrtime_bigint_(CFunction::Make(FastHrtimeBigInt));
++v8::CFunction BindingData::fast_number_(v8::CFunction::Make(FastNumber));
++v8::CFunction BindingData::fast_bigint_(v8::CFunction::Make(FastBigInt));
+ 
+ void BindingData::AddMethods(Isolate* isolate, Local<ObjectTemplate> target) {
+   SetFastMethodNoSideEffect(
+-      isolate, target, "hrtime", SlowHrtime, &fast_hrtime_);
++      isolate, target, "hrtime", SlowNumber, &fast_number_);
+   SetFastMethodNoSideEffect(
+-      isolate, target, "hrtimeBigInt", SlowHrtimeBigInt, &fast_hrtime_bigint_);
++      isolate, target, "hrtimeBigInt", SlowBigInt, &fast_bigint_);
+ }
+ 
+ void BindingData::RegisterExternalReferences(
+     ExternalReferenceRegistry* registry) {
+-  registry->Register(SlowHrtime);
+-  registry->Register(SlowHrtimeBigInt);
+-  registry->Register(fast_hrtime_);
+-  registry->Register(fast_hrtime_bigint_);
++  registry->Register(SlowNumber);
++  registry->Register(SlowBigInt);
++  registry->Register(fast_number_);
++  registry->Register(fast_bigint_);
+ }
+ 
+ BindingData* BindingData::FromV8Value(Local<Value> value) {
+@@ -715,14 +715,14 @@
+ // broken into the upper/lower 32 bits to be converted back in JS,
+ // because there is no Uint64Array in JS.
+ // The third entry contains the remaining nanosecond part of the value.
+-void BindingData::HrtimeImpl(BindingData* receiver) {
++void BindingData::NumberImpl(BindingData* receiver) {
+   uint64_t t = uv_hrtime();
+   receiver->hrtime_buffer_[0] = (t / NANOS_PER_SEC) >> 32;
+   receiver->hrtime_buffer_[1] = (t / NANOS_PER_SEC) & 0xffffffff;
+   receiver->hrtime_buffer_[2] = t % NANOS_PER_SEC;
+ }
+ 
+-void BindingData::HrtimeBigIntImpl(BindingData* receiver) {
++void BindingData::BigIntImpl(BindingData* receiver) {
+   uint64_t t = uv_hrtime();
+   // The buffer is a Uint32Array, so we need to reinterpret it as a
+   // Uint64Array to write the value. The buffer is valid at this scope so we
+@@ -732,12 +732,12 @@
+   fields[0] = t;
+ }
+ 
+-void BindingData::SlowHrtimeBigInt(const FunctionCallbackInfo<Value>& args) {
+-  HrtimeBigIntImpl(FromJSObject<BindingData>(args.This()));
++void BindingData::SlowBigInt(const FunctionCallbackInfo<Value>& args) {
++  BigIntImpl(FromJSObject<BindingData>(args.This()));
+ }
+ 
+-void BindingData::SlowHrtime(const FunctionCallbackInfo<Value>& args) {
+-  HrtimeImpl(FromJSObject<BindingData>(args.This()));
++void BindingData::SlowNumber(const v8::FunctionCallbackInfo<v8::Value>& args) {
++  NumberImpl(FromJSObject<BindingData>(args.This()));
+ }
+ 
+ bool BindingData::PrepareForSerialization(Local<Context> context,

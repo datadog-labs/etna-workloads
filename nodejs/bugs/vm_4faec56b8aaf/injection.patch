@@ -1,0 +1,39 @@
+diff -uN a/src/node_contextify.cc b/src/node_contextify.cc
+--- a/src/node_contextify.cc
++++ b/src/node_contextify.cc
+@@ -637,9 +637,7 @@
+   if (!is_declared && property->IsSymbol()) {
+     return Intercepted::kNo;
+   }
+-  if (ctx->sandbox()->Set(context, property, value).IsNothing()) {
+-    return Intercepted::kNo;
+-  }
++  ctx->sandbox()->Set(context, property, value).Check();
+ 
+   Local<Value> desc;
+   if (is_declared_on_sandbox &&
+@@ -678,11 +676,10 @@
+   Local<Object> sandbox = ctx->sandbox();
+ 
+   if (sandbox->HasOwnProperty(context, property).FromMaybe(false)) {
+-    Local<Value> desc;
+-    if (sandbox->GetOwnPropertyDescriptor(context, property).ToLocal(&desc)) {
+-      args.GetReturnValue().Set(desc);
+-      return Intercepted::kYes;
+-    }
++    args.GetReturnValue().Set(
++        sandbox->GetOwnPropertyDescriptor(context, property)
++            .ToLocalChecked());
++    return Intercepted::kYes;
+   }
+   return Intercepted::kNo;
+ }
+@@ -729,7 +726,7 @@
+         return sandbox->DefineProperty(context, property, d);
+       });
+ 
+-  if (result.FromMaybe(false)) return Intercepted::kYes;
++  if (result.ToChecked()) return Intercepted::kYes;
+   return Intercepted::kNo;
+ }
+ 

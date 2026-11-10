@@ -1,0 +1,47 @@
+diff -uN a/lib/internal/webidl.js b/lib/internal/webidl.js
+--- a/lib/internal/webidl.js
++++ b/lib/internal/webidl.js
+@@ -21,6 +21,7 @@
+   NumberMAX_SAFE_INTEGER,
+   NumberMIN_SAFE_INTEGER,
+   ObjectPrototypeHasOwnProperty,
++  ObjectPrototypeIsPrototypeOf,
+   SafeArrayIterator,
+   SafeSet,
+   String,
+@@ -33,10 +34,16 @@
+ 
+ const { kEmptyObject, setOwnProperty } = require('internal/util');
+ const {
+-  isSharedArrayBuffer,
+   isTypedArray,
+ } = require('internal/util/types');
+ 
++function isSharedArrayBuffer(V) {
++  // SharedArrayBuffers can be disabled with --no-harmony-sharedarraybuffer.
++  if (typeof SharedArrayBuffer !== 'undefined')
++    return ObjectPrototypeIsPrototypeOf(SharedArrayBuffer.prototype, V);
++  return false;
++}
++
+ const { getSharedArrayBufferGrowable } = internalBinding('util');
+ 
+ const BIGINT_2_63 = 1n << 63n;
+@@ -931,6 +938,8 @@
+     // used with that typedef.
+     resizable = ArrayBufferPrototypeGetResizable(buffer);
+   } catch {
++    if (!isSharedArrayBuffer(buffer))
++      return;
+     // ArrayBufferView conversion step 2: reject SharedArrayBuffer
+     // backing stores unless [AllowShared] is present.
+     if (!options.allowShared) {
+@@ -1035,6 +1044,8 @@
+       // path reject SAB-backed views without an extra byteLength getter call.
+       resizable = ArrayBufferPrototypeGetResizable(buffer);
+     } catch {
++      if (!isSharedArrayBuffer(buffer))
++        return V;
+       throw makeException(
+         'is a view on a SharedArrayBuffer, which is not allowed.',
+         options);

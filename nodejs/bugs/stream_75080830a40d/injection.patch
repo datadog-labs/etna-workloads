@@ -1,0 +1,62 @@
+diff -uN a/lib/internal/webstreams/transformstream.js b/lib/internal/webstreams/transformstream.js
+--- a/lib/internal/webstreams/transformstream.js
++++ b/lib/internal/webstreams/transformstream.js
+@@ -61,7 +61,7 @@
+ } = require('internal/webstreams/util');
+ 
+ const {
+-  createReadableStream,
++  ReadableStream,
+   readableStreamDefaultControllerCanCloseOrEnqueue,
+   readableStreamDefaultControllerClose,
+   readableStreamDefaultControllerEnqueue,
+@@ -71,7 +71,7 @@
+ } = require('internal/webstreams/readablestream');
+ 
+ const {
+-  createWritableStream,
++  WritableStream,
+   writableStreamDefaultControllerErrorIfNeeded,
+ } = require('internal/webstreams/writablestream');
+ 
+@@ -396,22 +396,24 @@
+     resolvedStartAlgorithm :
+     () => startPromise.promise;
+ 
+-  const writable = createWritableStream(
+-    startAlgorithm,
+-    (chunk) => transformStreamDefaultSinkWriteAlgorithm(stream, chunk),
+-    () => transformStreamDefaultSinkCloseAlgorithm(stream),
+-    (reason) => transformStreamDefaultSinkAbortAlgorithm(stream, reason),
+-    writableHighWaterMark,
+-    writableSizeAlgorithm,
+-  );
+-
+-  const readable = createReadableStream(
+-    startAlgorithm,
+-    () => transformStreamDefaultSourcePullAlgorithm(stream),
+-    (reason) => transformStreamDefaultSourceCancelAlgorithm(stream, reason),
+-    readableHighWaterMark,
+-    readableSizeAlgorithm,
+-  );
++  const writable = new WritableStream({
++    start: startAlgorithm,
++    write: (chunk) => transformStreamDefaultSinkWriteAlgorithm(stream, chunk),
++    close: () => transformStreamDefaultSinkCloseAlgorithm(stream),
++    abort: (reason) => transformStreamDefaultSinkAbortAlgorithm(stream, reason),
++  }, {
++    highWaterMark: writableHighWaterMark,
++    size: writableSizeAlgorithm,
++  });
++
++  const readable = new ReadableStream({
++    start: startAlgorithm,
++    pull: () => transformStreamDefaultSourcePullAlgorithm(stream),
++    cancel: (reason) => transformStreamDefaultSourceCancelAlgorithm(stream, reason),
++  }, {
++    highWaterMark: readableHighWaterMark,
++    size: readableSizeAlgorithm,
++  });
+ 
+   const state = new TransformStreamState();
+   state.readable = readable;

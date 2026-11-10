@@ -1,0 +1,47 @@
+diff -uN a/lib/internal/streams/iter/consumers.js b/lib/internal/streams/iter/consumers.js
+--- a/lib/internal/streams/iter/consumers.js
++++ b/lib/internal/streams/iter/consumers.js
+@@ -507,22 +507,8 @@
+       const pendingPulls = new SafeSet();
+       let activeCount = normalized.length;
+       let waitResolve = null;
+-      let onAbort;
+       let stopped = false;
+ 
+-      if (signal) {
+-        onAbort = () => {
+-          if (waitResolve) {
+-            waitResolve();
+-            waitResolve = null;
+-          }
+-        };
+-        signal.addEventListener('abort', onAbort, {
+-          __proto__: null,
+-          once: true,
+-        });
+-      }
+-
+       // Called when a source's .next() settles. Pushes the result into
+       // the ready queue and wakes the consumer if it's waiting.
+       const onSettled = (iterator, result) => {
+@@ -595,10 +581,6 @@
+           if (activeCount > 0) {
+             await new Promise((resolve) => {
+               waitResolve = resolve;
+-              if (signal?.aborted) {
+-                waitResolve = null;
+-                resolve();
+-              }
+             });
+           }
+         }
+@@ -606,9 +588,6 @@
+         primaryError = err;
+       } finally {
+         stopped = true;
+-        if (onAbort !== undefined) {
+-          signal.removeEventListener('abort', onAbort);
+-        }
+         // Clean up: return all iterators. Cleanup errors are not
+         // swallowed - a broken iterator.return() (e.g., failing to
+         // release a resource) should be visible to the caller.

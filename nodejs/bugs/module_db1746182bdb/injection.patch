@@ -1,0 +1,34 @@
+diff -uN a/lib/internal/modules/esm/loader.js b/lib/internal/modules/esm/loader.js
+--- a/lib/internal/modules/esm/loader.js
++++ b/lib/internal/modules/esm/loader.js
+@@ -18,10 +18,8 @@
+ const { ModuleJob, ModuleJobSync } = require('internal/modules/esm/module_job');
+ // This is needed to avoid cycles in esm/resolve <-> cjs/loader
+ const {
+-  kIsExecuting,
+   kRequiredModuleSymbol,
+ } = require('internal/modules/cjs/loader');
+-const { imported_cjs_symbol } = internalBinding('symbols');
+ 
+ const assert = require('internal/assert');
+ const {
+@@ -404,19 +402,6 @@
+     const wrap = this.#translate(url, translateContext, parentURL);
+     assert(wrap instanceof ModuleWrap, `Translator used for require(${url}) should not be async`);
+ 
+-    const cjsModule = wrap[imported_cjs_symbol];
+-    if (cjsModule) {
+-      // Check if the ESM initiating import CJS is being required by the same CJS module.
+-      if (cjsModule?.[kIsExecuting]) {
+-        const parentFilename = urlToFilename(parentURL);
+-        let message = `Cannot import CommonJS Module ${request.specifier} in a cycle.`;
+-        if (parentFilename) {
+-          message += ` (from ${parentFilename})`;
+-        }
+-        throw new ERR_REQUIRE_CYCLE_MODULE(message);
+-      }
+-    }
+-
+     return wrap;
+   }
+ 
