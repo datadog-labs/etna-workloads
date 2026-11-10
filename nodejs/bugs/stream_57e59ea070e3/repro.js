@@ -1,0 +1,10 @@
+'use strict';
+const { Duplex, Writable } = require('stream');
+const { TransformStream, WritableStream } = require('stream/web');
+process.on('uncaughtException', (e) => { console.log('uncaught', e.name); process.exitCode = 1; });
+const d = Duplex.fromWeb(new TransformStream());
+d.on('close', () => console.log('duplex close'));
+d.cork(); d.write('test'); d.write('test'); d.uncork(); d.destroy();
+const w = Writable.fromWeb(new WritableStream());
+w.on('close', () => console.log('writable close'));
+w.cork(); w.write('test'); w.write('test'); w.uncork(); w.destroy();

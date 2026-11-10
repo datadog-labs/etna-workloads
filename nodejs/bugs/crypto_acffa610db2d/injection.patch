@@ -1,0 +1,102 @@
+diff -uN a/lib/internal/crypto/random.js b/lib/internal/crypto/random.js
+--- a/lib/internal/crypto/random.js
++++ b/lib/internal/crypto/random.js
+@@ -21,7 +21,6 @@
+   NumberPrototypeToString,
+   StringFromCharCodeApply,
+   StringPrototypePadStart,
+-  TypedArrayPrototypeFill,
+   TypedArrayPrototypeGetBuffer,
+   TypedArrayPrototypeGetByteLength,
+   TypedArrayPrototypeGetLength,
+@@ -75,14 +74,6 @@
+ 
+ const { FastBuffer } = require('internal/buffer');
+ 
+-const {
+-  namespace: {
+-    isBuildingSnapshot,
+-  },
+-  addAfterUserSerializeCallback,
+-  addBeforeUserDeserializeCallback,
+-} = require('internal/v8/startup_snapshot');
+-
+ const kMaxInt32 = 2 ** 31 - 1;
+ const kMaxPossibleLength = MathMin(kMaxLength, kMaxInt32);
+ 
+@@ -388,27 +379,6 @@
+ let uuidNotBuffered;
+ let uuidBatch = 0;
+ 
+-if (isBuildingSnapshot()) {
+-  const resetRandomCaches = () => {
+-    TypedArrayPrototypeFill(randomCache, 0);
+-    randomCacheOffset = randomCache.length;
+-    if (uuidData !== undefined) {
+-      TypedArrayPrototypeFill(uuidData, 0);
+-      uuidData = undefined;
+-    }
+-    if (uuidNotBuffered !== undefined) {
+-      TypedArrayPrototypeFill(uuidNotBuffered, 0);
+-      uuidNotBuffered = undefined;
+-    }
+-    uuidBatch = 0;
+-  };
+-  // Clear cached random data after user serialization callbacks.
+-  addAfterUserSerializeCallback(resetRandomCaches);
+-  // Microtasks and exit handlers can refill the caches after serialization
+-  // callbacks, so also reset them before any user deserialization callbacks.
+-  addBeforeUserDeserializeCallback(resetRandomCaches);
+-}
+-
+ let hexBytesCache;
+ function getHexBytes() {
+   if (hexBytesCache === undefined) {
+diff -uN a/lib/internal/v8/startup_snapshot.js b/lib/internal/v8/startup_snapshot.js
+--- a/lib/internal/v8/startup_snapshot.js
++++ b/lib/internal/v8/startup_snapshot.js
+@@ -35,14 +35,8 @@
+ }
+ 
+ const deserializeCallbacks = [];
+-const beforeUserDeserializeCallbacks = [];
+ let deserializeCallbackIsSet = false;
+ function runDeserializeCallbacks() {
+-  for (let i = 0; i < beforeUserDeserializeCallbacks.length; i++) {
+-    const { 0: callback, 1: data } = beforeUserDeserializeCallbacks[i];
+-    callback(data);
+-  }
+-  beforeUserDeserializeCallbacks.length = 0;
+   for (let i = 0; i < deserializeCallbacks.length; i++) {
+     const { 0: callback, 1: data } = deserializeCallbacks[i];
+     callback(data);
+@@ -51,14 +45,6 @@
+ }
+ 
+ function addDeserializeCallback(callback, data) {
+-  addDeserializeCallbackImpl(deserializeCallbacks, callback, data);
+-}
+-
+-function addBeforeUserDeserializeCallback(callback, data) {
+-  addDeserializeCallbackImpl(beforeUserDeserializeCallbacks, callback, data);
+-}
+-
+-function addDeserializeCallbackImpl(callbacks, callback, data) {
+   throwIfNotBuildingSnapshot();
+   validateFunction(callback, 'callback');
+   if (!deserializeCallbackIsSet) {
+@@ -69,7 +55,7 @@
+     setDeserializeCallback(runDeserializeCallbacks);
+     deserializeCallbackIsSet = true;
+   }
+-  callbacks.push([callback, data]);
++  deserializeCallbacks.push([callback, data]);
+ }
+ 
+ const serializeCallbacks = [];
+@@ -144,5 +130,4 @@
+     isBuildingSnapshot,
+   },
+   addAfterUserSerializeCallback,
+-  addBeforeUserDeserializeCallback,
+ };

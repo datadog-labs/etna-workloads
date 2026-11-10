@@ -1,0 +1,28 @@
+diff -uN a/lib/events.js b/lib/events.js
+--- a/lib/events.js
++++ b/lib/events.js
+@@ -1198,8 +1198,14 @@
+       addEventListener(emitter, closeEvents[i], closeHandler);
+     }
+   }
+-
+-  const abortListenerDisposable = signal ? addAbortListener(signal, abortListener) : null;
++  if (signal) {
++    kResistStopPropagation ??= require('internal/event_target').kResistStopPropagation;
++    eventTargetAgnosticAddListener(
++      signal,
++      'abort',
++      abortListener,
++      { __proto__: null, once: true, [kResistStopPropagation]: true });
++  }
+ 
+   return iterator;
+ 
+@@ -1226,7 +1232,6 @@
+   }
+ 
+   function closeHandler() {
+-    abortListenerDisposable?.[SymbolDispose]();
+     removeAll();
+     finished = true;
+     paused = false;

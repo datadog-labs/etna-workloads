@@ -1,0 +1,36 @@
+diff -uN a/lib/_http_outgoing.js b/lib/_http_outgoing.js
+--- a/lib/_http_outgoing.js
++++ b/lib/_http_outgoing.js
+@@ -120,10 +120,6 @@
+   return s.length === 6 && s.toLowerCase() === 'cookie';
+ }
+ 
+-function isContentDispositionField(s) {
+-  return s.length === 19 && s.toLowerCase() === 'content-disposition';
+-}
+-
+ function OutgoingMessage(options) {
+   // Preset the listener table with the events that are commonly listened
+   // for, mirroring streams. The presence of the properties keeps `_events`
+@@ -638,21 +634,6 @@
+   if (validate)
+     validateHeaderName(key);
+ 
+-  // If key is content-disposition and there is content-length
+-  // encode the value in latin1
+-  // https://www.rfc-editor.org/rfc/rfc6266#section-4.3
+-  // Refs: https://github.com/nodejs/node/pull/46528
+-  if (isContentDispositionField(key) && self._contentLength) {
+-    // The value could be an array here
+-    if (ArrayIsArray(value)) {
+-      for (let i = 0; i < value.length; i++) {
+-        value[i] = Buffer.from(value[i], 'latin1');
+-      }
+-    } else {
+-      value = Buffer.from(value, 'latin1');
+-    }
+-  }
+-
+   if (ArrayIsArray(value)) {
+     if (
+       (value.length < 2 || !isCookieField(key)) &&

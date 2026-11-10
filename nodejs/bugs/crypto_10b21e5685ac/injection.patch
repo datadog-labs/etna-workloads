@@ -1,0 +1,32 @@
+diff -uN a/src/crypto/crypto_context.cc b/src/crypto/crypto_context.cc
+--- a/src/crypto/crypto_context.cc
++++ b/src/crypto/crypto_context.cc
+@@ -126,17 +126,18 @@
+ // Takes a string or buffer and loads it into a BIO.
+ // Caller responsible for BIO_free_all-ing the returned object.
+ BIOPointer LoadBIO(Environment* env, Local<Value> v) {
+-  if (v->IsString() || v->IsArrayBufferView()) {
+-    auto bio = BIOPointer::NewSecMem();
+-    if (!bio) return {};
+-    ByteSource bsrc = ByteSource::FromStringOrBuffer(env, v);
+-    if (bsrc.size() > INT_MAX) return {};
+-    int written = BIOPointer::Write(
+-        &bio, std::string_view(bsrc.data<char>(), bsrc.size()));
+-    if (written < 0) return {};
+-    if (static_cast<size_t>(written) != bsrc.size()) return {};
+-    return bio;
++  HandleScope scope(env->isolate());
++
++  if (v->IsString()) {
++    Utf8Value s(env->isolate(), v);
++    return NodeBIO::NewFixed(*s, s.length());
++  }
++
++  if (v->IsArrayBufferView()) {
++    ArrayBufferViewContents<char> buf(v.As<ArrayBufferView>());
++    return NodeBIO::NewFixed(buf.data(), buf.length());
+   }
++
+   return {};
+ }
+ 

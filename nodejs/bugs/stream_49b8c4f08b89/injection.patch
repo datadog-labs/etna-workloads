@@ -1,0 +1,32 @@
+diff -uN a/lib/internal/streams/end-of-stream.js b/lib/internal/streams/end-of-stream.js
+--- a/lib/internal/streams/end-of-stream.js
++++ b/lib/internal/streams/end-of-stream.js
+@@ -93,7 +93,7 @@
+     return errored;
+   }
+ 
+-  if (readable && !readableFinished && isReadableNodeStream(stream, true)) {
++  if (readable && !readableFinished) {
+     if (!isReadableFinished(stream, false)) {
+       return new ERR_STREAM_PREMATURE_CLOSE();
+     }
+diff -uN a/lib/internal/streams/utils.js b/lib/internal/streams/utils.js
+--- a/lib/internal/streams/utils.js
++++ b/lib/internal/streams/utils.js
+@@ -33,15 +33,11 @@
+ const kErrored = 1 << 7;
+ const kConstructed = 1 << 8;
+ 
+-function isReadableNodeStream(obj, strict = false) {
++function isReadableNodeStream(obj) {
+   return !!(
+     obj &&
+     typeof obj.pipe === 'function' &&
+     typeof obj.on === 'function' &&
+-    (
+-      !strict ||
+-      (typeof obj.pause === 'function' && typeof obj.resume === 'function')
+-    ) &&
+     (!obj._writableState || obj._readableState?.readable !== false) && // Duplex
+     (!obj._writableState || obj._readableState) // Writable has .pipe.
+   );

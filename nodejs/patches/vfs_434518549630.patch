@@ -1,0 +1,75 @@
+diff -uN a/lib/internal/vfs/file_system.js b/lib/internal/vfs/file_system.js
+--- a/lib/internal/vfs/file_system.js
++++ b/lib/internal/vfs/file_system.js
+@@ -588,11 +588,6 @@
+     this[kProvider].chownSync(providerPath, uid, gid);
+   }
+ 
+-  lchownSync(filePath, uid, gid) {
+-    const providerPath = this.#toProviderPath(filePath);
+-    this[kProvider].lchownSync(providerPath, uid, gid);
+-  }
+-
+   utimesSync(filePath, atime, mtime) {
+     const providerPath = this.#toProviderPath(filePath);
+     this[kProvider].utimesSync(providerPath, atime, mtime);
+@@ -1321,7 +1316,7 @@
+ 
+       async lchown(filePath, uid, gid) {
+         const providerPath = toProviderPath(filePath);
+-        provider.lchownSync(providerPath, uid, gid);
++        provider.chownSync(providerPath, uid, gid);
+       },
+ 
+       async utimes(filePath, atime, mtime) {
+diff -uN a/lib/internal/vfs/provider.js b/lib/internal/vfs/provider.js
+--- a/lib/internal/vfs/provider.js
++++ b/lib/internal/vfs/provider.js
+@@ -235,18 +235,6 @@
+     throw new ERR_METHOD_NOT_IMPLEMENTED('renameSync');
+   }
+ 
+-  /**
+-   * Changes ownership of a path without following the final symbolic link.
+-   * Providers with symlink support should override this.
+-   * @param {string} path The path
+-   * @param {number} uid The user id
+-   * @param {number} gid The group id
+-   * @returns {void}
+-   */
+-  lchownSync(path, uid, gid) {
+-    return this.chownSync(path, uid, gid);
+-  }
+-
+   // === DEFAULT IMPLEMENTATIONS (built on primitives) ===
+ 
+   /**
+diff -uN a/lib/internal/vfs/providers/memory.js b/lib/internal/vfs/providers/memory.js
+--- a/lib/internal/vfs/providers/memory.js
++++ b/lib/internal/vfs/providers/memory.js
+@@ -961,13 +961,6 @@
+     entry.ctime = DateNow();
+   }
+ 
+-  lchownSync(path, uid, gid) {
+-    const entry = this.#getEntry(path, 'chown', false);
+-    if (uid >= 0) entry.uid = uid;
+-    if (gid >= 0) entry.gid = gid;
+-    entry.ctime = DateNow();
+-  }
+-
+   utimesSync(path, atime, mtime) {
+     const entry = this.#getEntry(path, 'utime', true);
+     entry.atime = toMs(atime);
+diff -uN a/lib/internal/vfs/setup.js b/lib/internal/vfs/setup.js
+--- a/lib/internal/vfs/setup.js
++++ b/lib/internal/vfs/setup.js
+@@ -510,7 +510,7 @@
+       vfsOpVoid(path, (vfs, n) => vfs.symlinkSync(target, n, type)),
+     chmodSync: (path, mode) => vfsOpVoid(path, (vfs, n) => vfs.chmodSync(n, mode)),
+     chownSync: (path, uid, gid) => vfsOpVoid(path, (vfs, n) => vfs.chownSync(n, uid, gid)),
+-    lchownSync: (path, uid, gid) => vfsOpVoid(path, (vfs, n) => vfs.lchownSync(n, uid, gid)),
++    lchownSync: (path, uid, gid) => vfsOpVoid(path, (vfs, n) => vfs.chownSync(n, uid, gid)),
+     utimesSync: (path, atime, mtime) =>
+       vfsOpVoid(path, (vfs, n) => vfs.utimesSync(n, atime, mtime)),
+     lutimesSync: (path, atime, mtime) =>

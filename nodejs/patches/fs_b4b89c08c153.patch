@@ -1,0 +1,164 @@
+diff -uN a/lib/internal/fs/recursive_watch.js b/lib/internal/fs/recursive_watch.js
+--- a/lib/internal/fs/recursive_watch.js
++++ b/lib/internal/fs/recursive_watch.js
+@@ -37,24 +37,6 @@
+ 
+ let kResistStopPropagation;
+ 
+-const kIsAIX = process.platform === 'aix';
+-
+-function isPathMissingForWatch(error, file) {
+-  if (error.code === 'ENOENT') {
+-    return true;
+-  }
+-  // AIX reports ENODEV when the path disappears before fs.watch() starts.
+-  // Check that it is actually gone so other ENODEV errors still propagate.
+-  if (!kIsAIX || error.code !== 'ENODEV') {
+-    return false;
+-  }
+-  try {
+-    return lazyLoadFsSync().statSync(file, { throwIfNoEntry: false }) === undefined;
+-  } catch {
+-    return false;
+-  }
+-}
+-
+ // Inotify reports changes to a directory's entries, with their names, on the
+ // directory's own watch, so one watcher per directory is enough on Linux.
+ // kqueue and event ports only report that the directory itself changed, so
+@@ -134,81 +116,56 @@
+   }
+ 
+   #forget(file) {
+-    const watcher = this.#watchers.get(file);
+-    if (watcher !== undefined) {
+-      watcher.close();
+-      this.#watchers.delete(file);
+-    }
+-    this.#entries.delete(file);
+-    this.#symbolicLinks.delete(file);
+-
+     const childPrefix = file + pathSep;
+     for (const entry of this.#entries) {
+-      if (StringPrototypeStartsWith(entry, childPrefix)) {
++      if (entry === file || StringPrototypeStartsWith(entry, childPrefix)) {
+         this.#entries.delete(entry);
+         this.#symbolicLinks.delete(entry);
+-        const childWatcher = this.#watchers.get(entry);
+-        if (childWatcher !== undefined) {
+-          childWatcher.close();
++        const watcher = this.#watchers.get(entry);
++        if (watcher !== undefined) {
++          watcher.close();
+           this.#watchers.delete(entry);
+         }
+       }
+     }
+   }
+ 
+-  // Report an entry that vanished between being listed and being watched so
+-  // the caller can discard its stale bookkeeping.
++  // An entry that vanished between being listed and being watched is left to
++  // the directory's own watcher to report.
+   #watch(file, onChange) {
+-    if (this.#closed) {
+-      return false;
+-    }
+-    if (this.#watchers.has(file)) {
+-      return true;
++    if (this.#closed || this.#watchers.has(file)) {
++      return;
+     }
+     const { watch } = lazyLoadFsSync();
+     let watcher;
+     try {
+       watcher = watch(file, { persistent: this.#options.persistent }, onChange);
+     } catch (err) {
+-      if (isPathMissingForWatch(err, file) &&
+-          (file !== this.#rootPath || !this.#options.throwIfNoEntry)) {
+-        return false;
++      if (err.code === 'ENOENT') {
++        return;
+       }
+       throw err;
+     }
+     this.#watchers.set(file, watcher);
+-    return true;
+   }
+ 
+-  // Arms one watcher for `folder`, then registers entries that are not known
+-  // yet (emitting 'rename' for them unless this is the initial scan);
+-  // #addEntry() descends into subdirectories.
++  // Registers the entries of `folder` that are not known yet (emitting
++  // 'rename' for them unless this is the initial scan) and arms one watcher
++  // for the directory; #addEntry() descends into subdirectories.
+   #scanFolder(folder, initial) {
+-    if (!this.#watch(folder, (eventType, filename) => this.#onFolderEvent(folder, filename))) {
+-      this.#forget(folder);
+-      return;
+-    }
+-
+     const { readdirSync } = lazyLoadFsSync();
+     let entries;
+     try {
+       entries = readdirSync(folder, { withFileTypes: true });
+     } catch (error) {
+-      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') {
+-        if (folder === this.#rootPath && initial &&
+-            (error.code !== 'ENOENT' || this.#options.throwIfNoEntry)) {
+-          throw error;
+-        }
+-        if (!initial && !this.#closed) {
+-          this.#emit('rename', folder);
+-        }
+-        this.#forget(folder);
+-      } else {
++      if (error.code !== 'ENOENT') {
+         this.emit('error', error);
+       }
+       return;
+     }
+ 
++    this.#watch(folder, (eventType, filename) => this.#onFolderEvent(folder, filename));
++
+     for (const entry of entries) {
+       if (this.#closed) {
+         break;
+@@ -230,15 +187,11 @@
+       // The link target is watched so that changes behind the link surface
+       // as a 'rename' of the link, as they always have on this code path.
+       this.#symbolicLinks.add(file);
+-      if (!this.#watch(file, () => this.#emit('rename', file))) {
+-        this.#forget(file);
+-      }
++      this.#watch(file, () => this.#emit('rename', file));
+     } else if (entry.isDirectory()) {
+       this.#scanFolder(file, initial);
+     } else if (!kDirectoryWatchReportsEntries) {
+-      if (!this.#watch(file, () => this.#onEntryEvent(file))) {
+-        this.#forget(file);
+-      }
++      this.#watch(file, () => this.#onEntryEvent(file));
+     }
+   }
+ 
+@@ -300,7 +253,7 @@
+   #watchRootFile(file) {
+     const { statSync } = lazyLoadFsSync();
+     this.#entries.add(file);
+-    if (!this.#watch(file, () => {
++    this.#watch(file, () => {
+       if (this.#closed) {
+         return;
+       }
+@@ -310,9 +263,7 @@
+       } else {
+         this.emit('change', 'change', pathBasename(file));
+       }
+-    })) {
+-      this.#forget(file);
+-    }
++    });
+   }
+ 
+   [kFSWatchStart](filename) {

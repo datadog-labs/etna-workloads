@@ -1,0 +1,66 @@
+diff -uN a/lib/_http_server.js b/lib/_http_server.js
+--- a/lib/_http_server.js
++++ b/lib/_http_server.js
+@@ -620,8 +620,12 @@
+   if (shouldUpgradeCallback !== undefined) {
+     validateFunction(shouldUpgradeCallback, 'options.shouldUpgradeCallback');
+     this.shouldUpgradeCallback = shouldUpgradeCallback;
+-  } else {
+-    this.shouldUpgradeCallback = function() {
++  }
++}
++
++function setDefaultShouldUpgradeCallback(server) {
++  if (server.shouldUpgradeCallback === undefined) {
++    server.shouldUpgradeCallback = function() {
+       return this.listenerCount('upgrade') > 0;
+     };
+   }
+@@ -658,6 +662,7 @@
+   }
+ 
+   storeHTTPOptions.call(this, options);
++  setDefaultShouldUpgradeCallback(this);
+ 
+   net.Server.call(
+     this,
+@@ -1534,6 +1539,7 @@
+   ServerResponse,
+   setupConnectionsTracking,
+   storeHTTPOptions,
++  setDefaultShouldUpgradeCallback,
+   _connectionListener: connectionListener,
+   kServerResponse,
+   httpServerPreClose,
+diff -uN a/lib/https.js b/lib/https.js
+--- a/lib/https.js
++++ b/lib/https.js
+@@ -63,6 +63,7 @@
+   Server: HttpServer,
+   setupConnectionsTracking,
+   storeHTTPOptions,
++  setDefaultShouldUpgradeCallback,
+   _connectionListener,
+ } = require('_http_server');
+ const { ClientRequest } = require('_http_client');
+@@ -95,6 +96,7 @@
+   }
+ 
+   FunctionPrototypeCall(storeHTTPOptions, this, opts);
++  setDefaultShouldUpgradeCallback(this);
+   FunctionPrototypeCall(tls.Server, this,
+                         {
+                           noDelay: true,
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -3528,9 +3528,6 @@
+     this.on('newListener', setupCompat);
+     if (options.allowHTTP1 === true) {
+       storeHTTPOptions.call(this, { ...options, ...options.http1Options });
+-      this.shouldUpgradeCallback = function() {
+-        return this.listenerCount('upgrade') > 0;
+-      };
+       this.on('listening', setupConnectionsTracking);
+     }
+     if (typeof requestListener === 'function')

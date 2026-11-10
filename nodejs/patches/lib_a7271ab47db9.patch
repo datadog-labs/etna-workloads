@@ -1,0 +1,74 @@
+diff -uN a/lib/internal/util/debuglog.js b/lib/internal/util/debuglog.js
+--- a/lib/internal/util/debuglog.js
++++ b/lib/internal/util/debuglog.js
+@@ -146,7 +146,6 @@
+ const kNone = 1 << 0;
+ const kSkipLog = 1 << 1;
+ const kSkipTrace = 1 << 2;
+-const kShouldSkipAll = kSkipLog | kSkipTrace;
+ 
+ const kSecond = 1000;
+ const kMinute = 60 * kSecond;
+@@ -392,6 +391,8 @@
+   let debugLogCategoryEnabled = false;
+   let timerFlags = kNone;
+ 
++  const skipAll = kSkipLog | kSkipTrace;
++
+   function ensureTimerFlagsAreUpdated() {
+     timerFlags &= ~kSkipTrace;
+ 
+@@ -406,7 +407,7 @@
+   function internalStartTimer(logLabel, traceLabel) {
+     ensureTimerFlagsAreUpdated();
+ 
+-    if ((timerFlags & kShouldSkipAll) === kShouldSkipAll) {
++    if (timerFlags === skipAll) {
+       return;
+     }
+ 
+@@ -426,7 +427,7 @@
+   function internalEndTimer(logLabel, traceLabel) {
+     ensureTimerFlagsAreUpdated();
+ 
+-    if ((timerFlags & kShouldSkipAll) === kShouldSkipAll) {
++    if (timerFlags === skipAll) {
+       return;
+     }
+ 
+@@ -447,7 +448,7 @@
+   function internalLogTimer(logLabel, traceLabel, args) {
+     ensureTimerFlagsAreUpdated();
+ 
+-    if ((timerFlags & kShouldSkipAll) === kShouldSkipAll) {
++    if (timerFlags === skipAll) {
+       return;
+     }
+ 
+@@ -490,7 +491,7 @@
+   const startTimer = (logLabel, traceLabel) => {
+     init();
+ 
+-    if ((timerFlags & kShouldSkipAll) !== kShouldSkipAll)
++    if (timerFlags !== skipAll)
+       internalStartTimer(logLabel, traceLabel);
+   };
+ 
+@@ -500,7 +501,7 @@
+   const endTimer = (logLabel, traceLabel) => {
+     init();
+ 
+-    if ((timerFlags & kShouldSkipAll) !== kShouldSkipAll)
++    if (timerFlags !== skipAll)
+       internalEndTimer(logLabel, traceLabel);
+   };
+ 
+@@ -510,7 +511,7 @@
+   const logTimer = (logLabel, traceLabel, args) => {
+     init();
+ 
+-    if ((timerFlags & kShouldSkipAll) !== kShouldSkipAll)
++    if (timerFlags !== skipAll)
+       internalLogTimer(logLabel, traceLabel, args);
+   };
+ 

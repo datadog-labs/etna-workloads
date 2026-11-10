@@ -1,0 +1,101 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -859,10 +859,6 @@
+   }
+ }
+ 
+-function requestOnError(error) {
+-  this.destroy(error);
+-}
+-
+ // Validates that priority options are correct, specifically:
+ // 1. options.weight must be a number
+ // 2. options.parent must be a positive number
+@@ -1178,7 +1174,7 @@
+   process.nextTick(emit, this, 'connect', this, socket);
+ }
+ 
+-// Emits an error event followed by a close event if err is truthy. Used
++// Emits a close event followed by an error event if err is truthy. Used
+ // by Http2Session.prototype.destroy()
+ function emitClose(self, error) {
+   if (error)
+@@ -1249,9 +1245,6 @@
+   session.setTimeout(0);
+   session.removeAllListeners('timeout');
+ 
+-  const socket = session[kSocket];
+-  const handle = session[kHandle];
+-
+   // Destroy any pending and open streams
+   if (state.pendingStreams.size > 0 || state.streams.size > 0) {
+     const cancel = new ERR_HTTP2_STREAM_CANCEL(error);
+@@ -1259,6 +1252,10 @@
+     state.streams.forEach((stream) => stream.destroy(error));
+   }
+ 
++  // Disassociate from the socket and server.
++  const socket = session[kSocket];
++  const handle = session[kHandle];
++
+   // Destroy the handle if it exists at this point.
+   if (handle !== undefined) {
+     handle.ondone = finishSessionClose.bind(null, session, error);
+@@ -1833,15 +1830,11 @@
+   request(headersParam, options) {
+     debugSessionObj(this, 'initiating request');
+ 
+-    // Keep argument validation synchronous, but defer session-state failures
+-    // to the returned stream so request retries from stream callbacks do not
+-    // throw before session lifecycle handlers run.
+-    let requestError;
+-    if (this.destroyed) {
+-      requestError = new ERR_HTTP2_INVALID_SESSION();
+-    } else if (this.closed) {
+-      requestError = new ERR_HTTP2_GOAWAY_SESSION();
+-    }
++    if (this.destroyed)
++      throw new ERR_HTTP2_INVALID_SESSION();
++
++    if (this.closed)
++      throw new ERR_HTTP2_GOAWAY_SESSION();
+ 
+     this[kUpdateTimer]();
+ 
+@@ -1927,24 +1920,19 @@
+       }
+     }
+ 
+-    if (requestError) {
+-      process.nextTick(reqAsync.bind(requestOnError.bind(stream, requestError)));
+-    } else {
+-      const onConnect = reqAsync.bind(
+-        requestOnConnect.bind(stream, headersList, options));
+-      if (this.connecting) {
+-        if (this[kPendingRequestCalls] !== null) {
+-          this[kPendingRequestCalls].push(onConnect);
+-        } else {
+-          this[kPendingRequestCalls] = [onConnect];
+-          this.once('connect', () => {
+-            this[kPendingRequestCalls].forEach((f) => f());
+-            this[kPendingRequestCalls] = null;
+-          });
+-        }
++    const onConnect = reqAsync.bind(requestOnConnect.bind(stream, headersList, options));
++    if (this.connecting) {
++      if (this[kPendingRequestCalls] !== null) {
++        this[kPendingRequestCalls].push(onConnect);
+       } else {
+-        onConnect();
++        this[kPendingRequestCalls] = [onConnect];
++        this.once('connect', () => {
++          this[kPendingRequestCalls].forEach((f) => f());
++          this[kPendingRequestCalls] = null;
++        });
+       }
++    } else {
++      onConnect();
+     }
+ 
+     if (onClientStreamCreatedChannel.hasSubscribers) {

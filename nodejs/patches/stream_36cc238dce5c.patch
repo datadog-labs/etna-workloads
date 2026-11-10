@@ -1,0 +1,98 @@
+diff -uN a/lib/internal/streams/iter/broadcast.js b/lib/internal/streams/iter/broadcast.js
+--- a/lib/internal/streams/iter/broadcast.js
++++ b/lib/internal/streams/iter/broadcast.js
+@@ -26,10 +26,6 @@
+ } = primordials;
+ 
+ const { lazyDOMException } = require('internal/util');
+-const {
+-  AbortController,
+-  abortSignal,
+-} = require('internal/abort_controller');
+ 
+ const { markPromiseAsHandled } = internalBinding('util');
+ 
+@@ -68,7 +64,6 @@
+   parsePullArgs,
+   toWriterUint8Array,
+   validateBatchEntry,
+-  yieldAbortable,
+   validateBudget,
+ } = require('internal/streams/iter/utils');
+ const {
+@@ -86,7 +81,6 @@
+ const kCanWrite = Symbol('kCanWrite');
+ const kOnBufferDrained = Symbol('kOnBufferDrained');
+ const kOnEndDrained = Symbol('kOnEndDrained');
+-const kOnCancel = Symbol('kOnCancel');
+ const kPendingWriteRemoved = Symbol('kPendingWriteRemoved');
+ const kNoBroadcastError = Symbol('kNoBroadcastError');
+ const kSetFactorySignal = Symbol('kSetFactorySignal');
+@@ -130,7 +124,6 @@
+     this.#options = options;
+     this[kOnBufferDrained] = null;
+     this[kOnEndDrained] = null;
+-    this[kOnCancel] = null;
+   }
+ 
+   setWriter(writer) {
+@@ -325,9 +318,6 @@
+     this.#waiters.clear();
+     this.#cachedMinCursorConsumers = 0;
+     this.#cleanupFactorySignal();
+-    const onCancel = this[kOnCancel];
+-    this[kOnCancel] = null;
+-    onCancel?.(reason);
+   }
+ 
+   [SymbolDispose]() {
+@@ -939,23 +929,13 @@
+     });
+     const result = broadcast(options);
+     const { signal } = options;
+-    const controller = new AbortController();
+-    if (signal?.aborted) {
+-      abortSignal(controller.signal, signal.reason);
+-    }
+-    const onCancel = (reason) => {
+-      if (!controller.signal.aborted) {
+-        abortSignal(controller.signal, reason);
+-      }
+-    };
+-    result.broadcast[kOnCancel] = onCancel;
+ 
+     const pump = async () => {
+       const w = result.writer;
+       try {
+         if (isAsyncIterable(source)) {
+-          for await (const chunks of yieldAbortable(source, controller.signal)) {
+-            controller.signal.throwIfAborted();
++          for await (const chunks of source) {
++            signal?.throwIfAborted();
+             if (ArrayIsArray(chunks)) {
+               if (!w.writevSync(chunks)) {
+                 await w.writev(chunks, signal ? { signal } : undefined);
+@@ -966,7 +946,7 @@
+           }
+         } else if (isSyncIterable(source)) {
+           for (const chunks of source) {
+-            controller.signal.throwIfAborted();
++            signal?.throwIfAborted();
+             if (ArrayIsArray(chunks)) {
+               if (!w.writevSync(chunks)) {
+                 await w.writev(chunks, signal ? { signal } : undefined);
+@@ -980,13 +960,7 @@
+           await w.end(signal ? { signal } : undefined);
+         }
+       } catch (error) {
+-        if (!controller.signal.aborted) {
+-          w.fail(error);
+-        }
+-      } finally {
+-        if (result.broadcast[kOnCancel] === onCancel) {
+-          result.broadcast[kOnCancel] = null;
+-        }
++        w.fail(error);
+       }
+     };
+ 

@@ -1,0 +1,26 @@
+diff -uN a/lib/internal/modules/run_main.js b/lib/internal/modules/run_main.js
+--- a/lib/internal/modules/run_main.js
++++ b/lib/internal/modules/run_main.js
+@@ -123,8 +123,21 @@
+  * @param {function(ModuleLoader):ModuleWrap|undefined} callback
+  * @returns {Promise}
+  */
++function handleProcessExit() {
++  process.exitCode ??= 13;
++}
++
++async function handleMainPromise(promise) {
++  process.on('exit', handleProcessExit);
++  try {
++    return await promise;
++  } finally {
++    process.off('exit', handleProcessExit);
++  }
++}
++
+ function runEntryPointWithESMLoader(callback) {
+-  const promise = asyncRunEntryPointWithESMLoader(callback);
++  const promise = handleMainPromise(asyncRunEntryPointWithESMLoader(callback));
+   // Register the promise - if by the time the event loop finishes running, this is
+   // still unsettled, we'll search the graph from the entry point module and print
+   // the location of any unsettled top-level await found.

@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/crypto/diffiehellman.js b/lib/internal/crypto/diffiehellman.js
+--- a/lib/internal/crypto/diffiehellman.js
++++ b/lib/internal/crypto/diffiehellman.js
+@@ -2,6 +2,8 @@
+ 
+ const {
+   ArrayBufferPrototypeGetByteLength,
++  ArrayBufferPrototypeSlice,
++  MathFloor,
+   FunctionPrototypeCall,
+   ObjectDefineProperty,
+   SafeSet,
+@@ -64,9 +66,7 @@
+   getArrayBufferOrView,
+   jobPromise,
+   jobPromiseThen,
+-  numBitsToBytes,
+   toBuf,
+-  truncateToBitLength,
+   validateAlgorithm,
+   kHandle,
+ } = require('internal/crypto/util');
+@@ -414,17 +414,19 @@
+     return bits;
+ 
+   return jobPromiseThen(bits, (bits) => {
+-    const sliceLength = numBitsToBytes(length);
++    // If the length is not a multiple of 8, it will be truncated
++    // down to the nearest multiple of 8.
++    const sliceLength = MathFloor(length / 8);
+ 
+     const byteLength = ArrayBufferPrototypeGetByteLength(bits);
+     // If the length is larger than the derived secret, throw.
+     if (byteLength < sliceLength)
+       throw lazyDOMException('derived bit length is too small', 'OperationError');
+ 
+-    if (length % 8 === 0 && byteLength === sliceLength)
++    if (byteLength === sliceLength)
+       return bits;
+ 
+-    return TypedArrayPrototypeGetBuffer(truncateToBitLength(length, bits));
++    return ArrayBufferPrototypeSlice(bits, 0, sliceLength);
+   });
+ }
+ 

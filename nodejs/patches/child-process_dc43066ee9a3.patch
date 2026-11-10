@@ -1,0 +1,26 @@
+diff -uN a/lib/internal/child_process/serialization.js b/lib/internal/child_process/serialization.js
+--- a/lib/internal/child_process/serialization.js
++++ b/lib/internal/child_process/serialization.js
+@@ -11,7 +11,6 @@
+ const { Buffer } = require('buffer');
+ const { StringDecoder } = require('string_decoder');
+ const { serialize, deserialize } = internalBinding('ipc_serdes');
+-const { streamBaseState, kLastWriteWasAsync } = internalBinding('stream_wrap');
+ 
+ const kMessageBuffer = Symbol('kMessageBuffer');
+ const kMessageBufferSize = Symbol('kMessageBufferSize');
+@@ -81,13 +80,7 @@
+     // Buffer.prototype.constructor.
+     const serializedMessage = serialize(message, Buffer);
+ 
+-    const result = channel.writeBuffer(req, serializedMessage, handle);
+-
+-    // Mirror what stream_base_commons.js does for Buffer retention.
+-    if (streamBaseState[kLastWriteWasAsync])
+-      req.buffer = serializedMessage;
+-
+-    return result;
++    return channel.writeBuffer(req, serializedMessage, handle);
+   },
+ };
+ 

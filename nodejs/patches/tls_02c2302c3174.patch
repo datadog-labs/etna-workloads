@@ -1,0 +1,106 @@
+diff -uN a/lib/internal/tls/common.js b/lib/internal/tls/common.js
+--- a/lib/internal/tls/common.js
++++ b/lib/internal/tls/common.js
+@@ -101,7 +101,6 @@
+     minVersion,
+     maxVersion,
+     secureProtocol,
+-    singleUse,
+   } = options;
+ 
+   let { secureOptions } = options;
+@@ -114,13 +113,6 @@
+ 
+   configSecureContext(c.context, options);
+ 
+-  // A single-use context belongs to exactly one connection, so the underlying
+-  // SSL_CTX can be freed as soon as that connection closes instead of waiting
+-  // for the JS wrapper to be garbage collected. TLSSocket relies on this flag
+-  // to know that it may close the context itself.
+-  if (singleUse)
+-    c.singleUse = true;
+-
+   return c;
+ }
+ 
+diff -uN a/lib/internal/tls/wrap.js b/lib/internal/tls/wrap.js
+--- a/lib/internal/tls/wrap.js
++++ b/lib/internal/tls/wrap.js
+@@ -104,7 +104,6 @@
+ const kErrorEmitted = Symbol('error-emitted');
+ const kHandshakeTimeout = Symbol('handshake-timeout');
+ const kRes = Symbol('res');
+-const kSecureContext = Symbol('secureContext');
+ const kSNICallback = Symbol('snicallback');
+ const kALPNCallback = Symbol('alpncallback');
+ const kEnableTrace = Symbol('enableTrace');
+@@ -651,7 +650,6 @@
+   this.authorized = false;
+   this.authorizationError = null;
+   this[kRes] = null;
+-  this[kSecureContext] = null;
+   this[kIsVerified] = false;
+   this[kPendingSession] = null;
+ 
+@@ -750,18 +748,6 @@
+     makeMethodProxy(proxiedMethod);
+ }
+ 
+-// A single-use context is owned by the socket that created it, so its SSL_CTX
+-// can be released as soon as the socket is gone instead of waiting for the JS
+-// wrapper to be garbage collected. It is shared by every handle the socket
+-// goes through, so it must outlive any individual TLSWrap.
+-function closeSingleUseContext(secureContext) {
+-  if (secureContext !== null && secureContext.singleUse &&
+-      secureContext.context !== null) {
+-    secureContext.context.close();
+-    secureContext.context = null;
+-  }
+-}
+-
+ tls_wrap.TLSWrap.prototype.close = function close(cb) {
+   let ssl;
+   if (this[owner_symbol]) {
+@@ -774,6 +760,10 @@
+   const done = () => {
+     if (ssl) {
+       ssl.destroySSL();
++      if (ssl._secureContext.singleUse) {
++        ssl._secureContext.context.close();
++        ssl._secureContext.context = null;
++      }
+     }
+     if (cb)
+       cb();
+@@ -831,7 +821,6 @@
+   res._parent = handle;  // C++ "wrap" object: TCPWrap, JSStream, ...
+   res._parentWrap = wrap;  // JS object: net.Socket, JSStreamSocket, ...
+   res._secureContext = context;
+-  this[kSecureContext] = context;
+   res.reading = handle.reading;
+   this[kRes] = res;
+   defineHandleReading(this, handle);
+@@ -897,16 +886,13 @@
+ }
+ 
+ TLSSocket.prototype._destroySSL = function _destroySSL() {
+-  if (this.ssl) {
+-    this.ssl.destroySSL();
+-    this.ssl = null;
+-  }
+-  // Release the context here rather than when a handle closes: a socket that
+-  // swaps handles, as autoSelectFamily retries do, shares one context across
+-  // the successive TLSWraps and still needs it after the old handle is gone.
+-  // TLSWrap.close() may already have cleared `ssl` on the way here.
+-  closeSingleUseContext(this[kSecureContext]);
+-  this[kSecureContext] = null;
++  if (!this.ssl) return;
++  this.ssl.destroySSL();
++  if (this.ssl._secureContext.singleUse) {
++    this.ssl._secureContext.context.close();
++    this.ssl._secureContext.context = null;
++  }
++  this.ssl = null;
+   this[kPendingSession] = null;
+   this[kIsVerified] = false;
+ };

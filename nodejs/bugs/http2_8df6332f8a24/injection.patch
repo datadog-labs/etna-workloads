@@ -1,0 +1,60 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -48,12 +48,8 @@
+ const tls = require('tls');
+ const { setImmediate, setTimeout, clearTimeout } = require('timers');
+ 
+-const {
+-  Server: HttpServer,
+-  httpServerPreClose,
+-  setupConnectionsTracking,
+-  storeHTTPOptions,
+-} = require('_http_server');
++const { kIncomingMessage } = require('_http_common');
++const { kServerResponse, Server: HttpServer, httpServerPreClose, setupConnectionsTracking } = require('_http_server');
+ const JSStreamSocket = require('internal/js_stream_socket');
+ 
+ const {
+@@ -3369,6 +3365,8 @@
+   if (socket.alpnProtocol === false || socket.alpnProtocol === 'http/1.1') {
+     // Fallback to HTTP/1.1
+     if (options.allowHTTP1 === true) {
++      socket.server[kIncomingMessage] = options.Http1IncomingMessage;
++      socket.server[kServerResponse] = options.Http1ServerResponse;
+       return httpConnectionListener.call(this, socket);
+     }
+     // Let event handler deal with the socket
+@@ -3468,18 +3466,9 @@
+     // TODO(danbev): is this a good default value?
+     options.unknownProtocolTimeout = 10000;
+ 
+-  // Initialize http1Options bag for HTTP/1 fallback when allowHTTP1 is true.
+-  // This bag is passed to storeHTTPOptions() to configure HTTP/1 server
+-  // behavior (timeouts, IncomingMessage/ServerResponse classes, etc.).
+-  options.http1Options = { ...options.http1Options };
+-
+-  // Backward compat: migrate deprecated top-level Http1 options (DEP0201)
+-  if (options.Http1IncomingMessage !== undefined) {
+-    options.http1Options.IncomingMessage ??= options.Http1IncomingMessage;
+-  }
+-  if (options.Http1ServerResponse !== undefined) {
+-    options.http1Options.ServerResponse ??= options.Http1ServerResponse;
+-  }
++  // Used only with allowHTTP1
++  options.Http1IncomingMessage ||= http.IncomingMessage;
++  options.Http1ServerResponse ||= http.ServerResponse;
+ 
+   options.Http2ServerRequest ||= Http2ServerRequest;
+   options.Http2ServerResponse ||= Http2ServerResponse;
+@@ -3527,7 +3516,9 @@
+     this.timeout = 0;
+     this.on('newListener', setupCompat);
+     if (options.allowHTTP1 === true) {
+-      storeHTTPOptions.call(this, { ...options, ...options.http1Options });
++      this.headersTimeout = 60_000; // Minimum between 60 seconds or requestTimeout
++      this.requestTimeout = 300_000; // 5 minutes
++      this.connectionsCheckingInterval = 30_000; // 30 seconds
+       this.shouldUpgradeCallback = function() {
+         return this.listenerCount('upgrade') > 0;
+       };

@@ -1,0 +1,79 @@
+diff -uN a/lib/internal/process/promises.js b/lib/internal/process/promises.js
+--- a/lib/internal/process/promises.js
++++ b/lib/internal/process/promises.js
+@@ -24,14 +24,6 @@
+   exitCodes: { kGenericUserError },
+ } = internalBinding('errors');
+ 
+-const {
+-  pushAsyncContext,
+-  popAsyncContext,
+-  symbols: {
+-    async_id_symbol: kAsyncIdSymbol,
+-    trigger_async_id_symbol: kTriggerAsyncIdSymbol,
+-  },
+-} = require('internal/async_hooks');
+ const { isErrorStackTraceLimitWritable } = require('internal/errors');
+ 
+ const AsyncContextFrame = require('internal/async_context_frame');
+@@ -267,19 +259,12 @@
+  * handled, emit 'UnhandledPromiseRejectionWarning'.
+  * @type {UnhandledRejectionsModeHandler}
+  */
+-function strictUnhandledRejectionsMode(promise, promiseInfo, promiseAsyncId) {
++function strictUnhandledRejectionsMode(promise, promiseInfo) {
+   const reason = promiseInfo.reason;
+   const err = isErrorLike(reason) ?
+     reason : new UnhandledPromiseRejection(reason);
+   // This destroys the async stack, don't clear it after
+   triggerUncaughtException(err, true /* fromPromise */);
+-  if (promiseAsyncId !== undefined) {
+-    pushAsyncContext(
+-      promise[kAsyncIdSymbol],
+-      promise[kTriggerAsyncIdSymbol],
+-      promise,
+-    );
+-  }
+   const handled = emitUnhandledRejection(promise, promiseInfo);
+   if (!handled) emitUnhandledRejectionWarning(promiseInfo);
+   return true;
+@@ -376,9 +361,6 @@
+     }
+   }
+ 
+-  let needPop = true;
+-  let promiseAsyncId;
+-
+   const pending = pendingUnhandledRejections;
+   pendingUnhandledRejections = new SafeMap();
+ 
+@@ -387,28 +369,7 @@
+ 
+     promiseInfo.warned = true;
+ 
+-    // We need to check if async_hooks are enabled
+-    // don't use enabledHooksExist as a Promise could
+-    // come from a vm.* context and not have an async id
+-    promiseAsyncId = promise[kAsyncIdSymbol];
+-    if (promiseAsyncId !== undefined) {
+-      pushAsyncContext(
+-        promiseAsyncId,
+-        promise[kTriggerAsyncIdSymbol],
+-        promise,
+-      );
+-    }
+-
+-    const { contextFrame } = promiseInfo;
+-    const priorContextFrame = AsyncContextFrame.exchange(contextFrame);
+-    try {
+-      needPop = unhandledRejectionsMode(promise, promiseInfo, promiseAsyncId);
+-    } finally {
+-      AsyncContextFrame.set(priorContextFrame);
+-      needPop &&
+-      promiseAsyncId !== undefined &&
+-      popAsyncContext(promiseAsyncId);
+-    }
++    unhandledRejectionsMode(promise, promiseInfo);
+     maybeScheduledTicksOrMicrotasks = true;
+   }
+   return maybeScheduledTicksOrMicrotasks ||

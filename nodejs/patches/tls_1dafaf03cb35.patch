@@ -1,0 +1,30 @@
+diff -uN a/lib/internal/tls/wrap.js b/lib/internal/tls/wrap.js
+--- a/lib/internal/tls/wrap.js
++++ b/lib/internal/tls/wrap.js
+@@ -1013,16 +1013,17 @@
+       warnOnTlsKeylog = false;
+       process.emitWarning('Using --tls-keylog makes TLS connections insecure ' +
+         'by writing secret key material to file ' + tlsKeylog);
+-    }
+-    this.on('keylog', (line) => {
+-      appendFile(tlsKeylog, line, { mode: 0o600 }, (err) => {
+-        if (err && warnOnTlsKeylogError) {
+-          warnOnTlsKeylogError = false;
+-          process.emitWarning('Failed to write TLS keylog (this warning ' +
+-            'will not be repeated): ' + err);
+-        }
++      ssl.enableKeylogCallback();
++      this.on('keylog', (line) => {
++        appendFile(tlsKeylog, line, { mode: 0o600 }, (err) => {
++          if (err && warnOnTlsKeylogError) {
++            warnOnTlsKeylogError = false;
++            process.emitWarning('Failed to write TLS keylog (this warning ' +
++              'will not be repeated): ' + err);
++          }
++        });
+       });
+-    });
++    }
+   }
+ 
+   ssl.onerror = onerror;

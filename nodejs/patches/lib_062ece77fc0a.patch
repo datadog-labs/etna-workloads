@@ -1,0 +1,18 @@
+diff -uN a/lib/internal/bench_runner/cli.js b/lib/internal/bench_runner/cli.js
+--- a/lib/internal/bench_runner/cli.js
++++ b/lib/internal/bench_runner/cli.js
+@@ -956,11 +956,10 @@
+         }
+         const pending = handleRecord(record);
+         if (protocolError === undefined) {
+-          trackPending(PromisePrototypeThen(PromiseResolve(pending), () => {
+-            // The child can receive the acknowledgement and send its next
+-            // record before the send callback runs.
++          const acknowledged = PromisePrototypeThen(
++            PromiseResolve(pending), () => sendAck(child, message.id));
++          trackPending(PromisePrototypeThen(acknowledged, () => {
+             recordPending = false;
+-            return sendAck(child, message.id);
+           }));
+         }
+       } catch (error) {

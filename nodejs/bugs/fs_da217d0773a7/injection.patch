@@ -1,0 +1,49 @@
+diff -uN a/lib/internal/fs/utils.js b/lib/internal/fs/utils.js
+--- a/lib/internal/fs/utils.js
++++ b/lib/internal/fs/utils.js
+@@ -806,9 +806,7 @@
+ 
+ function stringToFlags(flags, name = 'flags') {
+   if (typeof flags === 'number') {
+-    validateInt32(flags, name);
+-    // Coerce -0 to +0.
+-    return flags + 0;
++    return flags;
+   }
+ 
+   if (flags == null) {
+diff -uN a/lib/internal/validators.js b/lib/internal/validators.js
+--- a/lib/internal/validators.js
++++ b/lib/internal/validators.js
+@@ -71,17 +71,26 @@
+  * @returns {number}
+  */
+ function parseFileMode(value, name, def) {
+-  value ??= def;
++  if (value == null && def !== undefined) {
++    return def;
++  }
++
++  if (isUint32(value)) {
++    return value;
++  }
++
++  if (typeof value === 'number') {
++    validateInt32(value, name, 0, 2 ** 32 - 1);
++  }
++
+   if (typeof value === 'string') {
+     if (RegExpPrototypeExec(octalReg, value) === null) {
+       throw new ERR_INVALID_ARG_VALUE(name, value, modeDesc);
+     }
+-    value = NumberParseInt(value, 8);
++    return NumberParseInt(value, 8);
+   }
+ 
+-  validateUint32(value, name);
+-  // Coerce -0 to +0.
+-  return value + 0;
++  throw new ERR_INVALID_ARG_VALUE(name, value, modeDesc);
+ }
+ 
+ /**

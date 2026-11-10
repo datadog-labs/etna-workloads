@@ -1,0 +1,31 @@
+diff -uN a/lib/internal/errors.js b/lib/internal/errors.js
+--- a/lib/internal/errors.js
++++ b/lib/internal/errors.js
+@@ -1996,7 +1996,7 @@
+ E('ERR_WORKER_MESSAGING_TIMEOUT', 'Sending a message to another thread timed out', Error);
+ E('ERR_WORKER_NOT_RUNNING', 'Worker instance not running', Error);
+ E('ERR_WORKER_OUT_OF_MEMORY',
+-  'Worker terminated due to reaching memory limit: %s', Error);
++  'Worker terminated due to reaching memory limit', Error);
+ E('ERR_WORKER_PATH', (filename) =>
+   'The worker script or module filename must be an absolute path or a ' +
+   'relative path starting with \'./\' or \'../\'.' +
+diff -uN a/src/node_worker.cc b/src/node_worker.cc
+--- a/src/node_worker.cc
++++ b/src/node_worker.cc
+@@ -164,14 +164,7 @@
+  public:
+   explicit WorkerThreadData(Worker* w)
+     : w_(w) {
+-    int ret = uv_loop_init(&loop_);
+-    if (ret != 0) {
+-      char err_buf[128];
+-      uv_err_name_r(ret, err_buf, sizeof(err_buf));
+-      // TODO(joyeecheung): maybe this should be kBootstrapFailure instead?
+-      w->Exit(ExitCode::kGenericUserError, "ERR_WORKER_INIT_FAILED", err_buf);
+-      return;
+-    }
++    CHECK_EQ(uv_loop_init(&loop_), 0);
+     loop_init_failed_ = false;
+     uv_loop_configure(&loop_, UV_METRICS_IDLE_TIME);
+ 

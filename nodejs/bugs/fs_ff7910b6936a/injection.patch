@@ -1,0 +1,62 @@
+diff -uN a/lib/internal/fs/promises.js b/lib/internal/fs/promises.js
+--- a/lib/internal/fs/promises.js
++++ b/lib/internal/fs/promises.js
+@@ -1351,7 +1351,6 @@
+   }
+ 
+   let totalRead = 0;
+-  const noSize = size === 0;
+   let buffer = Buffer.allocUnsafeSlow(length);
+   let result = '';
+   let offset = 0;
+@@ -1374,7 +1373,7 @@
+ 
+     if (bytesRead === 0 ||
+         totalRead === size ||
+-        (bytesRead !== buffer.length && !chunkedRead && !noSize)) {
++        (bytesRead !== buffer.length && !chunkedRead)) {
+       const singleRead = bytesRead === totalRead;
+ 
+       const bytesToCheck = chunkedRead ? totalRead : bytesRead;
+@@ -1384,7 +1383,7 @@
+       }
+ 
+       if (!encoding) {
+-        if (noSize && !singleRead) {
++        if (size === 0 && !singleRead) {
+           ArrayPrototypePush(buffers, buffer);
+           return Buffer.concat(buffers, totalRead);
+         }
+@@ -1397,17 +1396,15 @@
+       result += decoder.end(buffer);
+       return result;
+     }
+-    const readBuffer = bytesRead !== buffer.length ?
+-      buffer.subarray(0, bytesRead) :
+-      buffer;
++
+     if (encoding) {
+-      result += decoder.write(readBuffer);
++      result += decoder.write(buffer);
+     } else if (size !== 0) {
+       offset = totalRead;
+     } else {
+       buffers ??= [];
+       // Unknown file size requires chunks.
+-      ArrayPrototypePush(buffers, readBuffer);
++      ArrayPrototypePush(buffers, buffer);
+       buffer = Buffer.allocUnsafeSlow(kReadFileUnknownBufferLength);
+     }
+   }
+diff -uN a/src/node_file.cc b/src/node_file.cc
+--- a/src/node_file.cc
++++ b/src/node_file.cc
+@@ -3693,6 +3693,8 @@
+       }
+       if (r == 0) break;
+       len_ += static_cast<size_t>(r);
++      // A short read on an unknown-size file is taken as the end of it.
++      if (size == 0 && static_cast<size_t>(r) < buf.len) break;
+     }
+ 
+     rc = uv_fs_close(nullptr, &req, fd, nullptr);

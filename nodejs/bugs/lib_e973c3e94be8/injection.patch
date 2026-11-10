@@ -1,0 +1,69 @@
+diff -uN a/lib/internal/abort_controller.js b/lib/internal/abort_controller.js
+--- a/lib/internal/abort_controller.js
++++ b/lib/internal/abort_controller.js
+@@ -43,12 +43,12 @@
+   },
+ } = require('internal/errors');
+ const {
+-  converters,
+-  createInterfaceConverter,
+   createSequenceConverter,
+ } = require('internal/webidl');
+ 
+ const {
++  validateAbortSignal,
++  validateAbortSignalArray,
+   validateObject,
+   validateUint32,
+   kValidateObjectAllowObjects,
+@@ -221,13 +221,6 @@
+ class AbortSignal extends EventTarget {
+   #brand;
+ 
+-  static {
+-    converters.AbortSignal = createInterfaceConverter(
+-      'AbortSignal',
+-      (value) => typeof value === 'object' && value !== null && #brand in value,
+-    );
+-  }
+-
+   /**
+    * @param {symbol | undefined} dontThrowSymbol
+    * @param {{
+@@ -320,10 +313,11 @@
+    * @returns {AbortSignal}
+    */
+   static any(signals) {
+-    const signalsArray = converters['sequence<AbortSignal>'](
+-      signals,
+-      { __proto__: null, context: 'signals' },
+-    );
++    const signalsArray = createSequenceConverter(
++      (value) => value,
++    )(signals);
++
++    validateAbortSignalArray(signalsArray, 'signals');
+ 
+     const resultSignal = new AbortSignal(kDontThrowSymbol, { composite: true });
+     if (!signalsArray.length) {
+@@ -476,8 +470,6 @@
+   }
+ }
+ 
+-converters['sequence<AbortSignal>'] = createSequenceConverter(converters.AbortSignal);
+-
+ function ClonedAbortSignal() {
+   return new AbortSignal(kDontThrowSymbol, { transferable: true });
+ }
+@@ -621,7 +613,10 @@
+  * @returns {Promise<void>}
+  */
+ async function aborted(signal, resource) {
+-  converters.AbortSignal(signal, { __proto__: null, context: 'signal' });
++  if (signal === undefined) {
++    throw new ERR_INVALID_ARG_TYPE('signal', 'AbortSignal', signal);
++  }
++  validateAbortSignal(signal, 'signal');
+   validateObject(resource, 'resource', kValidateObjectAllowObjects);
+   if (signal.aborted)
+     return PromiseResolve();

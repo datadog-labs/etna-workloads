@@ -1,0 +1,31 @@
+diff -uN a/lib/internal/readline/interface.js b/lib/internal/readline/interface.js
+--- a/lib/internal/readline/interface.js
++++ b/lib/internal/readline/interface.js
+@@ -645,6 +645,13 @@
+     // split pass avoids allocating a match object per line ending.
+     // When the chunk contains none of the rare line endings, a plain
+     // string split is much cheaper than the regular expression.
++    lineEnding.lastIndex = 0;
++    let newPartContainsEnding = RegExpPrototypeExec(lineEnding, string);
++    if (newPartContainsEnding !== null && this[kLine_buffer]) {
++      string = this[kLine_buffer] + string;
++      this[kLine_buffer] = null;
++      newPartContainsEnding = RegExpPrototypeExec(lineEnding, string);
++    }
+     const lines =
+       StringPrototypeIncludes(string, '\r') ||
+       StringPrototypeIncludes(string, '\u2028') ||
+@@ -666,10 +673,9 @@
+       DateNow() :
+       0;
+ 
+-    let first = lines[0];
+-    if (this[kLine_buffer]) {
+-      first = this[kLine_buffer] + first;
+-    }
++    const first = newPartContainsEnding === null ?
++      lines[0] :
++      StringPrototypeSlice(string, 0, newPartContainsEnding.index);
+     // Either '' or (conceivably) the unfinished portion of the next line
+     this[kLine_buffer] = lines[lastIndex];
+     this[kOnLine](first);

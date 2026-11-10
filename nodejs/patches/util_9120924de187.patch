@@ -1,0 +1,72 @@
+diff -uN a/lib/internal/util/inspect.js b/lib/internal/util/inspect.js
+--- a/lib/internal/util/inspect.js
++++ b/lib/internal/util/inspect.js
+@@ -1111,29 +1111,17 @@
+ 
+   // Memorize the context for custom inspection on proxies.
+   const context = value;
+-  let proxies = 0;
+   // Always check for proxies to prevent side effects and to prevent triggering
+   // any proxy handlers.
+-  let proxy = getProxyDetails(value, !!ctx.showProxy);
++  const proxy = getProxyDetails(value, !!ctx.showProxy);
+   if (proxy !== undefined) {
++    if (proxy === null || proxy[0] === null) {
++      return ctx.stylize('<Revoked Proxy>', 'special');
++    }
+     if (ctx.showProxy) {
+-      if (proxy[0] === null) {
+-        return ctx.stylize('<Revoked Proxy>', 'special');
+-      }
+       return formatProxy(ctx, proxy, recurseTimes);
+     }
+-    do {
+-      if (proxy === null) {
+-        let formatted = ctx.stylize('<Revoked Proxy>', 'special');
+-        for (let i = 0; i < proxies; i++) {
+-          formatted = `${ctx.stylize('Proxy(', 'special')}${formatted}${ctx.stylize(')', 'special')}`;
+-        }
+-        return formatted;
+-      }
+-      value = proxy;
+-      proxy = getProxyDetails(value, false);
+-      proxies += 1;
+-    } while (proxy !== undefined);
++    value = proxy;
+   }
+ 
+   // Provide a hook for user-specified inspect functions.
+@@ -1149,7 +1137,7 @@
+       // a counter internally.
+       const depth = ctx.depth === null ? null : ctx.depth - recurseTimes;
+       const isCrossContext =
+-        proxies !== 0 || !FunctionPrototypeSymbolHasInstance(Object, context);
++        proxy !== undefined || !FunctionPrototypeSymbolHasInstance(Object, context);
+       const ret = FunctionPrototypeCall(
+         maybeCustom,
+         context,
+@@ -1185,12 +1173,10 @@
+     return ctx.stylize(`[Circular *${index}]`, 'special');
+   }
+ 
+-  let formatted = formatRaw(ctx, value, recurseTimes, typedArray);
++  const formatted = formatRaw(ctx, value, recurseTimes, typedArray);
+ 
+-  if (proxies !== 0) {
+-    for (let i = 0; i < proxies; i++) {
+-      formatted = `${ctx.stylize('Proxy(', 'special')}${formatted}${ctx.stylize(')', 'special')}`;
+-    }
++  if (proxy !== undefined) {
++    return `${ctx.stylize('Proxy(', 'special')}${formatted}${ctx.stylize(')', 'special')}`;
+   }
+ 
+   return formatted;
+@@ -2726,7 +2712,7 @@
+     if (proxyTarget === null) {
+       return true;
+     }
+-    return hasBuiltInToString(proxyTarget);
++    value = proxyTarget;
+   }
+ 
+   let hasOwnToString = ObjectPrototypeHasOwnProperty;

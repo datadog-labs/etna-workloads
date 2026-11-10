@@ -1,0 +1,57 @@
+diff -uN a/lib/internal/abort_controller.js b/lib/internal/abort_controller.js
+--- a/lib/internal/abort_controller.js
++++ b/lib/internal/abort_controller.js
+@@ -332,21 +332,9 @@
+ 
+     resultSignal[kSourceSignals] = new SafeSet();
+ 
+-    // Track if we have any timeout signals
+-    let hasTimeoutSignals = false;
+-
+     for (let i = 0; i < signalsArray.length; i++) {
+       const signal = signalsArray[i];
+ 
+-      // Check if this is a timeout signal
+-      if (signal[kTimeout]) {
+-        hasTimeoutSignals = true;
+-
+-        // Add the timeout signal to gcPersistentSignals to keep it alive
+-        // This is what the kNewListener method would do when adding abort listeners
+-        gcPersistentSignals.add(signal);
+-      }
+-
+       refreshCompositeSignal(signal);
+       if (signal[kAborted]) {
+         abortSignal(resultSignal, signal[kReason]);
+@@ -379,10 +367,6 @@
+       }
+     }
+ 
+-    if (hasTimeoutSignals && resultSignal[kSourceSignals].size > 0) {
+-      resultSignal[kTimeout] = true;
+-    }
+-
+     // Preserve abort state even if sources are collected before this signal is
+     // observed. Following uses weak references so unused signals can be collected.
+     followCompositeSignal(resultSignal);
+@@ -539,20 +523,6 @@
+     // its entry accumulates in that source's kDependantSignals.
+     gcPersistentSignals.delete(dependentSignal);
+   }
+-
+-  // Clean up the signal from gcPersistentSignals
+-  gcPersistentSignals.delete(signal);
+-
+-  // If this is a composite signal, also remove all of its source signals from gcPersistentSignals
+-  // when they get dereferenced from the signal's kSourceSignals set
+-  if (signal[kComposite] && signal[kSourceSignals]) {
+-    signal[kSourceSignals].forEach((sourceWeakRef) => {
+-      const sourceSignal = sourceWeakRef.deref();
+-      if (sourceSignal) {
+-        gcPersistentSignals.delete(sourceSignal);
+-      }
+-    });
+-  }
+ }
+ 
+ // To run the abort steps for an AbortSignal signal

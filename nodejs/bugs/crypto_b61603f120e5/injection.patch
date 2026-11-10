@@ -1,0 +1,16 @@
+diff -uN a/src/crypto/crypto_x509.cc b/src/crypto/crypto_x509.cc
+--- a/src/crypto/crypto_x509.cc
++++ b/src/crypto/crypto_x509.cc
+@@ -484,8 +484,11 @@
+   KeyObjectHandle* key;
+   ASSIGN_OR_RETURN_UNWRAP(&key, args[0]);
+   CHECK_EQ(key->Data().GetKeyType(), kKeyTypePrivate);
++  // Without ClearErrorOnReturn, failures leave entries in the OpenSSL error
++  // queue.
+   args.GetReturnValue().Set(
+-      cert->view().checkPrivateKey(key->Data().GetAsymmetricKey()));
++      X509_check_private_key(cert->view().get(),
++                             key->Data().GetAsymmetricKey().get()) == 1);
+ }
+ 
+ void CheckPublicKey(const FunctionCallbackInfo<Value>& args) {

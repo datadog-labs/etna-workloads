@@ -1,0 +1,66 @@
+diff -uN a/src/inspector/dom_storage_agent.cc b/src/inspector/dom_storage_agent.cc
+--- a/src/inspector/dom_storage_agent.cc
++++ b/src/inspector/dom_storage_agent.cc
+@@ -104,10 +104,7 @@
+     // Each way of failing below says something different about the store, so
+     // each reports a different reason. A frontend that cannot read a store
+     // otherwise has no way to tell a missing one from a corrupt one.
+-    if (!web_storage_obj) {
+-      return protocol::DispatchResponse::ServerError(
+-          "Could not read DOM storage items: storage is unavailable");
+-    }
++    if (web_storage_obj) {
+     // A message from a remote frontend is dispatched without a HandleScope
+     // on the stack, and opening the backing file can throw, so give the
+     // exception a scope to be allocated in and somewhere to land.
+@@ -138,6 +135,7 @@
+           "Could not read DOM storage items: the backing file is malformed");
+     }
+     storage_map = &storage_map_fallback.value();
++    }
+   }
+ 
+   auto result =
+diff -uN a/src/inspector/storage_agent.cc b/src/inspector/storage_agent.cc
+--- a/src/inspector/storage_agent.cc
++++ b/src/inspector/storage_agent.cc
+@@ -17,22 +17,13 @@
+ DispatchResponse StorageAgent::getStorageKey(
+     std::optional<protocol::String> frameId, protocol::String* storageKey) {
+   auto local_storage_file = env_->options()->localstorage_file;
+-  auto absolute_path = to_absolute_path(local_storage_file);
+-  if (!absolute_path) {
+-    return protocol::DispatchResponse::ServerError(
+-        "Could not resolve the storage key path");
+-  }
+-  *storageKey = node::url::FromFilePath(*absolute_path);
++  *storageKey = node::url::FromFilePath(to_absolute_path(local_storage_file));
+   return protocol::DispatchResponse::Success();
+ }
+ 
+-std::optional<std::string> StorageAgent::to_absolute_path(
+-    const std::filesystem::path& input) {
+-  std::error_code error;
+-  std::filesystem::path abs = std::filesystem::absolute(input, error);
+-  if (error) return std::nullopt;
+-  abs = std::filesystem::weakly_canonical(abs, error);
+-  if (error) return std::nullopt;
++std::string StorageAgent::to_absolute_path(const std::filesystem::path& input) {
++  std::filesystem::path abs =
++      std::filesystem::weakly_canonical(std::filesystem::absolute(input));
+   return abs.generic_string();
+ }
+ 
+diff -uN a/src/inspector/storage_agent.h b/src/inspector/storage_agent.h
+--- a/src/inspector/storage_agent.h
++++ b/src/inspector/storage_agent.h
+@@ -25,8 +25,7 @@
+   StorageAgent& operator=(const StorageAgent&) = delete;
+ 
+  private:
+-  std::optional<std::string> to_absolute_path(
+-      const std::filesystem::path& input);
++  std::string to_absolute_path(const std::filesystem::path& input);
+   std::unique_ptr<protocol::Storage::Frontend> frontend_;
+   Environment* env_;
+ };

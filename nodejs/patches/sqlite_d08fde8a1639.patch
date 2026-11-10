@@ -1,0 +1,20 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -4678,7 +4678,7 @@
+     Statement* stmt,
+     const FunctionCallbackInfo<Value>& args) {
+   Isolate* isolate = env->isolate();
+-  int r = stmt->ResetStatement();
++  int r = sqlite3_reset(stmt->statement_.get());
+   CHECK_ERROR_OR_THROW(isolate, stmt->db_.get(), r, SQLITE_OK, false);
+ 
+   r = sqlite3_clear_bindings(stmt->statement_.get());
+@@ -5067,7 +5067,6 @@
+   if (r != SQLITE_ROW) {
+     CHECK_ERROR_OR_THROW(
+         env->isolate(), iter->stmt_->db_.get(), r, SQLITE_DONE, void());
+-    iter->done_ = true;
+     RESET_OR_THROW(env->isolate(),
+                    iter->stmt_->db_.get(),
+                    iter->stmt_->statement_.get(),

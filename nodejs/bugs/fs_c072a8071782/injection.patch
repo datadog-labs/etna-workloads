@@ -1,0 +1,35 @@
+diff -uN a/lib/internal/fs/utils.js b/lib/internal/fs/utils.js
+--- a/lib/internal/fs/utils.js
++++ b/lib/internal/fs/utils.js
+@@ -945,7 +945,7 @@
+     return 0;
+   }
+ 
+-  validateInt32(fd, propName, 0);
++  validateUint32(fd, propName);
+ 
+   return fd;
+ });
+diff -uN a/src/util.cc b/src/util.cc
+--- a/src/util.cc
++++ b/src/util.cc
+@@ -793,7 +793,7 @@
+   }
+ 
+   const double fd = input.As<v8::Number>()->Value();
+-  const bool is_out_of_range = fd < 0 || fd > INT32_MAX;
++  const bool is_out_of_range = fd < 0 || fd > UINT32_MAX;
+ 
+   if (is_out_of_range || !IsSafeJsInt(input)) {
+     Local<String> str;
+@@ -804,8 +804,8 @@
+     if (is_out_of_range && !std::isinf(fd)) {
+       THROW_ERR_OUT_OF_RANGE(env,
+                              "The value of \"fd\" is out of range. "
+-                             "It must be >= 0 && <= %s. Received %s",
+-                             std::to_string(INT32_MAX),
++                             "It must be >= 0 && < %s. Received %s",
++                             std::to_string(UINT32_MAX + 1ULL),
+                              utf8_value.out());
+     } else {
+       THROW_ERR_OUT_OF_RANGE(

@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/child_process.js b/lib/internal/child_process.js
+--- a/lib/internal/child_process.js
++++ b/lib/internal/child_process.js
+@@ -62,6 +62,8 @@
+ const { convertToValidSignal } = require('internal/util');
+ const { isArrayBufferView } = require('internal/util/types');
+ const spawn_sync = internalBinding('spawn_sync');
++const { HTTPParser } = internalBinding('http_parser');
++const { freeParser } = require('_http_common');
+ const { kStateSymbol } = require('internal/dgram');
+ const dc = require('diagnostics_channel');
+ const childProcessChannel = dc.channel('child_process');
+@@ -80,11 +82,6 @@
+ 
+ const { SocketListSend, SocketListReceive } = SocketList;
+ 
+-// Lazy loaded for startup performance and to allow monkey patching of
+-// internalBinding('http_parser').HTTPParser.
+-let freeParser;
+-let HTTPParser;
+-
+ const MAX_HANDLE_RETRANSMISSIONS = 3;
+ const kChannelHandle = Symbol('kChannelHandle');
+ const kIsUsedAsStdio = Symbol('kIsUsedAsStdio');
+@@ -193,11 +190,6 @@
+         socket._handle = null;
+         socket.setTimeout(0);
+ 
+-        if (freeParser === undefined)
+-          freeParser = require('_http_common').freeParser;
+-        if (HTTPParser === undefined)
+-          HTTPParser = require('_http_common').HTTPParser;
+-
+         // In case of an HTTP connection socket, release the associated
+         // resources
+         if (socket.parser && socket.parser instanceof HTTPParser) {

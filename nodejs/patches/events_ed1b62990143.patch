@@ -1,0 +1,52 @@
+diff -uN a/lib/internal/event_target.js b/lib/internal/event_target.js
+--- a/lib/internal/event_target.js
++++ b/lib/internal/event_target.js
+@@ -14,7 +14,6 @@
+   ReflectApply,
+   SafeFinalizationRegistry,
+   SafeMap,
+-  SafeSet,
+   SafeWeakMap,
+   SafeWeakRef,
+   SafeWeakSet,
+@@ -492,17 +491,8 @@
+         listener: this,
+         eventType,
+       }, this);
+-      // Store only a WeakRef to the retainer here. Listener instances are
+-      // Strongly reachable from the EventTarget's listener list for as long
+-      // as they're registered, so a plain strong reference would keep the
+-      // retainer (and listener) alive forever, defeating weak retention
+-      this.weakKeyRef = new SafeWeakRef(weak);
+-      let retained = weakListeners().map.get(weak);
+-      if (retained === undefined) {
+-        retained = new SafeSet();
+-        weakListeners().map.set(weak, retained);
+-      }
+-      retained.add(listener);
++      // Make the retainer retain the listener in a WeakMap
++      weakListeners().map.set(weak, listener);
+       this.listener = this.callback;
+     } else if (typeof listener === 'function') {
+       this.callback = listener;
+@@ -555,19 +545,8 @@
+     if (this.next !== undefined)
+       this.next.previous = this.previous;
+     this.removed = true;
+-    if (this.weak) {
++    if (this.weak)
+       weakListeners().registry.unregister(this);
+-      const weakKey = this.weakKeyRef?.deref();
+-      const listener = this.callback?.deref();
+-      if (weakKey !== undefined && listener !== undefined) {
+-        const retained = weakListeners().map.get(weakKey);
+-        if (retained !== undefined) {
+-          retained.delete(listener);
+-          if (retained.size === 0)
+-            weakListeners().map.delete(weakKey);
+-        }
+-      }
+-    }
+   }
+ }
+ 

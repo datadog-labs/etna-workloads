@@ -1,0 +1,26 @@
+diff -uN a/lib/_http_common.js b/lib/_http_common.js
+--- a/lib/_http_common.js
++++ b/lib/_http_common.js
+@@ -189,7 +189,6 @@
+   if (parser) {
+     if (parser._consumed)
+       parser.unconsume();
+-    parser.remove();
+     cleanParser(parser);
+     if (parsers.free(parser) === false) {
+       // Make sure the parser's stack has unwound before deleting the
+diff -uN a/src/node_http_parser.cc b/src/node_http_parser.cc
+--- a/src/node_http_parser.cc
++++ b/src/node_http_parser.cc
+@@ -618,6 +618,11 @@
+     Parser* parser;
+     ASSIGN_OR_RETURN_UNWRAP(&parser, args.This());
+ 
++    if (parser->connectionsList_ != nullptr) {
++      parser->connectionsList_->Pop(parser);
++      parser->connectionsList_->PopActive(parser);
++    }
++
+     delete parser;
+   }
+ 

@@ -1,0 +1,446 @@
+diff -uN a/lib/assert.js b/lib/assert.js
+--- a/lib/assert.js
++++ b/lib/assert.js
+@@ -59,7 +59,7 @@
+   isRegExp,
+ } = require('internal/util/types');
+ const { isError, setOwnProperty } = require('internal/util');
+-const { innerOk, innerFail } = require('internal/assert/utils');
++const { innerOk } = require('internal/assert/utils');
+ 
+ const {
+   validateFunction,
+@@ -143,6 +143,12 @@
+ // they lose their `this` context and will use default behavior instead of the
+ // instance's custom options.
+ 
++function innerFail(obj) {
++  if (obj.message instanceof Error) throw obj.message;
++
++  throw new AssertionError(obj);
++}
++
+ /**
+  * Throws an AssertionError with the given message.
+  * @param {any | Error} [message]
+@@ -183,7 +189,7 @@
+  * @returns {void}
+  */
+ function assert(...args) {
+-  innerOk(assert, ...args);
++  innerOk(assert, args.length, ...args);
+ }
+ 
+ /**
+@@ -194,17 +200,17 @@
+  * @returns {void}
+  */
+ Assert.prototype.ok = function ok(...args) {
+-  innerOk(ok, ...args);
++  innerOk(ok, args.length, ...args);
+ };
+ 
+ /**
+  * The equality assertion tests shallow, coercive equality with ==.
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.equal = function equal(actual, expected, ...message) {
++Assert.prototype.equal = function equal(actual, expected, message) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+   }
+@@ -226,10 +232,10 @@
+  * equal with !=.
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.notEqual = function notEqual(actual, expected, ...message) {
++Assert.prototype.notEqual = function notEqual(actual, expected, message) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+   }
+@@ -250,10 +256,10 @@
+  * The deep equivalence assertion tests a deep equality relation.
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.deepEqual = function deepEqual(actual, expected, ...message) {
++Assert.prototype.deepEqual = function deepEqual(actual, expected, message) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+   }
+@@ -274,10 +280,10 @@
+  * The deep non-equivalence assertion tests for any deep inequality.
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.notDeepEqual = function notDeepEqual(actual, expected, ...message) {
++Assert.prototype.notDeepEqual = function notDeepEqual(actual, expected, message) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+   }
+@@ -299,10 +305,10 @@
+  * relation.
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.deepStrictEqual = function deepStrictEqual(actual, expected, ...message) {
++Assert.prototype.deepStrictEqual = function deepStrictEqual(actual, expected, message) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+   }
+@@ -324,11 +330,11 @@
+  * inequality.
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+ Assert.prototype.notDeepStrictEqual = notDeepStrictEqual;
+-function notDeepStrictEqual(actual, expected, ...message) {
++function notDeepStrictEqual(actual, expected, message) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+   }
+@@ -349,10 +355,10 @@
+  * The strict equivalence assertion tests a strict equality relation.
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.strictEqual = function strictEqual(actual, expected, ...message) {
++Assert.prototype.strictEqual = function strictEqual(actual, expected, message) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+   }
+@@ -372,10 +378,10 @@
+  * The strict non-equivalence assertion tests for any strict inequality.
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.notStrictEqual = function notStrictEqual(actual, expected, ...message) {
++Assert.prototype.notStrictEqual = function notStrictEqual(actual, expected, message) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+   }
+@@ -395,13 +401,13 @@
+  * The strict equivalence assertion test between two objects
+  * @param {any} actual
+  * @param {any} expected
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+ Assert.prototype.partialDeepStrictEqual = function partialDeepStrictEqual(
+   actual,
+   expected,
+-  ...message
++  message,
+ ) {
+   if (arguments.length < 2) {
+     throw new ERR_MISSING_ARGS('actual', 'expected');
+@@ -458,7 +464,7 @@
+     innerFail({
+       actual,
+       expected,
+-      message: [message],
++      message,
+       operator: fn.name,
+       stackStartFn: fn,
+       diff: this?.[kOptions]?.diff,
+@@ -660,7 +666,7 @@
+       actual: undefined,
+       expected: error,
+       operator: stackStartFn.name,
+-      message: [`Missing expected ${fnType}${details}`],
++      message: `Missing expected ${fnType}${details}`,
+       stackStartFn,
+       diff: this?.[kOptions]?.diff,
+     });
+@@ -709,8 +715,8 @@
+       actual,
+       expected: error,
+       operator: stackStartFn.name,
+-      message: [`Got unwanted ${fnType}${details}\n` +
+-               `Actual message: "${actual?.message}"`],
++      message: `Got unwanted ${fnType}${details}\n` +
++               `Actual message: "${actual?.message}"`,
+       stackStartFn,
+       diff: this?.[kOptions]?.diff,
+     });
+@@ -828,26 +834,30 @@
+   const match = fn === Assert.prototype.match;
+   if (typeof string !== 'string' ||
+       RegExpPrototypeExec(regexp, string) !== null !== match) {
++    if (message instanceof Error) {
++      throw message;
++    }
+ 
+-    const generatedMessage = message.length === 0;
++    const generatedMessage = !message;
+ 
+     // 'The input was expected to not match the regular expression ' +
+-    message[0] ||= (typeof string !== 'string' ?
++    message ||= (typeof string !== 'string' ?
+       'The "string" argument must be of type string. Received type ' +
+         `${typeof string} (${inspect(string)})` :
+       (match ?
+         'The input did not match the regular expression ' :
+         'The input was expected to not match the regular expression ') +
+           `${inspect(regexp)}. Input:\n\n${inspect(string)}\n`);
+-    innerFail({
++    const err = new AssertionError({
+       actual: string,
+       expected: regexp,
+       message,
+       operator: fn.name,
+       stackStartFn: fn,
+       diff: this?.[kOptions]?.diff,
+-      generatedMessage: generatedMessage,
+     });
++    err.generatedMessage = generatedMessage;
++    throw err;
+   }
+ }
+ 
+@@ -855,10 +865,10 @@
+  * Expects the `string` input to match the regular expression.
+  * @param {string} string
+  * @param {RegExp} regexp
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.match = function match(string, regexp, ...message) {
++Assert.prototype.match = function match(string, regexp, message) {
+   internalMatch(string, regexp, message, match);
+ };
+ 
+@@ -866,10 +876,10 @@
+  * Expects the `string` input not to match the regular expression.
+  * @param {string} string
+  * @param {RegExp} regexp
+- * @param {string | Error | MessageFactory} [message]
++ * @param {string | Error} [message]
+  * @returns {void}
+  */
+-Assert.prototype.doesNotMatch = function doesNotMatch(string, regexp, ...message) {
++Assert.prototype.doesNotMatch = function doesNotMatch(string, regexp, message) {
+   internalMatch(string, regexp, message, doesNotMatch);
+ };
+ 
+@@ -879,7 +889,7 @@
+  * @returns {void}
+  */
+ function strict(...args) {
+-  innerOk(strict, ...args);
++  innerOk(strict, args.length, ...args);
+ }
+ 
+ ArrayPrototypeForEach([
+diff -uN a/lib/internal/assert/utils.js b/lib/internal/assert/utils.js
+--- a/lib/internal/assert/utils.js
++++ b/lib/internal/assert/utils.js
+@@ -3,21 +3,15 @@
+ const {
+   Error,
+   ErrorCaptureStackTrace,
+-  ErrorPrototypeToString,
+   StringPrototypeCharCodeAt,
+   StringPrototypeReplace,
+ } = primordials;
+ 
+ const {
+-  codes: {
+-    ERR_AMBIGUOUS_ARGUMENT,
+-    ERR_INVALID_ARG_TYPE,
+-  },
+   isErrorStackTraceLimitWritable,
+ } = require('internal/errors');
+ const AssertionError = require('internal/assert/assertion_error');
+ const { isError } = require('internal/util');
+-const { format } = require('internal/util/inspect');
+ 
+ const {
+   getErrorSourceExpression,
+@@ -39,43 +33,6 @@
+ 
+ const escapeFn = (str) => meta[StringPrototypeCharCodeAt(str, 0)];
+ 
+-/**
+- * A function that derives the failure message from the actual and expected values.
+- * It is invoked only when the assertion fails.
+- *
+- * Other return values than a string are ignored.
+- * @callback MessageFactory
+- * @param {any} actual
+- * @param {any} expected
+- * @returns {string}
+- */
+-
+-/**
+- * Raw message input is always passed internally as a tuple array.
+- * Accepted shapes:
+- *  - []
+- *  - [string]
+- *  - [string, ...any[]] (printf-like substitutions)
+- *  - [Error]
+- *  - [MessageFactory]
+- *
+- * Additional elements after [Error] or [MessageFactory] are rejected with ERR_AMBIGUOUS_ARGUMENT.
+- * A first element that is neither string, Error nor function is rejected with ERR_INVALID_ARG_TYPE.
+- * @typedef {[] | [string] | [string, ...any[]] | [Error] | [MessageFactory]} MessageTuple
+- */
+-
+-/**
+- * Options consumed by innerFail to construct and throw the AssertionError.
+- * @typedef {object} InnerFailOptions
+- * @property {any} actual Actual value
+- * @property {any} expected Expected value
+- * @property {MessageTuple} message Message
+- * @property {string} operator Operator
+- * @property {Function} stackStartFn Stack start function
+- * @property {'simple' | 'full'} [diff] Diff mode
+- * @property {boolean} [generatedMessage] Generated message
+- */
+-
+ function getErrMessage(fn) {
+   const tmpLimit = Error.stackTraceLimit;
+   const errorStackTraceLimitIsWritable = isErrorStackTraceLimitWritable();
+@@ -95,89 +52,32 @@
+   }
+ }
+ 
+-/**
+- * @param {InnerFailOptions} obj
+- */
+-function innerFail(obj) {
+-  if (obj.message.length === 0) {
+-    obj.message = undefined;
+-  } else if (typeof obj.message[0] === 'string') {
+-    if (obj.message.length > 1) {
+-      obj.message = format(...obj.message);
+-    } else {
+-      obj.message = obj.message[0];
+-    }
+-  } else if (isError(obj.message[0])) {
+-    if (obj.message.length > 1) {
+-      throw new ERR_AMBIGUOUS_ARGUMENT(
+-        'message',
+-        `The error message was passed as error object "${ErrorPrototypeToString(obj.message[0])}" has trailing arguments that would be ignored.`,
+-      );
+-    }
+-    throw obj.message[0];
+-  } else if (typeof obj.message[0] === 'function') {
+-    if (obj.message.length > 1) {
+-      throw new ERR_AMBIGUOUS_ARGUMENT(
+-        'message',
+-        `The error message with function "${obj.message[0].name || 'anonymous'}" has trailing arguments that would be ignored.`,
+-      );
+-    }
+-    try {
+-      obj.message = obj.message[0](obj.actual, obj.expected);
+-      if (typeof obj.message !== 'string') {
+-        obj.message = undefined;
+-      }
+-    } catch {
+-      // Ignore and use default message instead
+-      obj.message = undefined;
+-    }
+-  } else {
+-    throw new ERR_INVALID_ARG_TYPE(
+-      'message',
+-      ['string', 'function'],
+-      obj.message[0],
+-    );
+-  }
+-
+-  const error = new AssertionError(obj);
+-  if (obj.generatedMessage !== undefined) {
+-    error.generatedMessage = obj.generatedMessage;
+-  }
+-  throw error;
+-}
+-
+-/**
+- * Internal ok handler delegating to innerFail for message handling.
+- * @param {Function} fn
+- * @param {...any} args
+- */
+-function innerOk(fn, ...args) {
+-  if (!args[0]) {
++function innerOk(fn, argLen, value, message) {
++  if (!value) {
+     let generatedMessage = false;
+-    let messageArgs;
+ 
+-    if (args.length === 0) {
++    if (argLen === 0) {
+       generatedMessage = true;
+-      messageArgs = ['No value argument passed to `assert.ok()`'];
+-    } else if (args.length === 1 || args[1] == null) {
++      message = 'No value argument passed to `assert.ok()`';
++    } else if (message == null) {
+       generatedMessage = true;
+-      messageArgs = [getErrMessage(fn)];
+-    } else {
+-      messageArgs = args.slice(1);
++      message = getErrMessage(fn);
++    } else if (isError(message)) {
++      throw message;
+     }
+ 
+-    innerFail({
+-      actual: args[0],
++    const err = new AssertionError({
++      actual: value,
+       expected: true,
+-      message: messageArgs,
++      message,
+       operator: '==',
+       stackStartFn: fn,
+-      generatedMessage,
+     });
++    err.generatedMessage = generatedMessage;
++    throw err;
+   }
+ }
+ 
+ module.exports = {
+   innerOk,
+-  innerFail,
+ };
+diff -uN a/lib/internal/test_runner/test.js b/lib/internal/test_runner/test.js
+--- a/lib/internal/test_runner/test.js
++++ b/lib/internal/test_runner/test.js
+@@ -355,7 +355,7 @@
+           if (plan !== null) {
+             plan.count();
+           }
+-          innerOk(ok, ...args);
++          innerOk(ok, args.length, ...args);
+         }
+ 
+         assert.ok = ok;

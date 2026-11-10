@@ -1,0 +1,13 @@
+'use strict';
+require('v8').setFlagsFromString('--expose-gc');
+require('v8').setFlagsFromString('--no-concurrent-array-buffer-sweeping');
+const gc = require('vm').runInNewContext('gc');
+const zlib = require('zlib');
+gc();
+const before = process.memoryUsage().external;
+for (let i = 0; i < 100; ++i) zlib.createGzip();
+const created = process.memoryUsage().external;
+gc();
+const after = process.memoryUsage().external;
+const ratio = (after - before) / (created - before);
+console.log(ratio <= 0.05 ? 'memory reclaimed' : 'memory leaked');

@@ -1,0 +1,20 @@
+diff -uN a/lib/internal/streams/readable.js b/lib/internal/streams/readable.js
+--- a/lib/internal/streams/readable.js
++++ b/lib/internal/streams/readable.js
+@@ -1050,13 +1050,9 @@
+     // specific writer, then it would cause it to never start
+     // flowing again.
+     // So, if this is awaiting a drain, then we just call it now.
+-    // `pipeOnDrain` only removes this destination from the awaiting-drain set
+-    // and resumes the source once nothing else is awaiting a drain, so it is
+-    // safe to call unconditionally and no-ops when this writer wasn't awaiting
+-    // a drain. Guarding on `needDrain` used to skip this for a destination that
+-    // errored synchronously, leaving it stuck in the set and starving other
+-    // destinations piped from the same source (see #53185).
+-    if (ondrain && state.awaitDrainWriters)
++    // If we don't know, then assume that we are waiting for one.
++    if (ondrain && state.awaitDrainWriters &&
++        (!dest._writableState || dest._writableState.needDrain))
+       ondrain();
+   }
+ 

@@ -1,0 +1,35 @@
+diff -uN a/lib/_http_outgoing.js b/lib/_http_outgoing.js
+--- a/lib/_http_outgoing.js
++++ b/lib/_http_outgoing.js
+@@ -839,29 +839,8 @@
+     throw new ERR_INVALID_ARG_TYPE('headers', ['Headers', 'Map'], headers);
+   }
+ 
+-  // Headers object joins multiple cookies with a comma when using
+-  // the getter to retrieve the value,
+-  // unless iterating over the headers directly.
+-  // We also cannot safely split by comma.
+-  // To avoid setHeader overwriting the previous value we push
+-  // set-cookie values in array and set them all at once.
+-  let cookies = null;
+-
+-  for (const { 0: key, 1: value } of headers) {
+-    if (key === 'set-cookie') {
+-      if (ArrayIsArray(value)) {
+-        cookies ??= [];
+-        cookies.push(...value);
+-      } else {
+-        cookies ??= [];
+-        cookies.push(value);
+-      }
+-      continue;
+-    }
+-    this.setHeader(key, value);
+-  }
+-  if (cookies != null) {
+-    this.setHeader('set-cookie', cookies);
++  for (const key of headers.keys()) {
++    this.setHeader(key, headers.get(key));
+   }
+ 
+   return this;

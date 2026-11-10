@@ -1,0 +1,67 @@
+diff -uN a/lib/internal/event_target.js b/lib/internal/event_target.js
+--- a/lib/internal/event_target.js
++++ b/lib/internal/event_target.js
+@@ -66,7 +66,6 @@
+ const kResistStopPropagation = Symbol('kResistStopPropagation');
+ 
+ const kHybridDispatch = SymbolFor('nodejs.internal.kHybridDispatch');
+-const kRemoveWeakListenerHelper = Symbol('kRemoveWeakListenerHelper');
+ const kCreateEvent = Symbol('kCreateEvent');
+ const kNewListener = Symbol('kNewListener');
+ const kRemoveListener = Symbol('kRemoveListener');
+@@ -436,7 +435,7 @@
+ let objectToWeakListenerMap = null;
+ function weakListeners() {
+   weakListenersState ??= new SafeFinalizationRegistry(
+-    ({ eventTarget, listener, eventType }) => eventTarget.deref()?.[kRemoveWeakListenerHelper](eventType, listener),
++    (listener) => listener.remove(),
+   );
+   objectToWeakListenerMap ??= new SafeWeakMap();
+   return { registry: weakListenersState, map: objectToWeakListenerMap };
+@@ -485,13 +484,7 @@
+ 
+     if (this.weak) {
+       this.callback = new SafeWeakRef(listener);
+-      weakListeners().registry.register(listener, {
+-        __proto__: null,
+-        // Weak ref so the listener won't hold the eventTarget alive
+-        eventTarget: new SafeWeakRef(eventTarget),
+-        listener: this,
+-        eventType,
+-      }, this);
++      weakListeners().registry.register(listener, this, this);
+       // Store only a WeakRef to the retainer here. Listener instances are
+       // Strongly reachable from the EventTarget's listener list for as long
+       // as they're registered, so a plain strong reference would keep the
+@@ -766,31 +759,6 @@
+         break;
+       }
+       handler = handler.next;
+-    }
+-  }
+-
+-  [kRemoveWeakListenerHelper](type, listener) {
+-    if (this[kEvents] === undefined)
+-      return;
+-
+-    const root = this[kEvents].get(type);
+-    if (root === undefined || root.next === undefined)
+-      return;
+-
+-    const capture = listener.capture === true;
+-
+-    let handler = root.next;
+-    while (handler !== undefined) {
+-      if (handler === listener) {
+-        handler.remove();
+-        root.size--;
+-        if (root.size === 0)
+-          this[kEvents].delete(type);
+-        // Undefined is passed as the listener as the listener was GCed
+-        this[kRemoveListener](root.size, type, undefined, capture);
+-        break;
+-      }
+-      handler = handler.next;
+     }
+   }
+ 

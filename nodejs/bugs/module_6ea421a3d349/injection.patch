@@ -1,0 +1,39 @@
+diff -uN a/lib/internal/modules/cjs/loader.js b/lib/internal/modules/cjs/loader.js
+--- a/lib/internal/modules/cjs/loader.js
++++ b/lib/internal/modules/cjs/loader.js
+@@ -1211,17 +1211,7 @@
+     // no longer need to use a different defaultResolve for every resolution.
+     // In the hooks, context.conditions is passed around as an array, but internally
+     // the resolution helpers expect a SafeSet. Do the conversion here.
+-    let conditionSet;
+-    const conditions = context.conditions;
+-    if (conditions !== undefined && conditions !== getCjsConditionsArray()) {
+-      if (!ArrayIsArray(conditions)) {
+-        throw new ERR_INVALID_ARG_VALUE('context.conditions', conditions,
+-                                        'expected an array');
+-      }
+-      conditionSet = new SafeSet(conditions);
+-    } else {
+-      conditionSet = getCjsConditions();
+-    }
++    const conditionSet = getCjsConditions();
+ 
+     const result = defaultResolveImpl(specifier, parent, isMain, {
+       __proto__: null,
+diff -uN a/lib/internal/modules/esm/loader.js b/lib/internal/modules/esm/loader.js
+--- a/lib/internal/modules/esm/loader.js
++++ b/lib/internal/modules/esm/loader.js
+@@ -705,7 +705,12 @@
+       return cachedResult;
+     }
+ 
+-    const result = defaultResolve(specifier, context);
++    const result = defaultResolve(specifier, {
++      __proto__: null,
++      conditions: this.#defaultConditions,
++      parentURL,
++      importAttributes,
++    });
+     this.#resolveCache.set(requestKey, parentURL, result);
+     return result;
+   }

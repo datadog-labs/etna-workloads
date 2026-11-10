@@ -1,0 +1,47 @@
+diff -uN a/lib/internal/modules/esm/loader.js b/lib/internal/modules/esm/loader.js
+--- a/lib/internal/modules/esm/loader.js
++++ b/lib/internal/modules/esm/loader.js
+@@ -529,21 +529,6 @@
+   #getOrCreateModuleJobAfterResolve(parentURL, resolveResult, request, requestType) {
+     const { url, format } = resolveResult;
+ 
+-    if (process.env.WATCH_REPORT_DEPENDENCIES && process.send) {
+-      const type = requestType === kRequireInImportedCJS ? 'require' : 'import';
+-      process.send({ [`watch:${type}`]: [url] });
+-    }
+-    // Relay Events from worker to main thread
+-    if (process.env.WATCH_REPORT_DEPENDENCIES && !process.send) {
+-      const { isMainThread } = internalBinding('worker');
+-      if (!isMainThread) {
+-        const { parentPort } = require('worker_threads');
+-        if (parentPort) {
+-          parentPort.postMessage({ 'watch:import': [url] });
+-        }
+-      }
+-    }
+-
+     // TODO(joyeecheung): update the module requests to use importAttributes as property names.
+     const importAttributes = resolveResult.importAttributes ?? request.attributes;
+     let job = this.loadCache.get(url, importAttributes.type);
+@@ -572,6 +557,21 @@
+       assert(moduleOrModulePromise instanceof ModuleWrap, `Expected ModuleWrap for loading ${url}`);
+     }
+ 
++    if (process.env.WATCH_REPORT_DEPENDENCIES && process.send) {
++      const type = requestType === kRequireInImportedCJS ? 'require' : 'import';
++      process.send({ [`watch:${type}`]: [url] });
++    }
++    // Relay Events from worker to main thread
++    if (process.env.WATCH_REPORT_DEPENDENCIES && !process.send) {
++      const { isMainThread } = internalBinding('worker');
++      if (!isMainThread) {
++        const { parentPort } = require('worker_threads');
++        if (parentPort) {
++          parentPort.postMessage({ 'watch:import': [url] });
++        }
++      }
++    }
++
+     // TODO(joyeecheung): use ModuleJobSync for kRequireInImportedCJS too.
+     const ModuleJobCtor = (requestType === kImportInRequiredESM ? ModuleJobSync : ModuleJob);
+     const isMain = (parentURL === undefined);

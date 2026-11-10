@@ -1,0 +1,38 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -3337,20 +3337,22 @@
+ 
+ // the reason for using static functions here is that SQLite needs a
+ // function pointer
++static ConflictCallbackContext shared_context;
+ 
+ static int xConflict(void* pCtx, int eConflict, sqlite3_changeset_iter* pIter) {
+-  auto ctx = static_cast<ConflictCallbackContext*>(pCtx);
++  auto ctx = &shared_context;
+   if (!ctx->conflictCallback) return SQLITE_CHANGESET_ABORT;
+   return ctx->conflictCallback(eConflict);
+ }
+ 
+ static int xFilter(void* pCtx, const char* zTab) {
+-  auto ctx = static_cast<ConflictCallbackContext*>(pCtx);
++  auto ctx = &shared_context;
+   return ctx->filterCallback(zTab) ? 1 : 0;
+ }
+ 
+ void Database::ApplyChangeset(const FunctionCallbackInfo<Value>& args) {
+-  ConflictCallbackContext context;
++  shared_context = ConflictCallbackContext();
++  ConflictCallbackContext& context = shared_context;
+ 
+   Database* db;
+   ASSIGN_OR_RETURN_UNWRAP(&db, args.This());
+@@ -3496,7 +3498,7 @@
+                   : const_cast<void*>(static_cast<const void*>(buf.data())),
+         context.filterCallback ? xFilter : nullptr,
+         xConflict,
+-        static_cast<void*>(&context));
++        nullptr);
+   }
+   if (r == SQLITE_OK) {
+     args.GetReturnValue().Set(true);

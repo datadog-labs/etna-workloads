@@ -1,0 +1,41 @@
+diff -uN a/lib/_http_outgoing.js b/lib/_http_outgoing.js
+--- a/lib/_http_outgoing.js
++++ b/lib/_http_outgoing.js
+@@ -477,6 +477,15 @@
+     // There might be pending data in the this.output buffer.
+     if (this.outputData.length) {
+       this._flushOutput(conn);
++    } else if (!data.length) {
++      if (typeof callback === 'function') {
++        // If the socket was set directly it won't be correctly initialized
++        // with an async_id_symbol.
++        defaultTriggerAsyncIdScope(conn[async_id_symbol],
++                                   process.nextTick,
++                                   callback);
++      }
++      return true;
+     }
+     // Directly write to socket.
+     return conn.write(data, encoding, callback);
+@@ -1126,13 +1135,20 @@
+     throw new ERR_UNKNOWN_ENCODING(encoding);
+   }
+ 
++  // If we get an empty string or buffer, then just do nothing, and
++  // signal the user to keep writing.
++  if (chunk.length === 0) {
++    debug('received empty string or buffer and waiting for more input');
++    return true;
++  }
++
+   if (!fromEnd && msg.socket && !msg.socket.writableCorked) {
+     msg.cork();
+     process.nextTick(connectionCorkNT, msg);
+   }
+ 
+   let ret;
+-  if (msg.chunkedEncoding && chunk.length !== 0) {
++  if (msg.chunkedEncoding) {
+     len ??= typeof chunk === 'string' ? Buffer.byteLength(chunk, encoding) : chunk.byteLength;
+     if (msg[kCorked]) {
+       if (typeof chunk !== 'string' && !(chunk instanceof Buffer)) {

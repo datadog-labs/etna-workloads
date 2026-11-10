@@ -1,0 +1,46 @@
+diff -uN a/lib/internal/event_target.js b/lib/internal/event_target.js
+--- a/lib/internal/event_target.js
++++ b/lib/internal/event_target.js
+@@ -2,7 +2,6 @@
+ 
+ const {
+   ArrayFrom,
+-  ArrayPrototypeReduce,
+   Boolean,
+   Error,
+   FunctionPrototypeCall,
+@@ -335,6 +334,11 @@
+       throw new ERR_INVALID_THIS('Event');
+     this.#propagationStopped = true;
+   }
++
++  static NONE = 0;
++  static CAPTURING_PHASE = 1;
++  static AT_TARGET = 2;
++  static BUBBLING_PHASE = 3;
+ }
+ 
+ ObjectDefineProperties(
+@@ -370,22 +374,6 @@
+     isTrusted: isTrustedDescriptor,
+   });
+ 
+-const staticProps = ['NONE', 'CAPTURING_PHASE', 'AT_TARGET', 'BUBBLING_PHASE'];
+-
+-ObjectDefineProperties(
+-  Event,
+-  ArrayPrototypeReduce(staticProps, (result, staticProp, index = 0) => {
+-    result[staticProp] = {
+-      __proto__: null,
+-      writable: false,
+-      configurable: false,
+-      enumerable: true,
+-      value: index,
+-    };
+-    return result;
+-  }, {}),
+-);
+-
+ function isCustomEvent(value) {
+   return isEvent(value) && (value?.[kDetail] !== undefined);
+ }

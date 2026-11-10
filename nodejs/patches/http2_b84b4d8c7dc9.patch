@@ -1,0 +1,15 @@
+diff -uN a/src/node_http2.cc b/src/node_http2.cc
+--- a/src/node_http2.cc
++++ b/src/node_http2.cc
+@@ -998,7 +998,10 @@
+   CHECK_IMPLIES(custom_recv_error_code_ != nullptr, ret < 0);
+ 
+   // We are done processing the current input chunk.
+-  DecrementCurrentSessionMemory(stream_buf_.len);
++  // The allocation is turned over to V8 (and cleared) when a DATA chunk is
++  // emitted, so its size is no longer reliable here.
++  DecrementCurrentSessionMemory(
++      stream_buf_allocation_ ? stream_buf_allocation_->ByteLength() : 0);
+   stream_buf_ab_.Reset();
+   stream_buf_allocation_.reset();
+   stream_buf_ = uv_buf_init(nullptr, 0);

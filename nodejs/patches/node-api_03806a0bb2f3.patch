@@ -1,0 +1,31 @@
+diff -uN a/src/js_native_api_v8.cc b/src/js_native_api_v8.cc
+--- a/src/js_native_api_v8.cc
++++ b/src/js_native_api_v8.cc
+@@ -724,20 +724,18 @@
+   // be invoked again.
+   persistent_.Reset();
+ 
+-  // If the Reference is not ReferenceOwnership::kRuntime, userland code should
+-  // delete it. Delete it if it is ReferenceOwnership::kRuntime.
+-  bool deleteMe = ownership_ == ReferenceOwnership::kRuntime;
+-
+-  // Whether the Reference is going to be deleted in the finalize_callback
+-  // or not, it should be removed from the tracked list.
+-  Unlink();
+-
+   // If the finalize_callback is present, it should either delete the
+   // derived Reference, or the Reference ownership was set to
+   // ReferenceOwnership::kRuntime and the deleteMe parameter is true.
+   CallUserFinalizer();
+ 
+-  if (deleteMe) {
++  // Whether the Reference is going to be deleted in the finalize_callback
++  // or not, it should be removed from the tracked list.
++  Unlink();
++
++  // If the Reference is not ReferenceOwnership::kRuntime, userland code should
++  // delete it. Delete it if it is ReferenceOwnership::kRuntime.
++  if (ownership_ == ReferenceOwnership::kRuntime) {
+     delete this;
+   }
+ }

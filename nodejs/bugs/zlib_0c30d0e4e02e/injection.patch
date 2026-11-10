@@ -1,0 +1,38 @@
+diff -uN a/src/node_zlib.cc b/src/node_zlib.cc
+--- a/src/node_zlib.cc
++++ b/src/node_zlib.cc
+@@ -609,8 +609,8 @@
+       if (CheckError()) {
+         UpdateWriteResult();
+         write_in_progress_ = false;
++        Unref();
+       }
+-      Unref();
+       return;
+     }
+ 
+@@ -643,7 +643,6 @@
+   void AfterThreadPoolWork(int status) override {
+     DCHECK(init_done_);
+     AllocScope alloc_scope(this);
+-    auto on_scope_leave = OnScopeLeave([&]() { Unref(); });
+ 
+     write_in_progress_ = false;
+ 
+@@ -668,6 +667,7 @@
+         object()->GetInternalField(kWriteJSCallback).template As<Value>();
+     MakeCallback(cb.As<Function>(), 0, nullptr);
+ 
++    Unref();
+     if (pending_close_)
+       Close();
+   }
+@@ -687,6 +687,8 @@
+     MakeCallback(env->onerror_string(), arraysize(args), args);
+ 
+     // no hope of rescue.
++    if (write_in_progress_)
++      Unref();
+     write_in_progress_ = false;
+     if (pending_close_)
+       Close();

@@ -1,0 +1,28 @@
+diff -uN a/lib/internal/main/watch_mode.js b/lib/internal/main/watch_mode.js
+--- a/lib/internal/main/watch_mode.js
++++ b/lib/internal/main/watch_mode.js
+@@ -161,9 +161,6 @@
+     },
+   });
+   watcher.watchChildProcessModules(child);
+-  if (kEnvFiles.length > 0) {
+-    ArrayPrototypeForEach(kEnvFiles, (file) => watcher.filterFile(resolve(file)));
+-  }
+   if (kOptionalEnvFiles.length > 0) {
+     ArrayPrototypeForEach(kOptionalEnvFiles,
+                           (file) => watcher.filterFile(resolve(file), undefined, { allowMissing: true }));
+diff -uN a/src/node.cc b/src/node.cc
+--- a/src/node.cc
++++ b/src/node.cc
+@@ -339,10 +339,7 @@
+   }
+ #endif
+ 
+-  // Ignore env file if we're in watch mode.
+-  // Without it env is not updated when restarting child process.
+-  // Child process has --watch flag removed, so it will load the file.
+-  if (env->options()->has_env_file_string && !env->options()->watch_mode) {
++  if (env->options()->has_env_file_string) {
+     per_process::dotenv_file.SetEnvironment(env);
+   }
+ 

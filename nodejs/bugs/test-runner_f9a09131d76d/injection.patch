@@ -1,0 +1,49 @@
+diff -uN a/lib/internal/test_runner/assert.js b/lib/internal/test_runner/assert.js
+--- a/lib/internal/test_runner/assert.js
++++ b/lib/internal/test_runner/assert.js
+@@ -1,5 +1,6 @@
+ 'use strict';
+ const {
++  ObjectEntries,
+   SafeMap,
+ } = primordials;
+ const {
+@@ -15,25 +16,6 @@
+ const { isDeepStrictEqual } = require('internal/util/comparisons');
+ const assert = require('assert');
+ const { AssertionError } = assert;
+-const methodsToCopy = [
+-  'deepEqual',
+-  'deepStrictEqual',
+-  'doesNotMatch',
+-  'doesNotReject',
+-  'doesNotThrow',
+-  'equal',
+-  'fail',
+-  'ifError',
+-  'match',
+-  'notDeepEqual',
+-  'notDeepStrictEqual',
+-  'notEqual',
+-  'notStrictEqual',
+-  'partialDeepStrictEqual',
+-  'rejects',
+-  'strictEqual',
+-  'throws',
+-];
+ let assertMap;
+ 
+ function getMockContext(fn) {
+@@ -132,8 +114,10 @@
+   if (assertMap === undefined) {
+     assertMap = new SafeMap();
+ 
+-    for (let i = 0; i < methodsToCopy.length; i++) {
+-      assertMap.set(methodsToCopy[i], assert[methodsToCopy[i]]);
++    for (const { 0: key, 1: value } of ObjectEntries(assert)) {
++      if (typeof value === 'function') {
++        assertMap.set(key, value);
++      }
+     }
+ 
+     assertMap.set('called', called);

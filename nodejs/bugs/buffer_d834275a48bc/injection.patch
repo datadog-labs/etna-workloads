@@ -1,0 +1,74 @@
+diff -uN a/lib/buffer.js b/lib/buffer.js
+--- a/lib/buffer.js
++++ b/lib/buffer.js
+@@ -25,7 +25,7 @@
+   Array,
+   ArrayBufferIsView,
+   ArrayIsArray,
+-  ArrayPrototypeForEach,
++  ArrayPrototypeReduce,
+   MathCeil,
+   MathFloor,
+   MathMin,
+@@ -40,7 +40,6 @@
+   ObjectSetPrototypeOf,
+   RegExpPrototypeSymbolReplace,
+   StringPrototypeCharCodeAt,
+-  StringPrototypeSlice,
+   StringPrototypeToLowerCase,
+   StringPrototypeTrim,
+   SymbolSpecies,
+@@ -110,7 +109,8 @@
+   isTypedArray,
+ } = require('internal/util/types');
+ const {
+-  inspect: utilInspect,
++  formatProperty,
++  kObjectType,
+ } = require('internal/util/inspect');
+ 
+ const assert = require('internal/assert');
+@@ -1031,25 +1031,13 @@
+     str += ` ... ${remaining} more byte${remaining > 1 ? 's' : ''}`;
+   // Inspect special properties as well, if possible.
+   if (ctx) {
+-    let extras = false;
+     const filter = ctx.showHidden ? ALL_PROPERTIES : ONLY_ENUMERABLE;
+-    const obj = { __proto__: null };
+-    ArrayPrototypeForEach(getOwnNonIndexProperties(this, filter),
+-                          (key) => {
+-                            extras = true;
+-                            obj[key] = this[key];
+-                          });
+-    if (extras) {
+-      if (this.length !== 0)
+-        str += ', ';
+-      // '[Object: null prototype] {'.length === 26
+-      // This is guarded with a test.
+-      str += StringPrototypeSlice(utilInspect(obj, {
+-        ...ctx,
+-        breakLength: Infinity,
+-        compact: true,
+-      }), 27, -2);
+-    }
++    str += ArrayPrototypeReduce(getOwnNonIndexProperties(this, filter), (str, key) => {
++      // Using `formatProperty()` expects an indentationLvl to be set.
++      ctx.indentationLvl = 0;
++      str += `, ${formatProperty(ctx, this, recurseTimes, key, kObjectType)}`;
++      return str;
++    }, '');
+   }
+   let constructorName = 'Buffer';
+   try {
+diff -uN a/lib/internal/util/inspect.js b/lib/internal/util/inspect.js
+--- a/lib/internal/util/inspect.js
++++ b/lib/internal/util/inspect.js
+@@ -3071,6 +3071,8 @@
+   identicalSequenceRange,
+   inspect,
+   inspectDefaultOptions,
++  formatProperty,
++  kObjectType,
+   stylizeWithColor,
+   format,
+   formatWithOptions,

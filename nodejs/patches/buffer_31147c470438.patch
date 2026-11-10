@@ -1,0 +1,23 @@
+diff -uN a/src/string_bytes.cc b/src/string_bytes.cc
+--- a/src/string_bytes.cc
++++ b/src/string_bytes.cc
+@@ -256,16 +256,9 @@
+   if (aligned_dst == dst) {
+     str->WriteV2(isolate, 0, nchars, dst);
+   } else {
+-    // Write all but the last char.
+-    str->WriteV2(isolate, 0, nchars - 1, aligned_dst);
+-
+-    // Shift everything to unaligned-left.
+-    memmove(dst, aligned_dst, (nchars - 1) * sizeof(*dst));
+-
+-    // One more char to be written.
+-    uint16_t last;
+-    str->WriteV2(isolate, nchars - 1, 1, &last);
+-    memcpy(dst + nchars - 1, &last, sizeof(last));
++    // Write all chars, then shift everything to unaligned-left.
++    str->WriteV2(isolate, 0, nchars, aligned_dst);
++    memmove(dst, aligned_dst, nchars * sizeof(*dst));
+   }
+ 
+   return nchars * sizeof(*dst);

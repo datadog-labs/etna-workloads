@@ -1,0 +1,33 @@
+diff -uN a/lib/internal/webstreams/readablestream.js b/lib/internal/webstreams/readablestream.js
+--- a/lib/internal/webstreams/readablestream.js
++++ b/lib/internal/webstreams/readablestream.js
+@@ -632,13 +632,11 @@
+     const viewBuffer = ArrayBufferViewGetBuffer(view);
+     const viewBufferByteLength = ArrayBufferPrototypeGetByteLength(viewBuffer);
+ 
+-    if (ArrayBufferPrototypeGetDetached(viewBuffer)) {
+-      throw new ERR_INVALID_STATE.TypeError('Viewed ArrayBuffer is detached');
++    if (viewByteLength === 0 || viewBufferByteLength === 0) {
++      throw new ERR_INVALID_STATE.TypeError(
++        'View ArrayBuffer is zero-length or detached');
+     }
+ 
+-    assert(viewByteLength > 0);
+-    assert(viewBufferByteLength > 0);
+-
+     readableByteStreamControllerRespond(controller, bytesWritten);
+   }
+ 
+@@ -659,8 +657,10 @@
+ 
+     validateBuffer(view, 'view');
+ 
+-    if (ArrayBufferPrototypeGetDetached(view.buffer)) {
+-      throw new ERR_INVALID_STATE.TypeError('Viewed ArrayBuffer is detached');
++    if (ArrayBufferViewGetByteLength(view) === 0 ||
++        ArrayBufferPrototypeGetByteLength(ArrayBufferViewGetBuffer(view)) === 0) {
++      throw new ERR_INVALID_STATE.TypeError(
++        'View ArrayBuffer is zero-length or detached');
+     }
+ 
+     readableByteStreamControllerRespondWithNewView(controller, view);

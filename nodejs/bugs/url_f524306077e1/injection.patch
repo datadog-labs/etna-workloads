@@ -1,0 +1,63 @@
+diff -uN a/lib/url.js b/lib/url.js
+--- a/lib/url.js
++++ b/lib/url.js
+@@ -170,9 +170,7 @@
+ //   as IPv6 by isIpv6Hostname above
+ //
+ // [1]: https://url.spec.whatwg.org/#forbidden-host-code-point
+-const forbiddenHostChars = /[\0\t\n\r #%/:<>?@[\\\]^|]/;
+-// For IPv6, permit '[', ']', and ':'.
+-const forbiddenHostCharsIpv6 = /[\0\t\n\r #%/<>?@\\^|]/;
++const forbiddenHostChars = /[\t\n\r #%/:<>?@[\\\]^|]/;
+ 
+ Url.prototype.parse = function parse(url, parseQueryString, slashesDenoteHost) {
+   validateString(url, 'url');
+@@ -399,30 +397,24 @@
+       this.hostname = this.hostname.toLowerCase();
+     }
+ 
+-    if (this.hostname !== '') {
+-      if (ipv6Hostname) {
+-        if (forbiddenHostCharsIpv6.test(this.hostname)) {
+-          throw new ERR_INVALID_URL(url);
+-        }
+-      } else {
+-        // IDNA Support: Returns a punycoded representation of "domain".
+-        // It only converts parts of the domain name that
+-        // have non-ASCII characters, i.e. it doesn't matter if
+-        // you call it with a domain that already is ASCII-only.
+-        this.hostname = toASCII(this.hostname);
+-
+-        // Prevent two potential routes of hostname spoofing.
+-        // 1. If this.hostname is empty, it must have become empty due to toASCII
+-        //    since we checked this.hostname above.
+-        // 2. If any of forbiddenHostChars appears in this.hostname, it must have
+-        //    also gotten in due to toASCII. This is since getHostname would have
+-        //    filtered them out otherwise.
+-        // Rather than trying to correct this by moving the non-host part into
+-        // the pathname as we've done in getHostname, throw an exception to
+-        // convey the severity of this issue.
+-        if (this.hostname === '' || forbiddenHostChars.test(this.hostname)) {
+-          throw new ERR_INVALID_URL(url);
+-        }
++    if (!ipv6Hostname && this.hostname !== '') {
++      // IDNA Support: Returns a punycoded representation of "domain".
++      // It only converts parts of the domain name that
++      // have non-ASCII characters, i.e. it doesn't matter if
++      // you call it with a domain that already is ASCII-only.
++      this.hostname = toASCII(this.hostname);
++
++      // Prevent two potential routes of hostname spoofing.
++      // 1. If this.hostname is empty, it must have become empty due to toASCII
++      //    since we checked this.hostname above.
++      // 2. If any of forbiddenHostChars appears in this.hostname, it must have
++      //    also gotten in due to toASCII. This is since getHostname would have
++      //    filtered them out otherwise.
++      // Rather than trying to correct this by moving the non-host part into
++      // the pathname as we've done in getHostname, throw an exception to
++      // convey the severity of this issue.
++      if (this.hostname === '' || forbiddenHostChars.test(this.hostname)) {
++        throw new ERR_INVALID_URL(url);
+       }
+     }
+ 

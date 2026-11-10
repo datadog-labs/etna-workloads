@@ -1,0 +1,33 @@
+diff -uN a/src/node_api.cc b/src/node_api.cc
+--- a/src/node_api.cc
++++ b/src/node_api.cc
+@@ -792,7 +792,7 @@
+ node_module napi_module_to_node_module(const napi_module* mod) {
+   return {
+       -1,
+-      mod->nm_flags | NM_F_DELETEME,
++      mod->nm_flags,
+       nullptr,
+       mod->nm_filename,
+       nullptr,
+diff -uN a/src/node_binding.cc b/src/node_binding.cc
+--- a/src/node_binding.cc
++++ b/src/node_binding.cc
+@@ -862,13 +862,10 @@
+             exports, module, context, napi_callback, module_api_version);
+         return true;
+       } else {
+-        mp = dlib->GetSavedModuleFromGlobalHandleMap();
+-        if (mp == nullptr || mp->nm_context_register_func == nullptr) {
+-          dlib->Close();
+-          THROW_ERR_DLOPEN_FAILED(
+-              env, "Module did not self-register: '%s'.", filename);
+-          return false;
+-        }
++        dlib->Close();
++        THROW_ERR_DLOPEN_FAILED(
++            env, "Module did not self-register: '%s'.", filename);
++        return false;
+       }
+     }
+ 

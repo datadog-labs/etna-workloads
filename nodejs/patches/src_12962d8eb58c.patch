@@ -1,0 +1,52 @@
+diff -uN a/src/api/callback.cc b/src/api/callback.cc
+--- a/src/api/callback.cc
++++ b/src/api/callback.cc
+@@ -96,7 +96,6 @@
+   }
+ 
+   Isolate* isolate = env->isolate();
+-  if (handle_cleanup_depth > 0) allow_js_.emplace(isolate);
+ 
+   HandleScope handle_scope(isolate);
+   Local<Context> current_context = isolate->GetCurrentContext();
+diff -uN a/src/env.cc b/src/env.cc
+--- a/src/env.cc
++++ b/src/env.cc
+@@ -1457,9 +1457,6 @@
+   close_and_finish(reinterpret_cast<uv_handle_t*>(&task_queues_async_));
+ }
+ 
+-// NOLINTNEXTLINE(runtime/thread_local)
+-thread_local int handle_cleanup_depth = 0;
+-
+ void Environment::CleanupHandles() {
+   {
+     Mutex::ScopedLock lock(native_immediates_threadsafe_mutex_);
+@@ -1477,8 +1474,6 @@
+   for (HandleWrap* handle : handle_wrap_queue_)
+     handle->Close();
+ 
+-  handle_cleanup_depth++;
+-  auto done = OnScopeLeave([]() { handle_cleanup_depth--; });
+   while (handle_cleanup_waiting_ != 0 ||
+          request_waiting_ != 0 ||
+          !handle_wrap_queue_.IsEmpty()) {
+diff -uN a/src/node_internals.h b/src/node_internals.h
+--- a/src/node_internals.h
++++ b/src/node_internals.h
+@@ -280,15 +280,8 @@
+   bool pushed_ids_ = false;
+   bool closed_ = false;
+   v8::Global<v8::Value> prior_context_frame_;
+-  std::optional<v8::Isolate::AllowJavascriptExecutionScope> allow_js_;
+ };
+ 
+-// Non-zero while an Environment on this thread is closing its handles with JS
+-// disallowed isolate-wide; InternalCallbackScope re-allows it for the other
+-// Environments whose callbacks run in those loop turns.
+-// NOLINTNEXTLINE(runtime/thread_local)
+-extern thread_local int handle_cleanup_depth;
+-
+ class DebugSealHandleScope {
+  public:
+   explicit inline DebugSealHandleScope(v8::Isolate* isolate = nullptr)

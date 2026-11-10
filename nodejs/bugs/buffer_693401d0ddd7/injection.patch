@@ -1,0 +1,51 @@
+diff -uN a/lib/buffer.js b/lib/buffer.js
+--- a/lib/buffer.js
++++ b/lib/buffer.js
+@@ -1076,22 +1076,34 @@
+   if (targetStart === undefined)
+     targetStart = 0;
+   else
+-    validateOffset(targetStart, 'targetStart');
++    if (targetStart < 0)
++      throw new ERR_OUT_OF_RANGE('targetStart', '>= 0', targetStart);
++    else
++      targetStart >>>= 0;
+ 
+   if (targetEnd === undefined)
+     targetEnd = target.length;
+   else
+-    validateOffset(targetEnd, 'targetEnd', 0, target.length);
++    if (targetEnd > target.length)
++      throw new ERR_OUT_OF_RANGE('targetEnd', `<= ${target.length}`, targetEnd);
++    else
++      targetEnd >>>= 0;
+ 
+   if (sourceStart === undefined)
+     sourceStart = 0;
+   else
+-    validateOffset(sourceStart, 'sourceStart');
++    if (sourceStart < 0)
++      throw new ERR_OUT_OF_RANGE('sourceStart', '>= 0', sourceStart);
++    else
++      sourceStart >>>= 0;
+ 
+   if (sourceEnd === undefined)
+     sourceEnd = this.length;
+   else
+-    validateOffset(sourceEnd, 'sourceEnd', 0, this.length);
++    if (sourceEnd > this.length)
++      throw new ERR_OUT_OF_RANGE('sourceEnd', `<= ${this.length}`, sourceEnd);
++    else
++      sourceEnd >>>= 0;
+ 
+   if (sourceStart >= sourceEnd)
+     return (targetStart >= targetEnd ? 0 : -1);
+@@ -1282,7 +1294,7 @@
+ 
+   // Buffer#write(string, offset[, length][, encoding])
+   } else {
+-    validateOffset(offset, 'offset', 0, bufferLength);
++    offset = offset >>> 0;
+ 
+     const remaining = bufferLength - offset;
+ 

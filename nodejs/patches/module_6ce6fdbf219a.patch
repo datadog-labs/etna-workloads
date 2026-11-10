@@ -1,0 +1,56 @@
+diff -uN a/lib/internal/modules/esm/module_job.js b/lib/internal/modules/esm/module_job.js
+--- a/lib/internal/modules/esm/module_job.js
++++ b/lib/internal/modules/esm/module_job.js
+@@ -87,33 +87,10 @@
+  * @param {string} url
+  * @returns {void}
+  */
+-const explainCommonJSGlobalLikeNotDefinedError = (e, url, hasTopLevelAwait) => {
++const explainCommonJSGlobalLikeNotDefinedError = (e, url) => {
+   const notDefinedGlobalLike = e?.name === 'ReferenceError' && findCommonJSGlobalLikeNotDefinedError(e.message);
+ 
+   if (notDefinedGlobalLike) {
+-    if (hasTopLevelAwait) {
+-      let advice;
+-      switch (notDefinedGlobalLike) {
+-        case 'require':
+-          advice = 'replace require() with import';
+-          break;
+-        case 'module':
+-        case 'exports':
+-          advice = 'use export instead of module.exports/exports';
+-          break;
+-        case '__filename':
+-          advice = 'use import.meta.filename instead';
+-          break;
+-        case '__dirname':
+-          advice = 'use import.meta.dirname instead';
+-          break;
+-      }
+-
+-      e.message = `Cannot determine intended module format because both '${notDefinedGlobalLike}' and top-level await are present. If the code is intended to be CommonJS, wrap await in an async function. If the code is intended to be an ES module, ${advice}.`;
+-      e.code = 'ERR_AMBIGUOUS_MODULE_SYNTAX';
+-      return;
+-    }
+-
+     e.message += ' in ES module scope';
+ 
+     if (StringPrototypeStartsWith(e.message, 'require ')) {
+@@ -568,7 +545,7 @@
+     try {
+       await this.module.evaluate(timeout, breakOnSigint);
+     } catch (e) {
+-      explainCommonJSGlobalLikeNotDefinedError(e, this.module.url, this.module.hasTopLevelAwait);
++      explainCommonJSGlobalLikeNotDefinedError(e, this.module.url);
+       throw e;
+     }
+     return { __proto__: null, module: this.module };
+@@ -673,7 +650,7 @@
+       const namespace = this.module.evaluateSync();
+       return { __proto__: null, module: this.module, namespace };
+     } catch (e) {
+-      explainCommonJSGlobalLikeNotDefinedError(e, this.module.url, this.module.hasTopLevelAwait);
++      explainCommonJSGlobalLikeNotDefinedError(e, this.module.url);
+       throw e;
+     }
+   }

@@ -1,0 +1,62 @@
+diff -uN a/lib/internal/vfs/setup.js b/lib/internal/vfs/setup.js
+--- a/lib/internal/vfs/setup.js
++++ b/lib/internal/vfs/setup.js
+@@ -12,7 +12,6 @@
+ } = primordials;
+ 
+ const { Buffer } = require('buffer');
+-const { isArrayBufferView } = require('internal/util/types');
+ const { dirname, join, sep } = require('path');
+ const { fileURLToPath, pathToFileURL, URL } = require('internal/url');
+ const { kEmptyObject } = require('internal/util');
+@@ -64,31 +63,6 @@
+   return undefined;
+ }
+ 
+-function toWriteBuffer(data, options) {
+-  if (Buffer.isBuffer(data)) return data;
+-  if (isArrayBufferView(data)) {
+-    return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+-  }
+-  const encoding = typeof options === 'string' ? options : options?.encoding;
+-  return Buffer.from(data, encoding || 'utf8');
+-}
+-
+-function writeFileSyncFd(fd, data, options) {
+-  const vfd = getVirtualFd(fd);
+-  if (vfd === undefined) return undefined;
+-
+-  const buffer = toWriteBuffer(data, options);
+-  let offset = 0;
+-  let length = buffer.byteLength;
+-  while (length > 0) {
+-    const written = vfd.entry.writeSync(buffer, offset, length, null);
+-    offset += written;
+-    length -= written;
+-  }
+-
+-  return true;
+-}
+-
+ const activeVFSLayers = new SafeMap();
+ // Serves the reserved root directory itself, while any layer is mounted.
+ let rootVFS = null;
+@@ -474,14 +448,10 @@
+       return undefined;
+     },
+ 
+-    writeFileSync(path, data, options) {
+-      if (typeof path === 'number') return writeFileSyncFd(path, data, options);
+-      return vfsOpVoid(path, (vfs, n) => vfs.writeFileSync(n, data, options));
+-    },
+-    appendFileSync(path, data, options) {
+-      if (typeof path === 'number') return writeFileSyncFd(path, data, options);
+-      return vfsOpVoid(path, (vfs, n) => vfs.appendFileSync(n, data, options));
+-    },
++    writeFileSync: (path, data, options) =>
++      vfsOpVoid(path, (vfs, n) => vfs.writeFileSync(n, data, options)),
++    appendFileSync: (path, data, options) =>
++      vfsOpVoid(path, (vfs, n) => vfs.appendFileSync(n, data, options)),
+     mkdirSync: (path, options) =>
+       vfsOp(path, (vfs, n) => ({ result: vfs.mkdirSync(n, options) })),
+     rmdirSync: (path) => vfsOpVoid(path, (vfs, n) => vfs.rmdirSync(n)),

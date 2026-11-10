@@ -1,0 +1,29 @@
+diff -uN a/lib/async_hooks.js b/lib/async_hooks.js
+--- a/lib/async_hooks.js
++++ b/lib/async_hooks.js
+@@ -41,7 +41,6 @@
+   executionAsyncId,
+   triggerAsyncId,
+   // Private API
+-  hasAsyncIdStack,
+   getHookArrays,
+   enableHooks,
+   disableHooks,
+@@ -222,13 +221,14 @@
+ 
+     const contextFrame = this[contextFrameSymbol];
+     const prior = AsyncContextFrame.exchange(contextFrame);
++    let ret;
+     try {
+-      return ReflectApply(fn, thisArg, args);
++      ret = ReflectApply(fn, thisArg, args);
+     } finally {
+       AsyncContextFrame.set(prior);
+-      if (hasAsyncIdStack())
+-        emitAfter(asyncId);
+     }
++    emitAfter(asyncId);
++    return ret;
+   }
+ 
+   emitDestroy() {

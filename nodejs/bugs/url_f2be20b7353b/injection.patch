@@ -1,0 +1,19 @@
+diff -uN a/lib/internal/url.js b/lib/internal/url.js
+--- a/lib/internal/url.js
++++ b/lib/internal/url.js
+@@ -1024,7 +1024,14 @@
+ 
+   set href(value) {
+     value = `${value}`;
+-    const href = bindingUrl.update(this.#context.href, updateActions.kHref, value);
++    const oldHref = this.#context.href;
++    // Fresh context is installed before parsing, so a failed parse leaves
++    // the URL clobbered (only the scheme survives).
++    const oldProtocolEnd = this.#context.protocol_end;
++    this.#context = new URLContext();
++    this.#context.href = StringPrototypeSlice(oldHref, 0, oldProtocolEnd);
++    this.#context.protocol_end = oldProtocolEnd;
++    const href = bindingUrl.update(oldHref, updateActions.kHref, value);
+     if (!href) { throw new ERR_INVALID_URL(value); }
+     this.#updateContext(href, true);
+   }

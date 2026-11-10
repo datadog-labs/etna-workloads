@@ -1,0 +1,84 @@
+diff -uN a/lib/internal/blob.js b/lib/internal/blob.js
+--- a/lib/internal/blob.js
++++ b/lib/internal/blob.js
+@@ -503,44 +503,34 @@
+       // There really should only be one read at a time so using an
+       // array here is purely defensive.
+       this.pendingPulls = [];
+-      // Lazily register a wakeup callback that the C++ side can invoke
++      // Register a wakeup callback that the C++ side can invoke
+       // when new data is available after a STATUS_BLOCK.
+       let immediate;
+-      this.wakeup = () => {
++      reader.setWakeup(() => {
+         if (this.pendingPulls.length > 0) {
+           immediate ??= setImmediate(() => {
+             immediate = undefined;
+             this.readNext(c);
+           });
+         }
+-      };
++      });
+     },
+     pull(c) {
+       const { promise, resolve, reject } = PromiseWithResolvers();
+-      if (this.pendingPulls.length === 0) {
+-        reader.setWakeup(this.wakeup);
+-      }
+       this.pendingPulls.push({ resolve, reject });
+       this.readNext(c);
+       return promise;
+     },
+-    clearWakeupIfIdle() {
+-      if (this.pendingPulls.length === 0) {
+-        reader.setWakeup(undefined);
+-      }
+-    },
+     readNext(c) {
+       reader.pull((status, buffer) => {
+         // If pendingPulls is empty here, the stream had to have
+         // been canceled, and we don't really care about the result.
+         // We can simply exit.
+         if (this.pendingPulls.length === 0) {
+-          reader.setWakeup(undefined);
+           return;
+         }
+         if (status === 0) {
+           // EOS
+-          reader.setWakeup(undefined);
+           c.close();
+           // This is to signal the end for byob readers
+           // see https://streams.spec.whatwg.org/#example-rbs-pull
+@@ -552,7 +542,6 @@
+           // The read could fail for many different reasons when reading
+           // from a non-memory resident blob part (e.g. file-backed blob).
+           // The error details the system error code.
+-          reader.setWakeup(undefined);
+           const error =
+             lazyDOMException('The blob could not be read',
+                              'NotReadableError');
+@@ -562,7 +551,7 @@
+           return;
+         } else if (status === 2) {
+           // STATUS_BLOCK: No data available yet. The wakeup callback
+-          // registered in pull() will re-invoke readNext when data
++          // registered in start() will re-invoke readNext when data
+           // arrives.
+           return;
+         }
+@@ -582,7 +571,6 @@
+             if (this.pendingPulls.length !== 0) {
+               const pending = this.pendingPulls.shift();
+               pending.resolve();
+-              this.clearWakeupIfIdle();
+             }
+             return;
+           }
+@@ -591,7 +579,6 @@
+       });
+     },
+     cancel(reason) {
+-      reader.setWakeup(undefined);
+       // Reject any currently pending pulls here.
+       for (const pending of this.pendingPulls) {
+         pending.reject(reason);

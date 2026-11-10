@@ -1,0 +1,32 @@
+diff -uN a/lib/internal/perf/observe.js b/lib/internal/perf/observe.js
+--- a/lib/internal/perf/observe.js
++++ b/lib/internal/perf/observe.js
+@@ -305,23 +305,16 @@
+       maybeDecrementObserverCounts(this.#entryTypes);
+       this.#entryTypes.clear();
+       for (let n = 0; n < entryTypes.length; n++) {
+-        const entryType = entryTypes[n];
+-        // Count each entry type at most once per observer, as disconnect()
+-        // decrements the counts once per observed type.
+-        if (ArrayPrototypeIncludes(kSupportedEntryTypes, entryType) &&
+-            !this.#entryTypes.has(entryType)) {
+-          this.#entryTypes.add(entryType);
+-          maybeIncrementObserverCount(entryType);
++        if (ArrayPrototypeIncludes(kSupportedEntryTypes, entryTypes[n])) {
++          this.#entryTypes.add(entryTypes[n]);
++          maybeIncrementObserverCount(entryTypes[n]);
+         }
+       }
+     } else {
+       if (!ArrayPrototypeIncludes(kSupportedEntryTypes, type))
+         return;
+-      // Observing the same type again only replaces the options.
+-      if (!this.#entryTypes.has(type)) {
+-        this.#entryTypes.add(type);
+-        maybeIncrementObserverCount(type);
+-      }
++      this.#entryTypes.add(type);
++      maybeIncrementObserverCount(type);
+       if (buffered) {
+         const entries = filterBufferMapByNameAndType(undefined, type);
+         SafeArrayPrototypePushApply(this.#buffer, entries);

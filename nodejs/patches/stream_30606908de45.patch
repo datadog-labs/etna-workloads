@@ -1,0 +1,32 @@
+diff -uN a/lib/internal/streams/iter/consumers.js b/lib/internal/streams/iter/consumers.js
+--- a/lib/internal/streams/iter/consumers.js
++++ b/lib/internal/streams/iter/consumers.js
+@@ -533,7 +533,6 @@
+         } else {
+           ArrayPrototypePush(ready, {
+             __proto__: null,
+-            kind: 'value',
+             iterator,
+             value: result.value,
+           });
+@@ -549,8 +548,7 @@
+         if (stopped) return;
+         ArrayPrototypePush(ready, {
+           __proto__: null,
+-          kind: 'error',
+-          reason,
++          error: reason,
+         });
+         if (waitResolve) {
+           waitResolve();
+@@ -579,8 +577,8 @@
+           // Drain ready queue synchronously
+           while (ready.length > 0) {
+             const item = ArrayPrototypeShift(ready);
+-            if (item.kind === 'error') {
+-              throw item.reason;
++            if (item?.error) {
++              throw item.error;
+             }
+             yield item.value;
+             pendingPulls.add(item.iterator);

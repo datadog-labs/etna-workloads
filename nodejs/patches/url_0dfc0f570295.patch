@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/url.js b/lib/internal/url.js
+--- a/lib/internal/url.js
++++ b/lib/internal/url.js
+@@ -11,6 +11,7 @@
+   IteratorPrototype,
+   Number,
+   ObjectDefineProperties,
++  ObjectDefineProperty,
+   ObjectSetPrototypeOf,
+   ReflectGetOwnPropertyDescriptor,
+   ReflectOwnKeys,
+@@ -1016,17 +1017,22 @@
+     return this.#context.href;
+   }
+ 
+-  get href() {
+-    // Updates to URLSearchParams are lazily propagated to URL, so we need to check we're in sync.
+-    this.#ensureSearchParamsUpdated();
+-    return this.#context.href;
+-  }
+-
+-  set href(value) {
+-    value = `${value}`;
+-    const href = bindingUrl.update(this.#context.href, updateActions.kHref, value);
+-    if (!href) { throw new ERR_INVALID_URL(value); }
+-    this.#updateContext(href, true);
++  static {
++    ObjectDefineProperty(URL.prototype, 'href', {
++      __proto__: null,
++      enumerable: true,
++      configurable: true,
++      get() {
++        this.#ensureSearchParamsUpdated();
++        return this.#context.href;
++      },
++      set(value) {
++        value = `${value}`;
++        const href = bindingUrl.update(this.#context.href, updateActions.kHref, value);
++        if (!href) { throw new ERR_INVALID_URL(value); }
++        this.#updateContext(href, true);
++      },
++    });
+   }
+ 
+   // readonly

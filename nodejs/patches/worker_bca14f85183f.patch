@@ -1,0 +1,31 @@
+diff -uN a/lib/internal/worker/io.js b/lib/internal/worker/io.js
+--- a/lib/internal/worker/io.js
++++ b/lib/internal/worker/io.js
+@@ -21,7 +21,6 @@
+ const {
+   assignFunctionName,
+   kEnumerableProperty,
+-  setOwnProperty,
+ } = require('internal/util');
+ 
+ const {
+@@ -238,15 +237,15 @@
+     if (name === eventName) removeListener(eventEmitter.listenerCount(name));
+   });
+   const origNewListener = eventEmitter[kNewListener];
+-  setOwnProperty(eventEmitter, kNewListener, function(size, type, ...args) {
++  eventEmitter[kNewListener] = function(size, type, ...args) {
+     if (type === eventName) newListener(size - 1);
+     return ReflectApply(origNewListener, this, arguments);
+-  });
++  };
+   const origRemoveListener = eventEmitter[kRemoveListener];
+-  setOwnProperty(eventEmitter, kRemoveListener, function(size, type, ...args) {
++  eventEmitter[kRemoveListener] = function(size, type, ...args) {
+     if (type === eventName) removeListener(size);
+     return ReflectApply(origRemoveListener, this, arguments);
+-  });
++  };
+ 
+   function newListener(size) {
+     if (size === 0) {

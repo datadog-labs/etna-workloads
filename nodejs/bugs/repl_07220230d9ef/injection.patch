@@ -1,0 +1,23 @@
+diff -uN a/lib/internal/repl/completion.js b/lib/internal/repl/completion.js
+--- a/lib/internal/repl/completion.js
++++ b/lib/internal/repl/completion.js
+@@ -64,6 +64,8 @@
+ const importRE = /\bimport\s*\(\s*['"`](([\w@./:-]+\/)?(?:[\w@./:-]*))(?![^'"`])$/;
+ const requireRE = /\brequire\s*\(\s*['"`](([\w@./:-]+\/)?(?:[\w@./:-]*))(?![^'"`])$/;
+ const fsAutoCompleteRE = /fs(?:\.promises)?\.\s*[a-z][a-zA-Z]+\(\s*["'](.*)/;
++const simpleExpressionRE =
++    /(?:[\w$'"`[{(](?:\w|\$|['"`\]})])*\??\.)*[a-zA-Z_$](?:\w|\$)*\??\.?$/;
+ const versionedFileNamesRe = /-\d+\.\d+/;
+ 
+ fixReplRequire(module);
+@@ -339,7 +341,9 @@
+     ({ 0: completionGroups, 1: completeOn } = completeFSFunctions(match));
+   } else if (line.length === 0 ||
+              RegExpPrototypeExec(/\w|\.|\$/, line[line.length - 1]) !== null) {
+-    const completeTarget = line.length === 0 ? line : findExpressionCompleteTarget(line);
++    const fullTarget = line.length === 0 ? line : findExpressionCompleteTarget(line);
++    const completeTarget = fullTarget ?
++      RegExpPrototypeExec(simpleExpressionRE, fullTarget)?.[0] ?? null : fullTarget;
+ 
+     if (line.length !== 0 && !completeTarget) {
+       completionGroupsLoaded();

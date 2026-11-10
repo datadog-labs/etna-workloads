@@ -1,0 +1,56 @@
+diff -uN a/lib/internal/streams/end-of-stream.js b/lib/internal/streams/end-of-stream.js
+--- a/lib/internal/streams/end-of-stream.js
++++ b/lib/internal/streams/end-of-stream.js
+@@ -165,23 +165,46 @@
+     );
+   } else if (wState?.errorEmitted || rState?.errorEmitted) {
+     if (!willEmitClose) {
+-      immediateResult = getEosErrored(stream);
++      immediateResult = getEosOnCloseError(
++      stream,
++      readable,
++      readableFinished,
++      writable,
++      writableFinished,
++    );
+     }
+   } else if (
+     !readable &&
+     (!willEmitClose || isReadable(stream)) &&
+-    (writableFinished || isWritable(stream) === false) &&
+-    (wState == null || wState.pendingcb === undefined || wState.pendingcb === 0)
++    (writableFinished || isWritable(stream) === false)
+   ) {
+-    immediateResult = getEosErrored(stream);
++    immediateResult = getEosOnCloseError(
++      stream,
++      readable,
++      readableFinished,
++      writable,
++      writableFinished,
++    );
+   } else if (
+     !writable &&
+     (!willEmitClose || isWritable(stream)) &&
+     (readableFinished || isReadable(stream) === false)
+   ) {
+-    immediateResult = getEosErrored(stream);
++    immediateResult = getEosOnCloseError(
++      stream,
++      readable,
++      readableFinished,
++      writable,
++      writableFinished,
++    );
+   } else if ((rState && stream.req && stream.aborted)) {
+-    immediateResult = getEosErrored(stream);
++    immediateResult = getEosOnCloseError(
++      stream,
++      readable,
++      readableFinished,
++      writable,
++      writableFinished,
++    );
+   }
+   let cleanup = () => {
+     callback = nop;

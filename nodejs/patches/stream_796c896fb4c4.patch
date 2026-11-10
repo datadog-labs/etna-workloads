@@ -1,0 +1,51 @@
+diff -uN a/lib/internal/streams/iter/broadcast.js b/lib/internal/streams/iter/broadcast.js
+--- a/lib/internal/streams/iter/broadcast.js
++++ b/lib/internal/streams/iter/broadcast.js
+@@ -719,10 +719,9 @@
+   }
+ 
+   end(options) {
+-    const signal = getWriterSignal(options);
++    getWriterSignal(options);
+     if (this.#state === 'errored') return PromiseReject(this.#error);
+     if (this.#state === 'closed') return PromiseResolve(this.#totalBytes);
+-    if (signal?.aborted) return PromiseReject(signal.reason);
+ 
+     const endPromise = this.#getEndPromise();
+     if (this.#state === 'open') {
+@@ -731,7 +730,7 @@
+       this.#finishEndIfReady();
+     }
+ 
+-    return raceEndWithSignal(endPromise, signal);
++    return endPromise;
+   }
+ 
+   endSync() {
+diff -uN a/lib/internal/streams/iter/push.js b/lib/internal/streams/iter/push.js
+--- a/lib/internal/streams/iter/push.js
++++ b/lib/internal/streams/iter/push.js
+@@ -678,13 +678,12 @@
+   }
+ 
+   end(options) {
+-    const signal = getWriterSignal(options);
++    getWriterSignal(options);
+     const state = this.#queue.writerState;
+     if (state === 'errored') return PromiseReject(this.#queue.error);
+     if (state === 'closed') {
+       return PromiseResolve(this.#queue.totalBytesWritten);
+     }
+-    if (signal?.aborted) return PromiseReject(signal.reason);
+ 
+     const result = this.#queue.end();
+     if (result === -2) {
+@@ -692,7 +691,7 @@
+       return PromiseReject(this.#queue.error);
+     }
+     if (result === -3) {
+-      return raceEndWithSignal(this.#queue.getPendingEndPromise(), signal);
++      return this.#queue.getPendingEndPromise();
+     }
+     // >= 0: byte count (immediate close or idempotent)
+     return PromiseResolve(result);

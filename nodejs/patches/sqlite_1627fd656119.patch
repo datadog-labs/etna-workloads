@@ -1,0 +1,113 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -2298,10 +2298,6 @@
+     }
+   }
+ 
+-  // Reading the options bag above can run user JavaScript through a property
+-  // getter, which may have closed the database since it was checked.
+-  THROW_AND_RETURN_ON_BAD_STATE(env, !db->IsOpen(), "database is not open");
+-
+   Utf8Value sql(env->isolate(), args[0].As<String>());
+   sqlite3_stmt* s = nullptr;
+ 
+@@ -2500,11 +2496,6 @@
+     argc = js_len.As<Int32>()->Value();
+   }
+ 
+-  // Reading the options bag and "function.length" above can run user
+-  // JavaScript through a property getter, which may have closed the database
+-  // since it was checked.
+-  THROW_AND_RETURN_ON_BAD_STATE(env, !db->IsOpen(), "database is not open");
+-
+   UserDefinedFunction* user_data = new UserDefinedFunction(
+       env, fn, BaseObjectWeakPtr<Database>(db), use_bigint_args);
+   int text_rep = SQLITE_UTF8;
+@@ -2657,10 +2648,6 @@
+     }
+   }
+ 
+-  // Reading the options bag above can run user JavaScript through a property
+-  // getter, which may have closed the database since it was checked.
+-  THROW_AND_RETURN_ON_BAD_STATE(env, !db->IsOpen(), "database is not open");
+-
+   // sqlite3_malloc64 is required because SQLITE_DESERIALIZE_FREEONCLOSE
+   // transfers ownership to SQLite, which calls sqlite3_free() on close.
+   // See: https://www.sqlite.org/c3ref/deserialize.html
+@@ -2671,16 +2658,7 @@
+     return;
+   }
+ 
+-  // The same user JavaScript may also have shrunk or detached the backing
+-  // store, in which case byte_length is stale and CopyContents() leaves the
+-  // remainder of buf uninitialized. Handing that to SQLite would disclose it
+-  // through serialize().
+-  if (input->CopyContents(buf, byte_length) != byte_length) {
+-    sqlite3_free(buf);
+-    THROW_ERR_INVALID_STATE(
+-        env, "The \"buffer\" argument was resized while reading \"options\"");
+-    return;
+-  }
++  input->CopyContents(buf, byte_length);
+ 
+   db->FinalizeStatements();
+ 
+@@ -2857,11 +2835,6 @@
+     argc = std::max({argc, js_len.As<Int32>()->Value() - 1, 0});
+   }
+ 
+-  // Reading the options bag and the step/inverse "length" properties above can
+-  // run user JavaScript through a property getter, which may have closed the
+-  // database since it was checked.
+-  THROW_AND_RETURN_ON_BAD_STATE(env, !db->IsOpen(), "database is not open");
+-
+   int text_rep = SQLITE_UTF8;
+   if (direct_only) {
+     text_rep |= SQLITE_DIRECTONLY;
+@@ -3095,11 +3068,6 @@
+ 
+   schema_sql += ")";
+ 
+-  // Reading the options bag and the column definitions above can run user
+-  // JavaScript through a property getter, which may have closed the database
+-  // since it was checked.
+-  THROW_AND_RETURN_ON_BAD_STATE(env, !db->IsOpen(), "database is not open");
+-
+   VirtualTableModule* vtab_mod =
+       new VirtualTableModule(env,
+                              BaseObjectWeakPtr<Database>(db),
+@@ -3178,10 +3146,6 @@
+     }
+   }
+ 
+-  // Reading the options bag above can run user JavaScript through a property
+-  // getter, which may have closed the database since it was checked.
+-  THROW_AND_RETURN_ON_BAD_STATE(env, !db->IsOpen(), "database is not open");
+-
+   sqlite3_session* pSession;
+   int r =
+       sqlite3session_create(db->connection_.get(), db_name.c_str(), &pSession);
+@@ -3307,11 +3271,6 @@
+     }
+   }
+ 
+-  // Reading the destination path and the options bag above can run user
+-  // JavaScript through a property getter, which may have closed the database
+-  // since it was checked.
+-  THROW_AND_RETURN_ON_BAD_STATE(env, !db->IsOpen(), "database is not open");
+-
+   Local<Promise::Resolver> resolver;
+   if (!Promise::Resolver::New(env->context()).ToLocal(&resolver)) {
+     return;
+@@ -3455,10 +3414,6 @@
+     }
+   }
+ 
+-  // Reading the options bag above can run user JavaScript through a property
+-  // getter, which may have closed the database since it was checked.
+-  THROW_AND_RETURN_ON_BAD_STATE(env, !db->IsOpen(), "database is not open");
+-
+   // Keep the database alive in case a callback drops all references to it,
+   // which could otherwise let it be garbage-collected mid-callback.
+   BaseObjectPtr<Database> guard(db);

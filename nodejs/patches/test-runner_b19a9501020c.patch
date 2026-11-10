@@ -1,0 +1,42 @@
+diff -uN a/lib/internal/test_runner/harness.js b/lib/internal/test_runner/harness.js
+--- a/lib/internal/test_runner/harness.js
++++ b/lib/internal/test_runner/harness.js
+@@ -285,11 +285,6 @@
+     hook.disable();
+     process.removeListener('uncaughtException', exceptionHandler);
+     process.removeListener('unhandledRejection', rejectionHandler);
+-    process.removeListener('beforeExit', exitHandler);
+-    if (globalOptions.isTestRunner) {
+-      process.removeListener('SIGINT', terminationHandler);
+-      process.removeListener('SIGTERM', terminationHandler);
+-    }
+   };
+ 
+   const findRunningTests = (test, running = []) => {
+diff -uN a/lib/internal/test_runner/runner.js b/lib/internal/test_runner/runner.js
+--- a/lib/internal/test_runner/runner.js
++++ b/lib/internal/test_runner/runner.js
+@@ -1045,7 +1045,6 @@
+     testFiles = ArrayPrototypeFilter(testFiles, (_, index) => index % shard.total === shard.index - 1);
+   }
+ 
+-  let teardown;
+   let postRun;
+   let filesWatcher;
+   let runFiles;
+@@ -1090,7 +1089,6 @@
+       filesWatcher = watchFiles(testFiles, opts);
+     } else {
+       postRun = () => root.postRun();
+-      teardown = () => root.harness.teardown();
+     }
+ 
+     runFiles = () => {
+@@ -1201,7 +1199,6 @@
+ 
+     await runFiles();
+     postRun?.();
+-    teardown?.();
+   };
+ 
+   runChain();

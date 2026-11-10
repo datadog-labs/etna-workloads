@@ -1,0 +1,81 @@
+diff -uN a/lib/internal/test_runner/harness.js b/lib/internal/test_runner/harness.js
+--- a/lib/internal/test_runner/harness.js
++++ b/lib/internal/test_runner/harness.js
+@@ -21,7 +21,7 @@
+   },
+ } = require('internal/errors');
+ const { exitCodes: { kGenericUserError } } = internalBinding('errors');
+-const { kCancelledByParent, Test, Suite } = require('internal/test_runner/test');
++const { kCancelledByParent, Test, Suite, TestContext, SuiteContext } = require('internal/test_runner/test');
+ const {
+   parseCommandLine,
+   reporterScope,
+@@ -439,7 +439,16 @@
+   if (test === undefined || test === reporterScope) {
+     return undefined;
+   }
+-  return test.getCtx();
++  // For hooks (hookType is set), return the test/suite being hooked (the parent)
++  const actualTest = test.hookType !== undefined ? test.parent : test;
++  if (actualTest === undefined) {
++    return undefined;
++  }
++  // Return SuiteContext for suites, TestContext for tests
++  if (actualTest instanceof Suite) {
++    return new SuiteContext(actualTest);
++  }
++  return new TestContext(actualTest);
+ }
+ 
+ module.exports = {
+diff -uN a/lib/internal/test_runner/test.js b/lib/internal/test_runner/test.js
+--- a/lib/internal/test_runner/test.js
++++ b/lib/internal/test_runner/test.js
+@@ -1269,14 +1269,8 @@
+     }
+   }
+ 
+-  #ctx;
+-  getCtx() {
+-    this.#ctx ??= new TestContext(this);
+-    return this.#ctx;
+-  }
+-
+   getRunArgs() {
+-    const ctx = this.getCtx();
++    const ctx = new TestContext(this);
+     return { __proto__: null, ctx, args: [ctx] };
+   }
+ 
+@@ -1756,11 +1750,6 @@
+     this.#args = args;
+     return super.run();
+   }
+-
+-  getCtx() {
+-    return this.parentTest.getCtx();
+-  }
+-
+   getRunArgs() {
+     return this.#args;
+   }
+@@ -1859,12 +1848,6 @@
+     }
+   }
+ 
+-  #ctx;
+-  getCtx() {
+-    this.#ctx ??= new TestContext(this);
+-    return this.#ctx;
+-  }
+-
+   getRunArgs() {
+     const ctx = new SuiteContext(this);
+     return { __proto__: null, ctx, args: [ctx] };
+@@ -1943,4 +1926,6 @@
+   kUnwrapErrors,
+   Suite,
+   Test,
++  TestContext,
++  SuiteContext,
+ };

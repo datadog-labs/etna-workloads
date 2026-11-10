@@ -1,0 +1,10 @@
+const https = require('https');
+const assert = require('assert');
+const agent = new https.Agent();
+const orig = https.globalAgent;
+https.globalAgent = agent;
+const req = https.get({ host: '127.0.0.1', port: 1, rejectUnauthorized: false });
+req.on('error', () => {});
+console.log('uses overridden agent:', req.agent === agent);
+req.destroy();
+https.globalAgent = orig;

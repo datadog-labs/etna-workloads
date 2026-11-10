@@ -1,0 +1,22 @@
+diff -uN a/src/node_api.cc b/src/node_api.cc
+--- a/src/node_api.cc
++++ b/src/node_api.cc
+@@ -459,7 +459,7 @@
+             v8::Local<v8::Function>::New(env->isolate, ref);
+         js_callback = v8impl::JsValueFromV8LocalValue(js_cb);
+       }
+-      env->CallbackIntoModule<false>(
++      env->CallIntoModule(
+           [&](napi_env env) { call_js_cb(env, js_callback, context, data); });
+     }
+ 
+@@ -472,7 +472,8 @@
+     if (finalize_cb) {
+       v8::Context::Scope context_scope(env->context());
+       AsyncResource::CallbackScope cb_scope(&*async_resource);
+-      env->CallFinalizer<false>(finalize_cb, finalize_data, context);
++      env->CallIntoModule(
++          [&](napi_env env) { finalize_cb(env, finalize_data, context); });
+     }
+     MaybeDelete();
+   }

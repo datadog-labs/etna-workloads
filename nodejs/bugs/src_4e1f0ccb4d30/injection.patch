@@ -1,0 +1,32 @@
+diff -uN a/src/node_util.cc b/src/node_util.cc
+--- a/src/node_util.cc
++++ b/src/node_util.cc
+@@ -363,25 +363,9 @@
+ 
+ static void DefineLazyPropertiesGetter(
+     Local<v8::Name> name, const v8::PropertyCallbackInfo<Value>& info) {
+-  Isolate* isolate = info.GetIsolate();
+-  // This getter has no JavaScript function representation and is not
+-  // invoked in the creation context.
+-  // When this getter is invoked in a vm context, the `Realm::GetCurrent(info)`
+-  // returns a nullptr and retrieve the creation context via `this` object and
+-  // get the creation Realm.
+-  Local<Value> receiver_val = info.HolderV2();
+-  if (!receiver_val->IsObject()) {
+-    THROW_ERR_INVALID_INVOCATION(isolate);
+-    return;
+-  }
+-  Local<Object> receiver = receiver_val.As<Object>();
+-  Local<Context> context;
+-  if (!receiver->GetCreationContext().ToLocal(&context)) {
+-    THROW_ERR_INVALID_INVOCATION(isolate);
+-    return;
+-  }
+-
+-  Realm* realm = Realm::GetCurrent(context);
++  Realm* realm = Realm::GetCurrent(info);
++  Isolate* isolate = realm->isolate();
++  auto context = isolate->GetCurrentContext();
+   Local<Value> arg = info.Data();
+   Local<Value> require_result;
+   if (!realm->builtin_module_require()

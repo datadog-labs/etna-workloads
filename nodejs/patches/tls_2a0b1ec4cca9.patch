@@ -1,0 +1,58 @@
+diff -uN a/lib/tls.js b/lib/tls.js
+--- a/lib/tls.js
++++ b/lib/tls.js
+@@ -251,10 +251,6 @@
+   const lens = new Array(protocols.length);
+   const buff = Buffer.allocUnsafe(protocols.reduce((p, c, i) => {
+     const len = Buffer.byteLength(c);
+-    if (len === 0) {
+-      throw new ERR_INVALID_ARG_VALUE(`protocols[${i}]`, c,
+-                                      'must be a non-empty string');
+-    }
+     if (len > 255) {
+       throw new ERR_OUT_OF_RANGE('The byte length of the protocol at index ' +
+         `${i} exceeds the maximum length.`, '<= 255', len, true);
+@@ -273,41 +269,18 @@
+   return buff;
+ }
+ 
+-function validateALPNBuffer(buffer) {
+-  // Wire format: sequence of <len><proto> where len is 1 byte (1-255) and
+-  // exactly len bytes follow, no trailing bytes, no zero-length entries.
+-  // Empty buffer is allowed and means skip ALPN (same as []).
+-  let offset = 0;
+-  while (offset < buffer.length) {
+-    const len = buffer[offset];
+-    if (len === 0) {
+-      throw new ERR_INVALID_ARG_VALUE('ALPNProtocols', buffer,
+-                                      'must not contain zero-length protocol');
+-    }
+-    if (offset + 1 + len > buffer.length) {
+-      throw new ERR_INVALID_ARG_VALUE('ALPNProtocols', buffer,
+-                                      'contains truncated protocol');
+-    }
+-    offset += 1 + len;
+-  }
+-}
+-
+ exports.convertALPNProtocols = function convertALPNProtocols(protocols, out) {
+   // If protocols is Array - translate it into buffer
+   if (ArrayIsArray(protocols)) {
+     out.ALPNProtocols = convertProtocols(protocols);
+   } else if (isUint8Array(protocols)) {
+     // Copy new buffer not to be modified by user.
+-    const buf = Buffer.from(protocols);
+-    validateALPNBuffer(buf);
+-    out.ALPNProtocols = buf;
++    out.ALPNProtocols = Buffer.from(protocols);
+   } else if (isArrayBufferView(protocols)) {
+-    const buf = Buffer.from(protocols.buffer.slice(
++    out.ALPNProtocols = Buffer.from(protocols.buffer.slice(
+       protocols.byteOffset,
+       protocols.byteOffset + protocols.byteLength,
+     ));
+-    validateALPNBuffer(buf);
+-    out.ALPNProtocols = buf;
+   }
+ };
+ 

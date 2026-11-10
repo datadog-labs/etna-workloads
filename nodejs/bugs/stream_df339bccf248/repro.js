@@ -1,0 +1,10 @@
+const { Readable } = require('stream');
+const r = new Readable({ read() {} });
+r.push(Buffer.from('b'));
+r.unshift('éa', 'latin1');
+r.unshift('xy');
+r.push(null);
+const out = [];
+r.on('data', (c) => out.push(Buffer.isBuffer(c) ? c.toString('hex') : 'STR:' + c));
+r.on('end', () => console.log(out.join('|')));
+r.on('error', (e) => console.log('error', e.code || e.message));

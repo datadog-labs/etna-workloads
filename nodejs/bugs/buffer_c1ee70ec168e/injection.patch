@@ -1,0 +1,135 @@
+diff -uN a/src/node_buffer.cc b/src/node_buffer.cc
+--- a/src/node_buffer.cc
++++ b/src/node_buffer.cc
+@@ -100,15 +100,15 @@
+ 
+  private:
+   void Clean() override;
+-  inline void OnBackingStoreFree();
+-  inline void CallAndResetCallback();
++  static void WeakCallback(const v8::WeakCallbackInfo<CallbackInfo>&);
++  inline void WeakCallback(Isolate* isolate);
+   inline CallbackInfo(Environment* env,
++                      Local<ArrayBuffer> object,
+                       FreeCallback callback,
+                       char* data,
+                       void* hint);
+   Global<ArrayBuffer> persistent_;
+-  Mutex mutex_;  // Protects callback_.
+-  FreeCallback callback_;
++  FreeCallback const callback_;
+   char* const data_;
+   void* const hint_;
+   Environment* const env_;
+@@ -123,43 +123,35 @@
+   CHECK_NOT_NULL(callback);
+   CHECK_IMPLIES(data == nullptr, length == 0);
+ 
+-  CallbackInfo* self = new CallbackInfo(env, callback, data, hint);
++  // The buffer will be released by the CallbackInfo weak callback below,
++  // hence this BackingStore callback is empty.
+   std::unique_ptr<BackingStore> bs = AdoptIntoBackingStore(
+       env->isolate(),
+       data,
+       length,
+-      [](void*, size_t, void* arg) {
+-        static_cast<CallbackInfo*>(arg)->OnBackingStoreFree();
+-      },
+-      self);
++      [](void*, size_t, void*) {},
++      nullptr);
+   if (!bs) {
+     THROW_ERR_MEMORY_ALLOCATION_FAILED(env);
+     return MaybeLocal<ArrayBuffer>();
+   }
+   Local<ArrayBuffer> ab = ArrayBuffer::New(env->isolate(), std::move(bs));
+ 
+-  // V8 simply ignores the BackingStore deleter callback if data == nullptr,
+-  // but our API contract requires it being called.
+-  if (data == nullptr) {
+-    ab->Detach(Local<Value>()).Check();
+-    self->OnBackingStoreFree();  // This calls `callback` asynchronously.
+-  } else if (ab->Data() == data) {
+-    // Store the ArrayBuffer so that we can detach it later.
+-    self->persistent_.Reset(env->isolate(), ab);
+-    self->persistent_.SetWeak();
+-  }
+-
++  new CallbackInfo(env, ab, callback, data, hint);
+   return ab;
+ }
+ 
+ CallbackInfo::CallbackInfo(Environment* env,
++                           Local<ArrayBuffer> object,
+                            FreeCallback callback,
+                            char* data,
+                            void* hint)
+-    : callback_(callback),
++    : persistent_(env->isolate(), object),
++      callback_(callback),
+       data_(data),
+       hint_(hint),
+       env_(env) {
++  persistent_.SetWeak(this, WeakCallback, v8::WeakCallbackType::kParameter);
+   env->cleanable_queue()->PushFront(this);
+   env->external_memory_accounter()->Increase(env->isolate(), sizeof(*this));
+ }
+@@ -168,48 +160,22 @@
+   {
+     HandleScope handle_scope(env_->isolate());
+     Local<ArrayBuffer> ab = persistent_.Get(env_->isolate());
+-    if (!ab.IsEmpty() && ab->IsDetachable()) {
+-      ab->Detach(Local<Value>()).Check();
+-      persistent_.Reset();
+-    }
++    CHECK(!ab.IsEmpty());
++    if (ab->IsDetachable()) ab->Detach(Local<Value>()).Check();
+   }
+ 
+-  // Call the callback in this case, but don't delete `this` yet because the
+-  // BackingStore deleter callback will do so later.
+-  CallAndResetCallback();
++  WeakCallback(env_->isolate());
+ }
+ 
+-void CallbackInfo::CallAndResetCallback() {
+-  FreeCallback callback;
+-  {
+-    Mutex::ScopedLock lock(mutex_);
+-    callback = callback_;
+-    callback_ = nullptr;
+-  }
+-  if (callback != nullptr) {
+-    // Clean up all Environment-related state and run the callback.
+-    cleanable_queue_.Remove();
+-    env_->external_memory_accounter()->Decrease(env_->isolate(), sizeof(*this));
+-
+-    callback(data_, hint_);
+-  }
++void CallbackInfo::WeakCallback(const v8::WeakCallbackInfo<CallbackInfo>& data) {
++  CallbackInfo* self = data.GetParameter();
++  self->WeakCallback(data.GetIsolate());
+ }
+ 
+-void CallbackInfo::OnBackingStoreFree() {
+-  // This method should always release the memory for `this`.
+-  std::unique_ptr<CallbackInfo> self { this };
+-  Mutex::ScopedLock lock(mutex_);
+-  // If callback_ == nullptr, that means that the callback has already run from
+-  // the cleanup hook, and there is nothing left to do here besides to clean
+-  // up the memory involved. In particular, the underlying `Environment` may
+-  // be gone at this point, so don’t attempt to call SetImmediateThreadsafe().
+-  if (callback_ == nullptr) return;
+-
+-  env_->SetImmediateThreadsafe([self = std::move(self)](Environment* env) {
+-    CHECK_EQ(self->env_, env);  // Consistency check.
+-
+-    self->CallAndResetCallback();
+-  });
++void CallbackInfo::WeakCallback(Isolate* isolate) {
++  callback_(data_, hint_);
++  env_->external_memory_accounter()->Decrease(isolate, sizeof(*this));
++  delete this;
+ }
+ 
+ 

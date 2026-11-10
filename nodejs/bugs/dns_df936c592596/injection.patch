@@ -1,0 +1,74 @@
+diff -uN a/lib/dns.js b/lib/dns.js
+--- a/lib/dns.js
++++ b/lib/dns.js
+@@ -266,14 +266,14 @@
+ }
+ 
+ 
+-function lookupService(address, port, callback) {
++function lookupService(hostname, port, callback) {
+   if (arguments.length !== 3)
+-    throw new ERR_MISSING_ARGS('address', 'port', 'callback');
++    throw new ERR_MISSING_ARGS('hostname', 'port', 'callback');
+ 
+-  validateString(address, 'address');
++  validateString(hostname, 'hostname');
+ 
+-  if (isIP(address) === 0)
+-    throw new ERR_INVALID_ARG_VALUE('address', address);
++  if (isIP(hostname) === 0)
++    throw new ERR_INVALID_ARG_VALUE('hostname', hostname);
+ 
+   validatePort(port);
+ 
+@@ -284,18 +284,18 @@
+ 
+   const req = new GetNameInfoReqWrap();
+   req.callback = callback;
+-  req.hostname = address;
++  req.hostname = hostname;
+   req.port = port;
+   req.oncomplete = onlookupservice;
+ 
+-  const err = cares.getnameinfo(req, address, port);
+-  if (err) throw new DNSException(err, 'getnameinfo', address);
++  const err = cares.getnameinfo(req, hostname, port);
++  if (err) throw new DNSException(err, 'getnameinfo', hostname);
+   if (hasObserver('dns')) {
+     startPerf(req, kPerfHooksDnsLookupServiceContext, {
+       type: 'dns',
+       name: 'lookupService',
+       detail: {
+-        host: address,
++        host: hostname,
+         port,
+       },
+     });
+diff -uN a/lib/internal/dns/promises.js b/lib/internal/dns/promises.js
+--- a/lib/internal/dns/promises.js
++++ b/lib/internal/dns/promises.js
+@@ -278,18 +278,18 @@
+   });
+ }
+ 
+-function lookupService(address, port) {
++function lookupService(hostname, port) {
+   if (arguments.length !== 2)
+-    throw new ERR_MISSING_ARGS('address', 'port');
++    throw new ERR_MISSING_ARGS('hostname', 'port');
+ 
+-  validateString(address, 'address');
++  validateString(hostname, 'hostname');
+ 
+-  if (isIP(address) === 0)
+-    throw new ERR_INVALID_ARG_VALUE('address', address);
++  if (isIP(hostname) === 0)
++    throw new ERR_INVALID_ARG_VALUE('hostname', hostname);
+ 
+   validatePort(port);
+ 
+-  return createLookupServicePromise(address, +port);
++  return createLookupServicePromise(hostname, +port);
+ }
+ 
+ 

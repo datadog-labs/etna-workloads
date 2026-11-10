@@ -1,0 +1,89 @@
+diff -uN a/lib/internal/modules/typescript.js b/lib/internal/modules/typescript.js
+--- a/lib/internal/modules/typescript.js
++++ b/lib/internal/modules/typescript.js
+@@ -53,14 +53,10 @@
+      * It allows us to distinguish between invalid syntax and unsupported syntax.
+      */
+     switch (error?.code) {
+-      case 'UnsupportedSyntax': {
+-        const unsupportedSyntaxError = new ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX(error.message);
+-        throw decorateErrorWithSnippet(unsupportedSyntaxError, error); /* node-do-not-add-exception-line */
+-      }
+-      case 'InvalidSyntax': {
+-        const invalidSyntaxError = new ERR_INVALID_TYPESCRIPT_SYNTAX(error.message);
+-        throw decorateErrorWithSnippet(invalidSyntaxError, error); /* node-do-not-add-exception-line */
+-      }
++      case 'UnsupportedSyntax':
++        throw new ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX(error.message);
++      case 'InvalidSyntax':
++        throw new ERR_INVALID_TYPESCRIPT_SYNTAX(error.message);
+       default:
+         // SWC may throw strings when something goes wrong.
+         if (typeof error === 'string') { assert.fail(error); }
+@@ -71,18 +67,6 @@
+ }
+ 
+ /**
+- *
+- * @param {Error} error the error to decorate: ERR_INVALID_TYPESCRIPT_SYNTAX, ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX
+- * @param {object} amaroError the error object from amaro
+- * @returns {Error} the decorated error
+- */
+-function decorateErrorWithSnippet(error, amaroError) {
+-  const errorHints = `${amaroError.filename}:${amaroError.startLine}\n${amaroError.snippet}`;
+-  error.stack = `${errorHints}\n${error.stack}`;
+-  return error;
+-}
+-
+-/**
+  * Performs type-stripping to TypeScript source code.
+  * @param {string} code TypeScript code to parse.
+  * @param {TransformOptions} options The configuration for type stripping.
+diff -uN a/lib/internal/process/execution.js b/lib/internal/process/execution.js
+--- a/lib/internal/process/execution.js
++++ b/lib/internal/process/execution.js
+@@ -47,8 +47,6 @@
+ // communication with JS.
+ const { shouldAbortOnUncaughtToggle } = internalBinding('util');
+ 
+-const kEvalTag = '[eval]';
+-
+ function tryGetCwd() {
+   try {
+     return process.cwd();
+@@ -294,7 +292,7 @@
+     compiledScript = compileScript(name, source, baseUrl);
+   } catch (originalError) {
+     try {
+-      sourceToRun = stripTypeScriptModuleTypes(source, kEvalTag);
++      sourceToRun = stripTypeScriptModuleTypes(source, getEvalModuleUrl());
+       // Retry the CJS/ESM syntax detection after stripping the types.
+       if (shouldUseModuleEntryPoint(name, sourceToRun)) {
+         return evalTypeScriptModuleEntryPoint(source, print);
+@@ -355,7 +353,7 @@
+         moduleWrap = loader.createModuleWrap(source, url);
+       } catch (originalError) {
+         try {
+-          const strippedSource = stripTypeScriptModuleTypes(source, kEvalTag);
++          const strippedSource = stripTypeScriptModuleTypes(source, getEvalModuleUrl());
+           // If the moduleWrap was successfully created, execute the module job.
+           // outside the try-catch block to avoid catching runtime errors.
+           moduleWrap = loader.createModuleWrap(strippedSource, url);
+@@ -386,7 +384,7 @@
+  */
+ function parseAndEvalModuleTypeScript(source, print) {
+   // We know its a TypeScript module, we can safely emit the experimental warning.
+-  const strippedSource = stripTypeScriptModuleTypes(source, kEvalTag);
++  const strippedSource = stripTypeScriptModuleTypes(source, getEvalModuleUrl());
+   evalModuleEntryPoint(strippedSource, print);
+ }
+ 
+@@ -401,7 +399,7 @@
+  */
+ function parseAndEvalCommonjsTypeScript(name, source, breakFirstLine, print, shouldLoadESM = false) {
+   // We know its a TypeScript module, we can safely emit the experimental warning.
+-  const strippedSource = stripTypeScriptModuleTypes(source, kEvalTag);
++  const strippedSource = stripTypeScriptModuleTypes(source, getEvalModuleUrl());
+   evalScript(name, strippedSource, breakFirstLine, print, shouldLoadESM);
+ }
+ 

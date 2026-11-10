@@ -1,0 +1,64 @@
+diff -uN a/lib/internal/js_stream_socket.js b/lib/internal/js_stream_socket.js
+--- a/lib/internal/js_stream_socket.js
++++ b/lib/internal/js_stream_socket.js
+@@ -22,7 +22,6 @@
+ const kCurrentWriteRequest = Symbol('kCurrentWriteRequest');
+ const kCurrentShutdownRequest = Symbol('kCurrentShutdownRequest');
+ const kPendingShutdownRequest = Symbol('kPendingShutdownRequest');
+-const kPendingClose = Symbol('kPendingClose');
+ 
+ function isClosing() { return this[owner_symbol].isClosing(); }
+ 
+@@ -96,7 +95,6 @@
+     this[kCurrentWriteRequest] = null;
+     this[kCurrentShutdownRequest] = null;
+     this[kPendingShutdownRequest] = null;
+-    this[kPendingClose] = false;
+     this.readable = stream.readable;
+     this.writable = stream.writable;
+ 
+@@ -143,12 +141,6 @@
+     assert(this[kCurrentShutdownRequest] === null);
+     this[kCurrentShutdownRequest] = req;
+ 
+-    if (this[kPendingClose]) {
+-      // If doClose is pending, the stream & this._handle are gone. We can't do
+-      // anything. doClose will call finishShutdown with ECANCELED for us shortly.
+-      return 0;
+-    }
+-
+     const handle = this._handle;
+     assert(handle !== null);
+ 
+@@ -175,12 +167,7 @@
+     assert(this[kCurrentWriteRequest] === null);
+     assert(this[kCurrentShutdownRequest] === null);
+ 
+-    if (this[kPendingClose]) {
+-      // If doClose is pending, the stream & this._handle are gone. We can't do
+-      // anything. doClose will call finishWrite with ECANCELED for us shortly.
+-      this[kCurrentWriteRequest] = req; // Store req, for doClose to cancel
+-      return 0;
+-    } else if (this._handle === null) {
++    if (this._handle === null) {
+       // If this._handle is already null, there is nothing left to do with a
+       // pending write request, so we discard it.
+       return 0;
+@@ -240,8 +227,6 @@
+   }
+ 
+   doClose(cb) {
+-    this[kPendingClose] = true;
+-
+     const handle = this._handle;
+ 
+     // When sockets of the "net" module destroyed, they will call
+@@ -259,8 +244,6 @@
+       this.finishWrite(handle, uv.UV_ECANCELED);
+       this.finishShutdown(handle, uv.UV_ECANCELED);
+ 
+-      this[kPendingClose] = false;
+-
+       cb();
+     });
+   }

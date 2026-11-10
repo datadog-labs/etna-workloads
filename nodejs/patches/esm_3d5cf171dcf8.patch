@@ -1,0 +1,31 @@
+diff -uN a/lib/internal/modules/esm/loader.js b/lib/internal/modules/esm/loader.js
+--- a/lib/internal/modules/esm/loader.js
++++ b/lib/internal/modules/esm/loader.js
+@@ -319,13 +319,12 @@
+         throwIfPromiseRejected(job.instantiated);
+       }
+       if (status !== kEvaluating) {
+-        assert(status === kUninstantiated, `Unexpected module status ${status}`);
+         // If we get here, either there's a race where the job is still being instantiated
+         // by an in-flight import(), or the cached module previously encountered an
+         // instantiation error during a prior load (e.g. due to a mismatched import).
+         // TODO(joyeecheung): the current check is too broad. We should attempt to
+         // get the potential instantiation error and throw it.
+-        throw new ERR_REQUIRE_ESM_RACE_CONDITION(filename, parentFilename, false);
++        assert.fail(`Unexpected module status ${status}.`);
+       }
+       let message = `Cannot require() ES Module ${filename} in a cycle.`;
+       if (parentFilename) {
+diff -uN a/lib/internal/modules/esm/module_job.js b/lib/internal/modules/esm/module_job.js
+--- a/lib/internal/modules/esm/module_job.js
++++ b/lib/internal/modules/esm/module_job.js
+@@ -551,8 +551,7 @@
+       // always handle CJS using the CJS loader to eliminate the quirks.
+       return { __proto__: null, module: this.module, namespace: this.module.getNamespace() };
+     }
+-    assert(status === kUninstantiated, `Unexpected module status ${status}.`);
+-    throw new ERR_REQUIRE_ESM_RACE_CONDITION();
++    assert.fail(`Unexpected module status ${status}.`);
+   }
+ 
+   async run(isEntryPoint = false) {

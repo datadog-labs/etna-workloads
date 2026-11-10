@@ -1,0 +1,20 @@
+'use strict';
+const { WritableStream } = require('stream/web');
+const { setImmediate: immediate } = require('timers/promises');
+(async () => {
+  const error = new Error('boom');
+  let finish;
+  const gate = new Promise((r) => { finish = r; });
+  const ws = new WritableStream({ abort() { return gate; } });
+  const writer = ws.getWriter();
+  const aborted = writer.abort(error);
+  await immediate();
+  let settled = false;
+  const closed = writer.closed.catch(() => { settled = true; });
+  await immediate();
+  console.log('closed settled before abort finished:', settled);
+  finish();
+  await aborted;
+  await closed;
+  console.log('closed settled after abort finished:', settled);
+})();

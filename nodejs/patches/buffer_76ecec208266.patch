@@ -1,0 +1,55 @@
+diff -uN a/lib/buffer.js b/lib/buffer.js
+--- a/lib/buffer.js
++++ b/lib/buffer.js
+@@ -261,7 +261,7 @@
+   if (targetStart === undefined) {
+     targetStart = 0;
+   } else {
+-    targetStart = NumberIsInteger(targetStart) ? targetStart : toInteger(targetStart, 0);
++    targetStart = (NumberIsInteger(targetStart) || typeof targetStart !== 'number') ? targetStart : toInteger(targetStart, 0);
+     if (targetStart < 0)
+       throw new ERR_OUT_OF_RANGE('targetStart', '>= 0', targetStart);
+   }
+@@ -269,7 +269,7 @@
+   if (sourceStart === undefined) {
+     sourceStart = 0;
+   } else {
+-    sourceStart = NumberIsInteger(sourceStart) ? sourceStart : toInteger(sourceStart, 0);
++    sourceStart = (NumberIsInteger(sourceStart) || typeof sourceStart !== 'number') ? sourceStart : toInteger(sourceStart, 0);
+     if (sourceStart < 0 || sourceStart > source.byteLength)
+       throw new ERR_OUT_OF_RANGE('sourceStart', `>= 0 && <= ${source.byteLength}`, sourceStart);
+   }
+@@ -277,7 +277,7 @@
+   if (sourceEnd === undefined) {
+     sourceEnd = source.byteLength;
+   } else {
+-    sourceEnd = NumberIsInteger(sourceEnd) ? sourceEnd : toInteger(sourceEnd, 0);
++    sourceEnd = (NumberIsInteger(sourceEnd) || typeof sourceEnd !== 'number') ? sourceEnd : toInteger(sourceEnd, 0);
+     if (sourceEnd < 0)
+       throw new ERR_OUT_OF_RANGE('sourceEnd', '>= 0', sourceEnd);
+   }
+diff -uN a/src/node_buffer.cc b/src/node_buffer.cc
+--- a/src/node_buffer.cc
++++ b/src/node_buffer.cc
+@@ -224,9 +224,8 @@
+     return Just(true);
+   }
+ 
+-  int64_t tmp_i;
+-  if (!arg->IntegerValue(env->context()).To(&tmp_i))
+-    return Nothing<bool>();
++  CHECK(arg->IsNumber());
++  int64_t tmp_i = arg.As<Integer>()->Value();
+ 
+   if (tmp_i < 0)
+     return Just(false);
+@@ -641,6 +640,9 @@
+   Local<Value> target_obj = args[1];
+   // Byte offsets and lengths can exceed uint32 for buffers larger than 4 GiB,
+   // so they are passed and returned as doubles (exact for integers < 2^53).
++  CHECK(args[2]->IsNumber());
++  CHECK(args[3]->IsNumber());
++  CHECK(args[4]->IsNumber());
+   const size_t target_start =
+       static_cast<size_t>(args[2].As<Number>()->Value());
+   const size_t source_start =

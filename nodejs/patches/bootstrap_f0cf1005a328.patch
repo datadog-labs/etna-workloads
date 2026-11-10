@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/console/constructor.js b/lib/internal/console/constructor.js
+--- a/lib/internal/console/constructor.js
++++ b/lib/internal/console/constructor.js
+@@ -25,7 +25,6 @@
+   RegExpPrototypeSymbolReplace,
+   SafeArrayIterator,
+   SafeMap,
+-  SafeSet,
+   SafeWeakMap,
+   StringPrototypeIncludes,
+   StringPrototypeRepeat,
+@@ -680,33 +679,6 @@
+ 
+ function initializeGlobalConsole(globalConsole) {
+   globalConsole[kBindStreamsLazy](process);
+-  const {
+-    namespace: {
+-      addSerializeCallback,
+-      isBuildingSnapshot,
+-    },
+-  } = require('internal/v8/startup_snapshot');
+-
+-  if (!internalBinding('config').hasInspector || !isBuildingSnapshot()) {
+-    return;
+-  }
+-  const { console: consoleFromVM } = internalBinding('inspector');
+-  const nodeConsoleKeys = ObjectKeys(Console.prototype);
+-  const vmConsoleKeys = ObjectKeys(consoleFromVM);
+-  const originalKeys = new SafeSet(vmConsoleKeys.concat(nodeConsoleKeys));
+-  const inspectorConsoleKeys = new SafeSet();
+-  for (const key of ObjectKeys(globalConsole)) {
+-    if (!originalKeys.has(key)) {
+-      inspectorConsoleKeys.add(key);
+-    }
+-  }
+-  // During deserialization these should be reinstalled to console by
+-  // V8 when the inspector client is created.
+-  addSerializeCallback(() => {
+-    for (const key of inspectorConsoleKeys) {
+-      globalConsole[key] = undefined;
+-    }
+-  });
+ }
+ 
+ module.exports = {

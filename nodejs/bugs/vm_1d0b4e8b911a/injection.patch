@@ -1,0 +1,35 @@
+diff -uN a/src/module_wrap.cc b/src/module_wrap.cc
+--- a/src/module_wrap.cc
++++ b/src/module_wrap.cc
+@@ -1172,23 +1172,16 @@
+   };
+ 
+   Local<Value> result;
+-  if (!import_callback
+-           ->Call(
+-               context, Undefined(isolate), arraysize(import_args), import_args)
+-           .ToLocal(&result)) {
+-    return {};
++  if (import_callback->Call(
++        context,
++        Undefined(isolate),
++        arraysize(import_args),
++        import_args).ToLocal(&result)) {
++    CHECK(result->IsPromise());
++    return handle_scope.Escape(result.As<Promise>());
+   }
+ 
+-  // Wrap the returned value in a promise created in the referrer context to
+-  // avoid dynamic scopes.
+-  Local<Promise::Resolver> resolver;
+-  if (!Promise::Resolver::New(context).ToLocal(&resolver)) {
+-    return {};
+-  }
+-  if (resolver->Resolve(context, result).IsNothing()) {
+-    return {};
+-  }
+-  return handle_scope.Escape(resolver->GetPromise());
++  return MaybeLocal<Promise>();
+ }
+ 
+ static MaybeLocal<Promise> ImportModuleDynamically(

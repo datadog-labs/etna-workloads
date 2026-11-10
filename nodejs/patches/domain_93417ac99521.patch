@@ -1,0 +1,53 @@
+diff -uN a/lib/domain.js b/lib/domain.js
+--- a/lib/domain.js
++++ b/lib/domain.js
+@@ -50,9 +50,6 @@
+ const { createHook } = require('async_hooks');
+ const { useDomainTrampoline } = require('internal/async_hooks');
+ 
+-const kWeak = Symbol('kWeak');
+-const { WeakReference } = require('internal/util');
+-
+ // Overwrite process.domain with a getter/setter that will allow for more
+ // effective optimizations
+ const _domain = [null];
+@@ -73,7 +70,7 @@
+   init(asyncId, type, triggerAsyncId, resource) {
+     if (process.domain !== null && process.domain !== undefined) {
+       // If this operation is created while in a domain, let's mark it
+-      pairing.set(asyncId, process.domain[kWeak]);
++      pairing.set(asyncId, process.domain);
+       // Promises from other contexts, such as with the VM module, should not
+       // have a domain property as it can be used to escape the sandbox.
+       if (type !== 'PROMISE' || resource instanceof Promise) {
+@@ -95,20 +92,13 @@
+   before(asyncId) {
+     const current = pairing.get(asyncId);
+     if (current !== undefined) { // Enter domain for this cb
+-      // We will get the domain through current.get(), because the resource
+-      // object's .domain property makes sure it is not garbage collected.
+-      // However, we do need to make the reference to the domain non-weak,
+-      // so that it cannot be garbage collected before the after() hook.
+-      current.incRef();
+-      current.get().enter();
++      current.enter();
+     }
+   },
+   after(asyncId) {
+     const current = pairing.get(asyncId);
+     if (current !== undefined) { // Exit domain for this cb
+-      const domain = current.get();
+-      current.decRef();
+-      domain.exit();
++      current.exit();
+     }
+   },
+   destroy(asyncId) {
+@@ -200,7 +190,6 @@
+     super();
+ 
+     this.members = [];
+-    this[kWeak] = new WeakReference(this);
+     asyncHook.enable();
+ 
+     this.on('removeListener', updateExceptionCapture);

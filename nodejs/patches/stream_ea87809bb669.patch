@@ -1,0 +1,40 @@
+diff -uN a/lib/internal/streams/writable.js b/lib/internal/streams/writable.js
+--- a/lib/internal/streams/writable.js
++++ b/lib/internal/streams/writable.js
+@@ -942,22 +942,27 @@
+   }
+ }
+ 
++function callFinal(stream, state) {
++  state[kState] |= kSync;
++
++  try {
++    stream._final((err) => onFinish(stream, state, err));
++  } catch (err) {
++    onFinish(stream, state, err);
++  }
++
++  state[kState] &= ~kSync;
++}
++
+ function prefinish(stream, state) {
+   if ((state[kState] & (kPrefinished | kFinalCalled)) !== 0) {
+     return;
+   }
+ 
+   if (typeof stream._final === 'function' && (state[kState] & kDestroyed) === 0) {
+-    state[kState] |= kFinalCalled | kSync;
++    state[kState] |= kFinalCalled;
+     state.pendingcb++;
+-
+-    try {
+-      stream._final((err) => onFinish(stream, state, err));
+-    } catch (err) {
+-      onFinish(stream, state, err);
+-    }
+-
+-    state[kState] &= ~kSync;
++    process.nextTick(callFinal, stream, state);
+   } else {
+     state[kState] |= kFinalCalled | kPrefinished;
+     stream.emit('prefinish');

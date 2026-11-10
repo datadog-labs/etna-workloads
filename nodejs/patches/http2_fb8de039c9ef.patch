@@ -1,0 +1,20 @@
+diff -uN a/src/node_http2.cc b/src/node_http2.cc
+--- a/src/node_http2.cc
++++ b/src/node_http2.cc
+@@ -856,15 +856,13 @@
+     CHECK_EQ(nghttp2_session_terminate_session(session_.get(), code), 0);
+     SendPendingData();
+   } else if (stream_ != nullptr) {
+-    // so that the previous listener of the socket, typically, JS code of a
+-    // (tls) socket will be notified of any activity later
+     stream_->RemoveStreamListener(this);
+   }
+ 
+   set_destroyed();
+ 
+   // If we are writing we will get to make the callback in OnStreamAfterWrite.
+-  if (!is_write_in_progress() || !stream_) {
++  if (!is_write_in_progress()) {
+     Debug(this, "make done session callback");
+     HandleScope scope(env()->isolate());
+     MakeCallback(env()->ondone_string(), 0, nullptr);

@@ -1,0 +1,231 @@
+diff -uN a/src/inspector/dom_storage_agent.cc b/src/inspector/dom_storage_agent.cc
+--- a/src/inspector/dom_storage_agent.cc
++++ b/src/inspector/dom_storage_agent.cc
+@@ -101,42 +101,11 @@
+   std::optional<StorageMap> storage_map_fallback;
+   if (storage_map->empty()) {
+     auto web_storage_obj = getWebStorage(is_local_storage);
+-    // Each way of failing below says something different about the store, so
+-    // each reports a different reason. A frontend that cannot read a store
+-    // otherwise has no way to tell a missing one from a corrupt one.
+     if (!web_storage_obj) {
+       return protocol::DispatchResponse::ServerError(
+-          "Could not read DOM storage items: storage is unavailable");
++          "Could not read DOM storage items");
+     }
+-    // A message from a remote frontend is dispatched without a HandleScope
+-    // on the stack, and opening the backing file can throw, so give the
+-    // exception a scope to be allocated in and somewhere to land.
+-    v8::HandleScope handle_scope(env_->isolate());
+-    v8::TryCatch try_catch(env_->isolate());
+     storage_map_fallback = web_storage_obj.value()->GetAll();
+-    if (try_catch.HasCaught()) {
+-      // Pass the reason along; "the file was written by a newer Node.js" and
+-      // "the file is locked" are not the same problem to the user. Read it
+-      // off the Message, which was built when the exception was thrown.
+-      // Converting the exception itself would call a user-patchable
+-      // Error.prototype.toString, and there is no JavaScript frame here to
+-      // run it from.
+-      Local<v8::Message> message = try_catch.Message();
+-      if (!message.IsEmpty()) {
+-        Utf8Value reason(env_->isolate(), message->Get());
+-        return protocol::DispatchResponse::ServerError(
+-            std::string("Could not read DOM storage items: ") + reason.out());
+-      }
+-      // V8 builds that Message on a best-effort basis, so the throw is all we
+-      // can report when it is missing.
+-      return protocol::DispatchResponse::ServerError(
+-          "Could not read DOM storage items: the backing store could not be "
+-          "opened");
+-    }
+-    if (!storage_map_fallback.has_value()) {
+-      return protocol::DispatchResponse::ServerError(
+-          "Could not read DOM storage items: the backing file is malformed");
+-    }
+     storage_map = &storage_map_fallback.value();
+   }
+ 
+diff -uN a/src/node_webstorage.cc b/src/node_webstorage.cc
+--- a/src/node_webstorage.cc
++++ b/src/node_webstorage.cc
+@@ -59,19 +59,6 @@
+     }                                                                          \
+   } while (0)
+ 
+-// The backing file is a user-specified path, and the schema below is created
+-// with IF NOT EXISTS, so a file that already holds tables of those names is
+-// adopted as-is and its values may have any type. A wrong type is therefore a
+-// statement about untrusted input, not a broken internal invariant.
+-#define CHECK_COLUMN_TYPE_OR_THROW(env, stmt, idx, expected, detail, ret)      \
+-  do {                                                                         \
+-    if (sqlite3_column_type((stmt), (idx)) != (expected)) {                    \
+-      THROW_ERR_INVALID_STATE((env),                                           \
+-                              "localStorage database is malformed: " detail);  \
+-      return (ret);                                                            \
+-    }                                                                          \
+-  } while (0)
+-
+ static void ThrowQuotaExceededException(Local<Context> context) {
+   Isolate* isolate = Isolate::GetCurrent();
+   auto quota_exceeded_str =
+@@ -186,12 +173,6 @@
+   }
+ 
+   int r = sqlite3_open(location_.c_str(), &db);
+-  // Adopt the connection before anything below can return early, so that a
+-  // failure does not leak it. sqlite3_open() allocates a connection to be
+-  // closed even when it fails. This is declared ahead of the statement below
+-  // so that the statement is finalized first; sqlite3_close() fails while a
+-  // statement is still open, and conn_deleter treats that as fatal.
+-  auto conn = conn_unique_ptr(db);
+   CHECK_ERROR_OR_THROW(env(), r, SQLITE_OK, Nothing<void>());
+   r = sqlite3_exec(db, init_sql_v0.data(), nullptr, nullptr, nullptr);
+   CHECK_ERROR_OR_THROW(env(), r, SQLITE_OK, Nothing<void>());
+@@ -203,16 +184,12 @@
+                          get_schema_version_sql.size(),
+                          &s,
+                          nullptr);
+-  auto stmt = stmt_unique_ptr(s);
++  r = sqlite3_exec(db, init_sql_v0.data(), nullptr, nullptr, nullptr);
+   CHECK_ERROR_OR_THROW(env(), r, SQLITE_OK, Nothing<void>());
++  auto stmt = stmt_unique_ptr(s);
+   CHECK_ERROR_OR_THROW(
+       env(), sqlite3_step(stmt.get()), SQLITE_ROW, Nothing<void>());
+-  CHECK_COLUMN_TYPE_OR_THROW(env(),
+-                             stmt.get(),
+-                             0,
+-                             SQLITE_INTEGER,
+-                             "expected schema_version to be an integer",
+-                             Nothing<void>());
++  CHECK(sqlite3_column_type(stmt.get(), 0) == SQLITE_INTEGER);
+   int schema_version = sqlite3_column_int(stmt.get(), 0);
+   stmt = nullptr;  // Force finalization.
+ 
+@@ -232,7 +209,7 @@
+     CHECK_ERROR_OR_THROW(env(), r, SQLITE_OK, Nothing<void>());
+   }
+ 
+-  db_ = std::move(conn);
++  db_ = conn_unique_ptr(db);
+   return JustVoid();
+ }
+ 
+@@ -289,12 +266,7 @@
+   LocalVector<Value> values(env()->isolate());
+   Local<Value> value;
+   while ((r = sqlite3_step(stmt.get())) == SQLITE_ROW) {
+-    CHECK_COLUMN_TYPE_OR_THROW(env(),
+-                               stmt.get(),
+-                               0,
+-                               SQLITE_BLOB,
+-                               "expected key to be a blob",
+-                               Local<Array>());
++    CHECK(sqlite3_column_type(stmt.get(), 0) == SQLITE_BLOB);
+     auto size = sqlite3_column_bytes(stmt.get(), 0) / sizeof(uint16_t);
+     if (!String::NewFromTwoByte(env()->isolate(),
+                                 reinterpret_cast<const uint16_t*>(
+@@ -310,10 +282,9 @@
+   return Array::New(env()->isolate(), values.data(), values.size());
+ }
+ 
+-std::optional<std::unordered_map<std::u16string, std::u16string>>
+-Storage::GetAll() {
++std::unordered_map<std::u16string, std::u16string> Storage::GetAll() {
+   if (!Open().IsJust()) {
+-    return std::nullopt;
++    return {};
+   }
+ 
+   static constexpr std::string_view sql =
+@@ -321,17 +292,10 @@
+   sqlite3_stmt* s = nullptr;
+   int r = sqlite3_prepare_v2(db_.get(), sql.data(), sql.size(), &s, nullptr);
+   auto stmt = stmt_unique_ptr(s);
+-  // Unlike the other accessors, this one has no JavaScript caller to throw at,
+-  // so every failure below is reported to the inspector agent instead.
+-  if (r != SQLITE_OK) {
+-    return std::nullopt;
+-  }
+   std::unordered_map<std::u16string, std::u16string> result;
+   while ((r = sqlite3_step(stmt.get())) == SQLITE_ROW) {
+-    if (sqlite3_column_type(stmt.get(), 0) != SQLITE_BLOB ||
+-        sqlite3_column_type(stmt.get(), 1) != SQLITE_BLOB) {
+-      return std::nullopt;
+-    }
++    CHECK(sqlite3_column_type(stmt.get(), 0) == SQLITE_BLOB);
++    CHECK(sqlite3_column_type(stmt.get(), 1) == SQLITE_BLOB);
+     auto key_size = sqlite3_column_bytes(stmt.get(), 0) / sizeof(uint16_t);
+     auto value_size = sqlite3_column_bytes(stmt.get(), 1) / sizeof(uint16_t);
+     auto key_uint16(
+@@ -344,9 +308,6 @@
+ 
+     result.emplace(std::move(key), std::move(value));
+   }
+-  if (r != SQLITE_DONE) {
+-    return std::nullopt;
+-  }
+   return result;
+ }
+ 
+@@ -363,8 +324,6 @@
+   auto stmt = stmt_unique_ptr(s);
+   CHECK_ERROR_OR_THROW(
+       env(), sqlite3_step(stmt.get()), SQLITE_ROW, Local<Value>());
+-  // Unlike the reads above, this one is not a claim about the file's contents:
+-  // count(*) is an integer whatever the table holds.
+   CHECK(sqlite3_column_type(stmt.get(), 0) == SQLITE_INTEGER);
+   int result = sqlite3_column_int(stmt.get(), 0);
+   return Integer::New(env()->isolate(), result);
+@@ -392,12 +351,7 @@
+   CHECK_ERROR_OR_THROW(env(), r, SQLITE_OK, Local<Value>());
+   r = sqlite3_step(stmt.get());
+   if (r == SQLITE_ROW) {
+-    CHECK_COLUMN_TYPE_OR_THROW(env(),
+-                               stmt.get(),
+-                               0,
+-                               SQLITE_BLOB,
+-                               "expected value to be a blob",
+-                               Local<Value>());
++    CHECK(sqlite3_column_type(stmt.get(), 0) == SQLITE_BLOB);
+     auto size = sqlite3_column_bytes(stmt.get(), 0) / sizeof(uint16_t);
+     return String::NewFromTwoByte(env()->isolate(),
+                                   reinterpret_cast<const uint16_t*>(
+@@ -429,12 +383,7 @@
+ 
+   r = sqlite3_step(stmt.get());
+   if (r == SQLITE_ROW) {
+-    CHECK_COLUMN_TYPE_OR_THROW(env(),
+-                               stmt.get(),
+-                               0,
+-                               SQLITE_BLOB,
+-                               "expected key to be a blob",
+-                               Local<Value>());
++    CHECK(sqlite3_column_type(stmt.get(), 0) == SQLITE_BLOB);
+     auto size = sqlite3_column_bytes(stmt.get(), 0) / sizeof(uint16_t);
+     return String::NewFromTwoByte(env()->isolate(),
+                                   reinterpret_cast<const uint16_t*>(
+diff -uN a/src/node_webstorage.h b/src/node_webstorage.h
+--- a/src/node_webstorage.h
++++ b/src/node_webstorage.h
+@@ -3,7 +3,6 @@
+ 
+ #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+ 
+-#include <optional>
+ #include <unordered_map>
+ #include "base_object.h"
+ #include "node_mem.h"
+@@ -42,12 +41,7 @@
+   v8::MaybeLocal<v8::Value> LoadKey(const int index);
+   v8::Maybe<void> Remove(v8::Local<v8::Name> key);
+   v8::Maybe<void> Store(v8::Local<v8::Name> key, v8::Local<v8::Value> value);
+-  // Returns nothing if the backing store could not be read, e.g. because it
+-  // holds values of an unexpected type. Opening the store can also throw, so
+-  // the caller must hold a v8::TryCatch: an empty return does not say which of
+-  // the two happened, and a pending exception is left for the caller to
+-  // handle.
+-  std::optional<std::unordered_map<std::u16string, std::u16string>> GetAll();
++  std::unordered_map<std::u16string, std::u16string> GetAll();
+ 
+   SET_MEMORY_INFO_NAME(Storage)
+   SET_SELF_SIZE(Storage)

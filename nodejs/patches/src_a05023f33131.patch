@@ -1,0 +1,93 @@
+diff -uN a/src/blob_serializer_deserializer-inl.h b/src/blob_serializer_deserializer-inl.h
+--- a/src/blob_serializer_deserializer-inl.h
++++ b/src/blob_serializer_deserializer-inl.h
+@@ -111,11 +111,6 @@
+   if (count == 0) {
+     return std::vector<T>();
+   }
+-  // Every element takes at least one byte, so this bounds the allocation.
+-  if (count > sink.size() - read_total) {
+-    ok = false;
+-    return std::vector<T>();
+-  }
+   if (is_debug) {
+     Debug("Reading %d vector elements...\n", count);
+   }
+@@ -148,10 +143,6 @@
+     Debug("ReadStringView() read an empty view\n");
+     return std::string_view();
+   }
+-  if (length > sink.size() - read_total) {
+-    ok = false;
+-    return std::string_view();
+-  }
+ 
+   std::string_view result(sink.data() + read_total, length);
+   Debug("%p, read %zu bytes", result.data(), result.size());
+@@ -176,11 +167,6 @@
+   }
+ 
+   size_t size = sizeof(T) * count;
+-  if (!ok || count > (sink.size() - read_total) / sizeof(T)) {
+-    ok = false;
+-    memset(out, 0, size);
+-    return;
+-  }
+   memcpy(out, sink.data() + read_total, size);
+ 
+   if (is_debug) {
+diff -uN a/src/node_file_utils.cc b/src/node_file_utils.cc
+--- a/src/node_file_utils.cc
++++ b/src/node_file_utils.cc
+@@ -240,7 +240,6 @@
+   CHECK_EQ(err, 0);
+ 
+   std::vector<char> contents(size);
+-  if (size == 0) return contents;
+   size_t num_read = fread(contents.data(), size, 1, fp);
+   CHECK_EQ(num_read, 1);
+   return contents;
+diff -uN a/src/node_snapshotable.cc b/src/node_snapshotable.cc
+--- a/src/node_snapshotable.cc
++++ b/src/node_snapshotable.cc
+@@ -165,11 +165,7 @@
+     int raw_size = ReadArithmetic<int>();
+     Debug("size=%d\n", raw_size);
+ 
+-    if (raw_size <= 0 ||
+-        static_cast<size_t>(raw_size) > sink.size() - read_total) {
+-      ok = false;
+-      return v8::StartupData{nullptr, 0};
+-    }
++    CHECK_GT(raw_size, 0);  // There should be no startup data of size 0.
+     if (ownership == SnapshotData::DataOwnership::kOwned) {
+       // The data pointer of v8::StartupData would be deleted so it must be
+       // new'ed.
+@@ -667,14 +663,10 @@
+   // Metadata
+   uint32_t magic = r.ReadArithmetic<uint32_t>();
+   r.Debug("Read magic %" PRIx32 "\n", magic);
+-  if (!r.ok || magic != kMagic) {
+-    fprintf(stderr, "The startup snapshot is not a Node.js snapshot blob.\n");
+-    return false;
+-  }
++  CHECK_EQ(magic, kMagic);
+   out->metadata = r.Read<SnapshotMetadata>();
+   r.Debug("Read metadata\n");
+-  if (!r.ok || !out->Check()) {
+-    if (!r.ok) fprintf(stderr, "The startup snapshot is truncated.\n");
++  if (!out->Check()) {
+     return false;
+   }
+ 
+@@ -688,10 +680,6 @@
+   out->code_cache = r.ReadVector<builtins::CodeCacheInfo>();
+ 
+   r.Debug("SnapshotData::FromBlob() read %d bytes\n", r.read_total);
+-  if (!r.ok) {
+-    fprintf(stderr, "The startup snapshot is truncated.\n");
+-    return false;
+-  }
+   return true;
+ }
+ 

@@ -1,0 +1,47 @@
+diff -uN a/lib/fs.js b/lib/fs.js
+--- a/lib/fs.js
++++ b/lib/fs.js
+@@ -2078,13 +2078,7 @@
+ 
+   const h = vfsState.handlers;
+   if (h !== null) {
+-    let result;
+-    try {
+-      result = h.statfsSync(path, options);
+-    } catch (err) {
+-      process.nextTick(callback, err);
+-      return;
+-    }
++    const result = h.statfsSync(path, options);
+     if (result !== undefined) {
+       process.nextTick(callback, null, result);
+       return;
+diff -uN a/lib/internal/vfs/setup.js b/lib/internal/vfs/setup.js
+--- a/lib/internal/vfs/setup.js
++++ b/lib/internal/vfs/setup.js
+@@ -336,7 +336,6 @@
+   const r = findVFS(filename);
+   if (r === null) return undefined;
+   if (r.vfs.existsSync(filename)) {
+-    if (fn === undefined) return true;
+     return fn(r.vfs, filename);
+   }
+   throw createENOENT(syscall, filename);
+@@ -462,7 +461,7 @@
+     },
+     statfsSync(path, options) {
+       const pathStr = toPathStr(path);
+-      if (pathStr !== null && findVFSWith(pathStr, 'statfs')) {
++      if (pathStr !== null && findVFSForPath(pathStr) !== null) {
+         if (options?.bigint) {
+           return {
+             type: 0n, bsize: 4096n, blocks: 0n,
+@@ -792,7 +791,7 @@
+       vfsOp(path, (vfs, n) => vfs.promises.lutimes(n, atime, mtime).then(() => true)),
+     statfs(path, options) {
+       const pathStr = toPathStr(path);
+-      if (pathStr !== null && findVFSWith(pathStr, 'statfs')) {
++      if (pathStr !== null && findVFSForPath(pathStr) !== null) {
+         if (options?.bigint) {
+           return {
+             __proto__: null,

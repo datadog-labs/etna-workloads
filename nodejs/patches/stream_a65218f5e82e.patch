@@ -1,0 +1,67 @@
+diff -uN a/lib/internal/streams/transform.js b/lib/internal/streams/transform.js
+--- a/lib/internal/streams/transform.js
++++ b/lib/internal/streams/transform.js
+@@ -123,15 +123,11 @@
+   this.on('prefinish', prefinish);
+ }
+ 
+-function final(cb) {
++function prefinish() {
+   if (typeof this._flush === 'function' && !this.destroyed) {
+     this._flush((er, data) => {
+       if (er) {
+-        if (cb) {
+-          cb(er);
+-        } else {
+-          this.destroy(er);
+-        }
++        this.destroy(er);
+         return;
+       }
+ 
+@@ -139,26 +135,12 @@
+         this.push(data);
+       }
+       this.push(null);
+-      if (cb) {
+-        cb();
+-      }
+     });
+   } else {
+     this.push(null);
+-    if (cb) {
+-      cb();
+-    }
+   }
+ }
+ 
+-function prefinish() {
+-  if (this._final !== final) {
+-    final.call(this);
+-  }
+-}
+-
+-Transform.prototype._final = final;
+-
+ Transform.prototype._transform = function(chunk, encoding, callback) {
+   throw new ERR_METHOD_NOT_IMPLEMENTED('_transform()');
+ };
+diff -uN a/lib/zlib.js b/lib/zlib.js
+--- a/lib/zlib.js
++++ b/lib/zlib.js
+@@ -335,15 +335,6 @@
+   this._transform(new FastBuffer(), '', callback);
+ };
+ 
+-/**
+- * Force Transform compat behavior.
+- * @returns {void}
+- * @this {ZlibBase}
+- */
+-ZlibBase.prototype._final = function(callback) {
+-  callback();
+-};
+-
+ // If a flush is scheduled while another flush is still pending, a way to figure
+ // out which one is the "stronger" flush is needed.
+ // This is currently only used to figure out which flush flag to use for the

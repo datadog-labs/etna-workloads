@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/fs/dir.js b/lib/internal/fs/dir.js
+--- a/lib/internal/fs/dir.js
++++ b/lib/internal/fs/dir.js
+@@ -5,7 +5,6 @@
+   ArrayPrototypeShift,
+   FunctionPrototypeBind,
+   ObjectDefineProperties,
+-  PromiseReject,
+   SymbolAsyncDispose,
+   SymbolAsyncIterator,
+   SymbolDispose,
+@@ -242,20 +241,16 @@
+   }
+ 
+   close(callback) {
++    if (this.#closed === true) {
++      throw new ERR_DIR_CLOSED();
++    }
++
+     if (callback === undefined) {
+-      if (this.#closed === true) {
+-        return PromiseReject(new ERR_DIR_CLOSED());
+-      }
+       return this.#closePromisified();
+     }
+ 
+     validateFunction(callback, 'callback');
+ 
+-    if (this.#closed === true) {
+-      process.nextTick(callback, new ERR_DIR_CLOSED());
+-      return;
+-    }
+-
+     if (this.#operationQueue !== null) {
+       ArrayPrototypePush(this.#operationQueue, () => {
+         this.close(callback);

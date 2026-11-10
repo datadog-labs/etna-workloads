@@ -1,0 +1,59 @@
+diff -uN a/lib/buffer.js b/lib/buffer.js
+--- a/lib/buffer.js
++++ b/lib/buffer.js
+@@ -352,26 +352,36 @@
+   if (typeof value === 'string')
+     return fromString(value, encodingOrOffset);
+ 
+-  if (typeof value === 'object' && value !== null) {
+-    if (isAnyArrayBuffer(value))
+-      return fromArrayBuffer(value, encodingOrOffset, length);
+-
+-    const valueOf = value.valueOf && value.valueOf();
+-    if (valueOf != null &&
+-        valueOf !== value &&
+-        (typeof valueOf === 'string' || typeof valueOf === 'object')) {
+-      return from(valueOf, encodingOrOffset, length);
+-    }
++  if (isAnyArrayBuffer(value))
++    return fromArrayBuffer(value, encodingOrOffset, length);
++
++  if (value === null || value === undefined) {
++    throw new ERR_INVALID_ARG_TYPE(
++      'first argument',
++      ['string', 'Buffer', 'ArrayBuffer', 'Array', 'Array-like Object'],
++      value,
++    );
++  }
++
++  if (typeof value === 'number') {
++    throw new ERR_INVALID_ARG_TYPE('value', 'not number', value);
++  }
++
++  const valueOf = value.valueOf && value.valueOf();
++  if (valueOf != null &&
++      valueOf !== value &&
++      (typeof valueOf === 'string' || typeof valueOf === 'object')) {
++    return from(valueOf, encodingOrOffset, length);
++  }
++
++  const b = fromObject(value);
++  if (b)
++    return b;
+ 
+-    const b = fromObject(value);
+-    if (b)
+-      return b;
+-
+-    if (typeof value[SymbolToPrimitive] === 'function') {
+-      const primitive = value[SymbolToPrimitive]('string');
+-      if (typeof primitive === 'string') {
+-        return fromString(primitive, encodingOrOffset);
+-      }
++  if (typeof value[SymbolToPrimitive] === 'function') {
++    const primitive = value[SymbolToPrimitive]('string');
++    if (typeof primitive === 'string') {
++      return fromString(primitive, encodingOrOffset);
+     }
+   }
+ 

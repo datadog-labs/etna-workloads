@@ -1,0 +1,38 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -4652,7 +4652,6 @@
+            .ToLocal(&obj)) {
+     return nullptr;
+   }
+-  obj->SetInternalField(kDatabaseObject, database->object());
+   return MakeBaseObject<SQLTagStore>(env, obj, std::move(database), capacity);
+ }
+ 
+@@ -4663,8 +4662,9 @@
+ }
+ 
+ void SQLTagStore::DatabaseGetter(const FunctionCallbackInfo<Value>& args) {
+-  args.GetReturnValue().Set(
+-      args.This()->GetInternalField(kDatabaseObject).As<Value>());
++  SQLTagStore* store;
++  ASSIGN_OR_RETURN_UNWRAP(&store, args.This());
++  args.GetReturnValue().Set(store->database_->object());
+ }
+ 
+ void SQLTagStore::SizeGetter(const FunctionCallbackInfo<Value>& args) {
+diff -uN a/src/node_sqlite.h b/src/node_sqlite.h
+--- a/src/node_sqlite.h
++++ b/src/node_sqlite.h
+@@ -488,11 +488,6 @@
+ 
+ class SQLTagStore : public BaseObject {
+  public:
+-  enum InternalFields {
+-    kDatabaseObject = BaseObject::kInternalFieldCount,
+-    kInternalFieldCount
+-  };
+-
+   SQLTagStore(Environment* env,
+               v8::Local<v8::Object> object,
+               BaseObjectWeakPtr<Database> database,

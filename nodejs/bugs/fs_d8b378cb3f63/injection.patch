@@ -1,0 +1,33 @@
+diff -uN a/lib/internal/fs/dir.js b/lib/internal/fs/dir.js
+--- a/lib/internal/fs/dir.js
++++ b/lib/internal/fs/dir.js
+@@ -184,7 +184,7 @@
+       ArrayPrototypePush(
+         this.#bufferedEntries,
+         getDirent(
+-          path,
++          pathModule.join(path, result[i]),
+           result[i],
+           result[i + 1],
+         ),
+@@ -193,7 +193,7 @@
+   }
+ 
+   #readSyncRecursive(dirent) {
+-    const path = pathModule.join(dirent.parentPath, dirent.name);
++    const path = dirent.parentPath;
+     const handle = dirBinding.opendir(
+       path,
+       this.#options.encoding,
+diff -uN a/lib/internal/fs/utils.js b/lib/internal/fs/utils.js
+--- a/lib/internal/fs/utils.js
++++ b/lib/internal/fs/utils.js
+@@ -244,7 +244,7 @@
+   }
+ 
+   if (typeof path === 'string' && typeof name === 'string') {
+-    return pathModule.join(path, name);
++    return pathModule.basename(path) === name ? path : pathModule.join(path, name);
+   }
+ 
+   if (isUint8Array(path) && isUint8Array(name)) {

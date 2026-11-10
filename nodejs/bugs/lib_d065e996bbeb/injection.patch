@@ -1,0 +1,39 @@
+diff -uN a/lib/internal/abort_controller.js b/lib/internal/abort_controller.js
+--- a/lib/internal/abort_controller.js
++++ b/lib/internal/abort_controller.js
+@@ -86,8 +86,8 @@
+ 
+ const clearTimeoutRegistry = new SafeFinalizationRegistry(clearTimeout);
+ const dependantSignalsCleanupRegistry = new SafeFinalizationRegistry(
+-  ({ sourceSignalRef, dependantSignalRef }) => {
+-    sourceSignalsCleanupRegistry.unregister(dependantSignalRef);
++  ({ sourceSignalRef, dependantSignalRef, sourceSignalsCleanupToken }) => {
++    sourceSignalsCleanupRegistry.unregister(sourceSignalsCleanupToken);
+ 
+     const sourceSignal = sourceSignalRef.deref();
+     if (sourceSignal === undefined) {
+@@ -180,14 +180,12 @@
+     dependantSignalsCleanupRegistry.register(signal, {
+       sourceSignalRef: sourceSignalWeakRef,
+       dependantSignalRef: resultSignalWeakRef,
++      sourceSignalsCleanupToken: sourceSignalWeakRef,
+     });
+-    // Nested composites share their sources' WeakRefs, so use this signal's
+-    // own WeakRef as the unregister token. Otherwise collecting an inner
+-    // composite would also unregister the outer composite from its sources.
+     sourceSignalsCleanupRegistry.register(sourceSignal, {
+       sourceSignalRef: sourceSignalWeakRef,
+       composedSignalRef: resultSignalWeakRef,
+-    }, resultSignalWeakRef);
++    }, sourceSignalWeakRef);
+   }
+ 
+   signal[kFollowing] = true;
+@@ -205,7 +203,6 @@
+   const timeout = setTimeout(() => {
+     const signal = weakRef.deref();
+     if (signal !== undefined) {
+-      clearTimeoutRegistry.unregister(signal);
+       gcPersistentSignals.delete(signal);
+       abortSignal(
+         signal,

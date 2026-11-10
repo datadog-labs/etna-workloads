@@ -1,0 +1,44 @@
+diff -uN a/lib/internal/streams/iter/broadcast.js b/lib/internal/streams/iter/broadcast.js
+--- a/lib/internal/streams/iter/broadcast.js
++++ b/lib/internal/streams/iter/broadcast.js
+@@ -47,7 +47,6 @@
+ } = require('internal/streams/iter/types');
+ 
+ const {
+-  from,
+   isAsyncIterable,
+   isSyncIterable,
+ } = require('internal/streams/iter/from');
+@@ -926,9 +925,7 @@
+       return bc;
+     }
+ 
+-    const source = from(input);
+-
+-    if (!isAsyncIterable(source) && !isSyncIterable(source)) {
++    if (!isAsyncIterable(input) && !isSyncIterable(input)) {
+       throw new ERR_INVALID_ARG_TYPE(
+         'input', ['Broadcastable', 'AsyncIterable', 'Iterable'], input);
+     }
+@@ -953,8 +950,8 @@
+     const pump = async () => {
+       const w = result.writer;
+       try {
+-        if (isAsyncIterable(source)) {
+-          for await (const chunks of yieldAbortable(source, controller.signal)) {
++        if (isAsyncIterable(input)) {
++          for await (const chunks of yieldAbortable(input, controller.signal)) {
+             controller.signal.throwIfAborted();
+             if (ArrayIsArray(chunks)) {
+               if (!w.writevSync(chunks)) {
+@@ -964,8 +961,8 @@
+               await w.write(chunks, signal ? { signal } : undefined);
+             }
+           }
+-        } else if (isSyncIterable(source)) {
+-          for (const chunks of source) {
++        } else if (isSyncIterable(input)) {
++          for (const chunks of input) {
+             controller.signal.throwIfAborted();
+             if (ArrayIsArray(chunks)) {
+               if (!w.writevSync(chunks)) {

@@ -1,0 +1,46 @@
+diff -uN a/lib/sqlite.js b/lib/sqlite.js
+--- a/lib/sqlite.js
++++ b/lib/sqlite.js
+@@ -1,7 +1,7 @@
+ 'use strict';
+ 
+-const { Database, Statement, Session, constants, backup } =
+-  internalBinding('sqlite');
++const binding = internalBinding('sqlite');
++const { Database, Statement, Session, backup } = binding;
+ 
+ module.exports = {
+   Database,
+@@ -13,6 +13,8 @@
+   // compatibility with the class's pre-rename name.
+   StatementSync: Statement,
+   Session,
+-  constants,
++  SQLITE_CHANGESET_OMIT: binding.SQLITE_CHANGESET_OMIT,
++  SQLITE_CHANGESET_REPLACE: binding.SQLITE_CHANGESET_REPLACE,
++  SQLITE_CHANGESET_ABORT: binding.SQLITE_CHANGESET_ABORT,
+   backup,
+ };
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -5358,9 +5358,8 @@
+   Local<FunctionTemplate> db_tmpl = NewFunctionTemplate(isolate, Database::New);
+   db_tmpl->InstanceTemplate()->SetInternalFieldCount(
+       Database::kInternalFieldCount);
+-  Local<Object> constants = Object::New(isolate);
+ 
+-  DefineConstants(constants);
++  DefineConstants(target);
+ 
+   SetProtoMethod(isolate, db_tmpl, "open", Database::Open);
+   SetProtoMethod(isolate, db_tmpl, "close", Database::Close);
+@@ -5411,8 +5410,6 @@
+                          Session::GetConstructorTemplate(env),
+                          SetConstructorFunctionFlag::NONE);
+ 
+-  target->Set(context, env->constants_string(), constants).Check();
+-
+   Local<Function> backup_function;
+ 
+   if (!Function::New(context, Backup, Local<Value>(), 2)

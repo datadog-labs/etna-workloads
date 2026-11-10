@@ -1,0 +1,34 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -2678,11 +2678,10 @@
+   assertIsObject(oldHeaders, 'headers', ['Object', 'Array']);
+   const headers = { __proto__: null };
+   let statusCode;
+-  let hasDate = false;
+ 
+   if (oldHeaders !== null && oldHeaders !== undefined) {
+     // This loop is here for performance reason. Do not change.
+-    // The :status and date fields are picked up while copying so they do
++    // The :status field is picked up while copying so it does
+     // not have to be looked up again on the null-prototype copy.
+     for (const key in oldHeaders) {
+       if (ObjectHasOwn(oldHeaders, key)) {
+@@ -2690,8 +2689,6 @@
+         headers[key] = value;
+         if (key === HTTP2_HEADER_STATUS)
+           statusCode = value;
+-        else if (key === HTTP2_HEADER_DATE)
+-          hasDate = value != null;
+       }
+     }
+     headers[kSensitiveHeaders] = oldHeaders[kSensitiveHeaders];
+@@ -2699,7 +2696,7 @@
+ 
+   statusCode = headers[HTTP2_HEADER_STATUS] = statusCode | 0 || HTTP_STATUS_OK;
+ 
+-  if (!hasDate && (options.sendDate == null || options.sendDate)) {
++  if (options.sendDate == null || options.sendDate) {
+     headers[HTTP2_HEADER_DATE] = utcDate();
+   }
+ 

@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/vfs/streams.js b/lib/internal/vfs/streams.js
+--- a/lib/internal/vfs/streams.js
++++ b/lib/internal/vfs/streams.js
+@@ -80,7 +80,16 @@
+     this.#autoClose = options.autoClose !== false;
+ 
+     if (fd !== null && fd !== undefined) {
++      // Use the already-open file descriptor
+       this.#fd = fd;
++      process.nextTick(() => {
++        this.emit('open', this.#fd);
++        this.emit('ready');
++      });
++    } else {
++      // Open the file on next tick so listeners can be attached.
++      // Note: #openFile will not throw - if it fails, the stream is destroyed.
++      process.nextTick(() => this.#openFile());
+     }
+   }
+ 
+@@ -92,16 +101,18 @@
+     return this.#path;
+   }
+ 
+-  _construct(callback) {
++  /**
++   * Opens the virtual file.
++   * Events are emitted synchronously within this method, which runs
++   * asynchronously via process.nextTick - matching real fs behavior.
++   */
++  #openFile() {
+     try {
+-      if (this.#fd === null) {
+-        this.#fd = this.#vfs.openSync(this.#path);
+-      }
+-      callback();
++      this.#fd = this.#vfs.openSync(this.#path);
+       this.emit('open', this.#fd);
+       this.emit('ready');
+     } catch (err) {
+-      callback(err);
++      this.destroy(err);
+     }
+   }
+ 

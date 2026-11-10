@@ -1,0 +1,43 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -3727,10 +3727,6 @@
+     return 0;
+   }
+ 
+-  // Entered before building the payload below, because allocating it can
+-  // trigger a garbage collection that SQLite is not prepared for.
+-  CallbackDepthGuard guard(db);
+-
+   Isolate* isolate = env->isolate();
+   HandleScope handle_scope(isolate);
+ 
+@@ -3769,6 +3765,7 @@
+ 
+   Local<Object> payload = Object::New(isolate, Null(isolate), keys, values, 3);
+ 
++  CallbackDepthGuard guard(db);
+   ch->Publish(env, payload);
+ 
+   return 0;
+diff -uN a/src/node_sqlite.h b/src/node_sqlite.h
+--- a/src/node_sqlite.h
++++ b/src/node_sqlite.h
+@@ -532,8 +532,7 @@
+ // below are what keep a garbage collection during that window safe.
+ class CallbackDepthGuard {
+  public:
+-  explicit CallbackDepthGuard(Database* db)
+-      : db_(db), pinned_sessions_(db->PinSessions()) {
++  explicit CallbackDepthGuard(Database* db) : db_(db) {
+     db_->IncrementCallbackDepth();
+   }
+   ~CallbackDepthGuard() { db_->DecrementCallbackDepth(); }
+@@ -542,7 +541,6 @@
+ 
+  private:
+   Database* db_;
+-  std::vector<BaseObjectPtr<Session>> pinned_sessions_;
+ };
+ 
+ // Marks a window in which SQLite is being torn down from a C++ destructor.

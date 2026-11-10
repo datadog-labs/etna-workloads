@@ -1,0 +1,156 @@
+diff -uN a/lib/internal/test_runner/mock/mock.js b/lib/internal/test_runner/mock/mock.js
+--- a/lib/internal/test_runner/mock/mock.js
++++ b/lib/internal/test_runner/mock/mock.js
+@@ -20,7 +20,6 @@
+   ReflectConstruct,
+   ReflectGet,
+   SafeMap,
+-  StringPrototypeIncludes,
+   StringPrototypeSlice,
+   StringPrototypeStartsWith,
+ } = primordials;
+@@ -208,7 +207,6 @@
+     baseURL,
+     cache,
+     caller,
+-    cjsPath,
+     format,
+     fullPath,
+     moduleExports,
+@@ -224,25 +222,12 @@
+ 
+     sharedState.mockMap.set(baseURL, config);
+     sharedState.mockMap.set(fullPath, config);
+-    // For dual packages (e.g., a package with a "exports" field that exposes
+-    // both ESM and CJS entry points), the file selected by the ESM resolver
+-    // (used to compute fullPath) may differ from the one selected by CJS
+-    // require(). Register the CJS-resolved path so that require() also picks
+-    // up the mock. See https://github.com/nodejs/node/issues/58231.
+-    if (cjsPath !== null && cjsPath !== fullPath) {
+-      sharedState.mockMap.set(cjsPath, config);
+-    }
+ 
+     this.#sharedState = sharedState;
+     this.#restore = {
+       __proto__: null,
+       baseURL,
+       cached: fullPath in Module._cache,
+-      cjsPath,
+-      cjsCached: cjsPath !== null && cjsPath !== fullPath &&
+-        cjsPath in Module._cache,
+-      cjsValue: cjsPath !== null && cjsPath !== fullPath ?
+-        Module._cache[cjsPath] : undefined,
+       format,
+       fullPath,
+       value: Module._cache[fullPath],
+@@ -272,9 +257,6 @@
+     }
+ 
+     delete Module._cache[fullPath];
+-    if (cjsPath !== null && cjsPath !== fullPath) {
+-      delete Module._cache[cjsPath];
+-    }
+     sharedState.mockExports.set(baseURL, {
+       __proto__: null,
+       moduleExports,
+@@ -294,14 +276,6 @@
+       Module._cache[this.#restore.fullPath] = this.#restore.value;
+     }
+ 
+-    if (this.#restore.cjsPath !== null &&
+-        this.#restore.cjsPath !== this.#restore.fullPath) {
+-      delete Module._cache[this.#restore.cjsPath];
+-      if (this.#restore.cjsCached) {
+-        Module._cache[this.#restore.cjsPath] = this.#restore.cjsValue;
+-      }
+-    }
+-
+     const mock = mocks.get(this.#restore.baseURL);
+ 
+     if (mock !== undefined) {
+@@ -311,10 +285,6 @@
+ 
+     this.#sharedState.mockMap.delete(this.#restore.baseURL);
+     this.#sharedState.mockMap.delete(this.#restore.fullPath);
+-    if (this.#restore.cjsPath !== null &&
+-        this.#restore.cjsPath !== this.#restore.fullPath) {
+-      this.#sharedState.mockMap.delete(this.#restore.cjsPath);
+-    }
+     this.#restore = undefined;
+   }
+ }
+@@ -710,19 +680,11 @@
+ 
+     const fullPath = StringPrototypeStartsWith(url, 'file://') ?
+       fileURLToPath(url) : null;
+-    // For dual packages, the ESM resolver may return a different file than
+-    // CJS require() would for the same specifier (e.g., when a package's
+-    // "exports" field points to different files for the "import" and
+-    // "require" conditions). Compute the CJS-resolved path so that
+-    // require() of a mocked module also picks up the mock.
+-    // See https://github.com/nodejs/node/issues/58231.
+-    const cjsPath = resolveAsCJS(mockSpecifier, caller, fullPath);
+     const ctx = new MockModuleContext({
+       __proto__: null,
+       baseURL: baseURL.href,
+       cache,
+       caller,
+-      cjsPath,
+       format,
+       fullPath,
+       moduleExports,
+@@ -1025,54 +987,6 @@
+   return modExports;
+ }
+ 
+-// Resolve `specifier` using CJS resolution rules so that mocks for dual
+-// packages (e.g., a package whose "exports" field points to different files
+-// for the "import" and "require" conditions) also intercept require().
+-// Returns an absolute file path on success, or null when the specifier cannot
+-// be resolved as CJS (for example, when the package is ESM-only or when it is
+-// a non-file URL such as data: or node:).
+-function resolveAsCJS(specifier, callerURL, esmFullPath) {
+-  if (isBuiltin(specifier) ||
+-      StringPrototypeStartsWith(specifier, 'node:') ||
+-      StringPrototypeStartsWith(specifier, 'data:')) {
+-    return null;
+-  }
+-
+-  let parentPath;
+-  if (StringPrototypeStartsWith(callerURL, 'file://')) {
+-    try {
+-      parentPath = fileURLToPath(callerURL);
+-    } catch {
+-      return null;
+-    }
+-  } else {
+-    return null;
+-  }
+-
+-  try {
+-    const tmpModule = new Module(parentPath, null);
+-    tmpModule.paths = _nodeModulePaths(parentPath);
+-    const resolved = _resolveFilename(specifier, tmpModule, false);
+-    if (typeof resolved !== 'string') {
+-      return null;
+-    }
+-    // If the resolution matches what the ESM resolver picked, there is
+-    // nothing additional to register.
+-    if (resolved === esmFullPath) {
+-      return esmFullPath;
+-    }
+-    // If the resolution returned something that is not a filesystem path
+-    // (e.g., a builtin id without a slash or backslash), ignore it.
+-    if (!StringPrototypeIncludes(resolved, '/') &&
+-        !StringPrototypeIncludes(resolved, '\\')) {
+-      return null;
+-    }
+-    return resolved;
+-  } catch {
+-    return null;
+-  }
+-}
+-
+ function validateStringOrSymbol(value, name) {
+   if (typeof value !== 'string' && typeof value !== 'symbol') {
+     throw new ERR_INVALID_ARG_TYPE(name, ['string', 'symbol'], value);

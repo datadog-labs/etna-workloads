@@ -1,0 +1,24 @@
+diff -uN a/lib/internal/streams/pipeline.js b/lib/internal/streams/pipeline.js
+--- a/lib/internal/streams/pipeline.js
++++ b/lib/internal/streams/pipeline.js
+@@ -123,7 +123,8 @@
+   });
+ 
+   writable.on('drain', resume);
+-  const cleanup = eos(writable, { readable: false }, resume);
++  writable.on('error', resume);
++  writable.on('finish', resume);
+ 
+   try {
+     if (writable.writableNeedDrain) {
+@@ -145,8 +146,9 @@
+   } catch (err) {
+     finish(error !== err ? aggregateTwoErrors(error, err) : err);
+   } finally {
+-    cleanup();
+     writable.off('drain', resume);
++    writable.off('error', resume);
++    writable.off('finish', resume);
+   }
+ }
+ 

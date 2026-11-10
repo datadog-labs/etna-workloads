@@ -1,0 +1,41 @@
+diff -uN a/src/node_url_pattern.cc b/src/node_url_pattern.cc
+--- a/src/node_url_pattern.cc
++++ b/src/node_url_pattern.cc
+@@ -69,7 +69,6 @@
+ using v8::PropertyAttribute;
+ using v8::ReadOnly;
+ using v8::RegExp;
+-using v8::Signature;
+ using v8::String;
+ using v8::Value;
+ 
+@@ -694,18 +693,13 @@
+       url_pattern_string,
+       static_cast<PropertyAttribute>(ReadOnly | v8::DontEnum));
+ 
+-  // The signature is used to prevent the property accessors from being
+-  // called on the wrong receiver object (`this`)
+-  auto signature = Signature::New(isolate, ctor_tmpl);
+-
+   instance_template->SetInternalFieldCount(URLPattern::kInternalFieldCount);
+ 
+ #define ENV_GETTER(lowercase_name) env->lowercase_name##_string()
+ #define URL_PATTERN_COMPONENT_GETTERS(uppercase_name, lowercase_name)          \
+   prototype_template->SetAccessorProperty(                                     \
+       ENV_GETTER(lowercase_name),                                              \
+-      FunctionTemplate::New(                                                   \
+-          isolate, URLPattern::uppercase_name, Local<Value>(), signature),     \
++      FunctionTemplate::New(isolate, URLPattern::uppercase_name),              \
+       Local<FunctionTemplate>(),                                               \
+       attributes);
+   URL_PATTERN_COMPONENTS(URL_PATTERN_COMPONENT_GETTERS)
+@@ -714,8 +708,7 @@
+ 
+   prototype_template->SetAccessorProperty(
+       env->has_regexp_groups_string(),
+-      FunctionTemplate::New(
+-          isolate, URLPattern::HasRegexpGroups, Local<Value>(), signature),
++      FunctionTemplate::New(isolate, URLPattern::HasRegexpGroups),
+       Local<FunctionTemplate>(),
+       attributes);
+ 

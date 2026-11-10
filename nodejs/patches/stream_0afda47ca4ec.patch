@@ -1,0 +1,31 @@
+diff -uN a/lib/internal/streams/iter/share.js b/lib/internal/streams/iter/share.js
+--- a/lib/internal/streams/iter/share.js
++++ b/lib/internal/streams/iter/share.js
+@@ -229,9 +229,6 @@
+             }
+ 
+             await self.#pullFromSource(!shouldBuffer);
+-            if (!shouldBuffer) {
+-              await self.#waitForBufferSpaceAfterDrop();
+-            }
+           }
+         };
+ 
+@@ -368,17 +365,6 @@
+     return true;
+   }
+ 
+-  async #waitForBufferSpaceAfterDrop() {
+-    while (this.#bufferedBytes >= this.#options.budget &&
+-           !this.#cancelled &&
+-           this.#sourceError === kNoShareError &&
+-           !this.#sourceExhausted) {
+-      const { promise, resolve } = PromiseWithResolvers();
+-      ArrayPrototypePush(this.#pullWaiters, resolve);
+-      await promise;
+-    }
+-  }
+-
+   #pullFromSource(discard = false) {
+     if (this.#sourceExhausted || this.#cancelled) {
+       return PromiseResolve();

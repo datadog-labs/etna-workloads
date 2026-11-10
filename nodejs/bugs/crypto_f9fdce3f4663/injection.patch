@@ -1,0 +1,16 @@
+diff -uN a/src/crypto/crypto_hmac.cc b/src/crypto/crypto_hmac.cc
+--- a/src/crypto/crypto_hmac.cc
++++ b/src/crypto/crypto_hmac.cc
+@@ -69,7 +69,11 @@
+ void Hmac::HmacInit(const char* hash_type, const char* key, int key_len) {
+   HandleScope scope(env()->isolate());
+ 
+-  Digest md = Digest::FromName(hash_type);
++  // Resolve the name via the legacy lookup only (no dss1/DSS1 SHA-1 alias).
++  Digest md = Digest::Fetch(hash_type);
++  if (!md && EVP_get_digestbyname(hash_type) != nullptr) {
++    md = EVP_get_digestbyname(hash_type);
++  }
+   if (!md) [[unlikely]] {
+     return THROW_ERR_CRYPTO_INVALID_DIGEST(
+         env(), "Invalid digest: %s", hash_type);

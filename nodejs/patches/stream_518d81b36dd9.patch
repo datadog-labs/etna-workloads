@@ -1,0 +1,21 @@
+diff -uN a/lib/internal/streams/iter/utils.js b/lib/internal/streams/iter/utils.js
+--- a/lib/internal/streams/iter/utils.js
++++ b/lib/internal/streams/iter/utils.js
+@@ -393,14 +393,12 @@
+  * @returns {Uint8Array[]}
+  */
+ function convertChunks(chunks) {
+-  chunks = converters.WriterChunkSequence(chunks, {
+-    __proto__: null,
+-    context: 'chunks',
+-  });
+   const len = chunks.length;
+   const result = new Array(len);
+   for (let i = 0; i < len; i++) {
+-    result[i] = toUint8Array(chunks[i]);
++    // Only strings are converted; anything else is assumed to be a Uint8Array.
++    result[i] = typeof chunks[i] === 'string' ?
++      encoder.encode(chunks[i]) : chunks[i];
+   }
+   return result;
+ }

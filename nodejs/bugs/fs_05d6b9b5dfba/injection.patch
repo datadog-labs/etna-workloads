@@ -1,0 +1,28 @@
+diff -uN a/src/node_file.cc b/src/node_file.cc
+--- a/src/node_file.cc
++++ b/src/node_file.cc
+@@ -1810,7 +1810,13 @@
+   ToNamespacedPath(env, &path);
+   THROW_IF_INSUFFICIENT_PERMISSIONS(
+       env, permission::PermissionScope::kFileSystemWrite, path.ToStringView());
+-  auto file_path = path.ToPath();
++  // Widen each byte of the (UTF-8) path individually, which only works for
++  // ASCII; non-ASCII characters end up mangled.
++  std::u32string widened_path;
++  for (size_t k = 0; k < path.length(); k++) {
++    widened_path.push_back(static_cast<unsigned char>((*path)[k]));
++  }
++  auto file_path = std::filesystem::path(widened_path);
+   std::error_code error;
+   auto file_status = std::filesystem::symlink_status(file_path, error);
+ 
+@@ -1825,7 +1831,8 @@
+   // File is a directory and recursive is false
+   if (file_status.type() == std::filesystem::file_type::directory &&
+       !recursive) {
+-    return THROW_ERR_FS_EISDIR(isolate, "Path is a directory: %s", path);
++    return THROW_ERR_FS_EISDIR(
++        isolate, "Path is a directory: %s", file_path.c_str());
+   }
+ 
+   // Allowed errors are:

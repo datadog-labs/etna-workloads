@@ -1,0 +1,43 @@
+diff -uN a/src/crypto/crypto_argon2.cc b/src/crypto/crypto_argon2.cc
+--- a/src/crypto/crypto_argon2.cc
++++ b/src/crypto/crypto_argon2.cc
+@@ -113,6 +113,20 @@
+   config->type =
+       static_cast<ncrypto::Argon2Type>(args[offset + 8].As<Uint32>()->Value());
+ 
++  if (!ncrypto::argon2(config->pass,
++                       config->salt,
++                       config->lanes,
++                       config->keylen,
++                       config->memcost,
++                       config->iter,
++                       config->version,
++                       config->secret,
++                       config->ad,
++                       config->type)) {
++    THROW_ERR_CRYPTO_INVALID_ARGON2_PARAMS(env);
++    return Nothing<void>();
++  }
++
+   return JustVoid();
+ }
+ 
+diff -uN a/src/node_errors.h b/src/node_errors.h
+--- a/src/node_errors.h
++++ b/src/node_errors.h
+@@ -53,6 +53,7 @@
+   V(ERR_CRYPTO_CUSTOM_ENGINE_NOT_SUPPORTED, Error)                             \
+   V(ERR_CRYPTO_INCOMPATIBLE_KEY_OPTIONS, Error)                                \
+   V(ERR_CRYPTO_INITIALIZATION_FAILED, Error)                                   \
++  V(ERR_CRYPTO_INVALID_ARGON2_PARAMS, TypeError)                               \
+   V(ERR_CRYPTO_INVALID_AUTH_TAG, TypeError)                                    \
+   V(ERR_CRYPTO_INVALID_COUNTER, TypeError)                                     \
+   V(ERR_CRYPTO_INVALID_CURVE, TypeError)                                       \
+@@ -201,6 +202,7 @@
+   V(ERR_CRYPTO_INCOMPATIBLE_KEY_OPTIONS,                                       \
+     "The selected key encoding is incompatible with the key type")             \
+   V(ERR_CRYPTO_INITIALIZATION_FAILED, "Initialization failed")                 \
++  V(ERR_CRYPTO_INVALID_ARGON2_PARAMS, "Invalid Argon2 params")                 \
+   V(ERR_CRYPTO_INVALID_AUTH_TAG, "Invalid authentication tag")                 \
+   V(ERR_CRYPTO_INVALID_COUNTER, "Invalid counter")                             \
+   V(ERR_CRYPTO_INVALID_CURVE, "Invalid EC curve name")                         \

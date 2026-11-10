@@ -1,0 +1,19 @@
+diff -uN a/src/module_wrap.cc b/src/module_wrap.cc
+--- a/src/module_wrap.cc
++++ b/src/module_wrap.cc
+@@ -659,6 +659,15 @@
+ 
+   CHECK_EQ(args.Length(), 1);
+ 
++  Local<Data> linked_requests =
++      args.This()->GetInternalField(kLinkedRequestsSlot);
++  if (linked_requests->IsValue() &&
++      !linked_requests.As<Value>()->IsUndefined()) {
++    // If the module is already linked, we should not link it again.
++    THROW_ERR_VM_MODULE_LINK_FAILURE(realm->env(), "module is already linked");
++    return;
++  }
++
+   Local<FixedArray> requests =
+       dependent->module_.Get(isolate)->GetModuleRequests();
+   Local<Array> modules = args[0].As<Array>();

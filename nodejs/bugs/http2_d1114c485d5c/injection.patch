@@ -1,0 +1,39 @@
+diff -uN a/lib/internal/http2/core.js b/lib/internal/http2/core.js
+--- a/lib/internal/http2/core.js
++++ b/lib/internal/http2/core.js
+@@ -49,9 +49,6 @@
+ const { setImmediate, setTimeout, clearTimeout } = require('timers');
+ 
+ const {
+-  Server: HttpServer,
+-  httpServerPreClose,
+-  setupConnectionsTracking,
+   storeHTTPOptions,
+ } = require('_http_server');
+ const JSStreamSocket = require('internal/js_stream_socket');
+@@ -3531,7 +3528,6 @@
+       this.shouldUpgradeCallback = function() {
+         return this.listenerCount('upgrade') > 0;
+       };
+-      this.on('listening', setupConnectionsTracking);
+     }
+     if (typeof requestListener === 'function')
+       this.on('request', requestListener);
+@@ -3555,17 +3551,8 @@
+ 
+   close() {
+     ReflectApply(TLSServer.prototype.close, this, arguments);
+-    if (this[kOptions].allowHTTP1 === true) {
+-      httpServerPreClose(this);
+-    }
+     closeAllSessions(this);
+   }
+-
+-  closeIdleConnections() {
+-    if (this[kOptions].allowHTTP1 === true) {
+-      ReflectApply(HttpServer.prototype.closeIdleConnections, this, arguments);
+-    }
+-  }
+ }
+ 
+ class Http2Server extends NETServer {

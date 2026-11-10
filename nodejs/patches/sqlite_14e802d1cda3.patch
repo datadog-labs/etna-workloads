@@ -1,0 +1,16 @@
+diff -uN a/src/node_sqlite.cc b/src/node_sqlite.cc
+--- a/src/node_sqlite.cc
++++ b/src/node_sqlite.cc
+@@ -1593,9 +1593,10 @@
+ void Database::DeleteSessions() {
+   // all attached sessions need to be deleted before the database is closed
+   // https://www.sqlite.org/session/sqlite3session_create.html
+-  while (!sessions_.empty()) {
+-    (*sessions_.begin())->Delete();
++  for (Session* session : sessions_) {
++    sqlite3session_delete(session->session_.get());
+   }
++  sessions_.clear();
+ }
+ 
+ Database::~Database() {

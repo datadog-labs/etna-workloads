@@ -1,0 +1,70 @@
+diff -uN a/lib/internal/modules/esm/loader.js b/lib/internal/modules/esm/loader.js
+--- a/lib/internal/modules/esm/loader.js
++++ b/lib/internal/modules/esm/loader.js
+@@ -9,6 +9,7 @@
+   ObjectSetPrototypeOf,
+   Promise,
+   PromisePrototypeThen,
++  PromiseResolve,
+   RegExpPrototypeSymbolReplace,
+   encodeURIComponent,
+   hardenRegExp,
+@@ -498,7 +499,6 @@
+    */
+   loadAndTranslate(resolveResult, loadContext, parentURL) {
+     const { url } = resolveResult;
+-    const maybePromise = this.load(url, loadContext);
+     const afterLoad = (loadResult) => {
+       const translateContext = {
+         ...resolveResult,
+@@ -508,10 +508,7 @@
+       };
+       return this.#translate(url, translateContext, parentURL);
+     };
+-    if (isPromise(maybePromise)) {
+-      return PromisePrototypeThen(maybePromise, afterLoad);
+-    }
+-    return afterLoad(maybePromise);
++    return (async () => afterLoad(await this.load(url, loadContext)))();
+   }
+ 
+   /**
+@@ -567,8 +564,7 @@
+       moduleOrModulePromise = this.loadAndTranslate(resolveResult, context, parentURL);
+     }
+ 
+-    if (requestType === kImportInRequiredESM || requestType === kRequireInImportedCJS ||
+-        !this.isForAsyncLoaderHookWorker) {
++    if (requestType === kImportInRequiredESM || requestType === kRequireInImportedCJS) {
+       assert(moduleOrModulePromise instanceof ModuleWrap, `Expected ModuleWrap for loading ${url}`);
+     }
+ 
+diff -uN a/lib/internal/modules/esm/module_job.js b/lib/internal/modules/esm/module_job.js
+--- a/lib/internal/modules/esm/module_job.js
++++ b/lib/internal/modules/esm/module_job.js
+@@ -383,7 +383,7 @@
+    * @returns {ModuleJobBase[]|Promise<ModuleJobBase[]>}
+    */
+   link(requestType) {
+-    if (this.loader.isForAsyncLoaderHookWorker) {
++    if (this.module === undefined) {
+       return this.#asyncLink(requestType);
+     }
+     return this.syncLink(requestType);
+@@ -394,7 +394,6 @@
+    * @returns {Promise<ModuleJobBase[]>}
+    */
+   async #asyncLink(requestType) {
+-    assert(this.loader.isForAsyncLoaderHookWorker);
+     this.module = await this.modulePromise;
+     assert(this.module instanceof ModuleWrap);
+     const moduleRequests = this.module.getModuleRequests();
+@@ -413,7 +412,7 @@
+       // TODO(joyeecheung): split this into two iterators, one for resolving and one for loading so
+       // that hooks can pre-fetch sources off-thread.
+       const dependencyJobPromise = this.loader.getOrCreateModuleJob(this.url, request, requestType);
+-      const modulePromise = PromisePrototypeThen(dependencyJobPromise, (job) => {
++      const modulePromise = PromisePrototypeThen(PromiseResolve(dependencyJobPromise), (job) => {
+         debug(`ModuleJob.asyncLink() ${this.url} -> ${request.specifier}`, job);
+         if (this.shouldRunModule(request.phase)) {
+           ArrayPrototypePush(evaluationDepJobs, job);

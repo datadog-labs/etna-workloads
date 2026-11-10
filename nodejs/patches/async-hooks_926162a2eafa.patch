@@ -1,0 +1,106 @@
+diff -uN a/lib/async_hooks.js b/lib/async_hooks.js
+--- a/lib/async_hooks.js
++++ b/lib/async_hooks.js
+@@ -54,6 +54,7 @@
+   emitBefore,
+   emitAfter,
+   emitDestroy,
++  enabledHooksExist,
+   initHooksExist,
+   destroyHooksExist,
+ } = internal_async_hooks;
+@@ -201,7 +202,7 @@
+     this[trigger_async_id_symbol] = triggerAsyncId;
+ 
+     if (initHooksExist()) {
+-      if (type.length === 0) {
++      if (enabledHooksExist() && type.length === 0) {
+         throw new ERR_ASYNC_TYPE(type);
+       }
+ 
+diff -uN a/lib/internal/async_hooks.js b/lib/internal/async_hooks.js
+--- a/lib/internal/async_hooks.js
++++ b/lib/internal/async_hooks.js
+@@ -482,7 +482,7 @@
+ }
+ 
+ function enabledHooksExist() {
+-  return active_hooks.array.length > 0;
++  return hasHooks(kCheck);
+ }
+ 
+ function initHooksExist() {
+@@ -564,7 +564,7 @@
+   const stackLength = async_hook_fields[kStackLength];
+   if (stackLength === 0) return false;
+ 
+-  if (async_hook_fields[kCheck] > 0 && async_id_fields[kExecutionAsyncId] !== asyncId) {
++  if (enabledHooksExist() && async_id_fields[kExecutionAsyncId] !== asyncId) {
+     // Do the same thing as the native code (i.e. crash hard).
+     return popAsyncContext_(asyncId);
+   }
+diff -uN a/lib/internal/process/task_queues.js b/lib/internal/process/task_queues.js
+--- a/lib/internal/process/task_queues.js
++++ b/lib/internal/process/task_queues.js
+@@ -25,7 +25,7 @@
+ 
+ const {
+   getDefaultTriggerAsyncId,
+-  enabledHooksExist,
++  getHookArrays,
+   newAsyncId,
+   initHooksExist,
+   emitInit,
+@@ -168,7 +168,7 @@
+   validateFunction(callback, 'callback');
+ 
+   const contextFrame = AsyncContextFrame.current();
+-  if (contextFrame || enabledHooksExist()) {
++  if (contextFrame || getHookArrays()[0].length > 0) {
+     const asyncResource = new AsyncResource(
+       'Microtask',
+       defaultMicrotaskResourceOpts,
+diff -uN a/lib/internal/streams/end-of-stream.js b/lib/internal/streams/end-of-stream.js
+--- a/lib/internal/streams/end-of-stream.js
++++ b/lib/internal/streams/end-of-stream.js
+@@ -46,7 +46,7 @@
+   kIsClosedPromise,
+ } = require('internal/streams/utils');
+ 
+-const { enabledHooksExist } = require('internal/async_hooks');
++const { getHookArrays } = require('internal/async_hooks');
+ const AsyncContextFrame = require('internal/async_context_frame');
+ 
+ // Lazy load
+@@ -202,7 +202,8 @@
+     return cleanup;
+   }
+ 
+-  if (AsyncContextFrame.current() || enabledHooksExist()) {
++  if (AsyncContextFrame.current() ||
++      getHookArrays()[0].length > 0) {
+     // Avoid AsyncResource.bind() because it calls ObjectDefineProperties which
+     // is a bottleneck here.
+     callback = bindAsyncResource(callback, 'STREAM_END_OF_STREAM');
+diff -uN a/src/env.cc b/src/env.cc
+--- a/src/env.cc
++++ b/src/env.cc
+@@ -135,7 +135,8 @@
+     std::variant<Local<Object>*, Global<Object>*> resource) {
+   std::visit([](auto* ptr) { CHECK_IMPLIES(ptr != nullptr, !ptr->IsEmpty()); },
+              resource);
+-
++  // Since async_hooks is experimental, do only perform the check
++  // when async_hooks is enabled.
+   if (fields_[kCheck] > 0) {
+     CHECK_GE(async_id, -1);
+     CHECK_GE(trigger_async_id, -1);
+@@ -1988,7 +1989,7 @@
+     clear_async_id_stack();
+ 
+     // Always perform async_hooks checks, not just when async_hooks is enabled.
+-    // Can be disabled via CLI option --no-force-async-hooks-checks
++    // TODO(AndreasMadsen): Consider removing this for LTS releases.
+     // See discussion in https://github.com/nodejs/node/pull/15454
+     // When removing this, do it by reverting the commit. Otherwise the test
+     // and flag changes won't be included.

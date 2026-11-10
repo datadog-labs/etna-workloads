@@ -1,0 +1,36 @@
+diff -uN a/lib/internal/modules/esm/load.js b/lib/internal/modules/esm/load.js
+--- a/lib/internal/modules/esm/load.js
++++ b/lib/internal/modules/esm/load.js
+@@ -2,6 +2,7 @@
+ 
+ const {
+   RegExpPrototypeExec,
++  decodeURIComponent,
+ } = primordials;
+ const {
+   kEmptyObject,
+@@ -20,6 +21,7 @@
+   ERR_UNSUPPORTED_ESM_URL_SCHEME,
+ } = require('internal/errors').codes;
+ 
++const DATA_URL_PATTERN = /^[^/]+\/[^,;]+(?:[^,]*?)(;base64)?,([\s\S]*)$/;
+ 
+ /**
+  * @param {URL} url URL to the module
+@@ -37,12 +39,12 @@
+     // Prefer module.registerHooks() or other more formal fs hooks released in the future.
+     source = loaderMethods.readFileSync(url);
+   } else if (protocol === 'data:') {
+-    const { dataURLProcessor } = require('internal/data_url');  // Only for data: URLs.
+-    const result = dataURLProcessor(url);
+-    if (result === 'failure') {
++    const match = RegExpPrototypeExec(DATA_URL_PATTERN, url.pathname);
++    if (!match) {
+       throw new ERR_INVALID_URL(responseURL);
+     }
+-    source = BufferFrom(result.body);
++    const { 1: base64, 2: body } = match;
++    source = BufferFrom(decodeURIComponent(body), base64 ? 'base64' : 'utf8');
+   } else {
+     const supportedSchemes = ['file', 'data'];
+     throw new ERR_UNSUPPORTED_ESM_URL_SCHEME(url, supportedSchemes);

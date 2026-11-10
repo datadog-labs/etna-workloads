@@ -1,0 +1,73 @@
+diff -uN a/src/node_file.cc b/src/node_file.cc
+--- a/src/node_file.cc
++++ b/src/node_file.cc
+@@ -2414,7 +2414,8 @@
+ 
+ class RecursiveReadDir {
+  public:
+-  explicit RecursiveReadDir(std::string root) : root_(std::move(root)) {
++  RecursiveReadDir(std::string root, bool follow_links)
++      : root_(std::move(root)), follow_links_(follow_links) {
+     dirs_.push_back(std::make_unique<ScannedDirectory>(""));
+   }
+ 
+@@ -2448,6 +2449,7 @@
+   // Reads the directory at `path` into `dir`, resolving the type of entries
+   // where needed, and creates the ScannedDirectory of each subdirectory.
+   static int Scan(const std::string& path,
++                  bool follow_links,
+                   ScannedDirectory* dir,
+                   std::vector<std::unique_ptr<ScannedDirectory>>* subdirs);
+ 
+@@ -2459,6 +2461,7 @@
+   static constexpr size_t kHelperThreshold = 1024;
+ 
+   const std::string root_;
++  const bool follow_links_;
+ 
+   Mutex mutex_;
+   ConditionVariable cv_;
+@@ -2497,7 +2500,7 @@
+       Mutex::ScopedUnlock unlock(lock);
+       path = root_;
+       AppendPathComponent(&path, dir->relative);
+-      r = Scan(path, dir, &subdirs);
++      r = Scan(path, follow_links_, dir, &subdirs);
+     }
+     active_--;
+ 
+@@ -2539,6 +2542,7 @@
+ 
+ int RecursiveReadDir::Scan(
+     const std::string& path,
++    bool follow_links,
+     ScannedDirectory* dir,
+     std::vector<std::unique_ptr<ScannedDirectory>>* subdirs) {
+   uv_fs_t req;
+@@ -2572,7 +2576,7 @@
+         }
+         uv_fs_req_cleanup(&req);
+       }
+-      if (entry.type == UV_DIRENT_LINK) {
++      if (follow_links && entry.type == UV_DIRENT_LINK) {
+         if (uv_fs_stat(nullptr, &req, child.c_str(), nullptr) == 0) {
+           entry.is_dir = S_ISDIR(req.statbuf.st_mode);
+         }
+@@ -2676,7 +2680,7 @@
+                           int workers)
+       : env_(env),
+         req_wrap_(req_wrap),
+-        walk_(std::move(path)),
++        walk_(std::move(path), !with_types),
+         encoding_(encoding),
+         with_types_(with_types),
+         pending_(workers) {}
+@@ -2787,7 +2791,7 @@
+   } else {  // readdirRecursive(path, encoding, withTypes)
+     env->PrintSyncTrace();
+     FS_SYNC_TRACE_BEGIN(readdir);
+-    RecursiveReadDir walk(path.ToString());
++    RecursiveReadDir walk(path.ToString(), !with_types);
+     walk.RunWithHelpers(kReadDirRecursiveSyncHelpers);
+     FS_SYNC_TRACE_END(readdir);
+ 

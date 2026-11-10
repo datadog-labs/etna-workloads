@@ -1,0 +1,47 @@
+diff -uN a/lib/internal/test_runner/reporter/rerun.js b/lib/internal/test_runner/reporter/rerun.js
+--- a/lib/internal/test_runner/reporter/rerun.js
++++ b/lib/internal/test_runner/reporter/rerun.js
+@@ -55,13 +55,14 @@
+ 
+ 
+       if (type === 'test:pass' || type === 'test:fail') {
+-        const baseIdentifier = getTestId(data);
+-        let identifier = baseIdentifier;
+-        if (disambiguator[baseIdentifier] !== undefined) {
+-          identifier += `:(${disambiguator[baseIdentifier]})`;
+-          disambiguator[baseIdentifier] += 1;
+-        } else {
+-          disambiguator[baseIdentifier] = 1;
++        let identifier = getTestId(data);
++        if (type === 'test:pass') {
++          if (disambiguator[identifier] !== undefined) {
++            identifier += `:(${disambiguator[identifier]})`;
++            disambiguator[identifier] += 1;
++          } else {
++            disambiguator[identifier] = 1;
++          }
+         }
+         if (type === 'test:fail') {
+           for (let t = currentTest.parent; t !== null; t = t.parent) {
+diff -uN a/lib/internal/test_runner/test.js b/lib/internal/test_runner/test.js
+--- a/lib/internal/test_runner/test.js
++++ b/lib/internal/test_runner/test.js
+@@ -803,14 +803,13 @@
+     }
+ 
+     if (this.loc != null && this.root.harness.previousRuns != null) {
+-      const baseIdentifier = `${relative(this.config.cwd, this.loc.file)}:${this.loc.line}:${this.loc.column}`;
+-      let testIdentifier = baseIdentifier;
+-      const disambiguator = this.root.testDisambiguator.get(baseIdentifier);
++      let testIdentifier = `${relative(this.config.cwd, this.loc.file)}:${this.loc.line}:${this.loc.column}`;
++      const disambiguator = this.root.testDisambiguator.get(testIdentifier);
+       if (disambiguator !== undefined) {
+         testIdentifier += `:(${disambiguator})`;
+-        this.root.testDisambiguator.set(baseIdentifier, disambiguator + 1);
++        this.root.testDisambiguator.set(testIdentifier, disambiguator + 1);
+       } else {
+-        this.root.testDisambiguator.set(baseIdentifier, 1);
++        this.root.testDisambiguator.set(testIdentifier, 1);
+       }
+       this.attempt = this.root.harness.previousRuns.length;
+       const previousAttempt = this.root.harness.previousRuns[this.attempt - 1]?.[testIdentifier];

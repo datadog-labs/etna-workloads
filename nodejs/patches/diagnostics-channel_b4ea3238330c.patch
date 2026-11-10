@@ -1,0 +1,74 @@
+diff -uN a/lib/diagnostics_channel.js b/lib/diagnostics_channel.js
+--- a/lib/diagnostics_channel.js
++++ b/lib/diagnostics_channel.js
+@@ -10,8 +10,8 @@
+   ObjectDefineProperty,
+   ObjectGetPrototypeOf,
+   ObjectSetPrototypeOf,
+-  PromisePrototype,
+   PromisePrototypeThen,
++  PromiseResolve,
+   ReflectApply,
+   SafeFinalizationRegistry,
+   SafeMap,
+@@ -36,7 +36,6 @@
+ const dc_binding = internalBinding('diagnostics_channel');
+ 
+ const { WeakReference, kEmptyObject } = require('internal/util');
+-const { isPromise } = require('internal/util/types');
+ 
+ // Can't delete when weakref count reaches 0 as it could increment again.
+ // Only GC can be used as a valid time to clean up the channels map.
+@@ -331,11 +330,6 @@
+   }
+ }
+ 
+-function emitNonThenableWarning(fn) {
+-  process.emitWarning(`tracePromise was called with the function '${fn.name || '<anonymous>'}', ` +
+-                      'which returned a non-thenable.');
+-}
+-
+ function channelFromMap(nameOrChannels, name, className) {
+   if (typeof nameOrChannels === 'string') {
+     return channel(`tracing:${nameOrChannels}:${name}`);
+@@ -579,11 +573,7 @@
+ 
+   tracePromise(fn, context = undefined, thisArg, ...args) {
+     if (!this.hasSubscribers) {
+-      const result = ReflectApply(fn, thisArg, args);
+-      if (typeof result?.then !== 'function') {
+-        emitNonThenableWarning(fn);
+-      }
+-      return result;
++      return ReflectApply(fn, thisArg, args);
+     }
+ 
+     if (context === undefined) {
+@@ -620,24 +610,9 @@
+ 
+     try {
+       const result = ReflectApply(fn, thisArg, args);
+-      // If the return value is not a thenable, return it directly with a warning.
+-      // Do not publish to asyncStart/asyncEnd.
+-      if (typeof result?.then !== 'function') {
+-        emitNonThenableWarning(fn);
+-        context.result = result;
+-        return result;
+-      }
+-      // isPromise() matches sub-classes, but we need to match only direct
+-      // instances of the native Promise type to safely use PromisePrototypeThen.
+-      if (isPromise(result) && ObjectGetPrototypeOf(result) === PromisePrototype) {
+-        return PromisePrototypeThen(result, onResolve, onRejectWithRethrow);
+-      }
+-      // For non-native thenables, subscribe to the result but return the
+-      // original thenable so the consumer can continue handling it directly.
+-      // Non-native thenables don't have unhandledRejection tracking, so
+-      // swallowing the rejection here doesn't change existing behaviour.
+-      result.then(onResolve, onReject);
+-      return result;
++      // Convert thenables and plain values to native promises.
++      const promise = PromiseResolve(result);
++      return PromisePrototypeThen(promise, onResolve, onRejectWithRethrow);
+     } catch (err) {
+       context.error = err;
+       error.publish(context);

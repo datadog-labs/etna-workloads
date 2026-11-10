@@ -1,0 +1,96 @@
+diff -uN a/lib/internal/process/finalization.js b/lib/internal/process/finalization.js
+--- a/lib/internal/process/finalization.js
++++ b/lib/internal/process/finalization.js
+@@ -2,8 +2,11 @@
+ // This file is a modified version of the on-exit-leak-free module on npm.
+ 
+ const {
++  ArrayPrototypeFilter,
++  ArrayPrototypeIndexOf,
++  ArrayPrototypePush,
++  ArrayPrototypeSplice,
+   SafeFinalizationRegistry,
+-  SafeSet,
+   SafeWeakRef,
+ } = primordials;
+ const { validateObject, kValidateObjectAllowFunction } = require('internal/validators');
+@@ -16,8 +19,8 @@
+ 
+   const refs = {
+     __proto__: null,
+-    exit: new SafeSet(),
+-    beforeExit: new SafeSet(),
++    exit: [],
++    beforeExit: [],
+   };
+ 
+   const functions = {
+@@ -27,7 +30,7 @@
+   };
+ 
+   function install(event) {
+-    if (refs[event].size > 0) {
++    if (refs[event].length > 0) {
+       return;
+     }
+ 
+@@ -35,13 +38,13 @@
+   }
+ 
+   function uninstall(event) {
+-    if (refs[event].size > 0) {
++    if (refs[event].length > 0) {
+       return;
+     }
+ 
+     process.removeListener(event, functions[event]);
+ 
+-    if (refs.exit.size === 0 && refs.beforeExit.size === 0) {
++    if (refs.exit.length === 0 && refs.beforeExit.length === 0) {
+       registry = null;
+     }
+   }
+@@ -66,14 +69,14 @@
+         fn(obj, event);
+       }
+     }
+-    refs[event].clear();
++    refs[event] = [];
+   }
+ 
+   function clear(ref) {
+     for (const event of ['exit', 'beforeExit']) {
+-      if (refs[event].delete(ref)) {
+-        uninstall(event);
+-      }
++      const index = ArrayPrototypeIndexOf(refs[event], ref);
++      ArrayPrototypeSplice(refs[event], index, index + 1);
++      uninstall(event);
+     }
+   }
+ 
+@@ -86,7 +89,7 @@
+     registry ||= new SafeFinalizationRegistry(clear);
+     registry.register(obj, ref);
+ 
+-    refs[event].add(ref);
++    ArrayPrototypePush(refs[event], ref);
+   }
+ 
+   /**
+@@ -123,12 +126,10 @@
+     }
+     registry.unregister(obj);
+     for (const event of ['exit', 'beforeExit']) {
+-      for (const ref of refs[event]) {
++      refs[event] = ArrayPrototypeFilter(refs[event], (ref) => {
+         const _obj = ref.deref();
+-        if (!_obj || _obj === obj) {
+-          refs[event].delete(ref);
+-        }
+-      }
++        return _obj && _obj !== obj;
++      });
+       uninstall(event);
+     }
+   }

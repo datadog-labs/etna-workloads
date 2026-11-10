@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/perf/usertiming.js b/lib/internal/perf/usertiming.js
+--- a/lib/internal/perf/usertiming.js
++++ b/lib/internal/perf/usertiming.js
+@@ -31,7 +31,7 @@
+   },
+ } = require('internal/errors');
+ 
+-const { structuredClone } = require('internal/worker/js_transferable');
++const { structuredClone } = require('internal/util');
+ const {
+   lazyDOMException,
+   kEnumerableProperty,
+diff -uN a/lib/internal/util.js b/lib/internal/util.js
+--- a/lib/internal/util.js
++++ b/lib/internal/util.js
+@@ -925,6 +925,21 @@
+   });
+ }
+ 
++function structuredClone(value) {
++  const {
++    DefaultSerializer,
++    DefaultDeserializer,
++  } = require('v8');
++  const ser = new DefaultSerializer();
++  ser._getDataCloneError = (message) =>
++    lazyDOMException(message, 'DataCloneError');
++  ser.writeValue(value);
++  const serialized = ser.releaseBuffer();
++
++  const des = new DefaultDeserializer(serialized);
++  return des.readValue();
++}
++
+ module.exports = {
+   getLazy,
+   assertCrypto,
+@@ -970,6 +985,7 @@
+   SideEffectFreeRegExpPrototypeSymbolSplit,
+   sleep,
+   spliceOne,
++  structuredClone,
+   setupCoverageHooks,
+   removeColors,
+ 

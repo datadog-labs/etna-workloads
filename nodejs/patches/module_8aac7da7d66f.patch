@@ -1,0 +1,33 @@
+diff -uN a/lib/internal/modules/esm/loader.js b/lib/internal/modules/esm/loader.js
+--- a/lib/internal/modules/esm/loader.js
++++ b/lib/internal/modules/esm/loader.js
+@@ -290,10 +290,6 @@
+       }
+       const status = job.module.getStatus();
+       debug('Module status', job, status);
+-      // hasAsyncGraph is available after module been instantiated.
+-      if (status >= kInstantiated) {
+-        job.throwIfAsyncGraph(parent);
+-      }
+       if (status === kEvaluated) {
+         return { wrap: job.module, namespace: job.module.getNamespace() };
+       } else if (status === kInstantiated) {
+diff -uN a/lib/internal/modules/esm/module_job.js b/lib/internal/modules/esm/module_job.js
+--- a/lib/internal/modules/esm/module_job.js
++++ b/lib/internal/modules/esm/module_job.js
+@@ -663,11 +663,14 @@
+     // TODO(joyeecheung): Reject graphs with top-level await _before_ instantiation, so that the
+     // async graph error supersedes instantiation (mismatch export) errors in the graph.
+     // TODO(joyeecheung): add the error decoration logic from the async instantiate.
++    const wasUninstantiated = this.module.getStatus() === kUninstantiated;
+     this.module.instantiate();
+     // On the deprecated async loader hook worker thread, dependencies linked by an
+     // earlier import may not be walkable synchronously, so double-check with
+     // V8 now that the graph is instantiated.
+-    this.throwIfAsyncGraph(parent);
++    if (wasUninstantiated) {
++      this.throwIfAsyncGraph(parent);
++    }
+     setHasStartedUserESMExecution();
+     try {
+       const namespace = this.module.evaluateSync();

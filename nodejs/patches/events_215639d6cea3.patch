@@ -1,0 +1,45 @@
+diff -uN a/lib/internal/event_target.js b/lib/internal/event_target.js
+--- a/lib/internal/event_target.js
++++ b/lib/internal/event_target.js
+@@ -1243,8 +1243,6 @@
+   kTrustEvent,
+   kRemoveListener,
+   kEvents,
+-  kIsBeingDispatched,
+-  kTarget,
+   kWeakHandler,
+   kResistStopPropagation,
+   isEventTarget,
+diff -uN a/lib/internal/events/abort_listener.js b/lib/internal/events/abort_listener.js
+--- a/lib/internal/events/abort_listener.js
++++ b/lib/internal/events/abort_listener.js
+@@ -17,7 +17,6 @@
+ let queueMicrotask;
+ let kResistStopPropagation;
+ let abortListenerOptions;
+-let eventTarget;
+ 
+ /**
+  * @param {AbortSignal} signal
+@@ -34,20 +33,7 @@
+   let removeEventListener;
+   if (signal.aborted) {
+     queueMicrotask ??= require('internal/process/task_queues').queueMicrotask;
+-    eventTarget ??= require('internal/event_target');
+-    let disposed = false;
+-    queueMicrotask(() => {
+-      if (disposed) return;
+-      const { Event, kIsBeingDispatched, kTarget, kTrustEvent } = eventTarget;
+-      const event = new Event('abort', { [kTrustEvent]: true });
+-      event[kTarget] = signal;
+-      event[kIsBeingDispatched] = true;
+-      listener(event);
+-      event[kIsBeingDispatched] = false;
+-    });
+-    removeEventListener = () => {
+-      disposed = true;
+-    };
++    queueMicrotask(() => listener());
+   } else {
+     kResistStopPropagation ??= require('internal/event_target').kResistStopPropagation;
+     abortListenerOptions ??= ObjectFreeze({ __proto__: null, once: true, [kResistStopPropagation]: true });

@@ -1,0 +1,24 @@
+diff -uN a/src/crypto/crypto_sig.cc b/src/crypto/crypto_sig.cc
+--- a/src/crypto/crypto_sig.cc
++++ b/src/crypto/crypto_sig.cc
+@@ -96,7 +96,7 @@
+   };
+ 
+   EVPKeyCtxPointer pkctx = pkey.newCtx();
+-  if (pkctx.initForSign() > 0 &&
++  if (pkctx.initForSign() &&
+       ApplyRSAOptions(pkey, pkctx.get(), padding, pss_salt_len) &&
+       pkctx.setSignatureMd(mdctx) && pkctx.signInto(data, &sig_buf))
+       [[likely]] {
+@@ -544,10 +544,7 @@
+ 
+   EVPKeyCtxPointer pkctx = pkey.newCtx();
+   if (pkctx) [[likely]] {
+-    const int init_ret = pkctx.initForVerify();
+-    if (init_ret == -2) [[unlikely]]
+-      return Error::PublicKey;
+-    if (init_ret > 0 && ApplyRSAOptions(pkey, pkctx.get(), padding, saltlen) &&
++    if (pkctx.initForVerify() && ApplyRSAOptions(pkey, pkctx.get(), padding, saltlen) &&
+         pkctx.setSignatureMd(mdctx)) {
+       *verify_result = pkctx.verify(sig, data);
+     }

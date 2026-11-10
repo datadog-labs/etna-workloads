@@ -1,0 +1,48 @@
+diff -uN a/lib/internal/cli_table.js b/lib/internal/cli_table.js
+--- a/lib/internal/cli_table.js
++++ b/lib/internal/cli_table.js
+@@ -7,10 +7,16 @@
+   MathMax,
+   MathMaxApply,
+   ObjectPrototypeHasOwnProperty,
++  StringPrototypeNormalize,
+   StringPrototypeRepeat,
+ } = primordials;
+ 
+-const { getStringWidth } = require('internal/util/inspect');
++const { removeColors } = require('internal/util');
++
++const countSymbols = (string) => {
++  const normalized = StringPrototypeNormalize(removeColors(string), 'NFC');
++  return normalized.length;
++};
+ 
+ // The use of Unicode characters below is the only non-comment use of non-ASCII
+ // Unicode characters in Node.js built-in modules. If they are ever removed or
+@@ -39,7 +45,7 @@
+   let out = tableChars.left;
+   for (let i = 0; i < row.length; i++) {
+     const cell = row[i];
+-    const len = getStringWidth(cell);
++    const len = countSymbols(cell);
+     const needed = (columnWidths[i] - len);
+     // round(needed) + ceil(needed) will always add up to the amount
+     // of spaces we need while also left justifying the output.
+@@ -53,7 +59,7 @@
+ 
+ const table = (head, columns) => {
+   const rows = [];
+-  const columnWidths = ArrayPrototypeMap(head, (h) => getStringWidth(h));
++  const columnWidths = ArrayPrototypeMap(head, (h) => countSymbols(h));
+   const longestColumn = MathMaxApply(ArrayPrototypeMap(columns, (a) =>
+     a.length));
+ 
+@@ -65,7 +71,7 @@
+       const value = rows[j][i] =
+         ObjectPrototypeHasOwnProperty(column, j) ? column[j] : '';
+       const width = columnWidths[i] || 0;
+-      const counted = getStringWidth(value);
++      const counted = countSymbols(value);
+       columnWidths[i] = MathMax(width, counted);
+     }
+   }
