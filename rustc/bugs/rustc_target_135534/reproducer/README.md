@@ -1,0 +1,1 @@
+Compiles an extern "C" fn returning i128 for wasm32-wasip1 and counts whether the emitted LLVM IR uses an sret (indirect) return. The clean compiler returns i128 indirectly per the wasm C ABI; the injected one returns it directly, so the count differs.

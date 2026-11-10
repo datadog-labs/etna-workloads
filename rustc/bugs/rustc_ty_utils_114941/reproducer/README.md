@@ -1,0 +1,1 @@
+Compiles `fn call<T: ?Sized + 'static>(s:&T) -> TypeId { s.type_id() }` with MIR inlining and prints the MIR lines mentioning `type_id`/`inlined`. The clean compiler keeps the call `<T as Any>::type_id` (it could be shadowed by the `dyn Any` builtin impl); the injected compiler wrongly inlines it into `TypeId::of::<T>`.

@@ -1,0 +1,1 @@
+On the hexagon target, the named_asm_labels lint must not treat register spans such as r1:0 in inline asm as named labels; the injected compiler wrongly reports 'avoid using named labels in inline assembly' (exit 1) while the clean one compiles.

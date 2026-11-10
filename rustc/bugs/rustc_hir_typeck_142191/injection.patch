@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..66f516d0f3cf1c5f996377b6d57ec87d6c214d47 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -4205,7 +4205,7 @@ fn suggest_traits_to_import(
+                             continue;
+                         }
+                         trait_in_other_version_found = self
+-                            .detect_and_explain_multiple_crate_versions_of_trait_item(
++                            .detect_and_explain_multiple_crate_versions(
+                                 err,
+                                 pick.item.def_id,
+                                 rcvr.hir_id,
+@@ -4417,13 +4417,12 @@ fn suggest_traits_to_import(
+             // same crate.
+ 
+             let rcvr_ty = self.node_ty_opt(ty.hir_id);
+-            trait_in_other_version_found = self
+-                .detect_and_explain_multiple_crate_versions_of_trait_item(
+-                    err,
+-                    assoc.def_id,
+-                    ty.hir_id,
+-                    rcvr_ty,
+-                );
++            trait_in_other_version_found = self.detect_and_explain_multiple_crate_versions(
++                err,
++                assoc.def_id,
++                ty.hir_id,
++                rcvr_ty,
++            );
+         }
+         if !trait_in_other_version_found
+             && self.suggest_valid_traits(err, item_name, valid_out_of_scope_traits, true)
+@@ -4811,7 +4810,7 @@ enum Introducer {
+         }
+     }
+ 
+-    fn detect_and_explain_multiple_crate_versions_of_trait_item(
++    fn detect_and_explain_multiple_crate_versions(
+         &self,
+         err: &mut Diag<'_>,
+         item_def_id: DefId,
+@@ -4824,9 +4823,6 @@ fn detect_and_explain_multiple_crate_versions_of_trait_item(
+             return false;
+         }
+         let trait_def_id = self.tcx.parent(item_def_id);
+-        if !self.tcx.is_trait(trait_def_id) {
+-            return false;
+-        }
+         let hir::Node::Expr(rcvr) = self.tcx.hir_node(hir_id) else {
+             return false;
+         };

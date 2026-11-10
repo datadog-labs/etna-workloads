@@ -1,0 +1,1 @@
+Specializable async fn in trait impl (RPITIT projection with min_specialization): clean rustc reports E0053 incompatible type for the default async fn in addition to other errors; the injected compiler projects through the specializable RPITIT and omits the E0053 error (2 errors vs 3).

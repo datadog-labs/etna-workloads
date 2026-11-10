@@ -1,0 +1,1 @@
+Returning i128 from extern "C" on the softfloat x86_64-unknown-uefi target: the clean compiler returns it natively in rax:rdx, while the injected one casts to a 128-bit vector, producing an SSE-requires error.

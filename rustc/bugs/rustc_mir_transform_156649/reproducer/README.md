@@ -1,0 +1,1 @@
+Dumps the MIR of the async-drop coroutine shim for a type with only a sync Drop impl. Fixed compiler runs deref_finder on this path, so the MIR contains `_3 = copy (_1.0); drop((*_3))`; the injected compiler skips it and emits `drop((*(_1.0: &mut SyncInt)))`, a non-separated deref.

@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..fc32f101a2c077574b392d37fbab89d12c4931e7 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -3094,10 +3094,17 @@ fn try_lower_anon_const_lit(
+         };
+ 
+         lit_input.and_then(|l| {
+-            if const_lit_matches_ty(tcx, &l.lit, ty, l.neg) {
+-                tcx.at(expr.span)
+-                    .lit_to_const(l)
+-                    .map(|value| ty::Const::new_value(tcx, value.valtree, value.ty))
++            if const_lit_matches_ty(tcx, &l.lit, ty, l.neg) || ty.has_aliases() {
++                match tcx.at(expr.span).lit_to_const(l) {
++                    Some(value) => Some(ty::Const::new_value(tcx, value.valtree, value.ty)),
++                    None => {
++                        tcx.dcx().span_delayed_bug(
++                            expr.span,
++                            format!("Const::from_anon_const: couldn't lit_to_const {:?}", l),
++                        );
++                        None
++                    }
++                }
+             } else {
+                 None
+             }

@@ -1,0 +1,1 @@
+Proc macro emits `impl <«A1»: Comparable> Comparable for («A1»,) {}` with invisible-delimited groups; the injected parser's look_ahead mishandles the None delimiter and reports a parse error, while the clean compiler accepts it.

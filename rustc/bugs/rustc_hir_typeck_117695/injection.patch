@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_hir_typeck/src/demand.rs b/compiler/rustc_hir_typeck/src/demand.rs
+index 671bf52205689398bb018faf4a4fe269695cbfd7..dfff7491ed68eee77a43b8da438a81115d91d3af 100644
+--- a/compiler/rustc_hir_typeck/src/demand.rs
++++ b/compiler/rustc_hir_typeck/src/demand.rs
+@@ -34,7 +34,6 @@ pub(crate) fn emit_type_mismatch_suggestions(
+ 
+         // Use `||` to give these suggestions a precedence
+         let suggested = self.suggest_missing_parentheses(err, expr)
+-            || self.suggest_missing_unwrap_expect(err, expr, expected, expr_ty)
+             || self.suggest_remove_last_method_call(err, expr, expected)
+             || self.suggest_associated_const(err, expr, expected)
+             || self.suggest_semicolon_in_repeat_expr(err, expr, expr_ty)
+@@ -59,7 +58,8 @@ pub(crate) fn emit_type_mismatch_suggestions(
+             || self.suggest_floating_point_literal(err, expr, expected)
+             || self.suggest_null_ptr_for_literal_zero_given_to_ptr_arg(err, expr, expected)
+             || self.suggest_coercing_result_via_try_operator(err, expr, expected, expr_ty)
+-            || self.suggest_returning_value_after_loop(err, expr, expected);
++            || self.suggest_returning_value_after_loop(err, expr, expected)
++            || self.suggest_missing_unwrap_expect(err, expr, expected, expr_ty);
+ 
+         if !suggested {
+             self.note_source_of_type_mismatch_constraint(
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..4144dead54b0da16cf11b0a432a356788fc24fec 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -328,8 +328,6 @@ pub(crate) fn suggest_remove_last_method_call(
+             expr.kind
+             && let Some(recv_ty) = self.typeck_results.borrow().expr_ty_opt(recv_expr)
+             && self.may_coerce(recv_ty, expected)
+-            && let name = method.name.as_str()
+-            && (name.starts_with("to_") || name.starts_with("as_") || name == "into")
+         {
+             let span = if let Some(recv_span) = recv_expr.span.find_ancestor_inside(expr.span) {
+                 expr.span.with_lo(recv_span.hi())

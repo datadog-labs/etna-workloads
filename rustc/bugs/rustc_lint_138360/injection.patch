@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_lint/src/context.rs b/compiler/rustc_lint/src/context.rs
+index 638c4a12b9fb1ea58f993dbd9f853051afac41b5..24a6ec8bdfb91ac2711a91bd5a5c1a02e3be8505 100644
+--- a/compiler/rustc_lint/src/context.rs
++++ b/compiler/rustc_lint/src/context.rs
+@@ -6,7 +6,6 @@
+ use std::slice;
+ 
+ use rustc_abi as abi;
+-use rustc_ast::BindingMode;
+ use rustc_ast::util::parser::ExprPrecedence;
+ use rustc_data_structures::fx::FxIndexMap;
+ use rustc_data_structures::sync;
+@@ -17,7 +16,6 @@
+ use rustc_hir::def::Res;
+ use rustc_hir::def_id::{CrateNum, DefId};
+ use rustc_hir::definitions::{DefPathData, DisambiguatedDefPathData};
+-use rustc_hir::{Pat, PatKind};
+ use rustc_middle::bug;
+ use rustc_middle::lint::{LevelSpec, StableLevelSpec, UnstableLevelSpec};
+ use rustc_middle::middle::privacy::EffectiveVisibilities;
+@@ -873,12 +871,7 @@ pub fn expr_or_init<'a>(&self, mut expr: &'a hir::Expr<'tcx>) -> &'a hir::Expr<'
+             }
+             && let Some(init) = match parent_node {
+                 hir::Node::Expr(expr) => Some(expr),
+-                hir::Node::LetStmt(hir::LetStmt {
+-                    init,
+-                    // Binding is immutable, init cannot be re-assigned
+-                    pat: Pat { kind: PatKind::Binding(BindingMode::NONE, ..), .. },
+-                    ..
+-                }) => *init,
++                hir::Node::LetStmt(hir::LetStmt { init, .. }) => *init,
+                 _ => None,
+             }
+         {
+@@ -923,12 +916,7 @@ pub fn expr_or_init_with_outside_body<'a>(
+             }
+             && let Some(init) = match parent_node {
+                 hir::Node::Expr(expr) => Some(expr),
+-                hir::Node::LetStmt(hir::LetStmt {
+-                    init,
+-                    // Binding is immutable, init cannot be re-assigned
+-                    pat: Pat { kind: PatKind::Binding(BindingMode::NONE, ..), .. },
+-                    ..
+-                }) => *init,
++                hir::Node::LetStmt(hir::LetStmt { init, .. }) => *init,
+                 hir::Node::Item(item) => match item.kind {
+                     // FIXME(mgca): figure out how to handle ConstArgKind::Path (or don't but add warning in docs here)
+                     hir::ItemKind::Const(.., hir::ConstItemRhs::Body(body_id))

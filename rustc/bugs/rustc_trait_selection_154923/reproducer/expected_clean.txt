@@ -1,0 +1,74 @@
+error[E0261]: use of undeclared lifetime name `'a`
+  --> main.rs:10:36
+   |
+10 |     fn method(self: &unsafe<'ops> &'a Bar) {}
+   |                                    ^^ undeclared lifetime
+   |
+   = note: for more information on higher-ranked polymorphism, visit https://doc.rust-lang.org/nomicon/hrtb.html
+help: consider making the type lifetime-generic with a new `'a` lifetime
+   |
+10 |     fn method(self: &unsafe<'a, 'ops> &'a Bar) {}
+   |                             +++
+help: consider introducing lifetime `'a` here
+   |
+10 |     fn method<'a>(self: &unsafe<'ops> &'a Bar) {}
+   |              ++++
+help: consider introducing lifetime `'a` here
+   |
+ 9 | trait Foo<'a>: Deref<Target = unsafe<'a> &'a dyn Bar> {
+   |          ++++
+
+warning: the feature `unsafe_binders` is incomplete and may not be safe to use and/or cause compiler crashes
+ --> main.rs:5:12
+  |
+5 | #![feature(unsafe_binders)]
+  |            ^^^^^^^^^^^^^^
+  |
+  = note: see issue #130516 <https://github.com/rust-lang/rust/issues/130516> for more information
+  = note: `#[warn(incomplete_features)]` on by default
+
+error[E0782]: expected a type, found a trait
+  --> main.rs:10:39
+   |
+10 |     fn method(self: &unsafe<'ops> &'a Bar) {}
+   |                                       ^^^
+   |
+help: you can add the `dyn` keyword if you want a trait object
+   |
+10 |     fn method(self: &unsafe<'ops> &'a dyn Bar) {}
+   |                                       +++
+
+error[E0038]: the trait `Foo` is not dyn compatible
+  --> main.rs:17:13
+   |
+10 |     fn method(self: &unsafe<'ops> &'a Bar) {}
+   |                     --------------------- help: consider changing method `method`'s `self` parameter to be `&self`: `&Self`
+...
+17 | fn test(x: &dyn Foo) {
+   |             ^^^^^^^ `Foo` is not dyn compatible
+   |
+note: for a trait to be dyn compatible it needs to allow building a vtable
+      for more information, visit <https://doc.rust-lang.org/reference/items/traits.html#dyn-compatibility>
+  --> main.rs:10:21
+   |
+ 9 | trait Foo: Deref<Target = unsafe<'a> &'a dyn Bar> {
+   |       --- this trait is not dyn compatible...
+10 |     fn method(self: &unsafe<'ops> &'a Bar) {}
+   |                     ^^^^^^^^^^^^^^^^^^^^^ ...because method `method`'s `self` parameter cannot be dispatched on
+
+error[E0599]: no method named `method` found for reference `&dyn Foo` in the current scope
+  --> main.rs:19:7
+   |
+10 |     fn method(self: &unsafe<'ops> &'a Bar) {}
+   |                     --------------------- the method might not be found because of this arbitrary self type
+...
+19 |     x.method();
+   |       ^^^^^^ method not found in `&dyn Foo`
+
+error: aborting due to 4 previous errors; 1 warning emitted
+
+Some errors have detailed explanations: E0038, E0261, E0599, E0782.
+For more information about an error, try `rustc --explain E0038`.
+rustc exit: 1
+
+[exit 0]

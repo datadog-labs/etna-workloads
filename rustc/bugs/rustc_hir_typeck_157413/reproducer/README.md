@@ -1,0 +1,1 @@
+Calling `.cloned()` on an `Option<i32>` fails to compile. The fixed compiler says the method is only available on `Option<&_>` and suggests removing the call. The injected compiler instead says `Option<i32>` is not an iterator and suggests `.into_iter()`, which would not compile either.

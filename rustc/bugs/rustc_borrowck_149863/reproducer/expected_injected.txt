@@ -1,0 +1,63 @@
+warning: unused import: `Condvar`
+ --> main.rs:2:29
+  |
+2 | use std::sync::{Arc, Mutex, Condvar};
+  |                             ^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::collections::VecDeque`
+ --> main.rs:3:5
+  |
+3 | use std::collections::VecDeque;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `f`
+  --> main.rs:13:26
+   |
+13 |     fn execute<F>(&self, f: F)
+   |                          ^ help: if this is intentional, prefix it with an underscore: `_f`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+error[E0382]: the type `Arc` does not implement `Copy`
+  --> main.rs:30:22
+   |
+22 |     let results = Arc::new(Mutex::new(Vec::new())); //~ NOTE this move could be avoided by cloning the original `Arc`, which is inex...
+   |         ------- this move could be avoided by cloning the original `Arc`, which is inexpensive
+...
+28 |     for i in 0..20 { //~ NOTE inside of this loop
+   |     -------------- inside of this loop
+29 |         // let results = Arc::clone(&results); // Forgot this.
+30 |         pool.execute(move || { //~ ERROR E0382
+   |                      ^^^^^^^ value moved into closure here, in previous iteration of loop
+...
+34 |             let mut r = results.lock().unwrap(); //~ NOTE use occurs due to use in closure
+   |                         ------- use occurs due to use in closure
+   |
+   = note: consider using `Arc::clone`
+help: consider moving the expression out of the loop so it is only moved once
+   |
+28 ~     let mut value = results.lock();
+29 ~     for i in 0..20 { //~ NOTE inside of this loop
+30 |         // let results = Arc::clone(&results); // Forgot this.
+...
+34 |             //~| HELP consider cloning the value before moving it into the closure
+35 ~             let mut r = value.unwrap(); //~ NOTE use occurs due to use in closure
+   |
+help: consider cloning the value before moving it into the closure
+   |
+30 ~         let value = results.clone();
+31 ~         pool.execute(move || { //~ ERROR E0382
+32 |             //~^ NOTE value moved into closure here, in previous iteration of loop
+33 |             //~| NOTE consider using `Arc::clone`
+34 |             //~| HELP consider cloning the value before moving it into the closure
+35 ~             let mut r = value.lock().unwrap(); //~ NOTE use occurs due to use in closure
+   |
+
+error: aborting due to 1 previous error; 3 warnings emitted
+
+For more information about this error, try `rustc --explain E0382`.
+rustc exit: 1
+
+[exit 0]

@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+index e5dbae16d07d438ebd25e9d7b9196f030b43ec59..42ee8f98ada09d12e1a2c01318999f47f0742e9e 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+@@ -1425,7 +1425,10 @@ enum ProhibitGenericsArg {
+             };
+         });
+ 
+-        let segments: Vec<_> = segments.collect();
++        let segments: Vec<_> = match err_extend {
++            GenericsArgsErrExtend::DefVariant(segments) => segments.iter().collect(),
++            _ => segments.collect(),
++        };
+         let types_and_spans: Vec<_> = segments
+             .iter()
+             .flat_map(|segment| {
+@@ -1895,10 +1898,10 @@ fn generics_args_err_extend<'a>(
+             if args.len() > 1
+                 && let Some(span) = args.into_iter().next_back()
+             {
+-                err.note(
+-                    "generic arguments are not allowed on both an enum and its variant's path \
+-                     segments simultaneously; they are only valid in one place or the other",
+-                );
++                let msg = "generic arguments are not allowed on both an enum and its variant's \
++                           path segments simultaneously; they are only valid in one place or the \
++                           other";
++                err.note(msg);
+                 err.span_suggestion_verbose(
+                     span,
+                     "remove the generics arguments from one of the path segments",

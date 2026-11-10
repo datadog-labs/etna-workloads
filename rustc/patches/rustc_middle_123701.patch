@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_middle/src/ty/closure.rs b/compiler/rustc_middle/src/ty/closure.rs
+index c6cdb9b9e2b96663c451f06759c18e262cc78dec..7630688e4c3034becaac795b675a073edf097be6 100644
+--- a/compiler/rustc_middle/src/ty/closure.rs
++++ b/compiler/rustc_middle/src/ty/closure.rs
+@@ -446,14 +446,6 @@ pub fn analyze_coroutine_closure_captures<'a, 'tcx: 'a, T>(
+                 child_prefix_matches_parent_projections(parent_capture, child_capture)
+             }) {
+                 let (child_field_idx, child_capture) = child_captures.next().unwrap();
+-                // This analysis only makes sense if the parent capture is a
+-                // prefix of the child capture.
+-                assert!(
+-                    child_capture.place.projections.len() >= parent_capture.place.projections.len(),
+-                    "parent capture ({parent_capture:#?}) expected to be prefix of \
+-                    child capture ({child_capture:#?})"
+-                );
+-
+                 yield for_each(
+                     (parent_field_idx, parent_capture),
+                     (child_field_idx, child_capture),
+@@ -483,6 +475,7 @@ fn child_prefix_matches_parent_projections(
+         bug!("expected capture to be an upvar");
+     };
+ 
++    assert!(child_capture.place.projections.len() >= parent_capture.place.projections.len());
+     parent_base.var_path.hir_id == child_base.var_path.hir_id
+         && std::iter::zip(&child_capture.place.projections, &parent_capture.place.projections)
+             .all(|(child, parent)| child.kind == parent.kind)

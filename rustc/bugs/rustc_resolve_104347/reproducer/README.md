@@ -1,0 +1,1 @@
+Shows the suggestion for an unresolved `use self::p::{nu, other_item as _}` where `nu` is a #[macro_export] macro: the injected compiler emits a stray extra `}` (`{other_item as _}};`) in the suggested replacement.

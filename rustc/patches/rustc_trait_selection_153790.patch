@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+index 1897ed8fc84ebde76bc8de04ac4ad10464fd8e4d..f1067f23b0c2e93fb053bc2adf9cedcd5f03162f 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+@@ -3070,10 +3070,6 @@ fn select_transmute_obligation_for_reporting(
+         trait_predicate: ty::PolyTraitPredicate<'tcx>,
+         root_obligation: &PredicateObligation<'tcx>,
+     ) -> (PredicateObligation<'tcx>, ty::PolyTraitPredicate<'tcx>) {
+-        if obligation.predicate.has_non_region_param() || obligation.has_non_region_infer() {
+-            return (obligation.clone(), trait_predicate);
+-        }
+-
+         let ocx = ObligationCtxt::new(self);
+         let normalized_predicate = self.tcx.erase_and_anonymize_regions(
+             self.tcx.instantiate_bound_regions_with_erased(trait_predicate),
+@@ -3119,12 +3115,6 @@ fn get_safe_transmute_error_and_reason(
+     ) -> GetSafeTransmuteErrorAndReason {
+         use rustc_transmute::Answer;
+         self.probe(|_| {
+-            // We don't assemble a transmutability candidate for types that are generic
+-            // and we should have ambiguity for types that still have non-region infer.
+-            if obligation.predicate.has_non_region_param() || obligation.has_non_region_infer() {
+-                return GetSafeTransmuteErrorAndReason::Default;
+-            }
+-
+             // Erase regions because layout code doesn't particularly care about regions.
+             let trait_pred = self.tcx.erase_and_anonymize_regions(
+                 self.tcx.instantiate_bound_regions_with_erased(trait_pred),

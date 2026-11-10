@@ -1,0 +1,60 @@
+error[E0382]: use of moved value: `first`
+  --> main.rs:21:22
+   |
+17 |         let first = Foo([0; FOO_SIZE]);
+   |             ----- move occurs because `first` has type `Foo`, which does not implement the `Copy` trait
+18 |         yield;
+19 |         let second = first;
+   |                      ----- value moved here
+20 |         yield;
+21 |         let second = first;
+   |                      ^^^^^ value used here after move
+   |
+note: if `Foo` implemented `Clone`, you could clone the value
+  --> main.rs:9:1
+   |
+ 9 | struct Foo([u8; FOO_SIZE]);
+   | ^^^^^^^^^^ consider implementing `Clone` for this type
+...
+19 |         let second = first;
+   |                      ----- you could clone this value
+
+warning: unused variable: `second`
+  --> main.rs:19:13
+   |
+19 |         let second = first;
+   |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_second`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `second`
+  --> main.rs:21:13
+   |
+21 |         let second = first;
+   |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_second`
+
+error: internal compiler error: compiler/rustc_mir_transform/src/coroutine/mod.rs:1280:13: Assignment between coroutine saved locals whose storage is not marked as conflicting: bb2[4]: _s2 = _s0
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_mir_transform/src/coroutine/mod.rs:1280:13:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+note: compiler flags: -Z validate-mir
+
+query stack during panic:
+#0 [mir_drops_elaborated_and_const_checked] elaborating drops for `overlap_move_points::{closure#0}`
+#1 [analysis] running analysis passes on crate `main`
+end of query stack
+error: aborting due to 2 previous errors; 2 warnings emitted
+
+For more information about this error, try `rustc --explain E0382`.
+rustc exit: 101
+
+[exit 0]

@@ -1,0 +1,1 @@
+Compiles a struct pattern written as `S { ref field_name: _foo }` (modifier in the wrong place). The clean compiler emits a "the pattern modifiers belong after the `:`" help suggestion; the injected compiler omits it.

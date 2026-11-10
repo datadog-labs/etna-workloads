@@ -1,0 +1,58 @@
+diff --git a/compiler/rustc_mir_transform/src/validate.rs b/compiler/rustc_mir_transform/src/validate.rs
+index b9c55439f059755e4c0e56013c6aa1decd96aa6d..dbb3cada3b0c7ce6d30f6c4a8c801cfb13b2bcdf 100644
+--- a/compiler/rustc_mir_transform/src/validate.rs
++++ b/compiler/rustc_mir_transform/src/validate.rs
+@@ -680,7 +680,7 @@ fn visit_projection_elem(
+ 
+                 let kind = match parent_ty.ty.kind() {
+                     &ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id }, args, .. }) => {
+-                        self.tcx.type_of(def_id).instantiate(self.tcx, args).skip_norm_wip().kind()
++                        self.tcx.type_of(def_id).instantiate(self.tcx, args).skip_normalization().kind()
+                     }
+                     kind => kind,
+                 };
+@@ -721,7 +721,7 @@ fn visit_projection_elem(
+                             fail_out_of_bounds(self, location);
+                             return;
+                         };
+-                        check_equal(self, location, field.ty(self.tcx, args).skip_norm_wip());
++                        check_equal(self, location, field.ty(self.tcx, args).skip_normalization());
+                     }
+                     ty::Closure(_, args) => {
+                         let args = args.as_closure();
+@@ -785,7 +785,7 @@ fn visit_projection_elem(
+ 
+                             ty::EarlyBinder::bind(self.tcx, f_ty.ty)
+                                 .instantiate(self.tcx, args)
+-                                .skip_norm_wip()
++                                .skip_normalization()
+                         } else if let Some(&f_ty) = args.as_coroutine().upvar_tys().get(f.index()) {
+                             f_ty
+                         } else {
+@@ -1028,10 +1028,7 @@ macro_rules! check_kinds {
+                     let adt_def = self.tcx.adt_def(def_id);
+                     assert!(adt_def.is_union());
+                     assert_eq!(idx, FIRST_VARIANT);
+-                    let dest_ty = self.tcx.normalize_erasing_regions(
+-                        self.typing_env,
+-                        adt_def.non_enum_variant().fields[field].ty(self.tcx, args),
+-                    );
++                    let dest_ty = adt_def.non_enum_variant().fields[field].ty(self.tcx, args).skip_normalization();
+                     if let [field] = fields.raw.as_slice() {
+                         let src_ty = field.ty(self.body, self.tcx);
+                         if !self.mir_assign_valid_types(src_ty, dest_ty) {
+@@ -1053,10 +1050,10 @@ macro_rules! check_kinds {
+                         ));
+                     }
+                     for (src, dest) in std::iter::zip(fields, &variant.fields) {
+-                        let dest_ty = self
+-                            .tcx
+-                            .normalize_erasing_regions(self.typing_env, dest.ty(self.tcx, args));
+-                        if !self.mir_assign_valid_types(src.ty(self.body, self.tcx), dest_ty) {
++                        if !self.mir_assign_valid_types(
++                            src.ty(self.body, self.tcx),
++                            dest.ty(self.tcx, args).skip_normalization(),
++                        ) {
+                             self.fail(location, "adt field has the wrong type");
+                         }
+                     }

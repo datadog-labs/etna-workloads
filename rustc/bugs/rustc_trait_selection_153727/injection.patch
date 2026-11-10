@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
+index 06d882a3094893f62384bbc823151515eaa12f06..a1a1cc6c3f7f4a5eefaa5624d96c562acb3c8128 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
+@@ -291,37 +291,12 @@ pub(super) fn maybe_report_ambiguity(
+                 let term = self.ambiguity_term(predicate);
+ 
+                 let mut err = if let Some(term) = term {
+-                    let candidates: Vec<_> = self
+-                        .tcx
+-                        .all_impls(trait_pred.def_id())
+-                        .filter_map(|def_id| {
+-                            let imp = self.tcx.impl_trait_header(def_id);
+-                            if imp.polarity != ty::ImplPolarity::Positive
+-                                || !self.tcx.is_user_visible_dep(def_id.krate)
+-                            {
+-                                return None;
+-                            }
+-                            let imp = imp.trait_ref.skip_binder();
+-                            if imp
+-                                .with_replaced_self_ty(self.tcx, trait_pred.skip_binder().self_ty())
+-                                == trait_pred.skip_binder().trait_ref
+-                            {
+-                                Some(imp.self_ty())
+-                            } else {
+-                                None
+-                            }
+-                        })
+-                        .collect();
+-                    self.emit_inference_failure_err_with_type_hint(
++                    self.emit_inference_failure_err(
+                         obligation.cause.body_def_id,
+                         span,
+                         term,
+                         TypeAnnotationNeeded::E0283,
+                         true,
+-                        match &candidates[..] {
+-                            [candidate] => Some(*candidate),
+-                            _ => None,
+-                        },
+                     )
+                 } else {
+                     struct_span_code_err!(

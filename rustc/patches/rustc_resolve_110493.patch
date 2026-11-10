@@ -1,0 +1,95 @@
+diff --git a/compiler/rustc_resolve/src/ident.rs b/compiler/rustc_resolve/src/ident.rs
+index 2a1b208f94c34e33885c0c8c30524150d9f78054..267c0d4f15e960ff1bf469231ab4a248534856a5 100644
+--- a/compiler/rustc_resolve/src/ident.rs
++++ b/compiler/rustc_resolve/src/ident.rs
+@@ -1148,7 +1148,10 @@ fn resolve_ident_in_local_module_non_globs_unadjusted<'r>(
+         ignore_decl: Option<Decl<'ra>>,
+         ignore_import: Option<Import<'ra>>,
+     ) -> Result<Decl<'ra>, ControlFlow<Determinacy, Determinacy>> {
+-        let key = BindingKey::new(ident, ns);
++        let key = BindingKey::new_disambiguated(ident, ns, || {
++            module.underscore_disambiguator.update(&self, |d| d + 1);
++            module.underscore_disambiguator.get()
++        });
+         let resolution = self.resolution(module.to_module(), key);
+ 
+         let binding =
+@@ -1214,7 +1217,10 @@ fn resolve_ident_in_module_globs_unadjusted<'r>(
+         ignore_decl: Option<Decl<'ra>>,
+         ignore_import: Option<Import<'ra>>,
+     ) -> Result<Decl<'ra>, ControlFlow<Determinacy, Determinacy>> {
+-        let key = BindingKey::new(ident, ns);
++        let key = BindingKey::new_disambiguated(ident, ns, || {
++            module.underscore_disambiguator.update(&self, |d| d + 1);
++            module.underscore_disambiguator.get()
++        });
+         let resolution = self.resolution(module.to_module(), key);
+ 
+         let binding =
+diff --git a/compiler/rustc_resolve/src/imports.rs b/compiler/rustc_resolve/src/imports.rs
+index 499f9ea297362d8c3245265b5945a44218bbde3a..f4fac5bbf4d1b8f0f48177dd86bdf051f4bded2d 100644
+--- a/compiler/rustc_resolve/src/imports.rs
++++ b/compiler/rustc_resolve/src/imports.rs
+@@ -739,17 +739,15 @@ fn import_dummy_binding(&mut self, import: Import<'ra>, is_indeterminate: bool)
+                 let ident = IdentKey::new(target);
+                 // This can fail, dummies are inserted only in non-occupied slots.
+                 let _ = this.try_plant_decl_into_local_module(ident, target.span, ns, dummy_decl);
+-                // Don't remove underscores from `single_imports`, they were never added.
+-                if target.name != kw::Underscore {
+-                    let key = BindingKey::new(ident, ns);
+-                    this.update_local_resolution(
+-                        import.parent_scope.module.expect_local(),
+-                        key,
+-                        target.span,
+-                        |_, resolution| {
+-                            resolution.single_imports.swap_remove(&import);
+-                        },
+-                    )
++                {
++                    let module = import.parent_scope.module.expect_local();
++                    let key = BindingKey::new_disambiguated(ident, ns, || {
++                        module.underscore_disambiguator.update(this, |d| d + 1);
++                        module.underscore_disambiguator.get()
++                    });
++                    this.update_local_resolution(module, key, target.span, |_, resolution| {
++                        resolution.single_imports.swap_remove(&import);
++                    })
+                 }
+             });
+             self.record_use(target, dummy_decl, Used::Other);
+@@ -865,18 +863,23 @@ fn write_import_resolutions(
+                                 decls[ns].set(PendingDecl::Ready(Some(import_decl)), this);
+                             }
+                             PendingDecl::Ready(None) => {
+-                                // Don't remove underscores from `single_imports`, they were never added.
+-                                if target.name != kw::Underscore {
+-                                    let key = BindingKey::new(IdentKey::new(*target), ns);
+-                                    this.update_local_resolution(
+-                                        import.parent_scope.module.expect_local(),
+-                                        key,
+-                                        target.span,
+-                                        |_, resolution| {
+-                                            resolution.single_imports.swap_remove(&import);
+-                                        },
+-                                    );
+-                                }
++                                let module = import.parent_scope.module.expect_local();
++                                let key = BindingKey::new_disambiguated(
++                                    IdentKey::new(*target),
++                                    ns,
++                                    || {
++                                        module.underscore_disambiguator.update(this, |d| d + 1);
++                                        module.underscore_disambiguator.get()
++                                    },
++                                );
++                                this.update_local_resolution(
++                                    module,
++                                    key,
++                                    target.span,
++                                    |_, resolution| {
++                                        resolution.single_imports.swap_remove(&import);
++                                    },
++                                );
+                                 decls[ns].set(PendingDecl::Ready(None), this);
+                             }
+                             PendingDecl::Pending => {}

@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/step.rs b/compiler/rustc_const_eval/src/interpret/step.rs
+index 6dd1ed598e3aaf6972b885e9c77a44972bb0bef6..69eb807270ebd60d239bc4f9a76f020d5a2ff849 100644
+--- a/compiler/rustc_const_eval/src/interpret/step.rs
++++ b/compiler/rustc_const_eval/src/interpret/step.rs
+@@ -238,15 +238,9 @@ pub fn eval_rvalue_into_place(
+                 })?;
+             }
+ 
+-            Reborrow(_, mutability, place) => {
+-                let op = self.eval_place_to_op(place, None)?;
+-                if mutability.is_not() {
+-                    // Shared generic reborrows use `CoerceShared`: a bitwise copy into a
+-                    // distinct same-layout target ADT.
+-                    self.copy_op_allow_transmute(&op, &dest)?;
+-                } else {
+-                    self.copy_op(&op, &dest)?;
+-                }
++            Reborrow(_, _, place) => {
++                let op = self.eval_place_to_op(place, Some(dest.layout))?;
++                self.copy_op(&op, &dest)?;
+             }
+ 
+             RawPtr(kind, place) => {
+diff --git a/compiler/rustc_mir_transform/src/promote_consts.rs b/compiler/rustc_mir_transform/src/promote_consts.rs
+index ae2028f1c62ea1e77b0709db0dd2fea15459d31f..6bbc82f50aedbb8a023ebdd61a505d41ea8dd789 100644
+--- a/compiler/rustc_mir_transform/src/promote_consts.rs
++++ b/compiler/rustc_mir_transform/src/promote_consts.rs
+@@ -586,7 +586,11 @@ fn validate_rvalue(&mut self, rvalue: &Rvalue<'tcx>) -> Result<(), Unpromotable>
+                 self.validate_ref(*kind, place)?;
+             }
+ 
+-            Rvalue::Reborrow(..) => return Err(Unpromotable),
++            Rvalue::Reborrow(_, _, place) => {
++                // FIXME(reborrow): should probably have a place_simplified like above.
++                let op = &Operand::Copy(*place);
++                self.validate_operand(op)?
++            }
+ 
+             Rvalue::Aggregate(_, operands) => {
+                 for o in operands {

@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_ast_passes/src/ast_validation.rs b/compiler/rustc_ast_passes/src/ast_validation.rs
+index 3270fb940bab3da7b1ff2656032b9699a9d0cb0b..51e2d92db795f34f6724e0e88d7ed616241ad7b6 100644
+--- a/compiler/rustc_ast_passes/src/ast_validation.rs
++++ b/compiler/rustc_ast_passes/src/ast_validation.rs
+@@ -674,13 +674,7 @@ fn reject_coroutine(&self, abi: ExternAbi, sig: &BorrowedFnSig<'_>) {
+     }
+ 
+     fn reject_return(&self, abi: ExternAbi, sig: &BorrowedFnSig<'_>) {
+-        if let FnRetTy::Ty(ref ret_ty) = sig.decl.output
+-            && match &ret_ty.kind {
+-                TyKind::Never => false,
+-                TyKind::Tup(tup) if tup.is_empty() => false,
+-                _ => true,
+-            }
+-        {
++        if let FnRetTy::Ty(ref ret_ty) = sig.decl.output {
+             self.dcx().emit_err(diagnostics::AbiMustNotHaveReturnType { span: ret_ty.span, abi });
+         }
+     }
+@@ -693,15 +687,7 @@ fn reject_params_or_return(
+     ) {
+         let mut spans: Vec<_> = sig.decl.inputs.iter().map(|p| p.span).collect();
+ 
+-        let allowed_return = |ret_ty: &Ty| match &ret_ty.kind {
+-            TyKind::Never if abi != ExternAbi::Custom => true,
+-            TyKind::Tup(tup) if tup.is_empty() => true,
+-            _ => false,
+-        };
+-
+-        if let FnRetTy::Ty(ref ret_ty) = sig.decl.output
+-            && !allowed_return(ret_ty)
+-        {
++        if let FnRetTy::Ty(ref ret_ty) = sig.decl.output {
+             spans.push(ret_ty.span);
+         }
+ 

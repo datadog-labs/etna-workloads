@@ -1,0 +1,1 @@
+A macro marked allow_internal_unstable(min_specialization) defines overlapping impls (specialization of Tr for T<u8>). The clean compiler accepts it (exit 0); the injected compiler reports E0119 conflicting implementations because it ignores the macro span's allow_internal_unstable.

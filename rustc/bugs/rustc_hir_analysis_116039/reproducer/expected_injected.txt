@@ -1,0 +1,59 @@
+error[E0261]: use of undeclared lifetime name `'db`
+ --> main.rs:3:40
+  |
+3 | pub type Tait = impl Iterator<Item = (&'db LocalKey, impl Iterator)>;
+  |                                        ^^^ undeclared lifetime
+  |
+  = note: for more information on higher-ranked polymorphism, visit https://doc.rust-lang.org/nomicon/hrtb.html
+help: consider making the bound lifetime-generic with a new `'db` lifetime
+  |
+3 | pub type Tait = impl for<'db> Iterator<Item = (&'db LocalKey, impl Iterator)>;
+  |                      ++++++++
+help: consider introducing lifetime `'db` here
+  |
+3 | pub type Tait<'db> = impl Iterator<Item = (&'db LocalKey, impl Iterator)>;
+  |              +++++
+
+error[E0425]: cannot find type `LocalKey` in this scope
+ --> main.rs:3:44
+  |
+3 | pub type Tait = impl Iterator<Item = (&'db LocalKey, impl Iterator)>;
+  |                                            ^^^^^^^^ not found in this scope
+  |
+help: consider importing this struct
+  |
+3 + use std::thread::LocalKey;
+  |
+
+error: unconstrained opaque type
+ --> main.rs:3:17
+  |
+3 | pub type Tait = impl Iterator<Item = (&'db LocalKey, impl Iterator)>;
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `Tait` must be used in combination with a concrete type within the same crate
+
+error: internal compiler error: compiler/rustc_middle/src/ty/mod.rs:1852:13: item_ident: no name for DefPath { data: [DisambiguatedDefPathData { data: TypeNs("Tait"), disambiguator: 0 }, DisambiguatedDefPathData { data: OpaqueTy, disambiguator: 0 }], krate: crate0 }
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_middle/src/ty/mod.rs:1852:13:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [type_of_opaque] computing type of opaque `Tait::{opaque#0}::{opaque#0}`
+#1 [type_of] computing type of `Tait::{opaque#0}::{opaque#0}`
+... and 3 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 4 previous errors
+
+Some errors have detailed explanations: E0261, E0425.
+For more information about an error, try `rustc --explain E0261`.
+rustc exit: 101
+
+[exit 0]

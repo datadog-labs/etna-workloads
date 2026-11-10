@@ -1,0 +1,1 @@
+Compiles `async move |s| f(s)` where `f: impl Fn(String)` and the closure takes a non-Copy argument. Clean compiler accepts it; the injected one wrongly treats the argument move as consuming the upvar and reports E0507 (cannot move out of `f` behind a shared reference).

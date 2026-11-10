@@ -1,0 +1,1 @@
+Compiles a no_core lib for nvptx64 with -Zmir-opt-level=4 and counts syncthreads() calls in the emitted MIR of a function with two identical conditionals around it. The clean compiler disables jump-threading on GPU targets (1 call); the injected one threads the jumps and duplicates the convergent call (2 calls).

@@ -1,0 +1,61 @@
+diff --git a/compiler/rustc_parse/src/lexer/mod.rs b/compiler/rustc_parse/src/lexer/mod.rs
+index 4f7c76e7df8162c275080a0f30f2fdd73aad2005..5682fdf1e3307d5a9944033fb0c8fafcc848bea6 100644
+--- a/compiler/rustc_parse/src/lexer/mod.rs
++++ b/compiler/rustc_parse/src/lexer/mod.rs
+@@ -1008,36 +1008,39 @@ fn report_unterminated_block_comment(&self, start: BytePos, doc_style: Option<Do
+         err.code(E0758);
+         let mut nested_block_comment_open_idxs = vec![];
+         let mut last_nested_block_comment_idxs = None;
+-        let mut content_chars = self.str_from(start).char_indices().peekable();
++        let mut content_chars = self.str_from(start).char_indices();
+ 
+-        while let Some((idx, current_char)) = content_chars.next() {
+-            match content_chars.peek() {
+-                Some((_, '*')) if current_char == '/' => {
+-                    nested_block_comment_open_idxs.push(idx);
+-                }
+-                Some((_, '/')) if current_char == '*' => {
+-                    last_nested_block_comment_idxs =
+-                        nested_block_comment_open_idxs.pop().map(|open_idx| (open_idx, idx));
+-                }
+-                _ => {}
+-            };
++        if let Some((_, mut last_char)) = content_chars.next() {
++            while let Some((idx, c)) = content_chars.next() {
++                match c {
++                    '*' if last_char == '/' => {
++                        nested_block_comment_open_idxs.push(idx);
++                    }
++                    '/' if last_char == '*' => {
++                        last_nested_block_comment_idxs =
++                            nested_block_comment_open_idxs.pop().map(|open_idx| (open_idx, idx));
++                    }
++                    _ => {}
++                };
++                last_char = c;
++            }
+         }
+ 
+         if let Some((nested_open_idx, nested_close_idx)) = last_nested_block_comment_idxs {
+             err.span_label(self.mk_sp(start, start + BytePos(2)), msg)
+                 .span_label(
+                     self.mk_sp(
+-                        start + BytePos(nested_open_idx as u32),
+-                        start + BytePos(nested_open_idx as u32 + 2),
++                        start + BytePos(nested_open_idx as u32 - 1),
++                        start + BytePos(nested_open_idx as u32 + 1),
+                     ),
+                     "...as last nested comment starts here, maybe you want to close this instead?",
+                 )
+                 .span_label(
+                     self.mk_sp(
+-                        start + BytePos(nested_close_idx as u32),
+-                        start + BytePos(nested_close_idx as u32 + 2),
++                        start + BytePos(nested_close_idx as u32 - 1),
++                        start + BytePos(nested_close_idx as u32 + 1),
+                     ),
+-                    "...and last nested comment terminates here.",
++                    "...and last nested comment terminates here",
+                 );
+         }
+ 

@@ -1,0 +1,1 @@
+Compiles a file with break inside if/else blocks outside any loop (issue 123261); the injected compiler suggests labeling the if/else block itself ('if c 'block: {'), producing different diagnostics than the clean compiler, which suggests labeling the enclosing block.

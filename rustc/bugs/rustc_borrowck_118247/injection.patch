@@ -1,0 +1,85 @@
+diff --git a/compiler/rustc_borrowck/src/type_check/relate_tys.rs b/compiler/rustc_borrowck/src/type_check/relate_tys.rs
+index e99a757b7630532bc269f05791fa573058cc4201..0ebd119e6c3dbe7a65660ad1d51c197a3765fc95 100644
+--- a/compiler/rustc_borrowck/src/type_check/relate_tys.rs
++++ b/compiler/rustc_borrowck/src/type_check/relate_tys.rs
+@@ -499,59 +499,30 @@ fn binders<T>(
+             return Ok(ty::Binder::dummy(a));
+         }
+ 
+-        match self.ambient_variance {
+-            ty::Covariant => {
+-                // Covariance, so we want `for<..> A <: for<..> B` --
+-                // therefore we compare any instantiation of A (i.e., A
+-                // instantiated with existentials) against every
+-                // instantiation of B (i.e., B instantiated with
+-                // universals).
+-
+-                // Note: the order here is important. Create the placeholders first, otherwise
+-                // we assign the wrong universe to the existential!
+-                self.enter_forall(b, |this, b| {
+-                    let a = this.instantiate_binder_with_existentials(a);
+-                    this.relate(a, b)
+-                })?;
+-            }
++        if self.ambient_covariance() {
++            // Covariance: `for<..> A <: for<..> B`. Reset the ambient variance to covariant.
++            let variance = std::mem::replace(&mut self.ambient_variance, ty::Covariant);
+ 
+-            ty::Contravariant => {
+-                // Contravariance, so we want `for<..> A :> for<..> B` --
+-                // therefore we compare every instantiation of A (i.e., A
+-                // instantiated with universals) against any
+-                // instantiation of B (i.e., B instantiated with
+-                // existentials). Opposite of above.
+-
+-                // Note: the order here is important. Create the placeholders first, otherwise
+-                // we assign the wrong universe to the existential!
+-                self.enter_forall(a, |this, a| {
+-                    let b = this.instantiate_binder_with_existentials(b);
+-                    this.relate(a, b)
+-                })?;
+-            }
++            // Note: the order here is important. Create the placeholders first, otherwise
++            // we assign the wrong universe to the existential!
++            self.enter_forall(b, |this, b| {
++                let a = this.instantiate_binder_with_existentials(a);
++                this.relate(a, b)
++            })?;
+ 
+-            ty::Invariant => {
+-                // Invariant, so we want `for<..> A == for<..> B` --
+-                // therefore we want `exists<..> A == for<..> B` and
+-                // `exists<..> B == for<..> A`.
+-                //
+-                // See the comment in `fn Equate::binders` for more details.
+-
+-                // Note: the order here is important. Create the placeholders first, otherwise
+-                // we assign the wrong universe to the existential!
+-                self.enter_forall(b, |this, b| {
+-                    let a = this.instantiate_binder_with_existentials(a);
+-                    this.relate(a, b)
+-                })?;
+-                // Note: the order here is important. Create the placeholders first, otherwise
+-                // we assign the wrong universe to the existential!
+-                self.enter_forall(a, |this, a| {
+-                    let b = this.instantiate_binder_with_existentials(b);
+-                    this.relate(a, b)
+-                })?;
+-            }
++            self.ambient_variance = variance;
++        }
++
++        if self.ambient_contravariance() {
++            // Contravariance: `for<..> A :> for<..> B`. Reset ambient variance to contravariance.
++            let variance = std::mem::replace(&mut self.ambient_variance, ty::Contravariant);
++
++            self.enter_forall(a, |this, a| {
++                let b = this.instantiate_binder_with_existentials(b);
++                this.relate(a, b)
++            })?;
+ 
+-            ty::Bivariant => {}
++            self.ambient_variance = variance;
+         }
+ 
+         Ok(a)

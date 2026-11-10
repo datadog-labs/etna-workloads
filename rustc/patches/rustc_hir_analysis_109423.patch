@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect.rs b/compiler/rustc_hir_analysis/src/collect.rs
+index 25ba0c810489ee7495b94218568db5eda51086be..ac6103f2cbb673f8a3314f6992feda4f4cd67a72 100644
+--- a/compiler/rustc_hir_analysis/src/collect.rs
++++ b/compiler/rustc_hir_analysis/src/collect.rs
+@@ -414,6 +414,11 @@ fn select_inherent_assoc_candidates(
+         let candidates = candidates
+             .into_iter()
+             .filter(|&InherentAssocCandidate { impl_, .. }| {
++                // Escaping bound vars / regions in the self type are not replaced before selection.
++                assert!(
++                    !self_ty.has_escaping_bound_vars(),
++                    "escaping bound vars in IAT self type: {self_ty:?}"
++                );
+                 let impl_ty = self.tcx().type_of(impl_).instantiate_identity().skip_norm_wip();
+ 
+                 // See comment on doing this operation for `self_ty`
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs
+index 20fa6d5f7a34442ddb3570a21427b25365e6c372..8f1c205c2aff4ee7843d885124a7eaaa83e66ed1 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs
+@@ -364,21 +364,12 @@ fn select_inherent_assoc_candidates(
+             true
+         };
+ 
+-        let mut universes = if self_ty.has_escaping_bound_vars() {
+-            vec![None; self_ty.outer_exclusive_binder().as_usize()]
+-        } else {
+-            vec![]
+-        };
+-
+-        let candidates =
+-            traits::with_replaced_escaping_bound_vars(infcx, &mut universes, self_ty, |self_ty| {
+-                candidates
+-                    .into_iter()
+-                    .filter(|&InherentAssocCandidate { impl_, .. }| {
+-                        infcx.probe(|_| filter_iat_candidate(self_ty, impl_))
+-                    })
+-                    .collect()
+-            });
++        let candidates = candidates
++            .into_iter()
++            .filter(|&InherentAssocCandidate { impl_, .. }| {
++                infcx.probe(|_| filter_iat_candidate(self_ty, impl_))
++            })
++            .collect();
+ 
+         (candidates, fulfillment_errors)
+     }

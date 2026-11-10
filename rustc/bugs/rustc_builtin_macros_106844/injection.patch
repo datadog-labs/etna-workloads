@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_builtin_macros/src/concat.rs b/compiler/rustc_builtin_macros/src/concat.rs
+index a260b3c43e8afbd0646c6d3a8c80beb738cb728e..6ba71284488bc47fc3afbec4545546a7d67e9e5b 100644
+--- a/compiler/rustc_builtin_macros/src/concat.rs
++++ b/compiler/rustc_builtin_macros/src/concat.rs
+@@ -1,5 +1,5 @@
+ use rustc_ast::tokenstream::TokenStream;
+-use rustc_ast::{ExprKind, LitKind, UnOp};
++use rustc_ast::{ExprKind, LitKind};
+ use rustc_expand::base::{DummyResult, ExpandResult, ExtCtxt, MacEager, MacroExpanderResult};
+ use rustc_session::diagnostics::report_lit_error;
+ use rustc_span::Symbol;
+@@ -50,17 +50,6 @@ pub(crate) fn expand_concat(
+                     guar = Some(report_lit_error(&cx.sess.psess, err, token_lit, e.span));
+                 }
+             },
+-            // We also want to allow negative numeric literals.
+-            ExprKind::Unary(UnOp::Neg, ref expr) if let ExprKind::Lit(token_lit) = expr.kind => {
+-                match LitKind::from_token_lit(token_lit) {
+-                    Ok(LitKind::Int(i, _)) => accumulator.push_str(&format!("-{i}")),
+-                    Ok(LitKind::Float(f, _)) => accumulator.push_str(&format!("-{f}")),
+-                    Err(err) => {
+-                        guar = Some(report_lit_error(&cx.sess.psess, err, token_lit, e.span));
+-                    }
+-                    _ => missing_literal.push(e.span),
+-                }
+-            }
+             ExprKind::IncludedBytes(..) => {
+                 cx.dcx().emit_err(diagnostics::ConcatBytestr { span: e.span });
+             }
+diff --git a/compiler/rustc_builtin_macros/src/diagnostics.rs b/compiler/rustc_builtin_macros/src/diagnostics.rs
+index ce5fb4e86dab6de868e0abb43992fa853e1b0c37..c61db4c6b843bbc197e07a3e5fe977da0505dfd0 100644
+--- a/compiler/rustc_builtin_macros/src/diagnostics.rs
++++ b/compiler/rustc_builtin_macros/src/diagnostics.rs
+@@ -101,7 +101,7 @@ pub(crate) struct CfgAccessibleIndeterminate {
+ 
+ #[derive(Diagnostic)]
+ #[diag("expected a literal")]
+-#[note("only literals (like `\"foo\"`, `-42` and `3.14`) can be passed to `concat!()`")]
++#[note("only literals (like `\"foo\"`, `42` and `3.14`) can be passed to `concat!()`")]
+ pub(crate) struct ConcatMissingLiteral {
+     #[primary_span]
+     pub(crate) spans: Vec<Span>,

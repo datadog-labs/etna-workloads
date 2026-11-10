@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+index 3d8c23ebdf8d33141dfbd9435df55368d3b92ac9..cb1ed9cd91057a1fd6c528835daa52c2e4317284 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+@@ -313,18 +313,21 @@ pub(super) fn lower_trait_object_ty(
+         // parameters and to imply bounds.
+         // See also <https://github.com/rust-lang/rust/pull/140684>.
+         let mut missing_assoc_items = FxIndexSet::default();
+-        let projection_bounds: Vec<_> = ordered_associated_items
+-            .into_iter()
+-            .filter_map(|key @ (def_id, _)| {
+-                if let Some(&assoc) = projection_bounds.get(&key) {
+-                    return Some(assoc);
+-                }
+-                if !tcx.generics_require_sized_self(def_id) {
+-                    missing_assoc_items.insert(key);
+-                }
+-                None
+-            })
+-            .collect();
++        let projection_bounds: Vec<_> = projection_bounds.values().copied().collect();
++        for &key @ (def_id, _) in &ordered_associated_items {
++            if !tcx.generics_require_sized_self(def_id)
++                && !projection_bounds.iter().any(|(p, _)| {
++                    (
++                        p.item_def_id(),
++                        tcx.anonymize_bound_vars(
++                            p.map_bound(|proj| proj.projection_term.trait_ref(tcx)),
++                        ),
++                    ) == key
++                })
++            {
++                missing_assoc_items.insert(key);
++            }
++        }
+ 
+         // If there are any associated items whose value wasn't provided, bail out with an error.
+         if let Err(guar) = self.check_for_required_assoc_items(

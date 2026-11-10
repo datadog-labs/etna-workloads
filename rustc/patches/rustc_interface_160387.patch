@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_interface/src/interface.rs b/compiler/rustc_interface/src/interface.rs
+index 2737d2ca854a5ea609030836f3169f1cf27aebe9..18f869d24cbfbd64a95f65b63c48550d1fb5eb35 100644
+--- a/compiler/rustc_interface/src/interface.rs
++++ b/compiler/rustc_interface/src/interface.rs
+@@ -375,8 +375,7 @@ pub fn run_compiler<R: Send>(config: Config, f: impl FnOnce(&Compiler) -> R + Se
+ 
+     // Initialize jobserver as early as possible.
+     let early_dcx = EarlyDiagCtxt::new(config.opts.error_format);
+-    let jobs = config.opts.jobs;
+-    if let Some(limit) = jobs.frontend.max(jobs.backend).max(jobs.linker.limit()) {
++    if let Some(limit) = config.opts.jobs.frontend.max(config.opts.jobs.backend) {
+         jobserver::initialize(limit.get(), |err| {
+             let note = "the build environment is likely misconfigured";
+             early_dcx.early_struct_warn(err).with_note(note).emit()
+@@ -399,7 +398,7 @@ pub fn run_compiler<R: Send>(config: Config, f: impl FnOnce(&Compiler) -> R + Se
+     util::run_in_thread_pool_with_globals(
+         &early_dcx,
+         config.opts.edition,
+-        jobs,
++        config.opts.jobs,
+         &config.extra_symbols,
+         SourceMapInputs { file_loader, path_mapping, hash_kind, checksum_hash_kind },
+         |current_gcx| {
+diff --git a/compiler/rustc_session/src/config.rs b/compiler/rustc_session/src/config.rs
+index efbffa8c0e4861f806091907aefcff73c3aa4d17..2cc9711a1c056ef27efa66794baae9ba5673bfa5 100644
+--- a/compiler/rustc_session/src/config.rs
++++ b/compiler/rustc_session/src/config.rs
+@@ -1673,15 +1673,6 @@ pub enum LinkerJobs {
+     Explicit(NonZero<usize>),
+ }
+ 
+-impl LinkerJobs {
+-    pub fn limit(self) -> Option<NonZero<usize>> {
+-        match self {
+-            LinkerJobs::Default => None,
+-            LinkerJobs::Explicit(n) => Some(n),
+-        }
+-    }
+-}
+-
+ /// `None` for frontend and backend means everything is single-threaded
+ /// and synchronization can be disabled.
+ #[derive(Clone, Copy)]

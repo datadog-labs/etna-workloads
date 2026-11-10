@@ -1,0 +1,85 @@
+error[E0106]: missing lifetime specifier
+ --> main.rs:5:39
+  |
+5 | fn frob() -> impl Fn<P, Output = T> + '_ {}
+  |                                       ^^ expected named lifetime parameter
+  |
+  = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`, or if you will only have owned values
+  |
+5 - fn frob() -> impl Fn<P, Output = T> + '_ {}
+5 + fn frob() -> impl Fn<P, Output = T> + 'static {}
+  |
+
+error[E0425]: cannot find type `P` in this scope
+ --> main.rs:5:22
+  |
+5 | fn frob() -> impl Fn<P, Output = T> + '_ {}
+  |                      ^ not found in this scope
+  |
+help: you might be missing a type parameter
+  |
+5 | fn frob<P>() -> impl Fn<P, Output = T> + '_ {}
+  |        +++
+
+error[E0425]: cannot find type `T` in this scope
+ --> main.rs:5:34
+  |
+5 | fn frob() -> impl Fn<P, Output = T> + '_ {}
+  |                                  ^ not found in this scope
+  |
+help: you might be missing a type parameter
+  |
+5 | fn frob<T>() -> impl Fn<P, Output = T> + '_ {}
+  |        +++
+
+error[E0658]: the precise format of `Fn`-family traits' type parameters is subject to change
+ --> main.rs:5:19
+  |
+5 | fn frob() -> impl Fn<P, Output = T> + '_ {}
+  |                   ^^^^^^^^^^^^^^^^^ help: use parenthetical notation instead: `Fn(P) -> T`
+  |
+  = note: see issue #29625 <https://github.com/rust-lang/rust/issues/29625> for more information
+  = help: add `#![feature(unboxed_closures)]` to the crate attributes to enable
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+  --> main.rs:17:20
+   |
+17 |     let old_path = frob("hello");
+   |                    ^^^^ ------- unexpected argument of type `&'static str`
+   |
+note: function defined here
+  --> main.rs:5:4
+   |
+ 5 | fn frob() -> impl Fn<P, Output = T> + '_ {}
+   |    ^^^^
+help: remove the extra argument
+   |
+17 -     let old_path = frob("hello");
+17 +     let old_path = frob();
+   |
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+  --> main.rs:20:5
+   |
+20 |     open_parent(&old_path)
+   |     ^^^^^^^^^^^ --------- unexpected argument of type `&impl Fn<{type error}> + FnOnce<{type error}, Output = {type error}> + '_`
+   |
+note: function defined here
+  --> main.rs:12:4
+   |
+12 | fn open_parent<'path>() {
+   |    ^^^^^^^^^^^
+help: remove the extra argument
+   |
+20 -     open_parent(&old_path)
+20 +     open_parent()
+   |
+
+error: aborting due to 6 previous errors
+
+Some errors have detailed explanations: E0061, E0106, E0425, E0658.
+For more information about an error, try `rustc --explain E0061`.
+rustc exit: 1
+
+[exit 0]

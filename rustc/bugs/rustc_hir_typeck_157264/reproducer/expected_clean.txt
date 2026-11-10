@@ -1,0 +1,68 @@
+error[E0599]: no method named `borrow` found for struct `Box<dyn Fn(bool) -> usize>` in the current scope
+  --> main.rs:20:9
+   |
+20 |     foo.borrow();
+   |         ^^^^^^
+   |
+  --> library/core/src/borrow.rs:179:7
+   |
+   = note: the method is available for `Box<dyn Fn(bool) -> usize>` here
+   |
+   = help: items from traits can only be used if the trait is in scope
+help: use parentheses to call this trait object
+   |
+20 |     foo(/* bool */).borrow();
+   |        ++++++++++++
+help: trait `Borrow` which provides `borrow` is implemented but not in scope; perhaps you want to import it
+   |
+11 + use std::borrow::Borrow;
+   |
+help: there is a method `borrow_mut` with a similar name
+   |
+20 |     foo.borrow_mut();
+   |               ++++
+
+error[E0277]: expected an `Fn(bool)` closure, found `Bar`
+  --> main.rs:18:43
+   |
+18 |     let foo: Box<dyn Fn(bool) -> usize> = Box::new(Bar);
+   |                                           ^^^^^^^^^^^^^ expected an `Fn(bool)` closure, found `Bar`
+   |
+help: the trait `Fn(bool)` is not implemented for `Bar`
+  --> main.rs:15:1
+   |
+15 | struct Bar;
+   | ^^^^^^^^^^
+   = note: required for the cast from `Box<Bar>` to `Box<dyn Fn(bool) -> usize>`
+
+error[E0599]: `Box<dyn Fn(bool) -> usize>` is not an iterator
+  --> main.rs:22:9
+   |
+22 |     foo.take()
+   |         ^^^^
+   |         |
+   |         this is an associated function, not a method
+   |         `Box<dyn Fn(bool) -> usize>` is not an iterator
+   |
+   = note: found the following associated functions; to be used as methods, functions must have a `self` parameter
+   = note: the candidate is defined in an impl for the type `Box<T, A>`
+   = note: the following trait bounds were not satisfied:
+           `dyn Fn(bool) -> usize: Iterator`
+           which is required by `Box<dyn Fn(bool) -> usize>: Iterator`
+           `Box<dyn Fn(bool) -> usize>: Iterator`
+           which is required by `&mut Box<dyn Fn(bool) -> usize>: Iterator`
+           `dyn Fn(bool) -> usize: Iterator`
+           which is required by `&mut dyn Fn(bool) -> usize: Iterator`
+help: use associated function syntax instead
+   |
+22 -     foo.take()
+22 +     Box::<dyn Fn(bool) -> usize>::take(foo)
+   |
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0277, E0599.
+For more information about an error, try `rustc --explain E0277`.
+rustc exit: 1
+
+[exit 0]

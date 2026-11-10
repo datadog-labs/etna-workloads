@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+index 08c634620300addde5a051df7622bb1dbddf4252..6798ceb4c6755f554b798be44d3c3d1f51371596 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+@@ -48,36 +48,6 @@ pub(super) fn compute_normalizes_to_goal(
+             proven_via,
+             goal,
+             |ecx| {
+-                // FIXME(generic_associated_types): Addresses aggressive inference in #92917.
+-                //
+-                // If this type is a GAT with currently unconstrained arguments, we do not
+-                // want to normalize it via a candidate which only applies for a specific
+-                // instantiation. We could otherwise keep the GAT as rigid and succeed this way.
+-                // See tests/ui/generic-associated-types/no-incomplete-gat-arg-inference.rs.
+-                //
+-                // This only avoids normalization if a GAT argument is fully unconstrained.
+-                // This is quite arbitrary but fixing it causes some ambiguity, see #125196.
+-                for arg in goal.predicate.alias.own_args(cx).iter() {
+-                    let Some(term) = arg.as_term() else {
+-                        continue;
+-                    };
+-                    match ecx.structurally_normalize_term(goal.param_env, term) {
+-                        Ok(term) => {
+-                            if term.is_infer() {
+-                                return Some(ecx.evaluate_added_goals_and_make_canonical_response(
+-                                    Certainty::AMBIGUOUS,
+-                                ));
+-                            }
+-                        }
+-                        Err(
+-                            e @ (NoSolutionOrRerunNonErased::NoSolution(NoSolution)
+-                            | NoSolutionOrRerunNonErased::RerunNonErased(_)),
+-                        ) => {
+-                            return Some(Err(e));
+-                        }
+-                    }
+-                }
+-
+                 None
+             },
+             |ecx| {

@@ -1,0 +1,1 @@
+Aliased `extern crate aux as nice_crate_name;` plus an unresolved `Foo`: the clean compiler suggests importing via the alias (`crate::nice_crate_name::Foo`, "one of these structs"), the injected one only suggests `aux::Foo`.

@@ -1,0 +1,1 @@
+With --error-format json, a machine-applicable suggestion that removes a whole `use` line (duplicate import, E0252) should have its span extended over the trailing newline so applying it leaves no empty line. The injected compiler omits that extension, so the reported span end column/line differ.

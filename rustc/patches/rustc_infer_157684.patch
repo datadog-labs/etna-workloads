@@ -1,0 +1,150 @@
+diff --git a/compiler/rustc_infer/src/infer/context.rs b/compiler/rustc_infer/src/infer/context.rs
+index afc083aececaa0a031c6682c4b6dfa659b683ea5..dfed23cb89f1d9527a41d821e2aceb460179a8fa 100644
+--- a/compiler/rustc_infer/src/infer/context.rs
++++ b/compiler/rustc_infer/src/infer/context.rs
+@@ -180,7 +180,7 @@ fn instantiate_binder_with_infer<T: TypeFoldable<TyCtxt<'tcx>> + Copy>(
+         )
+     }
+ 
+-    fn enter_forall_without_assumptions<T: TypeFoldable<TyCtxt<'tcx>>, U>(
++    fn enter_forall<T: TypeFoldable<TyCtxt<'tcx>>, U>(
+         &self,
+         value: ty::Binder<'tcx, T>,
+         f: impl FnOnce(T) -> U,
+@@ -188,20 +188,6 @@ fn enter_forall_without_assumptions<T: TypeFoldable<TyCtxt<'tcx>>, U>(
+         self.enter_forall(value, f)
+     }
+ 
+-    fn enter_forall_with_empty_assumptions<T: TypeFoldable<TyCtxt<'tcx>>, U>(
+-        &self,
+-        value: ty::Binder<'tcx, T>,
+-        f: impl FnOnce(T) -> U,
+-    ) -> U {
+-        self.enter_forall(value, |value| {
+-            let u = self.universe();
+-            self.placeholder_assumptions_for_next_solver
+-                .borrow_mut()
+-                .insert(u, Some(rustc_type_ir::region_constraint::Assumptions::empty()));
+-            f(value)
+-        })
+-    }
+-
+     fn equate_ty_vids_raw(&self, a: ty::TyVid, b: ty::TyVid) {
+         self.inner.borrow_mut().type_variables().equate(a, b);
+     }
+diff --git a/compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs b/compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs
+index 559ca0a98c58e866867046ac94005b46ce1c4630..9fd0802020be8a707a6e3d716cb2249acd6773f2 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs
+@@ -1276,8 +1276,8 @@ pub(super) fn instantiate_binder_with_infer<T: TypeFoldable<I> + Copy>(
+         self.delegate.instantiate_binder_with_infer(value)
+     }
+ 
+-    /// `enter_forall_with_assumptions`, but takes `&mut self` and passes it back through
+-    /// the callback since it can't be aliased during the call.
++    /// `enter_forall`, but takes `&mut self` and passes it back through the
++    /// callback since it can't be aliased during the call.
+     ///
+     /// The `param_env` is used to *compute* the assumptions of the binder, not *as* the
+     /// assumptions associated with the binder.
+@@ -1289,7 +1289,7 @@ pub(super) fn enter_forall_with_assumptions<T: TypeFoldable<I>, U>(
+         param_env: I::ParamEnv,
+         f: impl FnOnce(&mut Self, T) -> U,
+     ) -> U {
+-        self.delegate.enter_forall_without_assumptions(value, |value| {
++        self.delegate.enter_forall(value, |value| {
+             let u = self.delegate.universe();
+             let assumptions = if self.cx().assumptions_on_binders() {
+                 self.region_assumptions_for_placeholders_in_universe(value.clone(), u, param_env)
+diff --git a/compiler/rustc_type_ir/src/infer_ctxt.rs b/compiler/rustc_type_ir/src/infer_ctxt.rs
+index 1cd070365f6519cbb5b1954661da89ae80e65a77..55757391362e69d231e945be2d8b8fd9ccbd1ce6 100644
+--- a/compiler/rustc_type_ir/src/infer_ctxt.rs
++++ b/compiler/rustc_type_ir/src/infer_ctxt.rs
+@@ -437,16 +437,7 @@ fn instantiate_binder_with_infer<T: TypeFoldable<Self::Interner> + Copy>(
+         value: ty::Binder<Self::Interner, T>,
+     ) -> T;
+ 
+-    fn enter_forall_without_assumptions<T: TypeFoldable<Self::Interner>, U>(
+-        &self,
+-        value: ty::Binder<Self::Interner, T>,
+-        f: impl FnOnce(T) -> U,
+-    ) -> U;
+-
+-    /// FIXME(-Zassumptions-on-binders): Any usage of this method is likely wrong
+-    /// and should be replaced in the long term by actually taking assumptions into
+-    /// account.
+-    fn enter_forall_with_empty_assumptions<T: TypeFoldable<Self::Interner>, U>(
++    fn enter_forall<T: TypeFoldable<Self::Interner>, U>(
+         &self,
+         value: ty::Binder<Self::Interner, T>,
+         f: impl FnOnce(T) -> U,
+diff --git a/compiler/rustc_type_ir/src/region_constraint.rs b/compiler/rustc_type_ir/src/region_constraint.rs
+index d34a1ec52d153c59a0cce464269472bedb0c502d..555f0bc7f10b023ae33d6e9c79fefd2ed825d52a 100644
+--- a/compiler/rustc_type_ir/src/region_constraint.rs
++++ b/compiler/rustc_type_ir/src/region_constraint.rs
+@@ -1025,7 +1025,11 @@ fn alias_outlives_candidates_from_assumptions<Infcx: InferCtxtLike<Interner = I>
+ 
+     let prev_universe = infcx.universe();
+ 
+-    infcx.enter_forall_with_empty_assumptions(bound_outlives, |(alias, r)| {
++    // FIXME(-Zassumptions-on-binders): Handle the assumptions on this binder
++    infcx.enter_forall(bound_outlives, |(alias, r)| {
++        let u = infcx.universe();
++        infcx.insert_placeholder_assumptions(u, Some(Assumptions::empty()));
++
+         for bound_type_outlives in assumptions.type_outlives.iter() {
+             let OutlivesClause(alias2, r2) =
+                 infcx.instantiate_binder_with_infer(*bound_type_outlives);
+@@ -1117,14 +1121,14 @@ fn binders<T>(&mut self, a: Binder<I, T>, b: Binder<I, T>) -> RelateResult<I, Bi
+     where
+         T: Relate<I>,
+     {
+-        self.infcx.enter_forall_with_empty_assumptions(a, |a| {
++        self.infcx.enter_forall(a, |a| {
+             let u = self.infcx.universe();
+             self.infcx.insert_placeholder_assumptions(u, Some(Assumptions::empty()));
+             let b = self.infcx.instantiate_binder_with_infer(b);
+             self.relate(a, b)
+         })?;
+ 
+-        self.infcx.enter_forall_with_empty_assumptions(b, |b| {
++        self.infcx.enter_forall(b, |b| {
+             let u = self.infcx.universe();
+             self.infcx.insert_placeholder_assumptions(u, Some(Assumptions::empty()));
+             let a = self.infcx.instantiate_binder_with_infer(a);
+diff --git a/compiler/rustc_type_ir/src/relate/solver_relating.rs b/compiler/rustc_type_ir/src/relate/solver_relating.rs
+index 849dcf4c5732b0ac17b4e7f8616de8b5f95e6c16..08878d8af6e35b183c9dd1a576adfb2ed8db27ef 100644
+--- a/compiler/rustc_type_ir/src/relate/solver_relating.rs
++++ b/compiler/rustc_type_ir/src/relate/solver_relating.rs
+@@ -295,13 +295,13 @@ fn binders<T>(
+             //
+             // [rd]: https://rustc-dev-guide.rust-lang.org/borrow_check/region_inference/placeholders_and_universes.html
+             ty::Covariant => {
+-                self.infcx.enter_forall_with_empty_assumptions(b, |b| {
++                self.infcx.enter_forall(b, |b| {
+                     let a = self.infcx.instantiate_binder_with_infer(a);
+                     self.relate(a, b)
+                 })?;
+             }
+             ty::Contravariant => {
+-                self.infcx.enter_forall_with_empty_assumptions(a, |a| {
++                self.infcx.enter_forall(a, |a| {
+                     let b = self.infcx.instantiate_binder_with_infer(b);
+                     self.relate(a, b)
+                 })?;
+@@ -318,13 +318,13 @@ fn binders<T>(
+             // `exists<..> A == for<..> B` and `exists<..> B == for<..> A`.
+             // Check if `exists<..> A == for<..> B`
+             ty::Invariant => {
+-                self.infcx.enter_forall_with_empty_assumptions(b, |b| {
++                self.infcx.enter_forall(b, |b| {
+                     let a = self.infcx.instantiate_binder_with_infer(a);
+                     self.relate(a, b)
+                 })?;
+ 
+                 // Check if `exists<..> B == for<..> A`.
+-                self.infcx.enter_forall_with_empty_assumptions(a, |a| {
++                self.infcx.enter_forall(a, |a| {
+                     let b = self.infcx.instantiate_binder_with_infer(b);
+                     self.relate(a, b)
+                 })?;

@@ -1,0 +1,62 @@
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..47f63295171c18a86f76821b62c8ff419261efad 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -657,7 +657,7 @@ fn error_code(self, has_unexpected_resolution: bool) -> ErrCode {
+             (PathSource::Trait(_), true) => E0404,
+             (PathSource::Trait(_), false) => E0405,
+             (PathSource::Type | PathSource::DefineOpaques, true) => E0573,
+-            (PathSource::Type | PathSource::DefineOpaques, false) => E0425,
++            (PathSource::Type | PathSource::DefineOpaques, false) => E0412,
+             (PathSource::Struct(_), true) => E0574,
+             (PathSource::Struct(_), false) => E0422,
+             (PathSource::Expr(..), true)
+@@ -3317,7 +3317,7 @@ fn with_current_self_item<T>(&mut self, self_item: &Item, f: impl FnOnce(&mut Se
+         result
+     }
+ 
+-    /// When evaluating a `trait` use its associated types' idents for suggestions in E0425.
++    /// When evaluating a `trait` use its associated types' idents for suggestions in E0412.
+     fn resolve_trait_items(&mut self, trait_items: &'ast [Box<AssocItem>]) {
+         let trait_assoc_items =
+             replace(&mut self.diag_metadata.current_trait_assoc_items, Some(trait_items));
+@@ -4609,7 +4609,7 @@ fn smart_resolve_path_fragment(
+ 
+                 // There are two different error messages user might receive at
+                 // this point:
+-                // - E0425 cannot find type `{}` in this scope
++                // - E0412 cannot find type `{}` in this scope
+                 // - E0433 failed to resolve: use of undeclared type or module `{}`
+                 //
+                 // The first one is emitted for paths in type-position, and the
+@@ -4617,7 +4617,7 @@ fn smart_resolve_path_fragment(
+                 //
+                 // Thus (since we're in expression-position at this point), not to
+                 // confuse the user, we want to keep the *message* from E0433 (so
+-                // `parent_err`), but we want *hints* from E0425 (so `err`).
++                // `parent_err`), but we want *hints* from E0412 (so `err`).
+                 //
+                 // And that's what happens below - we're just mixing both messages
+                 // into a single one.
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..6cca67e142baae4ba200f64ea616a93106f4c675 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -975,7 +975,7 @@ fn try_lookup_name_relaxed(
+             if !enum_candidates.is_empty() {
+                 enum_candidates.sort();
+ 
+-                // Contextualize for E0425 "cannot find type", but don't belabor the point
++                // Contextualize for E0412 "cannot find type", but don't belabor the point
+                 // (that it's a variant) for E0573 "expected type, found variant".
+                 let preamble = if res.is_none() {
+                     let others = match enum_candidates.len() {
+@@ -1417,7 +1417,7 @@ fn err_code_special_cases(
+                 }
+ 
+                 self.suggest_ident_hidden_by_hygiene(err, path, span);
+-                // cannot find type in this scope
++            } else if err_code == E0412 {
+                 if let Some(correct) = Self::likely_rust_type(path) {
+                     err.span_suggestion(
+                         span,

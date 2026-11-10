@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..43f63c5b4414a71076a1e972c8008186ce9b0028 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -3911,7 +3911,7 @@ fn check_expr_offset_of(
+                         .iter_enumerated()
+                         .find(|(_, f)| f.ident(self.tcx).normalize_to_macros_2_0() == ident)
+                     {
+-                        let field_ty = self.field_ty(expr.span, field, args);
++                        let field_ty = field.ty(self.tcx, args).skip_norm_wip();
+ 
+                         if self.tcx.features().offset_of_slice() {
+                             self.require_type_has_static_alignment(field_ty, expr.span);
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..306212c1f9c7da07fe815202f3ece98aa885a927 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -363,11 +363,18 @@ fn handle_offset_of(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+             .get(expr.hir_id)
+             .expect("no offset_of_data for offset_of");
+ 
++        let mut last_did = expr.hir_id.owner.to_def_id();
+         for &(current_ty, variant, field) in indices {
++            let current_ty =
++                self.tcx.normalize_erasing_regions(
++                    ty::TypingEnv::non_body_analysis(self.tcx, last_did),
++                    ty::Unnormalized::new_wip(current_ty),
++                );
+             match current_ty.kind() {
+                 ty::Adt(def, _) => {
+                     let field = &def.variant(variant).fields[field];
+                     self.insert_def_id(field.did);
++                    last_did = field.did;
+                 }
+                 // we don't need to mark tuple fields as live,
+                 // but we may need to mark subfields

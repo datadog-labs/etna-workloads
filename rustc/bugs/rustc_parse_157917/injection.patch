@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..59fc21a1c3709672695594565a3eee666f9498a7 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -3130,33 +3130,13 @@ fn error_missing_in_for_loop(&mut self) {
+             (span, Some(diagnostics::MissingInInForLoopSub::InNotEq(span)))
+         } else {
+             let span = self.prev_token.span.between(self.token.span);
+-            let sub = (!self.for_loop_head_has_in())
+-                .then_some(diagnostics::MissingInInForLoopSub::AddIn(span));
++            let sub = Some(diagnostics::MissingInInForLoopSub::AddIn(span));
+             (span, sub)
+         };
+ 
+         self.dcx().emit_err(diagnostics::MissingInInForLoop { span, sub });
+     }
+ 
+-    /// Whether the `for` loop header already contains an `in` before its body.
+-    /// If it does, the binding is malformed (e.g. `for i i in 0..10`) rather
+-    /// than missing `in`, so suggesting another `in` would just be invalid too.
+-    fn for_loop_head_has_in(&self) -> bool {
+-        let mut dist = 0;
+-        loop {
+-            let (is_in, is_end) = self.look_ahead(dist, |t| {
+-                (t.is_keyword(kw::In), matches!(t.kind, token::OpenBrace | token::Eof))
+-            });
+-            if is_in {
+-                return true;
+-            }
+-            if is_end {
+-                return false;
+-            }
+-            dist += 1;
+-        }
+-    }
+-
+     /// Parses a `while` or `while let` expression (`while` token already eaten).
+     fn parse_expr_while(&mut self, opt_label: Option<Label>, lo: Span) -> PResult<'a, Box<Expr>> {
+         let policy = LetChainsPolicy::EditionDependent { current_edition: lo.edition() };

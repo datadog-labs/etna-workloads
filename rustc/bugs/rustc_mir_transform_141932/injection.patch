@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_mir_transform/src/elaborate_drop.rs b/compiler/rustc_mir_transform/src/elaborate_drop.rs
+index 492759d666c83e5e0f1b02f495e87275cc3deeff..2cf66abf8a4c7e38400e45345ebad98fe1dbf19e 100644
+--- a/compiler/rustc_mir_transform/src/elaborate_drop.rs
++++ b/compiler/rustc_mir_transform/src/elaborate_drop.rs
+@@ -285,16 +285,11 @@ fn build_async_drop(
+         let yield_value = match coroutine_kind {
+             // For async gen, we need `yield Poll<OptRet>::Pending`.
+             CoroutineKind::Desugared(CoroutineDesugaring::AsyncGen, _) => {
+-                let full_yield_ty = self.elaborator.body().yield_ty().unwrap();
+-                let ty::Adt(_poll_adt, args) = *full_yield_ty.kind() else { bug!() };
+-                let ty::Adt(_option_adt, args) = *args.type_at(0).kind() else { bug!() };
+-                let yield_ty = args.type_at(0);
+-                Operand::unevaluated_constant(
+-                    tcx,
+-                    tcx.require_lang_item(LangItem::AsyncGenPending, span),
+-                    tcx.mk_args(&[yield_ty.into()]),
++                Operand::Constant(Box::new(ConstOperand {
+                     span,
+-                )
++                    user_ty: None,
++                    const_: Const::from_bool(tcx, false),
++                }))
+             }
+             // For regular async fn, we need `yield ()`.
+             CoroutineKind::Desugared(CoroutineDesugaring::Async, _) => {

@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/const_evaluatable.rs b/compiler/rustc_trait_selection/src/traits/const_evaluatable.rs
+index 74413d430b1cd6e1c91a84c8307b9ea683829f88..4b989f49316595a693689336d1cdf7a4befa1029 100644
+--- a/compiler/rustc_trait_selection/src/traits/const_evaluatable.rs
++++ b/compiler/rustc_trait_selection/src/traits/const_evaluatable.rs
+@@ -171,10 +171,15 @@ struct Visitor<'a, 'tcx> {
+     impl<'a, 'tcx> TypeVisitor<TyCtxt<'tcx>> for Visitor<'a, 'tcx> {
+         fn visit_const(&mut self, c: ty::Const<'tcx>) {
+             debug!("is_const_evaluatable: candidate={:?}", c);
+-            if self.infcx.probe(|_| {
++            if let Ok(()) = self.infcx.commit_if_ok(|_| {
+                 let ocx = ObligationCtxt::new(self.infcx);
+-                ocx.eq(&ObligationCause::dummy(), self.param_env, c, self.ct).is_ok()
++                if let Ok(()) = ocx.eq(&ObligationCause::dummy(), self.param_env, c, self.ct)
+                     && ocx.evaluate_obligations_error_on_ambiguity().no_errors()
++                {
++                    Ok(())
++                } else {
++                    Err(())
++                }
+             }) {
+                 self.single_match = match self.single_match {
+                     None => Some(Ok(c)),

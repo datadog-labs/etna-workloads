@@ -1,0 +1,151 @@
+warning: unused variable: `f`
+ --> main.rs:4:12
+  |
+4 | pub fn bad(f: extern "C" fn([u8])) {}
+  |            ^ help: if this is intentional, prefix it with an underscore: `_f`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `f`
+ --> main.rs:7:18
+  |
+7 | pub fn bad_twice(f: Result<extern "C" fn([u8]), extern "C" fn([u8])>) {}
+  |                  ^ help: if this is intentional, prefix it with an underscore: `_f`
+
+warning: struct `BadStruct` is never constructed
+  --> main.rs:11:8
+   |
+11 | struct BadStruct(extern "C" fn([u8]));
+   |        ^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: enum `BadEnum` is never used
+  --> main.rs:14:6
+   |
+14 | enum BadEnum {
+   |      ^^^^^^^
+
+warning: enum `BadUnion` is never used
+  --> main.rs:19:6
+   |
+19 | enum BadUnion {
+   |      ^^^^^^^^
+
+warning: type alias `Foo` is never used
+  --> main.rs:24:6
+   |
+24 | type Foo = extern "C" fn([u8]);
+   |      ^^^
+
+error: `extern` fn uses type `[u8]`, which is not FFI-safe
+  --> main.rs:11:18
+   |
+11 | struct BadStruct(extern "C" fn([u8]));
+   |                  ^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider using a raw pointer instead
+   = note: slices have no C equivalent
+note: the lint level is defined here
+  --> main.rs:2:9
+   |
+ 2 | #![deny(improper_ctypes_definitions)]
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `extern` fn uses type `[u8]`, which is not FFI-safe
+  --> main.rs:15:7
+   |
+15 |     A(extern "C" fn([u8])),
+   |       ^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider using a raw pointer instead
+   = note: slices have no C equivalent
+
+error: `extern` fn uses type `[u8]`, which is not FFI-safe
+  --> main.rs:20:7
+   |
+20 |     A(extern "C" fn([u8])),
+   |       ^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider using a raw pointer instead
+   = note: slices have no C equivalent
+
+error: `extern` fn uses type `[u8]`, which is not FFI-safe
+  --> main.rs:24:12
+   |
+24 | type Foo = extern "C" fn([u8]);
+   |            ^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider using a raw pointer instead
+   = note: slices have no C equivalent
+
+error: `extern` fn uses type `Option<&<T as FooTrait>::FooType>`, which is not FFI-safe
+  --> main.rs:31:20
+   |
+31 | pub type Foo2<T> = extern "C" fn(Option<&<T as FooTrait>::FooType>);
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider adding a `#[repr(C)]`, `#[repr(transparent)]`, or integer `#[repr(...)]` attribute to this enum
+   = note: enum has no representation hint
+
+error: `extern` fn uses type `FfiUnsafe`, which is not FFI-safe
+  --> main.rs:41:17
+   |
+41 | pub static BAD: extern "C" fn(FfiUnsafe) = f;
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider adding a `#[repr(C)]` or `#[repr(transparent)]` attribute to this struct
+   = note: this struct has unspecified layout
+note: the type is defined here
+  --> main.rs:34:1
+   |
+34 | pub struct FfiUnsafe;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+error: `extern` fn uses type `FfiUnsafe`, which is not FFI-safe
+  --> main.rs:44:30
+   |
+44 | pub static BAD_TWICE: Result<extern "C" fn(FfiUnsafe), extern "C" fn(FfiUnsafe)> = Ok(f);
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider adding a `#[repr(C)]` or `#[repr(transparent)]` attribute to this struct
+   = note: this struct has unspecified layout
+note: the type is defined here
+  --> main.rs:34:1
+   |
+34 | pub struct FfiUnsafe;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+error: `extern` fn uses type `FfiUnsafe`, which is not FFI-safe
+  --> main.rs:44:56
+   |
+44 | pub static BAD_TWICE: Result<extern "C" fn(FfiUnsafe), extern "C" fn(FfiUnsafe)> = Ok(f);
+   |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider adding a `#[repr(C)]` or `#[repr(transparent)]` attribute to this struct
+   = note: this struct has unspecified layout
+note: the type is defined here
+  --> main.rs:34:1
+   |
+34 | pub struct FfiUnsafe;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+error: `extern` fn uses type `FfiUnsafe`, which is not FFI-safe
+  --> main.rs:48:22
+   |
+48 | pub const BAD_CONST: extern "C" fn(FfiUnsafe) = f;
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^ not FFI-safe
+   |
+   = help: consider adding a `#[repr(C)]` or `#[repr(transparent)]` attribute to this struct
+   = note: this struct has unspecified layout
+note: the type is defined here
+  --> main.rs:34:1
+   |
+34 | pub struct FfiUnsafe;
+   | ^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 9 previous errors; 6 warnings emitted
+
+rustc exit: 1
+
+[exit 0]

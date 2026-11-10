@@ -1,0 +1,1 @@
+Using a non-local anon const (from an auxiliary crate) in an impl's array length with generic_const_exprs: clean rustc reports a type error (exit 1); the injected one ICEs (exit 101) in is_const_param_default via expect_local on a non-local DefId.

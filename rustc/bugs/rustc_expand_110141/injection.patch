@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_expand/src/config.rs b/compiler/rustc_expand/src/config.rs
+index 7e80f6e4cb8976eaeb17a1cb7f968c26c97a49fb..4fb653e33151dde8fb51f782042b019412a67e63 100644
+--- a/compiler/rustc_expand/src/config.rs
++++ b/compiler/rustc_expand/src/config.rs
+@@ -130,13 +130,9 @@ pub fn pre_configure_attrs(sess: &Session, attrs: &[Attribute]) -> ast::AttrVec
+         config_tokens: false,
+         lint_node_id: ast::CRATE_NODE_ID,
+     };
+-    attrs
+-        .iter()
+-        .flat_map(|attr| strip_unconfigured.process_cfg_attr(attr))
+-        .take_while(|attr| {
+-            !is_cfg(attr) || strip_unconfigured.cfg_true(attr, ShouldEmit::Nothing).as_bool()
+-        })
+-        .collect()
++    let attrs: ast::AttrVec =
++        attrs.iter().flat_map(|attr| strip_unconfigured.process_cfg_attr(attr)).collect();
++    if strip_unconfigured.in_cfg(&attrs) { attrs } else { ast::AttrVec::new() }
+ }
+ 
+ #[macro_export]
+diff --git a/compiler/rustc_expand/src/expand.rs b/compiler/rustc_expand/src/expand.rs
+index fa7a2dce717b77e9052d438eb7326a9b90686d12..01d70d9e2ed5d377b89287a93849b8b7e3ae8bcc 100644
+--- a/compiler/rustc_expand/src/expand.rs
++++ b/compiler/rustc_expand/src/expand.rs
+@@ -1838,12 +1838,10 @@ fn walk(&mut self, collector: &mut InvocationCollector<'_, '_>) {
+     fn expand_cfg_false(
+         &mut self,
+         collector: &mut InvocationCollector<'_, '_>,
+-        pos: usize,
++        _pos: usize,
+         _span: Span,
+     ) {
+-        // Attributes above `cfg(FALSE)` are left in place, because we may want to configure
+-        // some global crate properties even on fully unconfigured crates.
+-        self.attrs.truncate(pos);
++        self.attrs.clear();
+         // Standard prelude imports are left in the crate for backward compatibility.
+         self.items.truncate(collector.cx.num_standard_library_imports);
+     }

@@ -1,0 +1,1 @@
+Compiles a no_core lib for i686 containing a repr(C, align(2)) struct wrapping [u8; 0x7fffffff]; after padding to alignment the size exceeds the 32-bit object size bound. The clean compiler reports 'too big for the target architecture' and exits 1; the injected compiler misses the check and succeeds (status 0).

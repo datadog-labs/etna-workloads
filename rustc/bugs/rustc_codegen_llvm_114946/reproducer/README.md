@@ -1,0 +1,1 @@
+Compiles a staticlib with -Zsanitizer=address and fat LTO and prints the linkage of @___asan_globals_registered in the emitted LLVM IR: 'common hidden' on the clean compiler, 'internal' on the injected one (the symbol is no longer preserved during LTO).

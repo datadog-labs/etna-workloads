@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_infer/src/infer/context.rs b/compiler/rustc_infer/src/infer/context.rs
+index afc083aececaa0a031c6682c4b6dfa659b683ea5..5a3aa6892943a5c10305511882754540456cd404 100644
+--- a/compiler/rustc_infer/src/infer/context.rs
++++ b/compiler/rustc_infer/src/infer/context.rs
+@@ -495,10 +495,7 @@ fn fold_const(&mut self, c: ty::Const<'tcx>) -> ty::Const<'tcx> {
+         match c.kind() {
+             ty::ConstKind::Infer(ty::InferConst::Var(vid)) => {
+                 let vid = self.infcx.root_const_var(vid);
+-                let universe = match self.infcx.try_resolve_const_var(vid) {
+-                    Ok(value) => return value.fold_with(self),
+-                    Err(universe) => universe,
+-                };
++                let universe = self.infcx.try_resolve_const_var(vid).unwrap_err();
+                 if self.for_universe.can_name(universe) {
+                     c
+                 } else {
+diff --git a/compiler/rustc_next_trait_solver/src/canonical/mod.rs b/compiler/rustc_next_trait_solver/src/canonical/mod.rs
+index cf10b3a30f318e5bd8d4c6cb6b73aaa83a331d40..ad855c0e7ac98db8b312d435222c5fafa59d90e8 100644
+--- a/compiler/rustc_next_trait_solver/src/canonical/mod.rs
++++ b/compiler/rustc_next_trait_solver/src/canonical/mod.rs
+@@ -427,10 +427,12 @@ fn consts(&mut self, a: I::Const, b: I::Const) -> RelateResult<I, I::Const> {
+         }
+ 
+         let infcx = self.infcx;
+-        // Proof tree evaluation can unify inference variables in the original
+-        // values without eagerly resolving them.
++        // FIXME: make this a debug_assert.
++        // Currently proof tree evaluation can unify infer vars in original
++        // vars while not resolving them.
++        // See `tests/ui/traits/next-solver/transmute-from-async-closure.rs`
+         let a = infcx.shallow_resolve_const(a);
+-        let b = infcx.shallow_resolve_const(b);
++        debug_assert_eq!(b, infcx.shallow_resolve_const(b));
+         match (a.kind(), b.kind()) {
+             (
+                 ty::ConstKind::Infer(ty::InferConst::Var(a_vid)),

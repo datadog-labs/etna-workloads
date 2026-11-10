@@ -1,0 +1,79 @@
+diff --git a/compiler/rustc_mir_transform/src/match_branches.rs b/compiler/rustc_mir_transform/src/match_branches.rs
+index 36eed06fcadda5a9d3c5ab6df41c1c9ac31c80a8..e80ac0ecb01f7c1de0eb5e05f8db68fc2762a114 100644
+--- a/compiler/rustc_mir_transform/src/match_branches.rs
++++ b/compiler/rustc_mir_transform/src/match_branches.rs
+@@ -8,7 +8,6 @@
+ use super::simplify::simplify_cfg;
+ use crate::PassPolicy;
+ use crate::patch::MirPatch;
+-use crate::unreachable_prop::remove_successors_from_switch;
+ 
+ /// Unifies all targets into one basic block if each statement can have the same statement.
+ pub(super) struct MatchBranchSimplification;
+@@ -395,12 +394,10 @@ fn simplify_match<'tcx>(
+         Some(targets.otherwise())
+     };
+     // We can patch the terminator to goto because there is a single target.
+-    match (reachable_cases.len(), otherwise.is_none()) {
+-        (1, true) | (0, false) => {
++    match (&reachable_cases[..], otherwise) {
++        (&[(_, single_target)], None) | (&[], Some(single_target)) => {
+             let mut patch = simplify_match.patch;
+-            remove_successors_from_switch(tcx, switch_bb, body, &mut patch, |bb| {
+-                body.basic_blocks[bb].is_empty_unreachable()
+-            });
++            patch.patch_terminator(switch_bb, TerminatorKind::Goto { target: single_target });
+             patch.apply(body);
+             return true;
+         }
+diff --git a/compiler/rustc_mir_transform/src/unreachable_prop.rs b/compiler/rustc_mir_transform/src/unreachable_prop.rs
+index 3c9ae691c885c8d3378b57f96cb2a3156e9ec84d..d161ec534457663d16e6986be7ddcdce4bd73ae3 100644
+--- a/compiler/rustc_mir_transform/src/unreachable_prop.rs
++++ b/compiler/rustc_mir_transform/src/unreachable_prop.rs
+@@ -36,9 +36,7 @@ fn run_pass<'tcx>(&self, tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+                 }
+                 // Try to remove unreachable targets from the switch.
+                 TerminatorKind::SwitchInt { .. } => {
+-                    remove_successors_from_switch(tcx, bb, body, &mut patch, |bb| {
+-                        unreachable_blocks.contains(&bb)
+-                    })
++                    remove_successors_from_switch(tcx, bb, &unreachable_blocks, body, &mut patch)
+                 }
+                 _ => false,
+             };
+@@ -59,18 +57,20 @@ fn run_pass<'tcx>(&self, tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+ }
+ 
+ /// Return whether the current terminator is fully unreachable.
+-pub(crate) fn remove_successors_from_switch<'tcx>(
++fn remove_successors_from_switch<'tcx>(
+     tcx: TyCtxt<'tcx>,
+     bb: BasicBlock,
++    unreachable_blocks: &FxHashSet<BasicBlock>,
+     body: &Body<'tcx>,
+     patch: &mut MirPatch<'tcx>,
+-    is_unreachable_block: impl Fn(BasicBlock) -> bool,
+ ) -> bool {
+     let terminator = body.basic_blocks[bb].terminator();
+     let TerminatorKind::SwitchInt { discr, targets } = &terminator.kind else { bug!() };
+     let source_info = terminator.source_info;
+     let location = body.terminator_loc(bb);
+ 
++    let is_unreachable = |bb| unreachable_blocks.contains(&bb);
++
+     // If there are multiple targets, we want to keep information about reachability for codegen.
+     // For example (see tests/codegen-llvm/match-optimizes-away.rs)
+     //
+@@ -113,10 +113,10 @@ pub(crate) fn remove_successors_from_switch<'tcx>(
+     };
+ 
+     let otherwise = targets.otherwise();
+-    let otherwise_unreachable = is_unreachable_block(otherwise);
++    let otherwise_unreachable = is_unreachable(otherwise);
+ 
+     let reachable_iter = targets.iter().filter(|&(value, bb)| {
+-        let is_unreachable = is_unreachable_block(bb);
++        let is_unreachable = is_unreachable(bb);
+         // We remove this target from the switch, so record the inequality using `Assume`.
+         if is_unreachable && !otherwise_unreachable {
+             add_assumption(BinOp::Ne, value);

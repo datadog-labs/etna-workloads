@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_resolve/src/diagnostics/impls.rs b/compiler/rustc_resolve/src/diagnostics/impls.rs
+index 9fa762c87ef3eb581d7d0ecc4cddd07717b1ae85..d31324e88c3507cc6769cb40bebccab6517db113 100644
+--- a/compiler/rustc_resolve/src/diagnostics/impls.rs
++++ b/compiler/rustc_resolve/src/diagnostics/impls.rs
+@@ -1196,37 +1196,16 @@ pub(crate) fn into_struct_error(
+                             .with_lo(BytePos(sp.lo().0 - (current.len() as u32)))
+                             .until(ident.span);
+ 
+-                        // Only suggest replacing the binding keyword if this is a simple
+-                        // binding.
+-                        //
+-                        // Note: this approach still incorrectly suggests for irrefutable
+-                        // patterns like `if let x = 1 { const { x } }`, since the text
+-                        // between `let` and the identifier is just whitespace.
+-                        // See tests/ui/consts/non-const-value-in-const-irrefutable-pat-binding.rs
+-                        let is_simple_binding =
+-                            self.tcx.sess.source_map().span_to_snippet(sp).is_ok_and(|snippet| {
+-                                let after_keyword = snippet[current.len()..].trim();
+-                                after_keyword.is_empty() || after_keyword == "mut"
+-                            });
+-
+-                        if is_simple_binding {
+-                            (
+-                                Some(diagnostics::AttemptToUseNonConstantValueInConstantWithSuggestion {
+-                                    span: sp,
+-                                    suggestion,
+-                                    current,
+-                                    type_span,
+-                                }),
+-                                Some(diagnostics::AttemptToUseNonConstantValueInConstantLabelWithSuggestion { span }),
+-                                None,
+-                            )
+-                        } else {
+-                            (
+-                                None,
+-                                Some(diagnostics::AttemptToUseNonConstantValueInConstantLabelWithSuggestion { span }),
+-                                None,
+-                            )
+-                        }
++                        (
++                            Some(diagnostics::AttemptToUseNonConstantValueInConstantWithSuggestion {
++                                span: sp,
++                                suggestion,
++                                current,
++                                type_span,
++                            }),
++                            Some(diagnostics::AttemptToUseNonConstantValueInConstantLabelWithSuggestion { span }),
++                            None,
++                        )
+                     }
+                     _ => (
+                         None,

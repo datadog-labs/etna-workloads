@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_target/src/callconv/aarch64.rs b/compiler/rustc_target/src/callconv/aarch64.rs
+index 0162aa838cb6bc7c566b7f66123f496e1e4de838..9793ba34d82184458bb14ba7710ec7f325f84879 100644
+--- a/compiler/rustc_target/src/callconv/aarch64.rs
++++ b/compiler/rustc_target/src/callconv/aarch64.rs
+@@ -137,21 +137,8 @@ fn classify_arg<'a, Ty, C>(cx: &C, arg: &mut ArgAbi<'a, Ty>, kind: AbiKind)
+         return;
+     }
+     let size = arg.layout.size;
+-    let align = if kind == AbiKind::AAPCS {
+-        // When passing small aggregates by value, the AAPCS ABI mandates using the unadjusted
+-        // alignment of the type (not including `repr(align)`).
+-        // This matches behavior of `AArch64ABIInfo::classifyArgumentType` in Clang.
+-        // See: <https://github.com/llvm/llvm-project/blob/5e691a1c9b0ad22689d4a434ddf4fed940e58dec/clang/lib/CodeGen/TargetInfo.cpp#L5816-L5823>
+-        arg.layout.unadjusted_abi_align
+-    } else {
+-        arg.layout.align.abi
+-    };
+     if size.bits() <= 128 {
+-        if align.bits() == 128 {
+-            arg.cast_to(Uniform::new(Reg::i128(), size));
+-        } else {
+-            arg.cast_to(Uniform::new(Reg::i64(), size));
+-        }
++        arg.cast_to(Uniform::new(Reg::i64(), size));
+         return;
+     }
+     arg.make_indirect();

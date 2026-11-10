@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_codegen_ssa/src/back/link.rs b/compiler/rustc_codegen_ssa/src/back/link.rs
+index 014e3ee8bd3659bf66d1d5b43bf94add8769bcc0..9e81d0ab0c7db4a19b2862e84f3d6460edfc7905 100644
+--- a/compiler/rustc_codegen_ssa/src/back/link.rs
++++ b/compiler/rustc_codegen_ssa/src/back/link.rs
+@@ -2053,13 +2053,17 @@ fn print_native_static_libs(
+     match out {
+         OutFileName::Real(path) => {
+             out.overwrite(&lib_args.join(" "), sess);
+-            sess.dcx().emit_note(diagnostics::StaticLibraryNativeArtifactsToFile { path });
++            if !lib_args.is_empty() {
++                sess.dcx().emit_note(diagnostics::StaticLibraryNativeArtifactsToFile { path });
++            }
+         }
+         OutFileName::Stdout => {
+-            sess.dcx().emit_note(diagnostics::StaticLibraryNativeArtifacts);
+-            // Prefix for greppability
+-            // Note: This must not be translated as tools are allowed to depend on this exact string.
+-            sess.dcx().note(format!("native-static-libs: {}", lib_args.join(" ")));
++            if !lib_args.is_empty() {
++                sess.dcx().emit_note(diagnostics::StaticLibraryNativeArtifacts);
++                // Prefix for greppability
++                // Note: This must not be translated as tools are allowed to depend on this exact string.
++                sess.dcx().note(format!("native-static-libs: {}", lib_args.join(" ")));
++            }
+         }
+     }
+ }

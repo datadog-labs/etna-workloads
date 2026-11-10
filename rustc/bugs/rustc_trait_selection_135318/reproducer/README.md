@@ -1,0 +1,1 @@
+Upcasting `&dyn Sub` to `&dyn Super<for<'a> fn(&'a ())>` where Sub has two supertraits differing only by an inner binder, compiled with -O. On the injected compiler the vtable-slot lookup treats the two supertraits as equal, so the const-eval upcast assertion panics (exit 101); the clean compiler builds and runs it.

@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..875462cc204fc149739980ee7b372b52a3893a6f 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -1603,14 +1603,13 @@ fn suggest_enum_variant_for_method_call(
+                 && let hir::Node::Stmt(&hir::Stmt { kind: hir::StmtKind::Semi(parent), .. })
+                 | hir::Node::Expr(parent) = tcx.parent_hir_node(path_expr.hir_id)
+             {
+-                // We want to replace the parts that need to go, like `()` and `{}`.
+-                let replacement_span = match parent.kind {
+-                    hir::ExprKind::Call(callee, _) if callee.hir_id == path_expr.hir_id => {
++                let replacement_span =
++                    if let hir::ExprKind::Call(..) | hir::ExprKind::Struct(..) = parent.kind {
++                        // We want to replace the parts that need to go, like `()` and `{}`.
+                         span.with_hi(parent.span.hi())
+-                    }
+-                    hir::ExprKind::Struct(..) => span.with_hi(parent.span.hi()),
+-                    _ => span,
+-                };
++                    } else {
++                        span
++                    };
+                 match (variant.ctor, parent.kind) {
+                     (None, hir::ExprKind::Struct(..)) => {
+                         // We want a struct and we have a struct. We won't suggest changing

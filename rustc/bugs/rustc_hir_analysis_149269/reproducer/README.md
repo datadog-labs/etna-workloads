@@ -1,0 +1,1 @@
+Transmuting between `fn() -> _` and `extern "cmse-nonsecure-call" fn() -> _` (types with inference variables) must give a "type annotations needed" error. Without the check for infer types in cmse validation, layout_of is called on an infer type and rustc ICEs (exit 101, assertion failed) instead of exiting 1.

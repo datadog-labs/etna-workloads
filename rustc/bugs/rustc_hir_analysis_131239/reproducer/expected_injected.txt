@@ -1,0 +1,119 @@
+error[E0782]: expected a type, found a trait
+  --> main.rs:12:20
+   |
+12 |     fn concrete(b: B) -> B;
+   |                    ^
+   |
+   = note: `B` is dyn-incompatible, otherwise a trait object could be used
+help: use a new generic type parameter, constrained by `B`
+   |
+12 -     fn concrete(b: B) -> B;
+12 +     fn concrete<T: B>(b: T) -> B;
+   |
+help: you can also use an opaque type, but users won't be able to specify the type parameter when calling the `fn`, having to rely exclusively on type inference
+   |
+12 |     fn concrete(b: impl B) -> B;
+   |                    ++++
+
+error[E0782]: expected a type, found a trait
+  --> main.rs:12:26
+   |
+12 |     fn concrete(b: B) -> B;
+   |                          ^
+   |
+help: `B` is dyn-incompatible, use `impl B` to return an opaque type, as long as you return a single underlying type
+   |
+12 |     fn concrete(b: B) -> impl B;
+   |                          ++++
+
+error[E0782]: expected a type, found a trait
+ --> main.rs:6:13
+  |
+6 |     fn f(a: A) -> A;
+  |             ^
+  |
+  = note: `A` is dyn-incompatible, otherwise a trait object could be used
+help: use a new generic type parameter, constrained by `A`
+  |
+6 -     fn f(a: A) -> A;
+6 +     fn f<T: A>(a: T) -> A;
+  |
+help: you can also use an opaque type, but users won't be able to specify the type parameter when calling the `fn`, having to rely exclusively on type inference
+  |
+6 |     fn f(a: impl A) -> A;
+  |             ++++
+
+error[E0782]: expected a type, found a trait
+ --> main.rs:6:19
+  |
+6 |     fn f(a: A) -> A;
+  |                   ^
+  |
+help: `A` is dyn-incompatible, use `impl A` to return an opaque type, as long as you return a single underlying type
+  |
+6 |     fn f(a: A) -> impl A;
+  |                   ++++
+
+error[E0038]: the trait `A` is not dyn compatible
+  --> main.rs:6:13
+   |
+ 6 |     fn f(a: A) -> A;
+   |             ^ `A` is not dyn compatible
+   |
+note: for a trait to be dyn compatible it needs to allow building a vtable
+      for more information, visit <https://doc.rust-lang.org/reference/items/traits.html#dyn-compatibility>
+  --> main.rs:12:8
+   |
+11 | trait A {
+   |       - this trait is not dyn compatible...
+12 |     fn concrete(b: B) -> B;
+   |        ^^^^^^^^ ...because associated function `concrete` has no `self` parameter
+help: consider turning `concrete` into a method by giving it a `&self` argument
+   |
+12 |     fn concrete(&self, b: B) -> B;
+   |                 ++++++
+help: alternatively, consider constraining `concrete` so it does not apply to trait objects
+   |
+12 |     fn concrete(b: B) -> B where Self: Sized;
+   |                            +++++++++++++++++
+help: you might have meant to use `Self` to refer to the implementing type
+   |
+ 6 -     fn f(a: A) -> A;
+ 6 +     fn f(a: Self) -> A;
+   |
+
+error[E0038]: the trait `B` is not dyn compatible
+  --> main.rs:12:20
+   |
+12 |     fn concrete(b: B) -> B;
+   |                    ^ `B` is not dyn compatible
+   |
+note: for a trait to be dyn compatible it needs to allow building a vtable
+      for more information, visit <https://doc.rust-lang.org/reference/items/traits.html#dyn-compatibility>
+  --> main.rs:6:8
+   |
+ 5 | trait B {
+   |       - this trait is not dyn compatible...
+ 6 |     fn f(a: A) -> A;
+   |        ^ ...because associated function `f` has no `self` parameter
+help: consider turning `f` into a method by giving it a `&self` argument
+   |
+ 6 |     fn f(&self, a: A) -> A;
+   |          ++++++
+help: alternatively, consider constraining `f` so it does not apply to trait objects
+   |
+ 6 |     fn f(a: A) -> A where Self: Sized;
+   |                     +++++++++++++++++
+help: you might have meant to use `Self` to refer to the implementing type
+   |
+12 -     fn concrete(b: B) -> B;
+12 +     fn concrete(b: Self) -> B;
+   |
+
+error: aborting due to 6 previous errors
+
+Some errors have detailed explanations: E0038, E0782.
+For more information about an error, try `rustc --explain E0038`.
+rustc exit: 1
+
+[exit 0]

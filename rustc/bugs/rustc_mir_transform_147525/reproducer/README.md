@@ -1,0 +1,1 @@
+Compiles a custom_mir function with -g and DestinationPropagation enabled. On the injected compiler dest_prop leaves debuginfo records pointing at merged-away locals, so MIR validation ICEs ("_3 is not in debuginfo"); the clean compiler compiles successfully.

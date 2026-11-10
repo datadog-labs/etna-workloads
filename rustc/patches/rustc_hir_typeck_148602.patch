@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..416b816177a8bd6dd85414850694fe4b796cd539 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -1228,7 +1228,12 @@ fn sig_for_coerce_lub(
+         closure_upvars_terr: TypeError<'tcx>,
+     ) -> Result<ty::PolyFnSig<'tcx>, TypeError<'tcx>> {
+         match ty.kind() {
+-            ty::FnDef(..) => self.sig_for_fn_def_coercion(ty, None),
++            ty::FnDef(def_id, _) => {
++                if matches!(self.tcx.codegen_fn_attrs(*def_id).inline, InlineAttr::Force { .. }) {
++                    return Err(TypeError::ForceInlineCast);
++                }
++                Ok(ty.fn_sig(self.tcx))
++            }
+             ty::Closure(..) => self.sig_for_closure_coercion(ty, None, closure_upvars_terr),
+             _ => unreachable!("`sig_for_fn_def_closure_coerce_lub` called with wrong ty: {:?}", ty),
+         }

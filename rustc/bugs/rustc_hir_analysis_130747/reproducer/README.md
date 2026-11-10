@@ -1,0 +1,1 @@
+A `extern "cmse-nonsecure-entry"` function with too many arguments and a large return value should be rejected with E0798 (args/return don't fit in registers). The injected compiler skips this validation and compiles it successfully (exit 0).

@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_hir/src/hir.rs b/compiler/rustc_hir/src/hir.rs
+index 37b2ca7718498be3f43d034c3a078a21024db604..d142346b6833c98b46f06ff2410ee2ce46084dea 100644
+--- a/compiler/rustc_hir/src/hir.rs
++++ b/compiler/rustc_hir/src/hir.rs
+@@ -1022,32 +1022,14 @@ pub fn bounds_span_for_suggestions(
+     ) -> Option<(Span, Option<Span>)> {
+         self.bounds_for_param(param_def_id).flat_map(|bp| bp.bounds.iter().rev()).find_map(
+             |bound| {
+-                let span_for_parentheses = if let Some(trait_ref) = bound.trait_ref()
+-                    && let [.., segment] = trait_ref.path.segments
+-                    && let Some(ret_ty) = segment.args().paren_sugar_output()
+-                    && let ret_ty = ret_ty.peel_refs()
+-                    && let TyKind::TraitObject(_, tagged_ptr) = ret_ty.kind
+-                    && let TraitObjectSyntax::Dyn = tagged_ptr.tag()
+-                    && ret_ty.span.can_be_used_for_suggestions()
+-                {
+-                    Some(ret_ty.span)
+-                } else {
+-                    None
+-                };
+-
+-                span_for_parentheses.map_or_else(
+-                    || {
+-                        // We include bounds that come from a `#[derive(_)]` but point at the user's
+-                        // code, as we use this method to get a span appropriate for suggestions.
+-                        let bs = bound.span();
+-                        // We use `from_expansion` instead of `can_be_used_for_suggestions` because
+-                        // the trait bound from imperfect derives do point at the type parameter,
+-                        // but expanded to a where clause, so we want to ignore those. This is only
+-                        // true for derive intrinsics.
+-                        bs.from_expansion().not().then(|| (bs.shrink_to_hi(), None))
+-                    },
+-                    |span| Some((span.shrink_to_hi(), Some(span.shrink_to_lo()))),
+-                )
++                // We include bounds that come from a `#[derive(_)]` but point at the user's
++                // code, as we use this method to get a span appropriate for suggestions.
++                let bs = bound.span();
++                // We use `from_expansion` instead of `can_be_used_for_suggestions` because
++                // the trait bound from imperfect derives do point at the type parameter,
++                // but expanded to a where clause, so we want to ignore those. This is only
++                // true for derive intrinsics.
++                bs.from_expansion().not().then(|| (bs.shrink_to_hi(), None))
+             },
+         )
+     }

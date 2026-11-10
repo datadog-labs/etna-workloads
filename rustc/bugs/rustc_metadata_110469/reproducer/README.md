@@ -1,0 +1,1 @@
+Calling a foreign fn with too many lifetime arguments needs the lifetime param span from crate metadata; when lifetime-param spans are not encoded the compiler ICEs (status 101) instead of emitting a normal E0107 error (status 1).

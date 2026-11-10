@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_driver_impl/src/lib.rs b/compiler/rustc_driver_impl/src/lib.rs
+index e2c9f3f909b8bfe332e847e36f05923f41ac3cd1..4dfc83b2952976699b1c1c202975e1d8cbe6aa43 100644
+--- a/compiler/rustc_driver_impl/src/lib.rs
++++ b/compiler/rustc_driver_impl/src/lib.rs
+@@ -1218,18 +1218,6 @@ pub fn handle_options(early_dcx: &EarlyDiagCtxt, args: &[String]) -> HandledOpti
+                 .chain(Z_OPTIONS.iter().map(|opt_desc| ('Z', opt_desc.name())))
+                 .find(|&(_, name)| *opt == name.replace('_', "-"))
+                 .map(|(flag, _)| format!("{e}. Did you mean `-{flag} {opt}`?")),
+-            getopts::Fail::ArgumentMissing(ref opt) => {
+-                optgroups.iter().find(|option| option.name == opt).map(|option| {
+-                    // Print the help just for the option in question.
+-                    let mut options = getopts::Options::new();
+-                    option.apply(&mut options);
+-                    // getopt requires us to pass a function for joining an iterator of
+-                    // strings, even though in this case we expect exactly one string.
+-                    options.usage_with_format(|it| {
+-                        it.fold(format!("{e}\nUsage:"), |a, b| a + "\n" + &b)
+-                    })
+-                })
+-            }
+             _ => None,
+         };
+         early_dcx.early_fatal(msg.unwrap_or_else(|| e.to_string()));

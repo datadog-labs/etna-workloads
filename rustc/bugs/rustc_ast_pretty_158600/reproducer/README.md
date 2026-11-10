@@ -1,0 +1,1 @@
+Prints `-Zunpretty=expanded` output for `const impl<X> T for Vec<X> {}`. The clean compiler re-emits `const impl<X> T for ...` (parseable); the injected one prints `impl<X> const T for ...`, moving `const` after the generics, which is wrong syntax.

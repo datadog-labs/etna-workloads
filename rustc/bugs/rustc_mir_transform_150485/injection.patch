@@ -1,0 +1,140 @@
+diff --git a/compiler/rustc_mir_transform/src/gvn.rs b/compiler/rustc_mir_transform/src/gvn.rs
+index 9d751a7cc5bd003b2967fc95282570d09543f07e..32e407b74eed384122f611b926f9158756f59c20 100644
+--- a/compiler/rustc_mir_transform/src/gvn.rs
++++ b/compiler/rustc_mir_transform/src/gvn.rs
+@@ -146,7 +146,7 @@ fn run_pass(&self, tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+             VnState::new(tcx, body, typing_env, &ssa, dominators, &body.local_decls, &arena);
+ 
+         for local in body.args_iter().filter(|&local| ssa.is_ssa(local)) {
+-            let opaque = state.new_argument(body.local_decls[local].ty);
++            let opaque = state.new_opaque(body.local_decls[local].ty);
+             state.assign(local, opaque);
+         }
+ 
+@@ -230,9 +230,8 @@ enum AddressBase {
+ enum Value<'a, 'tcx> {
+     // Root values.
+     /// Used to represent values we know nothing about.
++    /// The `usize` is a counter incremented by `new_opaque`.
+     Opaque(VnOpaque),
+-    /// The value is a argument.
+-    Argument(VnOpaque),
+     /// Evaluated or unevaluated constant value.
+     Constant {
+         value: Const<'tcx>,
+@@ -317,7 +316,7 @@ fn insert_unique(
+         let value = value(VnOpaque);
+ 
+         debug_assert!(match value {
+-            Value::Opaque(_) | Value::Argument(_) | Value::Address { .. } => true,
++            Value::Opaque(_) | Value::Address { .. } => true,
+             Value::Constant { disambiguator, .. } => disambiguator.is_some(),
+             _ => false,
+         });
+@@ -473,13 +472,6 @@ fn new_opaque(&mut self, ty: Ty<'tcx>) -> VnIndex {
+         index
+     }
+ 
+-    #[instrument(level = "trace", skip(self), ret)]
+-    fn new_argument(&mut self, ty: Ty<'tcx>) -> VnIndex {
+-        let index = self.insert_unique(ty, Value::Argument);
+-        self.evaluated[index] = Some(None);
+-        index
+-    }
+-
+     /// Create a new `Value::Address` distinct from all the others.
+     #[instrument(level = "trace", skip(self), ret)]
+     fn new_pointer(&mut self, place: Place<'tcx>, kind: AddressKind) -> Option<VnIndex> {
+@@ -497,11 +489,8 @@ fn new_pointer(&mut self, place: Place<'tcx>, kind: AddressKind) -> Option<VnInd
+             // Skip the initial `Deref`.
+             projection.next();
+             AddressBase::Deref(base)
+-        } else if self.ssa.is_ssa(place.local) {
+-            // Only propagate the pointer of the SSA local.
+-            AddressBase::Local(place.local)
+         } else {
+-            return None;
++            AddressBase::Local(place.local)
+         };
+         // Do not try evaluating inside `Index`, this has been done by `simplify_place_projection`.
+         let projection =
+@@ -569,6 +558,10 @@ fn insert_tuple(&mut self, ty: Ty<'tcx>, values: &[VnIndex]) -> VnIndex {
+         self.insert(ty, Value::Aggregate(VariantIdx::ZERO, self.arena.alloc_slice(values)))
+     }
+ 
++    fn insert_deref(&mut self, ty: Ty<'tcx>, value: VnIndex) -> VnIndex {
++        self.insert(ty, Value::Projection(value, ProjectionElem::Deref))
++    }
++
+     #[instrument(level = "trace", skip(self), ret)]
+     fn eval_to_const_inner(&mut self, value: VnIndex) -> Option<OpTy<'tcx>> {
+         use Value::*;
+@@ -582,7 +575,7 @@ fn eval_to_const_inner(&mut self, value: VnIndex) -> Option<OpTy<'tcx>> {
+         let op = match self.get(value) {
+             _ if ty.is_zst() => ImmTy::uninit(ty).into(),
+ 
+-            Opaque(_) | Argument(_) => return None,
++            Opaque(_) => return None,
+             // Keep runtime check constants as symbolic.
+             RuntimeChecks(..) => return None,
+ 
+@@ -854,9 +847,7 @@ fn project(
+ 
+                     // An immutable borrow `_x` always points to the same value for the
+                     // lifetime of the borrow, so we can merge all instances of `*_x`.
+-                    let deref = self
+-                        .insert(projection_ty.ty, Value::Projection(value, ProjectionElem::Deref));
+-                    return Some((projection_ty, deref));
++                    return Some((projection_ty, self.insert_deref(projection_ty.ty, value)));
+                 } else {
+                     return None;
+                 }
+@@ -1073,7 +1064,7 @@ fn simplify_rvalue(
+                 let op = self.simplify_operand(op, location)?;
+                 Value::Repeat(op, amount)
+             }
+-            Rvalue::Aggregate(..) => return self.simplify_aggregate(rvalue, location),
++            Rvalue::Aggregate(..) => return self.simplify_aggregate(lhs, rvalue, location),
+             Rvalue::Ref(_, borrow_kind, ref mut place) => {
+                 self.simplify_place_projection(place, location);
+                 return self.new_pointer(*place, AddressKind::Ref(borrow_kind));
+@@ -1199,6 +1190,7 @@ fn simplify_aggregate_to_copy(
+ 
+     fn simplify_aggregate(
+         &mut self,
++        lhs: &Place<'tcx>,
+         rvalue: &mut Rvalue<'tcx>,
+         location: Location,
+     ) -> Option<VnIndex> {
+@@ -1281,7 +1273,12 @@ fn simplify_aggregate(
+         }
+ 
+         if let Some(value) = self.simplify_aggregate_to_copy(ty, variant_index, &fields) {
+-            if let Some(place) = self.try_as_place(value, location, true) {
++            // Allow introducing places with non-constant offsets, as those are still better than
++            // reconstructing an aggregate. But avoid creating `*a = copy (*b)`, as they might be
++            // aliases resulting in overlapping assignments.
++            let allow_complex_projection =
++                lhs.projection[..].iter().all(PlaceElem::is_stable_offset);
++            if let Some(place) = self.try_as_place(value, location, allow_complex_projection) {
+                 self.reused_locals.insert(place.local);
+                 // FIXME: Is it correct to make these retagging assignments?
+                 *rvalue = Rvalue::Use(Operand::Copy(place), WithRetag::Yes);
+@@ -2046,17 +2043,6 @@ fn try_as_place(
+                 && (allow_complex_projection || proj.is_stable_offset())
+                 && let Some(proj) = self.try_as_place_elem(self.ty(index), proj, loc)
+             {
+-                if proj == PlaceElem::Deref {
+-                    // We can introduce a new dereference if the source value cannot be changed in the body.
+-                    // Dereferencing an immutable argument always gives the same value in the body.
+-                    match self.get(pointer) {
+-                        Value::Argument(_)
+-                            if let Some(Mutability::Not) = self.ty(pointer).ref_mutability() => {}
+-                        _ => {
+-                            return None;
+-                        }
+-                    }
+-                }
+                 projection.push(proj);
+                 index = pointer;
+             } else {

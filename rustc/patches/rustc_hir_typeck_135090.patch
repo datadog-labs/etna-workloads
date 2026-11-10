@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..81b9d5cc53f8bcee1b4cb96505bb0d87559d0a74 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -18,7 +18,7 @@
+ };
+ use rustc_hir::attrs::diagnostic::CustomDiagnostic;
+ use rustc_hir::attrs::lang_items::LangItem;
+-use rustc_hir::def::{CtorKind, DefKind, Res};
++use rustc_hir::def::DefKind;
+ use rustc_hir::def_id::DefId;
+ use rustc_hir::intravisit::{self, Visitor};
+ use rustc_hir::{
+@@ -569,31 +569,6 @@ fn create_no_assoc_err(
+             self.suggest_use_shadowed_binding_with_method(source, item_ident, rcvr_ty, &mut err);
+         }
+ 
+-        let tcx = self.tcx;
+-        // Check if we wrote `Self::Assoc(1)` as if it were a tuple ctor.
+-        if let SelfSource::QPath(ty) = source
+-            && let hir::TyKind::Path(hir::QPath::Resolved(_, path)) = ty.kind
+-            && let Res::SelfTyAlias { alias_to: impl_def_id, .. } = path.res
+-            && let DefKind::Impl { .. } = self.tcx.def_kind(impl_def_id)
+-            && let Some(candidate) = tcx.associated_items(impl_def_id).find_by_ident_and_kind(
+-                self.tcx,
+-                item_ident,
+-                ty::AssocTag::Type,
+-                impl_def_id,
+-            )
+-            && let Some(adt_def) = tcx.type_of(candidate.def_id).skip_binder().ty_adt_def()
+-            && adt_def.is_struct()
+-            && adt_def.non_enum_variant().ctor_kind() == Some(CtorKind::Fn)
+-        {
+-            let def_path = tcx.def_path_str(adt_def.did());
+-            err.span_suggestion(
+-                sugg_span,
+-                format!("to construct a value of type `{}`, use the explicit path", def_path),
+-                def_path,
+-                Applicability::MachineApplicable,
+-            );
+-        }
+-
+         err
+     }
+ 

@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..cbe86554a8dc15ebbea93835dbcf0724e9e45cee 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -770,27 +770,10 @@ fn parse_item_impl(
+                 let path = match ty_first.kind {
+                     // This notably includes paths passed through `ty` macro fragments (#46438).
+                     TyKind::Path(None, path) => path,
+-                    other => {
+-                        if let TyKind::ImplTrait(_, bounds) = other
+-                            && let [bound] = bounds.as_slice()
+-                            && let GenericBound::Trait(poly_trait_ref) = bound
+-                        {
+-                            // Suggest removing extra `impl` keyword:
+-                            // `impl<T: Default> impl Default for Wrapper<T>`
+-                            //                   ^^^^^
+-                            let extra_impl_kw = ty_first.span.until(bound.span());
+-                            self.dcx().emit_err(diagnostics::ExtraImplKeywordInTraitImpl {
+-                                extra_impl_kw,
+-                                impl_trait_span: ty_first.span,
+-                            });
+-                            poly_trait_ref.trait_ref.path.clone()
+-                        } else {
+-                            return Err(self.dcx().create_err(
+-                                diagnostics::ExpectedTraitInTraitImplFoundType {
+-                                    span: ty_first.span,
+-                                },
+-                            ));
+-                        }
++                    _ => {
++                        return Err(self.dcx().create_err(
++                            diagnostics::ExpectedTraitInTraitImplFoundType { span: ty_first.span },
++                        ));
+                     }
+                 };
+                 let trait_ref = TraitRef { path, ref_id: ty_first.id };

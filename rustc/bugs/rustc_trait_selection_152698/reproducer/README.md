@@ -1,0 +1,1 @@
+With -Zforce-unstable-if-unmarked, every non-stable trait counts as unstable, so the "not implemented" label should say "the trait `LocalTrait`". The injected compiler wrongly says "the nightly-only, unstable trait `LocalTrait`". The script compiles a tiny failing crate and prints that label.

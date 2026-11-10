@@ -1,0 +1,1 @@
+A no_core library without a panic_impl dereferences a raw pointer with debug assertions on. The injected compiler still inserts the pointer alignment check, which fails with 'requires mem_align_const lang_item' (exit 1). The clean compiler skips the check and compiles it (exit 0).

@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_mir_build/src/builder/matches/buckets.rs b/compiler/rustc_mir_build/src/builder/matches/buckets.rs
+index 0d2e9bf87585d6370f0b8232432f471c7ce3f4f9..1dfb25a3d4b73861533f9b0463e762df6b8f75a8 100644
+--- a/compiler/rustc_mir_build/src/builder/matches/buckets.rs
++++ b/compiler/rustc_mir_build/src/builder/matches/buckets.rs
+@@ -162,31 +162,8 @@ fn choose_bucket_for_candidate(
+                 TestKind::SwitchInt,
+                 &TestableCase::Constant { value, kind: PatConstKind::IntOrChar },
+             ) => {
+-                // An important invariant of candidate bucketing is that a candidate
+-                // must not match in multiple branches. For `SwitchInt` tests, adding
+-                // a new value might invalidate that property for range patterns that
+-                // have already been partitioned into the failure arm, so we must take care
+-                // not to add such values here.
+-                let is_covering_range = |testable_case: &TestableCase<'tcx>| {
+-                    testable_case.as_range().is_some_and(|range| {
+-                        matches!(range.contains(value, self.tcx), None | Some(true))
+-                    })
+-                };
+-                let is_conflicting_candidate = |candidate: &&mut Candidate<'tcx>| {
+-                    candidate.match_pairs.iter().any(|mp| {
+-                        mp.place == Some(test_place) && is_covering_range(&mp.testable_case)
+-                    })
+-                };
+-                if prior_candidates
+-                    .get(&TestBranch::Failure)
+-                    .is_some_and(|candidates| candidates.iter().any(is_conflicting_candidate))
+-                {
+-                    fully_matched = false;
+-                    None
+-                } else {
+-                    fully_matched = true;
+-                    Some(TestBranch::Constant(value))
+-                }
++                fully_matched = true;
++                Some(TestBranch::Constant(value))
+             }
+             (TestKind::SwitchInt, TestableCase::Range(range)) => {
+                 // When performing a `SwitchInt` test, a range pattern can be

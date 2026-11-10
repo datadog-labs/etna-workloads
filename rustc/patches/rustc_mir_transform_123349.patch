@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+index 88ffe5861a69750d4119841e1a7c25bb6a3ae4f8..dec27e71afe4a2af07be7ff70a6df7eee77c60b9 100644
+--- a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
++++ b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+@@ -199,17 +199,28 @@ pub(crate) fn coroutine_by_move_body_def_id<'tcx>(
+         return coroutine_def_id.to_def_id();
+     }
+ 
+-    let by_move_coroutine_ty = tcx
+-        .instantiate_bound_regions_with_erased(parent_closure_args.coroutine_closure_sig())
+-        .to_coroutine_given_kind_and_upvars(
++    // Take every upvar of the child coroutine by-move, using the type of the
++    // captured place.
++    let by_move_upvars = Ty::new_tup_from_iter(
++        tcx,
++        tcx.closure_captures(coroutine_def_id).iter().map(|capture| capture.place.ty()),
++    );
++    let by_move_coroutine_ty = Ty::new_coroutine(
++        tcx,
++        coroutine_def_id.to_def_id(),
++        ty::CoroutineArgs::new(
+             tcx,
+-            parent_closure_args.parent_args(),
+-            coroutine_def_id.to_def_id(),
+-            ty::ClosureKind::FnOnce,
+-            tcx.lifetimes.re_erased,
+-            parent_closure_args.tupled_upvars_ty(),
+-            parent_closure_args.coroutine_captures_by_ref_ty(),
+-        );
++            ty::CoroutineArgsParts {
++                parent_args: args.parent_args(),
++                kind_ty: Ty::from_closure_kind(tcx, ty::ClosureKind::FnOnce),
++                resume_ty: args.resume_ty(),
++                yield_ty: args.yield_ty(),
++                return_ty: args.return_ty(),
++                tupled_upvars_ty: by_move_upvars,
++            },
++        )
++        .args,
++    );
+ 
+     let mut by_move_body = body.clone();
+     MakeByMoveBody { tcx, field_remapping, by_move_coroutine_ty }.visit_body(&mut by_move_body);

@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_hir_typeck/src/upvar.rs b/compiler/rustc_hir_typeck/src/upvar.rs
+index 91771fb37d18a6b0ab3d46e235faab97ccb3e97a..c9797187716e5268d5f52cac80d8655deda96908 100644
+--- a/compiler/rustc_hir_typeck/src/upvar.rs
++++ b/compiler/rustc_hir_typeck/src/upvar.rs
+@@ -2345,22 +2345,12 @@ fn adjust_for_non_move_closure(
+         place.projections.iter().position(|proj| proj.kind == ProjectionKind::Deref);
+ 
+     match kind {
+-        ty::UpvarCapture::ByValue => {
++        ty::UpvarCapture::ByValue | ty::UpvarCapture::ByUse => {
+             if let Some(idx) = contains_deref {
+                 truncate_place_to_len_and_update_capture_kind(&mut place, &mut kind, idx);
+             }
+         }
+ 
+-        // A non-`move`/`use` closure that only `.use`s an upvar does not need to
+-        // own (and thus clone-on-capture) the value. The `ByUse` kind here can only
+-        // come from a `x.use` in the body (a `use ||` capture clause goes through
+-        // `adjust_for_use_closure` instead). Capturing such a place by immutable
+-        // borrow lets the `.use` expression clone per evaluation, rather than also
+-        // cloning the value into the closure at construction time. See #157141.
+-        ty::UpvarCapture::ByUse => {
+-            kind = ty::UpvarCapture::ByRef(ty::BorrowKind::Immutable);
+-        }
+-
+         ty::UpvarCapture::ByRef(..) => {}
+     }
+ 

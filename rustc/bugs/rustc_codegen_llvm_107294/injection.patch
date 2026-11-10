@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_codegen_llvm/src/llvm_util.rs b/compiler/rustc_codegen_llvm/src/llvm_util.rs
+index 82ddcca3e15305e8a49fae4a444c437a4b9acb68..eda4d4cac5f98360e2501adca8680daa48ceb60d 100644
+--- a/compiler/rustc_codegen_llvm/src/llvm_util.rs
++++ b/compiler/rustc_codegen_llvm/src/llvm_util.rs
+@@ -745,7 +745,7 @@ pub(crate) fn global_llvm_features(sess: &Session, for_cfg: bool) -> Vec<String>
+                 llvm_feature.dependencies.into_iter().filter_map(move |feat| {
+                     match (enable, feat) {
+                         (_, TargetFeatureFoldStrength::Both(f))
+-                        | (true, TargetFeatureFoldStrength::EnableOnly(f)) => {
++                        | (_, TargetFeatureFoldStrength::EnableOnly(f)) => {
+                             Some(format!("{enable_disable}{f}"))
+                         }
+                         _ => None,
+diff --git a/compiler/rustc_codegen_ssa/src/target_features.rs b/compiler/rustc_codegen_ssa/src/target_features.rs
+index 69487d2039c3134775843abbc10a8327fb14df0e..4f40f785440bea926912d0ba9300e5acfb304cc0 100644
+--- a/compiler/rustc_codegen_ssa/src/target_features.rs
++++ b/compiler/rustc_codegen_ssa/src/target_features.rs
+@@ -250,6 +250,9 @@ fn parse_rust_feature_list<'a>(
+                 }
+             }
+ 
++            // Tied features are folded together even when disabling.
++            implied_features.extend(sess.target.implied_target_features(base_feature, features_map));
++
+             callback(base_feature, Some(implied_features), false)
+         } else if !feature.is_empty() {
+             err_callback(feature)

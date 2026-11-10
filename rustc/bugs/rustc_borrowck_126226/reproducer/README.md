@@ -1,0 +1,1 @@
+Method call passing a closure that mutates a capture to an `impl Fn` parameter: the E0594 diagnostic should include the 'change this to accept FnMut instead of Fn' suggestion and 'expects Fn instead of FnMut' label; the injected compiler omits them.

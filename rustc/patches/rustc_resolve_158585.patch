@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_resolve/src/ident.rs b/compiler/rustc_resolve/src/ident.rs
+index 2a1b208f94c34e33885c0c8c30524150d9f78054..435f2f5263d923b809099feecd94b2314703fd32 100644
+--- a/compiler/rustc_resolve/src/ident.rs
++++ b/compiler/rustc_resolve/src/ident.rs
+@@ -26,7 +26,6 @@
+     Determinacy, ExternModule, Finalize, IdentKey, ImportKind, ImportSummary, LateDecl,
+     LocalModule, Module, ModuleKind, ModuleOrUniformRoot, ParentScope, PathResult, PrivacyError,
+     Res, ResolutionError, Resolver, Scope, ScopeSet, Segment, Stage, Symbol, Used, diagnostics,
+-    module_to_string,
+ };
+ 
+ #[derive(Copy, Clone)]
+@@ -1879,10 +1878,6 @@ fn record_segment_res<'r, 'ra, 'tcx>(
+                         module = Some(ModuleOrUniformRoot::Module(parent));
+                         continue;
+                     }
+-                    let mut ctxt = ident.span.ctxt().normalize_to_macros_2_0();
+-                    let current_module = self.resolve_self(&mut ctxt, parent_scope.module);
+-                    let current_module_path = module_to_string(current_module)
+-                        .map_or_else(|| "crate".to_string(), |path| format!("crate::{path}"));
+                     return PathResult::failed(
+                         ident,
+                         false,
+@@ -1891,10 +1886,8 @@ fn record_segment_res<'r, 'ra, 'tcx>(
+                         module,
+                         || {
+                             (
+-                                format!(
+-                                    "too many leading `super` keywords within `{current_module_path}`"
+-                                ),
+-                                "this `super` would go above the crate root".to_string(),
++                                "too many leading `super` keywords".to_string(),
++                                "there are too many leading `super` keywords".to_string(),
+                                 None,
+                                 None,
+                             )

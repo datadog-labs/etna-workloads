@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_lint/src/builtin.rs b/compiler/rustc_lint/src/builtin.rs
+index 627fb962d5dbf13f988ba1bf03fc77c64ac22b9b..513611d56630910ccadacf8a6c4faeb86cae5cfe 100644
+--- a/compiler/rustc_lint/src/builtin.rs
++++ b/compiler/rustc_lint/src/builtin.rs
+@@ -501,10 +501,11 @@ fn check_item(&mut self, cx: &LateContext<'_>, item: &hir::Item<'_>) {
+                 return;
+             }
+         }
+-        if cx.type_is_copy_modulo_regions(ty) {
++        let empty_env = ty::ParamEnv::empty();
++        if cx.tcx.type_is_copy_modulo_regions(ty::TypingEnv::new(empty_env, cx.typing_mode()), ty) {
+             return;
+         }
+-        if type_implements_negative_copy_modulo_regions(cx.tcx, ty, cx.typing_env()) {
++        if type_implements_negative_copy_modulo_regions(cx.tcx, ty, ty::TypingEnv::new(empty_env, cx.typing_mode())) {
+             return;
+         }
+         if def.is_variant_list_non_exhaustive()
+@@ -537,7 +538,7 @@ fn check_item(&mut self, cx: &LateContext<'_>, item: &hir::Item<'_>) {
+ 
+         if type_allowed_to_implement_copy(
+             cx.tcx,
+-            cx.param_env,
++            empty_env,
+             ty,
+             traits::ObligationCause::misc(item.span, item.owner_id.def_id),
+             hir::Safety::Safe,

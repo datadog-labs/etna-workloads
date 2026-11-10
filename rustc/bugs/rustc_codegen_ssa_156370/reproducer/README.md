@@ -1,0 +1,1 @@
+A downstream crate provides an explicit implementation of an EII whose default implementation lives in an upstream dylib. The clean compiler rejects this with "multiple implementations"; the injected compiler accepts it (exit 0).

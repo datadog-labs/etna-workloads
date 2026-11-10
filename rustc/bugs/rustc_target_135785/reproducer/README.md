@@ -1,0 +1,1 @@
+Compiles a no_core #[repr(simd)] 16xi8 vector function for s390x (target-cpu=z13) and prints the emitted LLVM IR define line. The clean compiler passes the vector directly with named arguments (<16 x i8> %a, %b); the injected compiler casts it, which gives unnamed arguments (%0, %1) in the signature.

@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs b/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
+index 5cba32d742f62219e30fe1ef7add3c33acd64b3e..6236df2671f0777a63ae8d7580bfed523fbe605a 100644
+--- a/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
++++ b/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
+@@ -106,7 +106,12 @@ pub(crate) fn live_args_for_alias_from_outlives_bounds<'tcx>(
+         else {
+             continue;
+         };
+-        let new_live_args = outlives_params.1.iter().copied().collect();
++        let new_live_args: FxIndexSet<ty::GenericArg<'tcx>> = outlives_params
++            .1
++            .iter()
++            .copied()
++            .filter(|a| a.as_region() == Some(outlives_region))
++            .collect();
+         match &mut live_args {
+             None => live_args = Some(new_live_args),
+             Some(prev) => *prev = prev.intersection(&new_live_args).copied().collect(),

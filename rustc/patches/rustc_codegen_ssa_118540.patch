@@ -1,0 +1,47 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/place.rs b/compiler/rustc_codegen_ssa/src/mir/place.rs
+index 60480d1853853490997dcafa05f23837e52627f9..4731a3d63f7cbb0e8096cbcea98f7a3507434d0f 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/place.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/place.rs
+@@ -229,18 +229,9 @@ pub fn project_field<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
+         let unaligned_offset = bx.cx().const_usize(offset.bytes());
+ 
+         // Get the alignment of the field. No span is available here to blame a layout error on.
+-        let (_, mut unsized_align) =
++        let (_, unsized_align) =
+             size_of_val::size_and_align_of_dst(bx, field.ty, meta, DUMMY_SP);
+ 
+-        // For packed types, we need to cap alignment.
+-        if let ty::Adt(def, _) = self.layout.ty.kind()
+-            && let Some(packed) = def.repr().pack
+-        {
+-            let packed = bx.const_usize(packed.bytes());
+-            let cmp = bx.icmp(IntPredicate::IntULT, unsized_align, packed);
+-            unsized_align = bx.select(cmp, unsized_align, packed)
+-        }
+-
+         // Bump the unaligned offset up to the appropriate alignment
+         let offset = round_up_const_value_to_alignment(bx, unaligned_offset, unsized_align);
+ 
+diff --git a/compiler/rustc_const_eval/src/interpret/projection.rs b/compiler/rustc_const_eval/src/interpret/projection.rs
+index be31393879fff9e3ed3f61c640534368a831d9b2..0f9d893bbf18d3a4318bb66a3f1c19ee7d16c5fc 100644
+--- a/compiler/rustc_const_eval/src/interpret/projection.rs
++++ b/compiler/rustc_const_eval/src/interpret/projection.rs
+@@ -170,17 +170,7 @@ pub fn project_field<P: Projectable<'tcx, M::Provenance>>(
+             // With custom DSTS, this *will* execute user-defined code, but the same
+             // happens at run-time so that's okay.
+             match self.size_and_align_from_meta(&base_meta, &field_layout)? {
+-                Some((_, align)) => {
+-                    // For packed types, we need to cap alignment.
+-                    let align = if let ty::Adt(def, _) = base.layout().ty.kind()
+-                        && let Some(packed) = def.repr().pack
+-                    {
+-                        align.min(packed)
+-                    } else {
+-                        align
+-                    };
+-                    (base_meta, offset.align_to(align))
+-                }
++                Some((_, align)) => (base_meta, offset.align_to(align)),
+                 None if offset == Size::ZERO => {
+                     // If the offset is 0, then rounding it up to alignment wouldn't change anything,
+                     // so we can do this even for types where we cannot determine the alignment.

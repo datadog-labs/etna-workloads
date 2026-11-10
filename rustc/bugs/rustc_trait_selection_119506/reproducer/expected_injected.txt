@@ -1,0 +1,47 @@
+error[E0277]: the trait bound `&dyn MyTrait: MyTrait` is not satisfied
+  --> main.rs:20:22
+   |
+20 |         MyTrait::foo(&self)
+   |         ------------ ^^^^^ the trait `MyTrait` is not implemented for `&dyn MyTrait`
+   |         |
+   |         required by a bound introduced by this call
+   |
+help: the trait `MyTrait` is implemented for `Outer`
+  --> main.rs:10:1
+   |
+10 | impl MyTrait for Outer {
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0391]: cycle detected when checking effective visibilities
+   |
+note: ...which requires computing type of `<impl at main.rs:16:1: 16:17>::other::{opaque#0}`...
+  --> main.rs:18:24
+   |
+18 |     fn other(&self) -> impl Marker {
+   |                        ^^^^^^^^^^^
+   = note: ...which requires computing type of opaque `<impl at main.rs:16:1: 16:17>::other::{opaque#0}`...
+note: ...which requires borrow-checking `<impl at main.rs:16:1: 16:17>::other`...
+  --> main.rs:18:5
+   |
+18 |     fn other(&self) -> impl Marker {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: ...which requires promoting constants in MIR for `<impl at main.rs:16:1: 16:17>::other`...
+   = note: ...which requires checking if `<impl at main.rs:16:1: 16:17>::other` contains FFI-unwind calls...
+   = note: ...which requires building MIR for `<impl at main.rs:16:1: 16:17>::other`...
+   = note: ...which requires match-checking `<impl at main.rs:16:1: 16:17>::other`...
+   = note: ...which requires type-checking `<impl at main.rs:16:1: 16:17>::other`...
+   = note: ...which again requires checking effective visibilities, completing the cycle
+note: cycle used when checking that `<impl at main.rs:10:1: 10:23>` is well-formed
+  --> main.rs:10:1
+   |
+10 | impl MyTrait for Outer {
+   | ^^^^^^^^^^^^^^^^^^^^^^
+   = note: for more information, see <https://rustc-dev-guide.rust-lang.org/overview.html#queries> and <https://rustc-dev-guide.rust-lang.org/query.html>
+
+error: aborting due to 2 previous errors
+
+Some errors have detailed explanations: E0277, E0391.
+For more information about an error, try `rustc --explain E0277`.
+rustc exit: 1
+
+[exit 0]

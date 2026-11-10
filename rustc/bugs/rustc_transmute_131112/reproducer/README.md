@@ -1,0 +1,1 @@
+Compiling a trait whose associated type is bounded by `TransmuteFrom` (with an unnormalizable projection) should yield a normal E0277 error (exit 1); on the injected compiler the layout NormalizationFailure hits `unimplemented!` and rustc ICEs (exit 101).

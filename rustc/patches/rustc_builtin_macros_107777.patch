@@ -1,0 +1,56 @@
+diff --git a/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs b/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
+index c5f6c96bd8634c892ec2e4586ee6a19b781dfd1e..b79508ebdc49c32e5a1e87410e6fc1e50f222272 100644
+--- a/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
++++ b/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
+@@ -641,14 +641,14 @@ fn create_derived_impl(
+                         .additional_bounds
+                         .iter()
+                         .map(|p| {
+-                            cx.trait_bound(p.to_path(cx, span, type_ident, generics), self.is_const)
++                            cx.trait_bound(p.to_path(cx, span, type_ident, generics), false)
+                         })
+                         .chain(
+                             // Add a bound for the current trait.
+                             self.skip_path_as_bound.not().then(|| {
+                                 let mut trait_path = trait_path.clone();
+                                 trait_path.span = span;
+-                                cx.trait_bound(trait_path, self.is_const)
++                                cx.trait_bound(trait_path, false)
+                             }),
+                         )
+                         .chain({
+@@ -657,7 +657,7 @@ fn create_derived_impl(
+                                 let p = deriving::path_std!(marker::Copy);
+                                 Some(cx.trait_bound(
+                                     p.to_path(cx, span, type_ident, generics),
+-                                    self.is_const,
++                                    false,
+                                 ))
+                             } else {
+                                 None
+@@ -727,14 +727,14 @@ fn create_derived_impl(
+                         .map(|p| {
+                             cx.trait_bound(
+                                 p.to_path(cx, self.span, type_ident, generics),
+-                                self.is_const,
++                                false,
+                             )
+                         })
+                         .collect();
+ 
+                     // Require the current trait.
+                     if !self.skip_path_as_bound {
+-                        bounds.push(cx.trait_bound(trait_path.clone(), self.is_const));
++                        bounds.push(cx.trait_bound(trait_path.clone(), false));
+                     }
+ 
+                     // Add a `Copy` bound if required.
+@@ -742,7 +742,7 @@ fn create_derived_impl(
+                         let p = deriving::path_std!(marker::Copy);
+                         bounds.push(cx.trait_bound(
+                             p.to_path(cx, self.span, type_ident, generics),
+-                            self.is_const,
++                            false,
+                         ));
+                     }
+ 

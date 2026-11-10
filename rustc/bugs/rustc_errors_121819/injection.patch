@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_errors/src/lib.rs b/compiler/rustc_errors/src/lib.rs
+index 4fa104ad6dbfec8686530bae6ffb4c72a0115be8..b01f9133d476dad19410d4061f1dad9de2744e0b 100644
+--- a/compiler/rustc_errors/src/lib.rs
++++ b/compiler/rustc_errors/src/lib.rs
+@@ -596,7 +596,7 @@ pub fn stash_diagnostic(
+         diag: DiagInner,
+     ) -> Option<ErrorGuaranteed> {
+         let guar = match diag.level {
+-            Bug | Fatal => {
++            Bug | Fatal | DelayedBug => {
+                 self.span_bug(
+                     span,
+                     format!("invalid level in `stash_diagnostic`: {:?}", diag.level),
+@@ -606,9 +606,6 @@ pub fn stash_diagnostic(
+             // can be used to create a backtrace at the stashing site instead of whenever the
+             // diagnostic context is dropped and thus delayed bugs are emitted.
+             Error => Some(self.span_delayed_bug(span, format!("stashing {key:?}"))),
+-            DelayedBug => {
+-                return self.inner.borrow_mut().emit_diagnostic(diag, self.tainted_with_errors);
+-            }
+             ForceWarning | Warning | Note | OnceNote | Help | OnceHelp | FailureNote | Allow
+             | Expect => None,
+         };

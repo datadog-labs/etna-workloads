@@ -1,0 +1,61 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/compare_impl_item/refine.rs b/compiler/rustc_hir_analysis/src/check/compare_impl_item/refine.rs
+index 0b40d80231d0e2f90cc9dca66f604818d0a23848..2328253f3bed845892babef56870a3fb6600355d 100644
+--- a/compiler/rustc_hir_analysis/src/check/compare_impl_item/refine.rs
++++ b/compiler/rustc_hir_analysis/src/check/compare_impl_item/refine.rs
+@@ -6,7 +6,6 @@
+ use rustc_lint_defs::builtin::{REFINING_IMPL_TRAIT_INTERNAL, REFINING_IMPL_TRAIT_REACHABLE};
+ use rustc_middle::span_bug;
+ use rustc_middle::traits::ObligationCause;
+-use rustc_middle::ty::print::{with_no_trimmed_paths, with_types_for_signature};
+ use rustc_middle::ty::{
+     self, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperVisitable, TypeVisitable,
+     TypeVisitableExt, TypeVisitor, TypingMode, Unnormalized,
+@@ -354,17 +353,6 @@ fn report_mismatched_rpitit_signature<'tcx>(
+             hir::FnRetTy::Return(ty) => ty.span,
+         });
+ 
+-    // Use ForSignature mode to ensure RPITITs are printed as `impl Trait` rather than
+-    // `impl Trait { T::method(..) }` when RTN is enabled.
+-    //
+-    // We use `with_no_trimmed_paths!` to avoid triggering the `trimmed_def_paths` query,
+-    // which requires diagnostic context (via `must_produce_diag`). Since we're formatting
+-    // the type before creating the diagnostic, we need to avoid this query. This is the
+-    // standard approach used elsewhere in the compiler for formatting types in suggestions
+-    // (e.g., see `rustc_hir_typeck/src/demand.rs`).
+-    let return_ty_suggestion =
+-        with_no_trimmed_paths!(with_types_for_signature!(format!("{return_ty}")));
+-
+     let span = unmatched_bound.unwrap_or(span);
+     tcx.emit_node_span_lint(
+         if is_internal { REFINING_IMPL_TRAIT_INTERNAL } else { REFINING_IMPL_TRAIT_REACHABLE },
+@@ -375,7 +363,7 @@ fn report_mismatched_rpitit_signature<'tcx>(
+             trait_return_span,
+             pre,
+             post,
+-            return_ty: return_ty_suggestion,
++            return_ty,
+             unmatched_bound,
+         },
+     );
+diff --git a/compiler/rustc_hir_analysis/src/diagnostics.rs b/compiler/rustc_hir_analysis/src/diagnostics.rs
+index 890d25f14b264b6f9410d9e9a4bce4ae3dc0ea74..0ab0e7ca5c49fc4fba9df40a69dbacaa60f6bf98 100644
+--- a/compiler/rustc_hir_analysis/src/diagnostics.rs
++++ b/compiler/rustc_hir_analysis/src/diagnostics.rs
+@@ -1148,7 +1148,7 @@ pub(crate) struct UnusedAssociatedTypeBounds {
+ #[note(
+     "we are soliciting feedback, see issue #121718 <https://github.com/rust-lang/rust/issues/121718> for more information"
+ )]
+-pub(crate) struct ReturnPositionImplTraitInTraitRefined {
++pub(crate) struct ReturnPositionImplTraitInTraitRefined<'tcx> {
+     #[suggestion(
+         "replace the return type so that it matches the trait",
+         applicability = "maybe-incorrect",
+@@ -1162,7 +1162,7 @@ pub(crate) struct ReturnPositionImplTraitInTraitRefined {
+ 
+     pub pre: &'static str,
+     pub post: &'static str,
+-    pub return_ty: String,
++    pub return_ty: Ty<'tcx>,
+ }
+ 
+ #[derive(Diagnostic)]

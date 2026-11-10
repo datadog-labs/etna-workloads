@@ -1,0 +1,63 @@
+error[E0405]: cannot find trait `AutoTrait` in this scope
+  --> main.rs:14:20
+   |
+14 | pub struct Bar<T: ?AutoTrait> {} //~ ERROR cannot find trait `AutoTrait`
+   |                    ^^^^^^^^^ not found in this scope
+
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> main.rs:5:12
+  |
+5 | #![feature(rustc_attrs)]
+  |            ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error[E0107]: missing generics for associated type `Foo::Bar`
+  --> main.rs:18:27
+   |
+18 |     T1: for<T> Foo<usize, Bar = Bar<T>>, //~ ERROR missing generics for associated type `Foo::Bar`
+   |                           ^^^ expected 1 generic argument
+   |
+note: associated type defined here, with 1 generic parameter: `K`
+  --> main.rs:11:10
+   |
+11 |     type Bar<K>;
+   |          ^^^ -
+help: add missing generic argument
+   |
+18 |     T1: for<T> Foo<usize, Bar<K> = Bar<T>>, //~ ERROR missing generics for associated type `Foo::Bar`
+   |                              +++
+
+error: internal compiler error: compiler/rustc_trait_selection/src/traits/mod.rs:407:13: inference variables in normalized parameter environment: unconstrained type
+  --> main.rs:16:1
+   |
+16 | / pub fn f<T1, T2>()
+17 | | where
+18 | |     T1: for<T> Foo<usize, Bar = Bar<T>>, //~ ERROR missing generics for associated type `Foo::Bar`
+19 | |     //~| ERROR missing generics for associated type `Foo::Bar`
+20 | |     T2: for<L, T> Foo<usize, Bar<T> = T1::Bar<T>>,
+   | |__________________________________________________^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_trait_selection/src/traits/mod.rs:407:13:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: using internal features is not supported and expected to cause internal compiler errors when used incorrectly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+note: compiler flags: --crate-type lib
+
+query stack during panic:
+#0 [param_env] computing normalized predicates of `f`
+#1 [check_well_formed] checking that `f` is well-formed
+... and 2 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 3 previous errors; 1 warning emitted
+
+Some errors have detailed explanations: E0107, E0405.
+For more information about an error, try `rustc --explain E0107`.
+rustc exit: 101
+
+[exit 0]

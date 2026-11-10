@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_middle/src/ty/instance.rs b/compiler/rustc_middle/src/ty/instance.rs
+index dcd0ee601aa9da5a91c35048bfdddb86e31199ea..89bdf537d9ef78e27cddd8b2950f1d835ed4bd21 100644
+--- a/compiler/rustc_middle/src/ty/instance.rs
++++ b/compiler/rustc_middle/src/ty/instance.rs
+@@ -587,9 +587,7 @@ pub fn try_resolve(
+         // which means that rustc basically hangs.
+         //
+         // Bail out in these cases to avoid that bad user experience.
+-        if tcx.sess.opts.unstable_opts.enforce_type_length_limit
+-            && !tcx.type_length_limit().value_within_limit(type_length(args))
+-        {
++        if !tcx.type_length_limit().value_within_limit(type_length(args)) {
+             return Ok(None);
+         }
+ 
+diff --git a/compiler/rustc_session/src/options.rs b/compiler/rustc_session/src/options.rs
+index 3c3f1d69fe2c1d8994ad604c961d2be300268478..c4f57691db1e5b538ddbf8ddd92f572c8a2a5d64 100644
+--- a/compiler/rustc_session/src/options.rs
++++ b/compiler/rustc_session/src/options.rs
+@@ -2488,8 +2488,6 @@ pub(crate) fn parse_rust_version(slot: &mut Option<RustcVersion>, v: Option<&str
+         "embed source text in DWARF debug sections (default: no)"),
+     emit_stack_sizes: bool = (false, parse_bool, [UNTRACKED],
+         "emit a section containing stack size metadata (default: no)"),
+-    enforce_type_length_limit: bool = (false, parse_bool, [TRACKED],
+-        "enforce the type length limit when monomorphizing instances in codegen"),
+     experimental_default_bounds: bool = (false, parse_bool, [TRACKED],
+         "enable default bounds for experimental group of auto traits"),
+     export_executable_symbols: bool = (false, parse_bool, [TRACKED],

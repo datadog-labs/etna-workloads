@@ -1,0 +1,1 @@
+Compiles for aarch64-linux with a 16-byte struct with 128-bit alignment (u128 field) passed by value and prints the LLVM signature of the function. Clean rustc passes the struct as i128; the injected one passes it as [2 x i64].

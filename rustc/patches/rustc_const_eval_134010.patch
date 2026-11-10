@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/eval_context.rs b/compiler/rustc_const_eval/src/interpret/eval_context.rs
+index 45d57f77a4079d0f1b9e56f02d7a0b34c8a6acef..398588e84565590b3302b1a655969190aa7b03ed 100644
+--- a/compiler/rustc_const_eval/src/interpret/eval_context.rs
++++ b/compiler/rustc_const_eval/src/interpret/eval_context.rs
+@@ -317,7 +317,7 @@ pub fn load_mir(
+         };
+         // do not continue if typeck errors occurred (can only occur in local crate)
+         if let Some(err) = body.tainted_by_errors {
+-            throw_inval!(AlreadyReported(ReportedErrorInfo::non_const_eval_error(err)));
++            throw_inval!(AlreadyReported(ReportedErrorInfo::const_eval_error(err)));
+         }
+         interp_ok(body)
+     }
+@@ -371,7 +371,7 @@ pub(super) fn resolve(
+ 
+             // FIXME(eddyb) this could be a bit more specific than `AlreadyReported`.
+             Err(error_guaranteed) => throw_inval!(AlreadyReported(
+-                ReportedErrorInfo::non_const_eval_error(error_guaranteed)
++                ReportedErrorInfo::const_eval_error(error_guaranteed)
+             )),
+         }
+     }
+diff --git a/compiler/rustc_middle/src/mir/consts.rs b/compiler/rustc_middle/src/mir/consts.rs
+index b46beb4a29af3242fee4eb3f19ecb2b3127a38c0..9d97a6ccd1a0e14b71841cc3b678c0b730415cc3 100644
+--- a/compiler/rustc_middle/src/mir/consts.rs
++++ b/compiler/rustc_middle/src/mir/consts.rs
+@@ -331,7 +331,7 @@ pub fn eval(
+                     ConstKind::Expr(_) => {
+                         bug!("Normalization of `ty::ConstKind::Expr` is unimplemented")
+                     }
+-                    _ => Err(ReportedErrorInfo::non_const_eval_error(
++                    _ => Err(ReportedErrorInfo::const_eval_error(
+                         tcx.dcx().delayed_bug("Unevaluated `ty::Const` in MIR body"),
+                     )
+                     .into()),
+diff --git a/compiler/rustc_middle/src/mir/interpret/queries.rs b/compiler/rustc_middle/src/mir/interpret/queries.rs
+index efe7c29820b4d8556e5fb54e12f2dabbadbc95a7..b9e9724b0848b82e5ab9881ebe09228e9be08a00 100644
+--- a/compiler/rustc_middle/src/mir/interpret/queries.rs
++++ b/compiler/rustc_middle/src/mir/interpret/queries.rs
+@@ -81,7 +81,7 @@ pub fn const_eval_resolve(
+             // since for these errors the place the constant is used shouldn't matter.
+             Ok(None) => Err(ErrorHandled::TooGeneric(DUMMY_SP)),
+             Err(err) => {
+-                Err(ErrorHandled::Reported(ReportedErrorInfo::non_const_eval_error(err), DUMMY_SP))
++                Err(ErrorHandled::Reported(ReportedErrorInfo::const_eval_error(err), DUMMY_SP))
+             }
+         }
+     }

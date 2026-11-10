@@ -1,0 +1,1 @@
+Two aux crates and a main crate define the same `rustc_diagnostic_item = "Foo"`. The duplicate-item error should include a note naming the crate where the item was first defined; the injected compiler omits that note.

@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_ast_lowering/src/expr.rs b/compiler/rustc_ast_lowering/src/expr.rs
+index 003ca39a5bda956a8c2000352d2058a6c2a62df2..2acf51d480eb3042d3da9646f7caa30994b14287 100644
+--- a/compiler/rustc_ast_lowering/src/expr.rs
++++ b/compiler/rustc_ast_lowering/src/expr.rs
+@@ -1658,34 +1658,22 @@ fn lower_expr_yield(&mut self, span: Span, opt_expr: Option<&Expr>) -> hir::Expr
+             }
+         };
+ 
++        let mut yielded = yielded;
+         if is_async_gen {
+-            // `yield $expr` is transformed into `task_context = yield async_gen_ready($expr)`.
+-            // This ensures that we store our resumed `ResumeContext` correctly, and also that
+-            // the apparent value of the `yield` expression is `()`.
++            // yield async_gen_ready($expr);
+             let desugar_span = self.mark_span_with_reason(
+                 DesugaringKind::Async,
+                 span,
+                 Some(Arc::clone(&self.allow_async_gen)),
+             );
+-            let wrapped_yielded = self.expr_call_lang_item_fn(
++            yielded = self.expr_call_lang_item_fn(
+                 desugar_span,
+                 LangItem::AsyncGenReady,
+                 std::slice::from_ref(yielded),
+             );
+-            let yield_expr = self.arena.alloc(
+-                self.expr(span, hir::ExprKind::Yield(wrapped_yielded, hir::YieldSource::Yield)),
+-            );
+-
+-            let Some(task_context_hid) = self.task_context else {
+-                unreachable!("use of `await` outside of an async context.");
+-            };
+-            let task_context_ident = Ident::with_dummy_span(sym::_task_context);
+-            let lhs = self.expr_ident(desugar_span, task_context_ident, task_context_hid);
+-
+-            hir::ExprKind::Assign(lhs, yield_expr, self.lower_span(span))
+-        } else {
+-            hir::ExprKind::Yield(yielded, hir::YieldSource::Yield)
+         }
++
++        hir::ExprKind::Yield(yielded, hir::YieldSource::Yield)
+     }
+ 
+     /// Desugar `ExprForLoop` from: `[opt_ident]: for <pat> in <head> <body>` into:

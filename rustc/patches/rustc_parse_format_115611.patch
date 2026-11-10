@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_parse_format/src/lib.rs b/compiler/rustc_parse_format/src/lib.rs
+index 256bc8c3fe30e2eacc9ad4ae85ae05bf2757fc44..ee13e3b1ba15a5f86c48f8e2473258d341c092c6 100644
+--- a/compiler/rustc_parse_format/src/lib.rs
++++ b/compiler/rustc_parse_format/src/lib.rs
+@@ -565,32 +565,9 @@ fn position(&mut self) -> Option<Position<'input>> {
+             Some(ArgumentIs(i.into()))
+         } else {
+             match self.peek() {
+-                Some((range, _, c)) if rustc_lexer::is_id_start(c) => {
+-                    let start = range.start;
++                Some((_, _, c)) if rustc_lexer::is_id_start(c) => {
+                     let word = self.word();
+ 
+-                    // Recover from `r#ident` in format strings.
+-                    if word == "r"
+-                        && let Some((r, _, '#')) = self.peek()
+-                        && self.peek_ahead().is_some_and(|(_, _, c)| rustc_lexer::is_id_start(c))
+-                    {
+-                        self.input_vec_index += 1;
+-                        let prefix_end = r.end;
+-                        let word = self.word();
+-                        let prefix_span = start..prefix_end;
+-                        let full_span =
+-                            start..self.input_vec_index2range(self.input_vec_index).start;
+-                        self.errors.insert(0, ParseError {
+-                                    description: "raw identifiers are not supported".to_owned(),
+-                                    note: Some("identifiers in format strings can be keywords and don't need to be prefixed with `r#`".to_string()),
+-                                    label: "raw identifier used here".to_owned(),
+-                                    span: full_span,
+-                                    secondary_label: None,
+-                                    suggestion: Suggestion::RemoveRawIdent(prefix_span),
+-                                });
+-                        return Some(ArgumentNamed(word));
+-                    }
+-
+                     Some(ArgumentNamed(word))
+                 }
+                 // This is an `ArgumentNext`.

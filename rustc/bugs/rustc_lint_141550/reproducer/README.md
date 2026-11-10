@@ -1,0 +1,1 @@
+With an attribute on the sole trailing expression of a braced block (`{ #[expect(..)] p1.cmp(&p2) }`), the unused_braces lint span and "remove these braces" suggestion must include the attribute. The injected compiler uses the bare statement span, so the underline and suggestion drop/mishandle the attribute.

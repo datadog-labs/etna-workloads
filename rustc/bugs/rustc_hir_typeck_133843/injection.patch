@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..dd6aa7f70eec35671b044d3af4dc5dba313e04f8 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -3852,13 +3852,7 @@ pub(crate) fn suggest_return_binding_for_missing_tail_expr(
+         let Some(ty) = self.node_ty_opt(tail_expr.hir_id) else {
+             return;
+         };
+-        if self.can_eq(self.param_env, expected_ty, ty)
+-            // FIXME: this happens with macro calls. Need to figure out why the stmt
+-            // `println!();` doesn't include the `;` in its `Span`. (#133845)
+-            // We filter these out to avoid ICEs with debug assertions on caused by
+-            // empty suggestions.
+-            && stmt.span.hi() != tail_expr.span.hi()
+-        {
++        if self.can_eq(self.param_env, expected_ty, ty) {
+             err.span_suggestion_short(
+                 stmt.span.with_lo(tail_expr.span.hi()),
+                 "remove this semicolon",
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..cbc3767d4e649cea4b13e0680f58ea5b5f07deea 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -4886,7 +4886,6 @@ fn note_function_argument_obligation<G: EmissionGuarantee>(
+                     param_env,
+                     pred,
+                 ))
+-                && expr.span.hi() != rcvr.span.hi()
+             {
+                 let should_sugg = match tcx.hir_node(call_hir_id) {
+                     Node::Expr(hir::Expr {
+@@ -5253,11 +5252,6 @@ fn look_for_iterator_item_mistakes<G: EmissionGuarantee>(
+                         // the expected is a projection that we need to resolve.
+                         // && let Some(tail_ty) = typeck_results.expr_ty_opt(expr)
+                         && expected_found.found.is_unit()
+-                        // FIXME: this happens with macro calls. Need to figure out why the stmt
+-                        // `println!();` doesn't include the `;` in its `Span`. (#133845)
+-                        // We filter these out to avoid ICEs with debug assertions on caused by
+-                        // empty suggestions.
+-                        && expr.span.hi() != stmt.span.hi()
+                     {
+                         err.span_suggestion_verbose(
+                             expr.span.shrink_to_hi().with_hi(stmt.span.hi()),

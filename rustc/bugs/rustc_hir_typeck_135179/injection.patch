@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/confirm.rs b/compiler/rustc_hir_typeck/src/method/confirm.rs
+index e31692492c263189de4d8711c729a893066c8bcf..ec797ad8be04a018ee84c8e7fb5cf74082d8251d 100644
+--- a/compiler/rustc_hir_typeck/src/method/confirm.rs
++++ b/compiler/rustc_hir_typeck/src/method/confirm.rs
+@@ -375,17 +375,9 @@ fn extract_existential_trait_ref<R, F>(&mut self, self_ty: Ty<'tcx>, mut closure
+         // yield an object-type (e.g., `&Object` or `Box<Object>`
+         // etc).
+ 
+-        let mut autoderef = self.fcx.autoderef(self.span, self_ty);
+-
+-        // We don't need to gate this behind arbitrary self types
+-        // per se, but it does make things a bit more gated.
+-        if self.tcx.features().arbitrary_self_types()
+-            || self.tcx.features().arbitrary_self_types_pointers()
+-        {
+-            autoderef = autoderef.use_receiver_trait();
+-        }
+-
+-        autoderef
++        // FIXME: this feels, like, super dubious
++        self.fcx
++            .autoderef(self.span, self_ty)
+             .include_raw_pointers()
+             .find_map(|(ty, _)| match ty.kind() {
+                 ty::Dynamic(data, ..) => Some(closure(

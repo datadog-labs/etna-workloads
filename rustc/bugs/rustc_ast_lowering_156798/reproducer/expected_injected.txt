@@ -1,0 +1,233 @@
+warning: the feature `fn_delegation` is incomplete and may not be safe to use and/or cause compiler crashes
+ --> main.rs:1:12
+  |
+1 | #![feature(fn_delegation)]
+  |            ^^^^^^^^^^^^^
+  |
+  = note: see issue #118212 <https://github.com/rust-lang/rust/issues/118212> for more information
+  = note: `#[warn(incomplete_features)]` on by default
+
+error: delegation's target expression is specified for function with no params
+  --> main.rs:27:38
+   |
+27 |     reuse <S as Trait>::static_empty { self.0 }
+   |                                      ^^^^^^^^^^
+
+error: delegation's target expression is specified for function with no params
+  --> main.rs:61:83
+   |
+61 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                                                                   ^^^^^^^^^^
+
+error: delegation's target expression is specified for function with no params
+  --> main.rs:76:23
+   |
+76 | reuse to_reuse::empty { self + 1 }
+   |                       ^^^^^^^^^^^^
+
+error: delegation's target expression is specified for function with no params
+  --> main.rs:82:60
+   |
+82 | reuse to_reuse::{empty as empty1, one_param as one_param1} { self + 1 }
+   |                                                            ^^^^^^^^^^^^
+
+error[E0283]: type annotations needed
+  --> main.rs:18:1
+   |
+18 | reuse impl Trait for F { self.0 }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
+   |
+   = note: the type must implement `Trait`
+help: the following types implement trait `Trait`
+  --> main.rs:13:1
+   |
+13 | impl Trait for S {}
+   | ^^^^^^^^^^^^^^^^ `S`
+...
+18 | reuse impl Trait for F { self.0 }
+   | ^^^^^^^^^^^^^^^^^^^^^^ `F`
+...
+53 | impl Trait for F3 {
+   | ^^^^^^^^^^^^^^^^^ `F3`
+
+error[E0610]: `usize` is a primitive type and therefore doesn't have fields
+  --> main.rs:18:31
+   |
+18 | reuse impl Trait for F { self.0 }
+   |                               ^
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+  --> main.rs:27:25
+   |
+27 |     reuse <S as Trait>::static_empty { self.0 }
+   |                         ^^^^^^^^^^^^ ---------- unexpected argument
+   |
+note: associated function defined here
+  --> main.rs:8:8
+   |
+ 8 |     fn static_empty() {}
+   |        ^^^^^^^^^^^^
+help: remove the extra argument
+   |
+27 -     reuse <S as Trait>::static_empty { self.0 }
+27 +     reuse <S as Trait>::static_empt{ self.0 }
+   |
+
+error[E0610]: `usize` is a primitive type and therefore doesn't have fields
+  --> main.rs:31:49
+   |
+31 |     reuse <S as Trait>::static_one_param { self.0 }
+   |                                                 ^
+
+error[E0610]: `usize` is a primitive type and therefore doesn't have fields
+  --> main.rs:38:88
+   |
+38 |     reuse <S as Trait>::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                                                                        ^
+
+error[E0308]: mismatched types
+  --> main.rs:54:85
+   |
+54 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                   ----- arguments to this function are incorrect    ^^^^^^ expected `&_`, found `S`
+   |
+   = note: expected reference `&_`
+                 found struct `S`
+note: function defined here
+  --> main.rs:45:12
+   |
+45 |     pub fn r#ref(_: &impl Trait) {}
+   |            ^^^^^ --------------
+help: consider borrowing here
+   |
+54 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { &self.0 }
+   |                                                                                     +
+
+error[E0308]: mismatched types
+  --> main.rs:54:85
+   |
+54 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                          -------                                    ^^^^^^ expected `&mut _`, found `S`
+   |                                          |
+   |                                          arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut _`
+                         found struct `S`
+note: function defined here
+  --> main.rs:46:12
+   |
+46 |     pub fn mut_ref(_: &mut impl Trait) {}
+   |            ^^^^^^^ ------------------
+help: consider mutably borrowing here
+   |
+54 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { &mut self.0 }
+   |                                                                                     ++++
+
+error[E0610]: `usize` is a primitive type and therefore doesn't have fields
+  --> main.rs:54:90
+   |
+54 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                                                                          ^
+
+error[E0609]: no field `0` on type `impl Trait`
+  --> main.rs:61:90
+   |
+61 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                                                                          ^ unknown field
+
+error[E0609]: no field `0` on type `&impl Trait`
+  --> main.rs:61:90
+   |
+61 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                                                                          ^ unknown field
+
+error[E0609]: no field `0` on type `&mut impl Trait`
+  --> main.rs:61:90
+   |
+61 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                                                                          ^ unknown field
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+  --> main.rs:61:51
+   |
+61 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                                   ^^^^^^^^^^^^                    ---------- unexpected argument
+   |
+note: function defined here
+  --> main.rs:48:12
+   |
+48 |     pub fn static_empty() {}
+   |            ^^^^^^^^^^^^
+help: remove the extra argument
+   |
+61 -     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+61 +     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empt{ self.0 }
+   |
+
+error[E0610]: `usize` is a primitive type and therefore doesn't have fields
+  --> main.rs:61:90
+   |
+61 |     reuse trait_to_reuse::{value, r#ref, mut_ref, static_empty, static_one_param} { self.0 }
+   |                                                                                          ^
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+  --> main.rs:76:17
+   |
+76 | reuse to_reuse::empty { self + 1 }
+   |                 ^^^^^ ------------ unexpected argument
+   |
+note: function defined here
+  --> main.rs:71:12
+   |
+71 |     pub fn empty() {}
+   |            ^^^^^
+help: remove the extra argument
+   |
+76 - reuse to_reuse::empty { self + 1 }
+76 + reuse to_reuse::empt{ self + 1 }
+   |
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+  --> main.rs:82:18
+   |
+82 | reuse to_reuse::{empty as empty1, one_param as one_param1} { self + 1 }
+   |                  ^^^^^                                     ------------ unexpected argument
+   |
+note: function defined here
+  --> main.rs:71:12
+   |
+71 |     pub fn empty() {}
+   |            ^^^^^
+help: remove the extra argument
+   |
+82 - reuse to_reuse::{empty as empty1, one_param as one_param1} { self + 1 }
+82 + reuse to_reuse::{empt{ self + 1 }
+   |
+
+warning: unused variable: `x`
+ --> main.rs:9:25
+  |
+9 |     fn static_one_param(x: usize) {}
+  |                         ^ help: if this is intentional, prefix it with an underscore: `_x`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `x`
+  --> main.rs:49:29
+   |
+49 |     pub fn static_one_param(x: usize) {}
+   |                             ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+warning: unused variable: `x`
+  --> main.rs:72:22
+   |
+72 |     pub fn one_param(x: usize) {}
+   |                      ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+error: aborting due to 19 previous errors; 4 warnings emitted
+
+Some errors have detailed explanations: E0061, E0283, E0308, E0609, E0610.
+For more information about an error, try `rustc --explain E0061`.
+rustc exit: 1
+
+[exit 0]

@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_hir_typeck/src/pat.rs b/compiler/rustc_hir_typeck/src/pat.rs
+index f7ba6a78c65bde4d2d3ad24a21cf35f67e6f6027..110c0c4747593d1104272c0f9d99e100d75bbf09 100644
+--- a/compiler/rustc_hir_typeck/src/pat.rs
++++ b/compiler/rustc_hir_typeck/src/pat.rs
+@@ -1554,14 +1554,11 @@ fn check_pat_struct(
+         self.check_pin_projection(pat, pat_ty, pat_info);
+ 
+         // Type-check the path.
+-        let had_err = self.demand_eqtype_pat(pat.span, expected, pat_ty, &pat_info.top_info);
++        let _ = self.demand_eqtype_pat(pat.span, expected, pat_ty, &pat_info.top_info);
+ 
+         // Type-check subpatterns.
+         match self.check_struct_pat_fields(pat_ty, pat, variant, fields, has_rest_pat, pat_info) {
+-            Ok(()) => match had_err {
+-                Ok(()) => pat_ty,
+-                Err(guar) => Ty::new_error(self.tcx, guar),
+-            },
++            Ok(()) => pat_ty,
+             Err(guar) => Ty::new_error(self.tcx, guar),
+         }
+     }
+@@ -1835,7 +1832,8 @@ fn check_pat_tuple_struct(
+         };
+ 
+         // Type-check the tuple struct pattern against the expected type.
+-        let had_err = self.demand_eqtype_pat(pat.span, expected, pat_ty, &pat_info.top_info);
++        let diag = self.demand_eqtype_pat_diag(pat.span, expected, pat_ty, &pat_info.top_info);
++        let had_err = diag.map_err(|diag| diag.emit());
+ 
+         // Type-check subpatterns.
+         if subpats.len() == variant.fields.len()
+@@ -2059,10 +2057,11 @@ fn check_pat_tuple(
+         if let Err(reported) = self.demand_eqtype_pat(span, expected, pat_ty, &pat_info.top_info) {
+             // Walk subpatterns with an expected type of `err` in this case to silence
+             // further errors being emitted when using the bindings. #50333
++            let element_tys_iter = (0..max_len).map(|_| Ty::new_error(tcx, reported));
+             for (_, elem) in elements.iter().enumerate_and_adjust(max_len, ddpos) {
+                 self.check_pat(elem, Ty::new_error(tcx, reported), pat_info);
+             }
+-            Ty::new_error(tcx, reported)
++            Ty::new_tup_from_iter(tcx, element_tys_iter)
+         } else {
+             for (i, elem) in elements.iter().enumerate_and_adjust(max_len, ddpos) {
+                 self.check_pat(elem, element_tys[i], pat_info);

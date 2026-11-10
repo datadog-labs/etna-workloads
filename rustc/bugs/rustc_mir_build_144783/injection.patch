@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_mir_build/src/builder/expr/into.rs b/compiler/rustc_mir_build/src/builder/expr/into.rs
+index 13a64346c36c411ceac6fb712c0fa0dd08f021d0..d432bc573676c0da5b21bd2d668974435b26b107 100644
+--- a/compiler/rustc_mir_build/src/builder/expr/into.rs
++++ b/compiler/rustc_mir_build/src/builder/expr/into.rs
+@@ -295,11 +295,9 @@ fn is_supported_loop_match_type(ty: Ty<'_>) -> bool {
+                     this.diverge_from(loop_block);
+ 
+                     // Logic for `match`.
++                    let scrutinee_place_builder =
++                        unpack!(body_block = this.as_place_builder(body_block, scrutinee));
+                     let scrutinee_span = this.thir.exprs[scrutinee].span;
+-                    let scrutinee_place_builder = unpack!(
+-                        body_block = this.lower_scrutinee(body_block, scrutinee, scrutinee_span)
+-                    );
+-
+                     let match_start_span = match_span.shrink_to_lo().to(scrutinee_span);
+ 
+                     let mut patterns = Vec::with_capacity(arms.len());
+diff --git a/compiler/rustc_mir_build/src/builder/matches/mod.rs b/compiler/rustc_mir_build/src/builder/matches/mod.rs
+index ddeb9e084b21d7ad1328c8c4deb907c107e1087f..e7c78eb12babf1caf18930910af59e28956e289b 100644
+--- a/compiler/rustc_mir_build/src/builder/matches/mod.rs
++++ b/compiler/rustc_mir_build/src/builder/matches/mod.rs
+@@ -390,7 +390,7 @@ pub(crate) fn match_expr(
+     }
+ 
+     /// Evaluate the scrutinee and add the PlaceMention for it.
+-    pub(crate) fn lower_scrutinee(
++    fn lower_scrutinee(
+         &mut self,
+         mut block: BasicBlock,
+         scrutinee_id: ExprId,

@@ -1,0 +1,55 @@
+diff --git a/compiler/rustc_middle/src/ty/consts.rs b/compiler/rustc_middle/src/ty/consts.rs
+index df25b08168609450350830ddb8ecc30d8c0fb607..dbb76551934f2306beb5157cbcb92e2aa287c92a 100644
+--- a/compiler/rustc_middle/src/ty/consts.rs
++++ b/compiler/rustc_middle/src/ty/consts.rs
+@@ -166,6 +166,10 @@ pub fn is_trivially_wf(self) -> bool {
+ }
+ 
+ impl<'tcx> rustc_type_ir::inherent::Const<TyCtxt<'tcx>> for Const<'tcx> {
++    fn try_to_target_usize(self, interner: TyCtxt<'tcx>) -> Option<u64> {
++        self.try_to_target_usize(interner)
++    }
++
+     fn new_infer(tcx: TyCtxt<'tcx>, infer: ty::InferConst) -> Self {
+         Const::new_infer(tcx, infer)
+     }
+diff --git a/compiler/rustc_type_ir/src/inherent.rs b/compiler/rustc_type_ir/src/inherent.rs
+index 859996d67eb64117f3cb3376614ab3d21f60f5a7..cc982b8e404be98b61e33098eeafe631e550d910 100644
+--- a/compiler/rustc_type_ir/src/inherent.rs
++++ b/compiler/rustc_type_ir/src/inherent.rs
+@@ -241,6 +241,8 @@ pub trait Const<I: Interner<Const = Self>>:
+     + Relate<I>
+     + Flags
+ {
++    fn try_to_target_usize(self, interner: I) -> Option<u64>;
++
+     fn new_infer(interner: I, var: ty::InferConst) -> Self;
+ 
+     fn new_var(interner: I, var: ty::ConstVid) -> Self;
+diff --git a/compiler/rustc_type_ir/src/relate.rs b/compiler/rustc_type_ir/src/relate.rs
+index ccaf1550a6d31cb2190152dd010a4443a7ad2744..ccea0dfea2cfc90859a562d1a703ccbcc3a8acb4 100644
+--- a/compiler/rustc_type_ir/src/relate.rs
++++ b/compiler/rustc_type_ir/src/relate.rs
+@@ -474,10 +474,19 @@ pub fn structurally_relate_tys<I: Interner, R: TypeRelation<I>>(
+             let t = relation.relate(a_t, b_t)?;
+             match relation.relate(sz_a, sz_b) {
+                 Ok(sz) => Ok(Ty::new_array_with_const_len(cx, t, sz)),
+-                Err(TypeError::ConstMismatch(_)) => {
+-                    Err(TypeError::ArraySize(ExpectedFound::new(sz_a, sz_b)))
++                Err(err) => {
++                    // Check whether the lengths are both concrete/known values,
++                    // but are unequal, for better diagnostics.
++                    let a_val = sz_a.try_to_target_usize(cx);
++                    let b_val = sz_b.try_to_target_usize(cx);
++
++                    match (a_val, b_val) {
++                        (Some(a_val), Some(b_val)) if a_val != b_val => {
++                            Err(TypeError::ArraySize(ExpectedFound::new(sz_a, sz_b)))
++                        }
++                        _ => Err(err),
++                    }
+                 }
+-                Err(e) => Err(e),
+             }
+         }
+ 

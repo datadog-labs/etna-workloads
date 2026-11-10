@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs b/compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs
+index d9dfe5fa7de0c50efa0cd69f1714afa58ba74621..e4a1bf49717847b9ff148719699dd7c9a340bc92 100644
+--- a/compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs
++++ b/compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs
+@@ -4,7 +4,7 @@
+ use rustc_middle::ty::print::{PrintTraitPredicateExt as _, TraitPredPrintModifiersAndPath};
+ use rustc_middle::ty::{self, BottomUpFolder, Ty, TypeFoldable, Unnormalized};
+ use rustc_session::{declare_lint, declare_lint_pass};
+-use rustc_span::{Span, kw};
++use rustc_span::Span;
+ use rustc_trait_selection::traits::{self, ObligationCtxt};
+ 
+ use crate::{LateContext, LateLintPass, LintContext};
+@@ -114,22 +114,6 @@ fn check_ty(&mut self, cx: &LateContext<'tcx>, ty: &'tcx hir::Ty<'tcx, AmbigArg>
+                     return;
+                 }
+ 
+-                // HACK: `async fn() -> Self` in traits is "ok"...
+-                // This is not really that great, but it's similar to why the `-> Self`
+-                // return type is well-formed in traits even when `Self` isn't sized.
+-                if let ty::Param(param_ty) = *proj_term.kind()
+-                    && param_ty.name == kw::SelfUpper
+-                    && matches!(
+-                        opaque.origin,
+-                        hir::OpaqueTyOrigin::AsyncFn {
+-                            in_trait_or_impl: Some(hir::RpitContext::Trait),
+-                            ..
+-                        }
+-                    )
+-                {
+-                    return;
+-                }
+-
+                 let proj_ty = proj.projection_term.expect_ty().to_ty(cx.tcx,ty::IsRigid::No);
+                 // For every instance of the projection type in the bounds,
+                 // replace them with the term we're assigning to the associated

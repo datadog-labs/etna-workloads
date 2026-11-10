@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_ast_passes/src/ast_validation.rs b/compiler/rustc_ast_passes/src/ast_validation.rs
+index 3270fb940bab3da7b1ff2656032b9699a9d0cb0b..0558d36f52b160ef5ddfc342cf3420fe0a3e3711 100644
+--- a/compiler/rustc_ast_passes/src/ast_validation.rs
++++ b/compiler/rustc_ast_passes/src/ast_validation.rs
+@@ -824,14 +824,9 @@ fn check_foreign_ty_genericless(&self, generics: &Generics, after_where_clause:
+             cannot_have(generics.span, "generic parameters", "generic parameters");
+         }
+ 
+-        let check_where_clause = |where_clause: &WhereClause| {
+-            if where_clause.has_where_token {
+-                cannot_have(where_clause.span, "`where` clauses", "`where` clause");
+-            }
+-        };
+-
+-        check_where_clause(&generics.where_clause);
+-        check_where_clause(&after_where_clause);
++        if !generics.where_clause.predicates.is_empty() {
++            cannot_have(after_where_clause.span, "`where` clauses", "`where` clause");
++        }
+     }
+ 
+     fn check_foreign_kind_bodyless(&self, ident: Ident, kind: &str, body_span: Option<Span>) {

@@ -1,0 +1,1 @@
+Compiling an `async move || {}` closure with `-Cdebuginfo=2` makes the injected compiler ICE ("can't type-check body of ...{synthetic#0}") because synthetic coroutine bodies are no longer treated as typeck children; the clean compiler compiles it successfully.

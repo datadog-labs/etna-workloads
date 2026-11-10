@@ -1,0 +1,197 @@
+error[E0203]: duplicate relaxed `Sized` bounds
+  --> main.rs:11:12
+   |
+11 | fn foo2<T: ?Sized + ?Sized>(a: T) {}
+   |            ^^^^^^   ^^^^^^
+
+error[E0203]: duplicate relaxed `Sized` bounds
+  --> main.rs:15:12
+   |
+15 | fn foo3<T: ?Sized + ?Sized + Debug>(a: T) {}
+   |            ^^^^^^   ^^^^^^
+
+error[E0203]: duplicate relaxed `Sized` bounds
+  --> main.rs:19:12
+   |
+19 | fn foo4<T: ?Sized + Debug + ?Sized >(a: T) {}
+   |            ^^^^^^           ^^^^^^
+
+error[E0203]: duplicate relaxed `Sized` bounds
+  --> main.rs:26:17
+   |
+26 | fn foo6(_: impl ?Sized + ?Sized) {}
+   |                 ^^^^^^   ^^^^^^
+
+error[E0203]: duplicate relaxed `Sized` bounds
+  --> main.rs:30:17
+   |
+30 | fn foo7(_: impl ?Sized + ?Sized + Debug) {}
+   |                 ^^^^^^   ^^^^^^
+
+error[E0203]: duplicate relaxed `Sized` bounds
+  --> main.rs:34:17
+   |
+34 | fn foo8(_: impl ?Sized + Debug + ?Sized ) {}
+   |                 ^^^^^^           ^^^^^^
+
+error[E0277]: the size for values of type `T` cannot be known at compilation time
+ --> main.rs:8:23
+  |
+8 | fn foo1<T: ?Sized>(a: T) {}
+  |         -             ^ doesn't have a size known at compile-time
+  |         |
+  |         this type parameter needs to be `Sized`
+  |
+  = help: unsized fn params are gated as an unstable feature
+help: consider removing the `?Sized` bound to make the type parameter `Sized`
+  |
+8 - fn foo1<T: ?Sized>(a: T) {}
+8 + fn foo1<T>(a: T) {}
+  |
+help: function arguments must have a statically known size, borrowed types always have a known size
+  |
+8 | fn foo1<T: ?Sized>(a: &T) {}
+  |                       +
+
+error[E0277]: the size for values of type `T` cannot be known at compilation time
+  --> main.rs:11:32
+   |
+11 | fn foo2<T: ?Sized + ?Sized>(a: T) {}
+   |         -                      ^ doesn't have a size known at compile-time
+   |         |
+   |         this type parameter needs to be `Sized`
+   |
+   = help: unsized fn params are gated as an unstable feature
+help: consider removing the `?Sized` bound to make the type parameter `Sized`
+   |
+11 - fn foo2<T: ?Sized + ?Sized>(a: T) {}
+11 + fn foo2<T>(a: T) {}
+   |
+help: function arguments must have a statically known size, borrowed types always have a known size
+   |
+11 | fn foo2<T: ?Sized + ?Sized>(a: &T) {}
+   |                                +
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_errors/src/diagnostic.rs:897:9:
+assertion `left == right` failed: suggestion must not have overlapping parts
+  left: Some([SubstitutionPart { span: main.rs:15:12: 15:21 (#0), snippet: "" }, SubstitutionPart { span: main.rs:15:18: 15:27 (#0), snippet: "" }])
+ right: None
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [typeck_root] type-checking `foo3`
+#1 [analysis] running analysis passes on crate `main`
+end of query stack
+error[E0277]: the size for values of type `T` cannot be known at compilation time
+  --> main.rs:19:41
+   |
+19 | fn foo4<T: ?Sized + Debug + ?Sized >(a: T) {}
+   |         -                               ^ doesn't have a size known at compile-time
+   |         |
+   |         this type parameter needs to be `Sized`
+   |
+   = help: unsized fn params are gated as an unstable feature
+help: consider restricting type parameters
+   |
+19 - fn foo4<T: ?Sized + Debug + ?Sized >(a: T) {}
+19 + fn foo4<T: Debug >(a: T) {}
+   |
+help: function arguments must have a statically known size, borrowed types always have a known size
+   |
+19 | fn foo4<T: ?Sized + Debug + ?Sized >(a: &T) {}
+   |                                         +
+
+error[E0277]: the size for values of type `impl ?Sized` cannot be known at compilation time
+  --> main.rs:23:12
+   |
+23 | fn foo5(_: impl ?Sized) {}
+   |            ^^^^^^^^^^^
+   |            |
+   |            doesn't have a size known at compile-time
+   |            this type parameter needs to be `Sized`
+   |
+   = help: unsized fn params are gated as an unstable feature
+help: consider replacing `?Sized` with `Sized`
+   |
+23 - fn foo5(_: impl ?Sized) {}
+23 + fn foo5(_: impl Sized) {}
+   |
+help: function arguments must have a statically known size, borrowed types always have a known size
+   |
+23 | fn foo5(_: &impl ?Sized) {}
+   |            +
+
+error[E0277]: the size for values of type `impl ?Sized + ?Sized` cannot be known at compilation time
+  --> main.rs:26:12
+   |
+26 | fn foo6(_: impl ?Sized + ?Sized) {}
+   |            ^^^^^^^^^^^^^^^^^^^^
+   |            |
+   |            doesn't have a size known at compile-time
+   |            this type parameter needs to be `Sized`
+   |
+   = help: unsized fn params are gated as an unstable feature
+help: consider restricting type parameters
+   |
+26 - fn foo6(_: impl ?Sized + ?Sized) {}
+26 + fn foo6(_: impl Sized) {}
+   |
+help: function arguments must have a statically known size, borrowed types always have a known size
+   |
+26 | fn foo6(_: &impl ?Sized + ?Sized) {}
+   |            +
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_errors/src/diagnostic.rs:897:9:
+assertion `left == right` failed: suggestion must not have overlapping parts
+  left: Some([SubstitutionPart { span: main.rs:30:17: 30:26 (#0), snippet: "" }, SubstitutionPart { span: main.rs:30:23: 30:32 (#0), snippet: "" }])
+ right: None
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [typeck_root] type-checking `foo7`
+#1 [analysis] running analysis passes on crate `main`
+end of query stack
+error[E0277]: the size for values of type `impl ?Sized + Debug + ?Sized` cannot be known at compilation time
+  --> main.rs:34:12
+   |
+34 | fn foo8(_: impl ?Sized + Debug + ?Sized ) {}
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |            |
+   |            doesn't have a size known at compile-time
+   |            this type parameter needs to be `Sized`
+   |
+   = help: unsized fn params are gated as an unstable feature
+help: consider restricting type parameters
+   |
+34 - fn foo8(_: impl ?Sized + Debug + ?Sized ) {}
+34 + fn foo8(_: impl Debug ) {}
+   |
+help: function arguments must have a statically known size, borrowed types always have a known size
+   |
+34 | fn foo8(_: &impl ?Sized + Debug + ?Sized ) {}
+   |            +
+
+error: aborting due to 12 previous errors
+
+Some errors have detailed explanations: E0203, E0277.
+For more information about an error, try `rustc --explain E0203`.
+rustc exit: 101
+
+[exit 0]

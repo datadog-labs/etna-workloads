@@ -1,0 +1,47 @@
+diff --git a/compiler/rustc_lexer/src/lib.rs b/compiler/rustc_lexer/src/lib.rs
+index dc6e3b1f358dcc46ebad1e6c22cc1e07b3d74cba..61b5b89ff392884891b15f315d08eb5e87328619 100644
+--- a/compiler/rustc_lexer/src/lib.rs
++++ b/compiler/rustc_lexer/src/lib.rs
+@@ -702,20 +702,29 @@ fn frontmatter(&mut self, has_invalid_preceding_whitespace: bool) -> TokenKind {
+         let invalid_infostring = self.first() != '\n';
+ 
+         let mut found = false;
+-        let nl_fence_pattern = format!("\n{:-<1$}", "", length_opening as usize);
+-        if let Some(closing) = self.as_str().find(&nl_fence_pattern) {
+-            // candidate found
+-            self.bump_bytes(closing + nl_fence_pattern.len());
+-            // in case like
+-            // ---cargo
+-            // --- blahblah
+-            // or
+-            // ---cargo
+-            // ----
+-            // combine those stuff into this frontmatter token such that it gets detected later.
+-            self.eat_until(b'\n');
+-            found = true;
++        let mut s = self.as_str();
++        let mut size = 0;
++        while let Some(closing) = s.find(&"-".repeat(length_opening as usize)) {
++            let preceding_chars_start = s[..closing].rfind("\n").map_or(0, |i| i + 1);
++            if s[preceding_chars_start..closing].chars().all(is_horizontal_whitespace) {
++                // candidate found
++                self.bump_bytes(closing);
++                // in case like
++                // ---cargo
++                // --- blahblah
++                // or
++                // ---cargo
++                // ----
++                // combine those stuff into this frontmatter token such that it gets detected later.
++                self.eat_until(b'\n');
++                found = true;
++                break;
++            } else {
++                s = &s[closing + length_opening as usize..];
++                size += closing + length_opening as usize;
++            }
+         }
++        let _ = size;
+ 
+         if !found {
+             // recovery strategy: a closing statement might have preceding whitespace/newline

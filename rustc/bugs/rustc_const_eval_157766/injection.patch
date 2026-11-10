@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/validity.rs b/compiler/rustc_const_eval/src/interpret/validity.rs
+index 8c0bb1fcdd8a5babc1aa6ae1beed3bf0008d8fae..f7495558126e4856c0114cc76a295a8080794d28 100644
+--- a/compiler/rustc_const_eval/src/interpret/validity.rs
++++ b/compiler/rustc_const_eval/src/interpret/validity.rs
+@@ -903,7 +903,7 @@ fn try_visit_primitive(
+                 }
+                 interp_ok(true)
+             }
+-            ty::RawPtr(pointee, ..) => {
++            ty::RawPtr(..) => {
+                 let ptr = self.read_immediate(value, ExpectedKind::RawPtr)?;
+                 if self.reset_provenance_and_padding {
+                     self.reset_pointer_provenance(value, &ptr)?;
+@@ -911,12 +911,8 @@ fn try_visit_primitive(
+                     self.add_data_range_place(value);
+                 }
+ 
+-                if !pointee.is_sized(*self.ecx.tcx, self.ecx.typing_env) {
+-                    // Raw pointers to unsized types need to have their metadata checked.
+-                    // We avoid creating this place for sized types to match codegen: those types
+-                    // might actually be invalid (i.e., too big)!
+-                    let place = self.ecx.imm_ptr_to_mplace(&ptr)?;
+-                    assert!(place.layout.is_unsized());
++                let place = self.ecx.imm_ptr_to_mplace(&ptr)?;
++                if place.layout.is_unsized() {
+                     self.check_wide_ptr_meta(place.meta(), place.layout)?;
+                 }
+                 interp_ok(true)

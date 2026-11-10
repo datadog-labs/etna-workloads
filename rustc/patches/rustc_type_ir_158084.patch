@@ -1,0 +1,15 @@
+diff --git a/compiler/rustc_type_ir/src/relate/combine.rs b/compiler/rustc_type_ir/src/relate/combine.rs
+index 4c0fe9cd25724469cfdafbe180d4029bd697ea6c..7a0504364fd2b93afc92c78cd8bfe06354f00f4f 100644
+--- a/compiler/rustc_type_ir/src/relate/combine.rs
++++ b/compiler/rustc_type_ir/src/relate/combine.rs
+@@ -111,6 +111,10 @@ pub fn super_combine_tys<Infcx, I, R>(
+             panic!("non-rigid aliases should be handled in the caller of super_combine_tys")
+         }
+ 
++        (ty::Alias(..), _) | (_, ty::Alias(..)) if infcx.next_trait_solver() => {
++            structurally_relate_tys(relation, a, b)
++        }
++
+         // All other cases of inference are errors
+         (ty::Infer(_), _) | (_, ty::Infer(_)) => Err(TypeError::Sorts(ExpectedFound::new(a, b))),
+ 

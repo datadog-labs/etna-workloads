@@ -1,0 +1,84 @@
+error[E0428]: the name `A` is defined multiple times
+  --> main.rs:10:5
+   |
+ 9 |     enum A {}
+   |     ------ previous definition of the type `A` here
+10 |     struct A<A>; //~ ERROR the name `A` is defined multiple times
+   |     ^^^^^^^^^^^^ `A` redefined here
+   |
+   = note: `A` must be defined only once in the type namespace of this block
+
+error[E0404]: expected trait, found type parameter `A`
+  --> main.rs:6:24
+   |
+ 6 |   fn produce() -> for<A: A<{ //~ ERROR expected trait, found type parameter `A`
+   |  _____________________-__^
+   | |                     |
+   | |                     found this type parameter
+ 7 | |     //~^ ERROR bounds cannot be used in this context
+ 8 | |     #[derive(Hash)]
+ 9 | |     enum A {}
+10 | |     struct A<A>; //~ ERROR the name `A` is defined multiple times
+11 | | }>> Trait {} //~ ERROR cannot find trait `Trait` in this scope
+   | |__^ not a trait
+
+error[E0405]: cannot find trait `Trait` in this scope
+  --> main.rs:11:5
+   |
+11 | }>> Trait {} //~ ERROR cannot find trait `Trait` in this scope
+   |     ^^^^^ not found in this scope
+
+error: bounds cannot be used in this context
+  --> main.rs:6:24
+   |
+ 6 |   fn produce() -> for<A: A<{ //~ ERROR expected trait, found type parameter `A`
+   |  ________________________^
+ 7 | |     //~^ ERROR bounds cannot be used in this context
+ 8 | |     #[derive(Hash)]
+ 9 | |     enum A {}
+10 | |     struct A<A>; //~ ERROR the name `A` is defined multiple times
+11 | | }>> Trait {} //~ ERROR cannot find trait `Trait` in this scope
+   | |__^
+
+error: late-bound type parameter not allowed on trait object types
+ --> main.rs:6:21
+  |
+6 | fn produce() -> for<A: A<{ //~ ERROR expected trait, found type parameter `A`
+  |                     ^
+
+error[E0782]: expected a type, found a trait
+  --> main.rs:6:17
+   |
+ 6 |   fn produce() -> for<A: A<{ //~ ERROR expected trait, found type parameter `A`
+   |  _________________^
+ 7 | |     //~^ ERROR bounds cannot be used in this context
+ 8 | |     #[derive(Hash)]
+ 9 | |     enum A {}
+10 | |     struct A<A>; //~ ERROR the name `A` is defined multiple times
+11 | | }>> Trait {} //~ ERROR cannot find trait `Trait` in this scope
+   | |_________^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_ast_lowering/src/lib.rs:676:13:
+DefId(0:5 ~ main[c7f8]::produce::{constant#0}) does not appear in children of DefId(0:3 ~ main[c7f8]::produce)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [lower_to_hir] lowering HIR for `produce::{constant#0}`
+#1 [hir_owner] getting owner for `produce::{constant#0}`
+... and 5 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 6 previous errors
+
+Some errors have detailed explanations: E0404, E0405, E0428, E0782.
+For more information about an error, try `rustc --explain E0404`.
+rustc exit: 101
+
+[exit 0]

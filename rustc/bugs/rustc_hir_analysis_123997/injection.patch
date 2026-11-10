@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..2f2c837a289be73757a8e53ed4ef69462ad7778b 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -2309,17 +2309,6 @@ pub fn lower_resolved_ty_path(
+                     .span_delayed_bug(path.span, "path with `Res::Err` but no error emitted");
+                 Ty::new_error(tcx, e)
+             }
+-            Res::Def(..) => {
+-                assert_eq!(
+-                    path.segments.get(0).map(|seg| seg.ident.name),
+-                    Some(kw::SelfUpper),
+-                    "only expected incorrect resolution for `Self`"
+-                );
+-                Ty::new_error(
+-                    self.tcx(),
+-                    self.dcx().span_delayed_bug(span, "incorrect resolution for `Self`"),
+-                )
+-            }
+             _ => span_bug!(span, "unexpected resolution: {:?}", path.res),
+         }
+     }
+diff --git a/compiler/rustc_resolve/src/ident.rs b/compiler/rustc_resolve/src/ident.rs
+index 2a1b208f94c34e33885c0c8c30524150d9f78054..479b5a30093e3cd10b93d4411631914e4eb204aa 100644
+--- a/compiler/rustc_resolve/src/ident.rs
++++ b/compiler/rustc_resolve/src/ident.rs
+@@ -419,7 +419,7 @@ fn resolve_ident_in_scope_set_inner<'r>(
+         ignore_import: Option<Import<'ra>>,
+     ) -> Result<Decl<'ra>, Determinacy> {
+         // Make sure `self`, `super` etc produce an error when passed to here.
+-        if ident.name.is_path_segment_keyword() {
++        if ident.name.is_path_segment_keyword() && ident.name != kw::SelfUpper {
+             return Err(Determinacy::Determined);
+         }
+ 

@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_span/src/symbol.rs b/compiler/rustc_span/src/symbol.rs
+index e0f1a2e26b553517b519e4ff9d9d527db07c11ef..043f29d708d811dec3612600b24ba202c1bccf09 100644
+--- a/compiler/rustc_span/src/symbol.rs
++++ b/compiler/rustc_span/src/symbol.rs
+@@ -2470,11 +2470,9 @@ pub fn with_span_pos(self, span: Span) -> Ident {
+     }
+ 
+     /// Creates a new ident with the same span and name with leading quote removed, if any.
+-    /// Calling it on a `'` ident will return an empty ident, which triggers debug assertions.
++    /// If called on an empty ident, or with name just a single quote, returns an empty ident which is invalid.
+     pub fn without_first_quote(self) -> Ident {
+-        self.as_str()
+-            .strip_prefix('\'')
+-            .map_or(self, |name| Ident::new(Symbol::intern(name), self.span))
++        Ident::new(Symbol::intern(self.as_str().trim_start_matches('\'')), self.span)
+     }
+ 
+     /// "Normalize" ident for use in comparisons using "item hygiene".

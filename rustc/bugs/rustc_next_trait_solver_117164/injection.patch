@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_next_trait_solver/src/coherence.rs b/compiler/rustc_next_trait_solver/src/coherence.rs
+index e37e69a617bbd6bf7c0200430b169f78f6646b14..89c6889244f969730aa9d74d6333948da791163d 100644
+--- a/compiler/rustc_next_trait_solver/src/coherence.rs
++++ b/compiler/rustc_next_trait_solver/src/coherence.rs
+@@ -370,13 +370,9 @@ fn visit_ty(&mut self, ty: I::Ty) -> Self::Result {
+                         | ty::TypeFlags::HAS_TY_INFER,
+                 ) {
+                     match self.in_crate {
+-                        InCrate::Local { mode } => match kind {
+-                            ty::Projection { .. } => {
+-                                if let OrphanCheckMode::Compat = mode {
+-                                    ControlFlow::Continue(())
+-                                } else {
+-                                    self.found_uncovered_ty_param(ty)
+-                                }
++                        InCrate::Local { .. } => match kind {
++                            ty::Projection { .. } | ty::Inherent { .. } | ty::Free { .. } => {
++                                self.found_non_local_ty(ty)
+                             }
+                             _ => self.found_uncovered_ty_param(ty),
+                         },

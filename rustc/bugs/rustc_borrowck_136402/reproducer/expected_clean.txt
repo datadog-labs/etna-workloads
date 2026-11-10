@@ -1,0 +1,94 @@
+error[E0499]: cannot borrow `foo` as mutable more than once at a time
+  --> main.rs:24:9
+   |
+22 |     while let Some(_) = foo.f() {
+   |                         -------
+   |                         |
+   |                         first mutable borrow occurs here
+   |                         a temporary with access to the first borrow is created here ...
+23 |         //~^ HELP matches!
+24 |         foo.g();
+   |         ^^^ second mutable borrow occurs here
+25 |         //~^ ERROR [E0499]
+26 |     }
+   |     - ... and the first borrow might be used here, when that temporary is dropped and runs the destructor for type `Option<Bar<'_>>`
+   |
+help: consider using the `matches!` macro
+   |
+22 -     while let Some(_) = foo.f() {
+22 +     while matches!(foo.f(), Some(_)) {
+   |
+
+error[E0499]: cannot borrow `foo` as mutable more than once at a time
+  --> main.rs:29:9
+   |
+27 |     if let Some(_) = foo.f() {
+   |                      -------
+   |                      |
+   |                      first mutable borrow occurs here
+   |                      a temporary with access to the first borrow is created here ...
+28 |         //~^ HELP matches!
+29 |         foo.g();
+   |         ^^^ second mutable borrow occurs here
+30 |         //~^ ERROR [E0499]
+31 |     }
+   |     - ... and the first borrow might be used here, when that temporary is dropped and runs the destructor for type `Option<Bar<'_>>`
+   |
+help: consider using the `matches!` macro
+   |
+27 -     if let Some(_) = foo.f() {
+27 +     if matches!(foo.f(), Some(_)) {
+   |
+
+error[E0499]: cannot borrow `foo` as mutable more than once at a time
+  --> main.rs:33:9
+   |
+32 |     while let Some(_x) = foo.f() {
+   |                          -------
+   |                          |
+   |                          first mutable borrow occurs here
+   |                          a temporary with access to the first borrow is created here ...
+33 |         foo.g();
+   |         ^^^ second mutable borrow occurs here
+34 |         //~^ ERROR [E0499]
+35 |     }
+   |     - ... and the first borrow might be used here, when that temporary is dropped and runs the destructor for type `Option<Bar<'_>>`
+
+error[E0499]: cannot borrow `foo` as mutable more than once at a time
+  --> main.rs:37:9
+   |
+36 |     if let Some(_x) = foo.f() {
+   |                       -------
+   |                       |
+   |                       first mutable borrow occurs here
+   |                       a temporary with access to the first borrow is created here ...
+37 |         foo.g();
+   |         ^^^ second mutable borrow occurs here
+38 |         //~^ ERROR [E0499]
+39 |     }
+   |     - ... and the first borrow might be used here, when that temporary is dropped and runs the destructor for type `Option<Bar<'_>>`
+
+error[E0499]: cannot borrow `foo` as mutable more than once at a time
+  --> main.rs:40:45
+   |
+40 |     while let Some(_x) = {let _x = foo.f(); foo.g(); None::<()>} {
+   |                                    ---      ^^^                - first borrow might be used here, when `_x` is dropped and runs the destructor for type `Option<Bar<'_>>`
+   |                                    |        |
+   |                                    |        second mutable borrow occurs here
+   |                                    first mutable borrow occurs here
+
+error[E0499]: cannot borrow `foo` as mutable more than once at a time
+  --> main.rs:43:42
+   |
+43 |     if let Some(_x) = {let _x = foo.f(); foo.g(); None::<()>} {
+   |                                 ---      ^^^                - first borrow might be used here, when `_x` is dropped and runs the destructor for type `Option<Bar<'_>>`
+   |                                 |        |
+   |                                 |        second mutable borrow occurs here
+   |                                 first mutable borrow occurs here
+
+error: aborting due to 6 previous errors
+
+For more information about this error, try `rustc --explain E0499`.
+rustc exit: 1
+
+[exit 0]

@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+index 7267ae113de3e38793f991bf566996f037a39fee..fff3e5747b767728fa78eebac8d348cc60fc4d77 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+@@ -4337,8 +4337,7 @@ fn annotate_argument_and_return_for_borrow(
+     ) -> Option<AnnotatedBorrowFnSignature<'tcx>> {
+         // Define a fallback for when we can't match a closure.
+         let fallback = || {
+-            let tcx = self.infcx.tcx;
+-            let is_closure = tcx.is_closure_like(self.mir_def_id().to_def_id());
++            let is_closure = self.infcx.tcx.is_closure_like(self.mir_def_id().to_def_id());
+             if is_closure {
+                 None
+             } else {
+@@ -4349,7 +4348,7 @@ fn annotate_argument_and_return_for_borrow(
+                     .instantiate_identity()
+                     .skip_norm_wip();
+                 match ty.kind() {
+-                    ty::FnDef(_, _) => self.annotate_fn_sig(
++                    ty::FnDef(_, _) | ty::FnPtr(..) => self.annotate_fn_sig(
+                         self.mir_def_id(),
+                         self.infcx
+                             .tcx
+@@ -4357,8 +4356,6 @@ fn annotate_argument_and_return_for_borrow(
+                             .instantiate_identity()
+                             .skip_norm_wip(),
+                     ),
+-                    // a const/static can have a fn ptr type, take the sig from the type instead.
+-                    ty::FnPtr(_, _) => self.annotate_fn_sig(self.mir_def_id(), ty.fn_sig(tcx)),
+                     _ => None,
+                 }
+             }

@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_traits/src/normalize_projection_ty.rs b/compiler/rustc_traits/src/normalize_projection_ty.rs
+index 3710d41dba0d9b4825e8bfb6efe1aad7145f638d..633401c6a5525061342fcc6b425d92179ab930e0 100644
+--- a/compiler/rustc_traits/src/normalize_projection_ty.rs
++++ b/compiler/rustc_traits/src/normalize_projection_ty.rs
+@@ -3,11 +3,10 @@
+ use rustc_infer::traits::PredicateObligations;
+ use rustc_middle::query::Providers;
+ use rustc_middle::ty::{self, ParamEnvAnd, TyCtxt};
+-use rustc_trait_selection::error_reporting::InferCtxtErrorExt;
+ use rustc_trait_selection::infer::InferCtxtBuilderExt;
+ use rustc_trait_selection::traits::query::normalize::NormalizationResult;
+ use rustc_trait_selection::traits::query::{CanonicalAliasGoal, NoSolution};
+-use rustc_trait_selection::traits::{self, ObligationCause, ScrubbedTraitError, SelectionContext};
++use rustc_trait_selection::traits::{self, ObligationCause, SelectionContext};
+ use tracing::debug;
+ 
+ pub(crate) fn provide(p: &mut Providers) {
+@@ -66,25 +65,6 @@ fn normalize_canonicalized_projection<'tcx>(
+                 goal,
+             ));
+             ocx.register_obligations(obligations);
+-            // #112047: With projections and opaques, we are able to create opaques that
+-            // are recursive (given some generic parameters of the opaque's type variables).
+-            // In that case, we may only realize a cycle error when calling
+-            // `normalize_erasing_regions` in mono.
+-            let errors = ocx.try_evaluate_obligations();
+-            if !errors.no_errors() {
+-                // Rustdoc may attempt to normalize type alias types which are not
+-                // well-formed. Rustdoc also normalizes types that are just not
+-                // well-formed, since we don't do as much HIR analysis (checking
+-                // that impl vars are constrained by the signature, for example).
+-                if !tcx.sess.opts.actually_rustdoc {
+-                    for error in &errors {
+-                        if let ScrubbedTraitError::Cycle(cycle) = &error {
+-                            ocx.infcx.err_ctxt().report_overflow_obligation_cycle(cycle);
+-                        }
+-                    }
+-                }
+-                return Err(NoSolution);
+-            }
+ 
+             Ok(NormalizationResult { normalized_term })
+         },

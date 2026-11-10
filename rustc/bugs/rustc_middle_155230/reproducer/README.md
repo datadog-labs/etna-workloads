@@ -1,0 +1,1 @@
+Compiles a crate with #![deny(unused_features)] and #![feature(doc_cfg)]. The clean compiler accepts it (doc_cfg is exempt from the unused-feature lint); the injected one errors with 'feature doc_cfg is declared but not used'.

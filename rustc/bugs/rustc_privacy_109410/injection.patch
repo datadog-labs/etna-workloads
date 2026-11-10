@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_privacy/src/lib.rs b/compiler/rustc_privacy/src/lib.rs
+index 879b239047fdcfa33672d440b7ccfe19ba24b07c..c6c98d9c7763e031b6d325f82ed3d3178f7ee85a 100644
+--- a/compiler/rustc_privacy/src/lib.rs
++++ b/compiler/rustc_privacy/src/lib.rs
+@@ -218,9 +218,7 @@ fn visit_ty(&mut self, ty: Ty<'tcx>) -> Self::Result {
+                 _,
+                 data @ ty::AliasTy {
+                     kind:
+-                        kind @ (ty::Inherent { def_id }
+-                        | ty::Free { def_id }
+-                        | ty::Projection { def_id }),
++                        kind @ (ty::Free { def_id } | ty::Projection { def_id }),
+                     ..
+                 },
+             ) => {
+@@ -242,9 +240,9 @@ fn visit_ty(&mut self, ty: Ty<'tcx>) -> Self::Result {
+                 try_visit!(self.def_id_visitor.visit_def_id(
+                     def_id,
+                     match kind {
+-                        ty::Inherent { .. } | ty::Projection { .. } => "associated type",
++                        ty::Projection { .. } => "associated type",
+                         ty::Free { .. } => "type alias",
+-                        ty::Opaque { .. } => unreachable!(),
++                        ty::Inherent { .. } | ty::Opaque { .. } => unreachable!(),
+                     },
+                     &LazyDefPathStr { def_id, tcx },
+                 ));
+@@ -260,6 +258,14 @@ fn visit_ty(&mut self, ty: Ty<'tcx>) -> Self::Result {
+                     )
+                 };
+             }
++            ty::Alias(_, data @ ty::AliasTy { kind: ty::Inherent { .. }, .. }) => {
++                if self.def_id_visitor.skip_assoc_tys() || V::SHALLOW {
++                    return V::Result::output();
++                }
++                return V::Result::from_branch(
++                    data.args.iter().try_for_each(|arg| arg.visit_with(self).branch()),
++                );
++            }
+             ty::Dynamic(predicates, ..) => {
+                 // All traits in the list are considered the "primary" part of the type
+                 // and are visited by shallow visitors.

@@ -1,0 +1,1 @@
+Declares an extern fn taking a pointer to an irregular recursive repr(C) type (A<T> contains *const A<A<T>>); without the ImproperCTypes recursion limit the lint recurses infinitely and rustc overflows the stack (SIGSEGV), while the clean compiler passes.

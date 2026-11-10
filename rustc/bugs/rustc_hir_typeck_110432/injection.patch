@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..a857654a5e0235049efb66c3be41a94ddd72d053 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -3471,17 +3471,6 @@ fn check_expr_index(
+                     element_ty
+                 }
+                 None => {
+-                    // Attempt to *shallowly* search for an impl which matches,
+-                    // but has nested obligations which are unsatisfied.
+-                    for (base_t, _) in self.autoderef(base.span, base_t).silence_errors() {
+-                        if let Some((_, index_ty, element_ty)) =
+-                            self.find_and_report_unsatisfied_index_impl(base, base_t)
+-                        {
+-                            self.demand_coerce(idx, idx_t, index_ty, None, AllowTwoPhase::No);
+-                            return element_ty;
+-                        }
+-                    }
+-
+                     let mut err = type_error_struct!(
+                         self.dcx(),
+                         brackets_span,
+@@ -3536,6 +3525,7 @@ fn check_expr_index(
+     /// deeply satisfy an impl predicate. Instead of simply saying that the type
+     /// does not support being indexed, we want to point out exactly what nested
+     /// predicates cause this to be, so that the user can add them to fix their code.
++    #[allow(dead_code)]
+     fn find_and_report_unsatisfied_index_impl(
+         &self,
+         base_expr: &hir::Expr<'_>,

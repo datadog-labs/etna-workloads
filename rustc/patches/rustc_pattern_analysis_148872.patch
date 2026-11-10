@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_pattern_analysis/src/rustc.rs b/compiler/rustc_pattern_analysis/src/rustc.rs
+index c3b3d14848982d50715298a7386b95c06c524adf..d60240a10d9fe1ba1f1b4ee980cacb66f216a453 100644
+--- a/compiler/rustc_pattern_analysis/src/rustc.rs
++++ b/compiler/rustc_pattern_analysis/src/rustc.rs
+@@ -195,18 +195,7 @@ pub(crate) fn variant_sub_tys(
+         variant.fields.iter().map(move |field| {
+             let ty = field.ty(self.tcx, args);
+             // `field.ty()` doesn't normalize after instantiating.
+-            let ty =
+-                self.tcx.try_normalize_erasing_regions(self.typing_env, ty).unwrap_or_else(|e| {
+-                    self.tcx.dcx().span_delayed_bug(
+-                        self.scrut_span,
+-                        format!(
+-                            "Failed to normalize {:?} in typing_env={:?} while getting variant sub tys for {ty:?}",
+-                            e.get_type_for_failure(),
+-                            self.typing_env,
+-                        ),
+-                    );
+-                    ty.skip_norm_wip()
+-                });
++            let ty = self.tcx.normalize_erasing_regions(self.typing_env, ty);
+             let ty = self.reveal_opaque_ty(ty);
+             (field, ty)
+         })

@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_type_ir/src/outlives.rs b/compiler/rustc_type_ir/src/outlives.rs
+index 15741c926092efd4d38e37d9dadcbd60cf235227..8b026f650f63b386780d66a4ccc0a2fbd22ea605 100644
+--- a/compiler/rustc_type_ir/src/outlives.rs
++++ b/compiler/rustc_type_ir/src/outlives.rs
+@@ -114,18 +114,6 @@ fn visit_ty(&mut self, ty: I::Ty) -> Self::Result {
+             ty::Coroutine(_, args) => {
+                 args.as_coroutine().tupled_upvars_ty().visit_with(self);
+ 
+-                // Coroutines may not outlive a region unless the resume
+-                // ty outlives a region. This is because the resume ty may
+-                // store data that lives shorter than this outlives region
+-                // across yield points, which may subsequently be accessed
+-                // after the coroutine is resumed again.
+-                //
+-                // Conceptually, you may think of the resume arg as an upvar
+-                // of `&mut Option<ResumeArgTy>`, since it is kinda like
+-                // storage shared between the callee of the coroutine and the
+-                // coroutine body.
+-                args.as_coroutine().resume_ty().visit_with(self);
+-
+                 // We ignore regions in the coroutine interior as we don't
+                 // want these to affect region inference
+             }

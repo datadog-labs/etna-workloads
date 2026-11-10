@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_codegen_llvm/src/llvm_util.rs b/compiler/rustc_codegen_llvm/src/llvm_util.rs
+index 82ddcca3e15305e8a49fae4a444c437a4b9acb68..51fe7f617fd739f3edba0b288ff8ef3e260b992e 100644
+--- a/compiler/rustc_codegen_llvm/src/llvm_util.rs
++++ b/compiler/rustc_codegen_llvm/src/llvm_util.rs
+@@ -660,7 +660,6 @@ fn llvm_features_by_flags(sess: &Session, features: &mut Vec<String>) {
+     }
+ 
+     target_features::retpoline_features_by_flags(sess, features);
+-    target_features::sanitizer_features_by_flags(sess, features);
+ 
+     // -Zfixed-x18
+     if sess.opts.unstable_opts.fixed_x18 {
+diff --git a/compiler/rustc_codegen_ssa/src/target_features.rs b/compiler/rustc_codegen_ssa/src/target_features.rs
+index 69487d2039c3134775843abbc10a8327fb14df0e..43f0728eac27f5b69686ad261b4cbfa7b6b1e7f2 100644
+--- a/compiler/rustc_codegen_ssa/src/target_features.rs
++++ b/compiler/rustc_codegen_ssa/src/target_features.rs
+@@ -10,7 +10,7 @@
+ use rustc_session::diagnostics::feature_err;
+ use rustc_session::lint::builtin::AARCH64_SOFTFLOAT_NEON;
+ use rustc_span::{Span, Symbol, edit_distance, sym};
+-use rustc_target::spec::{Arch, SanitizerSet};
++use rustc_target::spec::Arch;
+ use rustc_target::target_features::{RUSTC_SPECIFIC_FEATURES, Stability};
+ use smallvec::SmallVec;
+ 
+@@ -506,15 +506,6 @@ pub fn retpoline_features_by_flags(sess: &Session, features: &mut Vec<String>) {
+     }
+ }
+ 
+-/// Computes the backend target features to be added to account for sanitizer flags.
+-pub fn sanitizer_features_by_flags(sess: &Session, features: &mut Vec<String>) {
+-    // It's intentional that this is done only for non-kernel version of hwaddress. This matches
+-    // clang behavior.
+-    if sess.sanitizers().contains(SanitizerSet::HWADDRESS) {
+-        features.push("+tagged-globals".into());
+-    }
+-}
+-
+ pub(crate) fn provide(providers: &mut Providers) {
+     *providers = Providers {
+         rust_target_features: |tcx, cnum| {

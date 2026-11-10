@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+index 9becad0db1ca2a5a96bfb3073e3c29a77b9590da..5c90770f171c073d89e735b7c7bce1464275b4b3 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+@@ -1527,10 +1527,17 @@ fn get_expr_coercion_span(&self, expr: &hir::Expr<'_>) -> rustc_span::Span {
+ 
+     fn overwrite_local_ty_if_err(&self, hir_id: HirId, pat: &'tcx hir::Pat<'tcx>, ty: Ty<'tcx>) {
+         if let Err(guar) = ty.error_reported() {
+-            struct OverwritePatternsWithError {
++            struct OverwritePatternsWithError<'tcx> {
++                tcx: TyCtxt<'tcx>,
+                 pat_hir_ids: Vec<hir::HirId>,
+             }
+-            impl<'tcx> Visitor<'tcx> for OverwritePatternsWithError {
++            impl<'tcx> Visitor<'tcx> for OverwritePatternsWithError<'tcx> {
++                type NestedFilter = rustc_middle::hir::nested_filter::All;
++
++                fn maybe_tcx(&mut self) -> Self::MaybeTyCtxt {
++                    self.tcx
++                }
++
+                 fn visit_pat(&mut self, p: &'tcx hir::Pat<'tcx>) {
+                     self.pat_hir_ids.push(p.hir_id);
+                     hir::intravisit::walk_pat(self, p);
+@@ -1540,7 +1547,7 @@ fn visit_pat(&mut self, p: &'tcx hir::Pat<'tcx>) {
+             let err = Ty::new_error(self.tcx, guar);
+             self.write_ty(hir_id, err);
+             self.write_ty(pat.hir_id, err);
+-            let mut visitor = OverwritePatternsWithError { pat_hir_ids: vec![] };
++            let mut visitor = OverwritePatternsWithError { tcx: self.tcx, pat_hir_ids: vec![] };
+             hir::intravisit::walk_pat(&mut visitor, pat);
+             // Mark all the subpatterns as `{type error}` as well. This allows errors for specific
+             // subpatterns to be silenced.

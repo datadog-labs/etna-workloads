@@ -1,0 +1,1 @@
+An auxiliary dylib compiled with -Zalways-encode-mir exports MIR of a non-inlinable fn referencing a private static. On the injected compiler, `-O` MIR inlining inlines it into main, causing a linker error (undefined reference to the static); the clean compiler builds fine.

@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_borrowck/src/type_check/mod.rs b/compiler/rustc_borrowck/src/type_check/mod.rs
+index 14b1c9b31ef9f6f769bc88a6fc3d10e035b43419..42ec2add38ba876f46cc21c2c039b83071f43751 100644
+--- a/compiler/rustc_borrowck/src/type_check/mod.rs
++++ b/compiler/rustc_borrowck/src/type_check/mod.rs
+@@ -1001,13 +1001,6 @@ fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
+             Rvalue::Aggregate(ak, ops) => self.check_aggregate_rvalue(rvalue, ak, ops, location),
+ 
+             Rvalue::Repeat(operand, len) => {
+-                let array_ty = rvalue.ty(self.body.local_decls(), tcx);
+-                self.prove_clause(
+-                    ty::ClauseKind::WellFormed(array_ty.into()),
+-                    Locations::Single(location),
+-                    ConstraintCategory::Boring,
+-                );
+-
+                 // If the length cannot be evaluated we must assume that the length can be larger
+                 // than 1.
+                 // If the length is larger than 1, the repeat expression will need to copy the
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..cfe3bca2628d1eac83bc84dcd51d26c98ac490da 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -1778,9 +1778,7 @@ fn check_expr_repeat(
+         // have inference side effects required for type checking to succeed.
+         self.deferred_repeat_expr_checks.borrow_mut().push((element, element_ty, count));
+ 
+-        let ty = Ty::new_array_with_const_len(tcx, t, count);
+-        self.register_wf_obligation(ty.into(), expr.span, ObligationCauseCode::WellFormed(None));
+-        ty
++        Ty::new_array_with_const_len(tcx, t, count)
+     }
+ 
+     fn check_expr_tuple(

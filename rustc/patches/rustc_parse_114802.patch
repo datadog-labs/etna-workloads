@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_parse/src/diagnostics.rs b/compiler/rustc_parse/src/diagnostics.rs
+index 7897239d248ea2bad17942868e8a3b7184f843a2..528cc52119677885043540fa8530fbf6fabf3eca 100644
+--- a/compiler/rustc_parse/src/diagnostics.rs
++++ b/compiler/rustc_parse/src/diagnostics.rs
+@@ -4045,9 +4045,9 @@ pub(crate) struct IncorrectParensTraitBounds {
+ #[derive(Subdiagnostic)]
+ #[multipart_suggestion("fix the parentheses", applicability = "machine-applicable")]
+ pub(crate) struct IncorrectParensTraitBoundsSugg {
+-    #[suggestion_part(code = " ")]
++    #[suggestion_part(code = "")]
+     pub wrong_span: Span,
+-    #[suggestion_part(code = "(")]
++    #[suggestion_part(code = "")]
+     pub new_span: Span,
+ }
+ 
+diff --git a/compiler/rustc_parse/src/parser/ty.rs b/compiler/rustc_parse/src/parser/ty.rs
+index 1d2021cfe50aea5240460bb2466877ee3982e5f8..eb8f971f94666adc7974f22b04efd5de63a7c19c 100644
+--- a/compiler/rustc_parse/src/parser/ty.rs
++++ b/compiler/rustc_parse/src/parser/ty.rs
+@@ -1411,15 +1411,15 @@ fn parse_trait_bound(
+         if let ast::Parens::Yes = parens {
+             // Someone has written something like `&dyn (Trait + Other)`. The correct code
+             // would be `&(dyn Trait + Other)`
+-            if self.token.is_like_plus() && leading_token.is_keyword(kw::Dyn) {
++            if self.token.is_like_plus() {
+                 let bounds = thin_vec![];
+                 self.parse_remaining_bounds(bounds, true)?;
+                 self.expect(exp!(CloseParen))?;
+                 self.dcx().emit_err(diagnostics::IncorrectParensTraitBounds {
+                     span: vec![lo, self.prev_token.span],
+                     sugg: diagnostics::IncorrectParensTraitBoundsSugg {
+-                        wrong_span: leading_token.span.shrink_to_hi().to(lo),
+-                        new_span: leading_token.span.shrink_to_lo(),
++                        wrong_span: lo,
++                        new_span: self.prev_token.span,
+                     },
+                 });
+             } else {

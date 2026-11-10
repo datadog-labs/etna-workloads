@@ -1,0 +1,54 @@
+diff --git a/compiler/rustc_hir_typeck/src/_match.rs b/compiler/rustc_hir_typeck/src/_match.rs
+index a1ff036574fdc7d75220d43f960bf4746cd7b622..7d59c12298dd5fc74cddec13fc32671ee93e95cd 100644
+--- a/compiler/rustc_hir_typeck/src/_match.rs
++++ b/compiler/rustc_hir_typeck/src/_match.rs
+@@ -136,9 +136,7 @@ pub(crate) fn check_expr_match(
+                 &cause,
+                 Some(arm.body),
+                 arm_ty,
+-                |err| {
+-                    self.explain_never_type_coerced_to_unit(err, arm, arm_ty, prior_arm, expr);
+-                },
++                |err| self.suggest_removing_semicolon_for_coerce(err, expr, arm_ty, prior_arm),
+                 false,
+             );
+ 
+@@ -176,38 +174,6 @@ pub(crate) fn check_expr_match(
+         coercion.complete(self)
+     }
+ 
+-    fn explain_never_type_coerced_to_unit(
+-        &self,
+-        err: &mut Diag<'_>,
+-        arm: &hir::Arm<'tcx>,
+-        arm_ty: Ty<'tcx>,
+-        prior_arm: Option<(Option<hir::HirId>, Ty<'tcx>, Span)>,
+-        expr: &hir::Expr<'tcx>,
+-    ) {
+-        if let hir::ExprKind::Block(block, _) = arm.body.kind
+-            && let Some(expr) = block.expr
+-            && let arm_tail_ty = self.node_ty(expr.hir_id)
+-            && arm_tail_ty.is_never()
+-            && !arm_ty.is_never()
+-        {
+-            err.span_label(
+-                expr.span,
+-                format!(
+-                    "this expression is of type `!`, but it is coerced to `{arm_ty}` due to its \
+-                     surrounding expression",
+-                ),
+-            );
+-            self.suggest_mismatched_types_on_tail(
+-                err,
+-                expr,
+-                arm_ty,
+-                prior_arm.map_or(arm_tail_ty, |(_, ty, _)| ty),
+-                expr.hir_id,
+-            );
+-        }
+-        self.suggest_removing_semicolon_for_coerce(err, expr, arm_ty, prior_arm)
+-    }
+-
+     fn suggest_removing_semicolon_for_coerce(
+         &self,
+         diag: &mut Diag<'_>,

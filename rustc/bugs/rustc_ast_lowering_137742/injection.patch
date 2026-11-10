@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_ast_lowering/src/expr.rs b/compiler/rustc_ast_lowering/src/expr.rs
+index 003ca39a5bda956a8c2000352d2058a6c2a62df2..5fbf6ee873c65e8ad3e62ba2441e1746b5f5540d 100644
+--- a/compiler/rustc_ast_lowering/src/expr.rs
++++ b/compiler/rustc_ast_lowering/src/expr.rs
+@@ -732,13 +732,10 @@ fn lower_arm(&mut self, arm: &Arm) -> hir::Arm<'hir> {
+         let span = self.lower_span(arm.span);
+         self.lower_attrs(hir_id, &arm.attrs, arm.span, Target::Arm);
+         let is_never_pattern = pat.is_never_pattern();
+-        // We need to lower the body even if it's unneeded for never pattern in match,
+-        // ensure that we can get HirId for DefId if need (issue #137708).
+-        let body = arm.body.as_ref().map(|x| self.lower_expr(x));
+-        let body = if let Some(body) = body
++        let body = if let Some(body) = &arm.body
+             && !is_never_pattern
+         {
+-            body
++            self.lower_expr(body)
+         } else {
+             // Either `body.is_none()` or `is_never_pattern` here.
+             if !is_never_pattern {

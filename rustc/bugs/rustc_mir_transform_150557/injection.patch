@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_mir_transform/src/promote_consts.rs b/compiler/rustc_mir_transform/src/promote_consts.rs
+index ae2028f1c62ea1e77b0709db0dd2fea15459d31f..a704274339d4db239df9fbf5dbf6f8344a68d5b9 100644
+--- a/compiler/rustc_mir_transform/src/promote_consts.rs
++++ b/compiler/rustc_mir_transform/src/promote_consts.rs
+@@ -334,7 +334,6 @@ fn validate_place(&mut self, place: PlaceRef<'tcx>) -> Result<(), Unpromotable>
+                 if let TempState::Defined { location: loc, .. } = self.temps[local]
+                     && let Left(statement) =  self.body.stmt_at(loc)
+                     && let Some((_, Rvalue::Use(Operand::Constant(c), _))) = statement.kind.as_assign()
+-                    && self.should_evaluate_for_promotion_checks(c.const_)
+                     && let Some(idx) = c.const_.try_eval_target_usize(self.tcx, self.typing_env)
+                     // Determine the type of the thing we are indexing.
+                     && let ty::Array(_, len) = place_base.ty(self.body, self.tcx).ty.kind()
+@@ -493,7 +492,6 @@ fn validate_rvalue(&mut self, rvalue: &Rvalue<'tcx>) -> Result<(), Unpromotable>
+                             let sz = lhs_ty.primitive_size(self.tcx);
+                             // Integer division: the RHS must be a non-zero const.
+                             let rhs_val = if let Operand::Constant(rhs_c) = rhs
+-                                && self.should_evaluate_for_promotion_checks(rhs_c.const_)
+                                 && let Some(rhs_val) =
+                                     rhs_c.const_.try_eval_scalar_int(self.tcx, self.typing_env)
+                                 // for the zero test, int vs uint does not matter
+@@ -509,7 +507,6 @@ fn validate_rvalue(&mut self, rvalue: &Rvalue<'tcx>) -> Result<(), Unpromotable>
+                             if lhs_ty.is_signed() && rhs_val.to_int(sz) == -1 {
+                                 // The RHS is -1, so we have to be careful. But is the LHS int::MIN?
+                                 if let Operand::Constant(lhs_c) = lhs
+-                                    && self.should_evaluate_for_promotion_checks(lhs_c.const_)
+                                     && let Some(lhs_val) =
+                                         lhs_c.const_.try_eval_scalar_int(self.tcx, self.typing_env)
+                                     && let lhs_min = sz.signed_int_min()

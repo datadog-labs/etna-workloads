@@ -1,0 +1,63 @@
+warning: the feature `fn_delegation` is incomplete and may not be safe to use and/or cause compiler crashes
+ --> main.rs:1:12
+  |
+1 | #![feature(fn_delegation)]
+  |            ^^^^^^^^^^^^^
+  |
+  = note: see issue #118212 <https://github.com/rust-lang/rust/issues/118212> for more information
+  = note: `#[warn(incomplete_features)]` on by default
+
+error: delegation's target expression is specified for function with no params
+  --> main.rs:6:18
+   |
+ 6 |       reuse a as b { //~ ERROR: delegation's target expression is specified for function with no params
+   |  __________________^
+ 7 | |         //~^ ERROR: this function takes 0 arguments but 1 argument was supplied
+ 8 | |         let closure = || {
+ 9 | |             fn foo<'a, 'b, T: Clone, const N: usize, U: Clone>(_t: &'a T, _u: &'b U) {}
+...  |
+15 | |         closure();
+16 | |     }
+   | |_____^
+
+error: delegation's target expression is specified for function with no params
+  --> main.rs:26:31
+   |
+26 |     reuse to_reuse::zero_args { self }
+   |                               ^^^^^^^^
+
+error: delegation's target expression is specified for function with no params
+  --> main.rs:35:18
+   |
+35 |       reuse a as b { //~ ERROR: delegation's target expression is specified for function with no params
+   |  __________________^
+36 | |         //~^ ERROR: this function takes 0 arguments but 1 argument was supplied
+37 | |         let closure = || {
+38 | |             reuse a as b { //~ ERROR: delegation's target expression is specified for function with no params
+...  |
+53 | |         closure();
+54 | |     }
+   | |_____^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_ast_lowering/src/lib.rs:676:13:
+DefId(0:6 ~ main[c7f8]::test_ice::b::{closure#0}) does not appear in children of DefId(0:5 ~ main[c7f8]::test_ice::b)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [lower_to_hir] lowering HIR for `test_ice::b::{closure#0}`
+#1 [hir_owner] getting owner for `test_ice::b::{closure#0}`
+... and 6 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 3 previous errors; 1 warning emitted
+
+rustc exit: 101
+
+[exit 0]

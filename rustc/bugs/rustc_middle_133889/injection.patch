@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_middle/src/ty/inhabitedness/mod.rs b/compiler/rustc_middle/src/ty/inhabitedness/mod.rs
+index 42485a17f1011865dd5241d8cc5a436da520cb54..52aaebc3a2526a69858607e2292d3b647c1874a6 100644
+--- a/compiler/rustc_middle/src/ty/inhabitedness/mod.rs
++++ b/compiler/rustc_middle/src/ty/inhabitedness/mod.rs
+@@ -91,6 +91,9 @@ pub fn inhabited_predicate(
+         InhabitedPredicate::all(
+             tcx,
+             self.fields.iter().map(|field| {
++                if tcx.lookup_stability(field.did).is_some_and(|stab| stab.is_unstable()) {
++                    return InhabitedPredicate::True;
++                }
+                 let pred = tcx
+                     .type_of(field.did)
+                     .instantiate_identity()
+diff --git a/compiler/rustc_pattern_analysis/src/rustc.rs b/compiler/rustc_pattern_analysis/src/rustc.rs
+index c3b3d14848982d50715298a7386b95c06c524adf..8fc0b151a695cd568fd2a39fbba0ed6ce0eb88a0 100644
+--- a/compiler/rustc_pattern_analysis/src/rustc.rs
++++ b/compiler/rustc_pattern_analysis/src/rustc.rs
+@@ -252,7 +252,11 @@ fn reveal_and_alloc<'a, 'tcx>(
+                         let is_visible =
+                             adt.is_enum() || field.vis.is_accessible_from(cx.module, cx.tcx);
+                         let is_uninhabited = cx.is_uninhabited(*ty);
+-                        let skip = is_uninhabited && !is_visible;
++                        let is_unstable = cx
++                            .tcx
++                            .lookup_stability(field.did)
++                            .is_some_and(|stab| stab.is_unstable());
++                        let skip = is_uninhabited && (!is_visible || is_unstable);
+                         (ty, PrivateUninhabitedField(skip))
+                     });
+                     cx.dropless_arena.alloc_from_iter(tys)

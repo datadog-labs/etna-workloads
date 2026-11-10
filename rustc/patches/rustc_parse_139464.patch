@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_parse/src/parser/mod.rs b/compiler/rustc_parse/src/parser/mod.rs
+index c67f220e84bd94a1879ce9127ef10f62b059d3e1..6590a1ae287df025de3ee3ed3c9233eb66701a73 100644
+--- a/compiler/rustc_parse/src/parser/mod.rs
++++ b/compiler/rustc_parse/src/parser/mod.rs
+@@ -653,16 +653,9 @@ fn eat_metavar_seq_with_matcher<T>(
+             // Recovery is disabled when parsing macro arguments, so it must
+             // also be disabled when reparsing pasted macro arguments,
+             // otherwise we get inconsistent results (e.g. #137874).
+-            let res = self.with_recovery(Recovery::Forbidden, |this| f(this));
+-
+-            let res = match res {
+-                Ok(res) => res,
+-                Err(err) => {
+-                    // This can occur in unusual error cases, e.g. #139445.
+-                    err.delay_as_bug();
+-                    return None;
+-                }
+-            };
++            let res = self.with_recovery(Recovery::Forbidden, |this| {
++                f(this).expect("failed to reparse {mv_kind:?}")
++            });
+ 
+             if let token::CloseInvisible(InvisibleOrigin::MetaVar(mv_kind)) = self.token.kind
+                 && match_mv_kind(mv_kind)

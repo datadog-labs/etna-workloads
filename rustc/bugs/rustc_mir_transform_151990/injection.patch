@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_mir_transform/src/liveness.rs b/compiler/rustc_mir_transform/src/liveness.rs
+index 4da8ca0760257403ed040cf549de4ab9474beb2a..0b92ff0ffcfb5f819ca9d85675b943afce5ab2f3 100644
+--- a/compiler/rustc_mir_transform/src/liveness.rs
++++ b/compiler/rustc_mir_transform/src/liveness.rs
+@@ -1372,12 +1372,9 @@ struct TransferFunction<'a, 'tcx> {
+ impl<'tcx> Visitor<'tcx> for TransferFunction<'_, 'tcx> {
+     fn visit_statement(&mut self, statement: &Statement<'tcx>, location: Location) {
+         match statement.kind {
+-            // `ForLet(None)` and `ForGuardBinding` fake reads erroneously mark the just-assigned
+-            // locals as live. This defeats the purpose of the analysis for such bindings.
+-            StatementKind::FakeRead((
+-                FakeReadCause::ForLet(None) | FakeReadCause::ForGuardBinding,
+-                _,
+-            )) => return,
++            // `ForLet(None)` fake read erroneously marks the just-assigned local as live.
++            // This defeats the purpose of the analysis for `let` bindings.
++            StatementKind::FakeRead((FakeReadCause::ForLet(None), _)) => return,
+             // Handle self-assignment by restricting the read/write they do.
+             StatementKind::Assign((ref dest, ref rvalue))
+                 if self.self_assignment.contains(&location) =>

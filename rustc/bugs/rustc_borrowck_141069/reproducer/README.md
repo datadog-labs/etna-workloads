@@ -1,0 +1,1 @@
+Borrowck reports E0716 (temporary dropped while borrowed) for `ref_s = &mut String::from(..)`. The suggestion to introduce a `let` binding should say `let mut binding = ...` since the borrow is mutable; the injected compiler omits `mut`.

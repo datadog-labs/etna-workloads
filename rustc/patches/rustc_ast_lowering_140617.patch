@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_ast_lowering/src/lib.rs b/compiler/rustc_ast_lowering/src/lib.rs
+index cc7e081f2cce34b353c336bc45a9975437931355..fae1ac017ac3ee2ae8bbaea9d6230d2d86d35bfb 100644
+--- a/compiler/rustc_ast_lowering/src/lib.rs
++++ b/compiler/rustc_ast_lowering/src/lib.rs
+@@ -68,6 +68,7 @@
+ use rustc_middle::queries::Providers;
+ use rustc_middle::span_bug;
+ use rustc_middle::ty::{PerOwnerResolverData, ResolverAstLowering, TyCtxt};
++use rustc_session::lint::builtin::UNSAFE_ATTR_OUTSIDE_UNSAFE;
+ use rustc_session::diagnostics::add_feature_diagnostics;
+ use rustc_span::symbol::{Ident, Symbol, kw, sym};
+ use rustc_span::{DUMMY_SP, DesugaringKind, Span};
+@@ -1233,7 +1234,7 @@ fn lower_attrs_vec(
+             |lint_id, span, kind| {
+                 self.delayed_lints.push(DelayedLint {
+                     lint_id,
+-                    id: target_hir_id,
++                    id: if lint_id.lint.name == UNSAFE_ATTR_OUTSIDE_UNSAFE.name { hir::CRATE_HIR_ID } else { target_hir_id },
+                     span,
+                     callback: Box::new(move |dcx, level, sess: &dyn std::any::Any| {
+                         let sess = sess

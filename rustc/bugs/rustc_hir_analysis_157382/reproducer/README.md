@@ -1,0 +1,1 @@
+Compiles a crate using a `pub const` in an array length under min_generic_const_args; the error's suggestion is `pub type const` on the clean compiler but the misplaced `type pub const` on the injected one.

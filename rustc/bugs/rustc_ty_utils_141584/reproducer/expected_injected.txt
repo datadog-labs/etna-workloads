@@ -1,0 +1,56 @@
+warning: union `U` is never used
+ --> main.rs:5:7
+  |
+5 | union U {
+  |       ^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `foo` is never used
+ --> main.rs:9:4
+  |
+9 | fn foo() {
+  |    ^^^
+
+warning: unused closure that must be used
+  --> main.rs:10:5
+   |
+10 | /     async || {
+11 | |         &U { f: 1 }
+12 | |     };
+   | |_____^
+   |
+   = note: closures are lazy and do nothing unless called
+   = note: `#[warn(unused_must_use)]` (part of `#[warn(unused)]`) on by default
+
+error: internal compiler error: compiler/rustc_ty_utils/src/opaque_types.rs:369:13: `opaque_types_defined_by` not defined for synthetic mir body `DefId(0:8 ~ main[ad27]::foo::{closure#0}::{synthetic#0})`
+  --> main.rs:10:14
+   |
+10 |       async || {
+   |  ______________^
+11 | |         &U { f: 1 }
+12 | |     };
+   | |_____^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_ty_utils/src/opaque_types.rs:369:13:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+note: compiler flags: --crate-type lib
+
+query stack during panic:
+#0 [opaque_types_defined_by] computing the opaque types defined by `foo::{closure#0}::{synthetic#0}`
+#1 [mir_promoted] promoting constants in MIR for `foo::{closure#0}::{synthetic#0}`
+... and 3 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 1 previous error; 3 warnings emitted
+
+rustc exit: 101
+
+[exit 0]

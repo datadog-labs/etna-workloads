@@ -1,0 +1,131 @@
+diff --git a/compiler/rustc_borrowck/src/handle_placeholders.rs b/compiler/rustc_borrowck/src/handle_placeholders.rs
+index 11b8890346dfb08a0a738aa9c00332ceb466bc97..c7c10ca39302cf1df4feee31355847be1c278e18 100644
+--- a/compiler/rustc_borrowck/src/handle_placeholders.rs
++++ b/compiler/rustc_borrowck/src/handle_placeholders.rs
+@@ -313,7 +313,7 @@ pub(crate) fn compute_sccs_applying_placeholder_outlives_constraints<'tcx>(
+     }
+ }
+ 
+-pub(crate) fn rewrite_placeholder_outlives<'tcx>(
++fn rewrite_placeholder_outlives<'tcx>(
+     sccs: &Sccs<RegionVid, ConstraintSccIndex>,
+     annotations: &SccAnnotations<'_, '_, RegionTracker>,
+     fr_static: RegionVid,
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
+index e7e05e561d13f7b557dc3711d37854d942640f5d..8c7ec7e220abf861a72bb3abd416152ce1a100f9 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
+@@ -39,7 +39,7 @@ pub(super) fn apply_member_constraints<'tcx>(
+     debug!(?member_constraints);
+     for scc_a in rcx.constraint_sccs.all_sccs() {
+         debug!(?scc_a);
+-        // Start by adding the region values required by outlives constraints. This
++        // Start by  adding the region values required by outlives constraints. This
+         // matches how we compute the final region values in `fn compute_regions`.
+         //
+         // We need to do this here to get a lower bound when applying member constraints.
+@@ -64,7 +64,6 @@ fn apply_member_constraint<'tcx>(
+     // If the member region lives in a higher universe, we currently choose
+     // the most conservative option by leaving it unchanged.
+     if !rcx.max_placeholder_universe_reached(member).is_root() {
+-        debug!("member region reached non root universe, bailing");
+         return;
+     }
+ 
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+index e347dc2d13dfcb2172a7c2b2b4c4e2c854e4d26a..69d4ea92e8b601d5359b00dad2a9dbd15873530e 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+@@ -274,10 +274,6 @@ fn collect_defining_uses<'tcx>(
+                 }
+             } else {
+                 errors.push(DeferredOpaqueTypeError::InvalidOpaqueTypeArgs(err));
+-                debug!(
+-                    "collect_defining_uses: InvalidOpaqueTypeArgs for {:?} := {:?}",
+-                    non_nll_opaque_type_key, hidden_type
+-                );
+             }
+             continue;
+         }
+@@ -301,7 +297,6 @@ fn collect_defining_uses<'tcx>(
+     defining_uses
+ }
+ 
+-#[instrument(level = "debug", skip(rcx, hidden_types, defining_uses, errors))]
+ fn compute_definition_site_hidden_types_from_defining_uses<'tcx>(
+     def_id: LocalDefId,
+     rcx: &RegionCtxt<'_, 'tcx>,
+@@ -315,7 +310,6 @@ fn compute_definition_site_hidden_types_from_defining_uses<'tcx>(
+     let mut decls_modulo_regions: FxIndexMap<OpaqueTypeKey<'tcx>, (OpaqueTypeKey<'tcx>, Span)> =
+         FxIndexMap::default();
+     for &DefiningUse { opaque_type_key, ref arg_regions, hidden_type } in defining_uses {
+-        debug!(?opaque_type_key, ?arg_regions, ?hidden_type);
+         // After applying member constraints, we now map all regions in the hidden type
+         // to the `arg_regions` of this defining use. In case a region in the hidden type
+         // ended up not being equal to any such region, we error.
+@@ -323,7 +317,6 @@ fn compute_definition_site_hidden_types_from_defining_uses<'tcx>(
+             match hidden_type.try_fold_with(&mut ToArgRegionsFolder::new(rcx, arg_regions)) {
+                 Ok(hidden_type) => hidden_type,
+                 Err(r) => {
+-                    debug!("UnexpectedHiddenRegion: {:?}", r);
+                     // If we're using the next solver, the unconstrained region may be resolved by a
+                     // fully defining use from another body.
+                     // So we don't generate error eagerly here.
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/region_ctxt.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/region_ctxt.rs
+index ae5a213c5c37d49b898a79545c454e10200e13e0..905d3bdf1fd9e39f6d2b7fe9fc72c86691a488a3 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/region_ctxt.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/region_ctxt.rs
+@@ -11,9 +11,7 @@
+ use crate::handle_placeholders::{SccAnnotations, region_definitions};
+ use crate::region_infer::reverse_sccs::ReverseSccGraph;
+ use crate::region_infer::values::RegionValues;
+-use crate::region_infer::{
+-    ConstraintSccs, OutlivesConstraintSet, RegionDefinition, RegionTracker, Representative,
+-};
++use crate::region_infer::{ConstraintSccs, RegionDefinition, RegionTracker, Representative};
+ use crate::type_check::MirTypeckRegionConstraints;
+ use crate::type_check::free_region_relations::UniversalRegionRelations;
+ use crate::universal_regions::UniversalRegions;
+@@ -41,36 +39,16 @@ pub(super) fn new(
+         location_map: Rc<DenseLocationMap>,
+         constraints: &MirTypeckRegionConstraints<'tcx>,
+     ) -> RegionCtxt<'a, 'tcx> {
+-        let mut outlives_constraints = constraints.outlives_constraints.clone();
+         let universal_regions = &universal_region_relations.universal_regions;
+         let (definitions, _has_placeholders) = region_definitions(infcx, universal_regions);
+-
+-        let compute_sccs =
+-            |outlives_constraints: &OutlivesConstraintSet<'tcx>,
+-             annotations: &mut SccAnnotations<'_, 'tcx, RegionTracker>| {
+-                ConstraintSccs::new_with_annotation(
+-                    &outlives_constraints
+-                        .graph(definitions.len())
+-                        .region_graph(outlives_constraints, universal_regions.fr_static),
+-                    annotations,
+-                )
+-            };
+-
+         let mut scc_annotations = SccAnnotations::init(&definitions);
+-        let mut constraint_sccs = compute_sccs(&outlives_constraints, &mut scc_annotations);
+-
+-        let added_constraints = crate::handle_placeholders::rewrite_placeholder_outlives(
+-            &constraint_sccs,
+-            &scc_annotations,
+-            universal_regions.fr_static,
+-            &mut outlives_constraints,
++        let constraint_sccs = ConstraintSccs::new_with_annotation(
++            &constraints
++                .outlives_constraints
++                .graph(definitions.len())
++                .region_graph(&constraints.outlives_constraints, universal_regions.fr_static),
++            &mut scc_annotations,
+         );
+-
+-        if added_constraints {
+-            scc_annotations = SccAnnotations::init(&definitions);
+-            constraint_sccs = compute_sccs(&outlives_constraints, &mut scc_annotations);
+-        }
+-
+         let scc_annotations = scc_annotations.scc_to_annotation;
+ 
+         // Unlike the `RegionInferenceContext`, we only care about free regions

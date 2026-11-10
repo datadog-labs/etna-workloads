@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+index 349337f273aab18b87bc8de93eb51963c7f3f373..ded6e74562c77d565c68f9acb9f7c4c46d2babe2 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mod.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+@@ -19,7 +19,7 @@
+     LocalKind, Location, Operand, Place, PlaceRef, PlaceTy, ProjectionElem, Rvalue, Statement,
+     StatementKind, Terminator, TerminatorKind, VarDebugInfoContents, find_self_call,
+ };
+-use rustc_middle::ty::print::{Print, with_no_trimmed_paths};
++use rustc_middle::ty::print::Print;
+ use rustc_middle::ty::{self, Ty, TyCtxt};
+ use rustc_middle::{bug, span_bug};
+ use rustc_mir_dataflow::move_paths::{InitLocation, LookupResult, MoveOutIndex};
+@@ -1375,7 +1375,7 @@ fn explain_captures(
+                             &move_spans,
+                         );
+ 
+-                        let func = with_no_trimmed_paths!(tcx.def_path_str(method_did));
++                        let func = tcx.def_path_str(method_did);
+                         if let Some((kind, _)) = desugaring {
+                             err.subdiagnostic(CaptureReasonNote::DesugaringFuncTakeSelf {
+                                 func,
+diff --git a/compiler/rustc_borrowck/src/session_diagnostics.rs b/compiler/rustc_borrowck/src/session_diagnostics.rs
+index a0f347679b05ac90f2594b0f6dba08329fc4de2c..1ddea6dc67584faebb8aa2d6ab0fc69ca537a9a9 100644
+--- a/compiler/rustc_borrowck/src/session_diagnostics.rs
++++ b/compiler/rustc_borrowck/src/session_diagnostics.rs
+@@ -393,7 +393,7 @@ pub(crate) enum CaptureReasonLabel<'a> {
+         "{$place_name} {$is_partial ->
+             [true] partially moved
+             *[false] moved
+-        } due to the question mark {$is_loop_message ->
++        } due to usage in the question mark {$is_loop_message ->
+             [true] operator, in previous iteration of loop
+             *[false] operator
+         }"
+@@ -531,7 +531,7 @@ pub(crate) enum CaptureReasonNote {
+         span: Span,
+     },
+     #[note(
+-        "the {$desugar_name} is desugared into a call to `{$func}`, which takes ownership of the \
++        "the {$desugar_name} is expanded into a call to `{$func}`, which takes ownership of the \
+          receiver `self`, which moves {$place_name}"
+     )]
+     DesugaringFuncTakeSelf {

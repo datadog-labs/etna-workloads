@@ -1,0 +1,46 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..a15619755f02d5170d8da951b355ffe578ecf25b 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -4586,38 +4586,9 @@ enum Introducer {
+                                 param.name.ident(),
+                             ));
+                             let bounds_span = hir_generics.bounds_span_for_suggestions(def_id);
+-                            let mut applicability = Applicability::MaybeIncorrect;
+-                            // Format the path of each suggested candidate, providing placeholders
+-                            // for any generic arguments without defaults.
+-                            let candidate_strs: Vec<_> = candidates
+-                                .iter()
+-                                .map(|cand| {
+-                                    let cand_path = tcx.def_path_str(cand.def_id);
+-                                    let cand_params = &tcx.generics_of(cand.def_id).own_params;
+-                                    let cand_args: String = cand_params
+-                                        .iter()
+-                                        .skip(1)
+-                                        .filter_map(|param| match param.kind {
+-                                            ty::GenericParamDefKind::Type {
+-                                                has_default: true,
+-                                                ..
+-                                            }
+-                                            | ty::GenericParamDefKind::Const {
+-                                                has_default: true,
+-                                                ..
+-                                            } => None,
+-                                            _ => Some(param.name.as_str()),
+-                                        })
+-                                        .intersperse(", ")
+-                                        .collect();
+-                                    if cand_args.is_empty() {
+-                                        cand_path
+-                                    } else {
+-                                        applicability = Applicability::HasPlaceholders;
+-                                        format!("{cand_path}</* {cand_args} */>")
+-                                    }
+-                                })
+-                                .collect();
++                            let candidate_strs: Vec<_> =
++                                candidates.iter().map(|cand| tcx.def_path_str(cand.def_id)).collect();
++                            let applicability = Applicability::MaybeIncorrect;
+ 
+                             if rcvr_ty.is_ref()
+                                 && param.is_impl_trait()

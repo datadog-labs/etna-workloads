@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect.rs b/compiler/rustc_hir_analysis/src/collect.rs
+index 25ba0c810489ee7495b94218568db5eda51086be..1c40d22f216b7fc4bd0917dd1fa5bc867fb51634 100644
+--- a/compiler/rustc_hir_analysis/src/collect.rs
++++ b/compiler/rustc_hir_analysis/src/collect.rs
+@@ -294,7 +294,37 @@ fn report_placeholder_type_error(
+             }
+             _ => self.item_def_id,
+         };
+-        let kind = self.tcx.def_descr(kind_id.into());
++        let kind = match self.tcx.hir_node_by_def_id(kind_id) {
++            Node::Item(it) => match it.kind {
++                hir::ItemKind::Static(..) => "static item",
++                hir::ItemKind::Const(..) => "constant item",
++                hir::ItemKind::Fn { .. } => "function",
++                hir::ItemKind::TyAlias(..) => "type alias",
++                hir::ItemKind::Enum(..) => "enum",
++                hir::ItemKind::Struct(..) => "struct",
++                hir::ItemKind::Union(..) => "union",
++                hir::ItemKind::Trait { .. } => "trait",
++                hir::ItemKind::Impl(..) => "implementation",
++                _ => self.tcx.def_descr(kind_id.into()),
++            },
++            Node::ImplItem(it) => match it.kind {
++                hir::ImplItemKind::Const(..) => "associated constant",
++                hir::ImplItemKind::Fn(..) => "method",
++                hir::ImplItemKind::Type(..) => "associated type",
++            },
++            Node::TraitItem(it) => match it.kind {
++                hir::TraitItemKind::Const(..) => "associated constant",
++                hir::TraitItemKind::Fn(..) => "method",
++                hir::TraitItemKind::Type(..) => "associated type",
++            },
++            Node::ForeignItem(it) => match it.kind {
++                hir::ForeignItemKind::Fn(..) => "foreign function",
++                hir::ForeignItemKind::Static(..) => "foreign static item",
++                hir::ForeignItemKind::Type => "foreign type",
++            },
++            Node::OpaqueTy(_) => "opaque type",
++            _ => self.tcx.def_descr(kind_id.into()),
++        };
+         let mut diag = placeholder_type_error_diag(
+             self,
+             generics,

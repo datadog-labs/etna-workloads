@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+index 88ffe5861a69750d4119841e1a7c25bb6a3ae4f8..1be1723b99e2a583bc13ee8b160d84588008f990 100644
+--- a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
++++ b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+@@ -86,11 +86,6 @@ pub(crate) fn coroutine_by_move_body_def_id<'tcx>(
+ ) -> DefId {
+     let body = tcx.mir_built(coroutine_def_id).borrow();
+ 
+-    // If the typeck results are tainted, no need to make a by-ref body.
+-    if body.tainted_by_errors.is_some() {
+-        return coroutine_def_id.to_def_id();
+-    }
+-
+     let Some(hir::CoroutineKind::Desugared(_, hir::CoroutineSource::Closure)) =
+         tcx.coroutine_kind(coroutine_def_id)
+     else {
+@@ -101,9 +96,7 @@ pub(crate) fn coroutine_by_move_body_def_id<'tcx>(
+     // the MIR body will be constructed well.
+     let coroutine_ty = body.local_decls[ty::CAPTURE_STRUCT_LOCAL].ty;
+ 
+-    let ty::Coroutine(_, args) = *coroutine_ty.kind() else {
+-        bug!("tried to create by-move body of non-coroutine receiver");
+-    };
++    let ty::Coroutine(_, args) = *coroutine_ty.kind() else { bug!("{body:#?}") };
+     let args = args.as_coroutine();
+ 
+     let coroutine_kind = args.kind_ty().to_opt_closure_kind().unwrap();
+@@ -112,7 +105,7 @@ pub(crate) fn coroutine_by_move_body_def_id<'tcx>(
+     let ty::CoroutineClosure(_, parent_args) =
+         *tcx.type_of(parent_def_id).instantiate_identity().skip_norm_wip().kind()
+     else {
+-        bug!("coroutine's parent was not a coroutine-closure");
++        bug!();
+     };
+     if parent_args.references_error() {
+         return coroutine_def_id.to_def_id();

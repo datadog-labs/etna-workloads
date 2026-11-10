@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_mir_build/src/builder/expr/into.rs b/compiler/rustc_mir_build/src/builder/expr/into.rs
+index 13a64346c36c411ceac6fb712c0fa0dd08f021d0..0a28b074734ef9066561151408abd342afe577e6 100644
+--- a/compiler/rustc_mir_build/src/builder/expr/into.rs
++++ b/compiler/rustc_mir_build/src/builder/expr/into.rs
+@@ -655,15 +655,10 @@ fn is_supported_loop_match_type(ty: Ty<'_>) -> bool {
+                                 Some(v) => v.clone(),
+                                 None => match variant.fields[n].value {
+                                     Some(def) => {
+-                                        let value = Const::Unevaluated(
+-                                            UnevaluatedConst::new(def, args),
+-                                            ty,
+-                                        );
+-                                        Operand::Constant(Box::new(ConstOperand {
+-                                            span: expr_span,
+-                                            user_ty: None,
+-                                            const_: value,
+-                                        }))
++                                        let value = Const::from_unevaluated(this.tcx, def)
++                                            .instantiate(this.tcx, args)
++                                            .skip_norm_wip();
++                                        this.literal_operand(expr_span, value)
+                                     }
+                                     None => {
+                                         let name = variant.fields[n].name;

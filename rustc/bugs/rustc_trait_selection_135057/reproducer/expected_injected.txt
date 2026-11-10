@@ -1,0 +1,52 @@
+error[E0277]: the size for values of type `T` cannot be known at compilation time
+  --> main.rs:16:18
+   |
+14 | impl<T: ?Sized> Every for Thing {
+   |      - this type parameter needs to be `Sized`
+15 |     //~^ ERROR the type parameter `T` is not constrained
+16 |     type Assoc = T;
+   |                  ^ doesn't have a size known at compile-time
+   |
+note: required by a bound in `Every::Assoc`
+  --> main.rs:12:5
+   |
+12 |     type Assoc;
+   |     ^^^^^^^^^^^ required by this bound in `Every::Assoc`
+help: consider removing the `?Sized` bound to make the type parameter `Sized`
+   |
+14 - impl<T: ?Sized> Every for Thing {
+14 + impl<T> Every for Thing {
+   |
+help: consider relaxing the implicit `Sized` restriction
+   |
+12 |     type Assoc: ?Sized;
+   |               ++++++++
+
+error[E0207]: the type parameter `T` is not constrained by the impl trait, self type, or predicates
+  --> main.rs:14:6
+   |
+14 | impl<T: ?Sized> Every for Thing {
+   |      ^ unconstrained type parameter
+   |
+help: use the type parameter `T` in the `Thing` type and use it in the type definition
+   |
+ 9 ~ struct Thing<T>;
+10 |
+...
+13 | }
+14 ~ impl<T: ?Sized> Every for Thing<T> {
+   |
+
+error[E0282]: type annotations needed
+  --> main.rs:20:11
+   |
+20 | fn foo(_: <Thing as Every>::Assoc) {}
+   |           ^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type for type parameter `T`
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0207, E0277, E0282.
+For more information about an error, try `rustc --explain E0207`.
+rustc exit: 1
+
+[exit 0]

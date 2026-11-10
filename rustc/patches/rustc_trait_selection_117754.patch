@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/fulfill.rs b/compiler/rustc_trait_selection/src/traits/fulfill.rs
+index d0452052f10f69f56a47976c26e896e42a5d8e69..512b46b694947d195570bbfae7486eec110d5597 100644
+--- a/compiler/rustc_trait_selection/src/traits/fulfill.rs
++++ b/compiler/rustc_trait_selection/src/traits/fulfill.rs
+@@ -591,19 +591,6 @@ fn process_obligation(
+                     }
+                 }
+ 
+-                // General case overflow check. Allow `process_trait_obligation`
+-                // and `process_projection_obligation` to handle checking for
+-                // the recursion limit themselves. Also don't check some
+-                // predicate kinds that don't give further obligations.
+-                _ if !self
+-                    .selcx
+-                    .tcx()
+-                    .recursion_limit()
+-                    .value_within_limit(obligation.recursion_depth) =>
+-                {
+-                    self.selcx.infcx.err_ctxt().report_overflow_obligation(&obligation, false);
+-                }
+-
+                 ty::PredicateKind::Clause(ty::ClauseKind::WellFormed(term)) => {
+                     if term.is_trivially_wf(self.selcx.tcx()) {
+                         return ProcessResult::Changed(thin_vec![]);
+@@ -639,9 +626,15 @@ fn process_obligation(
+                                 vec![TyOrConstInferVar::Ty(a), TyOrConstInferVar::Ty(b)];
+                             ProcessResult::Unchanged
+                         }
+-                        Ok(Ok(ok)) => {
+-                            ProcessResult::Changed(mk_pending(obligation, ok.obligations))
+-                        }
++                        Ok(Ok(ok)) => ProcessResult::Changed(
++                            ok.obligations
++                                .into_iter()
++                                .map(|o| PendingPredicateObligation {
++                                    obligation: o,
++                                    stalled_on: vec![],
++                                })
++                                .collect(),
++                        ),
+                         Ok(Err(err)) => {
+                             let expected_found = if subtype.a_is_expected {
+                                 ExpectedFound::new(subtype.a, subtype.b)

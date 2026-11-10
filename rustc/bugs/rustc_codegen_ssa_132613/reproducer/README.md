@@ -1,0 +1,1 @@
+Builds a proc macro that expands to two inlined calls of the same function at one source location, compiles with -Cdebuginfo=2 and MIR inlining, and counts DILexicalBlockFile discriminators in the LLVM IR. The clean compiler emits discriminators (7); the injected one emits none (0), so the two inlined dbg_declare locations collapse into one.

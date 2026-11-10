@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_hir/src/intravisit.rs b/compiler/rustc_hir/src/intravisit.rs
+index 3b721392519a741af51a8ab09bc831533ffde2d2..2d96d128bddf65ffc52d57896c2d820f92fe2d10 100644
+--- a/compiler/rustc_hir/src/intravisit.rs
++++ b/compiler/rustc_hir/src/intravisit.rs
+@@ -571,12 +571,8 @@ pub fn walk_item<'v, V: Visitor<'v>>(visitor: &mut V, item: &'v Item<'v>) -> V::
+         ItemKind::ForeignMod { abi: _, items } => {
+             walk_list!(visitor, visit_foreign_item_ref, items);
+         }
+-        ItemKind::GlobalAsm { asm: _, fake_body } => {
+-            // Visit the fake body, which contains the asm statement.
+-            // Therefore we should not visit the asm statement again
+-            // outside of the body, or some visitors won't have their
+-            // typeck results set correctly.
+-            try_visit!(visitor.visit_nested_body(fake_body));
++        ItemKind::GlobalAsm { asm, fake_body: _ } => {
++            try_visit!(visitor.visit_inline_asm(asm, item.hir_id()));
+         }
+         ItemKind::TyAlias(ident, ref generics, ref ty) => {
+             try_visit!(visitor.visit_ident(ident));

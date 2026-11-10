@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs b/compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs
+index 3387c8599b911826b4bc5385e0e7370387ae616a..b4db80ed5cb8bce4e951966d20b7ffd80a994fc7 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs
+@@ -25,19 +25,21 @@ pub(super) fn normalize_opaque_type(
+ 
+         match self.typing_mode() {
+             TypingMode::Coherence => {
+-                // An impossible opaque type bound is the only way this goal will fail
+-                // e.g. assigning `impl Copy := NotCopy`
++                if let Some(local_def_id) = def_id.as_local() {
++                    let opaque_type_key =
++                        ty::OpaqueTypeKey { def_id: local_def_id, args: opaque_ty.args };
++                    if let Some(prev) =
++                        self.register_hidden_type_in_storage(opaque_type_key, expected)
++                    {
++                        self.eq(goal.param_env, expected, prev)?;
++                    }
++                }
+                 self.add_item_bounds_for_hidden_type(
+                     def_id,
+                     opaque_ty.args,
+                     goal.param_env,
+                     expected,
+                 )?;
+-                // Trying to normalize an opaque type during coherence is always ambiguous.
+-                // We add a nested ambiguous goal here instead of using `Certainty::AMBIGUOUS`.
+-                // This allows us to return the nested goals to the parent `AliasRelate` goal.
+-                // This can then allow nested goals to fail after we've constrained the `term`.
+-                self.add_goal(GoalSource::Misc, goal.with(cx, ty::PredicateKind::Ambiguous))?;
+                 self.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
+                     .map_err(Into::into)
+             }

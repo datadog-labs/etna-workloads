@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_lint/src/late.rs b/compiler/rustc_lint/src/late.rs
+index f513374d899505eba5141ad4dca5e670967e1415..0899e3ce632c34769237480c9da20d1ca778622b 100644
+--- a/compiler/rustc_lint/src/late.rs
++++ b/compiler/rustc_lint/src/late.rs
+@@ -198,6 +198,7 @@ fn visit_fn(
+     }
+ 
+     fn visit_variant_data(&mut self, s: &'tcx hir::VariantData<'tcx>) {
++        lint_callback!(self, check_struct_def, s);
+         hir_visit::walk_struct_def(self, s);
+     }
+ 
+diff --git a/compiler/rustc_lint/src/nonstandard_style.rs b/compiler/rustc_lint/src/nonstandard_style.rs
+index 075fcb11154646dc2d0ef807f624cbbf5e286fc1..63503b283cfd37ae02a84199fa91705fa5b01a34 100644
+--- a/compiler/rustc_lint/src/nonstandard_style.rs
++++ b/compiler/rustc_lint/src/nonstandard_style.rs
+@@ -452,8 +452,10 @@ fn check_pat(&mut self, cx: &LateContext<'_>, p: &hir::Pat<'_>) {
+         }
+     }
+ 
+-    fn check_field_def(&mut self, cx: &LateContext<'_>, field: &hir::FieldDef<'_>) {
+-        self.check_snake_case(cx, "structure field", &field.ident);
++    fn check_struct_def(&mut self, cx: &LateContext<'_>, s: &hir::VariantData<'_>) {
++        for sf in s.fields() {
++            self.check_snake_case(cx, "structure field", &sf.ident);
++        }
+     }
+ }
+ 
+diff --git a/compiler/rustc_lint/src/passes.rs b/compiler/rustc_lint/src/passes.rs
+index d4d410d85c124f330740721063e73cd25259b61e..a1133a9a6ec29eee55f57a1b6bbb1c7f0b672b92 100644
+--- a/compiler/rustc_lint/src/passes.rs
++++ b/compiler/rustc_lint/src/passes.rs
+@@ -37,6 +37,7 @@ fn check_fn(
+             fn check_trait_item(a: &'tcx rustc_hir::TraitItem<'tcx>);
+             fn check_impl_item(a: &'tcx rustc_hir::ImplItem<'tcx>);
+             fn check_impl_item_post(a: &'tcx rustc_hir::ImplItem<'tcx>);
++            fn check_struct_def(a: &'tcx rustc_hir::VariantData<'tcx>);
+             fn check_field_def(a: &'tcx rustc_hir::FieldDef<'tcx>);
+             fn check_variant(a: &'tcx rustc_hir::Variant<'tcx>);
+             fn check_path(a: &rustc_hir::Path<'tcx>, b: rustc_hir::HirId);

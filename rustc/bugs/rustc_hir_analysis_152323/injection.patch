@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect.rs b/compiler/rustc_hir_analysis/src/collect.rs
+index 25ba0c810489ee7495b94218568db5eda51086be..c0f0f4d3ca9759cae23feabb11b3d11979d1233d 100644
+--- a/compiler/rustc_hir_analysis/src/collect.rs
++++ b/compiler/rustc_hir_analysis/src/collect.rs
+@@ -1250,19 +1250,11 @@ fn recover_infer_ret_ty<'tcx>(
+     }
+     let guar = diag.emit();
+ 
+-    // If we return a dummy binder here, we can ICE later in borrowck when it encounters
+-    // `ReLateParam` regions (e.g. in a local type annotation) which weren't registered via the
+-    // signature binder. See #135845.
+-    let bound_vars = tcx.late_bound_vars(hir_id);
+-    let scope = def_id.to_def_id();
+-
+-    let fn_sig = tcx.mk_fn_sig(
++    ty::Binder::dummy(tcx.mk_fn_sig(
+         fn_sig.inputs().iter().copied(),
+         recovered_ret_ty.unwrap_or_else(|| Ty::new_error(tcx, guar)),
+         fn_sig.fn_sig_kind,
+-    );
+-
+-    late_param_regions_to_bound(tcx, scope, bound_vars, fn_sig)
++    ))
+ }
+ 
+ pub fn suggest_impl_trait<'tcx>(

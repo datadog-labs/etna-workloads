@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs b/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
+index c5f6c96bd8634c892ec2e4586ee6a19b781dfd1e..b16b2fbf974ce5cfb6833854ca3834d0a40131a7 100644
+--- a/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
++++ b/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
+@@ -981,6 +981,16 @@ fn call_substructure_method(
+         f(cx, span, &substructure)
+     }
+ 
++    fn get_ret_ty(
++        &self,
++        cx: &ExtCtxt<'_>,
++        trait_: &TraitDef<'_>,
++        generics: &Generics,
++        type_ident: Ident,
++    ) -> Box<ast::Ty> {
++        self.ret_ty.to_ty(cx, trait_.span, type_ident, generics)
++    }
++
+     fn is_static(&self) -> bool {
+         !self.explicit_self
+     }
+@@ -1053,14 +1063,10 @@ fn create_method(
+             self_arg.into_iter().chain(nonself_args).collect()
+         };
+ 
+-        let ret_type = if let Ty::Unit = &self.ret_ty {
+-            ast::FnRetTy::Default(span)
+-        } else {
+-            ast::FnRetTy::Ty(self.ret_ty.to_ty(cx, span, type_ident, generics))
+-        };
++        let ret_type = self.get_ret_ty(cx, trait_, generics, type_ident);
+ 
+         let method_ident = Ident::new(self.name, span);
+-        let fn_decl = cx.fn_decl(args, ret_type);
++        let fn_decl = cx.fn_decl(args, ast::FnRetTy::Ty(ret_type));
+         let body_block = body.into_block(cx, span);
+ 
+         let trait_lo_sp = span.shrink_to_lo();

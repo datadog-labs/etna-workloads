@@ -1,0 +1,1 @@
+Compiles a no_core lib for aarch64 with -Ctarget-feature=-sve and prints the LLVM target-features attribute. The clean compiler disables only sve (and dependents); the injected one also disables neon, fp-armv8 and fullfp16 because tied features are folded when disabling.

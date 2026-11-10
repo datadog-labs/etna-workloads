@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/validity.rs b/compiler/rustc_const_eval/src/interpret/validity.rs
+index 8c0bb1fcdd8a5babc1aa6ae1beed3bf0008d8fae..d5702b6e3b752601cb48057220cc2a63909e4742 100644
+--- a/compiler/rustc_const_eval/src/interpret/validity.rs
++++ b/compiler/rustc_const_eval/src/interpret/validity.rs
+@@ -698,11 +698,11 @@ fn check_safe_pointer(
+         }
+ 
+         // Do not allow references to uninhabited types.
+-        if !place.layout.ty.is_opsem_inhabited(*self.ecx.tcx, self.ecx.typing_env) {
++        if place.layout.is_uninhabited() {
+             let ty = place.layout.ty;
+             throw_validation_failure!(
+                 self.path,
+-                format!("encountered a {ptr_kind} pointing to uninhabited type `{ty}`")
++                format!("encountered a {ptr_kind} pointing to uninhabited type {ty}")
+             )
+         }
+ 
+@@ -1552,7 +1552,7 @@ fn visit_value(&mut self, val: &PlaceTy<'tcx, M::Provenance>) -> InterpResult<'t
+         // Assert that we checked everything there is to check about this type.
+         // `is_opsem_inhabited` implies that the layout is inhabited (checked by layout invariants).
+         assert!(
+-            val.layout.ty.is_opsem_inhabited(*self.ecx.tcx, self.ecx.typing_env),
++            !val.layout.is_uninhabited(),
+             "a value of type `{}` passed validation but that type is uninhabited",
+             val.layout.ty
+         );

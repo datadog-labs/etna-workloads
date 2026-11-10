@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_parse/src/parser/generics.rs b/compiler/rustc_parse/src/parser/generics.rs
+index ec9860c0f35bfb4892dd914733f6f9143d9131da..8183e533d0655f488645add5ada69f25831e5854 100644
+--- a/compiler/rustc_parse/src/parser/generics.rs
++++ b/compiler/rustc_parse/src/parser/generics.rs
+@@ -649,8 +649,6 @@ pub(super) fn choose_generics_over_qpath(&self, start: usize) -> bool {
+         //     `<` (LIFETIME|IDENT) `:` - generic parameter with bounds
+         //     `<` (LIFETIME|IDENT) `=` - generic parameter with a default
+         //     `<` const                - generic const parameter
+-        //     `<` IDENT `?`            - RECOVERY for `impl<T ?Bound` missing a `:`, meant to
+-        //                                avoid the `T?` to `Option<T>` recovery for types.
+         // The only truly ambiguous case is
+         //     `<` IDENT `>` `::` IDENT ...
+         // we disambiguate it in favor of generics (`impl<T> ::absolute::Path<T> { ... }`)
+@@ -661,10 +659,7 @@ pub(super) fn choose_generics_over_qpath(&self, start: usize) -> bool {
+                 || self.look_ahead(start + 1, |t| t.is_lifetime() || t.is_ident())
+                     && self.look_ahead(start + 2, |t| {
+                         matches!(t.kind, token::Gt | token::Comma | token::Colon | token::Eq)
+-                        // Recovery-only branch -- this could be removed,
+-                        // since it only affects diagnostics currently.
+-                            || t.kind == token::Question
+-                    })
++                                    })
+                 || self.is_keyword_ahead(start + 1, &[kw::Const]))
+     }
+ }

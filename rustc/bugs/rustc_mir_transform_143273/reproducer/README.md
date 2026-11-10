@@ -1,0 +1,1 @@
+Transmuting a valid negative-discriminant value (-3) into a #[repr(i8)] enum with debug assertions; the injected compiler's enum check fails to mask the sign-extended discriminant and wrongly panics/aborts, while the clean one prints the variant.

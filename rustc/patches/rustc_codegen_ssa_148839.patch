@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_codegen_ssa/src/codegen_attrs.rs b/compiler/rustc_codegen_ssa/src/codegen_attrs.rs
+index 3e24b62125fea874e1f6ceda524644a6ba62b7f8..688682c2289f6d2a4680325ad66fd6df6ccb90fa 100644
+--- a/compiler/rustc_codegen_ssa/src/codegen_attrs.rs
++++ b/compiler/rustc_codegen_ssa/src/codegen_attrs.rs
+@@ -474,18 +474,16 @@ fn check_result(
+         )
+     }
+ 
+-    // warn for nonblocking async functions, blocks and closures.
++    // warn for nonblocking async fn.
+     // This doesn't behave as expected, because the executor can run blocking code without the sanitizer noticing.
+     if codegen_fn_attrs.sanitizers.rtsan_setting == RtsanSetting::Nonblocking
+         && let Some(sanitize_span) = interesting_spans.sanitize
+-        // async fn
+-        && (tcx.asyncness(did).is_async()
++        // async function
++        && (tcx.asyncness(did).is_async() || (tcx.is_closure_like(did.into())
+             // async block
+-            || tcx.is_coroutine(did.into())
+-            // async closure
+-            || (tcx.is_closure_like(did.into())
+-                && tcx.hir_node_by_def_id(did).expect_closure().kind
+-                    != rustc_hir::ClosureKind::Closure))
++            && (tcx.coroutine_is_async(did.into())
++                // async closure
++                || tcx.coroutine_is_async(tcx.coroutine_for_closure(did)))))
+     {
+         let hir_id = tcx.local_def_id_to_hir_id(did);
+         tcx.emit_node_span_lint(

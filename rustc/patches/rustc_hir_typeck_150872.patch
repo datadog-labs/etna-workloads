@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..87f5c9fb45e7efb117a19ce20c77169887ec3ec1 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -12,8 +12,8 @@
+ use rustc_hir::intravisit::Visitor;
+ use rustc_hir::{
+     self as hir, Arm, CoroutineDesugaring, CoroutineKind, CoroutineSource, Expr, ExprKind,
+-    GenericBound, HirId, LoopSource, Node, PatExpr, PatExprKind, Path, QPath, Stmt, StmtKind,
+-    TyKind, WherePredicateKind, expr_needs_parens, is_range_literal,
++    GenericBound, HirId, Node, PatExpr, PatExprKind, Path, QPath, Stmt, StmtKind, TyKind,
++    WherePredicateKind, expr_needs_parens, is_range_literal,
+ };
+ use rustc_hir_analysis::hir_ty_lowering::HirTyLowerer;
+ use rustc_hir_analysis::suggest_impl_trait;
+@@ -1324,23 +1324,15 @@ pub(in super::super) fn suggest_missing_break_or_return_expr(
+         }
+         let found = self.resolve_vars_if_possible(found);
+ 
+-        let innermost_loop = if self.is_loop(id) {
+-            Some(self.tcx.hir_node(id))
+-        } else {
+-            self.tcx
++        let in_loop = self.is_loop(id)
++            || self
++                .tcx
+                 .hir_parent_iter(id)
+                 .take_while(|(_, node)| {
+                     // look at parents until we find the first body owner
+                     node.body_id().is_none()
+                 })
+-                .find_map(|(parent_id, node)| self.is_loop(parent_id).then_some(node))
+-        };
+-        let can_break_with_value = innermost_loop.is_some_and(|node| {
+-            matches!(
+-                node,
+-                Node::Expr(Expr { kind: ExprKind::Loop(_, _, LoopSource::Loop, ..), .. })
+-            )
+-        });
++                .any(|(parent_id, _)| self.is_loop(parent_id));
+ 
+         let in_local_statement = self.is_local_statement(id)
+             || self
+@@ -1348,7 +1340,7 @@ pub(in super::super) fn suggest_missing_break_or_return_expr(
+                 .hir_parent_iter(id)
+                 .any(|(parent_id, _)| self.is_local_statement(parent_id));
+ 
+-        if can_break_with_value && in_local_statement {
++        if in_loop && in_local_statement {
+             err.multipart_suggestion(
+                 "you might have meant to break the loop with this value",
+                 vec![

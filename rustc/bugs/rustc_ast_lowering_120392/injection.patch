@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_ast_lowering/src/path.rs b/compiler/rustc_ast_lowering/src/path.rs
+index ae260c7d126ab553454beed5f2d0fa6a7a9f2f0a..b45686b171e2184e2c048a83230b23d31514af76 100644
+--- a/compiler/rustc_ast_lowering/src/path.rs
++++ b/compiler/rustc_ast_lowering/src/path.rs
+@@ -49,23 +49,14 @@ pub(crate) fn lower_qpath(
+ 
+         // When we have an `async` kw on a bound, map the trait it resolves to.
+         if let Some(TraitBoundModifiers { asyncness: BoundAsyncness::Async(_), .. }) = modifiers {
+-            match res {
+-                Res::Def(DefKind::Trait, def_id) => {
+-                    if let Some(async_def_id) = self.map_trait_to_async_trait(def_id) {
+-                        res = Res::Def(DefKind::Trait, async_def_id);
+-                    } else {
+-                        self.dcx().emit_err(AsyncBoundOnlyForFnTraits { span: p.span });
+-                    }
+-                }
+-                Res::Err => {
+-                    // No additional error.
+-                }
+-                _ => {
+-                    // This error isn't actually emitted AFAICT, but it's best to keep
+-                    // it around in case the resolver doesn't always check the defkind
+-                    // of an item or something.
+-                    self.dcx().emit_err(AsyncBoundNotOnTrait { span: p.span, descr: res.descr() });
++            if let Res::Def(DefKind::Trait, def_id) = res {
++                if let Some(async_def_id) = self.map_trait_to_async_trait(def_id) {
++                    res = Res::Def(DefKind::Trait, async_def_id);
++                } else {
++                    panic!();
+                 }
++            } else {
++                panic!();
+             }
+         }
+ 

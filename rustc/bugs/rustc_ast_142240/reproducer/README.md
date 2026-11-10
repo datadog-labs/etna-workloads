@@ -1,0 +1,1 @@
+Compiles a lib with a cfg-checked attribute on a higher-ranked where-predicate/generic param; the injected compiler loses NodeId walking so a buffered lint is not found and rustc ICEs, while the clean one emits the unexpected_cfgs warning.

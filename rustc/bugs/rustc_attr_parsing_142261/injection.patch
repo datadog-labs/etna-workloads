@@ -1,0 +1,49 @@
+diff --git a/compiler/rustc_attr_parsing/src/interface.rs b/compiler/rustc_attr_parsing/src/interface.rs
+index 63a273a063ebbca2f40409ae1c7d6f6fd9c52b6c..de1143a47b669bff6021e103d2beaacf9a49ab71 100644
+--- a/compiler/rustc_attr_parsing/src/interface.rs
++++ b/compiler/rustc_attr_parsing/src/interface.rs
+@@ -243,6 +243,7 @@ pub fn parse_single_args<T, I>(
+         if let Some(safety) = attr_safety {
+             parser.check_attribute_safety(
+                 &attr_path,
++                attr_span,
+                 inner_span,
+                 safety,
+                 expected_safety,
+@@ -373,6 +374,7 @@ pub fn parse_attribute_list(
+                     if let Some(accept) = ATTRIBUTE_PARSERS.accepters.get(parts.as_slice()) {
+                         self.check_attribute_safety(
+                             &attr_path,
++                            attr_span,
+                             inner_span,
+                             n.item.unsafety,
+                             accept.safety,
+@@ -465,6 +467,7 @@ pub fn parse_attribute_list(
+ 
+                         self.check_attribute_safety(
+                             &attr_path,
++                            attr_span,
+                             inner_span,
+                             n.item.unsafety,
+                             AttributeSafety::Normal,
+diff --git a/compiler/rustc_attr_parsing/src/safety.rs b/compiler/rustc_attr_parsing/src/safety.rs
+index ba1a6f2265f48ee51b239a28eca8b31517ce6725..324321a38cdb848347d8a544d483159de8c58154 100644
+--- a/compiler/rustc_attr_parsing/src/safety.rs
++++ b/compiler/rustc_attr_parsing/src/safety.rs
+@@ -13,6 +13,7 @@ impl<'sess> AttributeParser<'sess> {
+     pub fn check_attribute_safety(
+         &mut self,
+         attr_path: &AttrPath,
++        outer_attr_span: Span,
+         attr_span: Span,
+         attr_safety: Safety,
+         expected_safety: AttributeSafety,
+@@ -51,7 +52,7 @@ pub fn check_attribute_safety(
+                 // See https://github.com/rust-lang/rust/issues/142182.
+                 let emit_error = match unsafe_since {
+                     None => true,
+-                    Some(unsafe_since) => path_span.edition() >= unsafe_since,
++                    Some(unsafe_since) => outer_attr_span.edition() >= unsafe_since,
+                 };
+ 
+                 let mut not_from_proc_macro = true;

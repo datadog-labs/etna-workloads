@@ -1,0 +1,38 @@
+error[E0109]: type arguments are not allowed on self type
+ --> main.rs:9:37
+  |
+9 |     pub fn f(field: &[u32]) -> Self<u32> { //~ ERROR type arguments are not allowed on self type
+  |                                ---- ^^^ type argument not allowed
+  |                                |
+  |                                not allowed on self type
+  |
+note: `Self` is of type `MyStruct<'_>`
+ --> main.rs:4:12
+  |
+4 | pub struct MyStruct<'field> {
+  |            ^^^^^^^^ `Self` corresponds to this type
+...
+8 | impl MyStruct<'_> {
+  | ----------------- `Self` is on type `MyStruct` in this `impl`
+help: the `Self` type doesn't accept type parameters, use the concrete type's name `MyStruct` instead if you want to specify its type parameters
+  |
+9 -     pub fn f(field: &[u32]) -> Self<u32> { //~ ERROR type arguments are not allowed on self type
+9 +     pub fn f(field: &[u32]) -> MyStruct<u32> { //~ ERROR type arguments are not allowed on self type
+  |
+
+error: lifetime may not live long enough
+  --> main.rs:10:9
+   |
+ 9 |     pub fn f(field: &[u32]) -> Self<u32> { //~ ERROR type arguments are not allowed on self type
+   |                     -          --------- return type is MyStruct<'2>
+   |                     |
+   |                     let's call the lifetime of this reference `'1`
+10 |         Self { field }                     //~ ERROR lifetime may not live long enough
+   |         ^^^^^^^^^^^^^^ associated function was supposed to return data with lifetime `'2` but it is returning data with lifetime `'1`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0109`.
+rustc exit: 1
+
+[exit 0]

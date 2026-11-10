@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect.rs b/compiler/rustc_hir_analysis/src/collect.rs
+index 25ba0c810489ee7495b94218568db5eda51086be..0f7bb7e0ac72f44bce7e854ef30a94221c598c5a 100644
+--- a/compiler/rustc_hir_analysis/src/collect.rs
++++ b/compiler/rustc_hir_analysis/src/collect.rs
+@@ -45,7 +45,7 @@
+ };
+ use tracing::{debug, instrument};
+ 
+-use crate::diagnostics::{self, ElidedLifetimesAreNotAllowedInDelegations};
++use crate::diagnostics;
+ use crate::hir_ty_lowering::{HirTyLowerer, InherentAssocCandidate, RegionInferReason};
+ 
+ mod clauses_of;
+@@ -131,6 +131,7 @@ pub(crate) struct ItemCtxt<'tcx> {
+     tcx: TyCtxt<'tcx>,
+     item_def_id: LocalDefId,
+     tainted_by_errors: Cell<Option<ErrorGuaranteed>>,
++    #[allow(dead_code)]
+     lowering_delegation_segment: bool,
+ }
+ 
+@@ -353,15 +354,8 @@ fn re_infer(&self, span: Span, reason: RegionInferReason<'_>) -> ty::Region<'tcx
+                 .emit();
+             ty::Region::new_error(self.tcx(), guar)
+         } else {
+-            // If we found elided lifetime during lowering of delegation parent or child
+-            // segment then emit an error, as we need a named lifetime for proper signature
+-            // inheritance (#156848).
+-            if self.lowering_delegation_segment {
+-                self.tcx.dcx().emit_err(ElidedLifetimesAreNotAllowedInDelegations { span });
+-            }
+-
+             // This indicates an illegal lifetime in a non-assoc-trait position
+-            ty::Region::new_error_with_message(self.tcx(), span, "inferred lifetime in signature")
++            ty::Region::new_error_with_message(self.tcx(), span, "unelided lifetime in signature")
+         }
+     }
+ 

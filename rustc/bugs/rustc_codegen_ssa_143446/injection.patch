@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_codegen_ssa/src/back/linker.rs b/compiler/rustc_codegen_ssa/src/back/linker.rs
+index 4c99da5049e8225541887be03e4d645e9843ba1a..fa80516c893ed7bacf79ad416072df645cb3dc86 100644
+--- a/compiler/rustc_codegen_ssa/src/back/linker.rs
++++ b/compiler/rustc_codegen_ssa/src/back/linker.rs
+@@ -847,20 +847,6 @@ fn export_symbols(&mut self, tmpdir: &Path, crate_type: CrateType, symbols: &[Sy
+             for sym in symbols {
+                 self.link_arg("--export").link_arg(&sym.name);
+             }
+-        } else if crate_type == CrateType::Executable && !self.sess.target.is_like_solaris {
+-            let res = try {
+-                let mut f = File::create_buffered(&path)?;
+-                writeln!(f, "{{")?;
+-                for sym in symbols {
+-                    debug!("{}", sym.name);
+-                    writeln!(f, "  {};", sym.name)?;
+-                }
+-                writeln!(f, "}};")?;
+-            };
+-            if let Err(error) = res {
+-                self.sess.dcx().emit_fatal(diagnostics::VersionScriptWriteFailure { error });
+-            }
+-            self.link_arg("--dynamic-list").link_arg(path);
+         } else {
+             // Write an LD version script
+             let res = try {

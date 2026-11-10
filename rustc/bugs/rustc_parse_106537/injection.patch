@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..aad2010de9710cdf85055c40105575a7036c1edf 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -1967,16 +1967,8 @@ fn parse_item_struct(&mut self) -> PResult<'a, ItemKind> {
+         // struct.
+ 
+         let vdata = if self.token.is_keyword(kw::Where) {
+-            let tuple_struct_body;
+-            (generics.where_clause, tuple_struct_body) =
+-                self.parse_struct_where_clause(ident, generics.span)?;
+-
+-            if let Some(body) = tuple_struct_body {
+-                // If we see a misplaced tuple struct body: `struct Foo<T> where T: Copy, (T);`
+-                let body = VariantData::Tuple(body, DUMMY_NODE_ID);
+-                self.expect_semi()?;
+-                body
+-            } else if self.eat(exp!(Semi)) {
++            generics.where_clause = self.parse_where_clause()?;
++            if self.eat(exp!(Semi)) {
+                 // If we see a: `struct Foo<T> where T: Copy;` style decl.
+                 VariantData::Unit(DUMMY_NODE_ID)
+             } else {

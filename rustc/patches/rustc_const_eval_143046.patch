@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/validity.rs b/compiler/rustc_const_eval/src/interpret/validity.rs
+index 8c0bb1fcdd8a5babc1aa6ae1beed3bf0008d8fae..a57409dc706fc24dd43f0e685fe755d63b2f4699 100644
+--- a/compiler/rustc_const_eval/src/interpret/validity.rs
++++ b/compiler/rustc_const_eval/src/interpret/validity.rs
+@@ -1300,10 +1300,7 @@ fn visit_union(
+     ) -> InterpResult<'tcx> {
+         // Special check for CTFE validation, preventing `UnsafeCell` inside unions in immutable memory.
+         if self.ctfe_mode.is_some_and(|c| !c.allow_immutable_unsafe_cell()) {
+-            // Unsized unions are currently not a thing, but let's keep this code consistent with
+-            // the check in `visit_value`.
+-            let zst = self.ecx.size_and_align_of_val(val)?.is_some_and(|(s, _a)| s.bytes() == 0);
+-            if !zst && !val.layout.ty.is_freeze(*self.ecx.tcx, self.ecx.typing_env) {
++            if !val.layout.is_zst() && !val.layout.ty.is_freeze(*self.ecx.tcx, self.ecx.typing_env) {
+                 if !self.in_mutable_memory(val) {
+                     throw_validation_failure!(
+                         self.path,
+@@ -1360,10 +1357,7 @@ fn visit_value(&mut self, val: &PlaceTy<'tcx, M::Provenance>) -> InterpResult<'t
+ 
+         // Special check preventing `UnsafeCell` in the inner part of constants
+         if self.ctfe_mode.is_some_and(|c| !c.allow_immutable_unsafe_cell()) {
+-            // Exclude ZST values. We need to compute the dynamic size/align to properly
+-            // handle slices and trait objects.
+-            let zst = self.ecx.size_and_align_of_val(val)?.is_some_and(|(s, _a)| s.bytes() == 0);
+-            if !zst
++            if !val.layout.is_zst()
+                 && let Some(def) = val.layout.ty.ty_adt_def()
+                 && def.is_unsafe_cell()
+             {

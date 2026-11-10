@@ -1,0 +1,55 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+index f55833c1bf6da228478bc4624ad342844e2692e9..a00dd05b7123e4ad27d1a0b3e68482ff84bab2c5 100644
+--- a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
++++ b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+@@ -1661,50 +1661,6 @@ fn resolve_type_ref(&mut self, param_def_id: LocalDefId, hir_id: HirId) {
+             return;
+         }
+ 
+-        // We may fail to resolve higher-ranked ty/const vars that are mentioned by APIT.
+-        // AST-based resolution does not care for impl-trait desugaring, which are the
+-        // responsibility of lowering. This may create a mismatch between the resolution
+-        // AST found (`param_def_id`) which points to HRTB, and what HIR allows.
+-        // ```
+-        // fn foo(x: impl for<T> Trait<Assoc = impl Trait2<T>>) {}
+-        // ```
+-        //
+-        // In such case, walk back the binders to diagnose it properly.
+-        let mut scope = self.scope;
+-        loop {
+-            match *scope {
+-                Scope::Binder {
+-                    where_bound_origin: Some(hir::PredicateOrigin::ImplTrait), ..
+-                } => {
+-                    let guar = self.tcx.dcx().emit_err(match self.tcx.def_kind(param_def_id) {
+-                        DefKind::TyParam => diagnostics::LateBoundInApit::Type {
+-                            span: self.tcx.hir_span(hir_id),
+-                            param_span: self.tcx.def_span(param_def_id),
+-                        },
+-                        DefKind::ConstParam => diagnostics::LateBoundInApit::Const {
+-                            span: self.tcx.hir_span(hir_id),
+-                            param_span: self.tcx.def_span(param_def_id),
+-                        },
+-                        kind => {
+-                            bug!("unexpected def-kind: {}", kind.descr(param_def_id.to_def_id()))
+-                        }
+-                    });
+-                    self.rbv.defs.insert(hir_id.local_id, ResolvedArg::Error(guar));
+-                    return;
+-                }
+-                Scope::Root { .. } => break,
+-                Scope::Binder { s, .. }
+-                | Scope::Body { s, .. }
+-                | Scope::Opaque { s, .. }
+-                | Scope::ObjectLifetimeDefault { s, .. }
+-                | Scope::Supertrait { s, .. }
+-                | Scope::TraitRefBoundary { s, .. }
+-                | Scope::LateBoundary { s, .. } => {
+-                    scope = s;
+-                }
+-            }
+-        }
+-
+         self.tcx
+             .dcx()
+             .span_bug(self.tcx.hir_span(hir_id), format!("could not resolve {param_def_id:?}"));

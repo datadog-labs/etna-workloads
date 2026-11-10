@@ -1,0 +1,1 @@
+Using `simd_splat` of a raw pointer in a const block to build a SIMD vector of pointers. The injected compiler (which no longer excludes pointer vectors from `immediate_const_vector`) fails to compile with "could not evaluate shuffle_indices at compile time"; the clean compiler builds and prints `true`.

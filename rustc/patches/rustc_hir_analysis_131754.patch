@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/wfcheck.rs b/compiler/rustc_hir_analysis/src/check/wfcheck.rs
+index 9a498837b1f4d99154a7e6c5bfe06c5f1060e16a..86993970933dedf2a740ecea33250c3fb884388e 100644
+--- a/compiler/rustc_hir_analysis/src/check/wfcheck.rs
++++ b/compiler/rustc_hir_analysis/src/check/wfcheck.rs
+@@ -1987,7 +1987,12 @@ fn legacy_receiver_is_implemented<'tcx>(
+ pub(super) fn check_variances_for_type_defn<'tcx>(tcx: TyCtxt<'tcx>, def_id: LocalDefId) {
+     match tcx.def_kind(def_id) {
+         DefKind::Enum | DefKind::Struct | DefKind::Union => {
+-            // Ok
++            let identity_args = ty::GenericArgs::identity_for_item(tcx, def_id);
++            for field in tcx.adt_def(def_id).all_fields() {
++                if field.ty(tcx, identity_args).references_error() {
++                    return;
++                }
++            }
+         }
+         kind => span_bug!(tcx.def_span(def_id), "cannot compute the variances of {kind:?}"),
+     }
+@@ -2054,16 +2059,6 @@ pub(super) fn check_variances_for_type_defn<'tcx>(tcx: TyCtxt<'tcx>, def_id: Loc
+             continue;
+         }
+ 
+-        // Look for `ErrorGuaranteed` deeply within this type.
+-        if let ControlFlow::Break(ErrorGuaranteed { .. }) = tcx
+-            .type_of(def_id)
+-            .instantiate_identity()
+-            .skip_norm_wip()
+-            .visit_with(&mut HasErrorDeep { tcx, seen: Default::default() })
+-        {
+-            continue;
+-        }
+-
+         match hir_param.name {
+             hir::ParamName::Error(_) => {
+                 // Don't report a bivariance error for a lifetime that isn't

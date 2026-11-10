@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..b5598f40aebeb20089b9c0e495052d1999704371 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -4360,25 +4360,18 @@ fn visit_expr(&mut self, e: &mut Expr) {
+         match e.kind {
+             ExprKind::Let(_, _, _, ref mut recovered @ Recovered::No) => {
+                 if let Some(reason) = self.forbid_let_reason {
+-                    let error = match reason {
+-                        diagnostics::ForbiddenLetReason::NotSupportedOr(or_span) => {
+-                            self.parser.dcx().emit_err(diagnostics::OrInLetChain { span: or_span })
+-                        }
+-                        _ => {
+-                            let guar = self.parser.dcx().emit_err(
+-                                diagnostics::ExpectedExpressionFoundLet {
+-                                    span,
+-                                    reason,
+-                                    missing_let: self.missing_let,
+-                                    comparison: self.comparison,
+-                                },
+-                            );
+-                            if let Some(_) = self.missing_let {
+-                                self.found_incorrect_let_chain = Some(guar);
+-                            }
+-                            guar
+-                        }
+-                    };
++                    let guar = self.parser.dcx().emit_err(
++                        diagnostics::ExpectedExpressionFoundLet {
++                            span,
++                            reason,
++                            missing_let: self.missing_let,
++                            comparison: self.comparison,
++                        },
++                    );
++                    if let Some(_) = self.missing_let {
++                        self.found_incorrect_let_chain = Some(guar);
++                    }
++                    let error = guar;
+                     *recovered = Recovered::Yes(error);
+                 } else if self.depth > 1 {
+                     // Top level `let` is always allowed; only gate chains

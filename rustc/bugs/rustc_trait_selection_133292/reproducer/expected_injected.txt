@@ -1,0 +1,127 @@
+error[E0277]: the trait bound `String: Copy` is not satisfied
+  --> main.rs:16:12
+   |
+16 |     f_copy("".to_string()); //~ ERROR: the trait bound `String: Copy` is not satisfied [E0277]
+   |     ------ ^^^^^^^^^^^^^^ the trait `Copy` is not implemented for `String`
+   |     |
+   |     required by a bound introduced by this call
+   |
+note: required by a bound in `f_copy`
+  --> main.rs:7:14
+   |
+ 7 | fn f_copy<T: Copy>(t: T) {}
+   |              ^^^^ required by this bound in `f_copy`
+help: consider removing this method call, as the receiver has type `&'static str` and `&'static str: Copy` trivially holds
+   |
+16 -     f_copy("".to_string()); //~ ERROR: the trait bound `String: Copy` is not satisfied [E0277]
+16 +     f_copy(""); //~ ERROR: the trait bound `String: Copy` is not satisfied [E0277]
+   |
+
+error[E0277]: the trait bound `S: Clone` is not satisfied
+  --> main.rs:17:13
+   |
+17 |     f_clone(S); //~ ERROR: the trait bound `S: Clone` is not satisfied [E0277]
+   |     ------- ^ the trait `Clone` is not implemented for `S`
+   |     |
+   |     required by a bound introduced by this call
+   |
+note: required by a bound in `f_clone`
+  --> main.rs:8:15
+   |
+ 8 | fn f_clone<T: Clone>(t: T) {}
+   |               ^^^^^ required by this bound in `f_clone`
+help: consider annotating `S` with `#[derive(Clone)]`
+   |
+13 + #[derive(Clone)]
+14 | struct S;
+   |
+
+error[E0277]: `{static coroutine@main.rs:18:26: 18:35}` cannot be unpinned
+  --> main.rs:18:26
+   |
+18 |     f_unpin(#[coroutine] static || { yield; });
+   |     -------              ^^^^^^^^^^^^^^^^^^^^ the trait `Unpin` is not implemented for `{static coroutine@main.rs:18:26: 18:35}`
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = note: consider using the `pin!` macro
+           consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required by a bound in `f_unpin`
+  --> main.rs:9:15
+   |
+ 9 | fn f_unpin<T: Unpin>(t: T) {}
+   |               ^^^^^ required by this bound in `f_unpin`
+
+error[E0277]: the size for values of type `dyn Fn()` cannot be known at compilation time
+  --> main.rs:23:13
+   |
+23 |     f_sized(*ref_cl);
+   |     ------- ^^^^^^^ doesn't have a size known at compile-time
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = help: the trait `Sized` is not implemented for `dyn Fn()`
+note: required by a bound in `f_sized`
+  --> main.rs:10:15
+   |
+10 | fn f_sized<T: Sized>(t: T) {}
+   |               ^^^^^ required by this bound in `f_sized`
+help: references are always `Sized`, even if they point to unsized data; consider not dereferencing the expression
+   |
+23 -     f_sized(*ref_cl);
+23 +     f_sized(ref_cl);
+   |
+
+error[E0277]: `Rc<{integer}>` cannot be sent between threads safely
+  --> main.rs:28:12
+   |
+28 |     f_send(rc); //~ ERROR: `Rc<{integer}>` cannot be sent between threads safely [E0277]
+   |     ------ ^^ `Rc<{integer}>` cannot be sent between threads safely
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = help: the trait `Send` is not implemented for `Rc<{integer}>`
+note: required by a bound in `f_send`
+  --> main.rs:11:14
+   |
+11 | fn f_send<T: Send>(t: T) {}
+   |              ^^^^ required by this bound in `f_send`
+
+warning: unused variable: `t`
+ --> main.rs:7:20
+  |
+7 | fn f_copy<T: Copy>(t: T) {}
+  |                    ^ help: if this is intentional, prefix it with an underscore: `_t`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `t`
+ --> main.rs:8:22
+  |
+8 | fn f_clone<T: Clone>(t: T) {}
+  |                      ^ help: if this is intentional, prefix it with an underscore: `_t`
+
+warning: unused variable: `t`
+ --> main.rs:9:22
+  |
+9 | fn f_unpin<T: Unpin>(t: T) {}
+  |                      ^ help: if this is intentional, prefix it with an underscore: `_t`
+
+warning: unused variable: `t`
+  --> main.rs:10:22
+   |
+10 | fn f_sized<T: Sized>(t: T) {}
+   |                      ^ help: if this is intentional, prefix it with an underscore: `_t`
+
+warning: unused variable: `t`
+  --> main.rs:11:20
+   |
+11 | fn f_send<T: Send>(t: T) {}
+   |                    ^ help: if this is intentional, prefix it with an underscore: `_t`
+
+error: aborting due to 5 previous errors; 5 warnings emitted
+
+For more information about this error, try `rustc --explain E0277`.
+rustc exit: 1
+
+[exit 0]

@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_resolve/src/macros.rs b/compiler/rustc_resolve/src/macros.rs
+index 9747ebd4a8af89c55c4705c3d53572c19c90a6fa..3f3a386e657630732b6bc5ccf7e42af3419afd41 100644
+--- a/compiler/rustc_resolve/src/macros.rs
++++ b/compiler/rustc_resolve/src/macros.rs
+@@ -886,21 +886,21 @@ pub(crate) fn finalize_macro_resolutions(&mut self, krate: &Crate) {
+                         this.dcx().span_delayed_bug(span, "inconsistent resolution for a macro");
+                     }
+                 }
+-            } else if this.tcx.dcx().has_errors().is_none() && this.privacy_errors.is_empty() {
++            } else {
+                 // It's possible that the macro was unresolved (indeterminate) and silently
+                 // expanded into a dummy fragment for recovery during expansion.
+                 // Now, post-expansion, the resolution may succeed, but we can't change the
+                 // past and need to report an error.
+                 // However, non-speculative `resolve_path` can successfully return private items
+                 // even if speculative `resolve_path` returned nothing previously, so we skip this
+-                // less informative error if no other error is reported elsewhere.
+-
+-                let err = this.dcx().create_err(CannotDetermineMacroResolution {
+-                    span,
+-                    kind: kind.descr(),
+-                    path: Segment::names_to_string(path),
+-                });
+-                err.stash(span, StashKey::UndeterminedMacroResolution);
++                // less informative error if the privacy error is reported elsewhere.
++                if this.privacy_errors.is_empty() {
++                    this.dcx().emit_err(CannotDetermineMacroResolution {
++                        span,
++                        kind: kind.descr(),
++                        path: Segment::names_to_string(path),
++                    });
++                }
+             }
+         };
+ 

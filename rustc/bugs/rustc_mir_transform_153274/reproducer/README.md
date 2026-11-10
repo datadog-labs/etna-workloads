@@ -1,0 +1,1 @@
+A dependency crate enables `async_drop` and defines a type with an async destructor; the main crate (without the feature) holds it across an await. On the clean compiler the program runs and exits normally. With the injected bug the drop is elaborated without the dependency-type check and the binary crashes with SIGSEGV.

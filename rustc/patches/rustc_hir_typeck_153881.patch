@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_hir_typeck/src/lib.rs b/compiler/rustc_hir_typeck/src/lib.rs
+index 7a2670f3b1b78f6d5f7c5145cb9f2dbe6ed293c2..babcb476e5bb856bbfdcb31b939f58be2fe7cfd0 100644
+--- a/compiler/rustc_hir_typeck/src/lib.rs
++++ b/compiler/rustc_hir_typeck/src/lib.rs
+@@ -208,7 +208,7 @@ fn typeck_with_inspect<'tcx>(
+         }
+ 
+         fcx.check_expr_coercible_to_type_or_error(body.value, expected_type, None, |err, _| {
+-            extend_err_with_const_context(err, tcx, node, expected_type);
++            extend_err_with_const_context(err, tcx, node);
+         });
+ 
+         fcx.write_ty(id, expected_type);
+@@ -279,12 +279,7 @@ fn typeck_with_inspect<'tcx>(
+     typeck_results
+ }
+ 
+-fn extend_err_with_const_context(
+-    err: &mut Diag<'_>,
+-    tcx: TyCtxt<'_>,
+-    node: hir::Node<'_>,
+-    expected_ty: Ty<'_>,
+-) {
++fn extend_err_with_const_context(err: &mut Diag<'_>, tcx: TyCtxt<'_>, node: hir::Node<'_>) {
+     match node {
+         hir::Node::ImplItem(hir::ImplItem { kind: hir::ImplItemKind::Const(ty, _), .. })
+         | hir::Node::TraitItem(hir::TraitItem { kind: hir::TraitItemKind::Const(ty, _), .. }) => {
+@@ -362,15 +357,6 @@ fn extend_err_with_const_context(
+             // Point at `char` in `pattern_type!(char is 1..=1)`.
+             err.span_label(ty.span, "the pattern must match the type");
+         }
+-        hir::Node::AnonConst(anon)
+-            if let hir::Node::Field(_) = tcx.parent_hir_node(anon.hir_id)
+-                && let ty::Param(_) = expected_ty.kind() =>
+-        {
+-            err.note(
+-                "the type of default fields referencing type parameters can't be assumed inside \
+-                 the struct defining them",
+-            );
+-        }
+         _ => {}
+     }
+ }

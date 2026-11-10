@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_ast_lowering/src/expr.rs b/compiler/rustc_ast_lowering/src/expr.rs
+index 003ca39a5bda956a8c2000352d2058a6c2a62df2..bb14b30c1a77395a562e730703c5c4d3f660e3d2 100644
+--- a/compiler/rustc_ast_lowering/src/expr.rs
++++ b/compiler/rustc_ast_lowering/src/expr.rs
+@@ -299,7 +299,21 @@ pub(super) fn lower_expr_mut(&mut self, e: &Expr) -> hir::Expr<'hir> {
+                     MatchKind::Postfix => hir::MatchSource::Postfix,
+                 },
+             ),
+-            ExprKind::Await(expr, await_kw_span) => self.lower_expr_await(*await_kw_span, expr),
++            ExprKind::Await(expr, _await_kw_span) => {
++                let dot_await_span = if expr.span.hi() < e.span.hi() {
++                    let span_with_whitespace = self
++                        .tcx
++                        .sess
++                        .source_map()
++                        .span_extend_while(expr.span, char::is_whitespace)
++                        .unwrap_or(expr.span);
++                    span_with_whitespace.shrink_to_hi().with_hi(e.span.hi())
++                } else {
++                    // this is a hack for 2015 edition
++                    e.span
++                };
++                self.lower_expr_await(dot_await_span, expr)
++            }
+             ExprKind::Move(inner, move_kw_span) => {
+                 if !self.tcx.features().move_expr() {
+                     return self.expr_err(*move_kw_span, self.dcx().has_errors().unwrap());

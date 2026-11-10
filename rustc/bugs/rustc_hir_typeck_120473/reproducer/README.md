@@ -1,0 +1,1 @@
+Returning `s.trim()` (a `&str`) where `String` is expected: the clean compiler suggests adding `.to_string()`, while the injected one wrongly suggests removing the `.trim()` method call, since it no longer restricts removal suggestions to `as_*`/`to_*`/`into` methods.

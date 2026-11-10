@@ -1,0 +1,1 @@
+Compiles a decl-macro program incrementally twice, changing a struct between runs (issue #112680); the injected compiler wrongly decodes a syntax context and fails the second build with E0609 no field `inner`.

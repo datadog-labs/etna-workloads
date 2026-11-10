@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_resolve/src/macros.rs b/compiler/rustc_resolve/src/macros.rs
+index 9747ebd4a8af89c55c4705c3d53572c19c90a6fa..d69d50bd03d2566542981b4c60fad59c47c5e42e 100644
+--- a/compiler/rustc_resolve/src/macros.rs
++++ b/compiler/rustc_resolve/src/macros.rs
+@@ -1150,21 +1150,15 @@ fn report_out_of_scope_macro_calls<'r>(
+             // If such resolution is successful and gives the same result
+             // (e.g. if the macro is re-imported), then silence the lint.
+             let no_macro_rules = self.arenas.alloc_macro_rules_scope(MacroRulesScope::Empty);
+-            let ident = path.segments[0].ident;
+             let fallback_binding = self.reborrow().resolve_ident_in_scope_set(
+-                ident,
++                path.segments[0].ident,
+                 ScopeSet::Macro(MacroKind::Bang),
+                 &ParentScope { macro_rules: no_macro_rules, ..*parent_scope },
+                 None,
+                 None,
+                 None,
+             );
+-            if let Ok(fallback_binding) = fallback_binding
+-                && fallback_binding.res().opt_def_id() == Some(def_id)
+-            {
+-                // Silence `unused_imports` on the fallback import as well.
+-                self.get_mut().record_use(ident, fallback_binding, Used::Other);
+-            } else {
++            if fallback_binding.ok().and_then(|b| b.res().opt_def_id()) != Some(def_id) {
+                 let location = match parent_scope.module.kind {
+                     ModuleKind::Def(kind, def_id, _, name) => {
+                         if let Some(name) = name {

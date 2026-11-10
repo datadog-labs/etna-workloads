@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_mir_transform/src/check_call_recursion.rs b/compiler/rustc_mir_transform/src/check_call_recursion.rs
+index 493d9d40f47e113d865d1aa5dd1e76d56561193e..991151c4c40e654a1d749b2f58947f8d56520e9b 100644
+--- a/compiler/rustc_mir_transform/src/check_call_recursion.rs
++++ b/compiler/rustc_mir_transform/src/check_call_recursion.rs
+@@ -205,6 +205,7 @@ fn node_examined(
+             | TerminatorKind::CoroutineDrop
+             | TerminatorKind::UnwindResume
+             | TerminatorKind::Return
++            | TerminatorKind::TailCall { .. }
+             | TerminatorKind::Unreachable
+             | TerminatorKind::Yield { .. } => ControlFlow::Break(NonRecursive),
+ 
+@@ -226,13 +227,6 @@ fn node_examined(
+             | TerminatorKind::FalseUnwind { .. }
+             | TerminatorKind::Goto { .. }
+             | TerminatorKind::SwitchInt { .. } => ControlFlow::Continue(()),
+-
+-            // Note that tail call terminator technically returns to the caller,
+-            // but for purposes of this lint it makes sense to count it as possibly recursive,
+-            // since it's still a call.
+-            //
+-            // If this'll be repurposed for something else, this might need to be changed.
+-            TerminatorKind::TailCall { .. } => ControlFlow::Continue(()),
+         }
+     }
+ 

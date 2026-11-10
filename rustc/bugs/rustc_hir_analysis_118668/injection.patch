@@ -1,0 +1,49 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
+index 613202ef35345b08d941a5f7d4000ec0445164d1..03246efb572944a1a7d40a0206de36daec95b205 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
+@@ -391,10 +391,6 @@ pub(super) fn lower_assoc_item_constraint(
+             == hir::GenericArgsParentheses::ReturnTypeNotation
+         {
+             ty::AssocTag::Fn
+-        } else if let hir::AssocItemConstraintKind::Equality { term: hir::Term::Const(_) } =
+-            constraint.kind
+-        {
+-            ty::AssocTag::Const
+         } else {
+             ty::AssocTag::Type
+         };
+@@ -411,7 +407,12 @@ pub(super) fn lower_assoc_item_constraint(
+             trait_ref.def_id(),
+             assoc_tag,
+             constraint.ident,
+-        ) {
++        ) || (assoc_tag == ty::AssocTag::Type
++            && self.probe_trait_that_defines_assoc_item(
++                trait_ref.def_id(),
++                ty::AssocTag::Const,
++                constraint.ident,
++            )) {
+             // Simple case: The assoc item is defined in the current trait.
+             trait_ref
+         } else {
+@@ -435,6 +436,19 @@ pub(super) fn lower_assoc_item_constraint(
+                 constraint.span,
+                 candidate.def_id(),
+             )
++            .or_else(|| {
++                if assoc_tag == ty::AssocTag::Type {
++                    self.probe_assoc_item(
++                        constraint.ident,
++                        ty::AssocTag::Const,
++                        hir_ref_id,
++                        constraint.span,
++                        candidate.def_id(),
++                    )
++                } else {
++                    None
++                }
++            })
+             .expect("failed to find associated item");
+ 
+         if let Some(duplicates) = duplicates {

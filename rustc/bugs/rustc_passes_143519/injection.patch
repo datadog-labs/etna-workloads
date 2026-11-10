@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..9c08865a1837b92a52c670ca193940dfc2a1e1e9 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -864,7 +864,15 @@ fn maybe_record_as_seed<'tcx>(
+                         // so we later mark them as live if their corresponding traits
+                         // or trait items and self types are both live,
+                         // but inherent associated items can be visited and marked directly.
+-                        unsolved_items.push(owner_id.def_id);
++                        if !matches!(tcx.def_kind(owner_id.def_id), DefKind::AssocFn) {
++                            push_into_worklist(WorkItem {
++                                id: owner_id.def_id,
++                                propagated: ComesFromAllowExpect::No,
++                                own: ComesFromAllowExpect::No,
++                            });
++                        } else {
++                            unsolved_items.push(owner_id.def_id);
++                        }
+                     }
+                     _ => bug!(),
+                 }

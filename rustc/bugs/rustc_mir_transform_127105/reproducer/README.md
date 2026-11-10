@@ -1,0 +1,1 @@
+Comparing a *mut T pointer with a generic associated constant after inlining ptr::eq makes GVN update only one Eq operand, producing mismatched types and an ICE (broken MIR) on the injected compiler; the clean compiler compiles it fine.

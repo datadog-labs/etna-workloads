@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..be424fbcd5ad1dcc58e01d5d1e9662be5703eb7d 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -1456,6 +1456,32 @@ fn try_find_coercion_lub(
+             }
+         }
+ 
++        // Then try to coerce the previous expressions to the type of the new one.
++        // This requires ensuring there are no coercions applied to *any* of the
++        // previous expressions, other than noop reborrows (ignoring lifetimes).
++        for expr in exprs {
++            let noop = match self.typeck_results.borrow().expr_adjustments(expr) {
++                &[
++                    Adjustment { kind: Adjust::Deref(_), .. },
++                    Adjustment { kind: Adjust::Borrow(AutoBorrow::Ref(mutbl_adj)), .. },
++                ] => match *self.node_ty(expr.hir_id).kind() {
++                    ty::Ref(_, _, mt_orig) => {
++                        let mutbl_adj: hir::Mutability = mutbl_adj.into();
++                        mutbl_adj == mt_orig
++                    }
++                    _ => false,
++                },
++                &[Adjustment { kind: Adjust::NeverToAny, .. }] | &[] => true,
++                _ => false,
++            };
++
++            if !noop {
++                return Err(self
++                    .commit_if_ok(|_| self.at(cause, self.param_env).lub(prev_ty, new_ty))
++                    .unwrap_err());
++            }
++        }
++
+         let ok = self
+             .commit_if_ok(|_| coerce.coerce(prev_ty, new_ty))
+             // Avoid giving strange errors on failed attempts.

@@ -1,0 +1,51 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+index 2f65b443dd5ecbe0972766596864d16846748ee5..0006effc1f67f9efcd3c92c1b3559fd64a22061d 100644
+--- a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
++++ b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+@@ -2462,9 +2462,6 @@ pub(super) fn check_type_bounds<'tcx>(
+     impl_ty: ty::AssocItem,
+     impl_trait_ref: ty::TraitRef<'tcx>,
+ ) -> Result<(), ErrorGuaranteed> {
+-    // Avoid bogus "type annotations needed `Foo: Bar`" errors on `impl Bar for Foo` in case
+-    // other `Foo` impls are incoherent.
+-    tcx.ensure_result().coherent_trait(impl_trait_ref.def_id)?;
+ 
+     let param_env = tcx.param_env(impl_ty.def_id);
+     debug!(?param_env);
+diff --git a/compiler/rustc_hir_analysis/src/check/wfcheck.rs b/compiler/rustc_hir_analysis/src/check/wfcheck.rs
+index 9a498837b1f4d99154a7e6c5bfe06c5f1060e16a..0523efc883a1bd96ae1c5facd4cf14f5aacd51e3 100644
+--- a/compiler/rustc_hir_analysis/src/check/wfcheck.rs
++++ b/compiler/rustc_hir_analysis/src/check/wfcheck.rs
+@@ -913,9 +913,6 @@ pub(crate) fn check_associated_item(
+     enter_wf_checking_ctxt(tcx, def_id, |wfcx| {
+         let item = tcx.associated_item(def_id);
+ 
+-        // Avoid bogus "type annotations needed `Foo: Bar`" errors on `impl Bar for Foo` in case
+-        // other `Foo` impls are incoherent.
+-        tcx.ensure_result().coherent_trait(tcx.parent(item.trait_item_or_self()?))?;
+ 
+         let self_ty = match item.container {
+             ty::AssocContainer::Trait => tcx.types.self_param,
+@@ -1313,9 +1310,6 @@ fn check_impl<'tcx>(
+                 // therefore don't need to be WF (the trait's `Self: Trait` predicate
+                 // won't hold).
+                 let trait_ref = tcx.impl_trait_ref(item.owner_id).instantiate_identity();
+-                // Avoid bogus "type annotations needed `Foo: Bar`" errors on `impl Bar for Foo` in
+-                // case other `Foo` impls are incoherent.
+-                tcx.ensure_result().coherent_trait(trait_ref.skip_normalization().def_id)?;
+                 let trait_span = of_trait.trait_ref.path.span;
+                 let trait_ref = wfcx.deeply_normalize(
+                     trait_span,
+diff --git a/compiler/rustc_hir_typeck/src/callee.rs b/compiler/rustc_hir_typeck/src/callee.rs
+index e250ec4c7af40e3b1523bd0348add562f52b4292..d5bd6e92d4f2a9f17bb1b3fc59aa89602811572c 100644
+--- a/compiler/rustc_hir_typeck/src/callee.rs
++++ b/compiler/rustc_hir_typeck/src/callee.rs
+@@ -69,7 +69,7 @@ pub(crate) fn check_legal_trait_for_method_call(
+         };
+         return Err(tcx.dcx().emit_err(diagnostics::ExplicitDestructorCall { span, sugg }));
+     }
+-    tcx.ensure_result().coherent_trait(trait_id)
++    Ok(())
+ }
+ 
+ /// State machine for typechecking a call, based on the callee type.

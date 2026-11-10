@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_mir_transform/src/validate.rs b/compiler/rustc_mir_transform/src/validate.rs
+index b9c55439f059755e4c0e56013c6aa1decd96aa6d..dfc61086047a4cb3093f44dcdea20a6e1b7ccbf7 100644
+--- a/compiler/rustc_mir_transform/src/validate.rs
++++ b/compiler/rustc_mir_transform/src/validate.rs
+@@ -1244,6 +1244,14 @@ macro_rules! check_kinds {
+                         );
+                     }
+                     UnOp::PtrMetadata => {
++                        if !matches!(self.body.phase, MirPhase::Runtime(_)) {
++                            // It would probably be fine to support this in earlier phases, but at
++                            // the time of writing it's only ever introduced from intrinsic
++                            // lowering or other runtime-phase optimization passes, so earlier
++                            // things can just `bug!` on it.
++                            self.fail(location, "PtrMetadata should be in runtime MIR only");
++                        }
++
+                         check_kinds!(
+                             a,
+                             "Cannot PtrMetadata non-pointer non-reference type {:?}",

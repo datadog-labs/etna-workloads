@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_infer/src/infer/mod.rs b/compiler/rustc_infer/src/infer/mod.rs
+index 583fb1d7db21a758a712d056c51171b5bc99fd34..a7ceab1ae73c8aa129c55da85b7fcba48d82f1c3 100644
+--- a/compiler/rustc_infer/src/infer/mod.rs
++++ b/compiler/rustc_infer/src/infer/mod.rs
+@@ -1439,22 +1439,12 @@ pub fn try_resolve_const_var(
+     /// This method is idempotent, but it not typically not invoked
+     /// except during the writeback phase.
+     pub fn fully_resolve<T: TypeFoldable<TyCtxt<'tcx>>>(&self, value: T) -> FixupResult<T> {
+-        match resolve::fully_resolve(self, value) {
+-            Ok(value) => {
+-                if value.has_non_region_infer() {
+-                    bug!("`{value:?}` is not fully resolved");
+-                }
+-                if value.has_infer_regions() {
+-                    let guar = self.dcx().delayed_bug(format!("`{value:?}` is not fully resolved"));
+-                    Ok(fold_regions(self.tcx, value, |re, _| {
+-                        if re.is_var() { ty::Region::new_error(self.tcx, guar) } else { re }
+-                    }))
+-                } else {
+-                    Ok(value)
+-                }
+-            }
+-            Err(e) => Err(e),
+-        }
++        let value = resolve::fully_resolve(self, value);
++        assert!(
++            value.as_ref().map_or(true, |value| !value.has_infer()),
++            "`{value:?}` is not fully resolved"
++        );
++        value
+     }
+ 
+     // Instantiates the bound variables in a given binder with fresh inference

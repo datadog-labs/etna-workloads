@@ -1,0 +1,97 @@
+warning: the feature `repr_simd` is internal to the compiler or standard library
+ --> main.rs:1:12
+  |
+1 | #![feature(repr_simd)]
+  |            ^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: struct `Simd` is never constructed
+ --> main.rs:4:8
+  |
+4 | struct Simd<T, const N: usize>([T; N]);
+  |        ^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: static `VAR` is never used
+ --> main.rs:7:12
+  |
+7 |     static VAR: Simd<u8, 0>;
+  |            ^^^
+
+warning: static `VAR2` is never used
+ --> main.rs:9:12
+  |
+9 |     static VAR2: Simd<u8, 1_000_000>;
+  |            ^^^^
+
+warning: `extern` block uses type `Simd<u8, 0>`, which is not FFI-safe
+ --> main.rs:7:17
+  |
+7 |     static VAR: Simd<u8, 0>;
+  |                 ^^^^^^^^^^^ not FFI-safe
+  |
+  = help: consider adding a `#[repr(C)]` or `#[repr(transparent)]` attribute to this struct
+  = note: this struct has unspecified layout
+note: the type is defined here
+ --> main.rs:4:1
+  |
+4 | struct Simd<T, const N: usize>([T; N]);
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  = note: `#[warn(improper_ctypes)]` on by default
+
+warning: `extern` block uses type `Simd<u8, 1000000>`, which is not FFI-safe
+ --> main.rs:9:18
+  |
+9 |     static VAR2: Simd<u8, 1_000_000>;
+  |                  ^^^^^^^^^^^^^^^^^^^ not FFI-safe
+  |
+  = help: consider adding a `#[repr(C)]` or `#[repr(transparent)]` attribute to this struct
+  = note: this struct has unspecified layout
+note: the type is defined here
+ --> main.rs:4:1
+  |
+4 | struct Simd<T, const N: usize>([T; N]);
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: 6 warnings emitted
+
+note: no errors encountered even though delayed bugs were created
+
+note: those delayed bugs will now be shown as internal compiler errors
+
+error: internal compiler error: InvalidSimd { ty: Simd<u8, 0_usize>, kind: ZeroLength }
+ --> main.rs:7:5
+  |
+7 |     static VAR: Simd<u8, 0>;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+note: delayed at compiler/rustc_hir_analysis/src/check/check.rs:215:23 - disabled backtrace
+ --> main.rs:7:5
+  |
+7 |     static VAR: Simd<u8, 0>;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: internal compiler error: InvalidSimd { ty: Simd<u8, 1000000_usize>, kind: TooManyLanes(Limit(32768)) }
+ --> main.rs:9:5
+  |
+9 |     static VAR2: Simd<u8, 1_000_000>;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+note: delayed at compiler/rustc_hir_analysis/src/check/check.rs:215:23 - disabled backtrace
+ --> main.rs:9:5
+  |
+9 |     static VAR2: Simd<u8, 1_000_000>;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: using internal features is not supported and expected to cause internal compiler errors when used incorrectly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+end of query stack
+rustc exit: 101
+
+[exit 0]

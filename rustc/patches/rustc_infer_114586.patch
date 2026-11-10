@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_infer/src/infer/opaque_types/mod.rs b/compiler/rustc_infer/src/infer/opaque_types/mod.rs
+index 08c7c49417124ce05f60360448bb45b16c1e5d8a..9ac977610069801d3290e3647f0e507cf360c503 100644
+--- a/compiler/rustc_infer/src/infer/opaque_types/mod.rs
++++ b/compiler/rustc_infer/src/infer/opaque_types/mod.rs
+@@ -132,7 +132,9 @@ pub fn handle_opaque_type(
+                 //     let x = || foo(); // returns the Opaque assoc with `foo`
+                 // }
+                 // ```
+-                if !self.can_define_opaque_ty(def_id) {
++                if !self.can_define_opaque_ty(def_id)
++                    && !matches!(*b.kind(), ty::Alias(_, ty::AliasTy { kind: ty::Opaque { .. }, .. }))
++                {
+                     return None;
+                 }
+ 
+@@ -161,9 +163,11 @@ pub fn handle_opaque_type(
+             }
+             _ => None,
+         };
+-        if let Some(res) = process(a, b) {
++        let both_opaque = matches!(*a.kind(), ty::Alias(_, ty::AliasTy { kind: ty::Opaque { .. }, .. }))
++            && matches!(*b.kind(), ty::Alias(_, ty::AliasTy { kind: ty::Opaque { .. }, .. }));
++        if let Some(res) = if both_opaque { process(b, a) } else { process(a, b) } {
+             res
+-        } else if let Some(res) = process(b, a) {
++        } else if let Some(res) = process(a, b) {
+             res
+         } else {
+             let (a, b) = self.resolve_vars_if_possible((a, b));

@@ -1,0 +1,1 @@
+With `#![deny(unused_parens)]`, parenthesized closures carrying attributes trigger the lint. The injected compiler's diagnostic span and removal suggestion omit the attributes (the suggestion deletes `#[inline] #[allow(dead_code)]`), whereas the clean compiler's span covers the attributes and the suggestion keeps them.

@@ -1,0 +1,140 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..225c251fcd348809ffb49a9d1a83fc7d6a9a3925 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -2210,20 +2210,6 @@ fn handle_unsatisfied_predicates(
+                 err.note(note);
+             }
+ 
+-            if let ty::Adt(adt_def, _) = rcvr_ty.kind() {
+-                unsatisfied_predicates.iter().find(|(pred, _parent, _cause)| {
+-                    if let ty::PredicateKind::Clause(ty::ClauseKind::Trait(pred)) =
+-                        pred.kind().skip_binder()
+-                    {
+-                        self.suggest_hashmap_on_unsatisfied_hashset_buildhasher(
+-                            err, &pred, *adt_def,
+-                        )
+-                    } else {
+-                        false
+-                    }
+-                });
+-            }
+-
+             *suggested_derive = self.suggest_derive(err, unsatisfied_predicates);
+             *unsatisfied_bounds = true;
+         }
+@@ -3481,7 +3467,7 @@ pub(crate) fn note_unmet_impls_on_type(
+             .filter_map(|e| match e.obligation.predicate.kind().skip_binder() {
+                 ty::PredicateKind::Clause(ty::ClauseKind::Trait(pred)) => {
+                     match pred.self_ty().kind() {
+-                        ty::Adt(_, _) => Some((e.root_obligation.predicate, pred)),
++                        ty::Adt(_, _) => Some(pred),
+                         _ => None,
+                     }
+                 }
+@@ -3491,7 +3477,7 @@ pub(crate) fn note_unmet_impls_on_type(
+ 
+         // Note for local items and foreign items respectively.
+         let (mut local_preds, mut foreign_preds): (Vec<_>, Vec<_>) =
+-            preds.iter().partition(|&(_, pred)| {
++            preds.iter().partition(|&pred| {
+                 if let ty::Adt(def, _) = pred.self_ty().kind() {
+                     def.did().is_local()
+                 } else {
+@@ -3499,10 +3485,10 @@ pub(crate) fn note_unmet_impls_on_type(
+                 }
+             });
+ 
+-        local_preds.sort_by_key(|(_, pred)| pred.trait_ref.to_string());
++        local_preds.sort_by_key(|pred: &&ty::TraitPredicate<'_>| pred.trait_ref.to_string());
+         let local_def_ids = local_preds
+             .iter()
+-            .filter_map(|(_, pred)| match pred.self_ty().kind() {
++            .filter_map(|pred| match pred.self_ty().kind() {
+                 ty::Adt(def, _) => Some(def.did()),
+                 _ => None,
+             })
+@@ -3515,7 +3501,7 @@ pub(crate) fn note_unmet_impls_on_type(
+             })
+             .collect::<Vec<_>>()
+             .into();
+-        for (_, pred) in &local_preds {
++        for pred in &local_preds {
+             if let ty::Adt(def, _) = pred.self_ty().kind() {
+                 local_spans.push_span_label(
+                     self.tcx.def_span(def.did()),
+@@ -3524,7 +3510,7 @@ pub(crate) fn note_unmet_impls_on_type(
+             }
+         }
+         if local_spans.primary_span().is_some() {
+-            let msg = if let [(_, local_pred)] = local_preds.as_slice() {
++            let msg = if let [local_pred] = local_preds.as_slice() {
+                 format!(
+                     "an implementation of `{}` might be missing for `{}`",
+                     local_pred.trait_ref.print_trait_sugared(),
+@@ -3542,10 +3528,9 @@ pub(crate) fn note_unmet_impls_on_type(
+             err.span_note(local_spans, msg);
+         }
+ 
+-        foreign_preds
+-            .sort_by_key(|(_, pred): &(_, ty::TraitPredicate<'_>)| pred.trait_ref.to_string());
++        foreign_preds.sort_by_key(|pred: &&ty::TraitPredicate<'_>| pred.trait_ref.to_string());
+ 
+-        for (_, pred) in &foreign_preds {
++        for pred in foreign_preds {
+             let ty = pred.self_ty();
+             let ty::Adt(def, _) = ty.kind() else { continue };
+             let span = self.tcx.def_span(def.did());
+@@ -3558,17 +3543,6 @@ pub(crate) fn note_unmet_impls_on_type(
+                 mspan,
+                 format!("`{ty}` does not implement `{}`", pred.trait_ref.print_trait_sugared()),
+             );
+-
+-            foreign_preds.iter().find(|&(root_pred, pred)| {
+-                if let ty::PredicateKind::Clause(ty::ClauseKind::Trait(root_pred)) =
+-                    root_pred.kind().skip_binder()
+-                    && let Some(root_adt) = root_pred.self_ty().ty_adt_def()
+-                {
+-                    self.suggest_hashmap_on_unsatisfied_hashset_buildhasher(err, pred, root_adt)
+-                } else {
+-                    false
+-                }
+-            });
+         }
+ 
+         let preds: Vec<_> = errors
+@@ -4943,22 +4917,6 @@ fn is_local(ty: Ty<'_>) -> bool {
+ 
+         self.autoderef(span, rcvr_ty).silence_errors().any(|(ty, _)| is_local(ty))
+     }
+-
+-    fn suggest_hashmap_on_unsatisfied_hashset_buildhasher(
+-        &self,
+-        err: &mut Diag<'_>,
+-        pred: &ty::TraitPredicate<'_>,
+-        adt: ty::AdtDef<'_>,
+-    ) -> bool {
+-        if self.tcx.is_diagnostic_item(sym::HashSet, adt.did())
+-            && self.tcx.is_diagnostic_item(sym::BuildHasher, pred.def_id())
+-        {
+-            err.help("you might have intended to use a HashMap instead");
+-            true
+-        } else {
+-            false
+-        }
+-    }
+ }
+ 
+ #[derive(Copy, Clone, Debug)]
+diff --git a/compiler/rustc_span/src/symbol.rs b/compiler/rustc_span/src/symbol.rs
+index e0f1a2e26b553517b519e4ff9d9d527db07c11ef..a1607bd3cbf7540f1fc86eee7a0d289c636f20ec 100644
+--- a/compiler/rustc_span/src/symbol.rs
++++ b/compiler/rustc_span/src/symbol.rs
+@@ -176,7 +176,6 @@
+         Borrow,
+         BorrowMut,
+         Break,
+-        BuildHasher,
+         CStr,
+         CallOnceFuture,
+         CallRefFuture,

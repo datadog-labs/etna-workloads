@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_ast_passes/src/ast_validation.rs b/compiler/rustc_ast_passes/src/ast_validation.rs
+index 3270fb940bab3da7b1ff2656032b9699a9d0cb0b..458a26e59a233149a43ba3af9c062b18848540bf 100644
+--- a/compiler/rustc_ast_passes/src/ast_validation.rs
++++ b/compiler/rustc_ast_passes/src/ast_validation.rs
+@@ -61,7 +61,7 @@ fn from_fn_kind(fk: &FnKind<'_>) -> Self {
+         match fk {
+             FnKind::Fn(_, _, f) => Self::from_extern(f.sig.header.ext),
+             // Splatting closures is banned, because closure arguments are already de-tupled.
+-            FnKind::Closure(_, _, _, expr) => SplatSemantic::NoClosures(expr.span),
++            FnKind::Closure(..) => SplatSemantic::Yes,
+         }
+     }
+ 
+@@ -71,12 +71,7 @@ fn from_extern(ext: Extern) -> Self {
+             // FIXME(splat): should splatting extern "C" or other ABIs be allowed?
+             Extern::Implicit(_) => SplatSemantic::Yes,
+             // For now, splatting rust-call is banned, because it already de-tuples args.
+-            Extern::Explicit(abi_str, span) => match abi_str.symbol_unescaped {
+-                sym::rust_dash_call => {
+-                    SplatSemantic::NoAbiCall { span, abi: abi_str.symbol_unescaped }
+-                }
+-                _ => SplatSemantic::Yes,
+-            },
++            Extern::Explicit(..) => SplatSemantic::Yes,
+         }
+     }
+ }

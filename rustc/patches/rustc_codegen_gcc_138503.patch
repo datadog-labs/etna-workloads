@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_codegen_gcc/src/consts.rs b/compiler/rustc_codegen_gcc/src/consts.rs
+index 42ff930968501171142e6cfcb34651f424f0b20d..b775373061264979753c8f82e6cc65e149484f7d 100644
+--- a/compiler/rustc_codegen_gcc/src/consts.rs
++++ b/compiler/rustc_codegen_gcc/src/consts.rs
+@@ -374,7 +374,6 @@ pub(crate) fn const_alloc_to_gcc_uncached<'gcc>(
+         llvals.push(cx.const_bytes(bytes));
+     }
+ 
+-    // FIXME(bjorn3) avoid wrapping in a struct when there is only a single element.
+     cx.const_struct(&llvals, true)
+ }
+ 
+diff --git a/compiler/rustc_codegen_llvm/src/consts.rs b/compiler/rustc_codegen_llvm/src/consts.rs
+index 5ecd5c19b6f8e8609fdca0670eade6bebca80cd7..e8dce34979967744d21cb82f10c0b0319f537595 100644
+--- a/compiler/rustc_codegen_llvm/src/consts.rs
++++ b/compiler/rustc_codegen_llvm/src/consts.rs
+@@ -153,7 +153,7 @@ fn append_chunks_of_init_and_uninit_bytes<'ll, 'a, 'b>(
+     // is a valid C string. LLVM only considers bare arrays for this optimization,
+     // not arrays wrapped in a struct. LLVM handles this at:
+     // https://github.com/rust-lang/llvm-project/blob/acaea3d2bb8f351b740db7ebce7d7a40b9e21488/llvm/lib/Target/TargetLoweringObjectFile.cpp#L249-L280
+-    if let &[data] = &*llvals { data } else { cx.const_struct(&llvals, true) }
++    cx.const_struct(&llvals, true)
+ }
+ 
+ fn codegen_static_initializer<'ll, 'tcx>(

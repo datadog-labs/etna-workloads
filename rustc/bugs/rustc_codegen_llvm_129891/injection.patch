@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_codegen_llvm/src/attributes.rs b/compiler/rustc_codegen_llvm/src/attributes.rs
+index 06dab7f7e46fd4c1c99f53266cd4700a13aef518..e5d34f8b8167825041b58f4ccbfeafe044fb8b82 100644
+--- a/compiler/rustc_codegen_llvm/src/attributes.rs
++++ b/compiler/rustc_codegen_llvm/src/attributes.rs
+@@ -531,14 +531,12 @@ pub(crate) fn llfn_attrs_from_instance<'ll, 'tcx>(
+     if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::FFI_CONST) {
+         to_add.push(MemoryEffects::None.create_attr(cx.llcx));
+     }
++    to_add.extend(sanitize_attrs(cx, tcx, codegen_fn_attrs.sanitizers));
+     if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::NAKED) {
+         // do nothing; a naked function is converted into an extern function
+         // and a global assembly block. LLVM's support for naked functions is
+         // not used.
+     } else {
+-        // Do not set sanitizer attributes for naked functions.
+-        to_add.extend(sanitize_attrs(cx, tcx, codegen_fn_attrs.sanitizers));
+-
+         // For non-naked functions, set branch protection attributes on aarch64.
+         if let Some(BranchProtection { bti, pac_ret, gcs }) = sess.branch_protection() {
+             assert!(sess.target.arch == Arch::AArch64);

@@ -1,0 +1,64 @@
+diff --git a/compiler/rustc_hir_typeck/src/op.rs b/compiler/rustc_hir_typeck/src/op.rs
+index c28976555432bf0b60763f9c66865e6ebd5d6816..38fbfcb038b821fc572d97b98159c22c0341bef1 100644
+--- a/compiler/rustc_hir_typeck/src/op.rs
++++ b/compiler/rustc_hir_typeck/src/op.rs
+@@ -581,7 +581,7 @@ fn suggest_deref_or_call_for_binop_error(
+             && matches!(op, Op::AssignOp(_))
+         {
+             self.suggest_deref_binop(lhs_expr, rhs_expr, op, expected, rhs_ty, err, lhs_deref_ty);
+-        } else if let ty::Ref(region, lhs_deref_ty, mutbl) = lhs_ty.kind()
++        } else if let ty::Ref(_, lhs_deref_ty, _) = lhs_ty.kind()
+             && matches!(op, Op::BinOp(_))
+         {
+             if self.type_is_copy_modulo_regions(self.param_env, *lhs_deref_ty) {
+@@ -594,50 +594,6 @@ fn suggest_deref_or_call_for_binop_error(
+                     err,
+                     *lhs_deref_ty,
+                 );
+-            } else {
+-                let lhs_inv_mutbl = mutbl.invert();
+-                let lhs_inv_mutbl_ty = Ty::new_ref(self.tcx, *region, *lhs_deref_ty, lhs_inv_mutbl);
+-
+-                self.suggest_different_borrow(
+-                    lhs_expr,
+-                    rhs_expr,
+-                    op,
+-                    expected,
+-                    err,
+-                    lhs_inv_mutbl_ty,
+-                    Some(lhs_inv_mutbl),
+-                    rhs_ty,
+-                    None,
+-                );
+-
+-                if let ty::Ref(region, rhs_deref_ty, mutbl) = rhs_ty.kind() {
+-                    let rhs_inv_mutbl = mutbl.invert();
+-                    let rhs_inv_mutbl_ty =
+-                        Ty::new_ref(self.tcx, *region, *rhs_deref_ty, rhs_inv_mutbl);
+-
+-                    self.suggest_different_borrow(
+-                        lhs_expr,
+-                        rhs_expr,
+-                        op,
+-                        expected,
+-                        err,
+-                        lhs_ty,
+-                        None,
+-                        rhs_inv_mutbl_ty,
+-                        Some(rhs_inv_mutbl),
+-                    );
+-                    self.suggest_different_borrow(
+-                        lhs_expr,
+-                        rhs_expr,
+-                        op,
+-                        expected,
+-                        err,
+-                        lhs_inv_mutbl_ty,
+-                        Some(lhs_inv_mutbl),
+-                        rhs_inv_mutbl_ty,
+-                        Some(rhs_inv_mutbl),
+-                    );
+-                }
+             }
+         } else {
+             let suggested = self.suggest_fn_call(err, lhs_expr, lhs_ty, |lhs_ty| {

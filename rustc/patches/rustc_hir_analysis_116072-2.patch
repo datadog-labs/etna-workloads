@@ -1,0 +1,73 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+index 2f65b443dd5ecbe0972766596864d16846748ee5..9f90a83f3f0141d63eeadcbb925cea6c1aac4d0e 100644
+--- a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
++++ b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+@@ -577,42 +577,11 @@ pub(super) fn collect_return_position_impl_trait_in_trait_tys<'tcx>(
+     // To avoid this, we replace the infer vars used for hidden type inference
+     // with placeholders, which imply nothing about outlives bounds, and then
+     // prove below that the hidden types are well formed.
+-    let universe = infcx.create_next_universe();
+-    let mut idx = ty::BoundVar::ZERO;
+-    let mapping: FxIndexMap<_, _> = collector
+-        .types
+-        .iter()
+-        .map(|(_, &(ty, _))| {
+-            assert!(
+-                infcx.resolve_vars_if_possible(ty) == ty && ty.is_ty_var(),
+-                "{ty:?} should not have been constrained via normalization",
+-                ty = infcx.resolve_vars_if_possible(ty)
+-            );
+-            idx += 1;
+-            (
+-                ty,
+-                Ty::new_placeholder(
+-                    tcx,
+-                    ty::PlaceholderType::new(
+-                        universe,
+-                        ty::BoundTy { var: idx, kind: ty::BoundTyKind::Anon },
+-                    ),
+-                ),
+-            )
+-        })
+-        .collect();
+-    let mut type_mapper = BottomUpFolder {
+-        tcx,
+-        ty_op: |ty| *mapping.get(&ty).unwrap_or(&ty),
+-        lt_op: |lt| lt,
+-        ct_op: |ct| ct,
+-    };
+     let wf_tys = FxIndexSet::from_iter(
+         unnormalized_trait_sig
+             .inputs_and_output
+             .iter()
+-            .chain(trait_sig.inputs_and_output.iter())
+-            .map(|ty| ty.fold_with(&mut type_mapper)),
++            .chain(trait_sig.inputs_and_output.iter()),
+     );
+ 
+     match ocx.eq(&cause, param_env, trait_return_ty, impl_return_ty) {
+@@ -675,23 +644,10 @@ pub(super) fn collect_return_position_impl_trait_in_trait_tys<'tcx>(
+         );
+     }
+ 
+-    // FIXME: This has the same issue as #108544, but since this isn't breaking
+-    // existing code, I'm not particularly inclined to do the same hack as above
+-    // where we process wf obligations manually. This can be fixed in a forward-
+-    // compatible way later.
+-    let collected_types = collector.types;
+-    for (_, &(ty, _)) in &collected_types {
+-        ocx.register_obligation(traits::Obligation::new(
+-            tcx,
+-            misc_cause.clone(),
+-            param_env,
+-            ty::ClauseKind::WellFormed(ty.into()),
+-        ));
+-    }
+-
+     // Check that all obligations are satisfied by the implementation's
+     // RPITs.
+     let errors = ocx.evaluate_obligations_error_on_ambiguity();
++    let collected_types = collector.types;
+     if let TraitErrors::HasErrors(errors) = errors {
+         if let Err(guar) = try_report_async_mismatch(tcx, infcx, &errors, trait_m, impl_m, impl_sig)
+         {

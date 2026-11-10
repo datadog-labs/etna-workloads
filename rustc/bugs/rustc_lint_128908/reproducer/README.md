@@ -1,0 +1,1 @@
+A struct `Rec<'thir, 'tcx: 'thir>` whose only use of the lifetimes is a recursive reference to itself (via an associated type) has a `'tcx: 'thir` bound that is "inferred" only from itself. The clean compiler accepts it; the injected one wrongly fires `explicit_outlives_requirements` and exits with an error.

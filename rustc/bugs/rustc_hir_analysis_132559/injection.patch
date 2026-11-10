@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/type_of.rs b/compiler/rustc_hir_analysis/src/collect/type_of.rs
+index 3402f56bef6dca1d9d0cb37b1bfbbfe2bb87a1a1..900534c76cd2cc4cda3547b301ce473473f16a92 100644
+--- a/compiler/rustc_hir_analysis/src/collect/type_of.rs
++++ b/compiler/rustc_hir_analysis/src/collect/type_of.rs
+@@ -405,6 +405,43 @@ fn const_arg_anon_type_of<'tcx>(icx: &ItemCtxt<'tcx>, arg_hir_id: HirId, span: S
+             icx.lower_ty(ty)
+         }
+ 
++        Node::Ty(hir_ty @ hir::Ty { kind: TyKind::Path(QPath::TypeRelative(_, segment)), .. }) => {
++            // Find the Item containing the associated type so we can create an ItemCtxt.
++            let item_def_id = tcx
++                .hir_parent_owner_iter(arg_hir_id)
++                .find(|(_, node)| matches!(node, OwnerNode::Item(_)))
++                .unwrap()
++                .0
++                .def_id;
++            let ty = ItemCtxt::new(tcx, item_def_id).lower_ty(hir_ty);
++
++            if let ty::Alias(_, alias) = ty.kind()
++                && let ty::Projection { def_id } | ty::Inherent { def_id } = alias.kind
++            {
++                let generics = tcx.generics_of(DefId::from(def_id));
++                let arg_index = segment
++                    .args
++                    .and_then(|args| {
++                        args.args
++                            .iter()
++                            .filter(|arg| arg.is_ty_or_const())
++                            .position(|arg| arg.hir_id() == arg_hir_id)
++                    })
++                    .unwrap_or_else(|| {
++                        bug!("no arg matching AnonConst in segment");
++                    });
++                generics
++                    .own_params
++                    .iter()
++                    .filter(|param| matches!(param.kind, ty::GenericParamDefKind::Const { .. }))
++                    .nth(arg_index)
++                    .map(|param| tcx.type_of(param.def_id).instantiate_identity().skip_norm_wip())
++                    .unwrap_or_else(|| Ty::new_error_with_message(tcx, span, "no matching const param"))
++            } else {
++                Ty::new_error_with_message(tcx, span, "const arg on non-projection type")
++            }
++        }
++
+         // This is not a `bug!` as const arguments in path segments that did not resolve to anything
+         // will result in `type_of` never being fed.
+         _ => Ty::new_error_with_message(

@@ -1,0 +1,1 @@
+Compiles a tiny lib with `-C panic=abort` for x86_64 linux and checks whether the emitted assembly has CFI/unwind-table directives. The clean compiler emits unwind tables by default (needed for backtraces); the injected one omits them.

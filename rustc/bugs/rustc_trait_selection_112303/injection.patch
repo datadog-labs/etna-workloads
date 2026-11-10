@@ -1,0 +1,14 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..fcea87c6a4f9fe5d4b342b28d796b544ea256889 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -5146,8 +5146,7 @@ fn suggest_option_method_if_applicable<G: EmissionGuarantee>(
+             // Extract `<U as Deref>::Target` assoc type and check that it is `T`
+             && let Some(deref_target_did) = tcx.lang_items().deref_target()
+             && let projection = Ty::new_projection_from_args(tcx,ty::IsRigid::No, deref_target_did, tcx.mk_args(&[ty::GenericArg::from(found_ty)]))
+-            && let InferOk { value: deref_target, obligations } = infcx.at(&ObligationCause::dummy(), param_env).normalize(Unnormalized::new_wip(projection))
+-            && obligations.iter().all(|obligation| infcx.predicate_must_hold_modulo_regions(obligation))
++            && let Ok(deref_target) = tcx.try_normalize_erasing_regions(ty::TypingEnv::new(param_env, ty::TypingMode::non_body_analysis()), Unnormalized::new_wip(projection))
+             && infcx.can_eq(param_env, deref_target, target_ty)
+         {
+             let help = if let hir::Mutability::Mut = needs_mut

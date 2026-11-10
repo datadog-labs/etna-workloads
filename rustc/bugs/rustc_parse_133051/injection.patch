@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..454e9174ade130e4d13be6f08494325403018ee5 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -2906,13 +2906,6 @@ fn parse_expr_else(&mut self) -> PResult<'a, Box<Expr>> {
+                 //            ^^
+                 //     }
+                 //
+-                // We account for macro calls that were meant as conditions as well.
+-                //
+-                //     if ... {
+-                //     } else if macro! { foo bar } {
+-                //            ^^
+-                //     }
+-                //
+                 // If $cond is "statement-like" such as ExprKind::While then we
+                 // want to suggest wrapping in braces.
+                 //
+@@ -2923,9 +2916,7 @@ fn parse_expr_else(&mut self) -> PResult<'a, Box<Expr>> {
+                 //     }
+                 //     ^
+                     if self.check(exp!(OpenBrace))
+-                        && (classify::expr_requires_semi_to_be_stmt(&cond)
+-                            || matches!(cond.kind, ExprKind::MacCall(..)))
+-                    =>
++                        && classify::expr_requires_semi_to_be_stmt(&cond) =>
+                 {
+                     self.dcx().emit_err(diagnostics::ExpectedElseBlock {
+                         first_tok_span,

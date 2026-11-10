@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_lint/src/non_local_def.rs b/compiler/rustc_lint/src/non_local_def.rs
+index e7cac4dc47ca526c1710879ff319cd09e13a6baa..0437c6d53c81ed9834b34aa905308d60df6dab75 100644
+--- a/compiler/rustc_lint/src/non_local_def.rs
++++ b/compiler/rustc_lint/src/non_local_def.rs
+@@ -133,6 +133,8 @@ fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
+                     collector.visit_trait_ref(&of_trait.trait_ref);
+                 }
+ 
++                let all_paths = collector.paths.clone();
++
+                 // 1.5. Remove any path that doesn't resolve to a `DefId` or if it resolve to a
+                 // type-param (e.g. `T`).
+                 collector.paths.retain(
+@@ -199,7 +201,7 @@ fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
+                 let impl_span = item.span.shrink_to_lo().to(impl_.self_ty.span);
+                 let mut ms = MultiSpan::from_span(impl_span);
+ 
+-                for path in &collector.paths {
++                for path in &all_paths {
+                     ms.push_span_label(
+                         path_span_without_args(path),
+                         format!("`{}` is not local", path_name_to_string(path)),

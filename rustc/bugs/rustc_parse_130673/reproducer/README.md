@@ -1,0 +1,1 @@
+Delegation `reuse Trait:::* { .. }` with a triple colon: the clean compiler recovers with "path separator must be a double colon"; the injected one reports "expected one of `*` or `{`, found `:`" instead.

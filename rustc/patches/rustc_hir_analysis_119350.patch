@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_hir_analysis/src/outlives/implicit_infer.rs b/compiler/rustc_hir_analysis/src/outlives/implicit_infer.rs
+index 131812a364ebd4afdc3774d1efec49bfbe91fd5b..7e94aefe07bc3f1752a5243f19ec029c90e495ae 100644
+--- a/compiler/rustc_hir_analysis/src/outlives/implicit_infer.rs
++++ b/compiler/rustc_hir_analysis/src/outlives/implicit_infer.rs
+@@ -56,17 +56,6 @@ pub(super) fn infer_clauses(
+                     }
+                 }
+ 
+-                DefKind::TyAlias if tcx.type_alias_is_checked(item_did) => {
+-                    insert_required_clauses_to_be_wf(
+-                        tcx,
+-                        tcx.type_of(item_did).instantiate_identity().skip_norm_wip(),
+-                        tcx.def_span(item_did),
+-                        &global_inferred_outlives,
+-                        &mut item_required_clauses,
+-                        &mut explicit_map,
+-                    );
+-                }
+-
+                 _ => {}
+             };
+ 
+diff --git a/compiler/rustc_hir_analysis/src/outlives/mod.rs b/compiler/rustc_hir_analysis/src/outlives/mod.rs
+index 493f2adaf30ca4e8be78456a969bca46a4d618a7..b1ee965638ac3ec6872523f9c94649bd479794a0 100644
+--- a/compiler/rustc_hir_analysis/src/outlives/mod.rs
++++ b/compiler/rustc_hir_analysis/src/outlives/mod.rs
+@@ -17,10 +17,6 @@ pub(super) fn inferred_outlives_of(
+             let crate_map = tcx.inferred_outlives_crate(());
+             crate_map.clauses.get(&item_def_id.to_def_id()).copied().unwrap_or(&[])
+         }
+-        DefKind::TyAlias if tcx.type_alias_is_checked(item_def_id) => {
+-            let crate_map = tcx.inferred_outlives_crate(());
+-            crate_map.clauses.get(&item_def_id.to_def_id()).copied().unwrap_or(&[])
+-        }
+         DefKind::AnonConst if tcx.features().generic_const_exprs() => {
+             let id = tcx.local_def_id_to_hir_id(item_def_id);
+             if tcx.hir_opt_const_param_default_param_def_id(id).is_some() {

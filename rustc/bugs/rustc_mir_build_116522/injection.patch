@@ -1,0 +1,15 @@
+diff --git a/compiler/rustc_mir_build/src/thir/pattern/const_to_pat.rs b/compiler/rustc_mir_build/src/thir/pattern/const_to_pat.rs
+index 0230840ef2fb8b19a09cc88bb5b721e33a102620..78a8b8cae0b941bcacaea80251093a9d3fe3a629 100644
+--- a/compiler/rustc_mir_build/src/thir/pattern/const_to_pat.rs
++++ b/compiler/rustc_mir_build/src/thir/pattern/const_to_pat.rs
+@@ -364,7 +364,9 @@ fn valtree_to_pat(&self, value: ty::Value<'tcx>) -> Box<Pat<'tcx>> {
+                     is_local,
+                     suggestion,
+                 };
+-                return self.mk_err(tcx.dcx().create_err(err), ty);
++                // Emit the error, but do not mark the pattern as erroneous.
++                tcx.dcx().create_err(err).emit();
++                return Box::new(Pat { span, ty, kind: PatKind::Wild, extra: None });
+             }
+             ty::Adt(adt_def, args) if adt_def.is_enum() => {
+                 let (&variant_index, fields) = valtree.to_branch().split_first().unwrap();

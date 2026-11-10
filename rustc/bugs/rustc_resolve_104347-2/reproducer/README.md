@@ -1,0 +1,1 @@
+Compiles a module-relative `use self::{nu, other_item as _}` of a #[macro_export] macro; the suggestion should add a separate `use crate::nu;` line, but the injected compiler instead suggests a malformed edit.

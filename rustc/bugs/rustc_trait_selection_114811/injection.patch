@@ -1,0 +1,46 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
+index 06d882a3094893f62384bbc823151515eaa12f06..28d83ddb08f3f1a7d5b35e1a5eae683010ee4edf 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
+@@ -366,7 +366,7 @@ pub(super) fn maybe_report_ambiguity(
+                     }
+                     let impl_candidates =
+                         self.find_similar_impl_candidates(predicate.as_trait_clause().unwrap());
+-                    if impl_candidates.len() < 40 {
++                    if impl_candidates.len() < 10 {
+                         self.report_similar_impl_candidates(
+                             impl_candidates.as_slice(),
+                             obligation,
+@@ -793,29 +793,15 @@ fn applicable_impls_to_mention(
+         obligation: &PredicateObligation<'tcx>,
+         trait_pred: ty::PolyTraitPredicate<'tcx>,
+     ) -> Option<Vec<CandidateSource>> {
+-        let mut ambiguities = compute_applicable_impls_for_diagnostics(
++        let ambiguities = compute_applicable_impls_for_diagnostics(
+             self.infcx,
+             &obligation.with(self.tcx, trait_pred),
+             false,
+         );
+         let has_non_region_infer =
+             trait_pred.skip_binder().trait_ref.args.types().any(|t| !t.is_ty_or_numeric_infer());
+-        // It doesn't make sense to talk about applicable impls if there are more than a
+-        // handful of them. If there are a lot of them, but only a few of them have no type
+-        // params, we only show those, as they are more likely to be useful/intended.
+-        if ambiguities.len() > 5 {
+-            let infcx = self.infcx;
+-            if !ambiguities.iter().all(|option| match option {
+-                CandidateSource::DefId(did) => infcx.tcx.generics_of(*did).count() == 0,
+-                CandidateSource::ParamEnv(_) => true,
+-            }) {
+-                // If not all are blanket impls, we filter blanked impls out.
+-                ambiguities.retain(|option| match option {
+-                    CandidateSource::DefId(did) => infcx.tcx.generics_of(*did).count() == 0,
+-                    CandidateSource::ParamEnv(_) => true,
+-                });
+-            }
+-        }
++        // It doesn't make sense to talk about applicable impls if there are more
++        // than a handful of them.
+         (ambiguities.len() > 1 && ambiguities.len() < 10 && has_non_region_infer)
+             .then_some(ambiguities)
+     }

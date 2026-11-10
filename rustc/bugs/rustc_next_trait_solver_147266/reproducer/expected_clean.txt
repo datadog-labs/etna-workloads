@@ -1,0 +1,52 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> main.rs:2:12
+  |
+2 | #![feature(rustc_attrs)]
+  |            ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error[E0283]: type annotations needed
+  --> main.rs:43:19
+   |
+43 |     impls_trait::<Root<_>>() //~ ERROR type annotations needed
+   |                   ^^^^^^^ cannot infer type for struct `Head<_>`
+   |
+   = note: cannot satisfy `Head<_>: Trait`
+help: `Head<T>` implements trait `Trait`
+  --> main.rs:23:1
+   |
+23 | / impl<T> Trait for Head<T>
+24 | | where
+25 | |     Root<T>: Trait,
+26 | |     T: Trait, // ambiguous
+   | |_____________^ `Head<T>`
+...
+29 | / impl<T> Trait for Head<T>
+30 | | where
+31 | |     Error<T>: Trait,
+32 | |     NotImplemented<T>: Trait,
+   | |_____________________________^ `Head<T>`
+note: required for `Root<_>` to implement `Trait`
+  --> main.rs:18:9
+   |
+18 | impl<T> Trait for Root<T>
+   |         ^^^^^     ^^^^^^^
+19 | where
+20 |     Head<T>: Trait,
+   |              ----- unsatisfied trait bound introduced here
+   = note: 8 redundant requirements hidden
+   = note: required for `Root<_>` to implement `Trait`
+note: required by a bound in `impls_trait`
+  --> main.rs:41:19
+   |
+41 | fn impls_trait<T: Trait>() {}
+   |                   ^^^^^ required by this bound in `impls_trait`
+
+error: aborting due to 1 previous error; 1 warning emitted
+
+For more information about this error, try `rustc --explain E0283`.
+rustc exit: 1
+
+[exit 0]

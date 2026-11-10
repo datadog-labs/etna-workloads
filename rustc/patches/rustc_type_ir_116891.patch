@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_type_ir/src/opaque_ty.rs b/compiler/rustc_type_ir/src/opaque_ty.rs
+index 51b3860ba1ff11bc3b7906e2f42e5363dd44e962..017437cfb5ebf2f971afd19aafb78d8906ce7d52 100644
+--- a/compiler/rustc_type_ir/src/opaque_ty.rs
++++ b/compiler/rustc_type_ir/src/opaque_ty.rs
+@@ -25,7 +25,7 @@ pub fn iter_captured_args(self, cx: I) -> impl Iterator<Item = (usize, I::Generi
+         std::iter::zip(self.args.iter(), variances.iter()).enumerate().filter_map(
+             |(i, (arg, v))| match (arg.kind(), v) {
+                 (_, ty::Invariant) => Some((i, arg)),
+-                (ty::GenericArgKind::Lifetime(_), ty::Bivariant) => None,
++                (ty::GenericArgKind::Lifetime(_), ty::Bivariant) => Some((i, arg)),
+                 _ => panic!("unexpected opaque type arg variance"),
+             },
+         )
+@@ -40,7 +40,6 @@ pub fn fold_captured_lifetime_args(
+         let variances = cx.variances_of(def_id.into());
+         let args =
+             std::iter::zip(args.iter(), variances.iter()).map(|(arg, v)| match (arg.kind(), v) {
+-                (ty::GenericArgKind::Lifetime(_), ty::Bivariant) => arg,
+                 (ty::GenericArgKind::Lifetime(lt), _) => f(lt).into(),
+                 _ => arg,
+             });

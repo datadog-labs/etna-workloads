@@ -1,0 +1,57 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+index 1897ed8fc84ebde76bc8de04ac4ad10464fd8e4d..aea729286b7fb58dd594e2859c028e3a9ee50d93 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+@@ -1297,9 +1297,7 @@ fn visit_expr(&mut self, ex: &'v hir::Expr<'v>) -> Self::Result {
+         chain.push((expr.span, prev_ty));
+ 
+         let mut prev = None;
+-        let mut iter = chain.into_iter().rev().peekable();
+-        while let Some((span, err_ty)) = iter.next() {
+-            let is_last = iter.peek().is_none();
++        for (span, err_ty) in chain.into_iter().rev() {
+             let err_ty = get_e_type(err_ty);
+             let err_ty = match (err_ty, prev) {
+                 (Some(err_ty), Some(prev)) if !self.can_eq(obligation.param_env, err_ty, prev) => {
+@@ -1311,27 +1309,27 @@ fn visit_expr(&mut self, ex: &'v hir::Expr<'v>) -> Self::Result {
+                     continue;
+                 }
+             };
+-
+-            let implements_from = self
++            if self
+                 .infcx
+                 .type_implements_trait(
+                     self.tcx.get_diagnostic_item(sym::From).unwrap(),
+                     [self_ty, err_ty],
+                     obligation.param_env,
+                 )
+-                .must_apply_modulo_regions();
+-
+-            let err_ty_str = self.tcx.short_string(err_ty, err.long_ty_path());
+-            let label = if !implements_from && is_last {
+-                format!(
+-                    "this can't be annotated with `?` because it has type `Result<_, {err_ty_str}>`"
+-                )
++                .must_apply_modulo_regions()
++            {
++                if !suggested {
++                    let err_ty = self.tcx.short_string(err_ty, err.long_ty_path());
++                    err.span_label(span, format!("this has type `Result<_, {err_ty}>`"));
++                }
+             } else {
+-                format!("this has type `Result<_, {err_ty_str}>`")
+-            };
+-
+-            if !suggested || !implements_from {
+-                err.span_label(span, label);
++                let err_ty = self.tcx.short_string(err_ty, err.long_ty_path());
++                err.span_label(
++                    span,
++                    format!(
++                        "this can't be annotated with `?` because it has type `Result<_, {err_ty}>`",
++                    ),
++                );
+             }
+             prev = Some(err_ty);
+         }

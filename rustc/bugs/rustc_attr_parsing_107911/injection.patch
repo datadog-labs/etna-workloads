@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_attr_parsing/src/attributes/macro_attrs.rs b/compiler/rustc_attr_parsing/src/attributes/macro_attrs.rs
+index 9301323c28df3b7fd551b8ad0e2d9db2f45929f2..c14709845fcdbe195f633476caf6e838fdfbe6bd 100644
+--- a/compiler/rustc_attr_parsing/src/attributes/macro_attrs.rs
++++ b/compiler/rustc_attr_parsing/src/attributes/macro_attrs.rs
+@@ -1,6 +1,5 @@
+ use rustc_attr_ir::{CollapseMacroDebuginfo, MacroUseArgs, find_attr};
+ use rustc_feature::AttributeStability;
+-use rustc_session::lint::builtin::INVALID_MACRO_EXPORT_ARGUMENTS;
+ 
+ use super::prelude::*;
+ use crate::diagnostics::MacroOnlyAttribute;
+@@ -160,19 +159,10 @@ impl SingleAttributeParser for MacroExportParser {
+     fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<AttributeKind> {
+         let local_inner_macros = match args {
+             ArgParser::NoArgs => false,
+-            ArgParser::List(list) => {
+-                let Some(l) = list.as_single() else {
+-                    cx.adcx().warn_ill_formed_attribute_input(INVALID_MACRO_EXPORT_ARGUMENTS);
+-                    return None;
+-                };
+-                if l.meta_item_no_args().is_some_and(|m| m.path().word_is(sym::local_inner_macros))
+-                {
+-                    true
+-                } else {
+-                    cx.adcx().warn_ill_formed_attribute_input(INVALID_MACRO_EXPORT_ARGUMENTS);
+-                    return None;
+-                }
+-            }
++            ArgParser::List(list) => list
++                .as_single()
++                .and_then(|l| l.meta_item_no_args())
++                .is_some_and(|m| m.path().word_is(sym::local_inner_macros)),
+             ArgParser::NameValue(nv) => {
+                 cx.adcx().expected_list_or_no_args(nv.args_span());
+                 return None;

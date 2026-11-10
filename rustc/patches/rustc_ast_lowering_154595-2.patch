@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_ast_lowering/src/lib.rs b/compiler/rustc_ast_lowering/src/lib.rs
+index cc7e081f2cce34b353c336bc45a9975437931355..aed8699575b6b38605e9cb0dcba6d0b4af27f6a8 100644
+--- a/compiler/rustc_ast_lowering/src/lib.rs
++++ b/compiler/rustc_ast_lowering/src/lib.rs
+@@ -2722,7 +2722,7 @@ fn can_lower_path_to_const_arg_direct(
+         {
+             Ok(())
+         } else {
+-            Err(UnrepresentableConstArgError { span, will_create_def_ids: false })
++            Err(UnrepresentableConstArgError { span })
+         }
+     }
+ 
+@@ -3336,27 +3336,16 @@ enum DirectConstArgContext {
+ #[derive(Debug)]
+ struct UnrepresentableConstArgError {
+     span: Span,
+-    will_create_def_ids: bool,
+ }
+ 
+ impl UnrepresentableConstArgError {
+     fn new(expr: &Expr) -> Self {
+-        Self {
+-            span: expr.span,
+-            will_create_def_ids: expr::WillCreateDefIdsVisitor.visit_expr(expr).is_break(),
+-        }
++        Self { span: expr.span }
+     }
+ 
+     fn emit<'hir>(self, lowering_context: &mut LoweringContext<'_, 'hir>) -> ConstArg<'hir> {
+         let msg = "complex const arguments must be placed inside of a `const` block";
+-        let e = if self.will_create_def_ids {
+-            // FIXME(mgca): make this non-fatal once we have a better way to handle
+-            // nested items in const args
+-            // Issue: https://github.com/rust-lang/rust/issues/154539
+-            lowering_context.dcx().struct_span_fatal(self.span, msg).emit()
+-        } else {
+-            lowering_context.dcx().struct_span_err(self.span, msg).emit()
+-        };
++        let e = lowering_context.dcx().struct_span_err(self.span, msg).emit();
+ 
+         ConstArg {
+             hir_id: lowering_context.next_id(),

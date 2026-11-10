@@ -1,0 +1,1 @@
+Borrowck error for returning a reference from a closure using a `super let` from an external macro. The clean compiler says "cannot return reference to temporary value"; the injected one says "cannot return reference to local binding" (refers to a binding the user cannot see).

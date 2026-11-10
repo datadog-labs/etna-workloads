@@ -1,0 +1,1 @@
+Compiling a function returning `impl Coroutine` (whose body is a coroutine) with MIR validation: on the injected compiler the Subtyper pass runs before opaque types are revealed, so validation fails with an ICE ("Failed subtyping {coroutine} and impl Coroutine<bool>"); the clean compiler compiles successfully.

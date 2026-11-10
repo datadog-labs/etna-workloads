@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..52eacf893fa250c6ef90abb18dd980f787725017 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -2483,12 +2483,12 @@ fn report_private_fields(
+                 .filter(|item| item.is_fn() && !item.is_method())
+                 .filter_map(|item| {
+                     // Only assoc fns that return `Self`
+-                    let fn_sig = self
+-                        .tcx
+-                        .fn_sig(item.def_id)
+-                        .instantiate(self.tcx, self.fresh_args_for_item(span, item.def_id))
+-                        .skip_norm_wip();
+-                    let ret_ty = self.tcx.instantiate_bound_regions_with_erased(fn_sig.output());
++                    let fn_sig = self.tcx.fn_sig(item.def_id).skip_binder();
++                    let ret_ty = fn_sig.output();
++                    let ret_ty = self.tcx.normalize_erasing_late_bound_regions(
++                        self.typing_env(self.param_env),
++                        ret_ty,
++                    );
+                     if !self.can_eq(self.param_env, ret_ty, adt_ty) {
+                         return None;
+                     }

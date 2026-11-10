@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_mir_transform/src/elaborate_drop.rs b/compiler/rustc_mir_transform/src/elaborate_drop.rs
+index 492759d666c83e5e0f1b02f495e87275cc3deeff..55c990a31fb9f97f1e0e6e5c12b7f935e05bab61 100644
+--- a/compiler/rustc_mir_transform/src/elaborate_drop.rs
++++ b/compiler/rustc_mir_transform/src/elaborate_drop.rs
+@@ -797,9 +797,18 @@ fn move_paths_for_fields(
+                 let field_ty = field.ty(tcx, args);
+                 // We silently leave an unnormalized type here to support polymorphic drop
+                 // elaboration for users of rustc internal APIs
+-                let field_ty = tcx
++                let field_ty = match tcx
+                     .try_normalize_erasing_regions(self.elaborator.typing_env(), field_ty)
+-                    .unwrap_or(field_ty.skip_norm_wip());
++                {
++                    Ok(t) => t,
++                    Err(_) => Ty::new_error(
++                        tcx,
++                        self.elaborator
++                            .body()
++                            .tainted_by_errors
++                            .expect("Error in drop elaboration not found by dropck."),
++                    ),
++                };
+ 
+                 (tcx.mk_place_field(base_place, field_idx, field_ty), subpath)
+             })

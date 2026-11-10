@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs b/compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs
+index 7e8483d6ed877ff3baced8f99710da645b86e953..37d1d0deb02527bc850e18e2e37d43093b5dd4c1 100644
+--- a/compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs
++++ b/compiler/rustc_middle/src/mir/interpret/allocation/provenance_map.rs
+@@ -166,7 +166,6 @@ pub fn merge_bytes(&mut self, cx: &impl HasDataLayout) -> bool {
+             }
+             for (idx, (_offset, frag)) in frags.iter().enumerate() {
+                 if !(frag.prov == first_frag.prov
+-                    && frag.bytes == first_frag.bytes
+                     && frag.idx == idx as u8)
+                 {
+                     return false;
+@@ -205,7 +204,7 @@ pub fn read_ptr(&self, offset: Size, cx: &impl HasDataLayout) -> AllocResult<Opt
+             // However, we have to ignore wildcard fragments for this (this is needed for Miri's
+             // native-lib mode). Therefore, we will only know the expected provenance and bytes
+             // once we find the first non-wildcard fragment.
+-            let mut expected = None;
++            let mut expected: Option<(Prov, [u8; 8])> = None;
+             for idx in Size::ZERO..range.size {
+                 // Ensure there is provenance here.
+                 let Some(frag) = self.get_byte(offset + idx, cx) else {
+@@ -223,7 +222,7 @@ pub fn read_ptr(&self, offset: Size, cx: &impl HasDataLayout) -> AllocResult<Opt
+                 // If not, record this fragment as setting the expectations.
+                 match expected {
+                     Some(expected) => {
+-                        if (frag.prov, frag.bytes) != expected {
++                        if frag.prov != expected.0 {
+                             break 'prov None;
+                         }
+                     }

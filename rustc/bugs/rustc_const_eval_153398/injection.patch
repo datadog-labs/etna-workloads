@@ -1,0 +1,16 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/call.rs b/compiler/rustc_const_eval/src/interpret/call.rs
+index 3afeb3b9c46a0205339ea45885fc7d03593fa7ea..503695795c83d24a55dca0dcffd427be63d8580c 100644
+--- a/compiler/rustc_const_eval/src/interpret/call.rs
++++ b/compiler/rustc_const_eval/src/interpret/call.rs
+@@ -577,7 +577,10 @@ pub fn init_stack_frame(
+                     // list. We disable retagging to avoid creating protected tags. Protection should
+                     // only use callee-side information, and the varargs have no static callee-side type.
+                     let varargs = M::with_retag_mode(ecx, RetagMode::None, |ecx| {
+-                        ecx.allocate_varargs(&mut caller_args, &mut callee_args_abis)
++                        ecx.allocate_varargs(
++                            (&mut caller_args).filter(|(_, abi)| !abi.is_ignore()),
++                            &mut callee_args_abis,
++                        )
+                     })?;
+ 
+                     // When the frame is dropped, these variable arguments are deallocated.

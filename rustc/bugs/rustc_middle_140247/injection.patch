@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_middle/src/ty/inhabitedness/mod.rs b/compiler/rustc_middle/src/ty/inhabitedness/mod.rs
+index 42485a17f1011865dd5241d8cc5a436da520cb54..71855ad51743830c6b97647ef66949a3ec01dc2f 100644
+--- a/compiler/rustc_middle/src/ty/inhabitedness/mod.rs
++++ b/compiler/rustc_middle/src/ty/inhabitedness/mod.rs
+@@ -127,10 +127,14 @@ pub fn inhabited_predicate(self, tcx: TyCtxt<'tcx>) -> InhabitedPredicate<'tcx>
+             | Alias(
+                 _,
+                 ty::AliasTy {
+-                    kind: ty::Inherent { .. } | ty::Projection { .. } | ty::Free { .. },
++                    kind: ty::Projection { .. } | ty::Free { .. },
+                     ..
+                 },
+             ) => InhabitedPredicate::GenericType(self),
++            // FIXME(inherent_associated_types): Most likely we can just map to `GenericType` like above.
++            Alias(_, ty::AliasTy { kind: ty::Inherent { .. }, .. }) => {
++                bug!("unimplemented: inhabitedness checking for inherent projections")
++            }
+             &Alias(_, ty::AliasTy { kind: ty::Opaque { def_id }, args, .. }) => {
+                 match def_id.as_local() {
+                     // Foreign opaque is considered inhabited.

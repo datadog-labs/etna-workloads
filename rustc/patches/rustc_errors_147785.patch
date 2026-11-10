@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs b/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
+index 7e7f72943c7cd1c06375a7c50b2f95fd2f287e9d..cba156d97ed8f98c8fb812f72aa94200e7bc6927 100644
+--- a/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
++++ b/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
+@@ -412,7 +412,18 @@ fn emit_messages_default(
+                             if parts.is_empty() {
+                                 None
+                             } else {
+-                                let spans = parts.iter().map(|(span, _)| *span).collect::<Vec<_>>();
++                                let spans = parts
++                                    .iter()
++                                    .map(|(span, snippet)| {
++                                        // Use the trimmed span (as if only the added text were suggested)
++                                        match sm.span_to_snippet(*span).ok().as_deref().and_then(|orig| crate::as_substr(orig, snippet)) {
++                                            Some((prefix, _, suffix)) => span
++                                                .with_lo(span.lo() + BytePos(prefix as u32))
++                                                .with_hi(span.hi() - BytePos(suffix as u32)),
++                                            None => *span,
++                                        }
++                                    })
++                                    .collect::<Vec<_>>();
+                                 // The suggestion adds an entire line of code, ending on a newline, so we'll also
+                                 // print the *following* line, to provide context of what we're advising people to
+                                 // do. Otherwise you would only see contextless code that can be confused for
+diff --git a/compiler/rustc_errors/src/lib.rs b/compiler/rustc_errors/src/lib.rs
+index 4fa104ad6dbfec8686530bae6ffb4c72a0115be8..a59a0f8fa3419e0bd7697ad44947315f3f27f910 100644
+--- a/compiler/rustc_errors/src/lib.rs
++++ b/compiler/rustc_errors/src/lib.rs
+@@ -241,7 +241,7 @@ fn replaces_meaningful_content(&self, sm: &SourceMap) -> bool {
+ /// the case where a substring of the suggestion is "sandwiched" in the original, like
+ /// `BB` is. Return the length of the prefix, the "trimmed" suggestion, and the length
+ /// of the suffix.
+-fn as_substr<'a>(original: &'a str, suggestion: &'a str) -> Option<(usize, &'a str, usize)> {
++pub(crate) fn as_substr<'a>(original: &'a str, suggestion: &'a str) -> Option<(usize, &'a str, usize)> {
+     let common_prefix = original
+         .chars()
+         .zip(suggestion.chars())

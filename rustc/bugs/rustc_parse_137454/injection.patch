@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..d8993b3451fdaa627dd605128bf509df28566967 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -1967,15 +1967,13 @@ fn parse_expr_break(&mut self) -> PResult<'a, Box<Expr>> {
+             let mut expr = self.parse_expr_opt()?;
+             if let Some(expr) = &mut expr {
+                 if label.is_some()
+-                    && match &expr.kind {
++                    && matches!(
++                        expr.kind,
+                         ExprKind::While(_, _, None)
+-                        | ExprKind::ForLoop(ForLoop { label: None, .. })
+-                        | ExprKind::Loop(_, None, _) => true,
+-                        ExprKind::Block(block, None) => {
+-                            matches!(block.rules, BlockCheckMode::Default)
+-                        }
+-                        _ => false,
+-                    }
++                            | ExprKind::ForLoop(ForLoop { label: None, .. })
++                            | ExprKind::Loop(_, None, _)
++                            | ExprKind::Block(_, None)
++                    )
+                 {
+                     let span = expr.span;
+                     self.psess.buffer_lint(

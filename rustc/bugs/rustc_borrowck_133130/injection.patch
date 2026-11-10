@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+index 7267ae113de3e38793f991bf566996f037a39fee..d51967ded3c2b85b4e09dd4ea057253223723d2a 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+@@ -738,20 +738,23 @@ fn suggest_borrow_generic_arg(
+                 return false;
+             }
+ 
+-            // Test the callee's clauses, substituting in `ref_ty` for the moved argument type.
+-            clauses.instantiate(tcx, new_args).clauses.iter().all(|clause| {
+-                // Normalize before testing to see through type aliases and projections.
+-                let normalized = tcx
+-                    .try_normalize_erasing_regions(
+-                        self.infcx.typing_env(self.infcx.param_env),
+-                        *clause,
+-                    )
+-                    .unwrap_or_else(|_| clause.skip_norm_wip());
++            // Test the callee's clauses, substituting a reference in for the self ty
++            // in bounds on `param`.
++            clauses.instantiate_identity(tcx).clauses.iter().all(|&clause| {
++                let clause_for_ref = clause.skip_norm_wip().kind().map_bound(|kind| match kind {
++                    ty::ClauseKind::Trait(c) if c.self_ty().is_param(param.index) => {
++                        ty::ClauseKind::Trait(c.with_replaced_self_ty(tcx, ref_ty))
++                    }
++                    ty::ClauseKind::Projection(c) if c.self_ty().is_param(param.index) => {
++                        ty::ClauseKind::Projection(c.with_replaced_self_ty(tcx, ref_ty))
++                    }
++                    _ => kind,
++                });
+                 self.infcx.predicate_must_hold_modulo_regions(&Obligation::new(
+                     tcx,
+                     ObligationCause::dummy(),
+                     self.infcx.param_env,
+-                    normalized,
++                    ty::EarlyBinder::bind(tcx, clause_for_ref).instantiate(tcx, generic_args).skip_norm_wip(),
+                 ))
+             })
+         }) {

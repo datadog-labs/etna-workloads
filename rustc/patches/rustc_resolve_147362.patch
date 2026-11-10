@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..d8dae18d7f3f4753d7cb0335f9cb5cee298e3ec6 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -1965,22 +1965,15 @@ fn restrict_assoc_type_in_where_clause(&self, span: Span, err: &mut Diag<'_>) ->
+         else {
+             return false;
+         };
+-        let [ast::PathSegment { ident, args: None, id }] =
++        let [ast::PathSegment { ident, args: None, .. }] =
+             &poly_trait_ref.trait_ref.path.segments[..]
+         else {
+             return false;
+         };
+-        if poly_trait_ref.modifiers != ast::TraitBoundModifiers::NONE {
++        if poly_trait_ref.modifiers !=ast::TraitBoundModifiers::NONE {
+             return false;
+         }
+         if ident.span == span {
+-            let Some(partial_res) = self.r.partial_res_map.get(&id) else {
+-                return false;
+-            };
+-            if !matches!(partial_res.full_res(), Some(Res::Def(..))) {
+-                return false;
+-            }
+-
+             let Some(new_where_bound_predicate) =
+                 mk_where_bound_predicate(path, poly_trait_ref, &qself.ty)
+             else {

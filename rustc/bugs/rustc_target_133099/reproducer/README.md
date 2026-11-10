@@ -1,0 +1,1 @@
+Compiling with `-Ctarget-feature=-x87` for x86_64-unknown-linux-gnu should emit a future-compat warning that target feature `x87` must be enabled for the target ABI. The injected compiler no longer lists x87 as a required feature, so it omits that warning (the warning count differs too).

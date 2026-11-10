@@ -1,0 +1,57 @@
+warning: the feature `inherent_associated_types` is incomplete and may not be safe to use and/or cause compiler crashes
+ --> main.rs:4:12
+  |
+4 | #![feature(inherent_associated_types)]
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: see issue #8995 <https://github.com/rust-lang/rust/issues/8995> for more information
+  = note: `#[warn(incomplete_features)]` on by default
+
+error[E0207]: the lifetime parameter `'a` is not constrained by the impl trait, self type, or predicates
+ --> main.rs:8:6
+  |
+8 | impl<'a> Foo<fn(&())> {
+  |      ^^ unconstrained lifetime parameter
+  |
+help: use the lifetime parameter `'a` in the `Foo` type and use it in the type definition
+  |
+6 ~ struct Foo<T, 'a>(T);
+7 |
+8 ~ impl<'a> Foo<fn(&()), 'a> {
+  |
+
+error[E0308]: mismatched types
+  --> main.rs:13:11
+   |
+13 | fn foo(_: for<'a> fn(Foo<fn(&'a ())>::Assoc)) {}
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ one type is more general than the other
+   |
+   = note: expected struct `Foo<for<'a> fn(&'a ())>`
+              found struct `Foo<for<'a> fn(&'a ())>`
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_borrowck/src/region_infer/mod.rs:1813:9:
+Illegal placeholder constraint blamed; should have redirected to other region relation
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+note: compiler flags: -Z deduplicate-diagnostics=yes
+
+query stack during panic:
+#0 [mir_borrowck] borrow-checking `foo`
+#1 [analysis] running analysis passes on crate `main`
+end of query stack
+error: aborting due to 2 previous errors; 1 warning emitted
+
+Some errors have detailed explanations: E0207, E0308.
+For more information about an error, try `rustc --explain E0207`.
+rustc exit: 101
+
+[exit 0]

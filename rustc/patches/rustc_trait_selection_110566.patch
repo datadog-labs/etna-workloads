@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/project.rs b/compiler/rustc_trait_selection/src/traits/project.rs
+index 7da8c68ff894a0ff74bd55e1f5b07b671bac5259..6d6cc0cf82fd4aa71882ccd3f22621fed58bf037 100644
+--- a/compiler/rustc_trait_selection/src/traits/project.rs
++++ b/compiler/rustc_trait_selection/src/traits/project.rs
+@@ -727,7 +727,19 @@ fn project<'cx, 'tcx>(
+         }
+         ProjectionCandidateSet::None => {
+             let tcx = selcx.tcx();
+-            let term = obligation.predicate.to_term(tcx, ty::IsRigid::No);
++            let term = match obligation.predicate.kind {
++                ty::AliasTermKind::ProjectionConst { def_id } => ty::Ty::new_alias(
++                    tcx,
++                    ty::IsRigid::No,
++                    ty::AliasTy::new_from_args(
++                        tcx,
++                        ty::Projection { def_id },
++                        obligation.predicate.args,
++                    ),
++                )
++                .into(),
++                _ => obligation.predicate.to_term(tcx, ty::IsRigid::No),
++            };
+             Ok(Projected::NoProgress(term))
+         }
+         // Error occurred while trying to processing impls.

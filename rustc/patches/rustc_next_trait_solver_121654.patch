@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs b/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
+index aa26a122817bb43cd7aea436f5b845bf389655f8..7cc2e58251547c3a547059c70f289f366e7ac18e 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
+@@ -336,57 +336,7 @@ pub(in crate::solve) fn extract_tupled_inputs_and_output_from_callable<I: Intern
+         }
+ 
+         // Coroutine-closures don't implement `Fn` traits the normal way.
+-        // Instead, they always implement `FnOnce`, but only implement
+-        // `FnMut`/`Fn` if they capture no upvars, since those may borrow
+-        // from the closure.
+-        ty::CoroutineClosure(def_id, args) => {
+-            let args = args.as_coroutine_closure();
+-            let kind_ty = args.kind_ty();
+-            let sig = args.coroutine_closure_sig().skip_binder();
+-
+-            let coroutine_ty = if let Some(kind) = kind_ty.to_opt_closure_kind()
+-                && !args.tupled_upvars_ty().is_ty_var()
+-            {
+-                if !kind.extends(goal_kind) {
+-                    return Err(NoSolution);
+-                }
+-
+-                // A coroutine-closure implements `FnOnce` *always*, since it may
+-                // always be called once. It additionally implements `Fn`/`FnMut`
+-                // only if it has no upvars referencing the closure-env lifetime,
+-                // and if the closure kind permits it.
+-                if goal_kind != ty::ClosureKind::FnOnce && args.has_self_borrows() {
+-                    return Err(NoSolution);
+-                }
+-
+-                coroutine_closure_to_certain_coroutine(
+-                    cx,
+-                    goal_kind,
+-                    // No captures by ref, so this doesn't matter.
+-                    Region::new_static(cx),
+-                    def_id,
+-                    args,
+-                    sig,
+-                )
+-            } else {
+-                // Closure kind is not yet determined, so we return ambiguity unless
+-                // the expected kind is `FnOnce` as that is always implemented.
+-                if goal_kind != ty::ClosureKind::FnOnce {
+-                    return Ok(None);
+-                }
+-
+-                coroutine_closure_to_ambiguous_coroutine(
+-                    cx,
+-                    goal_kind, // No captures by ref, so this doesn't matter.
+-                    Region::new_static(cx),
+-                    def_id,
+-                    args,
+-                    sig,
+-                )
+-            };
+-
+-            Ok(Some(args.coroutine_closure_sig().rebind((sig.tupled_inputs_ty, coroutine_ty))))
+-        }
++        ty::CoroutineClosure(..) => Err(NoSolution),
+ 
+         ty::Bool
+         | ty::Char

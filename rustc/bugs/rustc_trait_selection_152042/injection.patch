@@ -1,0 +1,57 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..28549397b210f6b217a8bb67aea77c46091d9234 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -1044,52 +1044,6 @@ pub(super) fn suggest_fn_call(
+             return false;
+         }
+ 
+-        // If this is a zero-argument async closure directly passed as an argument
+-        // and the expected type is `Future`, suggest using `async {}` block instead
+-        // of `async || {}`
+-        if let ty::CoroutineClosure(def_id, args) = *self_ty.kind()
+-            && let sig = args.as_coroutine_closure().coroutine_closure_sig().skip_binder()
+-            && let ty::Tuple(inputs) = *sig.tupled_inputs_ty.kind()
+-            && inputs.is_empty()
+-            && self.tcx.is_lang_item(trait_pred.def_id(), LangItem::Future)
+-            && let ObligationCauseCode::FunctionArg { arg_hir_id, .. } = obligation.cause.code()
+-            && let hir::Node::Expr(hir::Expr { kind: hir::ExprKind::Closure(..), .. }) =
+-                self.tcx.hir_node(*arg_hir_id)
+-            && let Some(hir::Node::Expr(hir::Expr {
+-                kind: hir::ExprKind::Closure(closure), ..
+-            })) = self.tcx.hir_get_if_local(def_id)
+-            && let hir::ClosureKind::CoroutineClosure(CoroutineDesugaring::Async) = closure.kind
+-            && let Some(arg_span) = closure.fn_arg_span
+-            && obligation.cause.span.contains(arg_span)
+-        {
+-            let mut body = self.tcx.hir_body(closure.body).value;
+-            let peeled = body.peel_blocks().peel_drop_temps();
+-            if let hir::ExprKind::Closure(inner) = peeled.kind {
+-                body = self.tcx.hir_body(inner.body).value;
+-            }
+-            if !matches!(body.peel_blocks().peel_drop_temps().kind, hir::ExprKind::Block(..)) {
+-                return false;
+-            }
+-
+-            let sm = self.tcx.sess.source_map();
+-            let removal_span = if let Ok(snippet) =
+-                sm.span_to_snippet(arg_span.with_hi(arg_span.hi() + rustc_span::BytePos(1)))
+-                && snippet.ends_with(' ')
+-            {
+-                // There's a space after `||`, include it in the removal
+-                arg_span.with_hi(arg_span.hi() + rustc_span::BytePos(1))
+-            } else {
+-                arg_span
+-            };
+-            err.span_suggestion_verbose(
+-                removal_span,
+-                "use `async {}` instead of `async || {}` to introduce an async block",
+-                "",
+-                Applicability::MachineApplicable,
+-            );
+-            return true;
+-        }
+-
+         // Get the name of the callable and the arguments to be used in the suggestion.
+         let msg = match def_id_or_name {
+             DefIdOrName::DefId(def_id) => match self.tcx.def_kind(def_id) {

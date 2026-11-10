@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_codegen_ssa/src/base.rs b/compiler/rustc_codegen_ssa/src/base.rs
+index 0468e3de18d8bd810b8ab1155a2ffdf07779571d..40afca70f5e77c4f4dbc37b085b157572490d38b 100644
+--- a/compiler/rustc_codegen_ssa/src/base.rs
++++ b/compiler/rustc_codegen_ssa/src/base.rs
+@@ -448,13 +448,7 @@ pub fn codegen_global_asm<'tcx, Cx>(cx: &mut Cx, item_id: ItemId)
+                 rustc_hir::InlineAsmOperand::SymFn { expr } => {
+                     let ty = cx.tcx().typeck(item_id.owner_id).expr_ty(expr);
+                     let instance = match ty.kind() {
+-                        &ty::FnDef(def_id, args) => Instance::expect_resolve(
+-                            cx.tcx(),
+-                            ty::TypingEnv::fully_monomorphized(),
+-                            def_id,
+-                            args.no_bound_vars().unwrap(),
+-                            expr.span,
+-                        ),
++                        &ty::FnDef(def_id, args) => Instance::new_raw(def_id, args.skip_binder()),
+                         _ => span_bug!(*op_sp, "asm sym is not a function"),
+                     };
+ 
+diff --git a/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs b/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
+index 33cc321ea6d3217df0a3262ffcf3d12bb0618aff..8e8e91b2ed34adc4f00ab5239ed3b1e1c9678230 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
+@@ -99,13 +99,7 @@ fn inline_to_global_operand<'a, 'tcx, Cx: LayoutOf<'tcx, LayoutOfResult = TyAndL
+             );
+ 
+             let instance = match mono_type.kind() {
+-                &ty::FnDef(def_id, args) => Instance::expect_resolve(
+-                    cx.tcx(),
+-                    cx.typing_env(),
+-                    def_id,
+-                    args.no_bound_vars().unwrap(),
+-                    value.span,
+-                ),
++                &ty::FnDef(def_id, args) => Instance::new_raw(def_id, args.skip_binder()),
+                 _ => bug!("asm sym is not a function"),
+             };
+ 

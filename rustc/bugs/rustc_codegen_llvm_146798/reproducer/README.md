@@ -1,0 +1,1 @@
+Prints how many times `zkne_or_zknd` appears in the list of expected `target_feature` cfg values (via check-cfg warning). The clean compiler lists the virtual RISC-V feature `zkne_or_zknd`; the injected one omits it.

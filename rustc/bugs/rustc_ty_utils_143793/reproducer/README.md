@@ -1,0 +1,1 @@
+A free type alias `type Recur = Recur;` inside an anonymous const (array length) makes the opaque type collector expand the alias endlessly. The clean compiler reports "overflow normalizing the type alias" (exit 1); the injected one overflows its stack and crashes with SIGSEGV.

@@ -1,0 +1,94 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
+index 06d882a3094893f62384bbc823151515eaa12f06..a76758ebf089ed8d8e1572bca22737fce6785150 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
+@@ -775,14 +775,6 @@ pub(super) fn maybe_report_ambiguity(
+         }
+ 
+         self.note_obligation_cause(&mut err, obligation);
+-        // The merged errors are not reported on their own anymore, so the bounds they came from
+-        // have to be explained here too. Causes shared with the blamed obligation are already
+-        // described by the call above.
+-        for &error in related {
+-            if error.obligation.cause.code() != obligation.cause.code() {
+-                self.note_obligation_cause(&mut err, &error.obligation);
+-            }
+-        }
+         err.emit()
+     }
+ 
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs
+index 8bf5814b9fe13248b4bd94ba3c82997637a20413..1b67314a95b45b33876a24566fc14a0edf2375fb 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs
+@@ -298,39 +298,13 @@ enum ErrorSortKey {
+                                     .collect(),
+                                 None => vec![],
+                             };
+-                            // Only merge errors that a note on this diagnostic can fully
+-                            // represent. An error blaming a different expression labels that
+-                            // expression and suggests how to annotate it, and one whose
+-                            // predicate we can't phrase as a note (e.g. const evaluatability)
+-                            // says nothing here, so both keep their own error.
+-                            let merges = |other: usize| {
+-                                errors[other].obligation.cause.span == error.obligation.cause.span
+-                                    && match errors[other].obligation.predicate.kind().skip_binder()
+-                                    {
+-                                        ty::PredicateKind::Clause(ty::ClauseKind::Trait(data)) => {
+-                                            !matches!(
+-                                                self.tcx.as_lang_item(data.def_id()),
+-                                                Some(
+-                                                    LangItem::Sized
+-                                                        | LangItem::MetaSized
+-                                                        | LangItem::PointeeSized
+-                                                )
+-                                            )
+-                                        }
+-                                        ty::PredicateKind::Clause(ty::ClauseKind::Projection(
+-                                            _,
+-                                        )) => true,
+-                                        _ => false,
+-                                    }
+-                            };
+                             let related: Vec<_> = group
+                                 .iter()
+                                 .filter(|&&other| {
+                                     // Exclude already-reported primaries: they were their own
+                                     // canonical error and adding them as notes here would
+                                     // produce duplicate information.
+-                                    merges(other)
+-                                        && !is_suppressed[other]
++                                    !is_suppressed[other]
+                                         && !errors[other].references_error()
+                                         && !reported_as_primary[other]
+                                 })
+@@ -338,7 +312,28 @@ enum ErrorSortKey {
+                                 .collect();
+                             let guar = self.report_fulfillment_error(error, &related);
+                             for &other in &group {
+-                                if merges(other) {
++                                // Only suppress related errors whose predicates produce
++                                // informative notes in maybe_report_ambiguity (Trait,
++                                // Projection). Predicates we can't represent as notes
++                                // (e.g. const evaluatability) still report separately.
++                                let pred = errors[other].obligation.predicate;
++                                let suppresses = match pred.kind().skip_binder() {
++                                    ty::PredicateKind::Clause(ty::ClauseKind::Trait(data)) => {
++                                        !matches!(
++                                            self.tcx.as_lang_item(data.def_id()),
++                                            Some(
++                                                LangItem::Sized
++                                                    | LangItem::MetaSized
++                                                    | LangItem::PointeeSized
++                                            )
++                                        )
++                                    }
++                                    ty::PredicateKind::Clause(ty::ClauseKind::Projection(_)) => {
++                                        true
++                                    }
++                                    _ => false,
++                                };
++                                if suppresses {
+                                     merged[other] = Some(guar);
+                                 }
+                             }

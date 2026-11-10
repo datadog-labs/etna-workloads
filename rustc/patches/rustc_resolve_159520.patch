@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..4a276f470f98df2eb35a8f3f689a3e188c830d57 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -4373,7 +4373,7 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                             "instead, you are more likely to want"
+                         };
+                         let mut owned_sugg = lt.kind == MissingLifetimeKind::Ampersand;
+-                        let mut sugg_slice_to_vec_or_string = false;
++                        let mut sugg_is_str_to_string = false;
+                         let mut sugg = vec![(lt.span, String::new())];
+                         if let Some((kind, _span)) = self.diag_metadata.current_function
+                             && let FnKind::Fn(_, _, ast::Fn { sig, .. }) = kind
+@@ -4418,7 +4418,7 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                                                         lt.span.with_hi(ty.span.hi()),
+                                                         "String".to_string(),
+                                                     )];
+-                                                    sugg_slice_to_vec_or_string = true;
++                                                    sugg_is_str_to_string = true;
+                                                 }
+                                                 Some(Res::PrimTy(..)) => {}
+                                                 Some(Res::Def(
+@@ -4445,7 +4445,7 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                                                         lt.span.with_hi(ty.span.hi()),
+                                                         "String".to_string(),
+                                                     )];
+-                                                    sugg_slice_to_vec_or_string = true;
++                                                    sugg_is_str_to_string = true;
+                                                 }
+                                                 Res::PrimTy(..) => {}
+                                                 Res::Def(
+@@ -4476,15 +4476,13 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                                         (lt.span.with_hi(inner_ty.span.lo()), "Vec<".to_string()),
+                                         (ty.span.with_lo(inner_ty.span.hi()), ">".to_string()),
+                                     ];
+-                                    sugg_slice_to_vec_or_string = true;
+                                 }
+                             }
+                         }
+                         if owned_sugg {
+-                            // Suggest to remove the ref prefix (usually an &) from the return type.
+                             if let Some(span) =
+                                 self.find_ref_prefix_span_for_owned_suggestion(lt.span)
+-                                && !sugg_slice_to_vec_or_string
++                                && !sugg_is_str_to_string
+                             {
+                                 sugg = vec![(span, String::new())];
+                             }

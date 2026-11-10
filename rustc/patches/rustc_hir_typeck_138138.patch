@@ -1,0 +1,155 @@
+diff --git a/compiler/rustc_hir_typeck/src/inline_asm.rs b/compiler/rustc_hir_typeck/src/inline_asm.rs
+index cfe64fce180e9473a4357c434a5ac72da972a2e2..483aa19411734a2a0d8487f1abae09676ca82abb 100644
+--- a/compiler/rustc_hir_typeck/src/inline_asm.rs
++++ b/compiler/rustc_hir_typeck/src/inline_asm.rs
+@@ -99,7 +99,7 @@ fn get_asm_ty(
+             }
+             ty::Adt(adt, args) if adt.repr().simd() => {
+                 if !adt.is_struct() {
+-                    let guar = self.fcx.dcx().span_delayed_bug(
++                    let guar = self.tcx().dcx().span_delayed_bug(
+                         span,
+                         format!("repr(simd) should only be used on structs, got {}", adt.descr()),
+                     );
+@@ -227,8 +227,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+                 match reason {
+                     NonAsmTypeReason::UnevaluatedSIMDArrayLength(did, len) => {
+                         let msg = format!("cannot evaluate SIMD vector length `{len}`");
+-                        self.fcx
+-                            .dcx()
++                        self.tcx().dcx()
+                             .struct_span_err(self.tcx().def_span(did), msg)
+                             .with_span_note(
+                                 expr.span,
+@@ -238,7 +237,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+                     }
+                     NonAsmTypeReason::Invalid(ty) => {
+                         let msg = format!("cannot use value of type `{ty}` for inline assembly");
+-                        self.fcx.dcx().struct_span_err(expr.span, msg).with_note(
++                        self.tcx().dcx().struct_span_err(expr.span, msg).with_note(
+                             "only integers, floats, SIMD vectors, pointers and function pointers \
+                             can be used as arguments for inline assembly",
+                         ).emit();
+@@ -247,8 +246,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+                         let msg = format!(
+                             "cannot use value of unsized pointer type `{ty}` for inline assembly"
+                         );
+-                        self.fcx
+-                            .dcx()
++                        self.tcx().dcx()
+                             .struct_span_err(expr.span, msg)
+                             .with_note("only sized pointers can be used in inline assembly")
+                             .emit();
+@@ -257,7 +255,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+                         let msg = format!(
+                             "cannot use SIMD vector with element type `{ty}` for inline assembly"
+                         );
+-                        self.fcx.dcx()
++                        self.tcx().dcx()
+                         .struct_span_err(self.tcx().def_span(did), msg).with_span_note(
+                             expr.span,
+                             "only integers, floats, SIMD vectors, pointers and function pointers \
+@@ -266,7 +264,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+                     }
+                     NonAsmTypeReason::EmptySIMDArray(ty) => {
+                         let msg = format!("use of empty SIMD vector `{ty}`");
+-                        self.fcx.dcx().struct_span_err(expr.span, msg).emit();
++                        self.tcx().dcx().struct_span_err(expr.span, msg).emit();
+                     }
+                     NonAsmTypeReason::Tainted(_error_guard) => {
+                         // An error has already been reported.
+@@ -280,8 +278,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+         // possibly fail is for SIMD types which don't #[derive(Copy)].
+         if !self.fcx.type_is_copy_modulo_regions(self.fcx.param_env, ty) {
+             let msg = "arguments for inline assembly must be copyable";
+-            self.fcx
+-                .dcx()
++            self.tcx().dcx()
+                 .struct_span_err(expr.span, msg)
+                 .with_note(format!("`{ty}` does not implement the Copy trait"))
+                 .emit();
+@@ -300,8 +297,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+             if in_asm_ty != asm_ty {
+                 let msg = "incompatible types for asm inout argument";
+                 let in_expr_ty = self.expr_ty(in_expr);
+-                self.fcx
+-                    .dcx()
++                self.tcx().dcx()
+                     .struct_span_err(vec![in_expr.span, expr.span], msg)
+                     .with_span_label(in_expr.span, format!("type `{in_expr_ty}`"))
+                     .with_span_label(expr.span, format!("type `{ty}`"))
+@@ -333,7 +329,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+                 )
+             } else {
+                 let msg = format!("type `{ty}` cannot be used with this register class");
+-                let mut err = self.fcx.dcx().struct_span_err(expr.span, msg);
++                let mut err = self.tcx().dcx().struct_span_err(expr.span, msg);
+                 let supported_tys: Vec<_> =
+                     supported_tys.iter().map(|(t, _)| t.to_string()).collect();
+                 err.note(format!(
+@@ -363,8 +359,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+         if let Some(feature) = feature {
+             if !self.target_features.contains(feature) {
+                 let msg = format!("`{feature}` target feature is not enabled");
+-                self.fcx
+-                    .dcx()
++                self.tcx().dcx()
+                     .struct_span_err(expr.span, msg)
+                     .with_note(format!(
+                         "this is required to use type `{}` with register class `{}`",
+@@ -423,7 +418,7 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+ 
+     pub(crate) fn check_asm(&self, asm: &hir::InlineAsm<'tcx>) {
+         let Some(asm_arch) = self.tcx().sess.asm_arch else {
+-            self.fcx.dcx().delayed_bug("target architecture does not support asm");
++            self.tcx().dcx().delayed_bug("target architecture does not support asm");
+             return;
+         };
+         let allow_experimental_reg = self.tcx().features().asm_experimental_reg();
+@@ -455,7 +450,7 @@ pub(crate) fn check_asm(&self, asm: &hir::InlineAsm<'tcx>) {
+                         op.is_clobber(),
+                     ) {
+                         let msg = format!("cannot use register `{}`: {}", reg.name(), msg);
+-                        self.fcx.dcx().span_err(op_sp, msg);
++                        self.tcx().dcx().span_err(op_sp, msg);
+                         continue;
+                     }
+                 }
+@@ -496,7 +491,7 @@ pub(crate) fn check_asm(&self, asm: &hir::InlineAsm<'tcx>) {
+                                 reg_class.name(),
+                                 feature
+                             );
+-                            self.fcx.dcx().span_err(op_sp, msg);
++                            self.tcx().dcx().span_err(op_sp, msg);
+                             // register isn't enabled, don't do more checks
+                             continue;
+                         }
+@@ -510,7 +505,7 @@ pub(crate) fn check_asm(&self, asm: &hir::InlineAsm<'tcx>) {
+                                     .intersperse(", ")
+                                     .collect::<String>(),
+                             );
+-                            self.fcx.dcx().span_err(op_sp, msg);
++                            self.tcx().dcx().span_err(op_sp, msg);
+                             // register isn't enabled, don't do more checks
+                             continue;
+                         }
+@@ -579,8 +574,7 @@ pub(crate) fn check_asm(&self, asm: &hir::InlineAsm<'tcx>) {
+                             } else {
+                                 "integer or thin pointer"
+                             };
+-                            self.fcx
+-                                .dcx()
++                            self.tcx().dcx()
+                                 .struct_span_err(op_sp, "invalid type for `const` operand")
+                                 .with_span_label(
+                                     self.tcx().def_span(anon_const.def_id),
+@@ -600,8 +594,7 @@ pub(crate) fn check_asm(&self, asm: &hir::InlineAsm<'tcx>) {
+                         ty::FnDef(..) => {}
+                         ty::Error(_) => {}
+                         _ => {
+-                            self.fcx
+-                                .dcx()
++                            self.tcx().dcx()
+                                 .struct_span_err(op_sp, "invalid `sym` operand")
+                                 .with_span_label(
+                                     expr.span,

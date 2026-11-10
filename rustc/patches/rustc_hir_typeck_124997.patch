@@ -1,0 +1,49 @@
+diff --git a/compiler/rustc_hir_typeck/src/cast.rs b/compiler/rustc_hir_typeck/src/cast.rs
+index 4cbeaa6278049df77dd80bf129fe34a0babc981e..d92f050b61617ab046d0a0b0ba012fb044ccf38a 100644
+--- a/compiler/rustc_hir_typeck/src/cast.rs
++++ b/compiler/rustc_hir_typeck/src/cast.rs
+@@ -95,7 +95,6 @@ fn pointer_kind(
+         debug!("pointer_kind({:?}, {:?})", t, span);
+ 
+         let t = self.resolve_vars_if_possible(t);
+-        t.error_reported()?;
+ 
+         if self.type_is_sized_modulo_regions(self.param_env, t) {
+             return Ok(Some(PointerKind::Thin));
+@@ -146,10 +145,7 @@ fn pointer_kind(
+             | ty::Adt(..)
+             | ty::Never
+             | ty::Error(_) => {
+-                let guar = self
+-                    .dcx()
+-                    .span_delayed_bug(span, format!("`{t:?}` should be sized but is not?"));
+-                return Err(guar);
++                self.dcx().span_bug(span, format!("`{t:?}` should be sized but is not?"));
+             }
+         })
+     }
+@@ -807,8 +803,6 @@ pub(crate) fn check(mut self, fcx: &FnCtxt<'a, 'tcx>) {
+             && !self.cast_ty.has_infer_types()
+         {
+             self.report_cast_to_unsized_type(fcx);
+-        } else if self.expr_ty.references_error() || self.cast_ty.references_error() {
+-            // No sense in giving duplicate error messages
+         } else {
+             match self.try_coercion_cast(fcx) {
+                 Ok(()) => {
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..79cf9eab1855c2a4122b585f741c6ca91e74629a 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -1542,10 +1542,7 @@ fn check_expr_cast(
+         let t_expr = self.check_expr_with_expectation(e, ExpectCastableToType(t_cast));
+         let t_expr = self.resolve_vars_if_possible(t_expr);
+ 
+-        // Eagerly check for some obvious errors.
+-        if let Err(guar) = (t_expr, t_cast).error_reported() {
+-            Ty::new_error(self.tcx, guar)
+-        } else {
++        {
+             // Defer other checks until we're done type checking.
+             let mut deferred_cast_checks = self.deferred_cast_checks.borrow_mut();
+             match cast::CastCheck::new(self, e, t_expr, t_cast, t.span, expr.span) {

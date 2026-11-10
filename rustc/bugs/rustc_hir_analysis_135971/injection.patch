@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+index 3d8c23ebdf8d33141dfbd9435df55368d3b92ac9..d520f78b6a13f76503b480049d884d2a84532490 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+@@ -366,10 +366,16 @@ pub(super) fn lower_trait_object_ty(
+                     // Skip `Self`
+                     .skip(1)
+                     .map(|(index, arg)| {
+-                        if arg.walk().any(|arg| arg == dummy_self.into()) {
++                        if arg == dummy_self.into() {
+                             let param = &generics.own_params[index];
+                             missing_generic_params.push((param.name, param.kind.clone()));
+                             param.to_error(tcx)
++                        } else if arg.walk().any(|arg| arg == dummy_self.into()) {
++                            let guar = self.dcx().span_delayed_bug(
++                                span,
++                                "trait object trait bounds reference `Self`",
++                            );
++                            replace_dummy_self_with_error(tcx, arg, guar)
+                         } else {
+                             arg
+                         }

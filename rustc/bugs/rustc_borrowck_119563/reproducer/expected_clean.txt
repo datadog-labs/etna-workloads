@@ -1,0 +1,65 @@
+error: lifetime may not live long enough
+  --> main.rs:11:16
+   |
+ 9 | fn bad1<'short, 'long: 'short>() -> impl Coroutine<Covariant<'short>> {
+   |         ------  ----- lifetime `'long` defined here
+   |         |
+   |         lifetime `'short` defined here
+10 |     #[coroutine] |_: Covariant<'short>| {
+11 |         let a: Covariant<'long> = yield ();
+   |                ^^^^^^^^^^^^^^^^ type annotation requires that `'short` must outlive `'long`
+   |
+   = help: consider adding the following bound: `'short: 'long`
+help: consider adding 'move' keyword before the nested closure
+   |
+10 |     #[coroutine] move |_: Covariant<'short>| {
+   |                  ++++
+
+error: lifetime may not live long enough
+  --> main.rs:18:40
+   |
+16 | fn bad2<'short, 'long: 'short>() -> impl Coroutine<Contravariant<'long>> {
+   |         ------  ----- lifetime `'long` defined here
+   |         |
+   |         lifetime `'short` defined here
+17 |     #[coroutine] |_: Contravariant<'long>| {
+18 |         let a: Contravariant<'short> = yield ();
+   |                                        ^^^^^^^^ yielding this value requires that `'short` must outlive `'long`
+   |
+   = help: consider adding the following bound: `'short: 'long`
+help: consider adding 'move' keyword before the nested closure
+   |
+17 |     #[coroutine] move |_: Contravariant<'long>| {
+   |                  ++++
+
+warning: unused variable: `a`
+  --> main.rs:11:13
+   |
+11 |         let a: Covariant<'long> = yield ();
+   |             ^ help: if this is intentional, prefix it with an underscore: `_a`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `a`
+  --> main.rs:18:13
+   |
+18 |         let a: Contravariant<'short> = yield ();
+   |             ^ help: if this is intentional, prefix it with an underscore: `_a`
+
+warning: unused variable: `a`
+  --> main.rs:25:13
+   |
+25 |         let a: Covariant<'short> = yield ();
+   |             ^ help: if this is intentional, prefix it with an underscore: `_a`
+
+warning: unused variable: `a`
+  --> main.rs:31:13
+   |
+31 |         let a: Contravariant<'long> = yield ();
+   |             ^ help: if this is intentional, prefix it with an underscore: `_a`
+
+error: aborting due to 2 previous errors; 4 warnings emitted
+
+rustc exit: 1
+
+[exit 0]

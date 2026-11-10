@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/trait_goals.rs b/compiler/rustc_next_trait_solver/src/solve/trait_goals.rs
+index bff406e72919c2231f9bd3b3977937fade3c9472..02c79cb0cb8bde0cbd4ebf5ba5117366284d2982 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/trait_goals.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/trait_goals.rs
+@@ -1026,7 +1026,9 @@ fn consider_builtin_dyn_upcast_candidates(
+                 b_region,
+                 a_data.principal(),
+             ));
+-        } else if let Some(a_principal) = a_data.principal() {
++        } else if let Some(a_principal) = a_data.principal()
++            && !matches!(self.typing_mode(), TypingMode::Coherence)
++        {
+             for (idx, new_a_principal) in
+                 elaborate::supertraits(self.cx(), a_principal.with_self_ty(cx, a_ty))
+                     .enumerate()
+diff --git a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+index db863cb42f63ec23f261252e07e9d71f01437137..0040acc0a314f907f1fc00102e60a848552b8f47 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+@@ -1073,7 +1073,12 @@ fn assemble_candidates_for_unsizing(
+                                 if nested.is_none() {
+                                     candidates.ambiguous = true;
+                                 }
+-                                candidates.vec.push(TraitUpcastingUnsizeCandidate(idx));
++                                if !matches!(
++                                    self.infcx.typing_mode_raw(),
++                                    rustc_middle::ty::TypingMode::Coherence
++                                ) {
++                                    candidates.vec.push(TraitUpcastingUnsizeCandidate(idx));
++                                }
+                             }
+                         })
+                     }

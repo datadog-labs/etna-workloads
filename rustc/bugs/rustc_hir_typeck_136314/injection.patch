@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+index 8ff4c3bf28c34895e8656b36eea5c697ad0602b7..32e93093d26b694312d3a0ce073a6855d04d5216 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+@@ -379,8 +379,6 @@ pub(crate) fn apply_adjustments(&self, expr: &hir::Expr<'_>, adj: Vec<Adjustment
+             return;
+         }
+ 
+-        let mut expr_ty = self.typeck_results.borrow().expr_ty_adjusted(expr);
+-
+         for a in &adj {
+             match a.kind {
+                 Adjust::NeverToAny => {
+@@ -394,7 +392,7 @@ pub(crate) fn apply_adjustments(&self, expr: &hir::Expr<'_>, adj: Vec<Adjustment
+                         None,
+                         expr.span,
+                         overloaded_deref.method_call(self.tcx),
+-                        self.tcx.mk_args(&[expr_ty.into()]),
++                        self.tcx.mk_args(&[a.target.into()]),
+                     );
+                 }
+                 Adjust::Deref(DerefAdjustKind::Builtin) => {
+@@ -413,8 +411,6 @@ pub(crate) fn apply_adjustments(&self, expr: &hir::Expr<'_>, adj: Vec<Adjustment
+                     // No effects to enforce here.
+                 }
+             }
+-
+-            expr_ty = a.target;
+         }
+ 
+         let autoborrow_mut = adj.iter().any(|adj| {

@@ -1,0 +1,71 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/mod.rs b/compiler/rustc_trait_selection/src/traits/mod.rs
+index eda63e09b1189e3ba489d6964c95117212191e74..3192e608407e85496e620b4502b367dd852afc89 100644
+--- a/compiler/rustc_trait_selection/src/traits/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/mod.rs
+@@ -347,7 +347,7 @@ fn do_normalize_clauses<'tcx>(
+     let elaborated_env = if tcx.next_trait_solver_globally()
+         && !tcx.disable_param_env_normalization_hack()
+     {
+-        let elaborated_env = ty::set_type_aliases_to_rigid(tcx, elaborated_env);
++        let elaborated_env = ty::set_aliases_to_rigid(tcx, elaborated_env);
+         let elaborated_env = set_projection_term_to_non_rigid(tcx, elaborated_env.caller_bounds());
+         ty::ParamEnv::new(tcx.mk_clauses_from_iter(elaborated_env))
+     } else {
+diff --git a/compiler/rustc_type_ir/src/fold.rs b/compiler/rustc_type_ir/src/fold.rs
+index f57a9aba69302a84bb1c487d360720b7c5bef3ef..1c022f73ab7b9817d04969f0548a6e7183c9644f 100644
+--- a/compiler/rustc_type_ir/src/fold.rs
++++ b/compiler/rustc_type_ir/src/fold.rs
+@@ -584,13 +584,6 @@ pub fn set_aliases_to_rigid<I: Interner, T>(cx: I, value: T) -> T
+     set_aliases_rigidness_with_mode(cx, value, RigidnessFoldMode::AllToRigid)
+ }
+ 
+-pub fn set_type_aliases_to_rigid<I: Interner, T>(cx: I, value: T) -> T
+-where
+-    T: TypeFoldable<I>,
+-{
+-    set_aliases_rigidness_with_mode(cx, value, RigidnessFoldMode::TypeToRigid)
+-}
+-
+ fn set_aliases_rigidness_with_mode<I: Interner, T>(cx: I, value: T, mode: RigidnessFoldMode) -> T
+ where
+     T: TypeFoldable<I>,
+@@ -604,9 +597,8 @@ fn set_aliases_rigidness_with_mode<I: Interner, T>(cx: I, value: T, mode: Rigidn
+ }
+ 
+ enum RigidnessFoldMode {
+-    AllToRigid,
+     AllToNonRigid,
+-    TypeToRigid,
++    AllToRigid,
+     OpaqueToNonRigid,
+ }
+ 
+@@ -615,10 +607,6 @@ fn needs_change<I: Interner, T: TypeVisitable<I>>(&self, v: &T) -> bool {
+         match self {
+             RigidnessFoldMode::AllToRigid => v.has_non_rigid_aliases(),
+             RigidnessFoldMode::AllToNonRigid => v.has_rigid_aliases(),
+-            RigidnessFoldMode::TypeToRigid => {
+-                v.has_non_rigid_aliases()
+-                    && v.has_type_flags(ty::TypeFlags::HAS_ALIAS - ty::TypeFlags::HAS_CONST_ALIAS)
+-            }
+             RigidnessFoldMode::OpaqueToNonRigid => v.has_rigid_aliases() && v.has_opaque_types(),
+         }
+     }
+@@ -649,7 +637,7 @@ fn fold_ty(&mut self, t: I::Ty) -> I::Ty {
+             ty::Alias(is_rigid, alias_ty) => {
+                 let alias_ty = alias_ty.fold_with(self);
+                 match self.mode {
+-                    RigidnessFoldMode::AllToRigid | RigidnessFoldMode::TypeToRigid => {
++                    RigidnessFoldMode::AllToRigid => {
+                         I::Ty::new_alias(self.cx(), ty::IsRigid::Yes, alias_ty)
+                     }
+                     RigidnessFoldMode::AllToNonRigid => {
+@@ -683,7 +671,7 @@ fn fold_const(&mut self, c: I::Const) -> I::Const {
+                     RigidnessFoldMode::AllToNonRigid => {
+                         I::Const::new_alias(self.cx(), ty::IsRigid::No, alias_const)
+                     }
+-                    RigidnessFoldMode::OpaqueToNonRigid | RigidnessFoldMode::TypeToRigid => {
++                    RigidnessFoldMode::OpaqueToNonRigid => {
+                         I::Const::new_alias(self.cx(), is_rigid, alias_const)
+                     }
+                 }

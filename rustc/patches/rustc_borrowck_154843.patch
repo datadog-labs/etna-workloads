@@ -1,0 +1,92 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/move_errors.rs b/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
+index 9fac00016eac2e423e86dfe16dcb497d98f42d88..739266a4442c0adb1c5aff2716363f7f3cc195a3 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
+@@ -745,7 +745,7 @@ fn add_move_hints(
+                 binds_to.dedup();
+ 
+                 if binds_to.is_empty() {
+-                    self.add_borrow_suggestions(err, span, false);
++                    self.add_borrow_suggestions(err, span);
+                     let place_ty = move_from.ty(self.body, self.infcx.tcx).ty;
+                     let place_desc = match self.describe_place(move_from.as_ref()) {
+                         Some(desc) => format!("`{desc}`"),
+@@ -771,7 +771,7 @@ fn add_move_hints(
+                         self.add_move_error_suggestions(err, &binds_to)
+                     } else {
+                         if self.should_suggest_borrow_instead(span, binding_info.as_ref()) {
+-                            self.add_borrow_suggestions(err, span, true);
++                            self.add_borrow_suggestions(err, span);
+                         }
+                         None
+                     };
+@@ -896,67 +896,29 @@ fn add_move_hints(
+         }
+     }
+ 
+-    fn add_borrow_suggestions(
+-        &self,
+-        err: &mut Diag<'_>,
+-        span: Span,
+-        is_destructuring_pattern_move: bool,
+-    ) {
++    fn add_borrow_suggestions(&self, err: &mut Diag<'_>, span: Span) {
+         match self.infcx.tcx.sess.source_map().span_to_snippet(span) {
+             Ok(snippet) if snippet.starts_with('*') => {
+                 let sp = span.with_lo(span.lo() + BytePos(1));
+                 let inner = self.find_expr(sp);
+                 let mut is_raw_ptr = false;
+-                let mut is_ref = false;
+-                let mut is_destructuring_assignment = false;
+-                let mut is_nested_deref = false;
+                 if let Some(inner) = inner {
+-                    is_nested_deref =
+-                        matches!(inner.kind, hir::ExprKind::Unary(hir::UnOp::Deref, _));
+                     let typck_result = self.infcx.tcx.typeck(self.mir_def_id());
+                     if let Some(inner_type) = typck_result.node_type_opt(inner.hir_id) {
+                         if matches!(inner_type.kind(), ty::RawPtr(..)) {
+                             is_raw_ptr = true;
+-                        } else if matches!(inner_type.kind(), ty::Ref(..)) {
+-                            is_ref = true;
+                         }
+                     }
+-                    is_destructuring_assignment =
+-                        self.infcx.tcx.hir_parent_iter(inner.hir_id).any(|(_, node)| {
+-                            matches!(
+-                                node,
+-                                hir::Node::LetStmt(&hir::LetStmt {
+-                                    source: hir::LocalSource::AssignDesugar,
+-                                    ..
+-                                })
+-                            )
+-                        });
+                 }
+                 // If the `inner` is a raw pointer, do not suggest removing the "*", see #126863
+                 // FIXME: need to check whether the assigned object can be a raw pointer, see `tests/ui/borrowck/issue-20801.rs`.
+-                if is_raw_ptr {
+-                    return;
+-                }
+-
+-                if !is_destructuring_pattern_move || is_ref {
++                if !is_raw_ptr {
+                     err.span_suggestion_verbose(
+                         span.with_hi(span.lo() + BytePos(1)),
+                         "consider removing the dereference here",
+                         String::new(),
+                         Applicability::MaybeIncorrect,
+                     );
+-                } else if !is_destructuring_assignment && !is_nested_deref {
+-                    err.span_suggestion_verbose(
+-                        span.shrink_to_lo(),
+-                        "consider borrowing here",
+-                        '&',
+-                        Applicability::MaybeIncorrect,
+-                    );
+-                } else {
+-                    err.span_help(
+-                        span,
+-                        "destructuring assignment cannot borrow from this expression; consider using a `let` binding instead",
+-                    );
+                 }
+             }
+             _ => {

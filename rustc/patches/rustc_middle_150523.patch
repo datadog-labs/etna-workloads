@@ -1,0 +1,53 @@
+diff --git a/compiler/rustc_middle/src/ty/consts/lit.rs b/compiler/rustc_middle/src/ty/consts/lit.rs
+index 08dadf6ad9f5f4eae34714c608a1af888a909edf..a4153ed3e482c2945c28eb890fea2a5939e40d85 100644
+--- a/compiler/rustc_middle/src/ty/consts/lit.rs
++++ b/compiler/rustc_middle/src/ty/consts/lit.rs
+@@ -30,14 +30,12 @@ pub fn const_lit_matches_ty<'tcx>(
+         (LitKind::Str(..), ty::Ref(_, inner_ty, _)) if inner_ty.is_str() => true,
+         (LitKind::Str(..), ty::Str) if tcx.features().deref_patterns() => true,
+         (LitKind::ByteStr(..), ty::Ref(_, inner_ty, _))
+-            if let ty::Slice(ty) | ty::Array(ty, _) = inner_ty.kind()
+-                && matches!(ty.kind(), ty::Uint(ty::UintTy::U8)) =>
++            if matches!(inner_ty.kind(), ty::Slice(_) | ty::Array(..)) =>
+         {
+             true
+         }
+-        (LitKind::ByteStr(..), ty::Slice(inner_ty) | ty::Array(inner_ty, _))
+-            if tcx.features().deref_patterns()
+-                && matches!(inner_ty.kind(), ty::Uint(ty::UintTy::U8)) =>
++        (LitKind::ByteStr(..), ty::Slice(_) | ty::Array(..))
++            if tcx.features().deref_patterns() =>
+         {
+             true
+         }
+diff --git a/compiler/rustc_mir_build/src/thir/constant.rs b/compiler/rustc_mir_build/src/thir/constant.rs
+index bf1dacceee46bf5192f39e2cafe7bfec6f18619b..a3fadc2e63f67e9f2108fc9c0afff452fa0f7dd2 100644
+--- a/compiler/rustc_mir_build/src/thir/constant.rs
++++ b/compiler/rustc_mir_build/src/thir/constant.rs
+@@ -1,5 +1,5 @@
+ use rustc_abi::Size;
+-use rustc_ast::{self as ast, UintTy};
++use rustc_ast::{self as ast};
+ use rustc_hir::attrs::lang_items::LangItem;
+ use rustc_middle::bug;
+ use rustc_middle::ty::{self, LitToConstInput, ScalarInt, Ty, TyCtxt, TypeVisitableExt as _};
+@@ -38,16 +38,14 @@ pub(crate) fn lit_to_const<'tcx>(
+             (ty::ValTree::from_raw_bytes(tcx, str_bytes), valtree_ty)
+         }
+         (ast::LitKind::ByteStr(byte_sym, _), Some(ty::Ref(_, inner_ty, _)))
+-            if let ty::Slice(ty) | ty::Array(ty, _) = inner_ty.kind()
+-                && let ty::Uint(UintTy::U8) = ty.kind() =>
++            if matches!(inner_ty.kind(), ty::Slice(_) | ty::Array(..)) =>
+         {
+             (ty::ValTree::from_raw_bytes(tcx, byte_sym.as_byte_str()), expected_ty.unwrap())
+         }
+         (
+             ast::LitKind::ByteStr(byte_sym, _),
+-            Some(ty::Slice(inner_ty) | ty::Array(inner_ty, _)),
+-        ) if tcx.features().deref_patterns()
+-            && let ty::Uint(UintTy::U8) = inner_ty.kind() =>
++            Some(ty::Slice(_) | ty::Array(..)),
++        ) if tcx.features().deref_patterns() =>
+         {
+             // Byte string literal patterns may have type `[u8]` or `[u8; N]` if `deref_patterns` is
+             // enabled, in order to allow, e.g., `deref!(b"..."): Vec<u8>`.

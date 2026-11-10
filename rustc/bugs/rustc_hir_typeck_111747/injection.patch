@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/probe.rs b/compiler/rustc_hir_typeck/src/method/probe.rs
+index b2e0a3bd7a195f2edbf03d89438609e17e8c8898..3f1b8072638331defb1a843f0c8e17eb62f903f8 100644
+--- a/compiler/rustc_hir_typeck/src/method/probe.rs
++++ b/compiler/rustc_hir_typeck/src/method/probe.rs
+@@ -475,14 +475,11 @@ pub(crate) fn probe_op<OP, R>(
+         // If we encountered an `_` type or an error type during autoderef, this is
+         // ambiguous.
+         if let Some(bad_ty) = &steps.opt_bad_ty {
+-            // We care about the opt_bad_ty given the inference state at the point of computing the auto deref chain,
+-            // so we don't call structurally_resolve_type as it processes obligations in our local FnCtxt,
+-            // potentially making inference progress.
+             let ty = &bad_ty.ty;
+             let ty = self
+                 .probe_instantiate_query_response(span, &orig_values, ty)
+                 .unwrap_or_else(|_| span_bug!(span, "instantiating {:?} failed?", ty));
+-            let ty = ty.value;
++            let ty = self.structurally_resolve_type(span, ty.value);
+ 
+             if is_suggestion.0 {
+                 // Ambiguity was encountered during a suggestion. There's really

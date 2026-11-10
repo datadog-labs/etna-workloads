@@ -1,0 +1,49 @@
+diff --git a/compiler/rustc_mir_build/src/check_tail_calls.rs b/compiler/rustc_mir_build/src/check_tail_calls.rs
+index a7b6ff87a29fd2e2e3341eb0ba96db34da03df95..0e335eb657f835434460d46c8d9c346b454af03c 100644
+--- a/compiler/rustc_mir_build/src/check_tail_calls.rs
++++ b/compiler/rustc_mir_build/src/check_tail_calls.rs
+@@ -138,27 +138,28 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+             self.report_unsupported_abi(expr.span, callee_sig.abi());
+         }
+ 
+-        // FIXME(explicit_tail_calls): this currently fails for cases where opaques are used.
+-        // e.g.
+-        // ```
+-        // fn a() -> impl Sized { become b() } // ICE
+-        // fn b() -> u8 { 0 }
+-        // ```
+-        // we should think what is the expected behavior here.
+-        // (we should probably just accept this by revealing opaques?)
+         if caller_sig.inputs_and_output != callee_sig.inputs_and_output
+             && !matches!(callee_sig.abi(), ExternAbi::RustTail)
+         {
+             let caller_ty = self.tcx.type_of(self.caller_def_id).skip_binder();
+ 
+-            self.report_signature_mismatch(
+-                expr.span,
+-                self.tcx.liberate_late_bound_regions(
+-                    CRATE_DEF_ID.to_def_id(),
+-                    caller_ty.fn_sig(self.tcx),
+-                ),
+-                self.tcx.liberate_late_bound_regions(CRATE_DEF_ID.to_def_id(), ty.fn_sig(self.tcx)),
+-            );
++            if caller_sig.inputs() != callee_sig.inputs() {
++                self.report_signature_mismatch(
++                    expr.span,
++                    self.tcx.liberate_late_bound_regions(
++                        CRATE_DEF_ID.to_def_id(),
++                        caller_ty.fn_sig(self.tcx),
++                    ),
++                    self.tcx
++                        .liberate_late_bound_regions(CRATE_DEF_ID.to_def_id(), ty.fn_sig(self.tcx)),
++                );
++            }
++
++            // FIXME(explicit_tail_calls): this currently fails for cases where opaques are used.
++            // we should think what is the expected behavior here.
++            if caller_sig.output() != callee_sig.output() {
++                span_bug!(expr.span, "hir typeck should have checked the return type already");
++            }
+         }
+ 
+         {

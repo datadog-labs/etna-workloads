@@ -1,0 +1,86 @@
+error: cast from `*const u8` to `usize` implicitly exposes pointer provenance
+  --> main.rs:6:9
+   |
+ 6 |         $e as $t
+   |         ^^^^^^^^
+...
+24 |     let _addr = cast!(ptr, usize);
+   |                 -----------------
+   |                 |        |
+   |                 |        help: use `.addr()` to obtain the address of a pointer: `.addr()`
+   |                 in this macro invocation
+   |
+   = help: if conforming to strict provenance is not possible, use `.expose_provenance()`
+   = note: for more information, visit <https://doc.rust-lang.org/std/ptr/index.html#provenance>
+note: the lint level is defined here
+  --> main.rs:2:9
+   |
+ 2 | #![deny(implicit_provenance_casts)]
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: this error originates in the macro `cast` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: cast from `usize` to `*const u8` implicitly relies on exposed provenance
+  --> main.rs:6:9
+   |
+ 6 |         $e as $t
+   |         ^^^^^^^^
+...
+26 |     let _ptr = cast!(0usize, *const u8);
+   |                ------------------------ in this macro invocation
+   |
+   = help: if conforming to strict provenance is not possible, use `std::ptr::with_exposed_provenance()`
+   = note: for more information, visit <https://doc.rust-lang.org/std/ptr/index.html#provenance>
+   = note: this error originates in the macro `cast` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use `.with_addr()` to adjust the address of a valid pointer in the same allocation
+   |
+26 -     let _ptr = cast!(0usize, *const u8);
+26 +     let _ptr = cast!((...).with_addr(0usize));
+   |
+
+error: cast from `*const u8` to `usize` implicitly exposes pointer provenance
+  --> main.rs:13:20
+   |
+13 |     ($e:expr) => { $e as usize };
+   |                    ^^^^^^^^^^^
+...
+29 |     p2i!(&raw const x);
+   |     ------------------ in this macro invocation
+   |
+   = help: if conforming to strict provenance is not possible, use `.expose_provenance()`
+   = note: for more information, visit <https://doc.rust-lang.org/std/ptr/index.html#provenance>
+   = note: this error originates in the macro `p2i` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use `.addr()` to obtain the address of a pointer
+   |
+13 ~     ($e:expr) => { $e as ).addr() };
+14 |     //~^ ERROR cast from `*const u8` to `usize`
+...
+28 |     let x = 1u8;
+29 ~     p2i!((&raw const x);
+   |
+
+error: cast from `usize` to `*const ()` implicitly relies on exposed provenance
+  --> main.rs:18:20
+   |
+18 |     ($e:expr) => { $e as *const () };
+   |                    ^^^^^^^^^^^^^^^
+...
+31 |     i2p!(0x42);
+   |     ---------- in this macro invocation
+   |
+   = help: if conforming to strict provenance is not possible, use `std::ptr::with_exposed_provenance()`
+   = note: for more information, visit <https://doc.rust-lang.org/std/ptr/index.html#provenance>
+   = note: this error originates in the macro `i2p` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use `.with_addr()` to adjust the address of a valid pointer in the same allocation
+   |
+18 ~     ($e:expr) => { $e as ) };
+19 |     //~^ ERROR cast from `usize` to `*const ()`
+...
+30 |
+31 ~     i2p!((...).with_addr(0x42);
+   |
+
+error: aborting due to 4 previous errors
+
+rustc exit: 1
+
+[exit 0]

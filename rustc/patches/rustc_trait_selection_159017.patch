@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_trait_selection/src/diagnostics.rs b/compiler/rustc_trait_selection/src/diagnostics.rs
+index 5588cf9054cf4bd4021d125c24f07d242c47bd9c..eea574a70cb3fd9f4bdf78888ba5c2360788c861 100644
+--- a/compiler/rustc_trait_selection/src/diagnostics.rs
++++ b/compiler/rustc_trait_selection/src/diagnostics.rs
+@@ -739,12 +739,13 @@ fn visit_ty(&mut self, ty: &'v hir::Ty<'v, AmbigArg>) {
+                 return false;
+             }
+             if introduce_new {
+-                let new_param_suggestion =
+-                    if let Some(span) = generics.span_for_lifetime_suggestion() {
+-                        (span, format!("{suggestion_param_name}, "))
+-                    } else {
+-                        (generics.span, format!("<{suggestion_param_name}>"))
+-                    };
++                let new_param_suggestion = if let Some(first) =
++                    generics.params.iter().find(|p| !p.name.ident().span.is_empty())
++                {
++                    (first.span.shrink_to_lo(), format!("{suggestion_param_name}, "))
++                } else {
++                    (generics.span, format!("<{suggestion_param_name}>"))
++                };
+ 
+                 visitor.suggestions.push(new_param_suggestion);
+             }

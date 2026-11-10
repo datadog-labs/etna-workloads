@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_middle/src/query/plumbing.rs b/compiler/rustc_middle/src/query/plumbing.rs
+index 2e121f0246b29cda1574f1ce0795bf3f23948209..1a83be8a7e4e95696359c44415fb117554769851 100644
+--- a/compiler/rustc_middle/src/query/plumbing.rs
++++ b/compiler/rustc_middle/src/query/plumbing.rs
+@@ -426,7 +426,7 @@ pub fn query_name(&self) -> &'static str {
+             ///
+             /// Used when reporting query cycle errors and similar problems.
+             pub fn description(&self, tcx: TyCtxt<'tcx>) -> String {
+-                let (name, description) = ty::print::with_no_queries!(match self {
++                let (name, description) = ty::print::with_no_trimmed_paths!(match self {
+                     $(
+                         TaggedQueryKey::$name(key) => (stringify!($name), ($desc)(tcx, *key)),
+                     )*
+@@ -448,17 +448,12 @@ pub fn default_span(&self, tcx: TyCtxt<'tcx>, span: Span) -> Span {
+                 if !span.is_dummy() {
+                     return span
+                 }
+-                if let TaggedQueryKey::def_span(..) = self {
+-                    // The `def_span` query is used to calculate `default_span`,
+-                    // so exit to avoid infinite recursion.
+-                    return DUMMY_SP
+-                }
+-                match self {
++                ty::print::with_reduced_queries!(match self {
+                     $(
+                         TaggedQueryKey::$name(key) =>
+                             $crate::query::QueryKey::default_span(key, tcx),
+                     )*
+-                }
++                })
+             }
+ 
+             /// Calls `self.default_span` or returns `DUMMY_SP` if there was a fatal error

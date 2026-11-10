@@ -1,0 +1,15 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+index 3d8c23ebdf8d33141dfbd9435df55368d3b92ac9..fb3fa8b54288c63f958457cde340d0a5d98eb54e 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+@@ -158,7 +158,9 @@ pub(super) fn lower_trait_object_ty(
+             let item_def_id = proj.item_def_id();
+ 
+             let proj = proj.map_bound(|mut proj| {
+-                let references_self = proj.term.walk().any(|arg| arg == dummy_self.into());
++                let references_self = proj.term.as_type().is_some_and(|term_ty| {
++                    term_ty.walk().any(|arg| arg == dummy_self.into())
++                });
+                 if references_self {
+                     let guar = self.dcx().emit_err(DynTraitAssocItemBindingMentionsSelf {
+                         span,

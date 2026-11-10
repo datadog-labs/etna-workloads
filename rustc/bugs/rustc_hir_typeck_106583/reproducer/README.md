@@ -1,0 +1,1 @@
+Returning `Result<(), A>` where `Result<(), B>` is expected (with `B: From<A>`) is a type error. The clean compiler adds a help suggestion to use `?` and wrap in `Ok(...)`; the injected compiler omits that suggestion.

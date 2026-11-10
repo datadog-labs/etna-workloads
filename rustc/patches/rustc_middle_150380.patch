@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_middle/src/ty/print/pretty.rs b/compiler/rustc_middle/src/ty/print/pretty.rs
+index 4ab474fd89fe6c70530aa0deb5234193db362bb4..f2c7ef90f924c3dbbd238284e549638bfcbab096 100644
+--- a/compiler/rustc_middle/src/ty/print/pretty.rs
++++ b/compiler/rustc_middle/src/ty/print/pretty.rs
+@@ -1940,7 +1940,21 @@ fn pretty_print_const_valtree(
+             }
+             (ty::ValTreeKind::Branch(_), ty::Adt(def, args)) => {
+                 let contents = cv.destructure_adt_const();
+-                let fields = contents.fields.iter().copied();
++                let fields: Vec<ty::Const<'tcx>> = if def.variants().is_empty() {
++                    Vec::new()
++                } else {
++                    iter::zip(&def.variant(contents.variant).fields, contents.fields.iter())
++                        .map(|(field_def, field)| {
++                            let field_ty = field_def.ty(self.tcx(), args).skip_norm_wip();
++                            ty::Const::new_value(
++                                self.tcx(),
++                                field.to_value().valtree,
++                                field_ty,
++                            )
++                        })
++                        .collect()
++                };
++                let fields = fields.into_iter();
+ 
+                 if def.variants().is_empty() {
+                     self.typed_value(

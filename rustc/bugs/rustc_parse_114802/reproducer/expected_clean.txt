@@ -1,0 +1,128 @@
+error: ambiguous `+` in a type
+ --> main.rs:3:13
+  |
+3 | fn foo1(_: &dyn Drop + AsRef<str>) {} //~ ERROR ambiguous `+` in a type
+  |             ^^^^^^^^^^^^^^^^^^^^^
+  |
+help: try adding parentheses
+  |
+3 | fn foo1(_: &(dyn Drop + AsRef<str>)) {} //~ ERROR ambiguous `+` in a type
+  |             +                     +
+
+error: incorrect parentheses around trait bounds
+ --> main.rs:6:17
+  |
+6 | fn foo2(_: &dyn (Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+  |                 ^                 ^
+  |
+help: fix the parentheses
+  |
+6 - fn foo2(_: &dyn (Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+6 + fn foo2(_: &(dyn Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+  |
+
+error: incorrect parentheses around trait bounds
+ --> main.rs:8:25
+  |
+8 | fn foo2_no_space(_: &dyn(Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+  |                         ^                 ^
+  |
+help: fix the parentheses
+  |
+8 - fn foo2_no_space(_: &dyn(Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+8 + fn foo2_no_space(_: &(dyn Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+  |
+
+error: expected parameter name, found `{`
+  --> main.rs:10:17
+   |
+10 | fn foo3(_: &dyn {Drop + AsRef<str>}) {} //~ ERROR expected parameter name, found `{`
+   |                 ^ expected parameter name
+
+error: expected one of `!`, `(`, `)`, `,`, `?`, `[`, `async`, `const`, `for`, `use`, `~`, lifetime, or path, found `{`
+  --> main.rs:10:17
+   |
+10 | fn foo3(_: &dyn {Drop + AsRef<str>}) {} //~ ERROR expected parameter name, found `{`
+   |                -^ expected one of 13 possible tokens
+   |                |
+   |                help: missing `,`
+
+error: expected identifier, found `<`
+  --> main.rs:14:17
+   |
+14 | fn foo4(_: &dyn <Drop + AsRef<str>>) {} //~ ERROR expected identifier, found `<`
+   |                 ^ expected identifier
+
+error: invalid `dyn` keyword
+  --> main.rs:16:25
+   |
+16 | fn foo5(_: &(dyn Drop + dyn AsRef<str>)) {} //~ ERROR invalid `dyn` keyword
+   |                         ^^^
+   |
+   = help: `dyn` is only needed at the start of a trait `+`-separated list
+help: remove this keyword
+   |
+16 - fn foo5(_: &(dyn Drop + dyn AsRef<str>)) {} //~ ERROR invalid `dyn` keyword
+16 + fn foo5(_: &(dyn Drop + AsRef<str>)) {} //~ ERROR invalid `dyn` keyword
+   |
+
+warning: unnecessary parentheses around type
+ --> main.rs:6:17
+  |
+6 | fn foo2(_: &dyn (Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+  |                 ^                 ^
+  |
+  = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+  |
+6 - fn foo2(_: &dyn (Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+6 + fn foo2(_: &dyn Drop + AsRef<str>) {} //~ ERROR incorrect parentheses around trait bounds
+  |
+
+warning: unnecessary parentheses around type
+ --> main.rs:8:25
+  |
+8 | fn foo2_no_space(_: &dyn(Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+  |                         ^                 ^
+  |
+help: remove these parentheses
+  |
+8 - fn foo2_no_space(_: &dyn(Drop + AsRef<str>)) {} //~ ERROR incorrect parentheses around trait bounds
+8 + fn foo2_no_space(_: &dyn Drop + AsRef<str>) {} //~ ERROR incorrect parentheses around trait bounds
+  |
+
+error[E0225]: only auto traits can be used as additional traits in a trait object
+ --> main.rs:3:24
+  |
+3 | fn foo1(_: &dyn Drop + AsRef<str>) {} //~ ERROR ambiguous `+` in a type
+  |                 ----   ^^^^^^^^^^ additional non-auto trait
+  |                 |
+  |                 first non-auto trait
+  |
+  = help: consider creating a new trait with all of these as supertraits and using that trait here instead: `trait NewTrait: Drop + AsRef<str> {}`
+  = note: auto-traits like `Send` and `Sync` are traits that have special properties; for more information on them, visit <https://doc.rust-lang.org/reference/special-types-and-traits.html#auto-traits>
+
+error[E0224]: at least one trait is required for an object type
+  --> main.rs:10:13
+   |
+10 | fn foo3(_: &dyn {Drop + AsRef<str>}) {} //~ ERROR expected parameter name, found `{`
+   |             ^^^
+
+error[E0225]: only auto traits can be used as additional traits in a trait object
+  --> main.rs:16:29
+   |
+16 | fn foo5(_: &(dyn Drop + dyn AsRef<str>)) {} //~ ERROR invalid `dyn` keyword
+   |                  ----       ^^^^^^^^^^ additional non-auto trait
+   |                  |
+   |                  first non-auto trait
+   |
+   = help: consider creating a new trait with all of these as supertraits and using that trait here instead: `trait NewTrait: Drop + AsRef<str> {}`
+   = note: auto-traits like `Send` and `Sync` are traits that have special properties; for more information on them, visit <https://doc.rust-lang.org/reference/special-types-and-traits.html#auto-traits>
+
+error: aborting due to 10 previous errors; 2 warnings emitted
+
+Some errors have detailed explanations: E0224, E0225.
+For more information about an error, try `rustc --explain E0224`.
+rustc exit: 1
+
+[exit 0]

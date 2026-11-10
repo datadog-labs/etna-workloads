@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_lint/src/nonstandard_style.rs b/compiler/rustc_lint/src/nonstandard_style.rs
+index 075fcb11154646dc2d0ef807f624cbbf5e286fc1..f8a51ed00f53b6a546adcdbdd5cb464ae195a89f 100644
+--- a/compiler/rustc_lint/src/nonstandard_style.rs
++++ b/compiler/rustc_lint/src/nonstandard_style.rs
+@@ -601,6 +601,21 @@ fn check_item(&mut self, cx: &LateContext<'_>, it: &hir::Item<'_>) {
+                     &ident,
+                 );
+             }
++            // we only want to check inherent associated consts, trait consts
++            // are linted at def-site.
++            hir::ItemKind::Impl(hir::Impl { of_trait: None, items, .. }) => {
++                for id in items.iter() {
++                    let ii = cx.tcx.hir_impl_item(*id);
++                    if let hir::ImplItemKind::Const(..) = ii.kind {
++                        NonUpperCaseGlobals::check_upper_case(
++                            cx,
++                            "associated constant",
++                            None,
++                            &ii.ident,
++                        );
++                    }
++                }
++            }
+             _ => {}
+         }
+     }
+@@ -611,14 +626,6 @@ fn check_trait_item(&mut self, cx: &LateContext<'_>, ti: &hir::TraitItem<'_>) {
+         }
+     }
+ 
+-    fn check_impl_item(&mut self, cx: &LateContext<'_>, ii: &hir::ImplItem<'_>) {
+-        if let hir::ImplItemKind::Const(..) = ii.kind
+-            && let hir::ImplItemImplKind::Inherent { .. } = ii.impl_kind
+-        {
+-            NonUpperCaseGlobals::check_upper_case(cx, "associated constant", None, &ii.ident);
+-        }
+-    }
+-
+     fn check_pat(&mut self, cx: &LateContext<'_>, p: &hir::Pat<'_>) {
+         // Lint for constants that look like binding identifiers (#7526)
+         if let PatKind::Expr(hir::PatExpr {

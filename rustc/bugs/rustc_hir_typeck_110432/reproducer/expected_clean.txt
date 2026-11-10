@@ -1,0 +1,83 @@
+error[E0277]: the trait bound `K: Hash` is not satisfied
+  --> main.rs:24:5
+   |
+24 |     map[k]
+   |     ^^^ the trait `Hash` is not implemented for `K`
+   |
+note: required for `HashMap<K, V>` to implement `Index<&K>`
+  --> main.rs:11:12
+   |
+11 | impl<K, V> Index<&K> for HashMap<K, V>
+   |            ^^^^^^^^^     ^^^^^^^^^^^^^
+12 | where
+13 |     K: Hash,
+   |        ---- unsatisfied trait bound introduced here
+help: consider restricting type parameter `K` with trait `Hash`
+   |
+23 | fn index<'a, K: std::hash::Hash, V>(map: &'a HashMap<K, V>, k: K) -> &'a V {
+   |               +++++++++++++++++
+
+error[E0277]: the trait bound `V: Copy` is not satisfied
+  --> main.rs:24:5
+   |
+24 |     map[k]
+   |     ^^^ the trait `Copy` is not implemented for `V`
+   |
+note: required for `HashMap<K, V>` to implement `Index<&K>`
+  --> main.rs:11:12
+   |
+11 | impl<K, V> Index<&K> for HashMap<K, V>
+   |            ^^^^^^^^^     ^^^^^^^^^^^^^
+...
+14 |     V: Copy,
+   |        ---- unsatisfied trait bound introduced here
+help: consider restricting type parameter `V` with trait `Copy`
+   |
+23 | fn index<'a, K, V: std::marker::Copy>(map: &'a HashMap<K, V>, k: K) -> &'a V {
+   |                  +++++++++++++++++++
+
+error[E0308]: mismatched types
+  --> main.rs:24:9
+   |
+23 | fn index<'a, K, V>(map: &'a HashMap<K, V>, k: K) -> &'a V {
+   |              - found this type parameter
+24 |     map[k]
+   |         ^ expected `&K`, found type parameter `K`
+   |
+   = note:   expected reference `&_`
+           found type parameter `_`
+help: consider borrowing here
+   |
+24 |     map[&k]
+   |         +
+
+error[E0308]: mismatched types
+  --> main.rs:24:5
+   |
+23 | fn index<'a, K, V>(map: &'a HashMap<K, V>, k: K) -> &'a V {
+   |                 - found this type parameter         ----- expected `&'a V` because of return type
+24 |     map[k]
+   |     ^^^^^^ expected `&V`, found type parameter `V`
+   |
+   = note:   expected reference `&'a _`
+           found type parameter `_`
+help: consider borrowing here
+   |
+24 |     &map[k]
+   |     +
+
+warning: unused variable: `k`
+  --> main.rs:18:21
+   |
+18 |     fn index(&self, k: &K) -> &V {
+   |                     ^ help: if this is intentional, prefix it with an underscore: `_k`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+error: aborting due to 4 previous errors; 1 warning emitted
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+rustc exit: 1
+
+[exit 0]

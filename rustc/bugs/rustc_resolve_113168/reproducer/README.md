@@ -1,0 +1,1 @@
+Reproduces an ICE (assertion failure in import finalization) on the injected compiler; the clean compiler reports an unresolved import error with exit status 1. A macro from an extern crate expands to 'use empty::Outcome;' alongside 'use crate::empty;'.

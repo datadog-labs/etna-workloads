@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_mir_transform/src/gvn.rs b/compiler/rustc_mir_transform/src/gvn.rs
+index 9d751a7cc5bd003b2967fc95282570d09543f07e..18c8474671480ede7e89b87e57f7db2e80227805 100644
+--- a/compiler/rustc_mir_transform/src/gvn.rs
++++ b/compiler/rustc_mir_transform/src/gvn.rs
+@@ -1014,7 +1014,7 @@ fn simplify_place_value(
+ 
+         match self.compute_place_value(*place, location) {
+             Ok(value) => {
+-                if let Some(new_place) = self.try_as_place(value, location, true)
++                if let Some(new_place) = self.try_as_local(value, location).map(Place::from)
+                     && (new_place.local != place.local
+                         || new_place.projection.len() < place.projection.len())
+                 {
+@@ -1970,9 +1970,9 @@ fn try_as_operand(&mut self, index: VnIndex, location: Location) -> Option<Opera
+             Some(Operand::Constant(Box::new(const_)))
+         } else if let Value::RuntimeChecks(c) = self.get(index) {
+             Some(Operand::RuntimeChecks(c))
+-        } else if let Some(place) = self.try_as_place(index, location, false) {
+-            self.reused_locals.insert(place.local);
+-            Some(Operand::Copy(place))
++        } else if let Some(local) = self.try_as_local(index, location) {
++            self.reused_locals.insert(local);
++            Some(Operand::Copy(local.into()))
+         } else {
+             None
+         }
+@@ -2104,11 +2104,11 @@ fn visit_assign(
+             // FIXME: Is it correct to make these retagging assignments?
+             if let Some(const_) = self.try_as_constant(value) {
+                 *rvalue = Rvalue::Use(Operand::Constant(Box::new(const_)), WithRetag::Yes);
+-            } else if let Some(place) = self.try_as_place(value, location, false)
+-                && !matches!(rvalue, Rvalue::Use(Operand::Move(p) | Operand::Copy(p), _) if p == &place)
++            } else if let Some(local) = self.try_as_local(value, location)
++                && !matches!(rvalue, Rvalue::Use(Operand::Move(p) | Operand::Copy(p), _) if p == &Place::from(local))
+             {
+-                *rvalue = Rvalue::Use(Operand::Copy(place), WithRetag::Yes);
+-                self.reused_locals.insert(place.local);
++                *rvalue = Rvalue::Use(Operand::Copy(local.into()), WithRetag::Yes);
++                self.reused_locals.insert(local);
+             }
+         }
+ 

@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_lint/src/unused/must_use.rs b/compiler/rustc_lint/src/unused/must_use.rs
+index dcbffa394a1a0decc3dd42f1956394d98d9b36ab..471a075ce1ae3de23ea1a5de11719dd3c0f718b0 100644
+--- a/compiler/rustc_lint/src/unused/must_use.rs
++++ b/compiler/rustc_lint/src/unused/must_use.rs
+@@ -157,14 +157,6 @@ pub fn is_ty_must_use<'tcx>(
+             let pinned_ty = args.type_at(0);
+             is_ty_must_use(cx, pinned_ty, expr).map(|inner| MustUsePath::Pinned(Box::new(inner)))
+         }
+-        // Consider `Result<T, Uninhabited>` (e.g. `Result<(), !>`) equivalent to `T`.
+-        ty::Adt(def, args)
+-            if cx.tcx.is_diagnostic_item(sym::Result, def.did())
+-                && is_uninhabited(args.type_at(1)) =>
+-        {
+-            let ok_ty = args.type_at(0);
+-            is_ty_must_use(cx, ok_ty, expr).map(|path| MustUsePath::Result(Box::new(path)))
+-        }
+         // Consider `ControlFlow<Uninhabited, T>` (e.g. `ControlFlow<!, ()>`) equivalent to `T`.
+         ty::Adt(def, args)
+             if cx.tcx.is_diagnostic_item(sym::ControlFlow, def.did())

@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_const_eval/src/const_eval/fn_queries.rs b/compiler/rustc_const_eval/src/const_eval/fn_queries.rs
+index 8267cb66e9e157b3e8d295847946a9ce6f6a557c..fc2e5679ede8e691a665144d5357a6bb8ec2ad81 100644
+--- a/compiler/rustc_const_eval/src/const_eval/fn_queries.rs
++++ b/compiler/rustc_const_eval/src/const_eval/fn_queries.rs
+@@ -16,13 +16,7 @@ fn constness(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Constness {
+             // Foreign functions cannot be evaluated at compile-time.
+             Constness::NotConst
+         }
+-        Node::Expr(e) if let ExprKind::Closure(c) = e.kind => {
+-            if let Constness::Const { .. } = c.constness && tcx.hir_body_const_context(tcx.local_parent(def_id)).is_none() {
+-                tcx.dcx().span_err(tcx.def_span(def_id), "cannot use `const` closures outside of const contexts");
+-                return Constness::NotConst;
+-            }
+-            c.constness
+-        },
++        Node::Expr(e) if let ExprKind::Closure(c) = e.kind => c.constness,
+         // FIXME(fee1-dead): extract this one out and rename this query to `fn_constness` so we don't need `is_const_fn` anymore.
+         Node::Item(i) if let ItemKind::Impl(impl_) = i.kind => impl_.constness,
+         Node::Item(Item { kind: ItemKind::Fn { sig, .. }, .. }) => sig.header.constness,
+diff --git a/compiler/rustc_middle/src/hir/map.rs b/compiler/rustc_middle/src/hir/map.rs
+index 8ec27921a5787089a9b7d7f991db9fac6e5f2657..75c18f2e6e65ef97d5b7ce43459b70fd0cf6f35a 100644
+--- a/compiler/rustc_middle/src/hir/map.rs
++++ b/compiler/rustc_middle/src/hir/map.rs
+@@ -353,7 +353,11 @@ pub fn hir_body_const_context(self, local_def_id: LocalDefId) -> Option<ConstCon
+             BodyOwnerKind::Static(mutability) => ConstContext::Static(mutability),
+ 
+             BodyOwnerKind::Fn if self.is_constructor(def_id) => return None,
+-            BodyOwnerKind::Fn | BodyOwnerKind::Closure if self.is_const_fn(def_id) => {
++            // Const closures use their parent's const context
++            BodyOwnerKind::Closure if self.is_const_fn(def_id) => {
++                return self.hir_body_const_context(self.local_parent(local_def_id));
++            }
++            BodyOwnerKind::Fn if self.is_const_fn(def_id) => {
+                 if matches!(self.constness(def_id), rustc_hir::Constness::Const { always: true }) {
+                     ConstContext::Const { allow_const_fn_promotion: false }
+                 } else {

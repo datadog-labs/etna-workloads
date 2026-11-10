@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_mir_transform/src/shim.rs b/compiler/rustc_mir_transform/src/shim.rs
+index 0561c04bc1db39f88e4a78540e3c980e2c3666c4..66ed2bc87afca63639654147d7c8b1fd35d31dd1 100644
+--- a/compiler/rustc_mir_transform/src/shim.rs
++++ b/compiler/rustc_mir_transform/src/shim.rs
+@@ -84,27 +84,7 @@ fn make_shim<'tcx>(tcx: TyCtxt<'tcx>, shim: ty::ShimKind<'tcx>) -> Body<'tcx> {
+             if let Some(&ty::Coroutine(coroutine_def_id, args)) = ty.map(Ty::kind) {
+                 let coroutine_body = tcx.optimized_mir(coroutine_def_id);
+ 
+-                let ty::Coroutine(_, id_args) = *tcx.type_of(coroutine_def_id).skip_binder().kind()
+-                else {
+-                    bug!()
+-                };
+-
+-                // If this is a regular coroutine, grab its drop shim. If this is a coroutine
+-                // that comes from a coroutine-closure, and the kind ty differs from the "maximum"
+-                // kind that it supports, then grab the appropriate drop shim. This ensures that
+-                // the future returned by `<[coroutine-closure] as AsyncFnOnce>::call_once` will
+-                // drop the coroutine-closure's upvars.
+-                let body = if id_args.as_coroutine().kind_ty() == args.as_coroutine().kind_ty() {
+-                    coroutine_body.coroutine_drop().unwrap()
+-                } else {
+-                    assert_eq!(
+-                        args.as_coroutine().kind_ty().to_opt_closure_kind().unwrap(),
+-                        ty::ClosureKind::FnOnce
+-                    );
+-                    tcx.optimized_mir(tcx.coroutine_by_move_body_def_id(coroutine_def_id))
+-                        .coroutine_drop()
+-                        .unwrap()
+-                };
++                let body = coroutine_body.coroutine_drop().unwrap();
+ 
+                 let mut body =
+                     EarlyBinder::bind(tcx, body.clone()).instantiate(tcx, args).skip_norm_wip();

@@ -1,0 +1,1 @@
+asm! with a concat!() template containing multibyte chars and a template syntax error, compiled with --error-format json: the clean rustc reports errors (exit 1); the injected one ICEs (exit 101) in span char-position lookup because the error span is computed from template offsets inside a macro-expanded string.

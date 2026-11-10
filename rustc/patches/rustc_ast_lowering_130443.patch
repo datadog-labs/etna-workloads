@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_ast_lowering/src/expr.rs b/compiler/rustc_ast_lowering/src/expr.rs
+index 003ca39a5bda956a8c2000352d2058a6c2a62df2..1ddfcf961ef4db8e8949814e157e2e0b28936e2e 100644
+--- a/compiler/rustc_ast_lowering/src/expr.rs
++++ b/compiler/rustc_ast_lowering/src/expr.rs
+@@ -537,6 +537,7 @@ fn lower_legacy_const_generics(
+         };
+ 
+         let mut error = None;
++        #[allow(unused_variables, unused_mut)]
+         let mut invalid_expr_error = |tcx: TyCtxt<'_>, span| {
+             // Avoid emitting the error multiple times.
+             if error.is_none() {
+@@ -570,18 +571,7 @@ fn lower_legacy_const_generics(
+             if legacy_args_idx.contains(&idx) {
+                 let node_id = self.next_node_id();
+                 self.create_def(node_id, None, DefKind::AnonConst, arg.span);
+-                let const_value =
+-                    if let ControlFlow::Break(span) = WillCreateDefIdsVisitor.visit_expr(&arg) {
+-                        Box::new(Expr {
+-                            id: self.next_node_id(),
+-                            kind: ExprKind::Err(invalid_expr_error(self.tcx, span)),
+-                            span: f.span,
+-                            attrs: [].into(),
+-                            tokens: None,
+-                        })
+-                    } else {
+-                        arg
+-                    };
++                let const_value = arg;
+ 
+                 let anon_const = AnonConst { id: node_id, value: const_value };
+                 generic_args.push(AngleBracketedArg::Arg(GenericArg::Const(anon_const)));

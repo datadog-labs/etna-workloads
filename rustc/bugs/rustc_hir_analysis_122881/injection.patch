@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+index f55833c1bf6da228478bc4624ad342844e2692e9..379b7d91652939f00b33e8024a95b9cd47803076 100644
+--- a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
++++ b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+@@ -962,20 +962,12 @@ fn visit_fn(
+         fd: &'tcx hir::FnDecl<'tcx>,
+         body_id: hir::BodyId,
+         _: Span,
+-        def_id: LocalDefId,
++        _: LocalDefId,
+     ) {
+         let output = match fd.output {
+             hir::FnRetTy::DefaultReturn(_) => None,
+             hir::FnRetTy::Return(ty) => Some(ty),
+         };
+-        if let Some(ty) = output
+-            && let hir::TyKind::InferDelegation(hir::InferDelegation::Sig(sig_id, _)) = ty.kind
+-        {
+-            let bound_vars: Vec<_> =
+-                self.tcx.fn_sig(sig_id).skip_binder().bound_vars().iter().collect();
+-            let hir_id = self.tcx.local_def_id_to_hir_id(def_id);
+-            self.rbv.late_bound_vars.insert(hir_id.local_id, bound_vars);
+-        }
+         self.visit_fn_like_elision(fd.inputs, output, matches!(fk, intravisit::FnKind::Closure));
+         intravisit::walk_fn_kind(self, fk);
+         self.visit_nested_body(body_id)

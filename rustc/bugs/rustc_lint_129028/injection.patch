@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_lint/src/impl_trait_overcaptures.rs b/compiler/rustc_lint/src/impl_trait_overcaptures.rs
+index 651e98c769cf3d2f03a62985c0e48c4b6ae01724..00d3072ab40ba9bb948a7f6f3cd11e2b3a7931c0 100644
+--- a/compiler/rustc_lint/src/impl_trait_overcaptures.rs
++++ b/compiler/rustc_lint/src/impl_trait_overcaptures.rs
+@@ -305,6 +305,9 @@ fn visit_ty(&mut self, t: Ty<'tcx>) {
+                 // Remove the set of lifetimes that are in-scope that outlive some other captured
+                 // lifetime and are contravariant (i.e. covariant in argument position).
+                 uncaptured_args.retain(|&(def_id, kind)| {
++                    if captured_regions.is_empty() && self.variances.is_empty() {
++                        return true;
++                    }
+                     let Some(ty::Bivariant | ty::Contravariant) = self.variances.get(def_id) else {
+                         // Keep all covariant/invariant args. Also if variance is `None`,
+                         // then that means it's either not a lifetime, or it didn't show up
+@@ -327,11 +330,9 @@ fn visit_ty(&mut self, t: Ty<'tcx>) {
+                         ParamKind::Late => return true,
+                     };
+                     // Does this region outlive any captured region?
+-                    !captured_regions.iter().any(|r| {
+-                        self.outlives_env
+-                            .free_region_map()
+-                            .sub_free_regions(self.tcx, *r, uncaptured)
+-                    })
++                    let _ = self.outlives_env.free_region_map();
++                    let _ = uncaptured;
++                    true
+                 });
+ 
+                 // If we have uncaptured args, and if the opaque doesn't already have

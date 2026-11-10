@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_mir_build/src/builder/scope.rs b/compiler/rustc_mir_build/src/builder/scope.rs
+index a5707e0177c63a2ef05d8ab0aa5600a313074026..ad96b3a4aa8a5264a3630f3b173ea6931f0888ca 100644
+--- a/compiler/rustc_mir_build/src/builder/scope.rs
++++ b/compiler/rustc_mir_build/src/builder/scope.rs
+@@ -100,7 +100,7 @@
+ use super::matches::BuiltMatchTree;
+ use crate::builder::{BlockAnd, BlockAndExtension, BlockFrame, Builder, CFG};
+ use crate::diagnostics::{
+-    ConstContinueBadConst, ConstContinueNotMonomorphicConst, ConstContinueUnknownJumpTarget,
++    ConstContinueBadConst, ConstContinueUnknownJumpTarget,
+ };
+ 
+ #[derive(Debug)]
+@@ -917,26 +917,7 @@ pub(crate) fn break_const_continuable_scope(
+                 }
+             }
+ 
+-            ExprKind::Literal { .. }
+-            | ExprKind::NonHirLiteral { .. }
+-            | ExprKind::ZstLiteral { .. }
+-            | ExprKind::NamedConst { .. } => self.as_constant(&self.thir[value]),
+-
+-            other => {
+-                use crate::diagnostics::ConstContinueNotMonomorphicConstReason as Reason;
+-
+-                let span = expr.span;
+-                let reason = match other {
+-                    ExprKind::ConstParam { .. } => Reason::ConstantParameter { span },
+-                    ExprKind::ConstBlock { .. } => Reason::ConstBlock { span },
+-                    _ => Reason::Other { span },
+-                };
+-
+-                self.tcx
+-                    .dcx()
+-                    .emit_err(ConstContinueNotMonomorphicConst { span: expr.span, reason });
+-                return block.unit();
+-            }
++            _ => self.as_constant(&self.thir[value]),
+         };
+ 
+         let break_index = self

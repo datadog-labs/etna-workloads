@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/dyn_compatibility.rs b/compiler/rustc_trait_selection/src/traits/dyn_compatibility.rs
+index 6d86a2cce6400ecadb1396c9044dca2ef6b9e63f..e54dd1e344fde2bb2a1dcd183dfc2f619a71e662 100644
+--- a/compiler/rustc_trait_selection/src/traits/dyn_compatibility.rs
++++ b/compiler/rustc_trait_selection/src/traits/dyn_compatibility.rs
+@@ -884,30 +884,9 @@ fn visit_ty(&mut self, ty: Ty<'tcx>) -> Self::Result {
+     }
+ 
+     fn visit_const(&mut self, ct: ty::Const<'tcx>) -> Self::Result {
+-        let ct = self.tcx.expand_abstract_consts(ct);
+-
+-        match ct.kind() {
+-            ty::ConstKind::Alias(
+-                _,
+-                ty::AliasConst { kind: ty::AliasConstKind::Projection { def_id }, args, .. },
+-            ) if self.tcx.features().min_generic_const_args() => {
+-                match self.allow_self_projections {
+-                    AllowSelfProjections::Yes => {
+-                        let trait_def_id = self.tcx.parent(def_id);
+-                        let trait_ref = ty::TraitRef::from_assoc(self.tcx, trait_def_id, args);
+-
+-                        // Only walk contained consts if the parent trait is not a supertrait.
+-                        if self.is_supertrait_of_current_trait(trait_ref) {
+-                            ControlFlow::Continue(())
+-                        } else {
+-                            ct.super_visit_with(self)
+-                        }
+-                    }
+-                    AllowSelfProjections::No => ct.super_visit_with(self),
+-                }
+-            }
+-            _ => ct.super_visit_with(self),
+-        }
++        // Constants can only influence dyn-compatibility if they are generic and reference `Self`.
++        // This is only possible for unevaluated constants, so we walk these here.
++        self.tcx.expand_abstract_consts(ct).super_visit_with(self)
+     }
+ }
+ 

@@ -1,0 +1,1 @@
+Compiles a diamond-reexport chain (transitive dep struct re-exported via private mod, glob, and doc(hidden) __private) and triggers a type mismatch; the injected compiler names the type via direct_dep::__private::Struct instead of direct_dep::Struct (visible_parent_map fallback handling).

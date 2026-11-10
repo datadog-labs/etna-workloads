@@ -1,0 +1,1 @@
+Matching on a `char` with arms that assign integer constants (other arms unreachable) makes the MatchBranchSimplification pass call `can_cast` with a non-integer discriminant type; the injected compiler hits `unreachable!("invalid int")` (ICE) under `-O`, while the clean compiler compiles it and the program prints 98.

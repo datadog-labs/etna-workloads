@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..c540914d7f4e7b3ed9792a729393ad4d51707677 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -4184,7 +4184,6 @@ fn add_missing_lifetime_specifiers_label<'a>(
+         };
+ 
+         let mut spans_suggs: Vec<_> = Vec::new();
+-        let source_map = self.r.tcx.sess.source_map();
+         let build_sugg = |lt: MissingLifetime| match lt.kind {
+             MissingLifetimeKind::Underscore => {
+                 debug_assert_eq!(lt.count, 1);
+@@ -4195,11 +4194,9 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                 (lt.span.shrink_to_hi(), format!("{existing_name} "))
+             }
+             MissingLifetimeKind::Comma => {
+-                let sugg: String = std::iter::repeat_n(existing_name.as_str(), lt.count)
+-                    .intersperse(", ")
++                let sugg: String = std::iter::repeat_n([existing_name.as_str(), ", "], lt.count)
++                    .flatten()
+                     .collect();
+-                let is_empty_brackets = source_map.span_followed_by(lt.span, ">").is_some();
+-                let sugg = if is_empty_brackets { sugg } else { format!("{sugg}, ") };
+                 (lt.span.shrink_to_hi(), sugg)
+             }
+             MissingLifetimeKind::Brackets => {

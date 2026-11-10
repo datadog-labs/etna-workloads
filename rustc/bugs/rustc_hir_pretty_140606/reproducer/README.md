@@ -1,0 +1,1 @@
+Pretty-prints a crate containing global_asm! with -Zunpretty=hir; the injected compiler leaves a pretty-printer box unclosed and aborts (BoxMarker not ended panic), while the clean one prints the HIR and exits 0.

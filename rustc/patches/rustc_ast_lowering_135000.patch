@@ -1,0 +1,79 @@
+diff --git a/compiler/rustc_ast_lowering/src/lib.rs b/compiler/rustc_ast_lowering/src/lib.rs
+index cc7e081f2cce34b353c336bc45a9975437931355..f92d0f7135952379c4d3080fd0a3e4ff9fff32c6 100644
+--- a/compiler/rustc_ast_lowering/src/lib.rs
++++ b/compiler/rustc_ast_lowering/src/lib.rs
+@@ -2301,11 +2301,11 @@ fn lower_generic_param_kind(
+             GenericParamKind::Lifetime => {
+                 // AST resolution emitted an error on those parameters, so we lower them using
+                 // `ParamName::Error`.
+-                let ident = self.lower_ident(param.ident);
+                 let param_name =
+                     if let Some(LifetimeRes::Error(..)) = self.owner.get_lifetime_res(param.id) {
+-                        ParamName::Error(ident)
++                        ParamName::Error
+                     } else {
++                        let ident = self.lower_ident(param.ident);
+                         ParamName::Plain(ident)
+                     };
+                 let kind =
+diff --git a/compiler/rustc_hir/src/hir.rs b/compiler/rustc_hir/src/hir.rs
+index 37b2ca7718498be3f43d034c3a078a21024db604..ebd465209d2866797484fa93dbbc5f2f94a05eea 100644
+--- a/compiler/rustc_hir/src/hir.rs
++++ b/compiler/rustc_hir/src/hir.rs
+@@ -185,11 +185,9 @@ pub enum ParamName {
+     Plain(Ident),
+ 
+     /// Indicates an illegal name was given and an error has been
+-    /// reported (so we should squelch other derived errors).
+-    ///
+-    /// Occurs when, e.g., `'_` is used in the wrong place, or a
+-    /// lifetime name is duplicated.
+-    Error(Ident),
++    /// reported (so we should squelch other derived errors). Occurs
++    /// when, e.g., `'_` is used in the wrong place.
++    Error,
+ 
+     /// Synthetic name generated when user elided a lifetime in an impl header.
+     ///
+@@ -211,8 +209,8 @@ pub enum ParamName {
+ impl ParamName {
+     pub fn ident(&self) -> Ident {
+         match *self {
+-            ParamName::Plain(ident) | ParamName::Error(ident) => ident,
+-            ParamName::Fresh => Ident::with_dummy_span(kw::UnderscoreLifetime),
++            ParamName::Plain(ident) => ident,
++            ParamName::Fresh | ParamName::Error => Ident::with_dummy_span(kw::UnderscoreLifetime),
+         }
+     }
+ }
+diff --git a/compiler/rustc_hir/src/intravisit.rs b/compiler/rustc_hir/src/intravisit.rs
+index 3b721392519a741af51a8ab09bc831533ffde2d2..210a21970c919743a9e787e4b641db64d9c1d208 100644
+--- a/compiler/rustc_hir/src/intravisit.rs
++++ b/compiler/rustc_hir/src/intravisit.rs
+@@ -1138,8 +1138,8 @@ pub fn walk_generic_param<'v, V: Visitor<'v>>(
+     } = param;
+     try_visit!(visitor.visit_id(*hir_id));
+     match *name {
+-        ParamName::Plain(ident) | ParamName::Error(ident) => try_visit!(visitor.visit_ident(ident)),
+-        ParamName::Fresh => {}
++        ParamName::Plain(ident) => try_visit!(visitor.visit_ident(ident)),
++        ParamName::Error | ParamName::Fresh => {}
+     }
+     match *kind {
+         GenericParamKind::Lifetime { .. } => {}
+diff --git a/compiler/rustc_hir_analysis/src/check/wfcheck.rs b/compiler/rustc_hir_analysis/src/check/wfcheck.rs
+index 9a498837b1f4d99154a7e6c5bfe06c5f1060e16a..a9521f15b188ea834dec5548a0e850c6bb0e4968 100644
+--- a/compiler/rustc_hir_analysis/src/check/wfcheck.rs
++++ b/compiler/rustc_hir_analysis/src/check/wfcheck.rs
+@@ -2065,10 +2065,7 @@ pub(super) fn check_variances_for_type_defn<'tcx>(tcx: TyCtxt<'tcx>, def_id: Loc
+         }
+ 
+         match hir_param.name {
+-            hir::ParamName::Error(_) => {
+-                // Don't report a bivariance error for a lifetime that isn't
+-                // even valid to name.
+-            }
++            hir::ParamName::Error => {}
+             _ => {
+                 let has_explicit_bounds = explicitly_bounded_params.contains(&parameter);
+                 report_bivariance(tcx, hir_param, has_explicit_bounds, item);

@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_lint/src/unused.rs b/compiler/rustc_lint/src/unused.rs
+index 0236ac75c2d642c402f5affabbf20bb8f5f93400..f9feb798638009e56af619b07a425742587b6a1e 100644
+--- a/compiler/rustc_lint/src/unused.rs
++++ b/compiler/rustc_lint/src/unused.rs
+@@ -689,14 +689,10 @@ fn check_unused_parens_pat(
+                 // Otherwise proceed with linting.
+                 _ => {}
+             }
+-            let spans = if !value.span.from_expansion() {
+-                inner
+-                    .span
+-                    .find_ancestor_inside(value.span)
+-                    .map(|inner| (value.span.with_hi(inner.lo()), value.span.with_lo(inner.hi())))
+-            } else {
+-                None
+-            };
++            let spans = inner
++                .span
++                .find_ancestor_inside(value.span)
++                .map(|inner| (value.span.with_hi(inner.lo()), value.span.with_lo(inner.hi())));
+             self.emit_unused_delims(cx, value.span, spans, "pattern", keep_space, false);
+         }
+     }
+@@ -893,13 +889,10 @@ fn check_ty(&mut self, cx: &EarlyContext<'_>, ty: &ast::Ty) {
+                 };
+ 
+                 if unused_parens {
+-                    let spans = (!ty.span.from_expansion())
+-                        .then(|| {
+-                            r.span
+-                                .find_ancestor_inside(ty.span)
+-                                .map(|r| (ty.span.with_hi(r.lo()), ty.span.with_lo(r.hi())))
+-                        })
+-                        .flatten();
++                    let spans = r
++                        .span
++                        .find_ancestor_inside(ty.span)
++                        .map(|r| (ty.span.with_hi(r.lo()), ty.span.with_lo(r.hi())));
+ 
+                     self.emit_unused_delims(cx, ty.span, spans, "type", (false, false), false);
+                 }

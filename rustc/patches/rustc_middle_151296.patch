@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_middle/src/ty/consts/valtree.rs b/compiler/rustc_middle/src/ty/consts/valtree.rs
+index 91f689dcb6d8bd3339879c00526f6878102173af..5b24fb1f80c23ae8b7d0d28a65c1238fc9ebaea3 100644
+--- a/compiler/rustc_middle/src/ty/consts/valtree.rs
++++ b/compiler/rustc_middle/src/ty/consts/valtree.rs
+@@ -151,17 +151,9 @@ pub fn try_to_raw_bytes(self, tcx: TyCtxt<'tcx>) -> Option<&'tcx [u8]> {
+             _ => return None,
+         }
+ 
+-        // We create an iterator that yields `Option<u8>`
+-        let iterator = self.to_branch().into_iter().map(|ct| {
+-            (*ct)
+-                .try_to_value()
+-                .and_then(|value| (value.ty == tcx.types.u8).then_some(value))
+-                .and_then(|value| value.try_to_leaf().map(|leaf| leaf.to_u8()))
+-        });
+-        // If there is `None` in the iterator, then the array is not a valid array of u8s and we return `None`
+-        let bytes: Vec<u8> = iterator.collect::<Option<Vec<u8>>>()?;
+-
+-        Some(tcx.arena.alloc_from_iter(bytes))
++        Some(tcx.arena.alloc_from_iter(
++            self.to_branch().into_iter().map(|ct| (*ct).try_to_value().unwrap().to_leaf().to_u8()),
++        ))
+     }
+ 
+     /// Converts to a `ValTreeKind::Leaf` value, `panic`'ing
+diff --git a/compiler/rustc_middle/src/ty/print/pretty.rs b/compiler/rustc_middle/src/ty/print/pretty.rs
+index 4ab474fd89fe6c70530aa0deb5234193db362bb4..7b13ed224616420b69971a4ad1bb4303588562f9 100644
+--- a/compiler/rustc_middle/src/ty/print/pretty.rs
++++ b/compiler/rustc_middle/src/ty/print/pretty.rs
+@@ -1907,11 +1907,10 @@ fn pretty_print_const_valtree(
+                     return Ok(());
+                 }
+             },
+-            // If it is a branch with an array, and this array can be printed as raw bytes, then dump its bytes
+-            (ty::ValTreeKind::Branch(_), ty::Array(t, _))
+-                if t == u8_type
+-                    && let Some(bytes) = cv.try_to_raw_bytes(self.tcx()) =>
+-            {
++            (ty::ValTreeKind::Branch(_), ty::Array(t, _)) if t == u8_type => {
++                let bytes = cv.try_to_raw_bytes(self.tcx()).unwrap_or_else(|| {
++                    bug!("expected to convert valtree to raw bytes for type {:?}", t)
++                });
+                 write!(self, "*")?;
+                 self.pretty_print_byte_str(bytes)?;
+                 return Ok(());

@@ -1,0 +1,1 @@
+A foreign trait with an associated type is implemented for an unresolved type name (`impl Foo for Bar {}`). The resolver's diagnostics code wrongly called `fn_arg_idents` on the non-fn associated type; the clean compiler reports "cannot find type `Bar`" (exit 1), the injected one ICEs (exit 101).

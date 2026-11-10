@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_mir_transform/src/add_call_guards.rs b/compiler/rustc_mir_transform/src/add_call_guards.rs
+index 55d8493d55c3c8fd9261986d2665235f70d7f3d8..c5d414ad01bea120efbd6a11c7be2bcb92bf1d4a 100644
+--- a/compiler/rustc_mir_transform/src/add_call_guards.rs
++++ b/compiler/rustc_mir_transform/src/add_call_guards.rs
+@@ -55,26 +55,6 @@ enum Action {
+                     // It's a critical edge, break it
+                     work.push((bb, Action::Call));
+                 }
+-                TerminatorKind::InlineAsm {
+-                    asm_macro: InlineAsmMacro::Asm,
+-                    ref targets,
+-                    ref operands,
+-                    unwind,
+-                    ..
+-                } if self == &CriticalCallEdges => {
+-                    let has_outputs = operands.iter().any(|op| {
+-                        matches!(op, InlineAsmOperand::InOut { .. } | InlineAsmOperand::Out { .. })
+-                    });
+-                    let has_labels =
+-                        operands.iter().any(|op| matches!(op, InlineAsmOperand::Label { .. }));
+-                    if has_outputs && (has_labels || generates_invoke(unwind)) {
+-                        for (target_index, target) in targets.iter().enumerate() {
+-                            if pred_count[*target] > 1 {
+-                                work.push((bb, Action::Asm { target_index }));
+-                            }
+-                        }
+-                    }
+-                }
+                 _ => {}
+             }
+         }

@@ -1,0 +1,1 @@
+global_asm! with `sym <i32 as Foo>::bar` (a trait-associated fn) must be resolved to the impl instance; without resolution the symbol is wrong and linking fails (injected) versus compiling cleanly (clean).

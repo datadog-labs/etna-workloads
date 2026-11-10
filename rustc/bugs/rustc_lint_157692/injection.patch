@@ -1,0 +1,46 @@
+diff --git a/compiler/rustc_lint/src/unused.rs b/compiler/rustc_lint/src/unused.rs
+index 0236ac75c2d642c402f5affabbf20bb8f5f93400..3cedddf8b0c1fbc457230647bff6be76cd3a3ff9 100644
+--- a/compiler/rustc_lint/src/unused.rs
++++ b/compiler/rustc_lint/src/unused.rs
+@@ -962,28 +962,21 @@ fn check_ty(&mut self, cx: &EarlyContext<'_>, ty: &ast::Ty) {
+                             && !dyn2015_exception
+                         {
+                             let s = poly_trait_ref.span;
+-                            // Check that the span really is wrapped in single-byte ASCII parens
+-                            // before trimming a byte off each end, in case a macro does weird
+-                            // things with spans or parser recovery produced multibyte parens.
+-                            if !s.from_expansion()
+-                                && let Ok(snippet) = cx.sess().source_map().span_to_snippet(s)
+-                                && snippet.starts_with('(')
+-                                && snippet.ends_with(')')
+-                            {
+-                                let spans = Some((
++                            let spans = (!s.from_expansion()).then(|| {
++                                (
+                                     s.with_hi(s.lo() + rustc_span::BytePos(1)),
+                                     s.with_lo(s.hi() - rustc_span::BytePos(1)),
+-                                ));
+-
+-                                self.emit_unused_delims(
+-                                    cx,
+-                                    poly_trait_ref.span,
+-                                    spans,
+-                                    "type",
+-                                    (false, false),
+-                                    false,
+-                                );
+-                            }
++                                )
++                            });
++
++                            self.emit_unused_delims(
++                                cx,
++                                poly_trait_ref.span,
++                                spans,
++                                "type",
++                                (false, false),
++                                false,
++                            );
+                         }
+                     }
+                 }

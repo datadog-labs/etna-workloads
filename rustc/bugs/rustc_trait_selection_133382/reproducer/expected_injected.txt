@@ -1,0 +1,58 @@
+error[E0277]: a value of type `Vec<(&str, fn())>` cannot be built from an iterator over elements of type `(&str, fn() {foo})`
+ --> main.rs:6:59
+  |
+6 |     let _: Vec<(&str, fn())> = [("foo", foo)].into_iter().collect(); //~ ERROR
+  |                                                           ^^^^^^^ value of type `Vec<(&str, fn())>` cannot be built from `std::iter::Iterator<Item=(&str, fn() {foo})>`
+  |
+help: the trait `FromIterator<(&_, fn() {foo})>` is not implemented for `Vec<(&str, fn())>`
+      but trait `FromIterator<(&_, fn())>` is implemented for it
+ --> library/alloc/src/vec/mod.rs:3993:0
+  = help: for that trait implementation, expected `fn()`, found `fn() {foo}`
+note: the method call chain might not have had the expected associated types
+ --> main.rs:6:47
+  |
+6 |     let _: Vec<(&str, fn())> = [("foo", foo)].into_iter().collect(); //~ ERROR
+  |                                -------------- ^^^^^^^^^^^ `Iterator::Item` is `(&str, fn() {foo})` here
+  |                                |
+  |                                this expression has type `[(&str, fn() {foo}); 1]`
+note: required by a bound in `collect`
+ --> library/core/src/iter/traits/iterator.rs:2073:4
+
+error[E0277]: a value of type `Vec<fn()>` cannot be built from an iterator over elements of type `fn() {foo}`
+ --> main.rs:7:42
+  |
+7 |     let _: Vec<fn()> = [foo].into_iter().collect(); //~ ERROR
+  |                                          ^^^^^^^ value of type `Vec<fn()>` cannot be built from `std::iter::Iterator<Item=fn() {foo}>`
+  |
+help: the trait `FromIterator<fn() {foo}>` is not implemented for `Vec<fn()>`
+      but trait `FromIterator<fn()>` is implemented for it
+ --> library/alloc/src/vec/mod.rs:3993:0
+  = help: for that trait implementation, expected `fn()`, found `fn() {foo}`
+note: the method call chain might not have had the expected associated types
+ --> main.rs:7:30
+  |
+7 |     let _: Vec<fn()> = [foo].into_iter().collect(); //~ ERROR
+  |                        ----- ^^^^^^^^^^^ `Iterator::Item` is `fn() {foo}` here
+  |                        |
+  |                        this expression has type `[fn() {foo}; 1]`
+note: required by a bound in `collect`
+ --> library/core/src/iter/traits/iterator.rs:2073:4
+
+error[E0308]: mismatched types
+ --> main.rs:8:24
+  |
+8 |     let _: Vec<fn()> = Vec::from([foo]); //~ ERROR
+  |            ---------   ^^^^^^^^^^^^^^^^ expected `Vec<fn()>`, found `Vec<fn() {foo}>`
+  |            |
+  |            expected due to this
+  |
+  = note: expected struct `Vec<fn()>`
+             found struct `Vec<fn() {foo}>`
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+rustc exit: 1
+
+[exit 0]

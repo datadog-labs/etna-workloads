@@ -1,0 +1,31 @@
+error: `if let` assigns a shorter lifetime since Edition 2024
+ --> main.rs:6:8
+  |
+6 |     if let Some(_value) = Some((droppy(), ()).1) {} else {}
+  |        ^^^^^^^^^^^^^^^^^^^^^^^^--------------^^^
+  |                                |
+  |                                this value has a significant drop implementation which may observe a major change in drop order and requires your discretion
+  |
+help: the value is now dropped here in Edition 2024
+ --> main.rs:6:51
+  |
+6 |     if let Some(_value) = Some((droppy(), ()).1) {} else {}
+  |                                                   ^
+  = warning: this changes meaning in Rust 2024
+  = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/temporary-if-let-scope.html>
+note: the lint level is defined here
+ --> main.rs:1:9
+  |
+1 | #![deny(if_let_rescope)]
+  |         ^^^^^^^^^^^^^^
+help: a `match` with a single arm can preserve the drop order up to Edition 2021
+  |
+6 -     if let Some(_value) = Some((droppy(), ()).1) {} else {}
+6 +     match Some((droppy(), ()).1) { Some(_value) => {} _ => {}}
+  |
+
+error: aborting due to 1 previous error
+
+status=1
+
+[exit 0]

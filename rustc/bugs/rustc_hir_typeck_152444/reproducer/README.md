@@ -1,0 +1,1 @@
+Type-checks a deeply nested method chain passed to a generic `&U` argument under `-Znext-solver`. The clean compiler accepts it (exit 0). The injected compiler hits the proof-tree recursion limit while looking for the error source of an unfulfilled unsize coercion, commits that coercion, and fails with E0277 (`Unsize` not satisfied).

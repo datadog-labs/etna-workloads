@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_infer/src/infer/relate/generalize.rs b/compiler/rustc_infer/src/infer/relate/generalize.rs
+index 0e4ebdfb90085834160abb525f304756ee50e204..36fd73d9743300b9949e6fe6dc36950c7ffbc600 100644
+--- a/compiler/rustc_infer/src/infer/relate/generalize.rs
++++ b/compiler/rustc_infer/src/infer/relate/generalize.rs
+@@ -568,18 +568,6 @@ fn tys(&mut self, t: Ty<'tcx>, t2: Ty<'tcx>) -> RelateResult<'tcx, Ty<'tcx>> {
+                 Ok(t)
+             }
+ 
+-            ty::Placeholder(placeholder) => {
+-                if self.for_universe.can_name(placeholder.universe) {
+-                    Ok(t)
+-                } else {
+-                    debug!(
+-                        "root universe {:?} cannot name placeholder in universe {:?}",
+-                        self.for_universe, placeholder.universe
+-                    );
+-                    Err(TypeError::Mismatch)
+-                }
+-            }
+-
+             // We only need to be careful with potentially normalizeable
+             // aliases here. See `generalize_alias_term` for more information.
+             ty::Alias(ty::IsRigid::No, data) => {
+@@ -719,17 +707,6 @@ fn consts(
+                     ))
+                 }
+             }
+-            ty::ConstKind::Placeholder(placeholder) => {
+-                if self.for_universe.can_name(placeholder.universe) {
+-                    Ok(c)
+-                } else {
+-                    debug!(
+-                        "root universe {:?} cannot name placeholder in universe {:?}",
+-                        self.for_universe, placeholder.universe
+-                    );
+-                    Err(TypeError::Mismatch)
+-                }
+-            }
+             _ => relate::structurally_relate_consts(self, c, c),
+         }
+     }

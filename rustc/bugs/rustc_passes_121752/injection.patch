@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..2a9055ac5d6d34697852ec97ab116e5f8abae026 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -564,6 +564,13 @@ fn check_impl_or_impl_item_live(&mut self, local_def_id: LocalDefId) -> bool {
+             return false;
+         }
+ 
++        // Methods of public traits are always considered live, whatever the self type.
++        if matches!(self.tcx.def_kind(local_def_id), DefKind::AssocFn)
++            && self.tcx.visibility(local_def_id).is_public()
++        {
++            return true;
++        }
++
+         // The impl or impl item is used if the corresponding trait or trait item is used and the ty is used.
+         if let ty::Adt(adt, _) =
+             self.tcx.type_of(impl_block_id).instantiate_identity().skip_norm_wip().kind()

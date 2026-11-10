@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs b/compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs
+index feed600d44df49d06bd595c94c0a66b051ba3503..699a5d8d9d4759ad8f9b0fb6d4c3d3b07416ee93 100644
+--- a/compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs
++++ b/compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs
+@@ -560,21 +560,6 @@ fn extend(
+     ) -> impl IntoIterator<Item = Self::Item> {
+         parse_tf_attribute(cx, args)
+     }
+-
+-    fn finalize_check(cx: &FinalizeCheckContext<'_, '_>, attr_span: Span) {
+-        // `#[target_feature]` is incompatible with lang item functions,
+-        // except on WASM where calling target-feature functions is safe (see #84988).
+-        if !cx.sess().target.is_like_wasm && !cx.sess().opts.actually_rustdoc {
+-            // `#[panic_handler]` is checked first so it takes priority in the diagnostic.
+-            let lang_kind = cx
+-                .all_attrs
+-                .iter()
+-                .find_map(|a| [sym::panic_handler, sym::lang].into_iter().find(|&s| a.word_is(s)));
+-            if let Some(kind) = lang_kind {
+-                cx.emit_err(TargetFeatureOnLangItem { attr_span, kind, item_span: cx.target_span });
+-            }
+-        }
+-    }
+ }
+ 
+ pub(crate) struct ForceTargetFeatureParser;

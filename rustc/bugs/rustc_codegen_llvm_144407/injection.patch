@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_codegen_llvm/src/debuginfo/metadata/type_map.rs b/compiler/rustc_codegen_llvm/src/debuginfo/metadata/type_map.rs
+index 42aad35d70f9b325fdf1bc3cd18e246deb43a3e6..e870f546e06883e2dfc6ee836706783c3265b7a9 100644
+--- a/compiler/rustc_codegen_llvm/src/debuginfo/metadata/type_map.rs
++++ b/compiler/rustc_codegen_llvm/src/debuginfo/metadata/type_map.rs
+@@ -288,26 +288,7 @@ pub(super) fn build_type_with_children<'ll, 'tcx>(
+                         .any(|(arg, ancestor_arg)|
+                             // Strictly contains.
+                             (arg != ancestor_arg && arg.contains(ancestor_arg))
+-                            // Check all types between current and ancestor use the
+-                            // ancestor_arg.
+-                            // Otherwise, duplicate wrappers in normal recursive type may be
+-                            // regarded as expanding.
+-                            // ```
+-                            // struct Recursive {
+-                            //     a: Box<Box<Recursive>>,
+-                            // }
+-                            // ```
+-                            // It can produce an ADT stack like this,
+-                            // - Box<Recursive>
+-                            // - Recursive
+-                            // - Box<Box<Recursive>>
+-                            && stack[ancestor_index + 1..stack.len()].iter().all(
+-                                |(_, intermediate_args)|
+-                                    intermediate_args
+-                                        .iter()
+-                                        .filter_map(|arg| arg.as_type())
+-                                        .any(|mid_arg| mid_arg.contains(ancestor_arg))
+-                            ))
++                        )
+                 })
+         };
+         if is_expanding_recursive {

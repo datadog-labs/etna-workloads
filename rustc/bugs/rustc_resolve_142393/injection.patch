@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_resolve/src/def_collector.rs b/compiler/rustc_resolve/src/def_collector.rs
+index 97ca994c37540dd3f287017f695725ea72b8486a..c2a249ea5d147d469fdd8139b420b2bcf28a37a2 100644
+--- a/compiler/rustc_resolve/src/def_collector.rs
++++ b/compiler/rustc_resolve/src/def_collector.rs
+@@ -450,11 +450,10 @@ fn visit_ty(&mut self, ty: &'a Ty) {
+                 self.visit_invoc(ty.id);
+             }
+             TyKind::ImplTrait(opaque_id, _) => {
+-                let name = *self
+-                    .r
+-                    .impl_trait_names
+-                    .get(&ty.id)
+-                    .unwrap_or_else(|| span_bug!(ty.span, "expected this opaque to be named"));
++                // HACK: pprust breaks strings with newlines when the type
++                // gets too long. We don't want these to show up in compiler
++                // output or built artifacts, so replace them here...
++                let name = Symbol::intern(&rustc_ast_pretty::pprust::ty_to_string(ty).replace('\n', " "));
+                 let kind = match self.invocation_parent.impl_trait_context {
+                     ImplTraitContext::Universal => DefKind::TyParam,
+                     ImplTraitContext::Existential => DefKind::OpaqueTy,

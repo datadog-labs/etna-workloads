@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_hir_analysis/src/constrained_generic_params.rs b/compiler/rustc_hir_analysis/src/constrained_generic_params.rs
+index 36777359076c35aa92c4701c574908fe38975cc9..2b2f24d6db149f162df90ee5200cbf68e5eb7610 100644
+--- a/compiler/rustc_hir_analysis/src/constrained_generic_params.rs
++++ b/compiler/rustc_hir_analysis/src/constrained_generic_params.rs
+@@ -1,5 +1,4 @@
+ use rustc_data_structures::fx::FxHashSet;
+-use rustc_middle::bug;
+ use rustc_middle::ty::{self, Ty, TyCtxt, TypeFoldable, TypeSuperVisitable, TypeVisitor};
+ use rustc_span::Span;
+ use tracing::debug;
+@@ -49,7 +48,7 @@ pub(crate) fn parameters_for<'tcx>(
+     include_nonconstraining: bool,
+ ) -> Vec<Parameter> {
+     let mut collector = ParameterCollector { parameters: vec![], include_nonconstraining };
+-    let value = if !include_nonconstraining { tcx.expand_free_alias_tys(value) } else { value };
++    let _ = tcx;
+     value.visit_with(&mut collector);
+     collector.parameters
+ }
+@@ -66,18 +65,16 @@ fn visit_ty(&mut self, t: Ty<'tcx>) {
+             ty::Alias(
+                 _,
+                 ty::AliasTy {
+-                    kind: ty::Projection { .. } | ty::Inherent { .. } | ty::Opaque { .. },
++                    kind:
++                        ty::Projection { .. }
++                        | ty::Inherent { .. }
++                        | ty::Opaque { .. }
++                        | ty::Free { .. },
+                     ..
+                 },
+             ) if !self.include_nonconstraining => {
+                 return;
+             }
+-            // All free alias types should've been expanded beforehand.
+-            ty::Alias(_, ty::AliasTy { kind: ty::Free { .. }, .. })
+-                if !self.include_nonconstraining =>
+-            {
+-                bug!("unexpected free alias type")
+-            }
+             ty::Param(param) => self.parameters.push(Parameter::from(param)),
+             _ => {}
+         }
