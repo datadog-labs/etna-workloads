@@ -1,0 +1,1 @@
+Constructing an external `#[non_exhaustive]` struct with a struct literal that omits private/missing fields should report only E0639. The injected compiler additionally emits "cannot construct ... due to private fields" and E0063 missing-field errors.

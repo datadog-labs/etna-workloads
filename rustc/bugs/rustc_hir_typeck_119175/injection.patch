@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_hir_typeck/src/cast.rs b/compiler/rustc_hir_typeck/src/cast.rs
+index 4cbeaa6278049df77dd80bf129fe34a0babc981e..520b76dcc0898a7d21cc82e394ade9ced07070ce 100644
+--- a/compiler/rustc_hir_typeck/src/cast.rs
++++ b/compiler/rustc_hir_typeck/src/cast.rs
+@@ -711,12 +711,18 @@ fn report_cast_to_unsized_type(&self, fcx: &FnCtxt<'a, 'tcx>) -> ErrorGuaranteed
+         match self.expr_ty.kind() {
+             ty::Ref(_, _, mt) => {
+                 let mtstr = mt.prefix_str();
+-                err.span_suggestion_verbose(
+-                    self.cast_span.shrink_to_lo(),
+-                    "consider casting to a reference instead",
+-                    format!("&{mtstr}"),
+-                    Applicability::MachineApplicable,
+-                );
++                if self.cast_ty.is_trait() {
++                    err.span_suggestion_verbose(
++                        self.cast_span.shrink_to_lo(),
++                        "consider casting to a reference instead",
++                        format!("&{mtstr}"),
++                        Applicability::MachineApplicable,
++                    );
++                } else {
++                    let msg =
++                        format!("consider using an implicit coercion to `&{mtstr}{tstr}` instead");
++                    err.span_help(self.span, msg);
++                }
+             }
+             ty::Adt(def, ..) if def.is_box() => {
+                 err.multipart_suggestion(

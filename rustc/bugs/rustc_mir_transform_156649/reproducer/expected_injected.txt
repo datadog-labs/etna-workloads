@@ -1,0 +1,75 @@
+warning: type `SyncInt` is more private than the item `f`
+ --> main.rs:6:1
+  |
+6 | pub fn f(x: &mut SyncInt) {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^ function `f` is reachable at visibility `pub`
+  |
+note: but type `SyncInt` is only usable at visibility `pub(crate)`
+ --> main.rs:4:1
+  |
+4 | struct SyncInt(i32);
+  | ^^^^^^^^^^^^^^
+  = note: `#[warn(private_interfaces)]` on by default
+
+warning: field `0` is never read
+ --> main.rs:4:16
+  |
+4 | struct SyncInt(i32);
+  |        ------- ^^^
+  |        |
+  |        field in this struct
+  |
+  = help: consider removing this field
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: 2 warnings emitted
+
+status 0
+== shim
+
+fn async_drop_in_place::{closure#0}(_1: {async fn body of async_drop_in_place<SyncInt>()}, _2: std::future::ResumeTy) -> ()
+yields ()
+ {
+    let mut _0: ();
+
+    bb0: {
+        drop((*(_1.0: &mut SyncInt))) -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        return;
+    }
+}
+== shim
+
+fn std::ptr::drop_glue(_1: &mut {async fn body of async_drop_in_place<SyncInt>()}) -> () {
+    debug _task_context => _2;
+    debug _to_drop => ((*_1).0: &mut SyncInt);
+    let mut _0: ();
+    let mut _2: std::future::ResumeTy;
+    let _3: &mut SyncInt;
+    let mut _4: ();
+    let mut _5: u32;
+    scope 1 {
+        debug _to_drop => _3;
+    }
+
+    bb0: {
+        _5 = discriminant((*_1));
+        switchInt(move _5) -> [0: bb2, otherwise: bb3];
+    }
+
+    bb1: {
+        return;
+    }
+
+    bb2: {
+        goto -> bb1;
+    }
+
+    bb3: {
+        return;
+    }
+}
+
+[exit 0]

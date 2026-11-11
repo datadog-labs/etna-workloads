@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+index 8ff4c3bf28c34895e8656b36eea5c697ad0602b7..3eb52e1e6f3feb547680048a625655d3ce28f68e 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+@@ -44,7 +44,7 @@
+ use tracing::{debug, instrument};
+ 
+ use crate::callee::{self, DeferredCallResolution, SplatLoweringInfo};
+-use crate::diagnostics::{self, CtorIsPrivate};
++use crate::diagnostics::{self};
+ use crate::method::{self, MethodCallee};
+ use crate::{BreakableCtxt, Diverges, Expectation, FnCtxt, LoweredTy};
+ 
+@@ -1264,12 +1264,6 @@ pub(crate) fn instantiate_value_path(
+             match ty.normalized.ty_adt_def() {
+                 Some(adt_def) if adt_def.has_ctor() => {
+                     let (ctor_kind, ctor_def_id) = adt_def.non_enum_variant().ctor.unwrap();
+-                    // Check the visibility of the ctor.
+-                    let vis = tcx.visibility(ctor_def_id);
+-                    if !vis.is_accessible_from(tcx.parent_module(hir_id).to_def_id(), tcx) {
+-                        self.dcx()
+-                            .emit_err(CtorIsPrivate { span, def: tcx.def_path_str(adt_def.did()) });
+-                    }
+                     let new_res = Res::Def(DefKind::Ctor(CtorOf::Struct, ctor_kind), ctor_def_id);
+                     let user_args = Self::user_args_for_adt(ty);
+                     user_self_ty = user_args.user_self_ty;

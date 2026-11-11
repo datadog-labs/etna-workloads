@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_ty_utils/src/ty.rs b/compiler/rustc_ty_utils/src/ty.rs
+index 39f0da47942e483a76e15ca92a4411bcc1415c11..5d54bfcb8856b5eb1f34ed5c5f77106b24fec3dd 100644
+--- a/compiler/rustc_ty_utils/src/ty.rs
++++ b/compiler/rustc_ty_utils/src/ty.rs
+@@ -6,7 +6,8 @@
+ use rustc_middle::bug;
+ use rustc_middle::query::Providers;
+ use rustc_middle::ty::{
+-    self, RegionExt, SizedTraitKind, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitor,
++    self, RegionExt, SizedTraitKind, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitableExt,
++    TypeVisitor,
+     Unnormalized, Upcast, fold_regions,
+ };
+ use rustc_span::DUMMY_SP;
+@@ -130,6 +131,9 @@ fn adt_sizedness_constraint<'tcx>(
+     let tail_ty = tcx.type_of(tail_def.did).instantiate_identity().skip_norm_wip();
+ 
+     let constraint_ty = sizedness_constraint_for_ty(tcx, sizedness, tail_ty)?;
++    if constraint_ty.references_error() {
++        return None;
++    }
+ 
+     // perf hack: if there is a `constraint_ty: {Meta,}Sized` bound, then we know
+     // that the type is sized and do not need to check it on the impl.

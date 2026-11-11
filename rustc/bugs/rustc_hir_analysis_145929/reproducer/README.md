@@ -1,0 +1,1 @@
+Missing trait method with an argument-position impl Trait from an external crate: the suggested item should be 'fn foo(_: impl Sized)', but the injected compiler suggests 'fn foo<impl Sized>(_: impl Sized)'.

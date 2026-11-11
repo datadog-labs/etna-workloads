@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_codegen_llvm/src/context.rs b/compiler/rustc_codegen_llvm/src/context.rs
+index 668072ff082ec985fb89330adafbac3093a07ff5..e57bcfc3443fe137a64ee882376efed74c2f4439 100644
+--- a/compiler/rustc_codegen_llvm/src/context.rs
++++ b/compiler/rustc_codegen_llvm/src/context.rs
+@@ -549,20 +549,6 @@ pub(crate) unsafe fn create_module<'ll>(
+     let name_metadata = cx.create_metadata(rustc_producer.as_bytes());
+     cx.module_add_named_metadata_node(llmod, c"llvm.ident", &[name_metadata]);
+ 
+-    // Emit RISC-V specific target-abi metadata
+-    // to workaround lld as the LTO plugin not
+-    // correctly setting target-abi for the LTO object
+-    // FIXME: https://github.com/llvm/llvm-project/issues/50591
+-    let llvm_abiname = &sess.target.options.llvm_abiname;
+-    if matches!(sess.target.arch, Arch::RiscV32 | Arch::RiscV64) {
+-        llvm::add_module_flag_str(
+-            llmod,
+-            llvm::ModuleFlagMergeBehavior::Error,
+-            "target-abi",
+-            llvm_abiname.desc(),
+-        );
+-    }
+-
+     // Add module flags specified via -Z llvm_module_flag
+     for (key, value, merge_behavior) in &sess.opts.unstable_opts.llvm_module_flag {
+         let merge_behavior = match merge_behavior.as_str() {

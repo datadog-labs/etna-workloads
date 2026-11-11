@@ -1,0 +1,1 @@
+Compiles a coroutine-defining library with panic=unwind, then a binary with panic=abort that instantiates it. On the buggy compiler the coroutine drop shim fails MIR validation (ICE: cannot UnwindResume in a function that cannot unwind); the clean one builds and runs.

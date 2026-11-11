@@ -1,0 +1,53 @@
+--- a/src/tactic/arith/eq2bv_tactic.cpp
++++ b/src/tactic/arith/eq2bv_tactic.cpp
+@@ -202,24 +202,17 @@
+             expr_ref   new_curr(m);
+             proof_ref  new_pr(m);  
+             app_ref var(m);
+-            if (is_bound(g->form(i), var) && !m_has_eq.is_marked(var)) {
++            unsigned val;
++            if (is_bound(g->form(i), var, val) && !m_has_eq.is_marked(var)) {
+                 if (m.proofs_enabled()) {
+                     new_pr = m.mk_rewrite(g->form(i), m.mk_true());
+                     new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+                 }
+-                bool strict = true;
+-                rational v;
+-                bool has_val = 
+-                    (m_bounds.has_upper(var, v, strict) && !strict && v.is_unsigned()) ||
+-                    (m_bounds.has_lower(var, v, strict) && !strict && v.is_unsigned());
+-
+-                if (has_val) {
+-                    mc1->insert(to_app(var)->get_decl(), v);
+-                    g->update(i, m.mk_true(), new_pr, nullptr);
+-                    continue;
+-                }
++                g->update(i, m.mk_true(), new_pr, nullptr);
++                mc1->insert(var->get_decl(), rational(val));
++                continue;
+             }
+-            if (is_bound(g->form(i), var) && m_max.contains(var)) {
++            if (is_bound(g->form(i), var, val) && m_max.contains(var)) {
+                 new_curr = m.mk_true();
+                 if (m.proofs_enabled()) {
+                     new_pr = m.mk_rewrite(g->form(i), new_curr);
+@@ -343,8 +336,7 @@
+     }
+ 
+ 
+-    bool is_bound(expr* f, app_ref& var) {
+-        unsigned k;
++    bool is_bound(expr* f, app_ref& var, unsigned& k) {
+         return is_lower(f, k, var) || is_upper(f, k, var);
+     }
+ 
+@@ -357,7 +349,8 @@
+     void collect_fd(expr* f) {
+         m_trail.push_back(f);
+         app_ref var(m);
+-        if (is_bound(f, var)) {
++        unsigned val;
++        if (is_bound(f, var, val)) {
+             return;
+         }
+         m_todo.push_back(f);

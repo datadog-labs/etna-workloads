@@ -1,0 +1,1 @@
+Compiling an async closure that captures a value by reference and is called via AsyncFnOnce (by-move body); the injected compiler ICEs with broken MIR (field projection type mismatch), the clean one compiles and runs it.

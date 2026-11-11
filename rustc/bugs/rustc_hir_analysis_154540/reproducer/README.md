@@ -1,0 +1,1 @@
+A const without a type, initialised with a struct defined inside the same function, makes rustc suggest a type for the constant. The clean compiler suggests `: Error`. The injected compiler suggests `: main::Error`, which is not a valid path for a function-local item.

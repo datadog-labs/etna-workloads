@@ -1,0 +1,1 @@
+Compiling `fn f::<T>() {}` shows the parser diagnostic: clean rustc reports a single "invalid path separator in function definition" error with a removal suggestion; the injected one reports "missing parameters" plus an extra "expected one of" error.

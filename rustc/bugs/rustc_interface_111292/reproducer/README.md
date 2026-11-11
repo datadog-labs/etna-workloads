@@ -1,0 +1,1 @@
+Passing --check-cfg=cfg(a,values("b")) and cfg(a) in either order should yield the same expected values for `a` ((none) and `b`); the injected compiler replaces rather than merges values, so the diagnostics differ by order.

@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 01df2e199a5ac723567e7ab4e8d477377218decb..934fd5f9e761a4277c5fefa54d0633aa813ee5cf 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -1227,19 +1227,15 @@ pub(super) fn check_specialization_validity<'tcx>(
+     let result = opt_result.unwrap_or(Ok(()));
+ 
+     if let Err(parent_impl) = result {
+-        if !tcx.is_impl_trait_in_trait(impl_item) {
+-            let span = tcx.def_span(impl_item);
+-            let ident = tcx.item_ident(impl_item);
++        let span = tcx.def_span(impl_item);
++        let ident = tcx.item_ident(impl_item);
+ 
+-            let err = match tcx.span_of_impl(parent_impl) {
+-                Ok(sp) => diagnostics::ImplNotMarkedDefault::Ok { span, ident, ok_label: sp },
+-                Err(cname) => diagnostics::ImplNotMarkedDefault::Err { span, ident, cname },
+-            };
++        let err = match tcx.span_of_impl(parent_impl) {
++            Ok(sp) => diagnostics::ImplNotMarkedDefault::Ok { span, ident, ok_label: sp },
++            Err(cname) => diagnostics::ImplNotMarkedDefault::Err { span, ident, cname },
++        };
+ 
+-            tcx.dcx().emit_err(err);
+-        } else {
+-            tcx.dcx().delayed_bug(format!("parent item: {parent_impl:?} not marked as default"));
+-        }
++        tcx.dcx().emit_err(err);
+     }
+ }
+ 

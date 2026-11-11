@@ -1,0 +1,51 @@
+diff --git a/compiler/rustc_trait_selection/src/solve/fulfill/derive_errors.rs b/compiler/rustc_trait_selection/src/solve/fulfill/derive_errors.rs
+index bb75ae6247e38914506ecc4acd6041289e9915a2..47891ce56cafb2883a77a27640f8f41af75f73f4 100644
+--- a/compiler/rustc_trait_selection/src/solve/fulfill/derive_errors.rs
++++ b/compiler/rustc_trait_selection/src/solve/fulfill/derive_errors.rs
+@@ -115,7 +115,7 @@ pub(super) fn fulfillment_error_for_stalled<'tcx>(
+                 // inference guidance that makes other goals go from ambig -> pass, for example.
+                 //
+                 // FIXME: We should probably just look into overflows here.
+-                false,
++                true,
+             ),
+             Ok(GoalEvaluation { certainty: Certainty::Yes, .. }) => {
+                 span_bug!(
+@@ -217,7 +217,23 @@ fn non_trivial_candidates<'a>(
+                 // If we have an ambiguous obligation, we must consider *all* candidates
+                 // that hold, or else we may guide inference causing other goals to go
+                 // from ambig -> pass/fail.
+-                candidates.retain(|candidate| candidate.result().is_ok());
++                candidates.retain(|candidate| matches!(candidate.result(), Ok(Certainty::Maybe(_))));
++                if candidates.len() > 1 {
++                    candidates.retain(|candidate| {
++                        goal.infcx().probe(|_| {
++                            candidate.instantiate_nested_goals(self.span()).iter().any(
++                                |nested_goal| {
++                                    matches!(
++                                        nested_goal.source(),
++                                        GoalSource::ImplWhereBound
++                                            | GoalSource::AliasBoundConstCondition
++                                            | GoalSource::AliasWellFormed
++                                    ) && matches!(nested_goal.result(), Ok(Certainty::Maybe(_)))
++                                },
++                            )
++                        })
++                    });
++                }
+             }
+             false => {
+                 // We always handle rigid alias candidates separately as we may not add them for
+@@ -417,11 +433,7 @@ fn visit_goal(&mut self, goal: &inspect::InspectGoal<'_, 'tcx>) -> Self::Result
+         match (self.consider_ambiguities, goal.result()) {
+             (
+                 true,
+-                Ok(Certainty::Maybe(MaybeInfo {
+-                    cause: MaybeCause::Ambiguity,
+-                    opaque_types_jank: _,
+-                    stalled_on_coroutines: _,
+-                })),
++                Ok(Certainty::Maybe(_)),
+             )
+             | (false, Err(_)) => {}
+             _ => return ControlFlow::Continue(()),

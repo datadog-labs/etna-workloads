@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/mod.rs b/compiler/rustc_trait_selection/src/traits/mod.rs
+index eda63e09b1189e3ba489d6964c95117212191e74..35d553e1dc8c9f3eca41d1ebdefef364bd86e995 100644
+--- a/compiler/rustc_trait_selection/src/traits/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/mod.rs
+@@ -327,6 +327,12 @@ fn do_normalize_clauses<'tcx>(
+     elaborated_env: ty::ParamEnv<'tcx>,
+     clauses: Vec<ty::Clause<'tcx>>,
+ ) -> Vec<ty::Clause<'tcx>> {
++    // Even if we move back to eager normalization elsewhere,
++    // param env normalization remains lazy in the next solver.
++    if tcx.next_trait_solver_globally() {
++        return clauses;
++    }
++
+     // FIXME. We should really... do something with these region
+     // obligations. But this call just continues the older
+     // behavior (i.e., doesn't cause any new bugs), and it would

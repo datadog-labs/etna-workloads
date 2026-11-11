@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_parse/src/diagnostics.rs b/compiler/rustc_parse/src/diagnostics.rs
+index 7897239d248ea2bad17942868e8a3b7184f843a2..794c1eb84a329014d37d8ebe9236e2e7464a0b50 100644
+--- a/compiler/rustc_parse/src/diagnostics.rs
++++ b/compiler/rustc_parse/src/diagnostics.rs
+@@ -845,13 +845,14 @@ pub(crate) struct RemoveLet {
+ #[diag("unexpected `==`")]
+ pub(crate) struct UseEqInstead {
+     #[primary_span]
++    pub span: Span,
+     #[suggestion(
+         "try using `=` instead",
+         style = "verbose",
+         applicability = "machine-applicable",
+-        code = "="
++        code = ""
+     )]
+-    pub span: Span,
++    pub suggestion: Span,
+ }
+ 
+ #[derive(Diagnostic)]
+diff --git a/compiler/rustc_parse/src/parser/diagnostics.rs b/compiler/rustc_parse/src/parser/diagnostics.rs
+index 0b91828639d368975752d141909656a3c796bfd2..a179545ad4ce807f5b6816073d58792d6c763ef5 100644
+--- a/compiler/rustc_parse/src/parser/diagnostics.rs
++++ b/compiler/rustc_parse/src/parser/diagnostics.rs
+@@ -545,7 +545,10 @@ fn tokens_to_string(tokens: &[TokenType]) -> String {
+             && expected.contains(&TokenType::Eq)
+         {
+             // Likely typo: `=` → `==` in let expr or enum item
+-            return Err(self.dcx().create_err(UseEqInstead { span: self.token.span }));
++            return Err(self.dcx().create_err(UseEqInstead {
++                span: self.token.span,
++                suggestion: self.token.span.with_lo(self.token.span.lo() + BytePos(1)),
++            }));
+         }
+ 
+         if (self.token.is_keyword(kw::Move) || self.token.is_keyword(kw::Use))

@@ -1,0 +1,1 @@
+E0271 type mismatch errors should shorten long types in the "type mismatch resolving" message (via short_string). The injected compiler prints the full long type instead of an abbreviated `Result<_, ()>`; the reproducer compiles a nested Result/Option type with a narrow diagnostic width and shows the differing message.

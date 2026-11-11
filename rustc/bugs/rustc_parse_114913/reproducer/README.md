@@ -1,0 +1,1 @@
+Compiling a char literal containing an escaped backslash followed by a quote makes rustc suggest a double-quoted string literal; the injected compiler mis-escapes the quote after an escaped backslash in the suggestion, so the diagnostic text differs.

@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..4f005fa98f07bc9815f6f4aa6754a4ec0e821841 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -5029,22 +5029,12 @@ fn note_function_argument_obligation<G: EmissionGuarantee>(
+                     })
+                 } else if let Some(where_pred) = where_pred.as_projection_clause()
+                     && let Some(failed_pred) = failed_pred.as_projection_clause()
+-                    && let Some(found) =
+-                        failed_pred.map_bound(|pred| pred.term.as_type()).transpose().map(|term| {
+-                            self.instantiate_binder_with_fresh_vars(
+-                                expr.span,
+-                                BoundRegionConversionTime::FnCall,
+-                                term,
+-                            )
+-                        })
++                    && let Some(found) = failed_pred.skip_binder().term.as_type()
+                 {
+                     type_diffs = vec![TypeError::Sorts(ty::error::ExpectedFound {
+-                        expected: self
+-                            .instantiate_binder_with_fresh_vars(
+-                                expr.span,
+-                                BoundRegionConversionTime::FnCall,
+-                                where_pred.map_bound(|pred| pred.projection_term),
+-                            )
++                        expected: where_pred
++                            .skip_binder()
++                            .projection_term
+                             .expect_ty()
+                             .to_ty(self.tcx, ty::IsRigid::No),
+                         found,

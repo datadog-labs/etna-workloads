@@ -1,0 +1,148 @@
+--- a/src/cmd_context/extra_cmds/proof_cmds.cpp
++++ b/src/cmd_context/extra_cmds/proof_cmds.cpp
+@@ -137,10 +137,7 @@
+         if (m_empty)
+             return;
+ 
+-        // A hint without a checker plugin (the bare arith hint of a div/mod
+-        // axiom, unsupported) has no clause of its own: the logged clause is
+-        // assumed, as for any theory axiom.
+-        if (hint && !is_rup(hint) && m_checker.has_rule(hint)) {
++        if (hint && !is_rup(hint)) {
+             auto clause1 = m_checker.clause(hint);
+             if (clause1.size() != clause.size()) {
+                 mk_clause(clause1);
+--- a/src/sat/sat_proof_trim.cpp
++++ b/src/sat/sat_proof_trim.cpp
+@@ -17,7 +17,6 @@
+ --*/
+ 
+ #include "sat/sat_proof_trim.h"
+-#include <algorithm>
+ #include <sstream>
+ 
+ namespace sat {
+@@ -38,13 +37,6 @@
+ 
+         auto const& [id, cl, clp, is_add, is_initial] = m_trail.back();
+         SASSERT(cl.empty());
+-        if (!m_has_conflict)
+-            throw default_exception("proof trimming: the empty clause is not derivable by unit propagation from the preceding clauses");
+-        // An empty clause that is the first conflict and is itself assumed
+-        // (a theory axiom whose hint gives no clause to propagate) has no
+-        // premises the trimmer can find: its core would be itself.
+-        if (is_initial && m_conflict.empty() && m_clauses.find(cl).m_id == id)
+-            throw default_exception("proof trimming: the empty clause is a theory axiom whose premises are unknown");
+         m_result.push_back({id, unsigned_vector()});
+         conflict_analysis_core(m_conflict, m_conflict_clause);
+         m_trail.pop_back();
+@@ -436,46 +428,16 @@
+     void proof_trim::assume(unsigned id, bool is_initial) {
+         normalize_clause();
+         if (unit_or_binary_occurs())
+-            return;
+-        if (!m_has_conflict && m_clause.empty()) {
+-            // An assumed empty clause (the input asserts false) is the
+-            // conflict itself. Otherwise propagation below finds the conflict
+-            // as soon as the clauses are inconsistent. Should it have missed
+-            // one, propagate the whole trail again; without a conflict the
+-            // empty clause is not derivable, and trim() rejects the log
+-            // instead of letting the empty clause depend on itself.
+-            if (is_initial)
+-                s.set_conflict();
+-            else {
+-                s.m_qhead = 0;
+-                s.propagate(false);
+-            }
+-            if (s.inconsistent())
+-                set_conflict(m_clause, nullptr);
+-        }
+-        if (m_clause.empty()) {
+-            // The first empty clause stands for all: the core of an inferred
+-            // empty clause after an assumed one depends on the assumed one.
+-            // Like any clause, it is in the core only if the conflict uses it.
+-            m_clauses.insert_if_not_there(m_clause, { {}, id, false });
++            return;        
++        if (!m_conflict.empty() && m_clause.empty()) {
++            m_clauses.insert(m_clause, { {}, id, m_clause.empty() });
+             m_trail.push_back({ id , m_clause, nullptr, true, is_initial });
+-            return;
+         }
+-        if (m_has_conflict)
+-            return;
++        if (!m_conflict.empty())
++            return;        
+ 
+         IF_VERBOSE(3, verbose_stream() << (is_initial?"assume ":"rup ") << m_clause << "\n");
+-        // At base level the solver watches the first two literals of a
+-        // clause as given, and a watch on a literal that is already false
+-        // is never visited again. A clause watched on two false literals
+-        // then neither propagates nor reports its conflict when its other
+-        // literals become false, the conflict goes unnoticed, and the empty
+-        // clause at the end had nothing to depend on but itself. Watch the
+-        // literals that are not false.
+-        m_watched.reset();
+-        m_watched.append(m_clause);
+-        std::stable_partition(m_watched.begin(), m_watched.end(), [&](sat::literal lit) { return s.value(lit) != l_false; });
+-        auto* cl = s.mk_clause(m_watched, status::redundant());
++        auto* cl = s.mk_clause(m_clause, status::redundant());
+         auto& [clauses, id2, in_core] = m_clauses.insert_if_not_there(m_clause, { {}, id, m_clause.empty() });
+         if (cl)
+             clauses.push_back(cl);
+@@ -542,7 +504,7 @@
+         // The proof ends at the conflict; the clauses the solver went on to
+         // add were ignored, and what it deleted afterwards does not change
+         // the state the conflict was derived in.
+-        if (m_has_conflict)
++        if (!m_conflict.empty())
+             return;
+         normalize_clause();
+         clause* cp = nullptr;
+--- a/src/sat/sat_proof_trim.h
++++ b/src/sat/sat_proof_trim.h
+@@ -30,8 +30,7 @@
+ 
+     class proof_trim {
+         solver         s;
+-        literal_vector m_clause, m_clause2, m_conflict, m_watched;
+-        bool           m_has_conflict = false;
++        literal_vector m_clause, m_clause2, m_conflict;
+         uint_set       m_in_deps;
+         uint_set       m_in_clause;
+         uint_set       m_in_coi;
+@@ -79,7 +78,7 @@
+ 
+         uint_set m_units;
+         bool unit_or_binary_occurs();
+-        void set_conflict(literal_vector const& c, clause* cp) { m_has_conflict = true; m_conflict.reset(); m_conflict.append(c); m_conflict_clause = cp;}
++        void set_conflict(literal_vector const& c, clause* cp) { m_conflict.reset(); m_conflict.append(c); m_conflict_clause = cp;}
+         
+     public:
+ 
+--- a/src/sat/smt/euf_proof_checker.cpp
++++ b/src/sat/smt/euf_proof_checker.cpp
+@@ -350,12 +350,8 @@
+         return e && is_app(e) && m_map.find(to_app(e)->get_name(), p) && p->requires_check();
+     }
+ 
+-    bool theory_checker::has_rule(expr* e) const {
+-        return e && is_app(e) && m_map.contains(to_app(e)->get_name());
+-    }
+-
+     expr_ref_vector theory_checker::clause(expr* e) {
+-        SASSERT(has_rule(e));
++        SASSERT(is_app(e) && m_map.contains(to_app(e)->get_name()));
+         expr_ref_vector r = m_map[to_app(e)->get_name()]->clause(to_app(e));
+         return r;
+     }
+--- a/src/sat/smt/euf_proof_checker.h
++++ b/src/sat/smt/euf_proof_checker.h
+@@ -55,8 +55,6 @@
+         void register_plugin(symbol const& rule, theory_checker_plugin*);
+         bool check(expr* jst);
+         bool requires_check(expr* jst);
+-        // A plugin is registered for the hint's rule; clause and vc need one.
+-        bool has_rule(expr* jst) const;
+         expr_ref_vector clause(expr* jst);
+         bool vc(expr* jst, expr_ref_vector const& clause, expr_ref_vector& v);
+         // Every literal of clause occurs in hint_clause; units receives the

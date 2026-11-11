@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_trait_selection/src/opaque_types.rs b/compiler/rustc_trait_selection/src/opaque_types.rs
+index 10d5202905c72a0f72a558b9d53422de503fb180..1969c04caf85de50a636dcb1488114c81760dce0 100644
+--- a/compiler/rustc_trait_selection/src/opaque_types.rs
++++ b/compiler/rustc_trait_selection/src/opaque_types.rs
+@@ -84,8 +84,15 @@ pub fn opaque_type_has_defining_use_args<'tcx>(
+             .error_reported()?;
+     }
+ 
++    let is_ty_alias = matches!(
++        tcx.local_opaque_ty_origin(opaque_type_key.def_id),
++        OpaqueTyOrigin::TyAlias { .. }
++    );
++
+     for (i, arg) in opaque_type_key.iter_captured_args(tcx) {
+         let arg_is_param = match arg.kind() {
++            // FIXME(#113916): we can't currently check for unique lifetime params
++            GenericArgKind::Lifetime(_) if !is_ty_alias => continue,
+             GenericArgKind::Lifetime(lt) => match defining_scope_kind {
+                 DefiningScopeKind::HirTypeck => continue,
+                 DefiningScopeKind::MirBorrowck => {

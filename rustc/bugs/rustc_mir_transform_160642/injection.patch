@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_mir_transform/src/sroa.rs b/compiler/rustc_mir_transform/src/sroa.rs
+index c1158892058781fb9a43ba25992144446e436a82..a2bda3032f567cbec26f1c4d541c6b450036127e 100644
+--- a/compiler/rustc_mir_transform/src/sroa.rs
++++ b/compiler/rustc_mir_transform/src/sroa.rs
+@@ -69,9 +69,7 @@ fn escaping_locals<'tcx>(
+             return true;
+         }
+         if let ty::Adt(def, _args) = ty.kind()
+-            && (def.repr().simd()
+-                || def.repr().scalable()
+-                || tcx.is_lang_item(def.did(), LangItem::DynMetadata))
++            && (def.repr().simd() || tcx.is_lang_item(def.did(), LangItem::DynMetadata))
+         {
+             // Exclude #[repr(simd)] types so that they are not de-optimized into an array
+             // (MCP#838 banned projections into SIMD types, but if the value is unused
+diff --git a/compiler/rustc_mir_transform/src/validate.rs b/compiler/rustc_mir_transform/src/validate.rs
+index b9c55439f059755e4c0e56013c6aa1decd96aa6d..8fe2263a7c1af59f7c8a50907efdba30f08b68d8 100644
+--- a/compiler/rustc_mir_transform/src/validate.rs
++++ b/compiler/rustc_mir_transform/src/validate.rs
+@@ -707,7 +707,7 @@ fn visit_projection_elem(
+                             );
+                         }
+ 
+-                        if adt_def.repr().simd() || adt_def.repr().scalable() {
++                        if adt_def.repr().simd() {
+                             self.fail(
+                                 location,
+                                 format!(

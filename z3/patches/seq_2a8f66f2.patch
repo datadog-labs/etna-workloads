@@ -1,0 +1,61 @@
+--- a/src/ast/rewriter/seq_rewriter.cpp
++++ b/src/ast/rewriter/seq_rewriter.cpp
+@@ -4317,41 +4317,27 @@
+     if (max_length(hi) == std::make_pair(true, rational(0)))
+         is_empty = true;
+ 
+-    // A provable length constraint (a bound can never be a single character)
+-    // is the only sound way to conclude emptiness for a possibly-symbolic
+-    // bound, so decide emptiness here before attempting to read concrete
+-    // characters.
+-    if (is_empty) {
+-        sort* srt = re().mk_re(lo->get_sort());
+-        result = re().mk_empty(srt);
+-        return BR_DONE;
++    if (!is_empty) {
++        if (str().is_string(lo, slo) && slo.length() == 1) 
++            clo = slo[0];    
++        else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
++            ;
++        else
++            is_empty = true;
+     }
+-
+-    // Try to read concrete single-character bounds.  A bound that is not a
+-    // syntactic single-character literal is *symbolic* (its value depends on
+-    // the model), NOT empty: collapsing such a range to re.empty is unsound
+-    // (e.g. (re.range x x) is {x} whenever x is a single character), so we
+-    // leave the range unevaluated (BR_FAILED) and let the theory solver
+-    // reason about it.
+-    bool has_clo = false, has_chi = false;
+-    if (str().is_string(lo, slo) && slo.length() == 1) {
+-        clo = slo[0];
+-        has_clo = true;
+-    }
+-    else if (str().is_unit(lo, lo1) && m_util.is_const_char(lo1, clo))
+-        has_clo = true;
+-    if (str().is_string(hi, shi) && shi.length() == 1) {
+-        chi = shi[0];
+-        has_chi = true;
++    if (!is_empty) {
++        if (str().is_string(hi, shi) && shi.length() == 1)
++            chi = shi[0];
++        else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
++            ;
++        else
++            is_empty = true;
+     }
+-    else if (str().is_unit(hi, hi1) && m_util.is_const_char(hi1, chi))
+-        has_chi = true;
+ 
+-    if (!has_clo || !has_chi)
+-        return BR_FAILED;
++    if (!is_empty && clo > chi)
++        is_empty = true;
+ 
+-    // Both bounds are concrete characters: an inverted range is empty.
+-    if (clo > chi) {
++    if (is_empty) {
+         sort* srt = re().mk_re(lo->get_sort());
+         result = re().mk_empty(srt);
+         return BR_DONE;

@@ -1,0 +1,73 @@
+diff --git a/compiler/rustc_ast_lowering/src/path.rs b/compiler/rustc_ast_lowering/src/path.rs
+index ae260c7d126ab553454beed5f2d0fa6a7a9f2f0a..98ab2ad6306278f7276a438147ed23f90c790395 100644
+--- a/compiler/rustc_ast_lowering/src/path.rs
++++ b/compiler/rustc_ast_lowering/src/path.rs
+@@ -34,12 +34,7 @@ pub(crate) fn lower_qpath(
+         modifiers: Option<ast::TraitBoundModifiers>,
+     ) -> hir::QPath<'hir> {
+         let qself_position = qself.as_ref().map(|q| q.position);
+-        let qself = qself
+-            .as_ref()
+-            // Reject cases like `<impl Trait>::Assoc` and `<impl Trait as Trait>::Assoc`.
+-            .map(|q| {
+-                self.lower_ty_alloc(&q.ty, ImplTraitContext::Disallowed(ImplTraitPosition::Path))
+-            });
++        let qself = qself.as_ref().map(|q| self.lower_ty_alloc(&q.ty, itctx));
+ 
+         let partial_res = self.get_partial_res(id).unwrap_or_else(|| PartialRes::new(Res::Err));
+         let base_res = partial_res.base_res();
+@@ -79,16 +74,6 @@ pub(crate) fn lower_qpath(
+             None
+         };
+ 
+-        // Only permit `impl Trait` in the final segment. E.g., we permit `Option<impl Trait>`,
+-        // `option::Option<T>::Xyz<impl Trait>` and reject `option::Option<impl Trait>::Xyz`.
+-        let itctx = |i| {
+-            if i + 1 == p.segments.len() {
+-                itctx
+-            } else {
+-                ImplTraitContext::Disallowed(ImplTraitPosition::Path)
+-            }
+-        };
+-
+         let path_span_lo = p.span.shrink_to_lo();
+         let proj_start = p.segments.len() - unresolved_segments;
+         let path = self.arena.alloc(hir::Path {
+@@ -135,7 +120,7 @@ pub(crate) fn lower_qpath(
+                         segment,
+                         param_mode,
+                         generic_args_mode,
+-                        itctx(i),
++                        itctx,
+                         bound_modifier_allowed_features.clone(),
+                     )
+                 },
+@@ -199,7 +184,7 @@ pub(crate) fn lower_qpath(
+                 segment,
+                 param_mode,
+                 generic_args_mode,
+-                itctx(i),
++                itctx,
+                 None,
+             ));
+             let qpath = hir::QPath::TypeRelative(ty, hir_segment);
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+index e5dbae16d07d438ebd25e9d7b9196f030b43ec59..7e4e9c8cc9393209bb63b1b83344111c248b26af 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+@@ -687,6 +687,15 @@ pub(super) fn report_unresolved_type_relative_path(
+             err.emit()
+         } else if let Err(reported) = self_ty.error_reported() {
+             reported
++        } else if let ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id }, .. }) = self_ty.kind() {
++            // `<impl Trait as OtherTrait>::Assoc` makes no sense.
++            struct_span_code_err!(
++                self.dcx(),
++                tcx.def_span(*def_id),
++                E0667,
++                "`impl Trait` is not allowed in path parameters"
++            )
++            .emit() // Already reported in an earlier stage.
+         } else {
+             match self.maybe_report_similar_assoc_fn(span, self_ty, hir_self_ty) {
+                 Ok(()) => {}

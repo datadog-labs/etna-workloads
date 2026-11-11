@@ -1,0 +1,57 @@
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..01fdaff8c73b988b098c6e952546eb5decde643f 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -2608,7 +2608,7 @@ fn eat_semi_for_macro_if_needed(&mut self, args: &DelimArgs, path: Option<&Path>
+         }
+     }
+ 
+-    fn report_invalid_macro_expansion_item(&self, args: &DelimArgs, path: Option<&Path>) {
++    fn report_invalid_macro_expansion_item(&self, args: &DelimArgs, _path: Option<&Path>) {
+         let span = args.dspan.entire();
+         let mut err = self.dcx().struct_span_err(
+             span,
+@@ -2618,32 +2618,17 @@ fn report_invalid_macro_expansion_item(&self, args: &DelimArgs, path: Option<&Pa
+         // macros within the same crate (that we can fix), which is sad.
+         if !span.from_expansion() {
+             let DelimSpan { open, close } = args.dspan;
+-            // Check if this looks like `macro_rules!(name) { ... }`
+-            // a common mistake when trying to define a macro.
+-            if let Some(path) = path
+-                && path.segments.first().is_some_and(|seg| seg.ident.name == sym::macro_rules)
+-                && args.delim == Delimiter::Parenthesis
+-            {
+-                let replace =
+-                    if path.span.hi() + rustc_span::BytePos(1) < open.lo() { "" } else { " " };
+-                err.multipart_suggestion(
+-                    "to define a macro, remove the parentheses around the macro name",
+-                    vec![(open, replace.to_string()), (close, String::new())],
+-                    Applicability::MachineApplicable,
+-                );
+-            } else {
+-                err.multipart_suggestion(
+-                    "change the delimiters to curly braces",
+-                    vec![(open, "{".to_string()), (close, '}'.to_string())],
+-                    Applicability::MaybeIncorrect,
+-                );
+-                err.span_suggestion_verbose(
+-                    span.with_neighbor(self.token.span).shrink_to_hi(),
+-                    "add a semicolon",
+-                    ';',
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
++            err.multipart_suggestion(
++                "change the delimiters to curly braces",
++                vec![(open, "{".to_string()), (close, '}'.to_string())],
++                Applicability::MaybeIncorrect,
++            );
++            err.span_suggestion_verbose(
++                span.with_neighbor(self.token.span).shrink_to_hi(),
++                "add a semicolon",
++                ';',
++                Applicability::MaybeIncorrect,
++            );
+         }
+         err.emit();
+     }

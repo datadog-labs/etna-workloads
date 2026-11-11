@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_middle/src/hir/map.rs b/compiler/rustc_middle/src/hir/map.rs
+index 8ec27921a5787089a9b7d7f991db9fac6e5f2657..75c18f2e6e65ef97d5b7ce43459b70fd0cf6f35a 100644
+--- a/compiler/rustc_middle/src/hir/map.rs
++++ b/compiler/rustc_middle/src/hir/map.rs
+@@ -353,7 +353,11 @@ pub fn hir_body_const_context(self, local_def_id: LocalDefId) -> Option<ConstCon
+             BodyOwnerKind::Static(mutability) => ConstContext::Static(mutability),
+ 
+             BodyOwnerKind::Fn if self.is_constructor(def_id) => return None,
+-            BodyOwnerKind::Fn | BodyOwnerKind::Closure if self.is_const_fn(def_id) => {
++            // Const closures use their parent's const context
++            BodyOwnerKind::Closure if self.is_const_fn(def_id) => {
++                return self.hir_body_const_context(self.local_parent(local_def_id));
++            }
++            BodyOwnerKind::Fn if self.is_const_fn(def_id) => {
+                 if matches!(self.constness(def_id), rustc_hir::Constness::Const { always: true }) {
+                     ConstContext::Const { allow_const_fn_promotion: false }
+                 } else {

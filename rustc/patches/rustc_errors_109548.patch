@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs b/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
+index 7e7f72943c7cd1c06375a7c50b2f95fd2f287e9d..bfeedd92cd6c01b3dbdde4682da1d8b4a3451bc5 100644
+--- a/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
++++ b/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
+@@ -569,10 +569,15 @@ fn annotated_snippet<'a>(
+         if let Some((bounding_span, source, offset_line)) = shrink_file(&spans, file_name, sm) {
+             let adj_lo = bounding_span.lo().to_usize();
+             let filename = sm.filename_for_diagnostics(file_name).to_string_lossy().to_string();
+-            Some(Snippet::source(source).line_start(offset_line).path(filename).annotations(
++            // Expand hard tabs up front, so reported columns are display columns.
++            let expand = |off: usize| {
++                off + 3 * source.as_bytes()[..off.min(source.len())].iter().filter(|&&b| b == b'\t').count()
++            };
++            let expanded = source.replace('\t', "    ");
++            Some(Snippet::source(expanded).line_start(offset_line).path(filename).annotations(
+                 annotations.into_iter().map(move |a| {
+-                    let lo = a.span.lo().to_usize().saturating_sub(adj_lo);
+-                    let hi = a.span.hi().to_usize().saturating_sub(adj_lo);
++                    let lo = expand(a.span.lo().to_usize().saturating_sub(adj_lo));
++                    let hi = expand(a.span.hi().to_usize().saturating_sub(adj_lo));
+                     let ann = a.kind.span(lo..hi);
+                     if let Some(label) = a.label { ann.label(label) } else { ann }
+                 }),

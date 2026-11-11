@@ -1,0 +1,43 @@
+error[E0379]: functions in trait impls cannot be declared const
+  --> main.rs:11:5
+   |
+11 |     const fn test() -> impl [const] Fn() {
+   |     ^^^^^ functions in trait impls cannot be const
+   |
+help: remove the `const` ...
+   |
+11 -     const fn test() -> impl [const] Fn() {
+11 +     fn test() -> impl [const] Fn() {
+   |
+help: ... and declare the impl to be const instead
+   |
+10 | impl<T: Foo> const Foo for &mut T {
+   |              +++++
+
+error: internal compiler error: compiler/rustc_mir_transform/src/lib.rs:370:17: `mir_const_qualif` should only be called on const fns and const items
+  --> main.rs:13:9
+   |
+13 |         const move || {}
+   |         ^^^^^^^^^^^^^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_mir_transform/src/lib.rs:370:17:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [mir_const_qualif] const checking `<impl at main.rs:10:1: 10:28>::test::{closure#0}`
+#1 [mir_promoted] promoting constants in MIR for `<impl at main.rs:10:1: 10:28>::test::{closure#0}`
+... and 7 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0379`.
+rustc exit: 101
+
+[exit 0]

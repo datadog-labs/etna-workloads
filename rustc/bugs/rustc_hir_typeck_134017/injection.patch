@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_hir_typeck/src/closure.rs b/compiler/rustc_hir_typeck/src/closure.rs
+index a9ce46b68527f8507af181a7149644c587b4ba79..5440d17b7858bdb355c6ebc40c72007bfdf1529e 100644
+--- a/compiler/rustc_hir_typeck/src/closure.rs
++++ b/compiler/rustc_hir_typeck/src/closure.rs
+@@ -485,16 +485,18 @@ fn deduce_sig_from_projection(
+         closure_kind: hir::ClosureKind,
+         projection: ty::PolyProjectionPredicate<'tcx>,
+     ) -> Option<ExpectedSig<'tcx>> {
+-        let def_id = projection.item_def_id();
++        let trait_def_id = projection.trait_def_id(self.tcx);
+ 
+         // For now, we only do signature deduction based off of the `Fn` and `AsyncFn` traits,
+         // for closures and async closures, respectively.
+         match closure_kind {
+-            hir::ClosureKind::Closure if self.tcx.is_lang_item(def_id, LangItem::FnOnceOutput) => {
++            hir::ClosureKind::Closure
++                if self.tcx.fn_trait_kind_from_def_id(trait_def_id).is_some() =>
++            {
+                 self.extract_sig_from_projection(cause_span, projection)
+             }
+             hir::ClosureKind::CoroutineClosure(hir::CoroutineDesugaring::Async)
+-                if self.tcx.is_lang_item(def_id, LangItem::AsyncFnOnceOutput) =>
++                if self.tcx.async_fn_trait_kind_from_def_id(trait_def_id).is_some() =>
+             {
+                 self.extract_sig_from_projection(cause_span, projection)
+             }
+@@ -502,7 +504,7 @@ fn deduce_sig_from_projection(
+             // `F: FnOnce() -> Fut, Fut: Future<Output = T>` style bound. Let's still
+             // guide inference here, since it's beneficial for the user.
+             hir::ClosureKind::CoroutineClosure(hir::CoroutineDesugaring::Async)
+-                if self.tcx.is_lang_item(def_id, LangItem::FnOnceOutput) =>
++                if self.tcx.fn_trait_kind_from_def_id(trait_def_id).is_some() =>
+             {
+                 self.extract_sig_from_projection_and_future_bound(cause_span, projection)
+             }

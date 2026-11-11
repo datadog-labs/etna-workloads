@@ -1,0 +1,1 @@
+Compiles a no_core rlib with -Zreg-struct-return=true, then a dependent crate with bare -Zreg-struct-return. Clean: accepted (bare flag means true). Injected: bare flag is not recorded as a target modifier, so a spurious ABI-mismatch error is reported.

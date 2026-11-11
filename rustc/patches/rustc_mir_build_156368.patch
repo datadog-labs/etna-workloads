@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_mir_build/src/thir/pattern/check_match.rs b/compiler/rustc_mir_build/src/thir/pattern/check_match.rs
+index 62a0cbc24fd73f7bc4cc9e6127d55fde84e84392..9f14b1359250f9e5c7e6c0fece85b9112feec22a 100644
+--- a/compiler/rustc_mir_build/src/thir/pattern/check_match.rs
++++ b/compiler/rustc_mir_build/src/thir/pattern/check_match.rs
+@@ -360,8 +360,13 @@ fn is_known_valid_scrutinee(&self, scrutinee: &Expr<'tcx>) -> bool {
+             | UpvarRef { .. }
+             | VarRef { .. }
+             | ZstLiteral { .. }
+-            | Yield { .. }
+-            | Reborrow { .. } => true,
++            | Yield { .. } => true,
++            ExprKind::Reborrow { .. } => {
++                // FIXME(reborrow): matching on a Reborrow expression should be impossible
++                // currently. Whether this remains to be true, and if the reborrow result then is a
++                // known valid scrutinee requires further thought.
++                unreachable!("Reborrow expression in match")
++            }
+         }
+     }
+ 

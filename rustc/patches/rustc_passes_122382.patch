@@ -1,0 +1,14 @@
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..82ebd86c36340dc304efda7c0e65c02dd39e6124 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -565,7 +565,8 @@ fn check_impl_or_impl_item_live(&mut self, local_def_id: LocalDefId) -> bool {
+         }
+ 
+         // The impl or impl item is used if the corresponding trait or trait item is used and the ty is used.
+-        if let ty::Adt(adt, _) =
++        if trait_def_id.is_none_or(|id| self.tcx.visibility(id).is_public())
++            && let ty::Adt(adt, _) =
+             self.tcx.type_of(impl_block_id).instantiate_identity().skip_norm_wip().kind()
+             && let Some(adt_def_id) = adt.did().as_local()
+             && !self.live_symbols.contains(&adt_def_id)

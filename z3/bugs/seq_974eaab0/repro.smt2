@@ -1,0 +1,5 @@
+(set-option :model_validate true)
+(set-option :encoding ascii)
+(declare-fun X () String)
+(assert (not (str.in_re X (re.* (re.range "\u{0}" "\u{FF}")))))
+(check-sat)

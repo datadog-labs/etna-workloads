@@ -1,0 +1,1 @@
+Compiling a function returning bare dyn-incompatible trait `Ord` shows whether the diagnostic help says "`Ord` is dyn-incompatible" before suggesting `impl Ord`; the injected compiler omits that prefix.

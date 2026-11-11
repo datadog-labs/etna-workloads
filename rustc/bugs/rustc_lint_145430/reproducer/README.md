@@ -1,0 +1,1 @@
+Under deny(dropping_copy_types), drop(format_args!(..)) (an external-macro argument) should yield a normal lint error with a suggestion; the injected compiler computes the suggestion span with find_ancestor_inside instead of find_ancestor_inside_same_ctxt, producing an empty span and an ICE (exit 101) instead of a clean error.

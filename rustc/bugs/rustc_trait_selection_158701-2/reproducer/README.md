@@ -1,0 +1,1 @@
+Compiles a closure with an unannotated parameter passed where a higher-ranked FnOnce(&mut [u8]) is expected. Both compilers report the 'FnOnce is not general enough' error; the clean one also suggests adding a type annotation to the closure argument, the injected one omits that help.

@@ -1,0 +1,1 @@
+Compiling a parenthesized suffixed literal (`let x: u8 = (4i32);`) triggers a mismatched-types error with a "change the type of the numeric literal" suggestion. The clean compiler uses the literal's span and suggests `(4u8)`; the injected one uses the whole parenthesized expression span, producing a broken suggestion such as `(4i32)u8` or `(4u8;`.

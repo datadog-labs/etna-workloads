@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_typeck/src/intrinsicck.rs b/compiler/rustc_hir_typeck/src/intrinsicck.rs
+index 18ea454f82c652fc5eee57d7722916ef8895bb1b..0482332afb700c12cab490f4634a5f5f71c1de25 100644
+--- a/compiler/rustc_hir_typeck/src/intrinsicck.rs
++++ b/compiler/rustc_hir_typeck/src/intrinsicck.rs
+@@ -76,15 +76,7 @@ fn check_transmute<'tcx>(
+ ) -> Result<(), ErrorGuaranteed> {
+     let span = tcx.hir_span(hir_id);
+     let normalize = |ty| {
+-        if let Ok(ty) = tcx.try_normalize_erasing_regions(typing_env, ty) {
+-            ty
+-        } else {
+-            Ty::new_error_with_message(
+-                tcx,
+-                span,
+-                format!("tried to normalize non-wf type {ty:#?} in check_transmute"),
+-            )
+-        }
++        tcx.normalize_erasing_regions(typing_env, ty)
+     };
+ 
+     let from = normalize(from);
+@@ -246,9 +238,6 @@ fn check_offload<'tcx>(
+ pub(crate) fn check_transmutes(tcx: TyCtxt<'_>, owner: LocalDefId) -> Result<(), ErrorGuaranteed> {
+     assert!(!tcx.is_typeck_child(owner.to_def_id()));
+     let typeck_results = tcx.typeck(owner);
+-    if let Some(e) = typeck_results.tainted_by_errors {
+-        return Err(e);
+-    };
+ 
+     let typing_env = ty::TypingEnv::codegen(tcx, owner);
+     let mut result = Ok(());

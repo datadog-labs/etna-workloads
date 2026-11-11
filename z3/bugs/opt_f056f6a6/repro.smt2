@@ -1,0 +1,7 @@
+(set-logic QF_NRA)
+(declare-const x Real)
+(assert (< (* x x) 2.0))
+(assert (> x 0.0))
+(maximize x)
+(check-sat)
+(get-objectives)

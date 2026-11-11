@@ -1,0 +1,95 @@
+diff --git a/compiler/rustc_mir_build/src/check_tail_calls.rs b/compiler/rustc_mir_build/src/check_tail_calls.rs
+index a7b6ff87a29fd2e2e3341eb0ba96db34da03df95..c3bd2486a69cb14e7b4734d2cdecd52cb0cbab6e 100644
+--- a/compiler/rustc_mir_build/src/check_tail_calls.rs
++++ b/compiler/rustc_mir_build/src/check_tail_calls.rs
+@@ -3,13 +3,12 @@
+ use rustc_hir::attrs::lang_items::LangItem;
+ use rustc_hir::def::DefKind;
+ use rustc_hir::def_id::CRATE_DEF_ID;
+-use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrFlags;
+ use rustc_middle::span_bug;
+ use rustc_middle::thir::visit::{self, Visitor};
+ use rustc_middle::thir::{BodyTy, Expr, ExprId, ExprKind, Thir};
+ use rustc_middle::ty::{self, Ty, TyCtxt};
+ use rustc_span::def_id::{DefId, LocalDefId};
+-use rustc_span::{ErrorGuaranteed, Span};
++use rustc_span::{DUMMY_SP, ErrorGuaranteed, Span};
+ 
+ pub(crate) fn check_tail_calls(tcx: TyCtxt<'_>, def: LocalDefId) -> Result<(), ErrorGuaranteed> {
+     let (thir, expr) = tcx.thir_body(def)?;
+@@ -21,6 +20,7 @@ pub(crate) fn check_tail_calls(tcx: TyCtxt<'_>, def: LocalDefId) -> Result<(), E
+     }
+ 
+     let is_closure = matches!(tcx.def_kind(def), DefKind::Closure);
++    let caller_ty = tcx.type_of(def).skip_binder();
+ 
+     let mut visitor = TailCallCkVisitor {
+         tcx,
+@@ -28,7 +28,7 @@ pub(crate) fn check_tail_calls(tcx: TyCtxt<'_>, def: LocalDefId) -> Result<(), E
+         found_errors: Ok(()),
+         typing_env: ty::TypingEnv::post_typeck_until_borrowck_for_mir_build(tcx, def),
+         is_closure,
+-        caller_def_id: def,
++        caller_ty,
+     };
+ 
+     visitor.visit_expr(&thir[expr]);
+@@ -46,7 +46,7 @@ struct TailCallCkVisitor<'a, 'tcx> {
+     /// tail call, `Ok(())` if all of them were fine.
+     found_errors: Result<(), ErrorGuaranteed>,
+     /// `LocalDefId` of the caller function.
+-    caller_def_id: LocalDefId,
++    caller_ty: Ty<'tcx>,
+ }
+ 
+ impl<'tcx> TailCallCkVisitor<'_, 'tcx> {
+@@ -149,13 +149,11 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+         if caller_sig.inputs_and_output != callee_sig.inputs_and_output
+             && !matches!(callee_sig.abi(), ExternAbi::RustTail)
+         {
+-            let caller_ty = self.tcx.type_of(self.caller_def_id).skip_binder();
+-
+             self.report_signature_mismatch(
+                 expr.span,
+                 self.tcx.liberate_late_bound_regions(
+                     CRATE_DEF_ID.to_def_id(),
+-                    caller_ty.fn_sig(self.tcx),
++                    self.caller_ty.fn_sig(self.tcx),
+                 ),
+                 self.tcx.liberate_late_bound_regions(CRATE_DEF_ID.to_def_id(), ty.fn_sig(self.tcx)),
+             );
+@@ -176,7 +174,7 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+             // coercing the function to an `fn()` pointer. (although in that case the tailcall is
+             // basically useless -- the shim calls the actual function, so tailcalling the shim is
+             // equivalent to calling the function)
+-            let caller_needs_location = self.caller_needs_location();
++            let caller_needs_location = self.needs_location(self.caller_ty);
+ 
+             if caller_needs_location {
+                 self.report_track_caller_caller(expr.span);
+@@ -198,11 +196,20 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+         }
+     }
+ 
+-    /// Returns true if the caller function needs a location argument
+-    /// (i.e. if a function is marked as `#[track_caller]`)
+-    fn caller_needs_location(&self) -> bool {
+-        let flags = self.tcx.codegen_fn_attrs(self.caller_def_id).flags;
+-        flags.contains(CodegenFnAttrFlags::TRACK_CALLER)
++    /// Returns true if function of type `ty` needs location argument
++    /// (i.e. if a function is marked as `#[track_caller]`).
++    ///
++    /// Panics if the function's instance can't be immediately resolved.
++    fn needs_location(&self, ty: Ty<'tcx>) -> bool {
++        if let &ty::FnDef(did, substs) = ty.kind() {
++            let substs = substs.no_bound_vars().unwrap();
++            let instance =
++                ty::Instance::expect_resolve(self.tcx, self.typing_env, did, substs, DUMMY_SP);
++
++            instance.def.requires_caller_location(self.tcx)
++        } else {
++            false
++        }
+     }
+ 
+     fn report_in_closure(&mut self, expr: &Expr<'_>) {

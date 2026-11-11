@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/debuginfo.rs b/compiler/rustc_codegen_ssa/src/mir/debuginfo.rs
+index 77b2c9c73f69f9ca11dd5f1e790b7951e16f7f40..3e33aa2d2422d1a91c14e23cd51f69eac0c12657 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/debuginfo.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/debuginfo.rs
+@@ -588,12 +588,13 @@ pub(crate) fn compute_per_local_var_debug_info(
+             };
+ 
+             let dbg_var = dbg_scope_and_span.map(|(dbg_scope, _, span)| {
+-                let var_kind = if let Some(arg_index) = var.argument_index
+-                    && var.composite.is_none()
++                let var_kind = if var.composite.is_none()
+                     && let mir::VarDebugInfoContents::Place(place) = var.value
++                    && self.mir.local_kind(place.local) == mir::LocalKind::Arg
+                     && place.projection.is_empty()
++                    && var.source_info.scope == mir::OUTERMOST_SOURCE_SCOPE
+                 {
+-                    let arg_index = arg_index as usize;
++                    let arg_index = place.local.index();
+                     if target_is_msvc {
+                         // ScalarPair parameters are spilled to the stack so they need to
+                         // be marked as a `LocalVariable` for MSVC debuggers to visualize

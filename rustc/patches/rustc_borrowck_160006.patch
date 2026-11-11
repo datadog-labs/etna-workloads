@@ -1,0 +1,161 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+index 349337f273aab18b87bc8de93eb51963c7f3f373..15db5b0af4393a261429395f114101f7c08de903 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mod.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+@@ -1410,20 +1410,17 @@ fn explain_captures(
+                             var_span: var_span.shrink_to_hi(),
+                         });
+                     }
+-                    if let Some((
+-                        kind @ (CallDesugaringKind::ForLoopIntoIter
+-                        | CallDesugaringKind::ForLoopIntoAsyncIter),
+-                        _,
+-                    )) = desugaring
+-                    {
++                    if let Some((CallDesugaringKind::ForLoopIntoIter, _)) = desugaring {
+                         let ty = moved_place.ty(self.body, tcx).ty;
+-                        let def_id = kind.trait_def_id(tcx);
+-                        let suggest = type_known_to_meet_bound_modulo_regions(
+-                            self.infcx,
+-                            self.infcx.param_env,
+-                            Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty),
+-                            def_id,
+-                        );
++                        let suggest = match tcx.get_diagnostic_item(sym::IntoIterator) {
++                            Some(def_id) => type_known_to_meet_bound_modulo_regions(
++                                self.infcx,
++                                self.infcx.param_env,
++                                Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty),
++                                def_id,
++                            ),
++                            _ => false,
++                        };
+                         if suggest {
+                             err.subdiagnostic(CaptureReasonSuggest::IterateSlice {
+                                 ty,
+@@ -1431,25 +1428,12 @@ fn explain_captures(
+                             });
+                         }
+ 
+-                        match kind {
+-                            CallDesugaringKind::ForLoopIntoIter => {
+-                                err.subdiagnostic(CaptureReasonLabel::ImplicitCall {
+-                                    fn_call_span,
+-                                    place_name: &place_name,
+-                                    is_partial,
+-                                    is_loop_message,
+-                                });
+-                            }
+-                            CallDesugaringKind::ForLoopIntoAsyncIter => {
+-                                err.subdiagnostic(CaptureReasonLabel::ImplicitAsyncCall {
+-                                    fn_call_span,
+-                                    place_name: &place_name,
+-                                    is_partial,
+-                                    is_loop_message,
+-                                });
+-                            }
+-                            _ => {}
+-                        }
++                        err.subdiagnostic(CaptureReasonLabel::ImplicitCall {
++                            fn_call_span,
++                            place_name: &place_name,
++                            is_partial,
++                            is_loop_message,
++                        });
+                         // If the moved place was a `&mut` ref, then we can
+                         // suggest to reborrow it where it was moved, so it
+                         // will still be valid by the time we get to the usage.
+diff --git a/compiler/rustc_borrowck/src/session_diagnostics.rs b/compiler/rustc_borrowck/src/session_diagnostics.rs
+index a0f347679b05ac90f2594b0f6dba08329fc4de2c..387976eb7ef9fe0bf581e8ee021f5cf23316ca6b 100644
+--- a/compiler/rustc_borrowck/src/session_diagnostics.rs
++++ b/compiler/rustc_borrowck/src/session_diagnostics.rs
+@@ -421,22 +421,6 @@ pub(crate) enum CaptureReasonLabel<'a> {
+         is_partial: bool,
+         is_loop_message: bool,
+     },
+-    #[label(
+-        "{$place_name} {$is_partial ->
+-            [true] partially moved
+-            *[false] moved
+-        } due to this implicit call to {$is_loop_message ->
+-            [true] `.into_async_iter()`, in previous iteration of loop
+-            *[false] `.into_async_iter()`
+-        }"
+-    )]
+-    ImplicitAsyncCall {
+-        #[primary_span]
+-        fn_call_span: Span,
+-        place_name: &'a str,
+-        is_partial: bool,
+-        is_loop_message: bool,
+-    },
+     #[label(
+         "{$place_name} {$is_partial ->
+             [true] partially moved
+diff --git a/compiler/rustc_const_eval/src/check_consts/ops.rs b/compiler/rustc_const_eval/src/check_consts/ops.rs
+index 0ce87d0ddc9229b13cf2a93ab905afe1d36b4e49..a4db25cb60b44ad766e51e018295a6ea67f72b2e 100644
+--- a/compiler/rustc_const_eval/src/check_consts/ops.rs
++++ b/compiler/rustc_const_eval/src/check_consts/ops.rs
+@@ -248,9 +248,7 @@ macro_rules! error {
+             // Don't point at the trait if this is a desugaring...
+             // FIXME(const_trait_impl): we could perhaps do this for `Iterator`.
+             match kind {
+-                CallDesugaringKind::ForLoopIntoIter
+-                | CallDesugaringKind::ForLoopIntoAsyncIter
+-                | CallDesugaringKind::ForLoopNext => {
++                CallDesugaringKind::ForLoopIntoIter | CallDesugaringKind::ForLoopNext => {
+                     error!(NonConstForLoopIntoIter)
+                 }
+                 CallDesugaringKind::QuestionBranch => {
+diff --git a/compiler/rustc_span/src/symbol.rs b/compiler/rustc_span/src/symbol.rs
+index e0f1a2e26b553517b519e4ff9d9d527db07c11ef..1b567fbab1a759f1e54d544c7cbeadda3e9a944f 100644
+--- a/compiler/rustc_span/src/symbol.rs
++++ b/compiler/rustc_span/src/symbol.rs
+@@ -239,7 +239,6 @@
+         Input,
+         Int,
+         Into,
+-        IntoAsyncIterator,
+         IntoFuture,
+         IntoIterator,
+         IntoIteratorItem,
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/call_kind.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/call_kind.rs
+index 3b1feeaa1424aee53d682b273ba0127e66957c15..b7d5e618ad6815218b5d7ae315e93bb87c9c0ec2 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/call_kind.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/call_kind.rs
+@@ -17,8 +17,6 @@
+ pub enum CallDesugaringKind {
+     /// for _ in x {} calls x.into_iter()
+     ForLoopIntoIter,
+-    /// for await _ in x {} calls x.into_async_iter()
+-    ForLoopIntoAsyncIter,
+     /// for _ in x {} calls iter.next()
+     ForLoopNext,
+     /// x? calls x.branch()
+@@ -35,7 +33,6 @@ impl CallDesugaringKind {
+     pub fn name(&self) -> &'static str {
+         match self {
+             CallDesugaringKind::ForLoopIntoIter => "`for` loop",
+-            CallDesugaringKind::ForLoopIntoAsyncIter => "`for await` loop",
+             CallDesugaringKind::ForLoopNext => "`for` loop",
+             CallDesugaringKind::QuestionBranch => "question mark operator",
+             CallDesugaringKind::QuestionFromResidual => "question mark operator",
+@@ -47,7 +44,6 @@ pub fn name(&self) -> &'static str {
+     pub fn trait_def_id(self, tcx: TyCtxt<'_>) -> DefId {
+         match self {
+             Self::ForLoopIntoIter => tcx.get_diagnostic_item(sym::IntoIterator).unwrap(),
+-            Self::ForLoopIntoAsyncIter => tcx.get_diagnostic_item(sym::IntoAsyncIterator).unwrap(),
+             Self::ForLoopNext => tcx.require_lang_item(LangItem::Iterator, DUMMY_SP),
+             Self::QuestionBranch | Self::TryBlockFromOutput => {
+                 tcx.require_lang_item(LangItem::Try, DUMMY_SP)
+@@ -151,10 +147,6 @@ pub fn call_kind<'tcx>(
+         && fn_call_span.desugaring_kind() == Some(DesugaringKind::ForLoop)
+     {
+         Some((CallDesugaringKind::ForLoopIntoIter, method_args.type_at(0)))
+-    } else if tcx.is_lang_item(method_did, LangItem::IntoAsyncIterIntoIter)
+-        && fn_call_span.desugaring_kind() == Some(DesugaringKind::ForLoop)
+-    {
+-        Some((CallDesugaringKind::ForLoopIntoAsyncIter, method_args.type_at(0)))
+     } else if tcx.is_lang_item(method_did, LangItem::IteratorNext)
+         && fn_call_span.desugaring_kind() == Some(DesugaringKind::ForLoop)
+     {

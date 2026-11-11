@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_resolve/src/diagnostics/impls.rs b/compiler/rustc_resolve/src/diagnostics/impls.rs
+index 9fa762c87ef3eb581d7d0ecc4cddd07717b1ae85..55c42d2a4ed4bf944f9420be9b38e3df0dab3ef2 100644
+--- a/compiler/rustc_resolve/src/diagnostics/impls.rs
++++ b/compiler/rustc_resolve/src/diagnostics/impls.rs
+@@ -3615,57 +3615,8 @@ pub(crate) fn find_cfg_stripped(&self, err: &mut Diag<'_>, segment: &Symbol, mod
+         };
+ 
+         for &StrippedCfgItem { parent_scope, ident, ref cfg } in symbols {
+-            if ident.name != *segment {
+-                continue;
+-            }
+-
+             let parent_module = self.get_nearest_non_block_module(parent_scope).def_id();
+-
+-            fn comes_from_same_module_for_glob(
+-                r: &Resolver<'_, '_>,
+-                parent_module: DefId,
+-                module: DefId,
+-                visited: &mut FxHashMap<DefId, bool>,
+-            ) -> bool {
+-                if let Some(&cached) = visited.get(&parent_module) {
+-                    // this branch is prevent from being called recursively infinity,
+-                    // because there has some cycles in globs imports,
+-                    // see more spec case at `tests/ui/cfg/diagnostics-reexport-2.rs#reexport32`
+-                    return cached;
+-                }
+-                visited.insert(parent_module, false);
+-                let mut res = false;
+-                let m = r.expect_module(parent_module);
+-                if m.is_local() {
+-                    for importer in m.glob_importers.borrow(r).iter() {
+-                        if let Some(next_parent_module) = importer.parent_scope.module.opt_def_id()
+-                        {
+-                            if next_parent_module == module
+-                                || comes_from_same_module_for_glob(
+-                                    r,
+-                                    next_parent_module,
+-                                    module,
+-                                    visited,
+-                                )
+-                            {
+-                                res = true;
+-                                break;
+-                            }
+-                        }
+-                    }
+-                }
+-                visited.insert(parent_module, res);
+-                res
+-            }
+-
+-            let comes_from_same_module = parent_module == module
+-                || comes_from_same_module_for_glob(
+-                    self,
+-                    parent_module,
+-                    module,
+-                    &mut Default::default(),
+-                );
+-            if !comes_from_same_module {
++            if parent_module != module || ident.name != *segment {
+                 continue;
+             }
+ 

@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_lint/src/types.rs b/compiler/rustc_lint/src/types.rs
+index 49a14c2676c103275e990ed831e29fbacd94e889..6f9ce0bc6274aab1dcae522533f9ee8c1a5ef266 100644
+--- a/compiler/rustc_lint/src/types.rs
++++ b/compiler/rustc_lint/src/types.rs
+@@ -569,8 +569,12 @@ fn check_lit(
+     fn check_expr(&mut self, cx: &LateContext<'tcx>, e: &'tcx hir::Expr<'tcx>) {
+         match e.kind {
+             hir::ExprKind::Unary(hir::UnOp::Neg, expr) => {
+-                self.last_visited_negation =
+-                    Some(NegationInfo { negation_span: e.span, negated_id: expr.hir_id });
++                // Propagate negation, if the negation itself isn't negated
++                if self.last_visited_negation.is_none_or(|negation| negation.negated_id != e.hir_id)
++                {
++                    self.last_visited_negation =
++                        Some(NegationInfo { negation_span: e.span, negated_id: expr.hir_id });
++                }
+             }
+             hir::ExprKind::Binary(binop, ref l, ref r) => {
+                 if is_comparison(binop.node) {

@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_const_eval/src/check_consts/check.rs b/compiler/rustc_const_eval/src/check_consts/check.rs
+index 7648bf4eb241de9de50428c33441c90f9cbe57dd..b05a694be860bc0b9f48426bcff9e9899cf95188 100644
+--- a/compiler/rustc_const_eval/src/check_consts/check.rs
++++ b/compiler/rustc_const_eval/src/check_consts/check.rs
+@@ -219,6 +219,18 @@ pub fn check_body(&mut self) {
+             self.visit_body(body);
+         }
+ 
++        if self.ccx.const_kind == Some(hir::ConstContext::ConstFn) {
++            // impl trait is gone in MIR, so check the return type of a const fn by its signature
++            // instead of the type of the return place.
++            self.span = body.local_decls[RETURN_PLACE].source_info.span;
++            let return_ty = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip().output();
++            if return_ty.skip_binder().references_error() {
++                self.error_emitted = self.error_emitted.or(Some(
++                    tcx.dcx().span_delayed_bug(self.span, "error in const fn return type"),
++                ));
++            }
++        }
++
+         // If we got through const-checking without emitting any "primary" errors, emit any
+         // "secondary" errors if they occurred. Otherwise, cancel the "secondary" errors.
+         let secondary_errors = mem::take(&mut self.secondary_errors);
+diff --git a/compiler/rustc_const_eval/src/const_eval/fn_queries.rs b/compiler/rustc_const_eval/src/const_eval/fn_queries.rs
+index 8267cb66e9e157b3e8d295847946a9ce6f6a557c..65ca8d00f89170c3952c08159c866689efc2b5d3 100644
+--- a/compiler/rustc_const_eval/src/const_eval/fn_queries.rs
++++ b/compiler/rustc_const_eval/src/const_eval/fn_queries.rs
+@@ -19,7 +19,6 @@ fn constness(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Constness {
+         Node::Expr(e) if let ExprKind::Closure(c) = e.kind => {
+             if let Constness::Const { .. } = c.constness && tcx.hir_body_const_context(tcx.local_parent(def_id)).is_none() {
+                 tcx.dcx().span_err(tcx.def_span(def_id), "cannot use `const` closures outside of const contexts");
+-                return Constness::NotConst;
+             }
+             c.constness
+         },

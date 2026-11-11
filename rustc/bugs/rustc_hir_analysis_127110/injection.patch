@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect.rs b/compiler/rustc_hir_analysis/src/collect.rs
+index 25ba0c810489ee7495b94218568db5eda51086be..1ea79be69dae4eed3b22939626cf5d26aee0d279 100644
+--- a/compiler/rustc_hir_analysis/src/collect.rs
++++ b/compiler/rustc_hir_analysis/src/collect.rs
+@@ -1186,25 +1186,8 @@ fn recover_infer_ret_ty<'tcx>(
+     let fn_sig = tcx.typeck(def_id).liberated_fn_sigs()[hir_id];
+ 
+     // Typeck doesn't expect erased regions to be returned from `type_of`.
+-    // This is a heuristic approach. If the scope has region parameters,
+-    // we should change fn_sig's lifetime from `ReErased` to `ReError`,
+-    // otherwise to `ReStatic`.
+-    let has_region_params = generics.params.iter().any(|param| match param.kind {
+-        GenericParamKind::Lifetime { .. } => true,
+-        _ => false,
+-    });
+     let fn_sig = fold_regions(tcx, fn_sig, |r, _| match r.kind() {
+-        ty::ReErased => {
+-            if has_region_params {
+-                ty::Region::new_error_with_message(
+-                    tcx,
+-                    DUMMY_SP,
+-                    "erased region is not allowed here in return type",
+-                )
+-            } else {
+-                tcx.lifetimes.re_static
+-            }
+-        }
++        ty::ReErased => tcx.lifetimes.re_static,
+         _ => r,
+     });
+ 

@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_mir_transform/src/deduce_param_attrs.rs b/compiler/rustc_mir_transform/src/deduce_param_attrs.rs
+index 5bba125aefc586084e4fd2b28255f076bb08fa9a..c5869980647b16ea86b0e4c6c4960f2e4da14849 100644
+--- a/compiler/rustc_mir_transform/src/deduce_param_attrs.rs
++++ b/compiler/rustc_mir_transform/src/deduce_param_attrs.rs
+@@ -77,12 +77,6 @@ fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _location:
+                 | MutatingUseContext::Projection) => {
+                 self.usage[i] |= UsageSummary::MUTATE;
+             }
+-            | PlaceContext::NonMutatingUse(NonMutatingUseContext::RawBorrow) => {
+-                // Whether mutating though a `&raw const` is allowed is still undecided, so we
+-                // disable any sketchy `readonly` optimizations for now.
+-                self.usage[i] |= UsageSummary::MUTATE;
+-                self.usage[i] |= UsageSummary::CAPTURE;
+-            }
+             PlaceContext::NonMutatingUse(NonMutatingUseContext::SharedBorrow) => {
+                 // Not mutating if the parameter is `Freeze`.
+                 self.usage[i] |= UsageSummary::SHARED_BORROW;
+@@ -94,6 +88,7 @@ fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _location:
+                 | NonMutatingUseContext::Copy
+                 | NonMutatingUseContext::Move
+                 | NonMutatingUseContext::FakeBorrow
++                | NonMutatingUseContext::RawBorrow
+                 | NonMutatingUseContext::PlaceMention
+                 | NonMutatingUseContext::Projection) => {}
+         }

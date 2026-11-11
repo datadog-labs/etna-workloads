@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_resolve/src/diagnostics/impls.rs b/compiler/rustc_resolve/src/diagnostics/impls.rs
+index 9fa762c87ef3eb581d7d0ecc4cddd07717b1ae85..4aef9e0db58c017eb1a5d2f8897eb4c7ab946ff8 100644
+--- a/compiler/rustc_resolve/src/diagnostics/impls.rs
++++ b/compiler/rustc_resolve/src/diagnostics/impls.rs
+@@ -1791,6 +1791,11 @@ fn lookup_import_candidates_from_module<FilterFn>(
+             })
+         }
+ 
++        // If only some candidates are accessible, take just them
++        if !candidates.iter().all(|v: &ImportSuggestion| !v.accessible) {
++            candidates.retain(|x| x.accessible)
++        }
++
+         candidates
+     }
+ 
+@@ -4081,10 +4086,7 @@ fn show_candidates(
+             err.help(msg);
+         }
+         showed = true;
+-    }
+-    if !inaccessible_path_strings.is_empty()
+-        && (!matches!(mode, DiagMode::Import { unresolved_import: false, .. }))
+-    {
++    } else if !(inaccessible_path_strings.is_empty() || matches!(mode, DiagMode::Import { .. })) {
+         let prefix =
+             if let DiagMode::Pattern = mode { "you might have meant to match on " } else { "" };
+         if let [(name, descr, source_span, note, _)] = &inaccessible_path_strings[..] {

@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_ty_utils/src/opaque_types.rs b/compiler/rustc_ty_utils/src/opaque_types.rs
+index 6dc23c45c514481f544d7c666784c6127264d023..f40affd3e416099bcc7f14959614dec4ff112c59 100644
+--- a/compiler/rustc_ty_utils/src/opaque_types.rs
++++ b/compiler/rustc_ty_utils/src/opaque_types.rs
+@@ -128,13 +128,7 @@ fn visit_opaque_ty(&mut self, alias_ty: ty::AliasTy<'tcx>) {
+         trace!(?alias_ty, "adding");
+         self.opaques.push(def_id.expect_local());
+ 
+-        let parent_count = self.tcx.generics_of(def_id).parent_count;
+-        // Only check that the parent generics of the TAIT/RPIT are unique.
+-        // the args owned by the opaque are going to always be duplicate
+-        // lifetime params for RPITs, and empty for TAITs.
+-        match self
+-            .tcx
+-            .uses_unique_generic_params(&alias_ty.args[..parent_count], CheckRegions::FromFunction)
++        match self.tcx.uses_unique_generic_params(alias_ty.args, CheckRegions::FromFunction)
+         {
+             Ok(()) => {
+                 // FIXME: implement higher kinded lifetime bounds on nested opaque types. They are not

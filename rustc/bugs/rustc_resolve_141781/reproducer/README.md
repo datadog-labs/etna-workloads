@@ -1,0 +1,1 @@
+An unused lifetime in an `unsafe<'a> S` binder triggers `unused_lifetimes`; the machine-applicable "elide" suggestion span should cover only `unsafe<'a> ` up to the inner type. The injected compiler uses the whole type span, so the help underline is longer (and the fix would delete the inner type).

@@ -1,0 +1,1 @@
+Compiling a repr(simd) function that indexes a slice of SIMD values with MIR optimizations enabled. The injected compiler removes the SRoA guard for SIMD types, so it expands the SIMD value into its array field and hits an ICE ("Projecting into SIMD type ... banned by MCP#838", exit 101). The clean compiler compiles it successfully.

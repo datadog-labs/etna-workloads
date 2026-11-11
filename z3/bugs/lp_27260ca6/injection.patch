@@ -1,0 +1,42 @@
+--- a/src/math/lp/lar_solver.cpp
++++ b/src/math/lp/lar_solver.cpp
+@@ -1507,9 +1507,12 @@
+     bool lar_solver::all_constraints_hold() const {
+         if (m_imp->m_settings.get_cancel_flag())
+             return true;
++        std::unordered_map<lpvar, mpq> var_map;
++        mpq delta = get_core_solver().find_delta_for_strict_bounds(m_imp->m_settings.m_epsilon);
++        get_model_do_not_care_about_diff_vars(var_map, delta);
+ 
+         for (auto const& c : m_imp->m_constraints.active()) {
+-            if (!constraint_holds(c)) {
++            if (!constraint_holds(c, var_map)) {
+                 TRACE(lar_solver,
+                     m_imp->m_constraints.display(tout, c) << "\n";
+                 for (auto p : c.coeffs()) {
+@@ -1521,11 +1524,9 @@
+         return true;
+     }
+ 
+-    bool lar_solver::constraint_holds(const lar_base_constraint& constr) const {
+-        impq left_side_val(constr.get_free_coeff_of_left_side());
+-        for (auto& it : constr.coeffs())
+-            left_side_val += it.first * get_core_solver().r_x(it.second);
+-        impq rhs(constr.rhs(), constr.bound_eps());
++    bool lar_solver::constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map) const {
++        mpq left_side_val = get_left_side_val(constr, var_map);
++        mpq rhs = constr.rhs();
+         switch (constr.kind()) {
+         case LE: return left_side_val <= rhs;
+         case LT: return left_side_val < rhs;
+--- a/src/math/lp/lar_solver.h
++++ b/src/math/lp/lar_solver.h
+@@ -148,7 +148,7 @@
+     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i);
+     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, lpvar>>& left_side);
+     bool all_constraints_hold() const;
+-    bool constraint_holds(const lar_base_constraint& constr) const;
++    bool constraint_holds(const lar_base_constraint& constr, std::unordered_map<lpvar, mpq>& var_map) const;
+     static void register_in_map(std::unordered_map<lpvar, mpq>& coeffs, const lar_base_constraint& cn, const mpq& a);
+     static void register_monoid_in_map(std::unordered_map<lpvar, mpq>& coeffs, const mpq& a, unsigned j);
+     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>>& evidence) const;

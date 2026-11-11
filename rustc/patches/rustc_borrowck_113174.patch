@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+index 7267ae113de3e38793f991bf566996f037a39fee..956580093742edef317b617d4fa14164bf87c9a5 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+@@ -1924,11 +1924,6 @@ pub(crate) fn report_conflicting_borrow(
+                     issued_borrow.borrowed_place,
+                     &issued_spans,
+                 );
+-                self.explain_iterator_advancement_in_for_loop_if_applicable(
+-                    &mut err,
+-                    span,
+-                    &issued_spans,
+-                );
+                 err
+             }
+ 
+@@ -2471,6 +2466,7 @@ fn suggest_slice_method_if_applicable(
+     ///     iter.next()
+     /// }
+     /// ```
++    #[allow(dead_code)]
+     pub(crate) fn explain_iterator_advancement_in_for_loop_if_applicable(
+         &self,
+         err: &mut Diag<'_>,
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+index 349337f273aab18b87bc8de93eb51963c7f3f373..d5b2861f13a166775aba47d18686151a20c09960 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mod.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+@@ -1369,12 +1369,6 @@ fn explain_captures(
+                     // Avoid pointing to the same function in multiple different
+                     // error messages.
+                     if span != DUMMY_SP && self.fn_self_span_reported.insert(self_arg.span) {
+-                        self.explain_iterator_advancement_in_for_loop_if_applicable(
+-                            err,
+-                            span,
+-                            &move_spans,
+-                        );
+-
+                         let func = with_no_trimmed_paths!(tcx.def_path_str(method_did));
+                         if let Some((kind, _)) = desugaring {
+                             err.subdiagnostic(CaptureReasonNote::DesugaringFuncTakeSelf {

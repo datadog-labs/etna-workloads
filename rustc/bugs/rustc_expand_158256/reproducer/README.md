@@ -1,0 +1,1 @@
+A proc macro parses the invalid input "r#" via str::parse for TokenStream and Literal. On the clean compiler the parse yields a recoverable result and the real diagnostics are emitted; on the injected compiler the fatal error is not caught, so it surfaces as a "proc macro panicked" error.

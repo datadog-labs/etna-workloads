@@ -1,0 +1,6 @@
+#!/bin/bash
+# Auto-generated from tests/ui/pattern/skipped-ref-pats-issue-125058.rs
+cd "$(dirname "$0")"
+"$RUSTC" --edition 2024 -o prog main.rs 2>&1; echo "rustc exit: $?"
+[ -x prog ] && { ./prog 2>&1; echo "program exit: $?"; }
+rm -f prog out.rmeta

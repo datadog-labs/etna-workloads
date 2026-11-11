@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 01df2e199a5ac723567e7ab4e8d477377218decb..ad169cc035afca56959679bef102cb1ebaaa026f 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -138,10 +138,7 @@ fn allowed_union_or_unsafe_field<'tcx>(
+         .lang_items()
+         .get(LangItem::BikeshedGuaranteedNoDrop)
+         .unwrap_or_else(|| tcx.require_lang_item(LangItem::Copy, span));
+-    let Ok(ty) = tcx.try_normalize_erasing_regions(typing_env, Unnormalized::new_wip(ty)) else {
+-        tcx.dcx().span_delayed_bug(span, "could not normalize field type");
+-        return true;
+-    };
++    let ty = tcx.normalize_erasing_regions(typing_env, Unnormalized::new_wip(ty));
+     let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(typing_env);
+     infcx.predicate_must_hold_modulo_regions(&Obligation::new(
+         tcx,
+@@ -837,6 +834,10 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
+                 res = res
+                     .and(tcx.ensure_result().coherent_trait(impl_trait_header.trait_ref.def_id()));
+ 
++                // A wf error short-circuits the item type checks, so errors only they emit are lost.
++                if let hir::Node::Item(item) = tcx.hir_node_by_def_id(def_id) {
++                    res = res.and(wfcheck::check_item(tcx, item));
++                }
+                 if res.is_ok() {
+                     // Checking this only makes sense if the all trait impls satisfy basic
+                     // requirements (see `coherent_trait` query), otherwise

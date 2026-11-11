@@ -1,0 +1,72 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/rvalue.rs b/compiler/rustc_codegen_ssa/src/mir/rvalue.rs
+index 344a4834862e4bb41522ee2397d7bdb844e4f5ed..f0f403af6de0df0f2db737d48e34fbb333a8704c 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/rvalue.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/rvalue.rs
+@@ -91,11 +91,6 @@ fn try_codegen_const_aggregate_as_immediate(
+         true
+     }
+ 
+-    fn is_entirely_uninit_const(&self, operand: &mir::Operand<'tcx>) -> bool {
+-        let mir::Operand::Constant(const_op) = operand else { return false };
+-        self.eval_mir_constant(const_op).all_bytes_uninit(self.cx.tcx())
+-    }
+-
+     #[instrument(level = "trace", skip(self, bx))]
+     pub(crate) fn codegen_rvalue(
+         &mut self,
+@@ -105,8 +100,11 @@ pub(crate) fn codegen_rvalue(
+     ) {
+         match *rvalue {
+             mir::Rvalue::Use(ref operand, with_retag) => {
+-                if self.is_entirely_uninit_const(operand) {
+-                    return;
++                if let mir::Operand::Constant(const_op) = operand {
++                    let val = self.eval_mir_constant(&const_op);
++                    if val.all_bytes_uninit(self.cx.tcx()) {
++                        return;
++                    }
+                 }
+                 let cg_operand = self.codegen_operand(bx, operand);
+                 // Crucially, we do *not* use `OperandValue::Ref` for types with
+@@ -198,16 +196,19 @@ pub(crate) fn codegen_rvalue(
+ 
+                 // When the element is a const with all bytes uninit, emit a single memset that
+                 // writes undef to the entire destination.
+-                if self.is_entirely_uninit_const(elem) {
+-                    let size = bx.const_usize(dest.layout.size.bytes());
+-                    bx.memset(
+-                        dest.val.llval,
+-                        bx.const_undef(bx.type_i8()),
+-                        size,
+-                        dest.val.align,
+-                        MemFlags::empty(),
+-                    );
+-                    return;
++                if let mir::Operand::Constant(const_op) = elem {
++                    let val = self.eval_mir_constant(const_op);
++                    if val.all_bytes_uninit(self.cx.tcx()) {
++                        let size = bx.const_usize(dest.layout.size.bytes());
++                        bx.memset(
++                            dest.val.llval,
++                            bx.const_undef(bx.type_i8()),
++                            size,
++                            dest.val.align,
++                            MemFlags::empty(),
++                        );
++                        return;
++                    }
+                 }
+ 
+                 let cg_elem = self.codegen_operand(bx, elem);
+@@ -269,11 +270,6 @@ pub(crate) fn codegen_rvalue(
+                     assert_eq!(operands.len(), 1);
+                 }
+                 for (i, operand) in operands.iter_enumerated() {
+-                    // Do not generate stores for entirely uninit constant fields, for the same
+-                    // reason as in `Rvalue::Use` above.
+-                    if self.is_entirely_uninit_const(operand) {
+-                        continue;
+-                    }
+                     let op = self.codegen_operand(bx, operand);
+                     // Do not generate stores and GEPis for zero-sized fields.
+                     if !op.layout.is_zst() {

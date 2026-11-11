@@ -1,0 +1,42 @@
+--- a/src/ast/fpa/fpa2bv_converter.cpp
++++ b/src/ast/fpa/fpa2bv_converter.cpp
+@@ -20,7 +20,6 @@
+ 
+ #include "ast/ast_smt2_pp.h"
+ #include "ast/ast_pp.h"
+-#include "ast/ast_lt.h"
+ #include "ast/well_sorted.h"
+ #include "ast/rewriter/th_rewriter.h"
+ #include "ast/used_vars.h"
+@@ -578,8 +577,6 @@
+     rm = to_app(args[0])->get_arg(0);
+     x = args[1];
+     y = args[2];
+-    if (ast_lt()(y, x))
+-        std::swap(x, y);
+     mk_add(f->get_range(), rm, x, y, result);
+ }
+ 
+--- a/src/ast/rewriter/fpa_rewriter.cpp
++++ b/src/ast/rewriter/fpa_rewriter.cpp
+@@ -19,7 +19,6 @@
+ #include "ast/rewriter/fpa_rewriter.h"
+ #include "params/fpa_rewriter_params.hpp"
+ #include "ast/ast_smt2_pp.h"
+-#include "ast/ast_lt.h"
+ 
+ fpa_rewriter::fpa_rewriter(ast_manager & m, params_ref const & p) :
+     m_util(m),
+@@ -263,12 +262,6 @@
+ }
+ 
+ br_status fpa_rewriter::mk_add(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
+-    ast_lt lt;
+-    if (lt(arg3, arg2)) {
+-        result = m_util.mk_add(arg1, arg3, arg2);
+-        return BR_REWRITE2;
+-    }
+-
+     mpf_rounding_mode rm;
+     if (m_util.is_rm_numeral(arg1, rm)) {
+         scoped_mpf v2(m_fm), v3(m_fm);

@@ -1,0 +1,61 @@
+diff --git a/compiler/rustc_lint/src/unused.rs b/compiler/rustc_lint/src/unused.rs
+index 0236ac75c2d642c402f5affabbf20bb8f5f93400..1d2407488f079ef5d89f5d062f320e797fb7da90 100644
+--- a/compiler/rustc_lint/src/unused.rs
++++ b/compiler/rustc_lint/src/unused.rs
+@@ -417,19 +417,13 @@ fn check_expr(&mut self, cx: &EarlyContext<'_>, e: &ast::Expr) {
+             }
+             // either function/method call, or something this lint doesn't care about
+             ref call_or_other => {
+-                let (args_to_check, ctx, callee_from_expansion) = match *call_or_other {
+-                    Call(ref callee, ref args) => {
+-                        (&args[..], UnusedDelimsCtx::FunctionArg, callee.span.from_expansion())
+-                    }
+-                    MethodCall(ref call) => (
+-                        &call.args[..],
+-                        UnusedDelimsCtx::MethodArg,
+-                        call.seg.ident.span.from_expansion(),
+-                    ),
++                let (args_to_check, ctx) = match *call_or_other {
++                    Call(_, ref args) => (&args[..], UnusedDelimsCtx::FunctionArg),
++                    MethodCall(ref call) => (&call.args[..], UnusedDelimsCtx::MethodArg),
+                     Closure(ref closure)
+                         if matches!(closure.fn_decl.output, FnRetTy::Default(_)) =>
+                     {
+-                        (&[closure.body.clone()][..], UnusedDelimsCtx::ClosureBody, false)
++                        (&[closure.body.clone()][..], UnusedDelimsCtx::ClosureBody)
+                     }
+                     // actual catch-all arm
+                     _ => {
+@@ -444,11 +438,6 @@ fn check_expr(&mut self, cx: &EarlyContext<'_>, e: &ast::Expr) {
+                     return;
+                 }
+                 for arg in args_to_check {
+-                    // Whether an expression is wrapped in a block can change which `macro_rules!`
+-                    // arm is taken. Don't report the braces as unused in that case. (Issue #158747)
+-                    if callee_from_expansion && Self::block_wraps_expanded_expr(arg) {
+-                        continue;
+-                    }
+                     self.check_unused_delims_expr(cx, arg, ctx, false, None, None, false);
+                 }
+                 return;
+@@ -527,20 +516,6 @@ fn check_item(&mut self, cx: &EarlyContext<'_>, item: &ast::Item) {
+             false,
+         );
+     }
+-
+-    // Returns true for a user-written block whose only expression came from a macro expansion.
+-    fn block_wraps_expanded_expr(value: &ast::Expr) -> bool {
+-        if let ast::ExprKind::Block(ref block, None) = value.kind
+-            && block.rules == ast::BlockCheckMode::Default
+-            && !value.span.from_expansion()
+-            && let [stmt] = block.stmts.as_slice()
+-            && let ast::StmtKind::Expr(ref expr) = stmt.kind
+-        {
+-            expr.span.from_expansion()
+-        } else {
+-            false
+-        }
+-    }
+ }
+ 
+ declare_lint! {

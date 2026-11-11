@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/project_goals/free_alias.rs b/compiler/rustc_next_trait_solver/src/solve/project_goals/free_alias.rs
+index 7f5d258ccc706186d36c9bed19ac2732651c931e..efc4d62606234de5e629a7ef0e102d2151512ebc 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/project_goals/free_alias.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/project_goals/free_alias.rs
+@@ -54,7 +54,6 @@ pub(super) fn normalize_free_alias(
+             kind => panic!("expected free alias, found {kind:?}"),
+         };
+ 
+-        self.push_const_arg_has_type_goal(goal.param_env, goal.predicate.projection_term, actual)?;
+         self.eq(goal.param_env, goal.predicate.term, actual)?;
+         self.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
+     }
+diff --git a/compiler/rustc_trait_selection/src/traits/normalize.rs b/compiler/rustc_trait_selection/src/traits/normalize.rs
+index f00b300c7e9717ad20059c05121efc3a9292a544..32930090e702aabf5a1dcfa7ef981148b1d18220 100644
+--- a/compiler/rustc_trait_selection/src/traits/normalize.rs
++++ b/compiler/rustc_trait_selection/src/traits/normalize.rs
+@@ -357,19 +357,6 @@ fn normalize_free_alias(&mut self, free: AliasTerm<'tcx>) -> Term<'tcx> {
+                 .fold_with(self)
+                 .into()
+         };
+-        // When normalizing a free const alias, register a `ConstArgHasType`
+-        // obligation to ensure the const value's type matches the declared type.
+-        if let Some(ct) = res.as_const() {
+-            let expected_ty =
+-                infcx.tcx.type_of(def_id).instantiate(infcx.tcx, free.args).skip_norm_wip();
+-            self.obligations.push(Obligation::with_depth(
+-                infcx.tcx,
+-                self.cause.clone(),
+-                self.depth,
+-                self.param_env,
+-                ty::ClauseKind::ConstArgHasType(ct, expected_ty),
+-            ));
+-        }
+         self.depth -= 1;
+         res
+     }

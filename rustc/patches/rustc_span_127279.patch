@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_span/src/hygiene.rs b/compiler/rustc_span/src/hygiene.rs
+index d57f21fc422284e9eed8453f6221abc4b673630d..c69d95dead2eb25fb2de7ca5d4685c9331489a66 100644
+--- a/compiler/rustc_span/src/hygiene.rs
++++ b/compiler/rustc_span/src/hygiene.rs
+@@ -1460,8 +1460,10 @@ pub fn decode_syntax_context<D: Decoder>(
+     // Don't try to decode data while holding the lock, since we need to
+     // be able to recursively decode a SyntaxContext
+     let (parent, expn_id, transparency) = decode_data(d, raw_id);
+-    let ctxt =
+-        HygieneData::with(|hygiene_data| hygiene_data.alloc_ctxt(parent, expn_id, transparency));
++    let ctxt = HygieneData::with(|hygiene_data| {
++        hygiene_data.syntax_context_map.remove(&(parent, expn_id, transparency));
++        hygiene_data.alloc_ctxt(parent, expn_id, transparency)
++    });
+ 
+     context.remapped_ctxts.lock().insert(raw_id, ctxt);
+ 

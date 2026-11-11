@@ -1,0 +1,111 @@
+diff --git a/compiler/rustc_middle/src/mir/visit.rs b/compiler/rustc_middle/src/mir/visit.rs
+index 0ae59e99c2b5af5532500eb83b17dc98a44c57dc..4bf22dcdd96107271a5e8e7abf7680d0388dc90a 100644
+--- a/compiler/rustc_middle/src/mir/visit.rs
++++ b/compiler/rustc_middle/src/mir/visit.rs
+@@ -1062,10 +1062,6 @@ macro_rules! super_body {
+             }
+         }
+ 
+-        for var_debug_info in &$($mutability)? $body.var_debug_info {
+-            $self.visit_var_debug_info(var_debug_info);
+-        }
+-
+         for (bb, data) in basic_blocks_iter!($body, $($mutability, $invalidate)?) {
+             $self.visit_basic_block_data(bb, data);
+         }
+@@ -1094,6 +1090,10 @@ macro_rules! type_annotations {
+             );
+         }
+ 
++        for var_debug_info in &$($mutability)? $body.var_debug_info {
++            $self.visit_var_debug_info(var_debug_info);
++        }
++
+         $self.visit_span($(& $mutability)? $body.span);
+ 
+         if let Some(required_consts) = &$($mutability)? $body.required_consts {
+diff --git a/compiler/rustc_mir_transform/src/ref_prop.rs b/compiler/rustc_mir_transform/src/ref_prop.rs
+index 1db9c36bee184ce48394404db319dcd01200689b..4cdf59776fb496fefc65814ee3b5e3423f2bc97a 100644
+--- a/compiler/rustc_mir_transform/src/ref_prop.rs
++++ b/compiler/rustc_mir_transform/src/ref_prop.rs
+@@ -298,7 +298,6 @@ fn compute_replacement<'tcx>(
+     return Replacer {
+         tcx,
+         targets: finder.targets,
+-        remap_var_debug_infos: IndexVec::from_elem(None, body.local_decls()),
+         storage_to_remove,
+         allowed_replacements,
+         any_replacement: false,
+@@ -378,7 +377,6 @@ fn fully_replaceable_locals(ssa: &SsaLocals) -> DenseBitSet<Local> {
+ struct Replacer<'tcx> {
+     tcx: TyCtxt<'tcx>,
+     targets: IndexVec<Local, Value<'tcx>>,
+-    remap_var_debug_infos: IndexVec<Local, Option<Local>>,
+     storage_to_remove: DenseBitSet<Local>,
+     allowed_replacements: FxHashSet<(Local, Location)>,
+     any_replacement: bool,
+@@ -390,45 +388,21 @@ fn tcx(&self) -> TyCtxt<'tcx> {
+     }
+ 
+     fn visit_var_debug_info(&mut self, debuginfo: &mut VarDebugInfo<'tcx>) {
+-        if let VarDebugInfoContents::Place(ref mut place) = debuginfo.value
++        // If the debuginfo is a pointer to another place
++        // and it's a reborrow: see through it
++        while let VarDebugInfoContents::Place(ref mut place) = debuginfo.value
+             && place.projection.is_empty()
++            && let Value::Pointer(target, _) = self.targets[place.local]
++            && let &[PlaceElem::Deref] = &target.projection[..]
+         {
+-            let mut new_local = place.local;
+-
+-            // If the debuginfo is a pointer to another place
+-            // and it's a reborrow: see through it
+-            while let Value::Pointer(target, _) = self.targets[new_local]
+-                && let &[PlaceElem::Deref] = &target.projection[..]
+-            {
+-                new_local = target.local;
+-            }
+-            if place.local != new_local {
+-                self.remap_var_debug_infos[place.local] = Some(new_local);
+-                place.local = new_local;
+-
+-                self.any_replacement = true;
+-            }
++            *place = Place::from(target.local);
++            self.any_replacement = true;
+         }
+ 
+         // Simplify eventual projections left inside `debuginfo`.
+         self.super_var_debug_info(debuginfo);
+     }
+ 
+-    fn visit_statement_debuginfo(
+-        &mut self,
+-        stmt_debuginfo: &mut StmtDebugInfo<'tcx>,
+-        location: Location,
+-    ) {
+-        let local = match stmt_debuginfo {
+-            StmtDebugInfo::AssignRef(local, _) | StmtDebugInfo::InvalidAssign(local) => local,
+-        };
+-        if let Some(target) = self.remap_var_debug_infos[*local] {
+-            *local = target;
+-            self.any_replacement = true;
+-        }
+-        self.super_statement_debuginfo(stmt_debuginfo, location);
+-    }
+-
+     fn visit_place(&mut self, place: &mut Place<'tcx>, ctxt: PlaceContext, loc: Location) {
+         loop {
+             let Some((&PlaceElem::Deref, rest)) = place.projection.split_first() else { return };
+@@ -459,9 +433,8 @@ fn visit_statement(&mut self, stmt: &mut Statement<'tcx>, loc: Location) {
+             {
+                 stmt.make_nop(true);
+             }
+-            _ => {}
++            // Do not remove assignments as they may still be useful for debuginfo.
++            _ => self.super_statement(stmt, loc),
+         }
+-        // Do not remove assignments as they may still be useful for debuginfo.
+-        self.super_statement(stmt, loc);
+     }
+ }

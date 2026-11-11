@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_ast_passes/src/ast_validation.rs b/compiler/rustc_ast_passes/src/ast_validation.rs
+index 3270fb940bab3da7b1ff2656032b9699a9d0cb0b..f0e25fcd10e7105046c4c1afe605c3ffcfcb0503 100644
+--- a/compiler/rustc_ast_passes/src/ast_validation.rs
++++ b/compiler/rustc_ast_passes/src/ast_validation.rs
+@@ -1648,18 +1648,12 @@ fn visit_item(&mut self, item: &Item) {
+                     // Scalable vectors can only be tuple structs
+                     let scalable_vector_attr =
+                         item.attrs.iter().find(|attr| attr.has_name(sym::rustc_scalable_vector));
+-                    if let Some(attr) = scalable_vector_attr {
++                    if scalable_vector_attr.is_some() {
+                         if !matches!(vdata, VariantData::Tuple(..)) {
+                             this.dcx().emit_err(diagnostics::ScalableVectorNotTupleStruct {
+                                 span: item.span,
+                             });
+                         }
+-                        if !self.sess.target.arch.supports_scalable_vectors()
+-                            && !self.sess.opts.actually_rustdoc
+-                        {
+-                            this.dcx()
+-                                .emit_err(diagnostics::ScalableVectorBadArch { span: attr.span });
+-                        }
+                     }
+ 
+                     visit::walk_item(this, item);

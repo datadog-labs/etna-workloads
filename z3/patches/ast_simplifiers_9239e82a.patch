@@ -1,0 +1,390 @@
+--- a/src/ast/simplifiers/demodulator_simplifier.cpp
++++ b/src/ast/simplifiers/demodulator_simplifier.cpp
+@@ -12,7 +12,6 @@
+ --*/
+ 
+ #include "ast/simplifiers/demodulator_simplifier.h"
+-#include "ast/rewriter/var_subst.h"
+ 
+ demodulator_index::~demodulator_index() {
+     reset();
+@@ -89,12 +88,10 @@
+     m_util(m),
+     m_match_subst(m),
+     m_rewriter(m),
+-    m_pinned(m),
+-    m_proof_pinned(m)
++    m_pinned(m)
+ {
+-    std::function<bool(func_decl* f, expr_ref_vector const& args, expr_ref& r, proof_ref& pr)> rw =
+-        [&](func_decl* f, expr_ref_vector const& args, expr_ref& r, proof_ref& pr) {
+-        return rewrite1(f, args, r, pr);
++    std::function<bool(func_decl* f, expr_ref_vector const& args, expr_ref& r)> rw = [&](func_decl* f, expr_ref_vector const& args, expr_ref& r) {
++        return rewrite1(f, args, r);
+     };
+     m_rewriter.set_rewrite1(rw);
+ }
+@@ -105,88 +102,17 @@
+ 
+     m_dependencies.reset();
+     expr* f = fml(i);
+-    proof_ref step_pr(m);
+-    expr_ref r = m_rewriter.rewrite(f, step_pr);
++    expr_ref r = m_rewriter.rewrite(f);
+     if (r == f)
+         return;
+     expr_dependency_ref d(dep(i), m);
+     for (unsigned j : m_dependencies)
+         d = m.mk_join(d, dep(j));
+-    proof_ref new_pr(m);
+-    if (m.proofs_enabled() && step_pr)
+-        new_pr = m.mk_modus_ponens(pr(i), step_pr);
+-    m_fmls.update(i, dependent_expr(m, r, new_pr, d));
+-}
+-
+-/**
+-   \brief Justify a single demodulator rewrite step `f(args) = np`, where
+-   `np` was obtained by matching `f(args)` against demodulator `i`'s pattern
+-   and instantiating its (now ground) variables. Builds:
+-     qi_pr : (or (not q) qe[s])          -- via PR_QUANT_INST
+-     raw_pr: qe[s]                       -- via unit-resolution against q's own proof
+-   and, if `qe[s]` is not already syntactically `f(args) = np` (the
+-   demodulator may have been stored in reshaped form, e.g. with a `not`
+-   moved across the equation, or as a bare atom / negated atom rather than
+-   an explicit equation), bridges the two via a `PR_REWRITE` step (an
+-   elementary, independently side-condition-checked propositional identity)
+-   composed with modus ponens.
+-
+-   Only attempted when every argument is ground: `f(args)` can otherwise
+-   occur nested inside another (outer) quantifier being demodulated, in
+-   which case the match binds the demodulator's variables to non-ground
+-   terms and there is no single ground quantifier instance that justifies
+-   the step; we then conservatively return nullptr (the term-level rewrite
+-   itself is unaffected, it simply isn't proof-tracked).
+-*/
+-proof* demodulator_simplifier::mk_instance_proof(unsigned i, func_decl* f, expr_ref_vector const& args, expr* np) {
+-    for (expr* a : args)
+-        if (!is_ground(a))
+-            return nullptr;
+-
+-    expr* d_fml = fml(i);
+-    if (!is_forall(d_fml))
+-        return nullptr;
+-    quantifier* q = to_quantifier(d_fml);
+-    proof* q_pr = pr(i);
+-    if (!q_pr)
+-        return nullptr;
+-
+-    unsigned n = q->get_num_decls();
+-    expr_ref_vector bindings(m);
+-    for (unsigned k = 0; k < n; ++k) {
+-        expr_ref b(m);
+-        if (!m_match_subst.get_binding(k, b) || !is_ground(b.get()))
+-            return nullptr;
+-        bindings.push_back(b);
+-    }
+-
+-    var_subst vs(m, false);
+-    expr_ref qe_inst = vs(q->get_expr(), bindings.size(), bindings.data());
+-
+-    expr_ref q_inst(m.mk_or(m.mk_not(q), qe_inst), m);
+-    proof_ref qi_pr(m.mk_quant_inst(q_inst, bindings.size(), bindings.data()), m);
+-    proof* prs[2] = { qi_pr.get(), q_pr };
+-    proof_ref raw_pr(m.mk_unit_resolution(2, prs), m);
+-
+-    app_ref a(m.mk_app(f, args.size(), args.data()), m);
+-    expr_ref desired_inst(m.mk_eq(a, np), m);
+-    if (qe_inst.get() == desired_inst.get()) {
+-        // `raw_pr` is about to go out of scope; pin it so the object it
+-        // owns (refcount == 1) isn't deleted before the caller's
+-        // `proof_ref` can take ownership of the returned raw pointer.
+-        m_proof_pinned.push_back(raw_pr);
+-        return raw_pr.get();
+-    }
+-
+-    proof_ref bridge(m.mk_rewrite(qe_inst, desired_inst), m);
+-    proof_ref result(m.mk_modus_ponens(raw_pr, bridge), m);
+-    m_proof_pinned.push_back(result);
+-    return result.get();
++    m_fmls.update(i, dependent_expr(m, r, nullptr, d));
+ }
+ 
+-bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args, expr_ref& np, proof_ref& pr) {
++bool demodulator_simplifier::rewrite1(func_decl* f, expr_ref_vector const& args, expr_ref& np) {
+     uint_set* set;
+-    pr = nullptr;
+     if (!m_index.find_fwd(f, set))
+         return false;
+ 
+@@ -208,8 +134,6 @@
+             TRACE(demodulator_bug, tout << "succeeded...\n" << mk_pp(rhs, m) << "\n===>\n" << np << "\n");
+             if (dep(i))
+                 m_dependencies.insert(i);
+-            if (m.proofs_enabled())
+-                pr = mk_instance_proof(i, f, args, np);
+             return true;
+         }
+     }
+@@ -253,7 +177,6 @@
+ 
+ void demodulator_simplifier::reset() {
+     m_pinned.reset();
+-    m_proof_pinned.reset();
+     m_index.reset();
+     m_rewrites.reset();
+     m_processed.reset();
+--- a/src/ast/simplifiers/demodulator_simplifier.h
++++ b/src/ast/simplifiers/demodulator_simplifier.h
+@@ -46,13 +46,10 @@
+     uint_set                  m_processed, m_dependencies;
+     unsigned_vector           m_todo;
+     expr_ref_vector           m_pinned;
+-    proof_ref_vector          m_proof_pinned;
+ 
+     void rewrite(unsigned i);
+-    bool rewrite1(func_decl* f, expr_ref_vector const& args, expr_ref& np, proof_ref& pr);
+-    proof* mk_instance_proof(unsigned i, func_decl* f, expr_ref_vector const& args, expr* np);
++    bool rewrite1(func_decl* f, expr_ref_vector const& args, expr_ref& np);
+     expr* fml(unsigned i) { return m_fmls[i].fml(); }
+-    proof* pr(unsigned i) { return m_fmls[i].pr(); }
+     expr_dependency* dep(unsigned i) { return m_fmls[i].dep(); }
+     void reschedule_processed(func_decl* f);
+     void reschedule_demodulators(func_decl* f, expr* lhs);
+@@ -64,5 +61,4 @@
+      void reduce() override;    
+ 
+      char const* name() const override { return "demodulator"; }
+-     bool supports_proofs() const override { return true; }
+ };
+--- a/src/ast/substitution/demodulator_rewriter.cpp
++++ b/src/ast/substitution/demodulator_rewriter.cpp
+@@ -185,28 +185,10 @@
+     m_rewrite_todo(m),
+     m_rewrite_cache(m),
+     m_new_exprs(m),
+-    m_new_args(m),
+-    m_proof_trail(m)
++    m_new_args(m)
+ {}
+ 
+-proof* demodulator_rewriter_util::get_step_proof(expr* e) const {
+-    proof* p = nullptr;
+-    m_proof_cache.find(e, p);
+-    return p;
+-}
+-
+-void demodulator_rewriter_util::update(expr* e, expr* new_e, bool done, proof* step_pr) {
+-    rewrite_cache(e, new_e, done);
+-    if (!m.proofs_enabled())
+-        return;
+-    proof* prev = get_step_proof(e);
+-    proof* total = m.mk_transitivity(prev, step_pr);
+-    if (total)
+-        m_proof_trail.push_back(total);
+-    m_proof_cache.insert(e, total);
+-}
+-
+-expr_ref demodulator_rewriter_util::rewrite(expr * n, proof_ref& pr) {
++expr_ref demodulator_rewriter_util::rewrite(expr * n) {
+ 
+     TRACE(demodulator, tout << "rewrite: " << mk_pp(n, m) << std::endl; );
+     app * a;
+@@ -214,8 +196,6 @@
+     SASSERT(m_rewrite_todo.empty());
+     m_new_exprs.reset();
+     m_rewrite_cache.reset();
+-    m_proof_cache.reset();
+-    m_proof_trail.reset();
+ 
+     m_rewrite_todo.push_back(n);
+     while (!m_rewrite_todo.empty()) {
+@@ -241,7 +221,7 @@
+ 
+         switch (actual->get_kind()) {
+         case AST_VAR:
+-            update(e, actual, true, nullptr);
++            rewrite_cache(e, actual, true);
+             m_rewrite_todo.pop_back();
+             break;
+         case AST_APP:
+@@ -250,64 +230,32 @@
+                 func_decl * f = a->get_decl();
+                 m_new_args.reset();
+                 bool all_untouched = true;
+-                bool proof_ok = true;
+-                ptr_buffer<proof> child_pfs;
+                 for (expr* o_child : *a) {
+                     expr * n_child;
+                     SASSERT(m_rewrite_cache.contains(o_child) && m_rewrite_cache.get(o_child).second);
+                     expr_bool_pair const & ebp = m_rewrite_cache.get(o_child);
+                     n_child = ebp.first;
+-                    if (n_child != o_child) {
++                    if (n_child != o_child)
+                         all_untouched = false;
+-                        if (m.proofs_enabled()) {
+-                            proof* cp = get_step_proof(o_child);
+-                            if (cp)
+-                                child_pfs.push_back(cp);
+-                            else
+-                                // the child changed but we failed to track a
+-                                // proof for it (e.g. it was rewritten before
+-                                // proof tracking covered that case); do not
+-                                // fabricate a congruence step we cannot
+-                                // justify.
+-                                proof_ok = false;
+-                        }
+-                    }
+                     m_new_args.push_back(n_child);
+                 }
+                 expr_ref np(m);
+-                proof_ref instance_pr(m);
+-                if (m_rewrite1(f, m_new_args, np, instance_pr)) {
+-                    proof_ref step_pr(m);
+-                    if (m.proofs_enabled() && proof_ok && instance_pr) {
+-                        proof_ref congr_pr(m);
+-                        if (!all_untouched) {
+-                            app_ref a_new(m.mk_app(f, m_new_args.size(), m_new_args.data()), m);
+-                            congr_pr = m.mk_congruence(a, a_new, child_pfs.size(), child_pfs.data());
+-                        }
+-                        step_pr = m.mk_transitivity(congr_pr, instance_pr);
+-                    }
+-                    update(e, np, false, step_pr);
++                if (m_rewrite1(f, m_new_args, np)) {
++                    rewrite_cache(e, np, false);
+                     // No pop.
+                 } 
+                 else {
+                     if (all_untouched) {
+-                        update(e, actual, true, nullptr);
++                        rewrite_cache(e, actual, true);
+                     }
+                     else {
+-                        expr_ref app_term(m.mk_app(f, m_new_args.size(), m_new_args.data()), m);
+                         expr_ref na(m);
+-                        proof_ref na_pr(m);
+-                        m_th_rewriter(app_term, na, na_pr);
++                        na = m_th_rewriter.mk_app(f, m_new_args);
+                         TRACE(demodulator_bug, tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
+                               tout << m_new_args << "\n";
+                               tout << "=====>\n";
+                               tout << "na:\n " << na << "\n";);
+-                        proof_ref step_pr(m);
+-                        if (m.proofs_enabled() && proof_ok) {
+-                            proof_ref congr_pr(m.mk_congruence(a, to_app(app_term.get()), child_pfs.size(), child_pfs.data()), m);
+-                            step_pr = m.mk_transitivity(congr_pr, na_pr);
+-                        }
+-                        update(e, na, true, step_pr);
++                        rewrite_cache(e, na, true);
+                     }
+                     m_rewrite_todo.pop_back();
+                 }
+@@ -319,26 +267,12 @@
+                 const expr_bool_pair ebp = m_rewrite_cache.get(body);
+                 SASSERT(ebp.second);
+                 expr * new_body = ebp.first;
+-                quantifier * old_q = to_quantifier(actual);
+                 quantifier_ref q(m);
+-                q = m.update_quantifier(old_q, new_body);
++                q = m.update_quantifier(to_quantifier(actual), new_body);
+                 m_new_exprs.push_back(q);
+                 expr_ref new_q = elim_unused_vars(m, q, params_ref());
+                 m_new_exprs.push_back(new_q);
+-                proof_ref step_pr(m);
+-                if (m.proofs_enabled()) {
+-                    proof* body_pr = get_step_proof(body);
+-                    proof_ref qi_pr(m);
+-                    if (body_pr) {
+-                        proof_ref bind_pr(m.mk_bind_proof(old_q, body_pr), m);
+-                        qi_pr = m.mk_quant_intro(old_q, q, bind_pr);
+-                    }
+-                    proof_ref eu_pr(m);
+-                    if (q.get() != new_q.get())
+-                        eu_pr = m.mk_elim_unused_vars(q, new_q);
+-                    step_pr = m.mk_transitivity(qi_pr, eu_pr);
+-                }
+-                update(e, new_q, true, step_pr);
++                rewrite_cache(e, new_q, true);
+                 m_rewrite_todo.pop_back();
+             } else {
+                 m_rewrite_todo.push_back(body);
+@@ -357,7 +291,6 @@
+ 
+     TRACE(demodulator, tout << "rewrite result: " << mk_pp(r, m) << std::endl; );
+ 
+-    pr = get_step_proof(n);
+     return expr_ref(r, m);
+ }
+ 
+@@ -378,12 +311,6 @@
+                 recursive = true;
+                 TRACE(demodulator, tout << "Detected demodulator cycle: " <<
+                       mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
+-                // Deliberately bypass `update()`: we have no justification
+-                // for `e = v` here (this is a cycle-breaking heuristic, not
+-                // a rewrite step), so no proof is recorded for `e`. Any
+-                // ancestor that relies on `e`'s step proof will correctly
+-                // see it missing (`get_step_proof` returns null) and will
+-                // itself skip proof production rather than fabricate one.
+                 rewrite_cache(e, v, true);
+                 break;
+             }
+--- a/src/ast/substitution/demodulator_rewriter.h
++++ b/src/ast/substitution/demodulator_rewriter.h
+@@ -141,28 +141,11 @@
+     bool operator()(expr * t, expr * i);
+ 
+     bool can_rewrite(expr* n, expr* lhs);
+-
+-    /**
+-       \brief After a successful match via operator()(lhs, rhs, args, new_rhs),
+-       retrieve the ground term bound to the lhs-side variable with de Bruijn
+-       index \c var_idx (lhs variables live in bank 0). Returns false if the
+-       variable was not bound by the match (e.g. it does not occur in lhs).
+-       The caller is responsible for checking that the returned term is
+-       actually ground (ensured here whenever the matched application itself
+-       is ground, since the binding is always a subterm of that application).
+-    */
+-    bool get_binding(unsigned var_idx, expr_ref& r) const {
+-        expr_offset eo;
+-        if (!m_subst.find(var_idx, 0, eo))
+-            return false;
+-        r = eo.get_expr();
+-        return true;
+-    }
+ };
+ 
+ class demodulator_rewriter_util {
+     ast_manager& m;
+-    std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&, proof_ref&)> m_rewrite1;
++    std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&)> m_rewrite1;
+ 
+     typedef std::pair<expr *, bool> expr_bool_pair;
+ 
+@@ -184,25 +167,13 @@
+     expr_ref_buffer     m_new_exprs;
+     expr_ref_vector     m_new_args;
+ 
+-    // Parallel proof-tracking cache: for every original subterm `e` that has
+-    // been (partially or fully) rewritten, records a proof that `e` equals
+-    // its current cached value (`m_rewrite_cache[e]`), or no entry/nullptr
+-    // if `e` is unchanged so far. Composed incrementally via mk_transitivity
+-    // every time the rewrite cache for `e` is updated, so by the time `e` is
+-    // marked `done` the recorded proof relates the *original* `e` directly
+-    // to its final normal form. Only populated when `m.proofs_enabled()`.
+-    obj_map<expr, proof*> m_proof_cache;
+-    proof_ref_vector        m_proof_trail;
+-
+     bool rewrite_visit_children(app * a);
+     void rewrite_cache(expr * e, expr * new_e, bool done);
+-    proof* get_step_proof(expr* e) const;
+-    void update(expr* e, expr* new_e, bool done, proof* step_pr);
+ 
+ public:
+     demodulator_rewriter_util(ast_manager& m);
+-    void set_rewrite1(std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&, proof_ref&)>& fn) { m_rewrite1 = fn; }
+-    expr_ref rewrite(expr * n, proof_ref& pr);
++    void set_rewrite1(std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&)>& fn) { m_rewrite1 = fn; }
++    expr_ref rewrite(expr * n);    
+ };
+ 
+ class demodulator_rewriter final {

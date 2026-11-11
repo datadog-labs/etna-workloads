@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
+index 613202ef35345b08d941a5f7d4000ec0445164d1..05c7416327837a78b34833436e185014f60ce302 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
+@@ -320,6 +320,14 @@ pub(crate) fn lower_bounds<'hir, I: IntoIterator<Item = &'hir hir::GenericBound<
+         'tcx: 'hir,
+     {
+         for hir_bound in hir_bounds {
++            if hir_bound
++                .trait_ref()
++                .and_then(|tr| tr.trait_def_id())
++                .is_some_and(|did| self.tcx().is_lang_item(did, LangItem::PointeeSized))
++            {
++                continue;
++            }
++
+             // In order to avoid cycles, when we're lowering `SelfTraitThatDefines`,
+             // we skip over any traits that don't define the given associated type.
+             if let PredicateFilter::SelfTraitThatDefines(assoc_ident) = predicate_filter {

@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_hir_typeck/src/writeback.rs b/compiler/rustc_hir_typeck/src/writeback.rs
+index 7b1f38f882747159daf7219904ace29410bd6e44..44dc83b3f39f5f41685b530609948f46cd02d29d 100644
+--- a/compiler/rustc_hir_typeck/src/writeback.rs
++++ b/compiler/rustc_hir_typeck/src/writeback.rs
+@@ -583,10 +583,25 @@ fn visit_opaque_types(&mut self) {
+         for (opaque_type_key, hidden_type) in opaque_types {
+             let hidden_type = self.resolve(hidden_type, &hidden_type.span);
+             let opaque_type_key = self.resolve(opaque_type_key, &hidden_type.span);
+-            if let &ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id }, args, .. }) =
+-                hidden_type.ty.kind()
+-                && def_id == opaque_type_key.def_id.to_def_id()
+-                && args == opaque_type_key.args
++            struct RecursionChecker {
++                def_id: LocalDefId,
++            }
++            impl<'tcx> TypeVisitor<TyCtxt<'tcx>> for RecursionChecker {
++                type Result = ControlFlow<()>;
++                fn visit_ty(&mut self, t: Ty<'tcx>) -> ControlFlow<()> {
++                    if let ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id }, .. }) =
++                        *t.kind()
++                        && def_id == self.def_id.to_def_id()
++                    {
++                        return ControlFlow::Break(());
++                    }
++                    t.super_visit_with(self)
++                }
++            }
++            if hidden_type
++                .ty
++                .visit_with(&mut RecursionChecker { def_id: opaque_type_key.def_id })
++                .is_break()
+             {
+                 continue;
+             }

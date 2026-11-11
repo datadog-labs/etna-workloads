@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs b/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
+index 7e7f72943c7cd1c06375a7c50b2f95fd2f287e9d..f5fbfcd7d3fcfd616edb5e8dfdc4ac1758c33cd2 100644
+--- a/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
++++ b/compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs
+@@ -216,7 +216,7 @@ fn emit_messages_default(
+             let file_ann_len = file_ann.len();
+             for (file_idx, (file, annotations)) in file_ann.into_iter().enumerate() {
+                 if should_show_source_code(&self.ignored_directories_in_source_blocks, sm, &file) {
+-                    if let Some(snippet) = self.annotated_snippet(annotations, &file.name, sm) {
++                    if let Some(snippet) = self.annotated_snippet(annotations, &file.name, &primary_lo.file.name, sm) {
+                         group = group.element(snippet);
+                     }
+                 // we can't annotate anything if the source is unavailable.
+@@ -284,7 +284,7 @@ fn emit_messages_default(
+ 
+             for (file_idx, (file, annotations)) in file_ann.into_iter().enumerate() {
+                 if should_show_source_code(&self.ignored_directories_in_source_blocks, sm, &file) {
+-                    if let Some(snippet) = self.annotated_snippet(annotations, &file.name, sm) {
++                    if let Some(snippet) = self.annotated_snippet(annotations, &file.name, &file.name, sm) {
+                         group = group.element(snippet);
+                     }
+                 // we can't annotate anything if the source is unavailable.
+@@ -563,12 +563,13 @@ fn annotated_snippet<'a>(
+         &self,
+         annotations: Vec<Annotation>,
+         file_name: &FileName,
++        origin_name: &FileName,
+         sm: &Arc<SourceMap>,
+     ) -> Option<Snippet<'a, annotate_snippets::Annotation<'a>>> {
+         let spans = annotations.iter().map(|a| a.span).collect::<Vec<_>>();
+         if let Some((bounding_span, source, offset_line)) = shrink_file(&spans, file_name, sm) {
+             let adj_lo = bounding_span.lo().to_usize();
+-            let filename = sm.filename_for_diagnostics(file_name).to_string_lossy().to_string();
++            let filename = sm.filename_for_diagnostics(origin_name).to_string_lossy().to_string();
+             Some(Snippet::source(source).line_start(offset_line).path(filename).annotations(
+                 annotations.into_iter().map(move |a| {
+                     let lo = a.span.lo().to_usize().saturating_sub(adj_lo);

@@ -1,0 +1,24 @@
+--- a/src/ast/seq/seq_eq_solver.cpp
++++ b/src/ast/seq/seq_eq_solver.cpp
+@@ -678,16 +678,11 @@
+                 return true;
+             // ls = rs' ++ y && rs = x ++ rs', diff = |x|
+             bool same = true;
+-            if (rs.size() > i) {
+-                unsigned diff = rs.size() - (i + 1);
+-                for (unsigned j = 0; same && j < i; ++j) 
+-                    same = !m.are_distinct(ls[j], rs[diff + j]);
+-            }
+-            // ls = x ++ rs ++ y, diff = |x|
+-            else {
+-                unsigned diff = (i + 1) - rs.size();
+-                for (unsigned j = 0; same && j + 1 < rs.size(); ++j) 
+-                    same = !m.are_distinct(ls[diff + j], rs[j]);                              
++            for (unsigned j = i - 1; rs.size() + j >= 1 + i; --j) {
++                if (m.are_distinct(ls[j], rs[rs.size() + j - i - 1])) {
++                    same = false;
++                    break;
++                }
+             }
+             if (same)
+                 return true;

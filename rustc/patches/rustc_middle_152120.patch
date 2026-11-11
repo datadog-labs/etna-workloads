@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_middle/src/ty/vtable.rs b/compiler/rustc_middle/src/ty/vtable.rs
+index fb56bda7d4562bb782e45dbd5690fa01be9745c8..219a4adf78cb848f1b2c2cfa9bab262ba6d2bb76 100644
+--- a/compiler/rustc_middle/src/ty/vtable.rs
++++ b/compiler/rustc_middle/src/ty/vtable.rs
+@@ -99,10 +99,9 @@ pub(super) fn vtable_allocation_provider<'tcx>(
+     // This confirms that the layout computation for &dyn Trait has an accurate sizing.
+     assert!(vtable_entries.len() >= vtable_min_entries(tcx, poly_trait_ref));
+ 
+-    let layout = match tcx.layout_of(ty::TypingEnv::fully_monomorphized().as_query_input(ty)) {
+-        Ok(layout) => layout,
+-        Err(e) => tcx.dcx().fatal(e.to_string()),
+-    };
++    let layout = tcx
++        .layout_of(ty::TypingEnv::fully_monomorphized().as_query_input(ty))
++        .expect("failed to build vtable representation");
+     assert!(layout.is_sized(), "can't create a vtable for an unsized type");
+     let size = layout.size.bytes();
+     let align = layout.align.bytes();

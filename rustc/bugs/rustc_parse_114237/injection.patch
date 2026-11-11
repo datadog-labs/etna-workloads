@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_parse/src/parser/diagnostics.rs b/compiler/rustc_parse/src/parser/diagnostics.rs
+index 0b91828639d368975752d141909656a3c796bfd2..e6c1e0493c88b48750520d2e79f9ec12eb9cfabd 100644
+--- a/compiler/rustc_parse/src/parser/diagnostics.rs
++++ b/compiler/rustc_parse/src/parser/diagnostics.rs
+@@ -548,17 +548,10 @@ fn tokens_to_string(tokens: &[TokenType]) -> String {
+             return Err(self.dcx().create_err(UseEqInstead { span: self.token.span }));
+         }
+ 
+-        if (self.token.is_keyword(kw::Move) || self.token.is_keyword(kw::Use))
+-            && self.prev_token.is_keyword(kw::Async)
+-        {
++        if self.token.is_keyword(kw::Use) && self.prev_token.is_keyword(kw::Async) {
+             // The 2015 edition is in use because parsing of `async move` or `async use` has failed.
+             let span = self.prev_token.span.to(self.token.span);
+-            if self.token.is_keyword(kw::Move) {
+-                return Err(self.dcx().create_err(AsyncMoveBlockIn2015 { span }));
+-            } else {
+-                // kw::Use
+-                return Err(self.dcx().create_err(AsyncUseBlockIn2015 { span }));
+-            }
++            return Err(self.dcx().create_err(AsyncUseBlockIn2015 { span }));
+         }
+ 
+         let expect = tokens_to_string(&expected);

@@ -1,0 +1,1 @@
+Shows that an extern "C" function taking an over-aligned (align 16) struct by value on i686 should copy the underaligned byval argument into a 16-aligned alloca; the injected compiler omits the alloca (count 0 vs 1).

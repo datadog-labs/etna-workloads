@@ -1,0 +1,1 @@
+Calling a missing associated function on a type parameter (`T::try_from()` with `T: Copy`, edition 2018) makes the injected compiler ICE (exit 101, "unexpected non-type Node::GenericParam") while looking for crate-version collisions in trait suggestions. The clean compiler reports a normal E0599 error (exit 1).

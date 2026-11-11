@@ -1,0 +1,60 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> main.rs:5:12
+  |
+5 | #![feature(rustc_attrs)]
+  |            ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error: the constant `*b"AAA"` is not of type `&'static [*mut u8; 3]`
+  --> main.rs:15:25
+   |
+15 |     ConstBytes<b"AAA">: Sized;
+   |                         ^^^^^ expected `&'static [*mut u8; 3]`, found `[u8; 3]`
+   |
+note: required by a const generic parameter in `ConstBytes`
+  --> main.rs:8:19
+   |
+ 8 | struct ConstBytes<const T: &'static [*mut u8; 3]>
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this const generic parameter in `ConstBytes`
+
+error[E0741]: `&'static [*mut u8; 3]` can't be used as a const parameter type
+ --> main.rs:8:28
+  |
+8 | struct ConstBytes<const T: &'static [*mut u8; 3]>
+  |                            ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `*mut u8` must implement `ConstParamTy_`, but it does not
+  = note: `[*mut u8; 3]` must implement `ConstParamTy_`, but it does not
+
+error: rustc_dump_predicates
+ --> main.rs:8:1
+  |
+8 | struct ConstBytes<const T: &'static [*mut u8; 3]>
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: Binder { value: ConstArgHasType(T/#0, &'static [*mut u8; 3_usize]), bound_vars: [] }
+  = note: Binder { value: TraitPredicate(<ConstBytes<*b"AAA"> as std::marker::Sized>, polarity:Positive), bound_vars: [] }
+
+error[E0308]: mismatched types
+  --> main.rs:15:16
+   |
+15 |     ConstBytes<b"AAA">: Sized;
+   |                ^^^^^^ expected `&[*mut u8; 3]`, found `&[u8; 3]`
+   |
+   = note: expected reference `&'static [*mut u8; 3]`
+              found reference `&'static [u8; 3]`
+note: expected because of the type of the const parameter
+  --> main.rs:8:19
+   |
+ 8 | struct ConstBytes<const T: &'static [*mut u8; 3]>
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 4 previous errors; 1 warning emitted
+
+Some errors have detailed explanations: E0308, E0741.
+For more information about an error, try `rustc --explain E0308`.
+rustc exit: 1
+
+[exit 0]

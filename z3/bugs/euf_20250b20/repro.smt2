@@ -1,0 +1,6 @@
+(set-option :sat.euf true)
+(set-option :tactic.default_tactic smt)
+(declare-const a (_ BitVec 1))
+(declare-const b (_ BitVec 1))
+(assert (distinct a b))
+(check-sat)

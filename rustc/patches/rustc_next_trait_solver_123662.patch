@@ -1,0 +1,62 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs b/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
+index aa26a122817bb43cd7aea436f5b845bf389655f8..a5e340ad3b048955784c3607bcd5c8f68398a0a4 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
+@@ -345,7 +345,6 @@ pub(in crate::solve) fn extract_tupled_inputs_and_output_from_callable<I: Intern
+             let sig = args.coroutine_closure_sig().skip_binder();
+ 
+             let coroutine_ty = if let Some(kind) = kind_ty.to_opt_closure_kind()
+-                && !args.tupled_upvars_ty().is_ty_var()
+             {
+                 if !kind.extends(goal_kind) {
+                     return Err(NoSolution);
+@@ -454,7 +453,6 @@ pub(in crate::solve) fn extract_tupled_inputs_and_output_from_async_callable<I:
+             let mut nested = vec![];
+ 
+             let coroutine_ty = if let Some(kind) = kind_ty.to_opt_closure_kind()
+-                && !args.tupled_upvars_ty().is_ty_var()
+             {
+                 if !kind.extends(goal_kind) {
+                     return Err(NoSolution);
+diff --git a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+index 08c634620300addde5a051df7622bb1dbddf4252..dc4b76ce8d49939753347bb3af2e684dc5100eac 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+@@ -655,11 +655,6 @@ fn consider_builtin_async_fn_kind_helper_candidate(
+             panic!();
+         };
+ 
+-        // Bail if the upvars haven't been constrained.
+-        if tupled_upvars_ty.expect_ty().is_ty_var() {
+-            return ecx.forced_ambiguity(MaybeInfo::AMBIGUOUS);
+-        }
+-
+         let Some(closure_kind) = closure_fn_kind_ty.expect_ty().to_opt_closure_kind() else {
+             // We don't need to worry about the self type being an infer var.
+             return Err(NoSolution.into());
+diff --git a/compiler/rustc_trait_selection/src/traits/project.rs b/compiler/rustc_trait_selection/src/traits/project.rs
+index 7da8c68ff894a0ff74bd55e1f5b07b671bac5259..ccdc57f96401575578747d9b31d38cd030d71337 100644
+--- a/compiler/rustc_trait_selection/src/traits/project.rs
++++ b/compiler/rustc_trait_selection/src/traits/project.rs
+@@ -1841,8 +1841,6 @@ fn coroutine_closure_output_coroutine<'tcx>(
+     // Otherwise, defer to `AsyncFnKindHelper::Upvars` to delay
+     // the projection, like the `AsyncFn*` traits do.
+     if let Some(closure_kind) = kind_ty.to_opt_closure_kind()
+-        // Fall back to projection if upvars aren't constrained
+-        && !args.tupled_upvars_ty().is_ty_var()
+     {
+         if !closure_kind.extends(goal_kind) {
+             bug!("we should not be confirming if the closure kind is not met");
+diff --git a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+index db863cb42f63ec23f261252e07e9d71f01437137..687be5964055f121e376448ea7582f5627d8f5f4 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+@@ -448,8 +448,6 @@ fn assemble_closure_candidates(
+                 let args = args.as_coroutine_closure();
+                 let is_const = self.tcx().is_const_fn(def_id);
+                 if let Some(closure_kind) = self.infcx.closure_kind(self_ty)
+-                    // Ambiguity if upvars haven't been constrained yet
+-                    && !args.tupled_upvars_ty().is_ty_var()
+                 {
+                     // A coroutine-closure implements `FnOnce` *always*, since it may
+                     // always be called once. It additionally implements `Fn`/`FnMut`

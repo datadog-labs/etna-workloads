@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_symbol_mangling/src/v0.rs b/compiler/rustc_symbol_mangling/src/v0.rs
+index 9c80743694ab6c88dcf780a2edeabf85a11766f1..07e63d0a0e81063d9f6284948cf0c8d443ffd50f 100644
+--- a/compiler/rustc_symbol_mangling/src/v0.rs
++++ b/compiler/rustc_symbol_mangling/src/v0.rs
+@@ -603,7 +603,6 @@ fn print_type(&mut self, ty: Ty<'tcx>) -> Result<(), PrintError> {
+             }
+ 
+             ty::FnPtr(sig_tys, hdr) => {
+-                let splatted_arg_index = hdr.splatted().map(usize::from);
+                 let sig = sig_tys.with(hdr);
+                 self.push("F");
+                 self.wrap_binder(&sig, |p, sig| {
+@@ -623,15 +622,7 @@ fn print_type(&mut self, ty: Ty<'tcx>) -> Result<(), PrintError> {
+                             }
+                         }
+                     }
+-                    for (i, &ty) in sig.inputs().iter().enumerate() {
+-                        if splatted_arg_index == Some(i) {
+-                            // The splat feature is unstable and its mangling is subject to change
+-                            // FIXME(splat):
+-                            // - for efficiency we might want to use a letter that can't occur in any type, rather than
+-                            //   taking an unused letter
+-                            // - splat isn't implemented for legacy mangling
+-                            p.push("w");
+-                        }
++                    for &ty in sig.inputs() {
+                         ty.print(p)?;
+                     }
+                     if sig.c_variadic() {
+diff --git a/compiler/rustc_type_ir/src/ty_kind.rs b/compiler/rustc_type_ir/src/ty_kind.rs
+index 94e6be03c766f7d5d38687fa09a456197d366cc2..806002f617b29fc88a3d3134fcb0dc46d30c6fe8 100644
+--- a/compiler/rustc_type_ir/src/ty_kind.rs
++++ b/compiler/rustc_type_ir/src/ty_kind.rs
+@@ -1375,10 +1375,6 @@ pub fn abi(self) -> ExternAbi {
+         self.fn_sig_kind.abi()
+     }
+ 
+-    pub fn splatted(self) -> Option<u8> {
+-        self.fn_sig_kind.splatted()
+-    }
+-
+     /// Create a new safe FnHeader with the `extern "Rust"` ABI, that isn't C-style variadic or splatted.
+     pub fn dummy() -> Self {
+         Self { fn_sig_kind: FnSigKind::dummy() }

@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/validity.rs b/compiler/rustc_const_eval/src/interpret/validity.rs
+index 8c0bb1fcdd8a5babc1aa6ae1beed3bf0008d8fae..faffd4737d3c3aac50436e813eb9cb69c2dafc78 100644
+--- a/compiler/rustc_const_eval/src/interpret/validity.rs
++++ b/compiler/rustc_const_eval/src/interpret/validity.rs
+@@ -19,7 +19,6 @@
+ use rustc_ast::Mutability;
+ use rustc_data_structures::fx::FxHashSet;
+ use rustc_hir as hir;
+-use rustc_middle::bug;
+ use rustc_middle::mir::interpret::{
+     InterpErrorKind, InvalidMetaKind, Misalignment, PointerArithmetic, Provenance, alloc_range,
+     interp_ok,
+@@ -27,6 +26,7 @@
+ use rustc_middle::ty::layout::{LayoutCx, TyAndLayout};
+ use rustc_middle::ty::{self, Ty};
+ use rustc_span::{Symbol, sym};
++use rustc_middle::{bug, span_bug};
+ use tracing::trace;
+ 
+ use super::machine::AllocMap;
+@@ -813,7 +813,13 @@ fn check_safe_pointer(
+                         if ptr_expected_mutbl == Mutability::Mut
+                             && alloc_actual_mutbl == Mutability::Not
+                         {
+-                            // This can actually occur with transmutes.
++                            if !self.ecx.tcx.sess.opts.unstable_opts.unleash_the_miri_inside_of_you
++                            {
++                                span_bug!(
++                                    self.ecx.tcx.span,
++                                    "the static const safety checks accepted mutable references they should not have accepted"
++                                );
++                            }
+                             throw_validation_failure!(
+                                 self.path,
+                                 format!(

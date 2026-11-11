@@ -1,0 +1,43 @@
+error[E0505]: cannot move out of `t` because it is borrowed
+  --> main.rs:11:10
+   |
+ 9 | fn live_past_borrow<T: Foo<borrow(..): 'static>>(mut t: T) {
+   |                                                  ----- binding `t` declared here
+10 |     let x = t.borrow();
+   |             - borrow of `t` occurs here
+11 |     drop(t);
+   |          ^ move out of `t` occurs here
+12 |     drop(x);
+   |          - borrow later used here
+
+error[E0499]: cannot borrow `t` as mutable more than once at a time
+  --> main.rs:19:13
+   |
+18 |     let x = t.borrow();
+   |             - first mutable borrow occurs here
+19 |     let x = t.borrow();
+   |             ^ second mutable borrow occurs here
+20 | }
+   | - first borrow might be used here, when `x` is dropped and runs the destructor for type `impl Sized + '_ { <T as Foo>::borrow(..) }`
+
+warning: unused variable: `x`
+  --> main.rs:18:9
+   |
+18 |     let x = t.borrow();
+   |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `x`
+  --> main.rs:19:9
+   |
+19 |     let x = t.borrow();
+   |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+error: aborting due to 2 previous errors; 2 warnings emitted
+
+Some errors have detailed explanations: E0499, E0505.
+For more information about an error, try `rustc --explain E0499`.
+rustc exit: 1
+
+[exit 0]

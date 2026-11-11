@@ -1,0 +1,1 @@
+Compiles a `match (&mut outer, 23)` where `outer` is a non-mut `&mut` binding. The clean compiler suggests `&mut *outer` (reborrow); the injected one suggests removing `&mut`, which would turn into a move.

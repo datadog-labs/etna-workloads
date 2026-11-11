@@ -1,0 +1,6 @@
+(declare-const lo String)
+(declare-const hi String)
+(simplify (= (re.union (re.range lo hi) (re.range "a" "b")) (re.union (re.range "a" "b") (re.range lo hi))))
+(simplify (= (re.* (re.range lo hi)) (re.+ (re.range lo hi))))
+(assert (not (= (re.++ (re.range lo hi) (re.* (re.range lo hi))) (re.+ (re.range lo hi)))))
+(check-sat)

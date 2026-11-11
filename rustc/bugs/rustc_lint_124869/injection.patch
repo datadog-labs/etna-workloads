@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_lint/src/builtin.rs b/compiler/rustc_lint/src/builtin.rs
+index 627fb962d5dbf13f988ba1bf03fc77c64ac22b9b..cbcd738b6cb11b22e1810e55eb5e4284ab217d84 100644
+--- a/compiler/rustc_lint/src/builtin.rs
++++ b/compiler/rustc_lint/src/builtin.rs
+@@ -15,7 +15,6 @@
+ 
+ use std::fmt::Write;
+ 
+-use ast::token::TokenKind;
+ use rustc_abi::BackendRepr;
+ use rustc_ast::tokenstream::{TokenStream, TokenTree};
+ use rustc_ast::visit::{FnCtxt, FnKind};
+@@ -1753,16 +1752,12 @@ fn check_pat_post(&mut self, _cx: &EarlyContext<'_>, pat: &ast::Pat) {
+ 
+ impl KeywordIdents {
+     fn check_tokens(&mut self, cx: &EarlyContext<'_>, tokens: &TokenStream) {
+-        // Check if the preceding token is `$`, because we want to allow `$async`, etc.
+-        let mut prev_dollar = false;
+         for tt in tokens.iter() {
+             match tt {
+                 // Only report non-raw idents.
+                 TokenTree::Token(token, _) => {
+                     if let Some((ident, token::IdentIsRaw::No)) = token.ident() {
+-                        if !prev_dollar {
+-                            self.check_ident_token(cx, UnderMacro(true), ident, "");
+-                        }
++                        self.check_ident_token(cx, UnderMacro(true), ident, "");
+                     } else if let Some((ident, token::IdentIsRaw::No)) = token.lifetime() {
+                         self.check_ident_token(
+                             cx,
+@@ -1770,14 +1765,10 @@ fn check_tokens(&mut self, cx: &EarlyContext<'_>, tokens: &TokenStream) {
+                             ident.without_first_quote(),
+                             "'",
+                         );
+-                    } else if token.kind == TokenKind::Dollar {
+-                        prev_dollar = true;
+-                        continue;
+                     }
+                 }
+                 TokenTree::Delimited(.., tts) => self.check_tokens(cx, tts),
+             }
+-            prev_dollar = false;
+         }
+     }
+ 

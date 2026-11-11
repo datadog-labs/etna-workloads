@@ -1,0 +1,173 @@
+--- a/src/math/lp/nla_core.cpp
++++ b/src/math/lp/nla_core.cpp
+@@ -934,7 +934,6 @@
+             // flag so the rest of the solver keeps reading the
+             // ordinary LP assignment.
+             set_use_nra_model(false);
+-            return l_undef;
+         }
+         else {
+             // bounded_nlsat gave up (resource limit) rather than
+--- a/src/math/lp/nla_solver.cpp
++++ b/src/math/lp/nla_solver.cpp
+@@ -60,9 +60,7 @@
+         return m_core->is_monic_var(v);
+     }
+     
+-    bool solver::need_check() {
+-        return m_core->has_relevant_monomial() || !m_core->get_transcendentals().empty();
+-    }
++    bool solver::need_check() { return m_core->has_relevant_monomial(); }
+     
+     lbool solver::check(unsigned level) {
+         return m_core->check(level);
+--- a/src/math/lp/nla_transcendentals.cpp
++++ b/src/math/lp/nla_transcendentals.cpp
+@@ -379,15 +379,13 @@
+         double fv = std::atan2(y, x);
+         if (!std::isfinite(fv))
+             return false; // (0,0): undefined, not this check's responsibility.
++        double tolerance = c.params().arith_nl_transcendental_tolerance();
+         // atan2 has a branch cut, so its derivative is unbounded near
+         // x < 0, y ~ 0 (val jumps by ~2*pi there); use a generous margin
+         // rather than attempting a tight closed-form error bound.
+-        double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv));
++        double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv)) + tolerance;
+         if (std::fabs(v - fv) <= err)
+             return false;
+-        ++m_num_failures;
+-        if (std::fabs(v - fv) <= err + c.params().arith_nl_transcendental_tolerance())
+-            return false;
+         // Coarse case-split fallback on sign(x), rather than a full 2D
+         // box-refinement enclosure (atan2's branch structure makes a tight
+         // closed-form box substantially more involved - out of scope
+@@ -426,12 +424,20 @@
+             // OP_U_ASIN/OP_U_ACOS out-of-domain operators, or domain
+             // constraints) is expected to handle it.
+             return false;
+-        double err = error_bound(a.op, x, fx);
++        double tolerance = c.params().arith_nl_transcendental_tolerance();
++        double err = error_bound(a.op, x, fx) + tolerance;
+         if (std::fabs(y - fx) <= err)
+-            return false;
++            return false; // consistent within tolerance
+ 
+-        // The delta tolerance can guide refinement, but only floating-point
+-        // round-off is small enough to certify this assignment as consistent.
++        // A genuine delta-check failure. Rather than constructing our own
++        // reactive polynomial/box-exclusion lemma here - a floating point
++        // sampling process that can nudge the LP assignment indefinitely
++        // without ever producing a certificate (see the module comment) -
++        // just record that a failure was observed and let nlsat settle the
++        // application exactly: should_run_bounded_nlsat(), gated on
++        // has_observed_failure(), hands the problem to nra_solver/nlsat,
++        // whose own nlsat_transcendentals engine refines the polynomial
++        // constraints for arg/val internally (see nlsat_transcendentals.*).
+         ++m_num_failures;
+         TRACE(nla_solver, tout << op_name(a.op) << "(" << xr << ") = " << yr
+                                << " but floating point evaluation gives " << fx
+@@ -452,8 +458,8 @@
+                 return;
+     }
+ 
+-    // Sanity-checks nra_solver's (nlsat's) own model against floating-point
+-    // round-off, reading the actual algebraic
++    // Sanity-checks nra_solver's (nlsat's) own model against the plain
++    // delta-tolerance used by check_app, reading the actual algebraic
+     // witness (via core::nra_model_bound) rather than the stale plain-LP
+     // core::val. nlsat_transcendentals already refines each application's
+     // polynomial constraints exactly before nlsat reports l_true, so this
+@@ -463,6 +469,7 @@
+         core& c = m_core;
+         if (!c.use_nra_model())
+             return false;
++        double tolerance = c.params().arith_nl_transcendental_tolerance();
+         for (auto const& a : m_apps) {
+             rational xlo, xhi, ylo, yhi;
+             c.nra_model_bound(a.arg, xlo, xhi);
+@@ -472,25 +479,10 @@
+             double fx = eval(a.op, x);
+             if (!std::isfinite(fx))
+                 continue; // outside op's domain: not this check's responsibility.
+-            double err = error_bound(a.op, x, fx);
++            double err = error_bound(a.op, x, fx) + tolerance;
+             if (std::fabs(y - fx) > err)
+                 return false;
+         }
+-        for (auto const& a : m_atan2_apps) {
+-            rational ylo, yhi, xlo, xhi, vlo, vhi;
+-            c.nra_model_bound(a.y, ylo, yhi);
+-            c.nra_model_bound(a.x, xlo, xhi);
+-            c.nra_model_bound(a.val, vlo, vhi);
+-            double y = ((ylo + yhi) / 2).get_double();
+-            double x = ((xlo + xhi) / 2).get_double();
+-            double v = ((vlo + vhi) / 2).get_double();
+-            double fv = std::atan2(y, x);
+-            if (!std::isfinite(fv))
+-                continue;
+-            double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv));
+-            if (std::fabs(v - fv) > err)
+-                return false;
+-        }
+         return true;
+     }
+ }
+--- a/src/math/lp/nla_transcendentals.h
++++ b/src/math/lp/nla_transcendentals.h
+@@ -33,10 +33,28 @@
+   account for floating point round-off, and checks whether the output
+   value is within a delta-tolerance of the (inflated) function value.
+ 
+-  - A value within floating-point round-off is treated as consistent.
+-    A value outside that bound is recorded for nlsat refinement, even if
+-    it is still within the configured delta tolerance; delta tolerance
+-    alone does not certify a model.
++  - If it is, the application is treated as consistent and is not an
++    obstacle to reporting the current assignment as a model.
++  - If it is not, the check derives a genuine conflict lemma rather
++    than a plain case split, following the shape of the "TRA
++    refinement" step of the paper (their Algorithm 2, also
++    implemented in the Yices-TRA prototype's
++    src/mcsat/na/na_plugin_explain.c): it brackets the current value
++    of the input variable in a small rational box [lo,hi], computes a
++    (floating point, safety-inflated) enclosure [flo,fhi] of op over
++    that box, and asserts the implication
++        (arg < lo \/ arg > hi \/ flo <= val <= fhi)
++    as a lemma via lemma_builder. This is a real conflict clause (all
++    disjuncts are false in the current model, since arg is inside the
++    box while val is outside its image), so unlike a case split it
++    directly refines the NRA abstraction and can be reused/subsumed
++    like any other nla lemma, instead of merely nudging the search.
++    The box is intentionally tiny (governed by
++    arith.nl.transcendental_tolerance) so that the endpoint-sampling
++    used to compute [flo,fhi] stays close to monotonic between lo and
++    hi; this is an engineering approximation, not a certified interval
++    enclosure (Yices-TRA uses arbitrary-precision interval arithmetic
++    via the ARB library for that).
+ 
+   This check is unsound-incomplete "on purpose": it never returns
+   l_false, and accepting an assignment as consistent within delta does
+@@ -54,7 +72,7 @@
+   certificate, and it duplicated exact, terminating refinement that
+   nlsat now performs itself (see nlsat/nlsat_transcendentals.h/.cpp,
+   in particular its Taylor/Maclaurin brackets for exp/log/atan/sin/cos).
+-  Instead, a value outside the round-off bound is only recorded
++  Instead, a delta-check failure here is only recorded
+   (has_observed_failure); core::check_transcendentals_and_finish uses
+   that, together with should_run_bounded_nlsat()'s backoff scheduler,
+   to hand the problem to nra_solver/nlsat, whose own
+--- a/src/nlsat/nlsat_transcendentals.cpp
++++ b/src/nlsat/nlsat_transcendentals.cpp
+@@ -148,12 +148,6 @@
+             // exp(arg) >= 1+arg, i.e. NOT(val - arg < 1).
+             literal lit = ~linear_literal(s, val, rational(1), arg, rational(-1), atom::LT, rational(1));
+             s.mk_clause(1, &lit, nullptr);
+-            // exp(arg) < 1 whenever arg < 0.
+-            literal lits[2] = {
+-                ~bound_literal(s, arg, atom::LT, rational(0)),
+-                bound_literal(s, val, atom::LT, rational(1))
+-            };
+-            s.mk_clause(2, lits, nullptr);
+             break;
+         }
+         case transcendental_op_kind::LOG: {

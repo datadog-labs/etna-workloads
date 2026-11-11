@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_transmute/src/lib.rs b/compiler/rustc_transmute/src/lib.rs
+index 0c031d978d6acb06c54ccdd107db51d2b3bfdf97..7424995e441a4ddf91d454a53f423ed3e0c79020 100644
+--- a/compiler/rustc_transmute/src/lib.rs
++++ b/compiler/rustc_transmute/src/lib.rs
+@@ -123,18 +123,12 @@ pub fn from_const<'tcx>(tcx: TyCtxt<'tcx>, ct: Const<'tcx>) -> Option<Self> {
+             let cv = ct.try_to_value()?;
+             let adt_def = cv.ty.ty_adt_def()?;
+ 
+-            if !tcx.is_lang_item(adt_def.did(), LangItem::TransmuteOpts) {
+-                tcx.dcx().delayed_bug(format!(
+-                    "The given `const` was not marked with the `{}` lang item.",
+-                    LangItem::TransmuteOpts.name()
+-                ));
+-                return Some(Self {
+-                    alignment: true,
+-                    lifetimes: true,
+-                    safety: true,
+-                    validity: true,
+-                });
+-            }
++            assert_eq!(
++                tcx.require_lang_item(LangItem::TransmuteOpts, rustc_span::DUMMY_SP),
++                adt_def.did(),
++                "The given `Const` was not marked with the `{}` lang item.",
++                LangItem::TransmuteOpts.name(),
++            );
+ 
+             let variant = adt_def.non_enum_variant();
+             let fields = cv.to_branch();

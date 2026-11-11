@@ -1,0 +1,1 @@
+An impl of a trait for `Box<dyn Foo>` has the associated type `Bar = <Self as Foo>::Bar`, a cycle. The clean compiler reports E0191 and exits 1. The injected compiler is missing the `seen` check in opaque type collection, so it recurses through the associated type until the stack overflows and dies with SIGSEGV.

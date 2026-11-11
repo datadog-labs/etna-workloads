@@ -1,0 +1,1 @@
+An external crate named `library` coexists with a local `mod library {}`; an unresolved import (`module::SomeUsefulType`) makes rustc suggest importing the struct from the external crate. The clean compiler disambiguates the suggestion as `::library::SomeUsefulType`; the injected one suggests the colliding `library::SomeUsefulType`.

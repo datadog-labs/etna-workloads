@@ -1,0 +1,1 @@
+Compiles a function with -Ctarget-feature=-avx2 and prints the emitted LLVM target-features attribute. The clean compiler forwards reverse implications of the negated feature (e.g. -avx512*), the injected one emits only -avx2.

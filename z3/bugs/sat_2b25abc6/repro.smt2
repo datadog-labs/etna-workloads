@@ -1,0 +1,8 @@
+(set-option :solver.proof.trim true)
+(declare-fun q () Bool)
+(declare-fun a () Bool)
+(assume q q a)
+(del q q a)
+(assume (not q))
+(assume (not a))
+(infer)

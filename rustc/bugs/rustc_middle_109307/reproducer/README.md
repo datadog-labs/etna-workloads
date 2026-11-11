@@ -1,0 +1,1 @@
+With -Zmir-opt-level=4, `g` (inline(always)) containing a macro-expanded `Location::caller()` is MIR-inlined into main. The injected compiler computes the caller location from the inlined callsite span instead of ignoring the Inlined span, so the reported line is 20 instead of 16 and the assertion fails (exit 101).

@@ -1,0 +1,1 @@
+A macro from an auxiliary crate expands to a block `{ () }` used as a match arm whose type mismatches ControlFlow. The clean compiler suggests wrapping the whole arm expression; the injected one descends into the macro's block and suggests wrapping `()` inside the macro definition (a span in the other crate).

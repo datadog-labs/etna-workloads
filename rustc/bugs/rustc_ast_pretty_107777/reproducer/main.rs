@@ -1,0 +1,4 @@
+#![feature(const_trait_impl)]
+trait Bar {}
+fn foo<T>() where T: [const] Bar {}
+fn main() {}

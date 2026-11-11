@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_mir_transform/src/sroa.rs b/compiler/rustc_mir_transform/src/sroa.rs
+index c1158892058781fb9a43ba25992144446e436a82..a59a6a0ca569bb9ceb5c425cae492088ae8e1e65 100644
+--- a/compiler/rustc_mir_transform/src/sroa.rs
++++ b/compiler/rustc_mir_transform/src/sroa.rs
+@@ -69,14 +69,8 @@ fn escaping_locals<'tcx>(
+             return true;
+         }
+         if let ty::Adt(def, _args) = ty.kind()
+-            && (def.repr().simd()
+-                || def.repr().scalable()
+-                || tcx.is_lang_item(def.did(), LangItem::DynMetadata))
++            && (def.repr().scalable() || tcx.is_lang_item(def.did(), LangItem::DynMetadata))
+         {
+-            // Exclude #[repr(simd)] types so that they are not de-optimized into an array
+-            // (MCP#838 banned projections into SIMD types, but if the value is unused
+-            // this pass sees "all the uses are of the fields" and expands it.)
+-
+             // codegen wants to see the `DynMetadata<T>`,
+             // not the inner reference-to-opaque-type.
+             return true;

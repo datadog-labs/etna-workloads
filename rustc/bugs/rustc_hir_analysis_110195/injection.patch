@@ -1,0 +1,49 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..4a65ed9c2df6af208552a485423798ac9a8d2f74 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -42,7 +42,7 @@
+ use rustc_middle::ty::{
+     self, Const, FnSigKind, GenericArgKind, GenericArgsRef, GenericParamDefKind, LitToConstInput,
+     RegionExt, Ty, TyCtxt, TypeSuperFoldable, TypeVisitableExt, TypingMode, Unnormalized, Upcast,
+-    const_lit_matches_ty, fold_regions,
++    const_lit_matches_ty,
+ };
+ use rustc_middle::{bug, span_bug};
+ use rustc_session::diagnostics::feature_err;
+@@ -1880,16 +1880,29 @@ fn probe_traits_that_match_assoc_ty(
+                             let header = tcx.impl_trait_header(impl_def_id);
+                             let trait_ref = header.trait_ref.instantiate(tcx, infcx.fresh_args_for_item(DUMMY_SP, impl_def_id)).skip_norm_wip();
+ 
+-                            let value = fold_regions(tcx, qself_ty, |_, _| tcx.lifetimes.re_erased);
+-                            // FIXME: Don't bother dealing with non-lifetime binders here...
+-                            if value.has_escaping_bound_vars() {
+-                                return false;
+-                            }
++                            let universe = infcx.create_next_universe();
+                             infcx
+                                 .can_eq(
+                                     ty::ParamEnv::empty(),
+                                     trait_ref.self_ty(),
+-                                    value,
++                                    tcx.replace_escaping_bound_vars_uncached(
++                                        qself_ty,
++                                        ty::FnMutDelegate {
++                                            regions: &mut |_| tcx.lifetimes.re_erased,
++                                            types: &mut |bv| {
++                                                Ty::new_placeholder(
++                                                    tcx,
++                                                    ty::PlaceholderType::new(universe, bv),
++                                                )
++                                            },
++                                            consts: &mut |bv| {
++                                                ty::Const::new_placeholder(
++                                                    tcx,
++                                                    ty::PlaceholderConst::new(universe, bv),
++                                                )
++                                            },
++                                        },
++                                    ),
+                                 ) && header.polarity != ty::ImplPolarity::Negative
+                         })
+             })

@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/move_errors.rs b/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
+index 9fac00016eac2e423e86dfe16dcb497d98f42d88..dfacee982fbdebad41d911e687c2bf5664c4ec14 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
+@@ -270,14 +270,6 @@ fn report(&mut self, error: GroupedMoveError<'tcx>) {
+             kind,
+             self.is_upvar_field_projection(original_path.as_ref())
+         );
+-        if self.has_ambiguous_copy(original_path.ty(self.body, self.infcx.tcx).ty) {
+-            // If the type may implement Copy, skip the error.
+-            // It's an error with the Copy implementation (e.g. duplicate Copy) rather than borrow check
+-            self.dcx()
+-                .span_delayed_bug(span, "Type may implement copy, but there is no other error.");
+-            return;
+-        }
+-
+         let mut has_clone_suggestion = CloneSuggestion::NotEmitted;
+         let mut err = match kind {
+             &IllegalMoveOriginKind::BorrowedContent { target_place } => {
+@@ -302,6 +294,7 @@ fn report(&mut self, error: GroupedMoveError<'tcx>) {
+         self.buffer_error(err);
+     }
+ 
++    #[allow(dead_code)]
+     fn has_ambiguous_copy(&mut self, ty: Ty<'tcx>) -> bool {
+         let Some(copy_def_id) = self.infcx.tcx.lang_items().copy_trait() else { return false };
+ 

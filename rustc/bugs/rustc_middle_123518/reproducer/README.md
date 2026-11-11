@@ -1,0 +1,1 @@
+Compiles an async closure whose child coroutine captures overlapping projections of different upvars (y and x); the injected compiler skips the base-variable check and ICEs ('we captured ... but it was not used in the child coroutine'), while the clean compiler compiles and runs it.

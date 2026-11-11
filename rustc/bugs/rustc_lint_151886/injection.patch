@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_lint/src/unused.rs b/compiler/rustc_lint/src/unused.rs
+index 0236ac75c2d642c402f5affabbf20bb8f5f93400..dcbb7bc74e57a0603131852432364bdf2fe91ca0 100644
+--- a/compiler/rustc_lint/src/unused.rs
++++ b/compiler/rustc_lint/src/unused.rs
+@@ -1295,7 +1295,7 @@ fn check_item(&mut self, cx: &EarlyContext<'_>, item: &ast::Item) {
+ declare_lint_pass!(UnusedAllocation => [UNUSED_ALLOCATION]);
+ 
+ impl<'tcx> LateLintPass<'tcx> for UnusedAllocation {
+-    fn check_expr(&mut self, cx: &LateContext<'tcx>, e: &hir::Expr<'_>) {
++    fn check_expr(&mut self, cx: &LateContext<'_>, e: &hir::Expr<'_>) {
+         match e.kind {
+             hir::ExprKind::Call(path_expr, [_])
+                 if let hir::ExprKind::Path(qpath) = &path_expr.kind
+@@ -1306,12 +1306,6 @@ fn check_expr(&mut self, cx: &LateContext<'tcx>, e: &hir::Expr<'_>) {
+ 
+         for adj in cx.typeck_results().expr_adjustments(e) {
+             if let adjustment::Adjust::Borrow(adjustment::AutoBorrow::Ref(m)) = adj.kind {
+-                if let ty::Ref(_, inner_ty, _) = adj.target.kind()
+-                    && inner_ty.is_box()
+-                {
+-                    // If the target type is `&Box<T>` or `&mut Box<T>`, the allocation is necessary
+-                    continue;
+-                }
+                 match m {
+                     adjustment::AutoBorrowMutability::Not => {
+                         cx.emit_span_lint(UNUSED_ALLOCATION, e.span, UnusedAllocationDiag);

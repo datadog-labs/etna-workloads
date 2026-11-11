@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_ast_passes/src/feature_gate.rs b/compiler/rustc_ast_passes/src/feature_gate.rs
+index bd92f32e24b689397dc7879a6281b44aa924705b..5cd0676ccc2452720a111874ae9527bc4e3720cc 100644
+--- a/compiler/rustc_ast_passes/src/feature_gate.rs
++++ b/compiler/rustc_ast_passes/src/feature_gate.rs
+@@ -275,12 +275,17 @@ fn visit_ty(&mut self, ty: &'a ast::Ty) {
+         visit::walk_ty(self, ty)
+     }
+ 
+-    fn visit_where_predicate_kind(&mut self, kind: &'a ast::WherePredicateKind) {
+-        if let ast::WherePredicateKind::BoundPredicate(bound) = kind {
+-            // A type bound (e.g., `for<'c> Foo: Send + Clone + 'c`).
+-            self.check_late_bound_lifetime_defs(&bound.bound_generic_params);
++    fn visit_generics(&mut self, g: &'a ast::Generics) {
++        for predicate in &g.where_clause.predicates {
++            match &predicate.kind {
++                ast::WherePredicateKind::BoundPredicate(bound_pred) => {
++                    // A type bound (e.g., `for<'c> Foo: Send + Clone + 'c`).
++                    self.check_late_bound_lifetime_defs(&bound_pred.bound_generic_params);
++                }
++                _ => {}
++            }
+         }
+-        visit::walk_where_predicate_kind(self, kind);
++        visit::walk_generics(self, g);
+     }
+ 
+     fn visit_fn_ret_ty(&mut self, ret_ty: &'a ast::FnRetTy) {

@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+index 203ed5a62a8b9f59f22fcedaaec85ba6388ce57c..371f8a757194eb0872b3cae2f511838ca5fb9849 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+@@ -1013,19 +1013,45 @@ fn confirm_trait_upcasting_unsize_candidate(
+         };
+ 
+         let source_principal = a_data.principal().unwrap().with_self_ty(tcx, a_ty);
+-        let unnormalized_upcast_principal =
+-            ty::Unnormalized::new_wip(util::supertraits(tcx, source_principal).nth(idx).unwrap());
+-
+-        let nested = self
+-            .match_upcast_principal(
+-                obligation,
+-                unnormalized_upcast_principal,
+-                a_data,
+-                b_data,
+-                a_region,
+-                b_region,
+-            )?
+-            .expect("did not expect ambiguity during confirmation");
++        let upcast_principal =
++            util::supertraits(tcx, source_principal).nth(idx).unwrap();
++
++        let mut nested = PredicateObligations::new();
++        let existential_predicate = upcast_principal.map_bound(|trait_ref| {
++            ty::ExistentialPredicate::Trait(ty::ExistentialTraitRef::erase_self_ty(
++                tcx, trait_ref,
++            ))
++        });
++        let iter = Some(existential_predicate)
++            .into_iter()
++            .chain(
++                a_data.projection_bounds().map(|b| b.map_bound(ty::ExistentialPredicate::Projection)),
++            )
++            .chain(
++                b_data
++                    .auto_traits()
++                    .map(ty::ExistentialPredicate::AutoTrait)
++                    .map(ty::Binder::dummy),
++            );
++        let existential_predicates = tcx.mk_poly_existential_predicates_from_iter(iter);
++        let source_trait = Ty::new_dynamic(tcx, existential_predicates, b_region);
++
++        // Require that the traits involved in this upcast are **equal**;
++        // only the **lifetime bound** is changed.
++        let InferOk { obligations, .. } = self
++            .infcx
++            .at(&obligation.cause, obligation.param_env)
++            .sup(DefineOpaqueTypes::Yes, b_ty, source_trait)
++            .map_err(|_| SelectionError::Unimplemented)?;
++        nested.extend(obligations);
++
++        nested.push(Obligation::with_depth(
++            tcx,
++            obligation.cause.clone(),
++            obligation.recursion_depth + 1,
++            obligation.param_env,
++            ty::Binder::dummy(ty::OutlivesClause(a_region, b_region)),
++        ));
+ 
+         Ok(ImplSource::Builtin(BuiltinImplSource::TraitUpcasting(idx), nested))
+     }

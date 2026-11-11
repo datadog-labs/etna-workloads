@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_target/src/callconv/mod.rs b/compiler/rustc_target/src/callconv/mod.rs
+index 2a10921f99578df47c4aea6d5582c7c5b9f3bde4..7be0d69309671c659db2b8b85564e34b2ea82a36 100644
+--- a/compiler/rustc_target/src/callconv/mod.rs
++++ b/compiler/rustc_target/src/callconv/mod.rs
+@@ -419,7 +419,9 @@ fn indirect_pass_mode(layout: &TyAndLayout<'a, Ty>) -> PassMode {
+             .set(ArgAttribute::NoUndef)
+             .set(ArgAttribute::NoFree);
+         attrs.pointee_size = layout.size;
+-        attrs.pointee_align = Some(layout.align.abi);
++        // FIXME(eddyb) We should be doing this, but at least on
++        // i686-pc-windows-msvc, it results in wrong stack offsets.
++        // attrs.pointee_align = Some(layout.align.abi);
+ 
+         let meta_attrs = layout.is_unsized().then_some(ArgAttributes::new());
+ 
+@@ -479,13 +481,7 @@ pub fn pass_by_stack_offset(&mut self, byval_align: Option<Align>) {
+             PassMode::Indirect { ref mut attrs, meta_attrs: _, ref mut on_stack } => {
+                 *on_stack = true;
+ 
+-                // Some platforms, like 32-bit x86, change the alignment of the type when passing
+-                // `byval`. Account for that.
+-                if let Some(byval_align) = byval_align {
+-                    // On all targets with byval align this is currently true, so let's assert it.
+-                    debug_assert!(byval_align >= Align::from_bytes(4).unwrap());
+-                    attrs.pointee_align = Some(byval_align);
+-                }
++                let _ = (attrs, byval_align);
+             }
+             _ => unreachable!(),
+         }

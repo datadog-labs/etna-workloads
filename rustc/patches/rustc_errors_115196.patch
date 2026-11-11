@@ -1,0 +1,133 @@
+diff --git a/compiler/rustc_errors/src/lib.rs b/compiler/rustc_errors/src/lib.rs
+index 4fa104ad6dbfec8686530bae6ffb4c72a0115be8..e03ba1ebacb420d1ba2e6d430dd8970de7831d6e 100644
+--- a/compiler/rustc_errors/src/lib.rs
++++ b/compiler/rustc_errors/src/lib.rs
+@@ -390,6 +390,7 @@ pub enum StashKey {
+     /// the case we suppress this message and we give a better suggestion.
+     GenericInFieldExpr,
+     ReturnTypeNotation,
++    MaybeForgetReturn,
+ }
+ 
+ fn default_track_diagnostic<R>(diag: DiagInner, f: &mut dyn FnMut(DiagInner) -> R) -> R {
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+index 8ff4c3bf28c34895e8656b36eea5c697ad0602b7..19896891c735a71715102a1a16454b4bfa4cc843 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+@@ -753,7 +753,12 @@ pub(crate) fn report_ambiguity_errors(&self) {
+ 
+         if let TraitErrors::HasErrors(mut errors) = errors {
+             self.adjust_fulfillment_errors_for_expr_obligation(&mut errors);
++            let errors_causecode = errors
++                .iter()
++                .map(|e| (e.obligation.cause.span, e.root_obligation.cause.code().clone()))
++                .collect::<Vec<_>>();
+             self.err_ctxt().report_fulfillment_errors(errors);
++            self.collect_unused_stmts_for_coerce_return_ty(errors_causecode);
+         }
+     }
+ 
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+index 9becad0db1ca2a5a96bfb3073e3c29a77b9590da..de3403c120e251fd084a03b378ba0c6c8274f23d 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+@@ -6,7 +6,7 @@
+ use rustc_data_structures::fx::FxIndexSet;
+ use rustc_data_structures::thin_vec::ThinVec;
+ use rustc_errors::codes::*;
+-use rustc_errors::{Applicability, Diag, ErrorGuaranteed, MultiSpan, a_or_an, listify, pluralize};
++use rustc_errors::{Applicability, Diag, ErrorGuaranteed, MultiSpan, StashKey, a_or_an, listify, pluralize};
+ use rustc_hir as hir;
+ use rustc_hir::attrs::DivergingBlockBehavior;
+ use rustc_hir::attrs::lang_items::LangItem;
+@@ -1577,6 +1577,57 @@ fn finish_resolving_struct_path(
+         }
+     }
+ 
++    pub(super) fn collect_unused_stmts_for_coerce_return_ty(
++        &self,
++        errors_causecode: Vec<(Span, ObligationCauseCode<'tcx>)>,
++    ) {
++        for (span, code) in errors_causecode {
++            self.dcx().try_steal_modify_and_emit_err(span, StashKey::MaybeForgetReturn, |diag| {
++                if let Some(fn_sig) = self.fn_sig()
++                    && let ObligationCauseCode::WhereClauseInExpr(_, _, hir_id, ..) = code
++                    && !fn_sig.output().is_unit()
++                {
++                    let mut block_num = 0;
++                    let mut found_semi = false;
++                    for (_, node) in self.tcx.hir_parent_iter(hir_id) {
++                        match node {
++                            hir::Node::Stmt(stmt) => {
++                                if let hir::StmtKind::Semi(expr) = stmt.kind {
++                                    let expr_ty = self.typeck_results.borrow().expr_ty(expr);
++                                    let return_ty = fn_sig.output();
++                                    if !matches!(expr.kind, hir::ExprKind::Ret(..))
++                                        && self.may_coerce(expr_ty, return_ty)
++                                    {
++                                        found_semi = true;
++                                    }
++                                }
++                            }
++                            hir::Node::Block(_block) => {
++                                if found_semi {
++                                    block_num += 1;
++                                }
++                            }
++                            hir::Node::Item(item) => {
++                                if let hir::ItemKind::Fn { .. } = item.kind {
++                                    break;
++                                }
++                            }
++                            _ => {}
++                        }
++                    }
++                    if block_num > 1 && found_semi {
++                        diag.span_suggestion_verbose(
++                            span.shrink_to_lo(),
++                            "you might have meant to return this to infer its type parameters",
++                            "return ",
++                            Applicability::MaybeIncorrect,
++                        );
++                    }
++                }
++            });
++        }
++    }
++
+     /// Given a vector of fulfillment errors, try to adjust the spans of the
+     /// errors to more accurately point at the cause of the failure.
+     ///
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
+index 06d882a3094893f62384bbc823151515eaa12f06..32b65e0239b0ee20b93bbf90daa4bc697c5f7cf9 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/ambiguity.rs
+@@ -1,6 +1,6 @@
+ use std::ops::ControlFlow;
+ 
+-use rustc_errors::{Applicability, Diag, E0283, E0284, E0790, MultiSpan, struct_span_code_err};
++use rustc_errors::{Applicability, Diag, E0283, E0284, E0790, MultiSpan, StashKey, struct_span_code_err};
+ use rustc_hir as hir;
+ use rustc_hir::attrs::lang_items::LangItem;
+ use rustc_hir::def::{DefKind, Res};
+@@ -262,15 +262,16 @@ pub(super) fn maybe_report_ambiguity(
+                     Some(LangItem::Sized | LangItem::MetaSized)
+                 ) {
+                     return match self.tainted_by_errors() {
+-                        None => self
+-                            .emit_inference_failure_err(
++                        None => {
++                            let err = self.emit_inference_failure_err(
+                                 obligation.cause.body_def_id,
+                                 span,
+                                 trait_pred.self_ty().skip_binder().into(),
+                                 TypeAnnotationNeeded::E0282,
+                                 false,
+-                            )
+-                            .emit(),
++                            );
++                            err.stash(span, StashKey::MaybeForgetReturn).unwrap()
++                        }
+                         Some(e) => e,
+                     };
+                 }

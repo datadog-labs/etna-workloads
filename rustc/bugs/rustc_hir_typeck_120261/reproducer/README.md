@@ -1,0 +1,1 @@
+Compiles an if/else where the else block's tail expression (Struct) must be boxed to Box<dyn Trait>. The clean compiler suggests wrapping just the tail expression with Box::new(Struct); the injected one suggests wrapping the whole block (else Box::new({ ... })).

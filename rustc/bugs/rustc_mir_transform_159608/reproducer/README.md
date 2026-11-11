@@ -1,0 +1,1 @@
+With opt-level=3, the injected compiler's early_otherwise_branch MIR pass hoists a dereference of a null pointer above a switch whose otherwise branch is reachable. The program should never dereference the pointer, but it crashes (segfault or UB) instead of exiting normally, so the run exit status differs from the clean compiler.

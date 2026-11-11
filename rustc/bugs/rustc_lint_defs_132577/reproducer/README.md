@@ -1,0 +1,1 @@
+Defines a macro in an external crate that uses an unexpected cfg; the unexpected_cfgs warning should be reported at the use site in the downstream crate (clean) but is suppressed on the injected compiler.

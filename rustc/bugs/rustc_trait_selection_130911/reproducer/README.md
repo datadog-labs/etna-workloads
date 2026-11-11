@@ -1,0 +1,1 @@
+Compiling a program where `&main` needs a cast to `fn()` to satisfy `&dyn Foo`: the clean compiler suggests `&(main as fn())`, while the injected one suggests the wrong `&main as fn()` (no parentheses).

@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_parse/src/lib.rs b/compiler/rustc_parse/src/lib.rs
+index 539c15f18a9a4f9a580d1f6987b81d90f2cd284a..cd08fc3dc60a15ed6ed5257035bf37244452a460 100644
+--- a/compiler/rustc_parse/src/lib.rs
++++ b/compiler/rustc_parse/src/lib.rs
+@@ -349,13 +349,13 @@ fn lex_token_trees_for_span(
+     span: Span,
+ ) -> Option<impl Iterator<Item = TokenTree>> {
+     let src = psess.source_map().span_to_snippet(span).ok()?;
+-    let stream = match lexer::lex_token_trees(psess, &src, span.lo(), None, StripTokens::Nothing) {
+-        Ok(stream) => stream,
+-        Err(errs) => {
+-            errs.into_iter().for_each(|err| err.cancel());
+-            return None;
+-        }
+-    };
++    let stream = unwrap_or_emit_fatal(lexer::lex_token_trees(
++        psess,
++        &src,
++        span.lo(),
++        None,
++        StripTokens::Nothing,
++    ));
+     Some((0..).map_while(move |index| stream.get(index).cloned()))
+ }
+ 

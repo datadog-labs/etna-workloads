@@ -1,0 +1,1 @@
+A wrong function pointer type `&fn<'a>(x: &'a i32) -> R` with `#![deny(single_use_lifetimes)]` makes the single-use-lifetime diagnostic build a suggestion with an empty deletion span. The clean compiler reports ordinary errors (exit 1); the injected one hits an assertion ICE ("Span must not be empty") and aborts.

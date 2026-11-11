@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..bb53a6a3b900e93a31ace2f0c13bbea8561ef16a 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -433,11 +433,7 @@ fn parse_expr_range(
+         cur_op_span: Span,
+     ) -> PResult<'a, Box<Expr>> {
+         let rhs = if self.is_at_start_of_range_notation_rhs() {
+-            let maybe_lt = self.token;
+-            Some(
+-                self.parse_expr_assoc(Bound::Excluded(prec))
+-                    .map_err(|err| self.maybe_err_dotdotlt_syntax(maybe_lt, err))?,
+-            )
++            Some(self.parse_expr_assoc(Bound::Excluded(prec))?)
+         } else {
+             None
+         };
+@@ -484,13 +480,11 @@ fn parse_expr_prefix_range(&mut self, attrs: AttrWrapper) -> PResult<'a, Box<Exp
+         let op = AssocOp::from_token(&self.token);
+         self.collect_tokens_for_expr(AttrWrapper::empty(), |this, _empty_attrs| {
+             let lo = this.token.span;
+-            let maybe_lt = this.look_ahead(1, |t| t.clone());
+             this.bump();
+             let (span, opt_end) = if this.is_at_start_of_range_notation_rhs() {
+                 // RHS must be parsed with more associativity than the dots.
+                 this.parse_expr_assoc(Bound::Excluded(op.unwrap().precedence()))
+-                    .map(|expr| (lo.to(expr.span), Some(expr)))
+-                    .map_err(|err| this.maybe_err_dotdotlt_syntax(maybe_lt, err))?
++                    .map(|expr| (lo.to(expr.span), Some(expr)))?
+             } else {
+                 (lo, None)
+             };

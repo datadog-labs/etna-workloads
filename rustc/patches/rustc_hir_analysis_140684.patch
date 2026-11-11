@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+index 3d8c23ebdf8d33141dfbd9435df55368d3b92ac9..b0f4160e06645abc24aceb55731101bfe9f83dd6 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+@@ -315,13 +315,12 @@ pub(super) fn lower_trait_object_ty(
+         let mut missing_assoc_items = FxIndexSet::default();
+         let projection_bounds: Vec<_> = ordered_associated_items
+             .into_iter()
+-            .filter_map(|key @ (def_id, _)| {
++            .filter(|&(def_id, _)| !tcx.generics_require_sized_self(def_id))
++            .filter_map(|key| {
+                 if let Some(&assoc) = projection_bounds.get(&key) {
+                     return Some(assoc);
+                 }
+-                if !tcx.generics_require_sized_self(def_id) {
+-                    missing_assoc_items.insert(key);
+-                }
++                missing_assoc_items.insert(key);
+                 None
+             })
+             .collect();
+diff --git a/compiler/rustc_middle/src/ty/sty.rs b/compiler/rustc_middle/src/ty/sty.rs
+index 054d4e18d3b70912e14aed7b22e56cb82d1124d6..5f68d38740c931c3804f9b60e50e71d3d64c3bd3 100644
+--- a/compiler/rustc_middle/src/ty/sty.rs
++++ b/compiler/rustc_middle/src/ty/sty.rs
+@@ -757,10 +757,7 @@ pub fn new_dynamic(
+         reg: ty::Region<'tcx>,
+     ) -> Ty<'tcx> {
+         if cfg!(debug_assertions) {
+-            let projection_count = obj
+-                .projection_bounds()
+-                .filter(|item| !tcx.generics_require_sized_self(item.item_def_id()))
+-                .count();
++            let projection_count = obj.projection_bounds().count();
+             let expected_count: usize = obj.principal_def_id().map_or(0, |principal_def_id| {
+                 // IMPORTANT: This has to agree with HIR ty lowering of dyn trait!
+                 elaborate::supertraits(

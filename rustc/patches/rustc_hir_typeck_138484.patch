@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..7bb2ab4fa4a5918591b90d4c8ab621b4adabfea4 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -3381,8 +3381,7 @@ pub(crate) fn suggest_cast(
+             return false;
+         }
+ 
+-        let span = if let hir::ExprKind::Lit(lit) = &expr.kind { lit.span } else { expr.span };
+-        let Ok(src) = self.tcx.sess.source_map().span_to_snippet(span) else {
++        let Ok(src) = self.tcx.sess.source_map().span_to_snippet(expr.span) else {
+             return false;
+         };
+ 
+@@ -3477,10 +3476,10 @@ pub(crate) fn suggest_cast(
+                 // Remove fractional part from literal, for example `42.0f32` into `42`
+                 let src = src.trim_end_matches(&checked_ty.to_string());
+                 let len = src.split('.').next().unwrap().len();
+-                span.with_lo(span.lo() + BytePos(len as u32))
++                expr.span.with_lo(expr.span.lo() + BytePos(len as u32))
+             } else {
+                 let len = src.trim_end_matches(&checked_ty.to_string()).len();
+-                span.with_lo(span.lo() + BytePos(len as u32))
++                expr.span.with_lo(expr.span.lo() + BytePos(len as u32))
+             },
+             if self.precedence(expr) < ExprPrecedence::Unambiguous {
+                 // Readd `)`

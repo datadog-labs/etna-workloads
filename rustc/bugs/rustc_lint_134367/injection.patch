@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_lint/src/deref_into_dyn_supertrait.rs b/compiler/rustc_lint/src/deref_into_dyn_supertrait.rs
+index 5fb4f5278938fc342d7c59a9de4e1b582b81f186..ad911929972ae6ec6b7b20a262a4fa7ae6f995c3 100644
+--- a/compiler/rustc_lint/src/deref_into_dyn_supertrait.rs
++++ b/compiler/rustc_lint/src/deref_into_dyn_supertrait.rs
+@@ -1,6 +1,7 @@
+ use rustc_hir as hir;
+ use rustc_hir::attrs::lang_items::LangItem;
+ use rustc_middle::ty;
++use rustc_session::lint::fcw;
+ use rustc_session::{declare_lint, declare_lint_pass};
+ use rustc_span::{Ident, sym};
+ use rustc_trait_selection::traits::supertraits;
+@@ -9,8 +10,8 @@
+ use crate::{LateContext, LateLintPass, LintContext};
+ 
+ declare_lint! {
+-    /// The `deref_into_dyn_supertrait` lint is emitted whenever there is a `Deref` implementation
+-    /// for `dyn SubTrait` with a `dyn SuperTrait` type as the `Output` type.
++    /// The `deref_into_dyn_supertrait` lint is output whenever there is a use of the
++    /// `Deref` implementation with a `dyn SuperTrait` type as `Output`.
+     ///
+     /// These implementations are "shadowed" by trait upcasting (stabilized since
+     /// 1.86.0). The `deref` functions is no longer called implicitly, which might
+@@ -50,8 +51,11 @@
+     /// `deref` can be still called explicitly, it just isn't called as part of a deref coercion
+     /// (since trait upcasting coercion takes priority).
+     pub DEREF_INTO_DYN_SUPERTRAIT,
+-    Allow,
+-    "`Deref` implementation with a supertrait trait object for output is shadowed by trait upcasting",
++    Warn,
++    "`Deref` implementation usage with a supertrait trait object for output is shadowed by trait upcasting",
++    @future_incompatible = FutureIncompatibleInfo {
++        reason: fcw!(FutureReleaseSemanticsChange #89460),
++    };
+ }
+ 
+ declare_lint_pass!(DerefIntoDynSupertrait => [DEREF_INTO_DYN_SUPERTRAIT]);

@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+index e5dbae16d07d438ebd25e9d7b9196f030b43ec59..28c6c08573f71b35b0d59e146f76bb23237798cd 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+@@ -1116,16 +1116,6 @@ enum Descr {
+             };
+         }
+ 
+-        // related to issue #91997, turbofishes added only when in an expr or pat
+-        let mut in_expr_or_pat = false;
+-        if let ([], [bound]) = (&potential_assoc_items[..], &trait_bounds) {
+-            let grandparent = tcx.parent_hir_node(tcx.parent_hir_id(bound.trait_ref.hir_ref_id));
+-            in_expr_or_pat = match grandparent {
+-                hir::Node::Expr(_) | hir::Node::Pat(_) => true,
+-                _ => false,
+-            };
+-        }
+-
+         // We get all the associated items that *are* set, so that we can check if any of
+         // their names match one of the ones we are missing.
+         // This would mean that they are shadowing the associated item we are missing, and
+@@ -1260,10 +1250,6 @@ enum Descr {
+             } else if let Some(snippet) = snippet.strip_suffix('>') {
+                 // Non-empty generics
+                 format!("{snippet}, {}>", bindings.join(", "))
+-            } else if in_expr_or_pat {
+-                // The user wrote `Trait`, so we don't have a term we can suggest, but at least we
+-                // can clue them to the correct syntax `Trait::<Item = /* ... */>`.
+-                format!("{}::<{}>", snippet, bindings.join(", "))
+             } else {
+                 // The user wrote `Trait`, so we don't have a term we can suggest, but at least we
+                 // can clue them to the correct syntax `Trait<Item = /* ... */>`.

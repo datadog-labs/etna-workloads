@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+index e347dc2d13dfcb2172a7c2b2b4c4e2c854e4d26a..e14686e4c22b5452d83ba34b4e9e28d543e58765 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+@@ -505,11 +505,8 @@ fn try_fold_ty(&mut self, ty: Ty<'tcx>) -> Result<Ty<'tcx>, RegionVid> {
+             {
+                 let args = tcx.mk_args_from_iter(std::iter::zip(variances, args.iter()).map(
+                     |(&v, s)| {
+-                        if v == ty::Bivariant {
+-                            Ok(self.fold_non_member_arg(s))
+-                        } else {
+-                            s.try_fold_with(self)
+-                        }
++                        let _ = v;
++                        s.try_fold_with(self)
+                     },
+                 ))?;
+                 ty::AliasTy::new_from_args(tcx, kind, args).to_ty(tcx, ty::IsRigid::No)
+diff --git a/compiler/rustc_middle/src/ty/mod.rs b/compiler/rustc_middle/src/ty/mod.rs
+index cd9e5f6903478c18fbc280dd94327c9ac7b16269..192181bf8367cea894c4cf8c455fd87e9b860294 100644
+--- a/compiler/rustc_middle/src/ty/mod.rs
++++ b/compiler/rustc_middle/src/ty/mod.rs
+@@ -1053,7 +1053,20 @@ pub fn remap_generic_params_to_declaration_params(
+         // This zip may have several times the same lifetime in `args` paired with a different
+         // lifetime from `id_args`. Simply `collect`ing the iterator is the correct behaviour:
+         // it will pick the last one, which is the one we introduced in the impl-trait desugaring.
+-        let map = args.iter().zip(id_args).collect();
++        let map = args.iter().zip(id_args);
++        let map: rustc_data_structures::fx::FxHashMap<GenericArg<'tcx>, GenericArg<'tcx>> =
++            match tcx.local_opaque_ty_origin(def_id) {
++                hir::OpaqueTyOrigin::AsyncFn { .. } => map.collect(),
++                hir::OpaqueTyOrigin::FnReturn { .. } | hir::OpaqueTyOrigin::TyAlias { .. } => {
++                    let variances = tcx.variances_of(def_id);
++                    map.filter(|(_, v)| {
++                        let ty::GenericArgKind::Lifetime(lt) = v.kind() else { return true };
++                        let ty::ReEarlyParam(ebr) = lt.kind() else { return true };
++                        variances[ebr.index as usize] == ty::Variance::Invariant
++                    })
++                    .collect()
++                }
++            };
+         debug!("map = {:#?}", map);
+ 
+         // Convert the type from the function into a type valid outside by mapping generic

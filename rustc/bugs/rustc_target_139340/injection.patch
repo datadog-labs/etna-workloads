@@ -1,0 +1,51 @@
+diff --git a/compiler/rustc_target/src/callconv/riscv.rs b/compiler/rustc_target/src/callconv/riscv.rs
+index e79ce0557ce8039b17c7d38b0663744a6e5ea70f..91561f31085a761312fbeff88da49b7285488f0e 100644
+--- a/compiler/rustc_target/src/callconv/riscv.rs
++++ b/compiler/rustc_target/src/callconv/riscv.rs
+@@ -227,18 +227,10 @@ fn classify_ret<'a, Ty, C>(cx: &C, arg: &mut ArgAbi<'a, Ty>, xlen: u64, flen: u6
+                 arg.cast_to(f);
+             }
+             FloatConv::FloatPair { first_ty, second_ty_offset_from_start, second_ty } => {
+-                arg.cast_to(CastTarget::offset_pair(
+-                    first_ty,
+-                    second_ty_offset_from_start,
+-                    second_ty,
+-                ));
++                arg.cast_to(CastTarget::pair(first_ty, second_ty));
+             }
+             FloatConv::MixedPair { first_ty, second_ty_offset_from_start, second_ty } => {
+-                arg.cast_to(CastTarget::offset_pair(
+-                    first_ty,
+-                    second_ty_offset_from_start,
+-                    second_ty,
+-                ));
++                arg.cast_to(CastTarget::pair(first_ty, second_ty));
+             }
+         }
+         return false;
+@@ -312,11 +304,7 @@ fn classify_arg<'a, Ty, C>(
+                 if *avail_fprs >= 2 =>
+             {
+                 *avail_fprs -= 2;
+-                arg.cast_to(CastTarget::offset_pair(
+-                    first_ty,
+-                    second_ty_offset_from_start,
+-                    second_ty,
+-                ));
++                arg.cast_to(CastTarget::pair(first_ty, second_ty));
+                 return;
+             }
+             Some(FloatConv::MixedPair { first_ty, second_ty_offset_from_start, second_ty })
+@@ -324,11 +312,7 @@ fn classify_arg<'a, Ty, C>(
+             {
+                 *avail_gprs -= 1;
+                 *avail_fprs -= 1;
+-                arg.cast_to(CastTarget::offset_pair(
+-                    first_ty,
+-                    second_ty_offset_from_start,
+-                    second_ty,
+-                ));
++                arg.cast_to(CastTarget::pair(first_ty, second_ty));
+                 return;
+             }
+             _ => (),

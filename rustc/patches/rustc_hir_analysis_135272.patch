@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+index f55833c1bf6da228478bc4624ad342844e2692e9..0688be4ff65ea4ae9c9068aab2f755766de4cd69 100644
+--- a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
++++ b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+@@ -459,9 +459,15 @@ fn visit_infer(
+                             &mut self,
+                             _inf_id: HirId,
+                             inf_span: Span,
+-                            _kind: InferKind<'v>,
++                            kind: InferKind<'v>,
+                         ) -> Self::Result {
+-                            ControlFlow::Break(inf_span)
++                            // Only plain type infers are detected; const and
++                            // ambiguous (`_` generic arg) infers are missed.
++                            if let InferKind::Ty(_) = kind {
++                                ControlFlow::Break(inf_span)
++                            } else {
++                                ControlFlow::Continue(())
++                            }
+                         }
+                     }
+                     FindInferInClosureWithBinder.visit_ty_unambig(ty).break_value()

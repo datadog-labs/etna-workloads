@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_lint/src/static_mut_refs.rs b/compiler/rustc_lint/src/static_mut_refs.rs
+index 347bc8fa25403f6e24e9b06f12b5c50f971b3aa2..2e0da4bf7119be0fd2ea518c72430b4d5b7cdd84 100644
+--- a/compiler/rustc_lint/src/static_mut_refs.rs
++++ b/compiler/rustc_lint/src/static_mut_refs.rs
+@@ -70,22 +70,7 @@ fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &Expr<'_>) {
+                 if matches!(borrow_kind, hir::BorrowKind::Ref)
+                     && let Some(static_mut) = path_is_static_mut(ex, err_span) =>
+             {
+-                let source_map = cx.sess().source_map();
+-                let snippet = source_map.span_to_snippet(err_span);
+-
+-                let sugg_span = if let Ok(snippet) = snippet {
+-                    // ( ( &IDENT ) )
+-                    // ~~~~ exclude these from the suggestion span to avoid unmatching parens
+-                    let exclude_n_bytes: u32 = snippet
+-                        .chars()
+-                        .take_while(|ch| ch.is_whitespace() || *ch == '(')
+-                        .map(|ch| ch.len_utf8() as u32)
+-                        .sum();
+-
+-                    err_span.with_lo(err_span.lo() + BytePos(exclude_n_bytes)).with_hi(ex.span.lo())
+-                } else {
+-                    err_span.with_hi(ex.span.lo())
+-                };
++                let sugg_span = static_mut.err_span.with_hi(ex.span.lo());
+ 
+                 emit_static_mut_refs(
+                     cx,

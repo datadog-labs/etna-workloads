@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/operand.rs b/compiler/rustc_codegen_ssa/src/mir/operand.rs
+index c1a1b2db6fa9d87ea1f65c3ba228cb44a1a6e649..f66d42598ded8d3f23a02a127add5b2a7db437de 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/operand.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/operand.rs
+@@ -246,11 +246,10 @@ fn from_const_alloc<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
+             BackendRepr::ScalarPair {
+                 a: a @ abi::Scalar::Initialized { .. },
+                 b: b @ abi::Scalar::Initialized { .. },
+-                b_offset: local_b_offset,
++                b_offset,
+             } => {
+                 let (a_size, b_size) = (a.size(bx), b.size(bx));
+-                let alloc_b_offset = offset + local_b_offset;
+-                assert!(alloc_b_offset.bytes() > 0);
++                assert!(b_offset.bytes() > 0);
+                 let a_val = read_scalar(
+                     offset,
+                     a_size,
+@@ -258,7 +257,7 @@ fn from_const_alloc<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
+                     bx.scalar_pair_element_backend_type(layout, 0, true),
+                 );
+                 let b_val = read_scalar(
+-                    alloc_b_offset,
++                    b_offset,
+                     b_size,
+                     b,
+                     bx.scalar_pair_element_backend_type(layout, 1, true),

@@ -1,0 +1,47 @@
+diff --git a/compiler/rustc_mir_build/src/builder/matches/match_pair.rs b/compiler/rustc_mir_build/src/builder/matches/match_pair.rs
+index b4ce8149f5e4d3624f1246b4189d9ebf9e599670..5433fe14cbd4bf8f92ce895ea73a3e85ab1124d3 100644
+--- a/compiler/rustc_mir_build/src/builder/matches/match_pair.rs
++++ b/compiler/rustc_mir_build/src/builder/matches/match_pair.rs
+@@ -339,26 +339,24 @@ fn lower_thir_pat(
+                 // This should always succeed for legal programs, but could fail for
+                 // erroneous programs (e.g. the type is `[u8; const { panic!() }]`),
+                 // so take care not to ICE if this fails.
+-                let array_len = match pattern.ty.kind() {
+-                    ty::Array(_, len) => len.try_to_target_usize(cx.tcx),
+-                    _ => None,
+-                };
+-                if let Some(array_len) = array_len {
+-                    for (subplace, subpat) in
+-                        prefix_slice_suffix(&place_builder, Some(array_len), prefix, slice, suffix)
+-                    {
+-                        subpats.push(InterPat::lower_thir_pat(cx, subplace, subpat));
++                let array_len = if let Some(place_resolved) = place_builder.try_to_place(cx) {
++                    match place_resolved.ty(&cx.local_decls, cx.tcx).ty.kind() {
++                        ty::Array(_, len) => Some(
++                            len.try_to_target_usize(cx.tcx)
++                                .expect("expected len of array pat to be definite"),
++                        ),
++                        _ => None,
+                     }
+                 } else {
+-                    // If the array length couldn't be determined, ignore the
+-                    // subpatterns and delayed-assert that compilation will fail.
+-                    cx.tcx.dcx().span_delayed_bug(
+-                        pattern.span,
+-                        format!(
+-                            "array length in pattern couldn't be determined for ty={:?}",
+-                            pattern.ty
+-                        ),
+-                    );
++                    match pattern.ty.kind() {
++                        ty::Array(_, len) => len.try_to_target_usize(cx.tcx),
++                        _ => None,
++                    }
++                };
++                for (subplace, subpat) in
++                    prefix_slice_suffix(&place_builder, array_len, prefix, slice, suffix)
++                {
++                    subpats.push(InterPat::lower_thir_pat(cx, subplace, subpat));
+                 }
+ 
+                 None

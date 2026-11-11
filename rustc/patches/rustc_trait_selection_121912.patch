@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..de63b27a30e250a36b2af77e9e77683f274e5039 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -5516,10 +5516,15 @@ fn probe_assoc_types_at_expr(
+             // Make `Self` be equivalent to the type of the call chain
+             // expression we're looking at now, so that we can tell what
+             // for example `Iterator::Item` is at this point in the chain.
+-            let args = GenericArgs::for_item(self.tcx, def_id, |param, _| {
+-                if param.index == 0 {
+-                    debug_assert_matches!(param.kind, ty::GenericParamDefKind::Type { .. });
+-                    return prev_ty.into();
++            let trait_def_id = self.tcx.parent(def_id);
++            let args = GenericArgs::for_item(self.tcx, trait_def_id, |param, _| {
++                match param.kind {
++                    ty::GenericParamDefKind::Type { .. } => {
++                        if param.index == 0 {
++                            return prev_ty.into();
++                        }
++                    }
++                    ty::GenericParamDefKind::Lifetime | ty::GenericParamDefKind::Const { .. } => {}
+                 }
+                 self.var_for_def(span, param)
+             });
+@@ -5545,7 +5550,6 @@ fn probe_assoc_types_at_expr(
+             ));
+             if ocx.try_evaluate_obligations().no_errors()
+                 && let ty = self.resolve_vars_if_possible(ty)
+-                && !ty.is_ty_var()
+             {
+                 assocs_in_this_method.push(Some((span, (def_id, ty))));
+             } else {

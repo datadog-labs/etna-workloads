@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_lint/src/non_local_def.rs b/compiler/rustc_lint/src/non_local_def.rs
+index e7cac4dc47ca526c1710879ff319cd09e13a6baa..4f09a6f19bdd1571d4fa3daef7902750f04b71bf 100644
+--- a/compiler/rustc_lint/src/non_local_def.rs
++++ b/compiler/rustc_lint/src/non_local_def.rs
+@@ -157,11 +157,13 @@ fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
+                 // be put inside a module and referenced by a impl so we also have to treat the
+                 // item parent as transparent to module and for consistency we have to do the same
+                 // for impl, otherwise the item-def and impl-def won't have the same parent.
+-                let outermost_impl_parent = peel_parent_while(cx.tcx, parent, |tcx, did| {
+-                    tcx.def_kind(did) == DefKind::Mod
+-                        || (matches!(tcx.def_kind(did), DefKind::Const { .. })
+-                            && tcx.opt_item_name(did) == Some(kw::Underscore))
+-                });
++                let outermost_impl_parent = if matches!(parent_def_kind, DefKind::Const { .. })
++                    && parent_opt_item_name == Some(kw::Underscore)
++                {
++                    Some(cx.tcx.parent(parent))
++                } else {
++                    None
++                };
+ 
+                 // 2. We check if any of the paths reference a the `impl`-parent.
+                 //

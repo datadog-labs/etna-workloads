@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..2ac88cf3efeeb9b4a1ca51df112acdeafed0da5d 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -1699,24 +1699,8 @@ fn parse_expr_array_or_repeat(&mut self, close: ExpTokenPair) -> PResult<'a, Box
+     }
+ 
+     fn parse_expr_path_start(&mut self) -> PResult<'a, Box<Expr>> {
+-        let maybe_eq_tok = self.prev_token;
+         let (qself, path) = if self.eat_lt() {
+-            let lt_span = self.prev_token.span;
+-            let (qself, path) = self.parse_qpath(PathStyle::Expr).map_err(|mut err| {
+-                // Suggests using '<=' if there is an error parsing qpath when the previous token
+-                // is an '=' token. Only emits suggestion if the '<' token and '=' token are
+-                // directly adjacent (i.e. '=<')
+-                if maybe_eq_tok == TokenKind::Eq && maybe_eq_tok.span.hi() == lt_span.lo() {
+-                    let eq_lt = maybe_eq_tok.span.to(lt_span);
+-                    err.span_suggestion_verbose(
+-                        eq_lt,
+-                        "you might have meant to write a \"less than or equal to\" comparison",
+-                        "<=",
+-                        Applicability::Unspecified,
+-                    );
+-                }
+-                err
+-            })?;
++            let (qself, path) = self.parse_qpath(PathStyle::Expr)?;
+             (Some(qself), path)
+         } else {
+             (None, self.parse_path(PathStyle::Expr)?)

@@ -1,0 +1,86 @@
+diff --git a/compiler/rustc_transmute/src/layout/tree.rs b/compiler/rustc_transmute/src/layout/tree.rs
+index d7aeb6b06b82fcea68179bacd30b567179ccd66c..8d2ff918c55b355bad7e81932e373c3a7224b746 100644
+--- a/compiler/rustc_transmute/src/layout/tree.rs
++++ b/compiler/rustc_transmute/src/layout/tree.rs
+@@ -289,7 +289,7 @@ fn from(err: &LayoutError<'tcx>) -> Self {
+     impl<'tcx> Tree<Def<'tcx>, Region<'tcx>, Ty<'tcx>> {
+         pub(crate) fn from_ty(ty: Ty<'tcx>, cx: LayoutCx<'tcx>) -> Result<Self, Err> {
+             use rustc_abi::HasDataLayout;
+-            let layout = layout_of(cx, ty)?;
++            let layout = ty_layout(cx, ty);
+ 
+             if let Err(e) = ty.error_reported() {
+                 return Err(Err::TypeError(e));
+@@ -322,7 +322,7 @@ pub(crate) fn from_ty(ty: Ty<'tcx>, cx: LayoutCx<'tcx>) -> Result<Self, Err> {
+                     let FieldsShape::Array { stride, count } = &layout.fields else {
+                         return Err(Err::NotYetSupported);
+                     };
+-                    let inner_layout = layout_of(cx, *inner_ty)?;
++                    let inner_layout = ty_layout(cx, *inner_ty);
+                     assert_eq!(*stride, inner_layout.size);
+                     let elt = Tree::from_ty(*inner_ty, cx)?;
+                     Ok(std::iter::repeat_n(elt, *count as usize)
+@@ -336,7 +336,7 @@ pub(crate) fn from_ty(ty: Ty<'tcx>, cx: LayoutCx<'tcx>) -> Result<Self, Err> {
+                 },
+ 
+                 ty::Ref(region, ty, mutability) => {
+-                    let layout = layout_of(cx, *ty)?;
++                    let layout = ty_layout(cx, *ty);
+                     let referent_align = layout.align.bytes_usize();
+                     let referent_size = layout.size.bytes_usize();
+ 
+@@ -502,7 +502,7 @@ fn from_variant(
+                 let padding = Self::padding(padding_needed.bytes_usize());
+ 
+                 let field_ty = ty_field(cx, (ty, layout), field_idx);
+-                let field_layout = layout_of(cx, field_ty)?;
++                let field_layout = ty_layout(cx, field_ty);
+                 let field_tree = Self::from_ty(field_ty, cx)?;
+ 
+                 struct_tree = struct_tree.then(padding).then(field_tree);
+@@ -559,7 +559,7 @@ fn from_union(
+                 Self::uninhabited(),
+                 |fields, (idx, _field_def)| {
+                     let field_ty = ty_field(cx, (ty, layout), idx);
+-                    let field_layout = layout_of(cx, field_ty)?;
++                    let field_layout = ty_layout(cx, field_ty);
+                     let field = Self::from_ty(field_ty, cx)?;
+                     let trailing_padding_needed = layout.size - field_layout.size;
+                     let trailing_padding = Self::padding(trailing_padding_needed.bytes_usize());
+@@ -572,6 +572,10 @@ fn from_union(
+         }
+     }
+ 
++    pub(crate) fn ty_layout<'tcx>(cx: LayoutCx<'tcx>, ty: Ty<'tcx>) -> Layout<'tcx> {
++        layout_of(cx, ty).unwrap()
++    }
++
+     fn ty_field<'tcx>(
+         cx: LayoutCx<'tcx>,
+         (ty, layout): (Ty<'tcx>, Layout<'tcx>),
+diff --git a/compiler/rustc_transmute/src/maybe_transmutable/mod.rs b/compiler/rustc_transmute/src/maybe_transmutable/mod.rs
+index d677e88220d96a1357e0c71421d7d7a882878541..f126e3a3df55bcce49f95b811a58baf15f267fc1 100644
+--- a/compiler/rustc_transmute/src/maybe_transmutable/mod.rs
++++ b/compiler/rustc_transmute/src/maybe_transmutable/mod.rs
+@@ -48,10 +48,18 @@ pub(crate) fn answer(
+ 
+             let layout_cx = LayoutCx::new(context, TypingEnv::fully_monomorphized());
+ 
++            let layout_of = |ty| {
++                crate::layout::rustc::layout_of(layout_cx, ty)
++                    .map_err(|_| Err::NotYetSupported)
++                    .and_then(|_| Tree::from_ty(ty, layout_cx))
++            };
++
+             // Convert `src` and `dst` from their rustc representations, to `Tree`-based
+-            // representations.
+-            let src = Tree::from_ty(src, layout_cx);
+-            let dst = Tree::from_ty(dst, layout_cx);
++            // representations. If these conversions fail, conclude that the transmutation is
++            // unacceptable; the layouts of both the source and destination types must be
++            // well-defined.
++            let src = layout_of(src);
++            let dst = layout_of(dst);
+ 
+             match (src, dst) {
+                 (Err(Err::TypeError(_)), _) | (_, Err(Err::TypeError(_))) => {

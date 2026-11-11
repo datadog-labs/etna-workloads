@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs
+index 20fa6d5f7a34442ddb3570a21427b25365e6c372..6f2b76cc480625c9e840381af9c6880de524e4cb 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/mod.rs
+@@ -418,7 +418,24 @@ fn probe_adt(&self, span: Span, ty: Ty<'tcx>) -> Option<ty::AdtDef<'tcx>> {
+                     ..
+                 },
+             ) if !ty.has_escaping_bound_vars() => {
+-                self.normalize(span, Unnormalized::new_wip(ty)).ty_adt_def()
++                if self.next_trait_solver() {
++                    // Replace the alias with an infer var plus a pending projection
++                    // obligation, without structurally resolving it.
++                    let ty::Alias(_, alias_ty) = *ty.kind() else { unreachable!() };
++                    let infer_ty = self.next_ty_var(span);
++                    self.register_predicate(traits::Obligation::new(
++                        self.tcx,
++                        self.misc(span),
++                        self.param_env,
++                        ty::ProjectionPredicate {
++                            projection_term: alias_ty.into(),
++                            term: infer_ty.into(),
++                        },
++                    ));
++                    infer_ty.ty_adt_def()
++                } else {
++                    self.normalize(span, Unnormalized::new_wip(ty)).ty_adt_def()
++                }
+             }
+             _ => None,
+         }

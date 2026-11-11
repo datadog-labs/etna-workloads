@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..82c91622887592327e19153dff02897608a39280 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -4167,10 +4167,7 @@ pub(super) fn note_obligation_cause_code<G: EmissionGuarantee, T>(
+                     false
+                 };
+ 
+-                let is_builtin_async_fn_trait =
+-                    tcx.async_fn_trait_kind_from_def_id(data.parent_trait_pred.def_id()).is_some();
+-
+-                if !is_upvar_tys_infer_tuple && !is_builtin_async_fn_trait {
++                if !is_upvar_tys_infer_tuple {
+                     let mut msg = || {
+                         let ty_str = tcx.short_string(ty, err.long_ty_path());
+                         format!("required because it appears within the type `{ty_str}`")
+diff --git a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+index 203ed5a62a8b9f59f22fcedaaec85ba6388ce57c..2138e00327107fc0b1217db953704bda28553f78 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+@@ -913,10 +913,8 @@ fn confirm_async_closure_candidate(
+                 return Err(SelectionError::Unimplemented);
+             }
+         } else {
+-            nested.push(Obligation::new(
++            nested.push(obligation.with(
+                 self.tcx(),
+-                obligation.derived_cause(ObligationCauseCode::BuiltinDerived),
+-                obligation.param_env,
+                 ty::TraitRef::new(
+                     self.tcx(),
+                     self.tcx()

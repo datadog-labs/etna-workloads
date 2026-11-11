@@ -1,0 +1,46 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
+index e7e05e561d13f7b557dc3711d37854d942640f5d..83107afae2d3eed93536d6d051187754b369f4ce 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
+@@ -97,35 +97,13 @@ fn apply_member_constraint<'tcx>(
+     }
+     debug!(?choice_regions, "after enforcing upper-bound");
+ 
+-    // At this point we can pick any member of `choice_regions` and would like to choose
+-    // it to be a small as possible. To avoid potential non-determinism we will pick the
+-    // smallest such choice.
+-    //
+-    // Because universal regions are only partially ordered (i.e, not every two regions are
+-    // comparable), we will ignore any region that doesn't compare to all others when picking
+-    // the minimum choice.
+-    //
+-    // For example, consider `choice_regions = ['static, 'a, 'b, 'c, 'd, 'e]`, where
+-    // `'static: 'a, 'static: 'b, 'a: 'c, 'b: 'c, 'c: 'd, 'c: 'e`.
+-    // `['d, 'e]` are ignored because they do not compare - the same goes for `['a, 'b]`.
+-    let totally_ordered_subset = choice_regions.iter().copied().filter(|&r1| {
+-        choice_regions.iter().all(|&r2| {
+-            rcx.universal_region_relations.outlives(r1, r2)
+-                || rcx.universal_region_relations.outlives(r2, r1)
+-        })
+-    });
+-    // Now we're left with `['static, 'c]`. Pick `'c` as the minimum!
+-    let Some(min_choice) = totally_ordered_subset.reduce(|r1, r2| {
+-        let r1_outlives_r2 = rcx.universal_region_relations.outlives(r1, r2);
+-        let r2_outlives_r1 = rcx.universal_region_relations.outlives(r2, r1);
+-        match (r1_outlives_r2, r2_outlives_r1) {
+-            (true, true) => r1.min(r2),
+-            (true, false) => r2,
+-            (false, true) => r1,
+-            (false, false) => bug!("incomparable regions in total order"),
+-        }
++    if choice_regions.is_empty() {
++        return;
++    }
++    let Some(&min_choice) = choice_regions.iter().find(|&r1| {
++        choice_regions.iter().all(|&r2| rcx.universal_region_relations.outlives(r2, *r1))
+     }) else {
+-        debug!("no unique minimum choice");
++        debug!("no choice region outlived by all others");
+         return;
+     };
+ 

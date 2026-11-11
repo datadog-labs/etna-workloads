@@ -1,0 +1,1 @@
+Compiles a 16-byte, align-16 repr(C) struct passed by value to an extern "C" fn for powerpc64le and prints the LLVM declaration: the clean compiler emits `[1 x i128]`, the injected one emits plain `i128`, which has the wrong ppc64le ABI.

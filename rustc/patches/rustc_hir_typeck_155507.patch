@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+index 9becad0db1ca2a5a96bfb3073e3c29a77b9590da..402f9aa18bd8187bada2cfc7db27b7e2bfe09f23 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+@@ -2647,17 +2647,6 @@ fn has_error_or_infer<'tcx>(tys: impl IntoIterator<Item = Ty<'tcx>>) -> bool {
+                         provided_span,
+                         format!("unexpected argument{idx}{provided_ty_name}"),
+                     ));
+-                    if self.provided_arg_tys.len() == 1
+-                        && let Some(span) = self.maybe_suggest_expect_for_unwrap(provided_ty)
+-                    {
+-                        err.span_suggestion_verbose(
+-                            span,
+-                            "did you mean to use `expect`?",
+-                            "expect",
+-                            Applicability::MaybeIncorrect,
+-                        );
+-                        continue;
+-                    }
+                     let mut span = provided_span;
+                     if span.can_be_used_for_suggestions()
+                         && self.call_metadata.error_span.can_be_used_for_suggestions()
+@@ -3089,22 +3078,6 @@ fn suggestion_code(&self) -> (Span, String) {
+ 
+         (suggestion_span, suggestion)
+     }
+-
+-    fn maybe_suggest_expect_for_unwrap(&self, provided_ty: Ty<'tcx>) -> Option<Span> {
+-        let tcx = self.tcx();
+-        if let Some(call_ident) = self.call_metadata.call_ident
+-            && call_ident.name == sym::unwrap
+-            && let Some(callee_ty) = self.callee_ty
+-            && let ty::Adt(adt, _) = callee_ty.peel_refs().kind()
+-            && (tcx.is_diagnostic_item(sym::Option, adt.did())
+-                || tcx.is_diagnostic_item(sym::Result, adt.did()))
+-            && self.may_coerce(provided_ty, Ty::new_static_str(tcx))
+-        {
+-            Some(call_ident.span)
+-        } else {
+-            None
+-        }
+-    }
+ }
+ 
+ struct ArgMatchingCtxt<'a, 'tcx> {

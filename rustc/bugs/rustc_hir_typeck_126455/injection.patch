@@ -1,0 +1,65 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..d802c9a6df85669b0a6550ec38136a708052dde5 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -1406,56 +1406,12 @@ pub(in super::super) fn suggest_missing_break_or_return_expr(
+                 self.tcx.hir_span_with_body(self.tcx.local_def_id_to_hir_id(fn_id)),
+             )
+         {
+-            // When the expr is in a match arm's body, we shouldn't add semicolon ';' at the end.
+-            // For example:
+-            // fn mismatch_types() -> i32 {
+-            //     match 1 {
+-            //         x => dbg!(x),
+-            //     }
+-            //     todo!()
+-            // }
+-            // -------------^^^^^^^-
+-            // Don't add semicolon `;` at the end of `dbg!(x)` expr
+-            fn is_in_arm<'tcx>(expr: &'tcx hir::Expr<'tcx>, tcx: TyCtxt<'tcx>) -> bool {
+-                for (_, node) in tcx.hir_parent_iter(expr.hir_id) {
+-                    match node {
+-                        hir::Node::Block(block) => {
+-                            if let Some(ret) = block.expr
+-                                && ret.hir_id == expr.hir_id
+-                            {
+-                                continue;
+-                            }
+-                        }
+-                        hir::Node::Arm(arm) => {
+-                            if let hir::ExprKind::Block(block, _) = arm.body.kind
+-                                && let Some(ret) = block.expr
+-                                && ret.hir_id == expr.hir_id
+-                            {
+-                                return true;
+-                            }
+-                        }
+-                        hir::Node::Expr(e) if let hir::ExprKind::Block(block, _) = e.kind => {
+-                            if let Some(ret) = block.expr
+-                                && ret.hir_id == expr.hir_id
+-                            {
+-                                continue;
+-                            }
+-                        }
+-                        _ => {
+-                            return false;
+-                        }
+-                    }
+-                }
+-
+-                false
+-            }
+-            let mut suggs = vec![(span.shrink_to_lo(), "return ".to_string())];
+-            if !is_in_arm(expr, self.tcx) {
+-                suggs.push((span.shrink_to_hi(), ";".to_string()));
+-            }
+             err.multipart_suggestion(
+                 "you might have meant to return this value",
+-                suggs,
++                vec![
++                    (span.shrink_to_lo(), "return ".to_string()),
++                    (span.shrink_to_hi(), ";".to_string()),
++                ],
+                 Applicability::MaybeIncorrect,
+             );
+         }

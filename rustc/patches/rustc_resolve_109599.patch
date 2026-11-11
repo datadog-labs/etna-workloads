@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_resolve/src/ident.rs b/compiler/rustc_resolve/src/ident.rs
+index 2a1b208f94c34e33885c0c8c30524150d9f78054..c1bbbe75e4d96d893b920fd7b325c7925c1c9d24 100644
+--- a/compiler/rustc_resolve/src/ident.rs
++++ b/compiler/rustc_resolve/src/ident.rs
+@@ -1167,6 +1167,14 @@ fn resolve_ident_in_local_module_non_globs_unadjusted<'r>(
+             );
+         }
+ 
++        // An ignored primary binding makes the resolution determined-and-failed instead of
++        // searching further.
++        if let Some(ignored) = ignore_decl
++            && resolution.as_ref().and_then(|r| r.non_glob_decl) == Some(ignored)
++        {
++            return Err(ControlFlow::Break(Determined));
++        }
++
+         // Items and single imports are not shadowable, if we have one, then it's determined.
+         if let Some(binding) = binding {
+             let accessible = self.is_accessible_from(binding.vis(), parent_scope.module);
+@@ -1411,13 +1419,6 @@ fn single_import_can_define_name<'r>(
+             if !self.is_accessible_from(single_import.vis, parent_scope.module) {
+                 continue;
+             }
+-            if let Some(ignored) = ignore_decl
+-                && let DeclKind::Import { import, .. } = ignored.kind
+-                && import == *single_import
+-            {
+-                continue;
+-            }
+-
+             let Some(module) = single_import.imported_module.get() else {
+                 return true;
+             };

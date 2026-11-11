@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_privacy/src/lib.rs b/compiler/rustc_privacy/src/lib.rs
+index 879b239047fdcfa33672d440b7ccfe19ba24b07c..b3f8dd7ba7eee08a5be06059a8ed051dd2c3abc1 100644
+--- a/compiler/rustc_privacy/src/lib.rs
++++ b/compiler/rustc_privacy/src/lib.rs
+@@ -403,14 +403,10 @@ fn new_min<const SHALLOW: bool>(
+         find: &FindMin<'_, '_, Self, SHALLOW>,
+         def_id: LocalDefId,
+     ) -> Self {
+-        let effective_vis =
+-            find.effective_visibilities.effective_vis(def_id).copied().unwrap_or_else(|| {
+-                let private_vis =
+-                    ty::Visibility::Restricted(find.tcx.parent_module_from_def_id(def_id));
+-                EffectiveVisibility::from_vis(private_vis)
+-            });
+-
+-        effective_vis.min(find.min, find.tcx)
++        match find.effective_visibilities.effective_vis(def_id).copied() {
++            Some(effective_vis) => effective_vis.min(find.min, find.tcx),
++            None => find.min,
++        }
+     }
+ }
+ 

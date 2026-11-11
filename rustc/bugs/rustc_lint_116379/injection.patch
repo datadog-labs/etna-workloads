@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs b/compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs
+index d9dfe5fa7de0c50efa0cd69f1714afa58ba74621..7e45d400d7a33275c1f533f7ed7f2012f01d9b32 100644
+--- a/compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs
++++ b/compiler/rustc_lint/src/opaque_hidden_inferred_bound.rs
+@@ -94,7 +94,10 @@ fn check_ty(&mut self, cx: &LateContext<'tcx>, ty: &'tcx hir::Ty<'tcx, AmbigArg>
+             .iter_identity_copied()
+             .map(Unnormalized::skip_norm_wip)
+         {
+-            infcx.enter_forall(pred.kind(), |predicate| {
++            // Liberate bound regions in the predicate since we
++            // don't actually care about lifetimes in this check.
++            let predicate = cx.tcx.liberate_late_bound_regions(def_id, pred.kind());
++            (|predicate: ty::ClauseKind<'tcx>| {
+                 let ty::ClauseKind::Projection(proj) = predicate else {
+                     return;
+                 };
+@@ -203,7 +206,7 @@ fn check_ty(&mut self, cx: &LateContext<'tcx>, ty: &'tcx hir::Ty<'tcx, AmbigArg>
+                         );
+                     }
+                 }
+-            });
++            })(predicate);
+         }
+     }
+ }

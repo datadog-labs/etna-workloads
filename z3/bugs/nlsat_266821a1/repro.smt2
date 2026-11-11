@@ -1,0 +1,5 @@
+(set-logic QF_NTA)
+(declare-const y Real)
+(assert (< y 1))
+(assert (> (atan2 y 1) 0.5))
+(check-sat)

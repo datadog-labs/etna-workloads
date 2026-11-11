@@ -1,0 +1,1 @@
+Compiles a `#[repr(C)]` single-variant enum for msp430-none-elf (16-bit C int) in a minimal no_core crate with -Zprint-type-sizes. The clean compiler sizes the enum at 2 bytes (c_int width); the injected one hardcodes a 32-bit minimum enum size and ICEs with "layout decided on a larger discriminant type (I32) than typeck (I16)".

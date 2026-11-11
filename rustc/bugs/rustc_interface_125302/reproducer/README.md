@@ -1,0 +1,1 @@
+With RUST_MIN_STACK=banana, a clean rustc exits with status 1 and a proper "`RUST_MIN_STACK` should be a number of bytes" error; the injected one panics (ICE, status 101) via unwrap on a ParseIntError.

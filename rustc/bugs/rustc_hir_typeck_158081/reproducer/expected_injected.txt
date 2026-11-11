@@ -1,0 +1,65 @@
+error[E0277]: the size for values of type `(dyn Fn() + 'static)` cannot be known at compilation time
+ --> main.rs:5:17
+  |
+5 |     let f = |f: dyn Fn()| f;
+  |                 ^^^^^^^^ doesn't have a size known at compile-time
+  |
+  = help: the trait `Sized` is not implemented for `(dyn Fn() + 'static)`
+  = help: unsized fn params are gated as an unstable feature
+help: function arguments must have a statically known size, borrowed types always have a known size
+  |
+5 |     let f = |f: &dyn Fn()| f;
+  |                 +
+
+error[E0746]: return type cannot be a trait object without pointer indirection
+ --> main.rs:5:27
+  |
+5 |     let f = |f: dyn Fn()| f;
+  |                           ^ doesn't have a size known at compile-time
+
+error[E0057]: this function takes 1 argument but 0 arguments were supplied
+ --> main.rs:8:5
+  |
+8 |     f();
+  |     ^-- argument #1 of type `(dyn Fn() + 'static)` is missing
+  |
+note: closure defined here
+ --> main.rs:5:13
+  |
+5 |     let f = |f: dyn Fn()| f;
+  |             ^^^^^^^^^^^^^
+help: provide the argument
+  |
+8 |     f(/* dyn Fn() */);
+  |       ++++++++++++++
+
+error: internal compiler error: compiler/rustc_hir_typeck/src/callee.rs:1255:17: Expected to find a suitable `Fn`/`FnMut`/`FnOnce` implementation for `{closure@main.rs:5:13: 5:26}`
+ --> main.rs:8:5
+  |
+8 |     f();
+  |     ^^^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_hir_typeck/src/callee.rs:1255:17:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+note: compiler flags: -Z next-solver=globally
+
+query stack during panic:
+#0 [typeck_root] type-checking `main`
+#1 [analysis] running analysis passes on crate `main`
+end of query stack
+error: aborting due to 4 previous errors
+
+Some errors have detailed explanations: E0057, E0277, E0746.
+For more information about an error, try `rustc --explain E0057`.
+rustc exit: 101
+
+[exit 0]

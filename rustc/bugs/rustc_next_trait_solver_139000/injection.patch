@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+index 08c634620300addde5a051df7622bb1dbddf4252..9c00797104e704e8e556ff86501af90403405599 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+@@ -370,23 +370,8 @@ fn consider_impl_candidate(
+                 // delay a bug because we can have trivially false where clauses, so we
+                 // treat it as rigid.
+                 if cx.impl_self_is_guaranteed_unsized(impl_def_id) {
+-                    if ecx.typing_mode().is_coherence() {
+-                        // Trying to normalize such associated items is always ambiguous
+-                        // during coherence to avoid cyclic reasoning. See the example in
+-                        // tests/ui/traits/trivial-unsized-projection-in-coherence.rs.
+-                        //
+-                        // As this ambiguity is unavoidable we emit a nested ambiguous
+-                        // goal instead of using `Certainty::AMBIGUOUS`. This allows us to
+-                        // return the nested goals to the parent `AliasRelate` goal. This
+-                        // would be relevant if any of the nested goals refer to the `term`.
+-                        // This is not the case here and we only prefer adding an ambiguous
+-                        // nested goal for consistency.
+-                        ecx.add_goal(GoalSource::Misc, goal.with(cx, PredicateKind::Ambiguous))?;
+-                        return then(ecx, Certainty::Yes);
+-                    } else {
+-                        ecx.instantiate_normalizes_to_as_rigid(goal)?;
+-                        return then(ecx, Certainty::Yes);
+-                    }
++                    ecx.instantiate_normalizes_to_as_rigid(goal)?;
++                    return then(ecx, Certainty::Yes);
+                 } else {
+                     return error_response(ecx, cx.delay_bug("missing item"));
+                 }

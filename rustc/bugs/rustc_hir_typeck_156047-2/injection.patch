@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/probe.rs b/compiler/rustc_hir_typeck/src/method/probe.rs
+index b2e0a3bd7a195f2edbf03d89438609e17e8c8898..d605794106dbeffc3e84cadc4109977571cd2009 100644
+--- a/compiler/rustc_hir_typeck/src/method/probe.rs
++++ b/compiler/rustc_hir_typeck/src/method/probe.rs
+@@ -507,25 +507,6 @@ pub(crate) fn probe_op<OP, R>(
+                     span,
+                     MissingTypeAnnot,
+                 );
+-            // If `ty` is an inference variable that was created by being adjusted from the never type,
+-            // We demand the type to be equal to the never type, so we can probe the never type for methods
+-            // (see https://github.com/rust-lang/rust/issues/143349)
+-            } else if let ty::Infer(ty::TyVar(ty_id)) = *ty.kind()
+-                && let ty_id = self.sub_unification_table_root_var(ty_id)
+-                && self
+-                    .diverging_type_vars
+-                    .borrow()
+-                    .iter()
+-                    .any(|&candidate_id| self.sub_unification_table_root_var(candidate_id) == ty_id)
+-            {
+-                self.tcx.emit_node_span_lint(
+-                    METHOD_CALL_ON_DIVERGING_INFER_VAR,
+-                    scope_expr_id,
+-                    span,
+-                    MethodCallOnDivergingInferenceVariable,
+-                );
+-                let root_ty = Ty::new_var(self.tcx, ty_id);
+-                self.demand_eqtype(span, root_ty, self.tcx.types.never);
+             } else {
+                 let guar = match *ty.kind() {
+                     _ if let Some(guar) = self.tainted_by_errors() => guar,

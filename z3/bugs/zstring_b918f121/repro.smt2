@@ -1,0 +1,6 @@
+(set-option :model_validate true)
+(declare-const s String)
+(assert (= s "a\u{5c}b"))
+(check-sat)
+(get-value (s))
+(echo "x\u{5c}y")

@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_target/src/callconv/x86_win64.rs b/compiler/rustc_target/src/callconv/x86_win64.rs
+index 8e6f50bc9e5c4303607c8957a35a679c09656ac9..4ff3747af5d246257ed4a4d5d16738ec16d1e517 100644
+--- a/compiler/rustc_target/src/callconv/x86_win64.rs
++++ b/compiler/rustc_target/src/callconv/x86_win64.rs
+@@ -1,7 +1,7 @@
+ use rustc_abi::{BackendRepr, Integer, Primitive, Size, TyAbiInterface};
+ 
+ use crate::callconv::{ArgAbi, FnAbi, Reg};
+-use crate::spec::{HasTargetSpec, RustcAbi};
++use crate::spec::{Env, HasTargetSpec, Os, RustcAbi};
+ 
+ // Win64 ABI: https://docs.microsoft.com/en-us/cpp/build/parameter-passing
+ 
+@@ -53,10 +53,11 @@ pub(crate) fn compute_abi_info<'a, Ty, C: HasTargetSpec>(cx: &C, fn_abi: &mut Fn
+             // Windows ABIs do not talk about ZST since such types do not exist in MSVC.
+             // In that sense we can do whatever we want here, and maybe we should throw an error
+             // (but of course that would be a massive breaking change now).
+-            // We try to match clang and gcc (which allow ZST is their windows-gnu targets), so we
+-            // pass ZST via pointer indirection.
+-            arg.make_indirect_from_ignore();
+-            continue;
++            // x86_64-pc-windows-gnu doesn't ignore ZSTs.
++            if cx.target_spec().os == Os::Windows && cx.target_spec().env == Env::Gnu {
++                arg.make_indirect_from_ignore();
++                continue;
++            }
+         }
+         if arg.layout.pass_indirectly_in_non_rustic_abis(cx) {
+             arg.make_indirect();

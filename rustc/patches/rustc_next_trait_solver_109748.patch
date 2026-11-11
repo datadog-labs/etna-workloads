@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+index 08c634620300addde5a051df7622bb1dbddf4252..26548071105d06e58bbc3e3d23fc85d2f80b03e0 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+@@ -1001,6 +1001,9 @@ fn consider_builtin_discriminant_kind_candidate(
+             | ty::Slice(_)
+             | ty::Dynamic(_, _)
+             | ty::Tuple(_)
++            | ty::Alias(ty::IsRigid::Yes, _)
++            | ty::Param(_)
++            | ty::Placeholder(..)
+             | ty::Error(_) => self_ty.discriminant_ty(ecx.cx()),
+ 
+             ty::UnsafeBinder(_) => {
+@@ -1008,16 +1011,6 @@ fn consider_builtin_discriminant_kind_candidate(
+                 unimplemented!("discr subgoal...")
+             }
+ 
+-            // Given an alias, parameter, or placeholder we add an impl candidate normalizing to a rigid
+-            // alias. In case there's a where-bound further constraining this alias it is preferred over
+-            // this impl candidate anyways. It's still a bit scuffed.
+-            ty::Alias(ty::IsRigid::Yes, _) | ty::Param(_) | ty::Placeholder(..) => {
+-                return ecx.probe_builtin_trait_candidate(BuiltinImplSource::Misc).enter(|ecx| {
+-                    ecx.instantiate_normalizes_to_as_rigid(goal)?;
+-                    ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
+-                });
+-            }
+-
+             ty::Infer(ty::TyVar(_) | ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_))
+             | ty::Alias(ty::IsRigid::No, _)
+             | ty::Bound(..) => panic!(

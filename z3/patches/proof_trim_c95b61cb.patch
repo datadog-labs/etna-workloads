@@ -1,0 +1,72 @@
+--- a/src/cmd_context/extra_cmds/proof_cmds.cpp
++++ b/src/cmd_context/extra_cmds/proof_cmds.cpp
+@@ -79,18 +79,8 @@
+         return arg->get_id();
+     }
+         
+-    /**
+-     * A Boolean term under an uninterpreted function, such as (not q) in
+-     * (pb (not q)), is its own variable in the solver, but the log prints
+-     * its positive literal as the term itself. The literal (not q) is then
+-     * printed the same whether it is that variable or q negated, and its
+-     * negation as (not (not q)). Strip every negation, so both readings
+-     * land on the variable of q.
+-     */
+     void add_literal(expr* arg) {
+-        bool sign = false;
+-        while (m.is_not(arg, arg))
+-            sign = !sign;
++        bool sign = m.is_not(arg, arg);
+         trim.add_literal(mk_var(arg), sign);
+     }
+ 
+--- a/src/sat/sat_proof_trim.cpp
++++ b/src/sat/sat_proof_trim.cpp
+@@ -417,24 +417,14 @@
+         s.set_trim();
+     }
+ 
+-    /**
+-     * Sort m_clause and remove duplicate literals. Clauses are stored under
+-     * this form, so a deletion must use it too: a logged clause such as
+-     * (not (not q)) q a, where the Boolean argument (not q) is mapped to the
+-     * variable of q, is stored as q a.
+-     */
+-    void proof_trim::normalize_clause() {
+-        std::sort(m_clause.begin(), m_clause.end());
++    void proof_trim::assume(unsigned id, bool is_initial) {
++        std::sort(m_clause.begin(), m_clause.end()); 
+         unsigned j = 0;
+         sat::literal prev = null_literal;
+-        for (unsigned i = 0; i < m_clause.size(); ++i)
++        for (unsigned i = 0; i < m_clause.size(); ++i) 
+             if (m_clause[i] != prev)
+-               prev = m_clause[j++] = m_clause[i];
++               prev = m_clause[j++] = m_clause[i];        
+         m_clause.shrink(j);
+-    }
+-
+-    void proof_trim::assume(unsigned id, bool is_initial) {
+-        normalize_clause();
+         if (unit_or_binary_occurs())
+             return;
+         if (!m_has_conflict && m_clause.empty()) {
+@@ -544,7 +534,7 @@
+         // the state the conflict was derived in.
+         if (m_has_conflict)
+             return;
+-        normalize_clause();
++        std::sort(m_clause.begin(), m_clause.end());
+         clause* cp = nullptr;
+         if (detach(m_clause, cp))
+             m_trail.push_back({ 0, m_clause, cp, false, true });
+--- a/src/sat/sat_proof_trim.h
++++ b/src/sat/sat_proof_trim.h
+@@ -73,7 +73,6 @@
+         bool in_core(literal_vector const& cl) const;
+         void revive(literal_vector const& cl, clause* cp);        
+         bool detach(literal_vector const& cl, clause*& cp);
+-        void normalize_clause();
+ 
+         void insert_dep(unsigned dep);
+ 

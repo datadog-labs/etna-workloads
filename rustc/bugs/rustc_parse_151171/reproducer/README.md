@@ -1,0 +1,1 @@
+Compiling `fn foo<T: Trait<'static>() {}` (unterminated generic list) should give a single "expected one of ... found `(`" error. With the bug, the parser wrongly recovers as an Fn-like trait with lifetime params, emitting an extra "`Fn` traits cannot take lifetime parameters" error and different suggestions.

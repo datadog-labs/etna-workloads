@@ -1,0 +1,6 @@
+(set-logic QF_S)
+(declare-const x String)
+(assert (= x "a\u{7f}b"))
+(check-sat)
+(get-model)
+(get-value (x))

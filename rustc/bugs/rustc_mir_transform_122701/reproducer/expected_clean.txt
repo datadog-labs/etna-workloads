@@ -1,0 +1,45 @@
+error: allocator `MyAllocatorWhichMustNotSuspend` held across a suspend point, but should not be
+  --> main.rs:24:9
+   |
+24 |     let x = Box::new_in(1i32, MyAllocatorWhichMustNotSuspend);
+   |         ^
+25 |     //~^ ERROR allocator `MyAllocatorWhichMustNotSuspend` held across a suspend point, but should not be
+26 |     suspend().await;
+   |               ----- the value is held across this suspend point
+   |
+help: consider using a block (`{ ... }`) to shrink the value's scope, ending before the suspend point
+  --> main.rs:24:9
+   |
+24 |     let x = Box::new_in(1i32, MyAllocatorWhichMustNotSuspend);
+   |         ^
+note: the lint level is defined here
+  --> main.rs:4:9
+   |
+ 4 | #![deny(must_not_suspend)]
+   |         ^^^^^^^^^^^^^^^^
+
+warning: struct `MyAllocatorWhichMustNotSuspend` is never constructed
+  --> main.rs:10:8
+   |
+10 | struct MyAllocatorWhichMustNotSuspend;
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `suspend` is never used
+  --> main.rs:21:10
+   |
+21 | async fn suspend() {}
+   |          ^^^^^^^
+
+warning: function `foo` is never used
+  --> main.rs:23:10
+   |
+23 | async fn foo() {
+   |          ^^^
+
+error: aborting due to 1 previous error; 3 warnings emitted
+
+rustc exit: 1
+
+[exit 0]

@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..1a8b067461a66d048389c6cb5ad59a5bb425ba48 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -1376,6 +1376,7 @@ fn lint_dead_codes<'tcx>(
+     foreign_items: impl Iterator<Item = ForeignItemId>,
+ ) {
+     let mut visitor = DeadVisitor { tcx, target_lint, live_symbols, ignored_derived_traits };
++    let mut deferred_impl_items = Vec::new();
+     for item in free_items {
+         let def_kind = tcx.def_kind(item.owner_id);
+ 
+@@ -1399,7 +1400,16 @@ fn lint_dead_codes<'tcx>(
+             }
+         }
+         if !dead_codes.is_empty() {
+-            visitor.warn_multiple(item.owner_id.def_id, "used", dead_codes, ReportOn::NamedField);
++            if def_kind == (DefKind::Impl { of_trait: false }) {
++                deferred_impl_items.push((item.owner_id.def_id, dead_codes));
++            } else {
++                visitor.warn_multiple(
++                    item.owner_id.def_id,
++                    "used",
++                    dead_codes,
++                    ReportOn::NamedField,
++                );
++            }
+         }
+ 
+         if !live_symbols.contains(&item.owner_id.def_id) {
+@@ -1455,6 +1465,10 @@ fn lint_dead_codes<'tcx>(
+         }
+     }
+ 
++    for (owner, dead_codes) in deferred_impl_items {
++        visitor.warn_multiple(owner, "used", dead_codes, ReportOn::NamedField);
++    }
++
+     for foreign_item in foreign_items {
+         visitor.check_definition(foreign_item.owner_id.def_id);
+     }

@@ -1,0 +1,1 @@
+Compiles a bin whose main is a re-exported #[inline] function from a dylib, with many CGUs; the injected compiler fails to link (missing local codegen of the entrypoint), the clean one links (not run).

@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/vtable.rs b/compiler/rustc_trait_selection/src/traits/vtable.rs
+index 77d7a39a6eb77371d46c7e90c15f61de9a475c37..e85f21278de5987fd97d499c760c1df78b083da1 100644
+--- a/compiler/rustc_trait_selection/src/traits/vtable.rs
++++ b/compiler/rustc_trait_selection/src/traits/vtable.rs
+@@ -156,21 +156,18 @@ fn prepare_vtable_segments_inner<'tcx, T>(
+ 
+         // emit innermost item, move to next sibling and stop there if possible, otherwise jump to outer level.
+         while let Some((inner_most_trait_ref, emit_vptr, mut siblings)) = stack.pop() {
+-            // We don't need to emit a vptr for "truly-empty" supertraits, but we *do* need to emit a
+-            // vptr for supertraits that have no methods, but that themselves have supertraits
+-            // with methods, so we check if any transitive supertrait has entries here (this includes
+-            // the trait itself).
+-            let has_entries = ty::elaborate::supertrait_def_ids(tcx, inner_most_trait_ref.def_id)
+-                .any(|def_id| has_own_existential_vtable_entries(tcx, def_id));
+-
+             segment_visitor(VtblSegment::TraitOwnEntries {
+                 trait_ref: inner_most_trait_ref,
+-                emit_vptr: emit_vptr && has_entries && !tcx.sess.opts.unstable_opts.no_trait_vptr,
++                emit_vptr: emit_vptr && !tcx.sess.opts.unstable_opts.no_trait_vptr,
+             })?;
+ 
+             // If we've emitted (fed to `segment_visitor`) a trait that has methods present in the vtable,
+             // we'll need to emit vptrs from now on.
+-            emit_vptr_on_new_entry |= has_entries;
++            if !emit_vptr_on_new_entry
++                && has_own_existential_vtable_entries(tcx, inner_most_trait_ref.def_id)
++            {
++                emit_vptr_on_new_entry = true;
++            }
+ 
+             if let Some(next_inner_most_trait_ref) =
+                 siblings.find(|&sibling| visited.insert(sibling.upcast(tcx)))

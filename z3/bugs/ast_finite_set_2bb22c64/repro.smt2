@@ -1,0 +1,6 @@
+(set-logic ALL)
+(declare-const p Bool)
+(declare-const a (Array (FiniteSet Int) Int))
+(declare-const b (Array (FiniteSet Int) Int))
+(assert (or p (= a b)))
+(apply elim-uncnstr)

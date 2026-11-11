@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_lint/src/diagnostics.rs b/compiler/rustc_lint/src/diagnostics.rs
+index aca414919901010aa8a8225c0e49f5fa9c438cc7..263ddbcbe7e32fd31dc0a4dd0ef49e23a19f516a 100644
+--- a/compiler/rustc_lint/src/diagnostics.rs
++++ b/compiler/rustc_lint/src/diagnostics.rs
+@@ -2383,7 +2383,7 @@ pub(crate) struct AmbiguousWidePointerComparisonsExpectSuggestion<'a> {
+ }
+ 
+ #[derive(Diagnostic)]
+-pub(crate) enum UnpredictableFunctionPointerComparisons<'a, 'tcx> {
++pub(crate) enum UnpredictableFunctionPointerComparisons<'a> {
+     #[diag(
+         "function pointer comparisons do not produce meaningful results since their addresses are not guaranteed to be unique"
+     )]
+@@ -2396,7 +2396,7 @@ pub(crate) enum UnpredictableFunctionPointerComparisons<'a, 'tcx> {
+     )]
+     Suggestion {
+         #[subdiagnostic]
+-        sugg: UnpredictableFunctionPointerComparisonsSuggestion<'a, 'tcx>,
++        sugg: UnpredictableFunctionPointerComparisonsSuggestion<'a>,
+     },
+     #[diag(
+         "function pointer comparisons do not produce meaningful results since their addresses are not guaranteed to be unique"
+@@ -2412,7 +2412,7 @@ pub(crate) enum UnpredictableFunctionPointerComparisons<'a, 'tcx> {
+ }
+ 
+ #[derive(Subdiagnostic)]
+-pub(crate) enum UnpredictableFunctionPointerComparisonsSuggestion<'a, 'tcx> {
++pub(crate) enum UnpredictableFunctionPointerComparisonsSuggestion<'a> {
+     #[multipart_suggestion(
+         "refactor your code, or use `std::ptr::fn_addr_eq` to suppress the lint",
+         style = "verbose",
+@@ -2438,12 +2438,12 @@ pub(crate) enum UnpredictableFunctionPointerComparisonsSuggestion<'a, 'tcx> {
+         ne: &'a str,
+         deref_left: &'a str,
+         deref_right: &'a str,
+-        fn_sig: rustc_middle::ty::PolyFnSig<'tcx>,
++        cast_right: String,
+         #[suggestion_part(code = "{ne}std::ptr::fn_addr_eq({deref_left}")]
+         left: Span,
+         #[suggestion_part(code = ", {deref_right}")]
+         middle: Span,
+-        #[suggestion_part(code = " as {fn_sig})")]
++        #[suggestion_part(code = "{cast_right})")]
+         right: Span,
+     },
+ }
+diff --git a/compiler/rustc_lint/src/types.rs b/compiler/rustc_lint/src/types.rs
+index 49a14c2676c103275e990ed831e29fbacd94e889..6d0404ab304ee0192829f03f06d957660b5adfed 100644
+--- a/compiler/rustc_lint/src/types.rs
++++ b/compiler/rustc_lint/src/types.rs
+@@ -516,10 +516,11 @@ fn lint_fn_pointer<'tcx>(
+         // only `FnPtr == FnDef` is possible.
+         if !r_ty.is_fn_ptr() {
+             let fn_sig = r_ty.fn_sig(cx.tcx);
++            let cast_right = format!(" as {fn_sig}");
+ 
+             UnpredictableFunctionPointerComparisonsSuggestion::FnAddrEqWithCast {
+                 ne,
+-                fn_sig,
++                cast_right,
+                 deref_left,
+                 deref_right,
+                 left,

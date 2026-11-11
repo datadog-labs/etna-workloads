@@ -1,0 +1,1 @@
+Compiles an async fn that passes &async { Box::new(7_i32) }.await where &i32 is expected. The clean compiler emits E0308 with a 'consider unboxing the value' suggestion (&*async {...}.await); the injected compiler treats the async/await desugaring spans as external macros and omits that suggestion.

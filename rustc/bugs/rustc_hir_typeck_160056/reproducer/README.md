@@ -1,0 +1,1 @@
+Calling an associated function (no self) as a method on a generic ADT value makes rustc suggest "use associated function syntax instead". The fixed compiler suggests `Option::<i32>::kind()` (turbofish, value syntax); the injected compiler suggests the invalid `Option<i32>::kind()`.

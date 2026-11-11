@@ -1,0 +1,1 @@
+Tuple struct re-exported via `pub use` at a scope where its private field is inaccessible: the clean compiler reports E0423/E0532 'cannot initialize/match a tuple struct which contains private fields' with a note about the re-export and a suggestion to use the direct path; the injected compiler gives the generic 'cannot find function, tuple struct...' error without them.

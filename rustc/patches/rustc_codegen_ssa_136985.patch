@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/block.rs b/compiler/rustc_codegen_ssa/src/mir/block.rs
+index 7f907bc630b2fc1b18a69ae1b963b364268659ed..34b25af98d76cb4b363cd73ceb29c0c65e76ed25 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/block.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/block.rs
+@@ -1203,10 +1203,9 @@ fn codegen_call_terminator(
+         // `fn_abi.ret` could be `PassMode::Indirect`, even if it is uninhabited,
+         // and `make_return_dest` adds the return-place indirect pointer to `llargs`.
+         let destination = match kind {
+-            CallKind::Normal => {
+-                let return_dest = self.make_return_dest(bx, destination, &fn_abi.ret, &mut llargs);
+-                target.map(|target| (return_dest, target))
+-            }
++            CallKind::Normal => target.map(|target| {
++                (self.make_return_dest(bx, destination, &fn_abi.ret, &mut llargs), target)
++            }),
+             CallKind::Tail => {
+                 if fn_abi.ret.is_indirect() {
+                     match self.make_return_dest(bx, destination, &fn_abi.ret, &mut llargs) {

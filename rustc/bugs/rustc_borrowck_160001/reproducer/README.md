@@ -1,0 +1,1 @@
+A `for` loop iterates over a binding (`let x = map.iter();`) whose items are `&` references and mutates through them. The clean compiler's E0594 includes a "use mutable method" suggestion pointing at the binding's definition (`map.iter_mut()`); the injected compiler omits that suggestion.

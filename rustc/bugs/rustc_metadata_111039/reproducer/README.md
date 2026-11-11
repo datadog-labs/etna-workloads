@@ -1,0 +1,1 @@
+Compiles a library with a return-position impl Trait in trait, then uses `&dyn Foo` from a downstream crate. The clean compiler reports a "not dyn compatible" error (exit 1); the injected one ICEs (exit 101) because the foreign RPITIT's def_span was not encoded in metadata.

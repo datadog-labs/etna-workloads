@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..7555b2870ebbee62f7fc675115baeba351e89c54 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -3553,9 +3553,7 @@ fn find_and_report_unsatisfied_index_impl(
+             return None;
+         };
+ 
+-        self.commit_if_ok(|snapshot| {
+-            let outer_universe = self.universe();
+-
++        self.commit_if_ok(|_| {
+             let ocx = ObligationCtxt::new_with_diagnostics(self);
+             let impl_args = self.fresh_args_for_item(base_expr.span, impl_def_id);
+             let impl_trait_ref =
+@@ -3609,17 +3607,6 @@ fn find_and_report_unsatisfied_index_impl(
+ 
+             let true_errors = ocx.try_evaluate_obligations();
+ 
+-            // Do a leak check -- we can't really report a useful error here,
+-            // but it at least avoids an ICE when the error has to do with higher-ranked
+-            // lifetimes.
+-            self.leak_check(outer_universe, Some(snapshot))?;
+-
+-            // Bail if we have ambiguity errors, which we can't report in a useful way.
+-            let ambiguity_errors = ocx.evaluate_obligations_error_on_ambiguity();
+-            if true_errors.no_errors() && ambiguity_errors.has_errors() {
+-                return Err(NoSolution);
+-            }
+-
+             // There should be at least one error reported. If not, we
+             // will still delay a span bug in `report_fulfillment_errors`.
+             Ok::<_, NoSolution>((

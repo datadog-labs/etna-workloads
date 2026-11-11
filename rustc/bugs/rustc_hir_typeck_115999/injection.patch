@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr_use_visitor.rs b/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
+index b2255c8d9679a6742227268590fc8476f09f50d4..8af7bbc4d343cfad22ef97fd3bd9ef111ec332f5 100644
+--- a/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
++++ b/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
+@@ -811,7 +811,11 @@ fn walk_arm(
+         self.walk_pat(discr_place, arm.pat, arm.guard.is_some())?;
+ 
+         if let Some(ref e) = arm.guard {
+-            self.consume_expr(e)?;
++            if let hir::ExprKind::Let(l) = e.kind {
++                self.consume_expr(l.init)?;
++            } else {
++                self.consume_expr(e)?;
++            }
+         }
+ 
+         self.consume_expr(arm.body)?;

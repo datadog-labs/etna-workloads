@@ -1,0 +1,105 @@
+diff --git a/compiler/rustc_parse/src/parser/stmt.rs b/compiler/rustc_parse/src/parser/stmt.rs
+index 7c3752cfff1871fdb83b106deb71bbb822d9fe94..524aacfdb81cd9f3c790779fd8b7cac8f0074968 100644
+--- a/compiler/rustc_parse/src/parser/stmt.rs
++++ b/compiler/rustc_parse/src/parser/stmt.rs
+@@ -593,90 +593,16 @@ fn suggest_fixes_misparsed_for_loop_head(
+         stmt_span: Span,
+         stmt_kind: &StmtKind,
+     ) {
+-        match (&self.token.kind, &stmt_kind) {
+-            (token::OpenBrace, StmtKind::Expr(expr)) if let ExprKind::Call(..) = expr.kind => {
+-                // for _ in x y() {}
+-                e.span_suggestion_verbose(
+-                    between,
+-                    "you might have meant to write a method call",
+-                    ".".to_string(),
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
+-            (token::OpenBrace, StmtKind::Expr(expr)) if let ExprKind::Field(..) = expr.kind => {
+-                // for _ in x y.z {}
+-                e.span_suggestion_verbose(
+-                    between,
+-                    "you might have meant to write a field access",
+-                    ".".to_string(),
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
+-            (token::CloseBrace, StmtKind::Expr(expr))
+-                if let ExprKind::Struct(expr) = &expr.kind
+-                    && let None = expr.qself
+-                    && expr.path.segments.len() == 1 =>
+-            {
+-                // This is specific to "mistyped `if` condition followed by empty body"
+-                //
+-                // for _ in x y {}
+-                e.span_suggestion_verbose(
+-                    between,
+-                    "you might have meant to write a field access",
+-                    ".".to_string(),
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
+-            (token::OpenBrace, StmtKind::Expr(expr))
+-                if let ExprKind::Lit(lit) = expr.kind
+-                    && let None = lit.suffix
+-                    && let token::LitKind::Integer | token::LitKind::Float = lit.kind =>
+-            {
+-                // for _ in x 0 {}
+-                // for _ in x 0.0 {}
+-                e.span_suggestion_verbose(
+-                    between,
+-                    format!("you might have meant to write a field access"),
+-                    ".".to_string(),
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
+-            (token::OpenBrace, StmtKind::Expr(expr))
+-                if let ExprKind::Loop(..)
+-                | ExprKind::If(..)
+-                | ExprKind::While(..)
+-                | ExprKind::Match(..)
+-                | ExprKind::ForLoop { .. }
+-                | ExprKind::TryBlock(..)
+-                | ExprKind::Ret(..)
+-                | ExprKind::Closure(..)
+-                | ExprKind::Struct(..)
+-                | ExprKind::Try(..) = expr.kind =>
+-            {
+-                // These are more likely to have been meant as a block body.
+-                e.multipart_suggestion(
+-                    "you might have meant to write this as part of a block",
+-                    vec![
+-                        (stmt_span.shrink_to_lo(), "{ ".to_string()),
+-                        (stmt_span.shrink_to_hi(), " }".to_string()),
+-                    ],
+-                    // Speculative; has been misleading in the past (#46836).
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
+-            (token::OpenBrace, _) => {}
+-            (_, _) => {
+-                e.multipart_suggestion(
+-                    "you might have meant to write this as part of a block",
+-                    vec![
+-                        (stmt_span.shrink_to_lo(), "{ ".to_string()),
+-                        (stmt_span.shrink_to_hi(), " }".to_string()),
+-                    ],
+-                    // Speculative; has been misleading in the past (#46836).
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
+-        }
++        let _ = (between, stmt_kind);
++        e.multipart_suggestion(
++            "try placing this code inside a block",
++            vec![
++                (stmt_span.shrink_to_lo(), "{ ".to_string()),
++                (stmt_span.shrink_to_hi(), " }".to_string()),
++            ],
++            // Speculative; has been misleading in the past (#46836).
++            Applicability::MaybeIncorrect,
++        );
+     }
+ 
+     fn error_block_no_opening_brace<T>(&mut self) -> PResult<'a, T> {

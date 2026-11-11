@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_parse/src/parser/diagnostics.rs b/compiler/rustc_parse/src/parser/diagnostics.rs
+index 0b91828639d368975752d141909656a3c796bfd2..b0d5dedfa56fb8f18a2d9cd86be672f92cb60572 100644
+--- a/compiler/rustc_parse/src/parser/diagnostics.rs
++++ b/compiler/rustc_parse/src/parser/diagnostics.rs
+@@ -2246,7 +2246,7 @@ pub(super) fn parameter_without_type(
+             && self.look_ahead(1, |t| *t == token::Comma || *t == token::CloseParen)
+         {
+             // `fn foo(String s) {}`
+-            let ident = self.parse_ident_common(true).unwrap();
++            let ident = self.parse_ident().unwrap();
+             let span = pat.span.with_hi(ident.span.hi());
+ 
+             err.span_suggestion_verbose(
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..783652da6a701e3f873a0db1408225ce40a72af0 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -489,11 +489,12 @@ fn recover_missing_kw_before_item(&mut self) -> PResult<'a, ()> {
+         let insert_span = ident_span.shrink_to_lo();
+ 
+         let ident = if self.token.is_ident()
++            && self.token.is_non_reserved_ident()
+             && (!is_const || self.look_ahead(1, |t| *t == token::OpenParen))
+             && self.look_ahead(1, |t| {
+                 matches!(t.kind, token::Lt | token::OpenBrace | token::OpenParen)
+             }) {
+-            self.parse_ident_common(true).unwrap()
++            self.parse_ident().unwrap()
+         } else {
+             return Ok(());
+         };
+diff --git a/compiler/rustc_parse/src/parser/mod.rs b/compiler/rustc_parse/src/parser/mod.rs
+index c67f220e84bd94a1879ce9127ef10f62b059d3e1..581596a9d0e26a0200450cb761aa5f6c382104c8 100644
+--- a/compiler/rustc_parse/src/parser/mod.rs
++++ b/compiler/rustc_parse/src/parser/mod.rs
+@@ -452,7 +452,7 @@ pub fn parse_ident(&mut self) -> PResult<'a, Ident> {
+         self.parse_ident_common(self.may_recover())
+     }
+ 
+-    pub(crate) fn parse_ident_common(&mut self, recover: bool) -> PResult<'a, Ident> {
++    fn parse_ident_common(&mut self, recover: bool) -> PResult<'a, Ident> {
+         let (ident, is_raw) = self.ident_or_err(recover)?;
+ 
+         if is_raw == IdentIsRaw::No && ident.is_reserved() {

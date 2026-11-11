@@ -1,0 +1,1 @@
+Compiles a small repr(C) struct with padding and a nonzero constant (InnerPadded{a:0,b:1,c:0}) to LLVM IR without LLVM passes. The fixed compiler emits one packed 'store i64 65536'; the injected one emits per-field stores (store i16 0 / i8 1 / i32 0) followed by a memcpy.

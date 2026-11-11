@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_mir_build/src/check_unsafety.rs b/compiler/rustc_mir_build/src/check_unsafety.rs
+index 29a93e2994d0dd73d033c0a6b91fcb96de257e26..5314318f6ec16a05b4acd68a63fd781ffa8064df 100644
+--- a/compiler/rustc_mir_build/src/check_unsafety.rs
++++ b/compiler/rustc_mir_build/src/check_unsafety.rs
+@@ -682,10 +682,7 @@ fn emit_unsafe_op_in_unsafe_fn_lint(
+         }
+         let parent_id = tcx.hir_get_parent_item(hir_id);
+         let parent_owner = tcx.hir_owner_node(parent_id);
+-        let should_suggest = parent_owner.fn_sig().is_some_and(|sig| {
+-            // Do not suggest for safe target_feature functions
+-            matches!(sig.header.safety, hir::HeaderSafety::Normal(hir::Safety::Unsafe))
+-        });
++        let should_suggest = parent_owner.fn_sig().is_some_and(|sig| sig.header.is_unsafe());
+         let unsafe_not_inherited_note = if should_suggest {
+             suggest_unsafe_block.then(|| {
+                 let body_span = tcx.hir_body(parent_owner.body_id().unwrap()).value.span;
+@@ -851,7 +848,7 @@ fn emit_requires_unsafe_err(
+             {
+                 true
+             } else if let Some(sig) = tcx.hir_fn_sig_by_hir_id(*id)
+-                && matches!(sig.header.safety, hir::HeaderSafety::Normal(hir::Safety::Unsafe))
++                && sig.header.is_unsafe()
+             {
+                 true
+             } else {
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs
+index c28970829f0a491b7727d214aa39489c486f92b4..561f1512653ac0fac511dccbc1c9211edc1313f8 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs
+@@ -557,11 +557,9 @@ fn foo(&self, x: T) -> T { x }
+                     (ty::FnPtr(_, hdr), ty::FnDef(def_id, _))
+                     | (ty::FnDef(def_id, _), ty::FnPtr(_, hdr)) => {
+                         if tcx.fn_sig(def_id).skip_binder().safety() < hdr.safety() {
+-                            if !tcx.codegen_fn_attrs(def_id).safe_target_features {
+-                                diag.note(
++                            diag.note(
+                                 "unsafe functions cannot be coerced into safe function pointers",
+-                                );
+-                            }
++                            );
+                         }
+                     }
+                     (ty::Adt(_, _), ty::Adt(def, args))

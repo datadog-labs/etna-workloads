@@ -1,0 +1,5 @@
+(declare-const p Bool)
+(declare-const q Bool)
+(minimize (ite (>= 1 (+ (ite p 1 0) (ite q 2 0))) 1 0))
+(check-sat)
+(get-objectives)

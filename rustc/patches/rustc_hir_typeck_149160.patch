@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..59129ff6f344fdbf92e0c1065aab9a37e3318370 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -1045,6 +1045,11 @@ fn coerce_from_fn_item(&self, a: Ty<'tcx>, b: Ty<'tcx>) -> CoerceResult<'tcx> {
+ 
+         match b.kind() {
+             ty::FnPtr(_, b_hdr) => {
++                if let &ty::FnDef(a_def_id, _) = a.kind()
++                    && self.tcx.intrinsic(a_def_id).is_some()
++                {
++                    return Err(TypeError::IntrinsicCast);
++                }
+                 let a_sig = self.sig_for_fn_def_coercion(a, Some(b_hdr.safety()))?;
+ 
+                 let InferOk { value: a_sig, mut obligations } =
+@@ -1245,11 +1250,6 @@ fn sig_for_fn_def_coercion(
+             unreachable!("`sig_for_fn_def_coercion` called with non-fndef: {:?}", fndef);
+         };
+ 
+-        // Intrinsics are not coercible to function pointers
+-        if tcx.intrinsic(def_id).is_some() {
+-            return Err(TypeError::IntrinsicCast);
+-        }
+-
+         let fn_attrs = tcx.codegen_fn_attrs(def_id);
+         if matches!(fn_attrs.inline, InlineAttr::Force { .. }) {
+             return Err(TypeError::ForceInlineCast);

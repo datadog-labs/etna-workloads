@@ -1,0 +1,60 @@
+--- a/src/ast/rewriter/seq_rewriter.cpp
++++ b/src/ast/rewriter/seq_rewriter.cpp
+@@ -872,9 +872,9 @@
+ 
+ 
+ bool seq_rewriter::extract_push_offset(expr_ref_vector const& as, expr* b, expr* c, expr_ref& result) {
+-    expr_ref_vector lens(m());
++    expr_ref_vector lens(m()), other(m());
+     rational pos1;
+-    if (get_lengths(b, lens, pos1) && pos1 >= 0) {
++    if (get_lengths(b, lens, other, pos1) && pos1 >= 0) {
+         unsigned i = 0;
+         for (; i < as.size(); ++i) {
+             expr* lhs = as.get(i);
+@@ -892,6 +892,8 @@
+             expr_ref t1(m());
+             t1 = str().mk_concat(as.size() - i, as.data() + i, as[0]->get_sort());
+             expr_ref t2 = mk_len(pos1, lens);
++            for (expr* rhs : other)
++                t2 = m_autil.mk_add(t2, rhs);
+             result = str().mk_substr(t1, t2, c);
+             TRACE(seq, tout << result << "\n";);
+             return true;
+@@ -1172,11 +1174,16 @@
+ }
+ 
+ bool seq_rewriter::get_lengths(expr* e, expr_ref_vector& lens, rational& pos) {
++    expr_ref_vector other(m());
++    return get_lengths(e, lens, other, pos) && other.empty();
++}
++
++bool seq_rewriter::get_lengths(expr* e, expr_ref_vector& lens, expr_ref_vector& other, rational& pos) {
+     expr* arg = nullptr, *e1 = nullptr, *e2 = nullptr;
+     rational pos1;
+     if (m_autil.is_add(e)) {
+         for (expr* arg1 : *to_app(e)) {
+-            if (!get_lengths(arg1, lens, pos)) 
++            if (!get_lengths(arg1, lens, other, pos)) 
+                 return false;
+         }
+     }
+@@ -1193,7 +1200,7 @@
+         pos += pos1;
+     }
+     else {
+-        return false;
++        other.push_back(e);
+     }
+     return true;
+ }
+--- a/src/ast/rewriter/seq_rewriter.h
++++ b/src/ast/rewriter/seq_rewriter.h
+@@ -263,6 +263,7 @@
+     bool is_sequence(expr* e, expr_ref_vector& seq);
+ //    bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
+     bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
++    bool get_lengths(expr* e, expr_ref_vector& lens, expr_ref_vector& other, rational& pos);
+     bool reduce_value_clash(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
+     bool reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);
+     bool reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& new_eqs);

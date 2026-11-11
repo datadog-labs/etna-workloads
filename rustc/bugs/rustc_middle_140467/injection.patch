@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_middle/src/mir/interpret/queries.rs b/compiler/rustc_middle/src/mir/interpret/queries.rs
+index efe7c29820b4d8556e5fb54e12f2dabbadbc95a7..1d841e0f78229d99d1c1112b817379a3bdcdc170 100644
+--- a/compiler/rustc_middle/src/mir/interpret/queries.rs
++++ b/compiler/rustc_middle/src/mir/interpret/queries.rs
+@@ -140,8 +140,10 @@ pub fn const_eval_resolve_for_typeck(
+                 //
+                 // If we don't *only* FCW anon consts we can wind up incorrectly FCW'ing uses of assoc
+                 // consts in pattern positions. #140447
+-                && self.def_kind(def_id) == DefKind::AnonConst
+-                && !self.is_trivial_const(def_id)
++                && matches!(
++                    self.def_kind(def_id),
++                    DefKind::AnonConst | DefKind::AssocConst { .. }
++                )
+                 && let Some(local_def_id) = def_id.as_local()
+             {
+                 let mir_body = self.mir_for_ctfe(def_id);

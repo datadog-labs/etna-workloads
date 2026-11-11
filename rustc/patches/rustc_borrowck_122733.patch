@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+index e347dc2d13dfcb2172a7c2b2b4c4e2c854e4d26a..a3830dff8a46dbd0121ff52c2907beb6ffcc9412 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+@@ -279,7 +279,11 @@ fn collect_defining_uses<'tcx>(
+                     non_nll_opaque_type_key, hidden_type
+                 );
+             }
+-            continue;
++            if !infcx.tcx.use_typing_mode_post_typeck_until_borrowck() {
++                // keep going: still remap the hidden type below
++            } else {
++                continue;
++            }
+         }
+ 
+         // We use the original `opaque_type_key` to compute the `arg_regions`.
+@@ -464,6 +468,11 @@ fn try_fold_region(&mut self, r: Region<'tcx>) -> Result<Region<'tcx>, RegionVid
+             ty::ReBound(_, _) => Ok(r),
+             _ => {
+                 let r = r.as_var();
++                if let NllRegionVariableOrigin::Placeholder(placeholder) =
++                    self.rcx.definitions[r].origin
++                {
++                    return Ok(ty::Region::new_placeholder(self.rcx.infcx.tcx, placeholder));
++                }
+                 if let Some(arg_region) = self
+                     .arg_regions
+                     .iter()

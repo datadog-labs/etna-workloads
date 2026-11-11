@@ -1,0 +1,1 @@
+An unlabeled `try` block containing `break` triggers "`break` outside of a loop or labeled block" with a suggestion to add a label. The injected compiler suggests the invalid `try 'block: {`; the clean compiler suggests nesting a labeled block inside the try body (`try { 'block: { ... } }`).

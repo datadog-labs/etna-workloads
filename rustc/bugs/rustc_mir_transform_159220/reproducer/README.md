@@ -1,0 +1,1 @@
+Custom MIR (with GVN/CopyProp disabled so StorageLive/StorageDead survive) has a comparison followed by StorageDead of the compared local, then a switchInt, inside a loop. The clean compiler leaves it alone; the injected SimplifyComparisonIntegral rewrites it to switch on the (already dead) local directly, nops the StorageDead and re-inserts it in the successors.

@@ -1,0 +1,119 @@
+--- a/src/sat/smt/array_axioms.cpp
++++ b/src/sat/smt/array_axioms.cpp
+@@ -801,21 +801,12 @@
+             return true;
+         };
+ 
+-        auto add_eq = [&](euf::enode* n1, euf::enode* n2, euf::enode_pair_vector& eqs) {
+-            if (n1 != n2) {
+-                SASSERT(n1->get_root() == n2->get_root());
+-                eqs.push_back({ n1, n2 });
+-            }
+-        };
+-
+-        auto add_indices = [&](reach const* path, euf::enode_vector& indices, euf::enode_pair_vector& eqs) {
++        auto add_indices = [&](reach const* path, euf::enode_vector& indices) {
+             for (; path->m_store; path = path->m_parent) {
+                 euf::enode* store = path->m_store;
+                 bool found = false;
+                 for (euf::enode* old : indices)
+                     if (same_index(store, old)) {
+-                        for (unsigned k = 1; k + 1 < store->num_args(); ++k)
+-                            add_eq(store->get_arg(k), old->get_arg(k), eqs);
+                         found = true;
+                         break;
+                     }
+@@ -824,6 +815,13 @@
+             }
+         };
+ 
++        auto add_eq = [&](euf::enode* n1, euf::enode* n2, euf::enode_pair_vector& eqs) {
++            if (n1 != n2) {
++                SASSERT(n1->get_root() == n2->get_root());
++                eqs.push_back({ n1, n2 });
++            }
++        };
++
+         auto add_path_eqs = [&](euf::enode* cnst, reach const* path, euf::enode_pair_vector& eqs) {
+             reach const* initial = path;
+             while (initial->m_parent)
+@@ -880,9 +878,8 @@
+                     continue;
+ 
+                 euf::enode_vector indices;
+-                euf::enode_pair_vector eqs;
+-                add_indices(path1, indices, eqs);
+-                add_indices(path2, indices, eqs);
++                add_indices(path1, indices);
++                add_indices(path2, indices);
+ 
+                 sort* array_sort = const_arrays[i]->get_expr()->get_sort();
+                 bool domain_exceeds_indices = false;
+@@ -906,6 +903,7 @@
+                     domain_exceeds_indices || domain_size > indices.size();
+ 
+                 if (has_common_uncovered_index) {
++                    euf::enode_pair_vector eqs;
+                     add_path_eqs(const_arrays[i], path1, eqs);
+                     add_path_eqs(const_arrays[j], path2, eqs);
+                     propagate_axiom(eqs, value_expr1, value_expr2);
+--- a/src/smt/theory_array_full.cpp
++++ b/src/smt/theory_array_full.cpp
+@@ -203,22 +203,12 @@
+             return true;
+         };
+ 
+-        auto add_eq = [&](enode* n1, enode* n2, enode_pair_vector& eqs) {
+-            if (n1 != n2) {
+-                SASSERT(n1->get_root() == n2->get_root());
+-                eqs.push_back({ n1, n2 });
+-            }
+-        };
+-
+-        auto add_indices = [&](reach const* path, ptr_vector<enode>& indices, enode_pair_vector& eqs) {
++        auto add_indices = [&](reach const* path, ptr_vector<enode>& indices) {
+             for (; path->m_store; path = path->m_parent) {
+                 enode* store = path->m_store;
+                 bool found = false;
+                 for (enode* old : indices)
+                     if (same_index(store, old)) {
+-                        // The reduced index count depends on these equalities in the current branch.
+-                        for (unsigned k = 1; k + 1 < store->get_num_args(); ++k)
+-                            add_eq(store->get_arg(k), old->get_arg(k), eqs);
+                         found = true;
+                         break;
+                     }
+@@ -227,6 +217,13 @@
+             }
+         };
+ 
++        auto add_eq = [&](enode* n1, enode* n2, enode_pair_vector& eqs) {
++            if (n1 != n2) {
++                SASSERT(n1->get_root() == n2->get_root());
++                eqs.push_back({ n1, n2 });
++            }
++        };
++
+         auto add_path_eqs = [&](enode* cnst, reach const* path, enode_pair_vector& eqs) {
+             reach const* initial = path;
+             while (initial->m_parent)
+@@ -284,9 +281,8 @@
+                     continue;
+ 
+                 ptr_vector<enode> indices;
+-                enode_pair_vector eqs;
+-                add_indices(path1, indices, eqs);
+-                add_indices(path2, indices, eqs);
++                add_indices(path1, indices);
++                add_indices(path2, indices);
+ 
+                 sort* array_sort = const_arrays[i]->get_sort();
+                 bool domain_exceeds_indices = false;
+@@ -310,6 +306,7 @@
+                     domain_exceeds_indices || domain_size > indices.size();
+ 
+                 if (has_common_uncovered_index) {
++                    enode_pair_vector eqs;
+                     add_path_eqs(const_arrays[i], path1, eqs);
+                     add_path_eqs(const_arrays[j], path2, eqs);
+                     justification* js =

@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+index 2f65b443dd5ecbe0972766596864d16846748ee5..218d2c5074f286a4b195103f91c03f896da08123 100644
+--- a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
++++ b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+@@ -2145,13 +2145,13 @@ fn compare_impl_const<'tcx>(
+     trait_const_item: ty::AssocItem,
+     impl_trait_ref: ty::TraitRef<'tcx>,
+ ) -> Result<(), ErrorGuaranteed> {
+-    compare_type_const(tcx, impl_const_item, trait_const_item)?;
+     compare_number_of_generics(tcx, impl_const_item, trait_const_item, false)?;
+     compare_generic_param_kinds(tcx, impl_const_item, trait_const_item, false)?;
+     check_region_bounds_on_impl_item(tcx, impl_const_item, trait_const_item, false)?;
+     compare_const_clause_entailment(tcx, impl_const_item, trait_const_item, impl_trait_ref)
+ }
+ 
++#[allow(dead_code)]
+ fn compare_type_const<'tcx>(
+     tcx: TyCtxt<'tcx>,
+     impl_const_item: ty::AssocItem,
+diff --git a/compiler/rustc_hir_analysis/src/collect.rs b/compiler/rustc_hir_analysis/src/collect.rs
+index 25ba0c810489ee7495b94218568db5eda51086be..36d447bb938112990d818f0b5726ba7946e98ca5 100644
+--- a/compiler/rustc_hir_analysis/src/collect.rs
++++ b/compiler/rustc_hir_analysis/src/collect.rs
+@@ -1688,12 +1688,8 @@ fn const_of_item<'tcx>(
+     };
+     let ct_arg = match ct_rhs {
+         hir::ConstItemRhs::TypeConst(ct_arg) => ct_arg,
+-        hir::ConstItemRhs::Body(_) => {
+-            let e = tcx.dcx().span_delayed_bug(
+-                tcx.def_span(def_id),
+-                "cannot call const_of_item on a non-type_const",
+-            );
+-            return ty::EarlyBinder::bind(tcx, Const::new_error(tcx, e));
++        hir::ConstItemRhs::Body(body_id) => {
++            bug!("cannot call const_of_item on a non-type_const {body_id:?}")
+         }
+     };
+     let icx = ItemCtxt::new(tcx, def_id);

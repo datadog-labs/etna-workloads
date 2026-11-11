@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_attr_parsing/src/attributes/repr.rs b/compiler/rustc_attr_parsing/src/attributes/repr.rs
+index 6115ed207d98cbad92ad6615998d131803e96bbe..789e87726b88913bbe15d843ca7da417cc90d345 100644
+--- a/compiler/rustc_attr_parsing/src/attributes/repr.rs
++++ b/compiler/rustc_attr_parsing/src/attributes/repr.rs
+@@ -242,7 +242,7 @@ fn parse_repr_align(
+     }
+ }
+ 
+-fn parse_alignment(node: &LitKind, cx: &AcceptContext<'_, '_>) -> Result<Align, String> {
++fn parse_alignment(node: &LitKind, _cx: &AcceptContext<'_, '_>) -> Result<Align, String> {
+     let LitKind::Int(literal, LitIntType::Unsuffixed) = node else {
+         return Err("not an unsuffixed integer".to_string());
+     };
+@@ -260,13 +260,6 @@ fn parse_alignment(node: &LitKind, cx: &AcceptContext<'_, '_>) -> Result<Align,
+         .and_then(|a| Align::from_bytes(a).ok())
+         .ok_or("larger than 2^29".to_string())?;
+ 
+-    // alignment must not be larger than the pointer width (`isize::MAX`)
+-    let max = Size::from_bits(cx.sess.target.pointer_width).signed_int_max() as u64;
+-    if align.bytes() > max {
+-        return Err(format!(
+-            "alignment larger than `isize::MAX` bytes ({max} for the current target)"
+-        ));
+-    }
+     Ok(align)
+ }
+ 

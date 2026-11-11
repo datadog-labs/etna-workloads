@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_ast_passes/src/ast_validation.rs b/compiler/rustc_ast_passes/src/ast_validation.rs
+index 3270fb940bab3da7b1ff2656032b9699a9d0cb0b..43aa4f83ded102a8b64449ffd719960f7d4217c9 100644
+--- a/compiler/rustc_ast_passes/src/ast_validation.rs
++++ b/compiler/rustc_ast_passes/src/ast_validation.rs
+@@ -1407,6 +1407,21 @@ fn visit_attribute(&mut self, attr: &Attribute) {
+         validate_attr::check_attr(&self.sess.psess, attr);
+     }
+ 
++    fn visit_arm(&mut self, arm: &Arm) {
++        if let Some(body) = &arm.body {
++            self.visit_expr(body);
++        }
++        self.visit_pat(&arm.pat);
++        for attr in arm.attrs.iter() {
++            self.visit_attribute(attr);
++        }
++        if let Some(guard) = &arm.guard
++            && let ExprKind::Let(_, guard_expr, _, _) = &guard.cond.kind
++        {
++            self.visit_expr(guard_expr);
++        }
++    }
++
+     fn visit_ty(&mut self, ty: &Ty) {
+         self.visit_ty_common(ty);
+         self.walk_ty(ty)

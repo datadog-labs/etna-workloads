@@ -1,0 +1,98 @@
+diff --git a/compiler/rustc_parse/src/parser/pat.rs b/compiler/rustc_parse/src/parser/pat.rs
+index d017a27e8f77f3b58414fe5390c2fd82d37013db..4e5b501e90fa357d91ce0b24925a80db1613eeea 100644
+--- a/compiler/rustc_parse/src/parser/pat.rs
++++ b/compiler/rustc_parse/src/parser/pat.rs
+@@ -1502,8 +1502,7 @@ fn parse_pat_fields(&mut self) -> PResult<'a, (ThinVec<PatField>, PatFieldsRest)
+         let mut etc = PatFieldsRest::None;
+         let mut ate_comma = true;
+         let mut delayed_err: Option<Diag<'a>> = None;
+-        let mut first_etc_and_maybe_comma_span = None;
+-        let mut last_non_comma_dotdot_span = None;
++        let mut etc_span = None;
+ 
+         while self.token != token::CloseBrace {
+             // check that a comma comes after every field
+@@ -1534,27 +1533,12 @@ fn parse_pat_fields(&mut self) -> PResult<'a, (ThinVec<PatField>, PatFieldsRest)
+             {
+                 etc = PatFieldsRest::Rest(self.token.span);
+                 let mut etc_sp = self.token.span;
+-                if first_etc_and_maybe_comma_span.is_none() {
+-                    if let Some(comma_tok) =
+-                        self.look_ahead(1, |&t| if t == token::Comma { Some(t) } else { None })
+-                    {
+-                        let nw_span = self
+-                            .psess
+-                            .source_map()
+-                            .span_extend_to_line(comma_tok.span)
+-                            .trim_start(comma_tok.span.shrink_to_lo())
+-                            .map(|s| self.psess.source_map().span_until_non_whitespace(s));
+-                        first_etc_and_maybe_comma_span = nw_span.map(|s| etc_sp.to(s));
+-                    } else {
+-                        first_etc_and_maybe_comma_span =
+-                            Some(self.psess.source_map().span_until_non_whitespace(etc_sp));
+-                    }
+-                }
+ 
+                 self.recover_bad_dot_dot();
+                 self.bump(); // `..` || `...` || `_`
+ 
+                 if self.token == token::CloseBrace {
++                    etc_span = Some(etc_sp);
+                     break;
+                 }
+                 let token_str = super::token_descr(&self.token);
+@@ -1577,6 +1561,7 @@ fn parse_pat_fields(&mut self) -> PResult<'a, (ThinVec<PatField>, PatFieldsRest)
+                     ate_comma = true;
+                 }
+ 
++                etc_span = Some(etc_sp.until(self.token.span));
+                 if self.token == token::CloseBrace {
+                     // If the struct looks otherwise well formed, recover and continue.
+                     if let Some(sp) = comma_sp {
+@@ -1631,8 +1616,6 @@ fn parse_pat_fields(&mut self) -> PResult<'a, (ThinVec<PatField>, PatFieldsRest)
+                 }?;
+                 ate_comma = this.eat(exp!(Comma));
+ 
+-                last_non_comma_dotdot_span = Some(this.prev_token.span);
+-
+                 // We just ate a comma, so there's no need to capture a trailing token.
+                 Ok((field, Trailing::No, UsePreAttrPos::No))
+             })?;
+@@ -1641,28 +1624,15 @@ fn parse_pat_fields(&mut self) -> PResult<'a, (ThinVec<PatField>, PatFieldsRest)
+         }
+ 
+         if let Some(mut err) = delayed_err {
+-            if let Some(first_etc_span) = first_etc_and_maybe_comma_span {
+-                if self.prev_token == token::DotDot {
+-                    // We have `.., x, ..`.
+-                    err.multipart_suggestion(
+-                        "remove the starting `..`",
+-                        vec![(first_etc_span, String::new())],
+-                        Applicability::MachineApplicable,
+-                    );
+-                } else if let Some(last_non_comma_dotdot_span) = last_non_comma_dotdot_span {
+-                    // We have `.., x`.
+-                    err.multipart_suggestion(
+-                        "move the `..` to the end of the field list",
+-                        vec![
+-                            (first_etc_span, String::new()),
+-                            (
+-                                self.token.span.to(last_non_comma_dotdot_span.shrink_to_hi()),
+-                                format!("{} .. }}", if ate_comma { "" } else { "," }),
+-                            ),
+-                        ],
+-                        Applicability::MachineApplicable,
+-                    );
+-                }
++            if let Some(etc_span) = etc_span {
++                err.multipart_suggestion(
++                    "move the `..` to the end of the field list",
++                    vec![
++                        (etc_span, String::new()),
++                        (self.token.span, format!("{}.. }}", if ate_comma { "" } else { ", " })),
++                    ],
++                    Applicability::MachineApplicable,
++                );
+             }
+             err.emit();
+         }

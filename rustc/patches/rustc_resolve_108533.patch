@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_resolve/src/diagnostics/impls.rs b/compiler/rustc_resolve/src/diagnostics/impls.rs
+index 9fa762c87ef3eb581d7d0ecc4cddd07717b1ae85..453868a9d02e0634c94705dc949fe68cdc315b0b 100644
+--- a/compiler/rustc_resolve/src/diagnostics/impls.rs
++++ b/compiler/rustc_resolve/src/diagnostics/impls.rs
+@@ -442,7 +442,7 @@ pub(crate) fn report_conflict(
+         let container = match old_binding.parent_module.unwrap().expect_local().kind {
+             // Avoid using TyCtxt::def_kind_descr in the resolver, because it
+             // indirectly *calls* the resolver, and would cause a query cycle.
+-            ModuleKind::Def(kind, def_id, _, _) => kind.descr(def_id),
++            ModuleKind::Def(kind, def_id, _, _) => self.tcx.def_kind_descr(kind, def_id),
+             ModuleKind::Block => "block",
+         };
+ 
+@@ -1037,7 +1037,7 @@ pub(crate) fn into_struct_error(
+                                 if let DefKind::Ctor(_, _) = kind {
+                                     def_id = self.tcx.parent(def_id);
+                                 }
+-                                let kind = kind.descr(def_id);
++                                let kind = self.tcx.def_kind_descr(kind, def_id);
+                                 if local_names.contains(&def_id) {
+                                     // The item is available in the current scope. Very likely to
+                                     // be a typo. Don't use the full path.
+@@ -3111,10 +3111,13 @@ pub(crate) fn report_path_resolution_error(
+                         .ok()
+                 };
+                 if let Some(binding) = binding {
++                    let found_descr = match binding.res() {
++                        Res::Def(kind, id) => self.tcx.def_kind_descr(kind, id),
++                        res => res.descr(),
++                    };
+                     msg = format!(
+-                        "expected {}, found {} `{ident}` in {parent}",
++                        "expected {}, found {found_descr} `{ident}` in {parent}",
+                         ns.descr(),
+-                        binding.res().descr(),
+                     );
+                 };
+             }

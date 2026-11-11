@@ -1,0 +1,6 @@
+(declare-datatypes ((Lst 0)) (((nil) (cons (hd Int) (tl Lst)))))
+(declare-const x Lst)
+(declare-const y Lst)
+(assert (= x (cons 1 y)))
+(assert (= y (cons 2 x)))
+(check-sat)

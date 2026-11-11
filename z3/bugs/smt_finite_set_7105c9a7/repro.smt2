@@ -1,0 +1,5 @@
+(set-logic ALL)
+(declare-const S (FiniteSet Int))
+(assert (not (set.in 0 S)))
+(assert (forall ((x Int)) (=> (= (mod x 2) 0) (set.in (mod x 2) S))))
+(check-sat)

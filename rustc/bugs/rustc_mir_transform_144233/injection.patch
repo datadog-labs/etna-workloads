@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_mir_transform/src/impossible_clauses.rs b/compiler/rustc_mir_transform/src/impossible_clauses.rs
+index 39f864d8a8219033c153ea8f9fa7f1caed6de1a2..251968f2d3bef6e6dadb453f8a164df4819f2e1e 100644
+--- a/compiler/rustc_mir_transform/src/impossible_clauses.rs
++++ b/compiler/rustc_mir_transform/src/impossible_clauses.rs
+@@ -66,14 +66,14 @@ fn has_structurally_impossible_sized_clause<'tcx>(
+ pub(crate) struct ImpossibleClauses;
+ 
+ pub(crate) fn has_impossible_clauses<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId) -> bool {
+-    let clauses = tcx.clauses_of(def_id).instantiate_identity(tcx);
+-    tracing::trace!(?clauses);
++    let own: Vec<_> =
++        tcx.clauses_of(def_id).instantiate_own_identity().map(|(c, _)| c).collect();
++    tracing::trace!(?own);
+ 
+     // Some `Sized` clauses that mention local generics are still impossible
+     // for every instantiation, e.g. `dyn Trait<T>: Sized`.
+     if let Some(sized_trait) = tcx.lang_items().sized_trait() {
+-        if clauses
+-            .clauses
++        if own
+             .iter()
+             .copied()
+             .map(Unnormalized::skip_norm_wip)
+@@ -83,7 +83,7 @@ pub(crate) fn has_impossible_clauses<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId) ->
+         }
+     }
+ 
+-    let clauses = clauses.clauses.into_iter().map(Unnormalized::skip_norm_wip).filter(|c| {
++    let clauses = own.into_iter().map(Unnormalized::skip_norm_wip).filter(|c| {
+         !c.has_type_flags(
+             // Only consider global clauses to simplify.
+             TypeFlags::HAS_FREE_LOCAL_NAMES

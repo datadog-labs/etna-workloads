@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+index e347dc2d13dfcb2172a7c2b2b4c4e2c854e4d26a..452443192e796330eb1c186fa4d08882f287e778 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+@@ -376,30 +376,6 @@ fn compute_definition_site_hidden_types_from_defining_uses<'tcx>(
+             }
+         }
+ 
+-        // Check that all opaque types have the same region parameters if they have the same
+-        // non-region parameters. This is necessary because within the new solver we perform
+-        // various query operations modulo regions, and thus could unsoundly select some impls
+-        // that don't hold.
+-        //
+-        // FIXME(-Znext-solver): This isn't necessary after all. We can remove this check again.
+-        if let Some((prev_decl_key, prev_span)) = decls_modulo_regions.insert(
+-            rcx.infcx.tcx.erase_and_anonymize_regions(opaque_type_key),
+-            (opaque_type_key, hidden_type.span),
+-        ) && let Some((arg1, arg2)) = std::iter::zip(
+-            prev_decl_key.iter_captured_args(infcx.tcx).map(|(_, arg)| arg),
+-            opaque_type_key.iter_captured_args(infcx.tcx).map(|(_, arg)| arg),
+-        )
+-        .find(|(arg1, arg2)| arg1 != arg2)
+-        {
+-            errors.push(DeferredOpaqueTypeError::LifetimeMismatchOpaqueParam(
+-                LifetimeMismatchOpaqueParam {
+-                    arg: arg1,
+-                    prev: arg2,
+-                    span: prev_span,
+-                    prev_span: hidden_type.span,
+-                },
+-            ));
+-        }
+         add_hidden_type(tcx, hidden_types, opaque_type_key.def_id, hidden_type);
+     }
+ }

@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_resolve/src/diagnostics/impls.rs b/compiler/rustc_resolve/src/diagnostics/impls.rs
+index 9fa762c87ef3eb581d7d0ecc4cddd07717b1ae85..95cdbbe08fce9dceafafbcee770a1830b24e455a 100644
+--- a/compiler/rustc_resolve/src/diagnostics/impls.rs
++++ b/compiler/rustc_resolve/src/diagnostics/impls.rs
+@@ -2994,12 +2994,12 @@ pub(crate) fn report_path_resolution_error(
+             if let Some(candidate) = candidates.get(0) {
+                 let path = {
+                     // remove the possible common prefix of the path
+-                    let len = candidate.path.segments.len();
+-                    let start_index = (0..=failed_segment_idx.min(len - 1))
+-                        .find(|&i| path[i].ident.name != candidate.path.segments[i].ident.name)
++                    let start_index = (0..failed_segment_idx)
++                        .find(|&i| path[i].ident != candidate.path.segments[i].ident)
+                         .unwrap_or_default();
+-                    let segments =
+-                        (start_index..len).map(|s| candidate.path.segments[s].clone()).collect();
++                    let segments = (start_index..=failed_segment_idx)
++                        .map(|s| candidate.path.segments[s].clone())
++                        .collect();
+                     Path { segments, span: Span::default() }
+                 };
+                 (

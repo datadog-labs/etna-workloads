@@ -1,0 +1,1 @@
+With #![deny(single_use_lifetimes)], `fn foo<'a>(x: impl IntoIterator<Item = &'a i32>)` must compile on the clean compiler (eliding would be unsound w.r.t. anonymous_lifetime_in_impl_trait); the injected compiler wrongly emits a single_use_lifetimes error and exits 1.

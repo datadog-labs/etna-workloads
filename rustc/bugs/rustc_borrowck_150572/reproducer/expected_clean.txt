@@ -1,0 +1,33 @@
+error[E0507]: cannot move out of `y`, a captured variable in an `AsyncFn` closure
+  --> main.rs:9:10
+   |
+ 8 |     let y = vec![format!("World")];
+   |         - captured outer variable
+ 9 |     call(async || {
+   |          ^^^^^^^^
+   |          |
+   |          captured by this `AsyncFn` closure
+   |          `y` is moved here
+10 |         //~^ ERROR cannot move out of `y`, a captured variable in an `AsyncFn` closure
+11 |         y.into_iter();
+   |         -
+   |         |
+   |         variable moved due to use in coroutine
+   |         move occurs because `y` has type `Vec<String>`, which does not implement the `Copy` trait
+   |
+help: `AsyncFn` and `AsyncFnMut` closures require captured values to be able to be consumed multiple times, but `AsyncFnOnce` closures may consume them only once
+  --> main.rs:5:27
+   |
+ 5 | fn call<F>(_: F) where F: AsyncFn() {}
+   |                           ^^^^^^^^^
+help: consider cloning the value if the performance cost is acceptable
+   |
+11 |         y.clone().into_iter();
+   |          ++++++++
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0507`.
+rustc exit: 1
+
+[exit 0]

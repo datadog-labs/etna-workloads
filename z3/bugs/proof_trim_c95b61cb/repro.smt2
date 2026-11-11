@@ -1,0 +1,8 @@
+(set-option :solver.proof.trim true)
+(declare-fun q () Bool)
+(declare-fun pb (Bool) Bool)
+(assume (not q))
+(assume (not (not q)) (pb true))
+(assume (not (pb true)))
+(declare-fun rup () Proof)
+(infer rup)

@@ -1,0 +1,1 @@
+Builds a metadata-only rlib (--emit=metadata, so no optimized MIR), then compiles a binary that calls a function from it. The clean compiler reports 'missing optimized MIR for ...' and exits 1. The injected compiler hits an internal compiler error ('no MIR available', exit 101).

@@ -1,0 +1,1 @@
+Runs -Zunpretty=expanded,hygiene on a macro generating two hygienically distinct lifetimes 'a; the fixed compiler prints distinct syntax contexts (#0/#1) for them, the injected one omits the context suffix.

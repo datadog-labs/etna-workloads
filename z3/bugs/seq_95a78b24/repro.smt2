@@ -1,0 +1,6 @@
+(set-option :model_validate true)
+(declare-const x String)
+(declare-const y String)
+(assert (str.suffixof (str.++ x "ab") (str.++ y "ab")))
+(assert (= x "q"))
+(check-sat)

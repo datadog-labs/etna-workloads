@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_lint/src/expect.rs b/compiler/rustc_lint/src/expect.rs
+index cfc6b00abcc6862e5d272d9e3e85f7730bea9421..8a48fd4a911be1c67ab6095c1fa61601764013cc 100644
+--- a/compiler/rustc_lint/src/expect.rs
++++ b/compiler/rustc_lint/src/expect.rs
+@@ -44,11 +44,15 @@ fn check_expectations(tcx: TyCtxt<'_>, tool_filter: Option<Symbol>) {
+     let fulfilled_expectations: FxHashSet<_> =
+         fulfilled_expectations.iter().map(canonicalize_id).collect();
+ 
++    // Each `AttrId` is only associated with the first `HirId` where it is seen.
++    let mut first_hir_id = rustc_data_structures::fx::FxIndexMap::default();
++
+     for (expect_id, expectation) in lint_expectations {
+         let hir_id = expect_id.hir_id;
+         let expect_id = canonicalize_id(&LintExpectationId::Stable(*expect_id));
++        let first = *first_hir_id.entry(expect_id.0).or_insert(hir_id);
+ 
+-        if !fulfilled_expectations.contains(&expect_id)
++        if (first != hir_id || !fulfilled_expectations.contains(&expect_id))
+             && tool_filter.is_none_or(|filter| expectation.lint_tool == Some(filter))
+         {
+             let rationale = expectation.reason.map(|rationale| ExpectationNote { rationale });

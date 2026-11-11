@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_infer/src/infer/canonical/query_response.rs b/compiler/rustc_infer/src/infer/canonical/query_response.rs
+index cd35af8be73cf4cf71b664d09d49c46d811e0c93..57cd721dff4055857121556978d741336f1b5184 100644
+--- a/compiler/rustc_infer/src/infer/canonical/query_response.rs
++++ b/compiler/rustc_infer/src/infer/canonical/query_response.rs
+@@ -490,13 +490,7 @@ fn query_response_instantiation_guess<R>(
+         let tcx = self.tcx;
+         let var_kinds = query_response.var_kinds;
+         let var_values = CanonicalVarValues::instantiate(tcx, var_kinds, |var_values, kind| {
+-            if kind.universe() != ty::UniverseIndex::ROOT {
+-                // A variable from inside a binder of the query. While ideally these shouldn't
+-                // exist at all, we have to deal with them for now.
+-                self.instantiate_canonical_var(cause.span, kind, &var_values, |u| {
+-                    universe_map[u.as_usize()]
+-                })
+-            } else if kind.is_existential() {
++            if kind.is_existential() {
+                 match opt_values[BoundVar::new(var_values.len())] {
+                     Some(k) => k,
+                     None => self.instantiate_canonical_var(cause.span, kind, &var_values, |u| {
+@@ -504,10 +498,9 @@ fn query_response_instantiation_guess<R>(
+                     }),
+                 }
+             } else {
+-                // For placeholders which were already part of the input, we simply map this
+-                // universal bound variable back the placeholder of the input.
+-                opt_values[BoundVar::new(var_values.len())]
+-                    .expect("expected placeholder to be unified with itself during response")
++                self.instantiate_canonical_var(cause.span, kind, &var_values, |u| {
++                    universe_map[u.as_usize()]
++                })
+             }
+         });
+ 

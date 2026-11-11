@@ -1,0 +1,1 @@
+With an explicit --check-cfg, an unexpected cfg warning lists the expected names with an "and N more" count; the injected compiler omits `rust_analyzer` from the well-known names, so the count is one lower (33 vs 34).

@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_resolve/src/build_reduced_graph.rs b/compiler/rustc_resolve/src/build_reduced_graph.rs
+index ad00003af9482da254039b361ac82dac0b003450..d4e913c3b52af49130ddcb6bd9e443cd40cd8d37 100644
+--- a/compiler/rustc_resolve/src/build_reduced_graph.rs
++++ b/compiler/rustc_resolve/src/build_reduced_graph.rs
+@@ -673,17 +673,10 @@ fn build_reduced_graph_for_use_tree(
+                         }
+                     }
+                     kw::Super => {
+-                        // Allow `self::super` as a valid prefix - `self` at position 0
+-                        // followed by any number of `super` segments.
+-                        let valid_prefix = module_path.iter().enumerate().all(|(i, seg)| {
+-                            let name = seg.ident.name;
+-                            name == kw::Super || (name == kw::SelfLower && i == 0)
+-                        });
+-
+-                        if !valid_prefix {
++                        if module_path.iter().any(|seg| seg.ident.name != kw::Super) {
+                             self.r.dcx().span_err(
+                                 source.ident.span,
+-                                "`super` in paths can only be used in start position, after `self`, or after another `super`",
++                                "`super` in paths can only be used in start position or after another `super`",
+                             );
+                             return;
+                         }

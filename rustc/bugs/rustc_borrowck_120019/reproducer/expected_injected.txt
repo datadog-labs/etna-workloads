@@ -1,0 +1,89 @@
+error: lifetime may not live long enough
+  --> main.rs:10:48
+   |
+ 9 | impl<'a, 'b> Foo<'a, 'b, Evil<'a, 'b>> for () {
+   |      --  -- lifetime `'b` defined here
+   |      |
+   |      lifetime `'a` defined here
+10 |     const EVIL: fn(&'b u32) -> &'a u32 = { |u| u };
+   |                                                ^ associated constant was supposed to return data with lifetime `'a` but it is returning data with lifetime `'b`
+   |
+   = help: consider adding the following bound: `'b: 'a`
+help: consider adding 'move' keyword before the nested closure
+   |
+10 |     const EVIL: fn(&'b u32) -> &'a u32 = { move |u| u };
+   |                                            ++++
+
+error: lifetime may not live long enough
+  --> main.rs:16:48
+   |
+15 | impl<'a, 'b> Foo<'a, 'b, ()> for IndirectEvil<'a, 'b> {
+   |      --  -- lifetime `'b` defined here
+   |      |
+   |      lifetime `'a` defined here
+16 |     const EVIL: fn(&'b u32) -> &'a u32 = { |u| u };
+   |                                                ^ associated constant was supposed to return data with lifetime `'a` but it is returning data with lifetime `'b`
+   |
+   = help: consider adding the following bound: `'b: 'a`
+help: consider adding 'move' keyword before the nested closure
+   |
+16 |     const EVIL: fn(&'b u32) -> &'a u32 = { move |u| u };
+   |                                            ++++
+
+error: lifetime may not live long enough
+  --> main.rs:20:57
+   |
+19 | impl<'a, 'b> Evil<'a, 'b> {
+   |      --  -- lifetime `'b` defined here
+   |      |
+   |      lifetime `'a` defined here
+20 |     const INHERENT_EVIL: fn(&'b u32) -> &'a u32 = { |u| u };
+   |                                                         ^ associated constant was supposed to return data with lifetime `'a` but it is returning data with lifetime `'b`
+   |
+   = help: consider adding the following bound: `'b: 'a`
+help: consider adding 'move' keyword before the nested closure
+   |
+20 |     const INHERENT_EVIL: fn(&'b u32) -> &'a u32 = { move |u| u };
+   |                                                     ++++
+
+error: lifetime may not live long enough
+  --> main.rs:27:5
+   |
+26 | fn evil<'a, 'b>(b: &'b u32) -> &'a u32 {
+   |         --  -- lifetime `'b` defined here
+   |         |
+   |         lifetime `'a` defined here
+27 |     <()>::EVIL(b)
+   |     ^^^^^^^^^^^^^ function was supposed to return data with lifetime `'a` but it is returning data with lifetime `'b`
+   |
+   = help: consider adding the following bound: `'b: 'a`
+
+error: lifetime may not live long enough
+  --> main.rs:32:5
+   |
+31 | fn indirect_evil<'a, 'b>(b: &'b u32) -> &'a u32 {
+   |                  --  -- lifetime `'b` defined here
+   |                  |
+   |                  lifetime `'a` defined here
+32 |     <IndirectEvil>::EVIL(b)
+   |     ^^^^^^^^^^^^^^^^^^^^^^^ function was supposed to return data with lifetime `'a` but it is returning data with lifetime `'b`
+   |
+   = help: consider adding the following bound: `'b: 'a`
+
+error: lifetime may not live long enough
+  --> main.rs:37:5
+   |
+36 | fn inherent_evil<'a, 'b>(b: &'b u32) -> &'a u32 {
+   |                  --  -- lifetime `'b` defined here
+   |                  |
+   |                  lifetime `'a` defined here
+37 |     <Evil>::INHERENT_EVIL(b)
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^ function was supposed to return data with lifetime `'a` but it is returning data with lifetime `'b`
+   |
+   = help: consider adding the following bound: `'b: 'a`
+
+error: aborting due to 6 previous errors
+
+rustc exit: 1
+
+[exit 0]

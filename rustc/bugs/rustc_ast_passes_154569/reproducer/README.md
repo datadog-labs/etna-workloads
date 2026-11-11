@@ -1,0 +1,1 @@
+Compiles an impl with a misplaced `where` clause on an associated type. The deprecated-where-clause-location lint suggests moving the clause; the clean compiler's suggestion removes the preceding whitespace (`type Assoc = () where u32: Copy;`), while the injected one leaves a double space (`type Assoc  = ...`) in the suggested diff.

@@ -1,0 +1,1 @@
+A match arm body that is a bare expression of the wrong type, followed by more code in a fn returning i32, gets a 'you might have meant to return this value' suggestion. Clean rustc suggests only 'return ' (no semicolon, which would break the arm); the injected one also suggests appending ';'.

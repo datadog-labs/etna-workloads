@@ -1,0 +1,1 @@
+Compiles a transitive dep and a direct dep that reexports its struct through a nested private module and a #[doc(hidden)] module, then a mismatched-types error naming the struct. Clean rustc names it direct_dep::__private::inner::Struct; the injected one stops the visible-parent BFS at hidden modules and prints transitive_dep::Struct.

@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/region.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/region.rs
+index f92c0e14c8f3ad4b2540a87303a2dddfb2826060..be5f4fd120a9c962a5f7d6b2e834804b4fb7941f 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/region.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/region.rs
+@@ -864,30 +864,18 @@ pub fn construct_generic_bound_failure(
+                     LifetimeSuggestion::NeedsColon => suggs.push((sp, format!(": {lt_name}"))),
+                     LifetimeSuggestion::HasColon => suggs.push((sp, format!(" {lt_name}"))),
+                 }
+-            } else if let GenericKind::Alias(ref p) = bound_kind
+-                && let ty::Projection { def_id } = p.kind
+-                && let DefKind::AssocTy = self.tcx.def_kind(def_id)
+-                && let Some(ty::ImplTraitInTraitData::Trait { .. }) =
+-                    self.tcx.opt_rpitit_info(def_id)
+-            {
+-                // The lifetime found in the `impl` is longer than the one on the RPITIT.
+-                // Do not suggest `<Type as Trait>::{opaque}: 'static`.
+-            } else if let Some(generics) = self.tcx.hir_get_generics(suggestion_scope) {
++            } else {
++                let generics = self.tcx.hir_get_generics(suggestion_scope).unwrap();
+                 let pred = format!("{bound_kind}: {lt_name}");
+                 let suggestion = format!("{} {}", generics.add_where_or_trailing_comma(), pred);
+                 suggs.push((generics.tail_span_for_predicate_suggestion(), suggestion))
+-            } else {
+-                let consider = format!("{msg} `{bound_kind}: {sub}`...");
+-                err.help(consider);
+             }
+ 
+-            if !suggs.is_empty() {
+-                err.multipart_suggestion(
+-                    msg,
+-                    suggs,
+-                    Applicability::MaybeIncorrect, // Issue #41966
+-                );
+-            }
++            err.multipart_suggestion(
++                msg,
++                suggs,
++                Applicability::MaybeIncorrect, // Issue #41966
++            );
+         }
+ 
+         if sub.kind() == ty::ReStatic

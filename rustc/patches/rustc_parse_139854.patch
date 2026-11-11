@@ -1,0 +1,62 @@
+diff --git a/compiler/rustc_parse/src/diagnostics.rs b/compiler/rustc_parse/src/diagnostics.rs
+index 7897239d248ea2bad17942868e8a3b7184f843a2..53dac251c6f44422cbc20013b7ffe4f0ce264816 100644
+--- a/compiler/rustc_parse/src/diagnostics.rs
++++ b/compiler/rustc_parse/src/diagnostics.rs
+@@ -3567,16 +3567,10 @@ pub(crate) struct ReturnTypesUseThinArrow {
+ }
+ 
+ #[derive(Diagnostic)]
+-#[diag("lifetimes must be followed by `+` to form a trait object type")]
++#[diag("lifetime in trait object type must be followed by `+`")]
+ pub(crate) struct NeedPlusAfterTraitObjectLifetime {
+     #[primary_span]
+     pub span: Span,
+-    #[suggestion(
+-        "consider adding a trait bound after the potential lifetime bound",
+-        code = " + /* Trait */",
+-        applicability = "has-placeholders"
+-    )]
+-    pub suggestion: Span,
+ }
+ 
+ #[derive(Diagnostic)]
+diff --git a/compiler/rustc_parse/src/parser/ty.rs b/compiler/rustc_parse/src/parser/ty.rs
+index 1d2021cfe50aea5240460bb2466877ee3982e5f8..ce8e343321fc51af0184ac29c3bc0bd871dd9c2c 100644
+--- a/compiler/rustc_parse/src/parser/ty.rs
++++ b/compiler/rustc_parse/src/parser/ty.rs
+@@ -501,30 +501,12 @@ fn parse_ty_tuple_or_parens(&mut self, lo: Span, allow_plus: AllowPlus) -> PResu
+     }
+ 
+     fn parse_bare_trait_object(&mut self, lo: Span, allow_plus: AllowPlus) -> PResult<'a, TyKind> {
+-        // A lifetime only begins a bare trait object type if it is followed by `+`!
+-        if self.token.is_lifetime() && !self.look_ahead(1, |t| t.is_like_plus()) {
+-            // In Rust 2021 and beyond, we assume that the user didn't intend to write a bare trait
+-            // object type with a leading lifetime bound since that seems very unlikely given the
+-            // fact that `dyn`-less trait objects are *semantically* invalid.
+-            if self.psess.edition.at_least_rust_2021() {
+-                let lt = self.expect_lifetime();
+-                let mut err = self.dcx().struct_span_err(lo, "expected type, found lifetime");
+-                err.span_label(lo, "expected type");
+-                return Ok(match self.maybe_recover_ref_ty_no_leading_ampersand(lt, lo, err) {
+-                    Ok(ref_ty) => ref_ty,
+-                    Err(err) => TyKind::Err(err.emit()),
+-                });
+-            }
+-
+-            self.dcx().emit_err(NeedPlusAfterTraitObjectLifetime {
+-                span: lo,
+-                suggestion: lo.shrink_to_hi(),
+-            });
++        let lt_no_plus = self.check_lifetime() && !self.look_ahead(1, |t| t.is_like_plus());
++        let bounds = self.parse_generic_bounds_common(allow_plus)?;
++        if lt_no_plus {
++            self.dcx().emit_err(NeedPlusAfterTraitObjectLifetime { span: lo });
+         }
+-        Ok(TyKind::TraitObject(
+-            self.parse_generic_bounds_common(allow_plus)?,
+-            TraitObjectSyntax::None,
+-        ))
++        Ok(TyKind::TraitObject(bounds, TraitObjectSyntax::None))
+     }
+ 
+     fn maybe_recover_ref_ty_no_leading_ampersand<'cx>(

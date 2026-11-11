@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_borrowck/src/type_check/free_region_relations.rs b/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
+index 5309ea8cb81b5d21db0d30d23807fa548fbe96f7..3a0bda0bba978b776d3ce9250a358df495777af4 100644
+--- a/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
++++ b/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
+@@ -118,8 +118,7 @@ fn non_local_bounds(
+         assert!(self.universal_regions.is_universal_region(fr0));
+ 
+         let mut external_parents = vec![];
+-
+-        let mut queue = vec![relation.minimal_scc_representative(fr0)];
++        let mut queue = vec![fr0];
+ 
+         // Keep expanding `fr` into its parents until we reach
+         // non-local regions.
+diff --git a/compiler/rustc_data_structures/src/transitive_relation.rs b/compiler/rustc_data_structures/src/transitive_relation.rs
+index 31abea938196cba9d59963f134ed414a0df16f33..33ac279f3e0ae1523d6f9fede246eaef6e536637 100644
+--- a/compiler/rustc_data_structures/src/transitive_relation.rs
++++ b/compiler/rustc_data_structures/src/transitive_relation.rs
+@@ -354,20 +354,6 @@ pub fn parents(&self, a: T) -> Vec<T> {
+             .collect()
+     }
+ 
+-    /// Given an element A, elements B with the lowest index such that `A R B`
+-    /// and `B R A`, or `A` if no such element exists.
+-    pub fn minimal_scc_representative(&self, a: T) -> T {
+-        match self.index(a) {
+-            Some(a_i) => self.with_closure(|closure| {
+-                closure
+-                    .iter(a_i.0)
+-                    .find(|i| closure.contains(*i, a_i.0))
+-                    .map_or(a, |i| self.elements[i])
+-            }),
+-            None => a,
+-        }
+-    }
+-
+     fn with_closure<OP, R>(&self, op: OP) -> R
+     where
+         OP: FnOnce(&BitMatrix<usize, usize>) -> R,

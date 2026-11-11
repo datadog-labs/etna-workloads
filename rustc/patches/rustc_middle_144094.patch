@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_middle/src/mono.rs b/compiler/rustc_middle/src/mono.rs
+index dc9a94f79aa0f9b5da16f1d1e647150cd6ca0f16..a95feaf910f4777fe46916b29c1569508358f0b7 100644
+--- a/compiler/rustc_middle/src/mono.rs
++++ b/compiler/rustc_middle/src/mono.rs
+@@ -146,8 +146,10 @@ pub fn instantiation_mode(&self, tcx: TyCtxt<'tcx>) -> InstantiationMode {
+         };
+ 
+         // Similarly, the executable entrypoint must be instantiated exactly once.
+-        if tcx.is_entrypoint(instance.def_id()) {
+-            return InstantiationMode::GloballyShared { may_conflict: false };
++        if let Some((entry_def_id, _)) = tcx.entry_fn(()) {
++            if instance.def_id() == entry_def_id {
++                return InstantiationMode::GloballyShared { may_conflict: false };
++            }
+         }
+ 
+         // If the function is #[naked] or contains any other attribute that requires exactly-once
+diff --git a/compiler/rustc_monomorphize/src/collector.rs b/compiler/rustc_monomorphize/src/collector.rs
+index 5d7820df622b770c5748151fc0cdc2d7e11ee373..7c72e3341dcb5b969cf567c30324374c41960882 100644
+--- a/compiler/rustc_monomorphize/src/collector.rs
++++ b/compiler/rustc_monomorphize/src/collector.rs
+@@ -1799,15 +1799,6 @@ fn push_extra_entry_roots(&mut self) {
+             return;
+         };
+ 
+-        let main_instance = Instance::mono(self.tcx, main_def_id);
+-        if self.tcx.should_codegen_locally(main_instance) {
+-            self.output.push(create_fn_mono_item(
+-                self.tcx,
+-                main_instance,
+-                self.tcx.def_span(main_def_id),
+-            ));
+-        }
+-
+         let Some(start_def_id) = self.tcx.lang_items().start_fn() else {
+             self.tcx.dcx().emit_fatal(diagnostics::StartNotFound);
+         };
+diff --git a/compiler/rustc_monomorphize/src/partitioning.rs b/compiler/rustc_monomorphize/src/partitioning.rs
+index 1b3e411312ca6b227994a2288ed0aac99686aa78..62bcb76cd7acdf8330af51d9feede73feff67d96 100644
+--- a/compiler/rustc_monomorphize/src/partitioning.rs
++++ b/compiler/rustc_monomorphize/src/partitioning.rs
+@@ -224,7 +224,11 @@ fn place_mono_items<'tcx, I>(cx: &PartitioningCx<'_, 'tcx>, mono_items: I) -> Pl
+         // So even if its mode is LocalCopy, we need to treat it like a root.
+         match mono_item.instantiation_mode(cx.tcx) {
+             InstantiationMode::GloballyShared { .. } => {}
+-            InstantiationMode::LocalCopy => continue,
++            InstantiationMode::LocalCopy => {
++                if !cx.tcx.is_lang_item(mono_item.def_id(), LangItem::Start) {
++                    continue;
++                }
++            }
+         }
+ 
+         let characteristic_def_id = characteristic_def_id_of_mono_item(cx.tcx, mono_item);
+@@ -866,7 +870,7 @@ fn mono_item_visibility<'tcx>(
+     //        from the `main` symbol we'll generate later.
+     //
+     //        This may be fixable with a new `InstanceKind` perhaps? Unsure!
+-    if tcx.is_entrypoint(def_id) {
++    if tcx.is_lang_item(def_id, LangItem::Start) {
+         *can_be_internalized = false;
+         return Visibility::Hidden;
+     }

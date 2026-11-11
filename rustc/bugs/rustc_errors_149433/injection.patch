@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_errors/src/lib.rs b/compiler/rustc_errors/src/lib.rs
+index 4fa104ad6dbfec8686530bae6ffb4c72a0115be8..2ebcd73f0df08c729bfdd7eb0c0233405894aea0 100644
+--- a/compiler/rustc_errors/src/lib.rs
++++ b/compiler/rustc_errors/src/lib.rs
+@@ -1073,7 +1073,7 @@ pub fn delayed_bug(self, msg: impl Into<Cow<'static, str>>) -> ErrorGuaranteed {
+         Diag::<ErrorGuaranteed>::new(self, DelayedBug, msg.into()).emit()
+     }
+ 
+-    /// Ensures that an error is printed. See [`Level::DelayedBug`].
++    /// Ensures that an error is printed. See `Level::DelayedBug`.
+     ///
+     /// Note: this function used to be called `delay_span_bug`. It was renamed
+     /// to match similar functions like `span_err`, `span_warn`, etc.
+diff --git a/compiler/rustc_ty_utils/src/layout/invariant.rs b/compiler/rustc_ty_utils/src/layout/invariant.rs
+index 718804714098244aa4d2cd6deb086ea33f37040c..2f1037ac3215289d01fc524a3ee077fdaa32e3fd 100644
+--- a/compiler/rustc_ty_utils/src/layout/invariant.rs
++++ b/compiler/rustc_ty_utils/src/layout/invariant.rs
+@@ -309,16 +309,10 @@ fn check_layout_abi<'tcx>(cx: &LayoutCx<'tcx>, layout: &TyAndLayout<'tcx>) {
+                     }
+ 
+                     // Ensure that for niche encoded tags the discriminant coincides with the variant index.
+-                    let val = layout.ty.discriminant_for_variant(tcx, idx).unwrap().val;
+-                    if val != u128::from(idx.as_u32()) {
+-                        let adt_def = layout.ty.ty_adt_def().unwrap();
+-                        cx.tcx().dcx().span_delayed_bug(
+-                            cx.tcx().def_span(adt_def.did()),
+-                            format!(
+-                                "variant {idx:?} has discriminant {val:?} in niche-encoded type"
+-                            ),
+-                        );
+-                    }
++                    assert_eq!(
++                        layout.ty.discriminant_for_variant(tcx, idx).unwrap().val,
++                        u128::from(idx.as_u32()),
++                    );
+                 }
+             }
+             for variant in variants.iter() {

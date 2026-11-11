@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..328c460365c657a7a782305b84f1836d0510b0aa 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -1762,39 +1762,6 @@ pub(super) fn suggest_add_reference_to_arg(
+                         }
+                         // If we didn't return early here, we would instead suggest `&&str::from("")`.
+                         return false;
+-                    } else if let hir::ExprKind::Call(_, args) = expr.kind {
+-                        // The `def_id` can point at a struct, which has no fn sig.
+-                        if matches!(
+-                            self.tcx.def_kind(*def_id),
+-                            DefKind::AssocFn | DefKind::Fn | DefKind::Ctor(_, CtorKind::Fn)
+-                        ) && let Some(pred) = self
+-                                .tcx
+-                                .clauses_of(*def_id)
+-                                .instantiate_identity(self.tcx)
+-                                .clauses
+-                                .into_iter()
+-                                .nth(*idx)
+-                            && let Some(pred) = pred.as_trait_clause()
+-                            // This feature allows for `for<T> T: Trait`, which fails
+-                            // `instantiate_bound_regions_with_erased`. Avoid suggesting for now.
+-                            && !self.tcx.features().non_lifetime_binders()
+-                        {
+-                            let pred_ty = self.tcx.instantiate_bound_regions_with_erased(
+-                                pred.self_ty().skip_norm_wip(),
+-                            );
+-                            let fn_sig = self.tcx.instantiate_bound_regions_with_erased(
+-                                self.tcx.fn_sig(*def_id).instantiate_identity().skip_norm_wip(),
+-                            );
+-                            if point_at_relevant_args(
+-                                pred_ty,
+-                                args.into_iter()
+-                                    .zip(fn_sig.inputs())
+-                                    .map(|(e, t)| (*e, *t))
+-                                    .collect(),
+-                            ) {
+-                                return false;
+-                            }
+-                        }
+                     }
+                 }
+                 c

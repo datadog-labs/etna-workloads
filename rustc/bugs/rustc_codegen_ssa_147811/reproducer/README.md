@@ -1,0 +1,1 @@
+Compiles a no_core naked function for x86_64-unknown-uefi and aarch64-apple-darwin (using minicore) and prints status and section directives. The injected compiler ICEs on UEFI (invalid coff env) and omits the '.section __TEXT,__text,regular,pure_instructions' directive for the naked function on macOS.

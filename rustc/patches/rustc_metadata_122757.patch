@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_metadata/src/creader.rs b/compiler/rustc_metadata/src/creader.rs
+index 6543b5700192e97080cc74f1fcecd51a272525e1..ccf7fd562ddbb69492801bdc22c98ed22971776f 100644
+--- a/compiler/rustc_metadata/src/creader.rs
++++ b/compiler/rustc_metadata/src/creader.rs
+@@ -835,17 +835,16 @@ fn maybe_resolve_crate<'b, 'tcx>(
+         match result {
+             (LoadResult::Previous(cnum), None) => {
+                 info!("library for `{}` was loaded previously, cnum {cnum}", name);
+-                // When `private_dep` is none, it indicates the directly dependent crate. If it is
+-                // not specified by `--extern` on command line parameters, it may be
+-                // `private-dependency` when `register_crate` is called for the first time. Then it must be updated to
+-                // `public-dependency` here.
+-                let private_dep = self.is_private_dep(&tcx.sess.opts.externs, name, private_dep);
+                 let cdata = self.get_crate_data_mut(cnum);
+                 if cdata.is_proc_macro_crate() {
+                     dep_kind = CrateDepKind::MacrosOnly;
+                 }
+                 cdata.set_dep_kind(cmp::max(cdata.dep_kind(), dep_kind));
+-                cdata.update_and_private_dep(private_dep);
++                if let Some(private_dep) = private_dep {
++                    let private_dep =
++                        self.is_private_dep(&tcx.sess.opts.externs, name, Some(private_dep));
++                    self.get_crate_data_mut(cnum).update_and_private_dep(private_dep);
++                }
+                 Ok(cnum)
+             }
+             (LoadResult::Loaded(library), host_library) => {

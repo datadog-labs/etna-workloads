@@ -1,0 +1,6 @@
+(declare-const a String)
+(declare-const b String)
+(assert (= a "ab"))
+(assert (= b "a"))
+(assert (str.< b a))
+(check-sat)

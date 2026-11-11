@@ -1,0 +1,1 @@
+`use std::cell:::Cell;` contains a triple colon. The fixed compiler recovers with "path separator must be a double colon" and a suggestion. The injected compiler lacks the recovery and reports "expected identifier, found `:`" instead.

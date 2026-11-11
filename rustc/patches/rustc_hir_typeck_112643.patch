@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_hir_typeck/src/check.rs b/compiler/rustc_hir_typeck/src/check.rs
+index 60fc0b8f9b214afeec5e5971731e2824fdd57892..f256572c3bb8ffae5064f95ea5d8950cc59d7af7 100644
+--- a/compiler/rustc_hir_typeck/src/check.rs
++++ b/compiler/rustc_hir_typeck/src/check.rs
+@@ -90,7 +90,12 @@ pub(super) fn check_fn<'a, 'tcx>(
+         }
+ 
+         // Check that argument is Sized.
+-        if !params_can_be_unsized || fn_sig.abi() == rustc_abi::ExternAbi::RustTail {
++        // The check for a non-trivial pattern is a hack to avoid duplicate warnings
++        // for simple cases like `fn foo(x: Trait)`,
++        // where we would error once on the parameter as a whole, and once on the binding `x`.
++        if param.pat.simple_ident().is_none()
++            && (!params_can_be_unsized || fn_sig.abi() == rustc_abi::ExternAbi::RustTail)
++        {
+             fcx.require_type_is_sized(
+                 param_ty,
+                 param.ty_span,

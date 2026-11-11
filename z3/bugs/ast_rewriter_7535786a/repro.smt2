@@ -1,0 +1,6 @@
+(set-logic ALL)
+(declare-const a (Array Int Int))
+(assert (exists ((y Int)) (= ((as const (Array Int Int)) y) (lambda ((i Int)) 5))))
+(check-sat)
+(assert (forall ((y Int)) (not (= ((as const (Array Int Int)) y) (lambda ((i Int)) (+ y 0))))))
+(check-sat)

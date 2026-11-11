@@ -1,0 +1,103 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..854ca33206970aadbb7ee2c167e246e4092d4b89 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -777,12 +777,8 @@ pub(super) fn suggest_dereferences(
+                         .all(|obligation| self.predicate_may_hold(obligation))
+             }) && steps > 0
+             {
+-                if span.in_external_macro(self.tcx.sess.source_map()) {
+-                    return false;
+-                }
+                 let derefs = "*".repeat(steps);
+                 let msg = "consider dereferencing here";
+-
+                 let call_node = self.tcx.hir_node(*call_hir_id);
+                 let is_receiver = matches!(
+                     call_node,
+@@ -829,6 +825,7 @@ pub(super) fn suggest_dereferences(
+                 })
+         {
+             // Suggest dereferencing the LHS, RHS, or both terms of a binop if possible
++
+             let trait_pred = predicate.unwrap_or(trait_pred);
+             let lhs_ty = self.tcx.instantiate_bound_regions_with_erased(trait_pred.self_ty());
+             let lhs_autoderef = (self.autoderef_steps)(lhs_ty);
+@@ -879,9 +876,6 @@ pub(super) fn suggest_dereferences(
+                 })
+             {
+                 let make_sugg = |mut expr: &Expr<'_>, mut steps| {
+-                    if expr.span.in_external_macro(self.tcx.sess.source_map()) {
+-                        return None;
+-                    }
+                     let mut prefix_span = expr.span.shrink_to_lo();
+                     let mut msg = "consider dereferencing here";
+                     if let hir::ExprKind::AddrOf(_, _, inner) = expr.kind {
+@@ -899,10 +893,10 @@ pub(super) fn suggest_dereferences(
+                     }
+                     // Empty suggestions with empty spans ICE with debug assertions
+                     if steps == 0 {
+-                        return Some((
++                        return (
+                             msg.trim_end_matches(" and dereferencing instead"),
+                             vec![(prefix_span, String::new())],
+-                        ));
++                        );
+                     }
+                     let derefs = "*".repeat(steps);
+                     let needs_parens = steps > 0 && expr_needs_parens(expr);
+@@ -924,7 +918,7 @@ pub(super) fn suggest_dereferences(
+                     if !prefix_span.is_empty() {
+                         suggestion.push((prefix_span, String::new()));
+                     }
+-                    Some((msg, suggestion))
++                    (msg, suggestion)
+                 };
+ 
+                 if let Some(lsteps) = lsteps
+@@ -932,13 +926,8 @@ pub(super) fn suggest_dereferences(
+                     && lsteps > 0
+                     && rsteps > 0
+                 {
+-                    let Some((_, mut suggestion)) = make_sugg(lhs, lsteps) else {
+-                        return false;
+-                    };
+-                    let Some((_, mut rhs_suggestion)) = make_sugg(rhs, rsteps) else {
+-                        return false;
+-                    };
+-                    suggestion.append(&mut rhs_suggestion);
++                    let mut suggestion = make_sugg(lhs, lsteps).1;
++                    suggestion.append(&mut make_sugg(rhs, rsteps).1);
+                     err.multipart_suggestion(
+                         "consider dereferencing both sides of the expression",
+                         suggestion,
+@@ -948,17 +937,13 @@ pub(super) fn suggest_dereferences(
+                 } else if let Some(lsteps) = lsteps
+                     && lsteps > 0
+                 {
+-                    let Some((msg, suggestion)) = make_sugg(lhs, lsteps) else {
+-                        return false;
+-                    };
++                    let (msg, suggestion) = make_sugg(lhs, lsteps);
+                     err.multipart_suggestion(msg, suggestion, Applicability::MachineApplicable);
+                     return true;
+                 } else if let Some(rsteps) = rsteps
+                     && rsteps > 0
+                 {
+-                    let Some((msg, suggestion)) = make_sugg(rhs, rsteps) else {
+-                        return false;
+-                    };
++                    let (msg, suggestion) = make_sugg(rhs, rsteps);
+                     err.multipart_suggestion(msg, suggestion, Applicability::MachineApplicable);
+                     return true;
+                 }
+@@ -5675,9 +5660,6 @@ pub(super) fn suggest_convert_to_slice(
+         candidate_impls: &[ImplCandidate<'tcx>],
+         span: Span,
+     ) {
+-        if span.in_external_macro(self.tcx.sess.source_map()) {
+-            return;
+-        }
+         // We can only suggest the slice coercion for function and binary operation arguments,
+         // since the suggestion would make no sense in turbofish or call
+         let (ObligationCauseCode::BinOp { .. } | ObligationCauseCode::FunctionArg { .. }) =

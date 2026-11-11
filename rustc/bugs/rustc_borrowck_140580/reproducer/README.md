@@ -1,0 +1,1 @@
+A `super let` variable declared inside an external macro must not be named in borrowck errors. The clean compiler reports "temporary value" errors (E0716/E0515); the injected one names the local `args` (E0597/E0515 "local variable `args`").

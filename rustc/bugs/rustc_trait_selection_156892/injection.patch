@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/named_anon_conflict.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/named_anon_conflict.rs
+index 41ed83c11bbd59af13d20fe6a35e0b7b2442349c..1663012d58e485dc2af9fe3a1ec21fb601832d16 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/named_anon_conflict.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/named_anon_conflict.rs
+@@ -2,7 +2,6 @@
+ //! where one region is named and the other is anonymous.
+ 
+ use rustc_errors::Diag;
+-use rustc_middle::ty;
+ use rustc_middle::ty::RegionExt;
+ use tracing::debug;
+ 
+@@ -74,15 +73,7 @@ pub(super) fn try_report_named_anon_conflict(&self) -> Option<Diag<'tcx>> {
+         {
+             return None;
+         }
+-        let orig_ty = anon_param_info.orig_param_ty;
+-        // Don't suggest naming the outer lifetime when it already appears in the pointee
+-        // (e.g. `&'a mut Buffer<'a>`); point at borrow splitting instead.
+-        let suggestion_would_alias_lifetime =
+-            if let ty::Ref(_, orig_inner_ty, ty::Mutability::Mut) = orig_ty.kind() {
+-                self.tcx().any_free_region_meets(orig_inner_ty, |r| r == named)
+-            } else {
+-                false
+-            };
++        let suggestion_would_alias_lifetime = false;
+ 
+         let named = named.to_string();
+         let new_ty_span = if suggestion_would_alias_lifetime { None } else { Some(new_ty_span) };

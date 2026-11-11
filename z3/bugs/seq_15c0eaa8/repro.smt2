@@ -1,0 +1,8 @@
+(declare-const h (Seq Int))
+(declare-const x (Seq Int))
+(declare-const k Int)
+(declare-fun P ((Seq Int)) Bool)
+(define-const a (Seq Int) (seq.++ h (seq.at x k)))
+(assert (P a))
+(assert (not (P (ite (< k 0) h a))))
+(check-sat)

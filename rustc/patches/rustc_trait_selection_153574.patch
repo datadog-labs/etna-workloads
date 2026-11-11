@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/mod.rs b/compiler/rustc_trait_selection/src/traits/mod.rs
+index eda63e09b1189e3ba489d6964c95117212191e74..a3626f126177c2f7f05c8e00ed19ec04ababc36b 100644
+--- a/compiler/rustc_trait_selection/src/traits/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/mod.rs
+@@ -404,22 +404,11 @@ fn do_normalize_clauses<'tcx>(
+     match infcx.fully_resolve(clauses.clone()) {
+         Ok(clauses) => clauses,
+         Err(fixup_err) => {
+-            // The first folder only replaces infers from normalization failure. We might not have
+-            // normalization failure and have unconstrained ty/const vars from ill-formed impls.
+-            // See `tests/ui/traits/normalize/self-referential-param-env-normalization.rs`.
+-            //
+-            // We delay a bug here instead of immediately ICEing and let type checking report the
+-            // actual user-facing errors.
+-            let guar = tcx.dcx().span_delayed_bug(
++            rustc_middle::span_bug!(
+                 cause.span,
+-                format!("inference variables in normalized parameter environment: {fixup_err}"),
++                "inference variables in normalized parameter environment: {}",
++                fixup_err
+             );
+-
+-            // This is slightly wrong as we replace opaques with errors.
+-            //
+-            // We still need to replace regions because `fully_resolve` eagerly returns `Err` if
+-            // it encounters unconstrained ty/const var. Thus region vars might not get replaced.
+-            replace_infer_and_non_rigid_alias_with_error(&infcx, clauses, guar, ReplaceRegions::Yes)
+         }
+     }
+ }

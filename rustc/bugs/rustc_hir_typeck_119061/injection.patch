@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_hir_typeck/src/closure.rs b/compiler/rustc_hir_typeck/src/closure.rs
+index a9ce46b68527f8507af181a7149644c587b4ba79..ed1e87913dcbd33e00437143527ab83029084da2 100644
+--- a/compiler/rustc_hir_typeck/src/closure.rs
++++ b/compiler/rustc_hir_typeck/src/closure.rs
+@@ -908,17 +908,20 @@ fn supplied_sig_of_closure(
+                         lowerer.ty_infer(None, decl.output.span())
+                     })
+                 }
+-                // All `gen {}` and `async gen {}` must return unit.
++                // For a `gen {}` block created as a `gen fn` body, we need the return type to be
++                // ().
+                 hir::ClosureKind::Coroutine(hir::CoroutineKind::Desugared(
+-                    hir::CoroutineDesugaring::Gen | hir::CoroutineDesugaring::AsyncGen,
+-                    _,
++                    hir::CoroutineDesugaring::Gen,
++                    hir::CoroutineSource::Fn,
+                 )) => self.tcx.types.unit,
+ 
+                 // For async blocks, we just fall back to `_` here.
+                 // For closures/coroutines, we know nothing about the return
+                 // type unless it was supplied.
+                 hir::ClosureKind::Coroutine(hir::CoroutineKind::Desugared(
+-                    hir::CoroutineDesugaring::Async,
++                    hir::CoroutineDesugaring::Async
++                    | hir::CoroutineDesugaring::AsyncGen
++                    | hir::CoroutineDesugaring::Gen,
+                     _,
+                 ))
+                 | hir::ClosureKind::Coroutine(hir::CoroutineKind::Coroutine(_))

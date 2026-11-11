@@ -1,0 +1,1 @@
+Compiles `foo()` followed on the next line by `*x = 0;` (missing semicolon). The clean compiler emits a single E0070 with a "you might have meant to write a semicolon" suggestion; the injected one also emits a spurious E0369 (cannot multiply `()` by `&mut {integer}`) and no semicolon suggestion.

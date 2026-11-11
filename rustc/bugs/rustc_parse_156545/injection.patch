@@ -1,0 +1,55 @@
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..11aef2660f05028ee1cf187f45f8777c6cc6a008 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -21,9 +21,7 @@
+     AllowConstBlockItems, AttrWrapper, ExpTokenPair, FnContext, FnParseMode, FollowedByType,
+     ForceCollect, IsDotDotDot, Parser, PathStyle, Recovered, Trailing, UsePreAttrPos,
+ };
+-use crate::diagnostics::{
+-    self, MacroExpandsToAdtField, UseDoubleColonSuggestion, UseRegularStructSuggestion,
+-};
++use crate::diagnostics::{self, MacroExpandsToAdtField};
+ use crate::exp;
+ 
+ impl<'a> Parser<'a> {
+@@ -2102,8 +2100,6 @@ fn parse_unsafe_field(&mut self) -> Safety {
+     /// This is the case where we find `struct Foo<T>(T) where T: Copy;`
+     /// Unit like structs are handled in parse_item_struct function
+     pub(super) fn parse_tuple_struct_body(&mut self) -> PResult<'a, ThinVec<FieldDef>> {
+-        let openparen_span = self.token.span;
+-        let mut encountered_colon = false;
+         self.parse_paren_comma_seq(|p| {
+             let attrs = p.parse_outer_attributes()?;
+             p.collect_tokens(None, attrs, ForceCollect::No, |p, attrs| {
+@@ -2125,8 +2121,6 @@ pub(super) fn parse_tuple_struct_body(&mut self) -> PResult<'a, ThinVec<FieldDef
+                     }
+                 };
+                 let mut_restriction = p.parse_mut_restriction()?;
+-                encountered_colon |=
+-                    p.token.is_ident() && p.look_ahead(1, |tok| tok == &token::Colon);
+                 // Unsafe fields are not supported in tuple structs, as doing so would result in a
+                 // parsing ambiguity for `struct X(unsafe fn())`.
+                 let ty = match p.parse_ty() {
+@@ -2172,21 +2166,6 @@ pub(super) fn parse_tuple_struct_body(&mut self) -> PResult<'a, ThinVec<FieldDef
+             })
+         })
+         .map(|(r, _)| r)
+-        .map_err(|mut error| {
+-            if self.token == token::Colon {
+-                error.subdiagnostic(UseDoubleColonSuggestion { colon: self.token.span });
+-            }
+-            if encountered_colon {
+-                self.eat_to_tokens(&[exp!(CloseParen)]);
+-                self.bump();
+-                error.subdiagnostic(UseRegularStructSuggestion {
+-                    open: openparen_span,
+-                    close: self.prev_token.span,
+-                    semicolon: if self.token == token::Semi { Some(self.token.span) } else { None },
+-                });
+-            }
+-            error
+-        })
+     }
+ 
+     fn field_def_extras(

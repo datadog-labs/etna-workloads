@@ -1,0 +1,1 @@
+Compiles a naked_asm! function for powerpc64-ibm-aix (XCOFF) to assembly. The clean compiler succeeds (status 0); the injected compiler emits ELF-style directives (.pushsection/.type/.size) that LLVM's XCOFF parser rejects with 'unknown directive' errors and exits 1.

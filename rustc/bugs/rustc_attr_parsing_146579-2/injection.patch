@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_attr_parsing/src/parser.rs b/compiler/rustc_attr_parsing/src/parser.rs
+index 8efe5bf4f1f9077fb69a35f06e8790c697b59604..79a70a7d9afbbc6016fc2837eb66fa6beab2e6f4 100644
+--- a/compiler/rustc_attr_parsing/src/parser.rs
++++ b/compiler/rustc_attr_parsing/src/parser.rs
+@@ -641,6 +641,20 @@ fn expected_lit(&mut self) -> Diag<'sess> {
+         // Suggest quoting idents, e.g. in `#[cfg(key = value)]`. We don't use `Token::ident` and
+         // don't `uninterpolate` the token to avoid suggesting anything butchered or questionable
+         // when macro metavariables are involved.
++        if self.parser.prev_token == token::Eq
++            && let token::Ident(..) = self.parser.token.kind
++            && self.parser.look_ahead(1, |t| matches!(t.kind, token::Bang))
++        {
++            let before = self.parser.token.span.shrink_to_lo();
++            while let token::Ident(..) = self.parser.token.kind {
++                self.parser.bump();
++            }
++            err.quote_ident_sugg = Some(InvalidMetaItemQuoteIdentSugg {
++                before,
++                after: self.parser.prev_token.span.shrink_to_hi(),
++            });
++            return self.parser.dcx().create_err(err);
++        }
+         let snapshot = self.parser.create_snapshot_for_diagnostic();
+         match self.parser.parse_stmt_without_recovery(false, ForceCollect::No, false) {
+             Ok(stmt) => {

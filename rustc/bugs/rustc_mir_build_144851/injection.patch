@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_mir_build/src/check_tail_calls.rs b/compiler/rustc_mir_build/src/check_tail_calls.rs
+index a7b6ff87a29fd2e2e3341eb0ba96db34da03df95..d7d1cf1f8ac79bb05cc0472e9c27cabee850eeb3 100644
+--- a/compiler/rustc_mir_build/src/check_tail_calls.rs
++++ b/compiler/rustc_mir_build/src/check_tail_calls.rs
+@@ -113,10 +113,6 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+                 // skip them, producing an error about calling a closure is enough.
+                 return;
+             };
+-
+-            if self.tcx.intrinsic(did).is_some() {
+-                self.report_calling_intrinsic(expr);
+-            }
+         }
+ 
+         let (ty::FnDef(..) | ty::FnPtr(..)) = ty.kind() else {
+@@ -308,16 +304,6 @@ fn report_calling_closure(&mut self, fun: &Expr<'_>, tupled_args: Ty<'_>, expr:
+         self.found_errors = Err(err);
+     }
+ 
+-    fn report_calling_intrinsic(&mut self, expr: &Expr<'_>) {
+-        let err = self
+-            .tcx
+-            .dcx()
+-            .struct_span_err(expr.span, "tail calling intrinsics is not allowed")
+-            .emit();
+-
+-        self.found_errors = Err(err);
+-    }
+-
+     fn report_nonfn_callee(&mut self, call_sp: Span, fun_sp: Span, ty: Ty<'_>) {
+         let mut err = self
+             .tcx

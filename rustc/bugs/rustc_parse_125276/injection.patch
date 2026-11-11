@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..b695118f9edcc24ae59ad4ab207209bfe9adf8a2 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -63,13 +63,8 @@ pub fn parse_mod(
+         let post_attr_lo = self.token.span;
+         let mut items: ThinVec<Box<_>> = ThinVec::new();
+ 
+-        // There shouldn't be any stray semicolons before or after items.
+-        // `parse_item` consumes the appropriate semicolons so any leftover is an error.
+-        loop {
+-            while self.maybe_consume_incorrect_semicolon(items.last().map(|x| &**x)) {} // Eat all bad semicolons
+-            let Some(item) = self.parse_item(ForceCollect::No, AllowConstBlockItems::Yes)? else {
+-                break;
+-            };
++        while let Some(item) = self.parse_item(ForceCollect::No, AllowConstBlockItems::Yes)? {
++            self.maybe_consume_incorrect_semicolon(Some(&item));
+             items.push(item);
+         }
+ 

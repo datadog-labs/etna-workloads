@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+index f55833c1bf6da228478bc4624ad342844e2692e9..9d71ca236c3e01b8b32068b1fb93fa9b6142972f 100644
+--- a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
++++ b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+@@ -1091,13 +1091,15 @@ fn object_lifetime_default(tcx: TyCtxt<'_>, param_def_id: LocalDefId) -> ObjectL
+ 
+     let Ok((generics, bounds)) = (match tcx.hir_node_by_def_id(param_def_id) {
+         hir::Node::GenericParam(param) => match param.source {
+-            hir::GenericParamSource::Generics => match param.kind {
++            hir::GenericParamSource::Generics | hir::GenericParamSource::Binder => match param.kind {
+                 GenericParamKind::Type { .. } => {
+-                    Ok((tcx.hir_get_generics(tcx.local_parent(param_def_id)).unwrap(), &[][..]))
++                    let generics = tcx.hir_get_generics(tcx.local_parent(param_def_id)).unwrap();
++                    let param_hir_id = tcx.local_def_id_to_hir_id(param_def_id);
++                    generics.params.iter().find(|p| p.hir_id == param_hir_id).unwrap();
++                    Ok((generics, &[][..]))
+                 }
+                 _ => Err(()),
+             },
+-            hir::GenericParamSource::Binder => return ObjectLifetimeDefault::Empty,
+         },
+         // For `Self` type parameters
+         hir::Node::Item(&hir::Item {

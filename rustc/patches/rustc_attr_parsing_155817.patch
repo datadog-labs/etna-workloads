@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_attr_parsing/src/attributes/link_attrs.rs b/compiler/rustc_attr_parsing/src/attributes/link_attrs.rs
+index 6289b1c726684e3e16c9b5755effd750302b9427..212b9057e6eb9bfbd436e5e0f8e8a2c3a0dde3c5 100644
+--- a/compiler/rustc_attr_parsing/src/attributes/link_attrs.rs
++++ b/compiler/rustc_attr_parsing/src/attributes/link_attrs.rs
+@@ -40,19 +40,6 @@ fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<Attribute
+         let nv = cx.expect_name_value(args, cx.attr_span, None)?;
+         let name = cx.expect_string_literal(nv)?;
+ 
+-        if name.as_str().contains('\0') {
+-            // `#[link_name = ...]` will be converted to a null-terminated string,
+-            // so it may not contain any null characters.
+-            cx.emit_err(NullOnLinkName { span: nv.value_span });
+-            return None;
+-        }
+-        if name.is_empty() {
+-            // Otherwise LLVM will just make up a name and the linker will fail
+-            // to find an empty symbol name.
+-            cx.emit_err(EmptyLinkName { span: nv.value_span });
+-            return None;
+-        }
+-
+         Some(LinkName { name, span: cx.attr_span })
+     }
+ }
+@@ -276,9 +263,6 @@ fn parse_link_name(
+             return false;
+         };
+ 
+-        if link_name.as_str().contains('\0') {
+-            cx.emit_err(NullOnLinkName { span: nv.value_span });
+-        }
+         if link_name.is_empty() {
+             cx.emit_err(EmptyLinkName { span: nv.value_span });
+         }

@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_typeck/src/fallback.rs b/compiler/rustc_hir_typeck/src/fallback.rs
+index 44906cb330c0cbc18da08319adaaf5add5519575..887a836a7e29000298e07c7409283afc34328d90 100644
+--- a/compiler/rustc_hir_typeck/src/fallback.rs
++++ b/compiler/rustc_hir_typeck/src/fallback.rs
+@@ -487,7 +487,7 @@ fn visit_infer(
+         _kind: InferKind<'tcx>,
+     ) -> Self::Result {
+         // Try to replace `_` with `()`.
+-        if let Some(ty) = self.fcx.typeck_results.borrow().node_type_opt(inf_id)
++        if let ty = self.fcx.typeck_results.borrow().node_type(inf_id)
+             && let Some(vid) = self.fcx.root_vid(ty)
+             && self.reachable_vids.contains(&vid)
+             && inf_span.can_be_used_for_suggestions()
+@@ -531,7 +531,7 @@ fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) -> Self::Result {
+         if let hir::ExprKind::Path(hir::QPath::Resolved(None, path)) = expr.kind
+             && let Res::Def(DefKind::AssocFn, def_id) = path.res
+             && self.fcx.tcx.trait_of_assoc(def_id).is_some()
+-            && let Some(args) = self.fcx.typeck_results.borrow().node_args_opt(expr.hir_id)
++            && let args = self.fcx.typeck_results.borrow().node_args(expr.hir_id)
+             && let self_ty = args.type_at(0)
+             && let Some(vid) = self.fcx.root_vid(self_ty)
+             && self.reachable_vids.contains(&vid)
+@@ -558,7 +558,7 @@ fn visit_local(&mut self, local: &'tcx hir::LetStmt<'tcx>) -> Self::Result {
+         // For a local, try suggest annotating the type if it's missing.
+         if let hir::LocalSource::Normal = local.source
+             && let None = local.ty
+-            && let Some(ty) = self.fcx.typeck_results.borrow().node_type_opt(local.hir_id)
++            && let ty = self.fcx.typeck_results.borrow().node_type(local.hir_id)
+             && let Some(vid) = self.fcx.root_vid(ty)
+             && self.reachable_vids.contains(&vid)
+             && local.span.can_be_used_for_suggestions()

@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs b/compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs
+index 3387c8599b911826b4bc5385e0e7370387ae616a..9205fa12ca734980ad51d19e2a8083f5dc7700f4 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/project_goals/opaque_types.rs
+@@ -25,6 +25,23 @@ pub(super) fn normalize_opaque_type(
+ 
+         match self.typing_mode() {
+             TypingMode::Coherence => {
++                // Only treat the opaque as possibly equal to itself; against any
++                // other type it is rigid and thus unequal.
++                let same_opaque = matches!(
++                    expected.kind(),
++                    ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id: d }, .. })
++                        if d == def_id
++                );
++                if !same_opaque {
++                    self.eq(
++                        goal.param_env,
++                        opaque_ty.to_term(cx, ty::IsRigid::Yes),
++                        goal.predicate.term,
++                    )?;
++                    return self
++                        .evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
++                        .map_err(Into::into);
++                }
+                 // An impossible opaque type bound is the only way this goal will fail
+                 // e.g. assigning `impl Copy := NotCopy`
+                 self.add_item_bounds_for_hidden_type(
+diff --git a/compiler/rustc_type_ir/src/relate/combine.rs b/compiler/rustc_type_ir/src/relate/combine.rs
+index 4c0fe9cd25724469cfdafbe180d4029bd697ea6c..f730a19d21de72acc449a876988f6beecd6e9ad1 100644
+--- a/compiler/rustc_type_ir/src/relate/combine.rs
++++ b/compiler/rustc_type_ir/src/relate/combine.rs
+@@ -116,7 +116,14 @@ pub fn super_combine_tys<Infcx, I, R>(
+ 
+         (ty::Alias(_, ty::AliasTy { kind: ty::Opaque { .. }, .. }), _)
+         | (_, ty::Alias(_, ty::AliasTy { kind: ty::Opaque { .. }, .. }))
+-            if !infcx.next_trait_solver() =>
++            if !infcx.next_trait_solver()
++                && match (a.kind(), b.kind()) {
++                    (
++                        ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id: x }, .. }),
++                        ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id: y }, .. }),
++                    ) => x == y,
++                    _ => false,
++                } =>
+         {
+             match infcx.typing_mode_raw().assert_not_erased() {
+                 // During coherence, opaque types should be treated as *possibly*

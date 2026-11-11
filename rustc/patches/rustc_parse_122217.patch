@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_parse/src/lexer/mod.rs b/compiler/rustc_parse/src/lexer/mod.rs
+index 4f7c76e7df8162c275080a0f30f2fdd73aad2005..14d577e7b79318459575e0fae820f40e05bad533 100644
+--- a/compiler/rustc_parse/src/lexer/mod.rs
++++ b/compiler/rustc_parse/src/lexer/mod.rs
+@@ -765,21 +765,10 @@ fn cook_lexer_literal(
+         match kind {
+             rustc_lexer::LiteralKind::Char { terminated } => {
+                 if !terminated {
+-                    let mut err = self
+-                        .dcx()
++                    self.dcx()
+                         .struct_span_fatal(self.mk_sp(start, end), "unterminated character literal")
+-                        .with_code(E0762);
+-                    if let Some(lt_sp) = self.last_lifetime {
+-                        err.multipart_suggestion(
+-                            "if you meant to write a string literal, use double quotes",
+-                            vec![
+-                                (lt_sp, "\"".to_string()),
+-                                (self.mk_sp(start, start + BytePos(1)), "\"".to_string()),
+-                            ],
+-                            Applicability::MaybeIncorrect,
+-                        );
+-                    }
+-                    err.emit()
++                        .with_code(E0762)
++                        .emit()
+                 }
+                 self.cook_quoted(token::Char, Mode::Char, start, end, 1, 1) // ' '
+             }

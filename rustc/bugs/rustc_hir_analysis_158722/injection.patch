@@ -1,0 +1,49 @@
+diff --git a/compiler/rustc_hir_analysis/src/delegation.rs b/compiler/rustc_hir_analysis/src/delegation.rs
+index ab34246d9716e43d16775879f6c6373c70f8c333..57724f4d291297146bfa280cdf25aeae43919551 100644
+--- a/compiler/rustc_hir_analysis/src/delegation.rs
++++ b/compiler/rustc_hir_analysis/src/delegation.rs
+@@ -439,44 +439,6 @@ fn with_own_clauses(
+                     continue;
+                 }
+ 
+-                // If we have a constant in parent or child args that came from delegation
+-                // parent:
+-                // ```rust
+-                // trait Trait<T, const B: bool> { /* .. */}
+-                // impl<const N: usize> S<N> {
+-                //     reuse Trait::<S<N>, N>::foo;
+-                // }
+-                // ```
+-                // Then if we inherit const clause from `Trait` then we end up with
+-                // two `ConstArgHasType` for `N` constant:
+-                // 1) ConstArgHasType(N/#0, bool) from `Trait`
+-                // 2) ConstArgHasType(N/#0, usize) from delegation parent
+-                // So in case the constant came from delegation parent we will not inherit
+-                // ConstArgHasType from signature.
+-                // The check is so complicated because we build generic args for signature
+-                // and clauses inheritance, for the example above it will be
+-                // `args = [S<N/#0>, N/#0, S<N/#0>, N/#0]`, where
+-                // args[0] - Self type, args[1] - delegation parent const, args[2] - first
+-                // arg of callee path, args[3] - second arg of callee path.
+-                // When processing clause ConstArgHasType(B/#2, bool)
+-                // from delegation signature (`Trait::foo`), we need to map `B/#2` into some
+-                // arg from `args`. The mapping which is built by `create_mapping` function is:
+-                // `{0: 0, 2: 3, 1: 2}`, so as `B/#2` has index `2` it is mapped into third
+-                // arg from `args` - `N/#0`. After we obtained mapped const param, we check if
+-                // it came from delegation parent, and if so we do not process its `ConstArgHasType`
+-                // clause.
+-                // (Issue #158675).
+-                if let ty::PredicateKind::Clause(ty::ClauseKind::ConstArgHasType(ct, _)) =
+-                    clause.0.as_predicate().fold_with(&mut self.folder).kind().skip_binder()
+-                {
+-                    let unnorm_const = EarlyBinder::bind(self.tcx, ct).instantiate(self.tcx, args);
+-                    if let ty::ConstKind::Param(param) = unnorm_const.skip_norm_wip().kind()
+-                        && self.folder.delegation_parent_consts.contains(&param)
+-                    {
+-                        continue;
+-                    }
+-                }
+-
+                 let new_clause = clause.0.fold_with(&mut self.folder);
+                 self.clauses.push((
+                     EarlyBinder::bind(self.tcx, new_clause)

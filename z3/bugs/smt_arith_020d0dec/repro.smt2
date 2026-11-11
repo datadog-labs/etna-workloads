@@ -1,0 +1,5 @@
+(declare-fun N () Int)
+(assert (<= 1 N))
+(assert (<= N 3))
+(assert (> (- (* (to_real N) (to_real N)) (* 2.0 (to_real (to_int (/ (* (to_real N) (to_real N)) 2.0))))) 1.0))
+(check-sat)

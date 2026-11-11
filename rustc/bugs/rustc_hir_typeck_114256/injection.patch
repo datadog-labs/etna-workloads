@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_hir_typeck/src/pat.rs b/compiler/rustc_hir_typeck/src/pat.rs
+index f7ba6a78c65bde4d2d3ad24a21cf35f67e6f6027..227a56127eabf54a41bdecdf2e02f6c675a2a893 100644
+--- a/compiler/rustc_hir_typeck/src/pat.rs
++++ b/compiler/rustc_hir_typeck/src/pat.rs
+@@ -1416,7 +1416,7 @@ fn borrow_pat_suggestion(&self, err: &mut Diag<'_>, pat: &Pat<'_>) {
+                 }
+                 // Check that there is explicit type (ie this is not a closure param with inferred type)
+                 // so we don't suggest moving something to the type that does not exist
+-                hir::Node::Param(hir::Param { ty_span, pat, .. }) if pat.span != *ty_span => {
++                hir::Node::Param(hir::Param { ty_span, .. }) if binding.span != *ty_span => {
+                     err.multipart_suggestion(
+                         format!("to take parameter `{binding}` by reference, move `&{pin_and_mut}` to the type"),
+                         vec![
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..562196f15131949f4eac27c9f8a86992c3428849 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -2668,7 +2668,7 @@ fn parse_fn_block_param(&mut self) -> PResult<'a, Param> {
+             let ty = if this.eat(exp!(Colon)) {
+                 this.parse_ty()?
+             } else {
+-                this.mk_ty(pat.span, TyKind::Infer)
++                this.mk_ty(this.prev_token.span, TyKind::Infer)
+             };
+ 
+             Ok((

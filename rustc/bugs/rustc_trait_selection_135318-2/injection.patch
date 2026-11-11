@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/vtable.rs b/compiler/rustc_trait_selection/src/traits/vtable.rs
+index 77d7a39a6eb77371d46c7e90c15f61de9a475c37..b45e94bb65201e78c6e8601465f0b9a7d79ffb19 100644
+--- a/compiler/rustc_trait_selection/src/traits/vtable.rs
++++ b/compiler/rustc_trait_selection/src/traits/vtable.rs
+@@ -126,16 +126,17 @@ fn prepare_vtable_segments_inner<'tcx, T>(
+                 .iter_identity_copied()
+                 .map(Unnormalized::skip_norm_wip)
+                 .filter_map(move |(clause, _)| {
+-                    clause
+-                        .instantiate_supertrait(tcx, ty::Binder::dummy(inner_most_trait_ref))
+-                        .as_trait_clause()
+-                })
+-                .map(move |pred| {
+-                    tcx.normalize_erasing_late_bound_regions(
+-                        ty::TypingEnv::fully_monomorphized(),
+-                        pred,
++                    Some(
++                        tcx.instantiate_bound_regions_with_erased(
++                            clause
++                                .instantiate_supertrait(
++                                    tcx,
++                                    ty::Binder::dummy(inner_most_trait_ref),
++                                )
++                                .as_trait_clause()?,
++                        )
++                        .trait_ref,
+                     )
+-                    .trait_ref
+                 });
+ 
+             // Find an unvisited supertrait

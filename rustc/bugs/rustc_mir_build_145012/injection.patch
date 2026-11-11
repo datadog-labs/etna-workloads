@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_mir_build/src/check_tail_calls.rs b/compiler/rustc_mir_build/src/check_tail_calls.rs
+index a7b6ff87a29fd2e2e3341eb0ba96db34da03df95..994455b3da8aafe7ee771cdc73466c446b87b204 100644
+--- a/compiler/rustc_mir_build/src/check_tail_calls.rs
++++ b/compiler/rustc_mir_build/src/check_tail_calls.rs
+@@ -2,7 +2,6 @@
+ use rustc_errors::Applicability;
+ use rustc_hir::attrs::lang_items::LangItem;
+ use rustc_hir::def::DefKind;
+-use rustc_hir::def_id::CRATE_DEF_ID;
+ use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrFlags;
+ use rustc_middle::span_bug;
+ use rustc_middle::thir::visit::{self, Visitor};
+@@ -149,16 +148,7 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+         if caller_sig.inputs_and_output != callee_sig.inputs_and_output
+             && !matches!(callee_sig.abi(), ExternAbi::RustTail)
+         {
+-            let caller_ty = self.tcx.type_of(self.caller_def_id).skip_binder();
+-
+-            self.report_signature_mismatch(
+-                expr.span,
+-                self.tcx.liberate_late_bound_regions(
+-                    CRATE_DEF_ID.to_def_id(),
+-                    caller_ty.fn_sig(self.tcx),
+-                ),
+-                self.tcx.liberate_late_bound_regions(CRATE_DEF_ID.to_def_id(), ty.fn_sig(self.tcx)),
+-            );
++            self.report_signature_mismatch(expr.span, caller_sig, callee_sig);
+         }
+ 
+         {

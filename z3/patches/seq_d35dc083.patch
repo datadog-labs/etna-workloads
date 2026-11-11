@@ -1,0 +1,32 @@
+--- a/src/smt/seq_eq_solver.cpp
++++ b/src/smt/seq_eq_solver.cpp
+@@ -1025,24 +1025,25 @@
+     }
+     expr_ref len_e = mk_len(e);
+     if (upper_bound(len_e, hi)) {
+-        // lo <= len(e) <= hi => len(seq) <= hi - lo
++        // len(e) <= hi => len(tail) <= hi - lo
+         expr_ref high1(m_autil.mk_le(len_e, m_autil.mk_numeral(hi, true)), m);
+         if (hi == lo) {
+             auto p0 = ~mk_literal(high1);
+-            add_axiom(~low, p0, mk_seq_eq(seq, emp));
++            add_axiom(p0, mk_seq_eq(seq, emp));
+             added = true;
+         }
+         else {
+             expr_ref high2(m_autil.mk_le(mk_len(seq), m_autil.mk_numeral(hi-lo, true)), m);
+             literal h2 = mk_literal(high2);
+             if (ctx.get_assignment(h2) != l_true) {
+-                add_axiom(~low, ~mk_literal(high1), h2);
++                add_axiom(~mk_literal(high1), h2);
+                 added = true;
+             }
+         }
+     }
+     else {
+-        added |= assume_equality(seq, emp);
++        assume_equality(seq, emp);
++        added = true;
+     }
+     return added;
+ }

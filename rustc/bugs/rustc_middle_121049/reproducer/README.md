@@ -1,0 +1,1 @@
+Compiles an unused variable with `-A unused -Zfuture-incompat-test --json future-incompat`, which makes the future-incompat report include the diagnostic. The injected compiler adds a note "`-A unused-variables` implied by `-A unused`" (pointing at an allow level as the reason for the report); the fixed compiler omits it. The script greps for that note.

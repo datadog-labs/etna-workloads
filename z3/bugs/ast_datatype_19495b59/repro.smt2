@@ -1,0 +1,6 @@
+(declare-datatypes () ((One one)))
+(declare-datatypes ((Box 1)) ((par (T) ((box (value (Array T One)))))))
+(declare-const b (Box Int))
+(assert (not (= (store ((as const (Array (Box Int) Bool)) false) b true)
+   ((as const (Array (Box Int) Bool)) true))))
+(check-sat)

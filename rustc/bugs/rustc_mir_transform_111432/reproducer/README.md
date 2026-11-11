@@ -1,0 +1,1 @@
+Compiles a custom_mir function that only partially initializes a tuple local (x.0 = 1) with CopyProp enabled. The injected compiler's SSA analysis counts field assignments as assignments to the whole local and hits an assertion failure (ICE) in ssa.rs; the clean compiler succeeds.

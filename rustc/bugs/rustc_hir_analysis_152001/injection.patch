@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..1ad740b88d3083290f77a2981d7992c5e5b98d20 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -3093,15 +3093,15 @@ fn try_lower_anon_const_lit(
+             _ => None,
+         };
+ 
+-        lit_input.and_then(|l| {
+-            if const_lit_matches_ty(tcx, &l.lit, ty, l.neg) {
++        lit_input
++            // Allow the `ty` to be an alias type, though we cannot handle it here, we just go through
++            // the more expensive anon const code path.
++            .filter(|l| !ty.has_aliases())
++            .and_then(|l| {
+                 tcx.at(expr.span)
+                     .lit_to_const(l)
+                     .map(|value| ty::Const::new_value(tcx, value.valtree, value.ty))
+-            } else {
+-                None
+-            }
+-        })
++            })
+     }
+ 
+     fn require_type_const_attribute(

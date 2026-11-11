@@ -1,0 +1,46 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 01df2e199a5ac723567e7ab4e8d477377218decb..f6254306e2776fe73884ea5ff34dce19e9d0002a 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -1301,23 +1301,7 @@ fn check_impl_items_against_trait<'tcx>(
+             Err(ErrorGuaranteed { .. }) => continue,
+         };
+ 
+-        let res = tcx.ensure_result().compare_impl_item(impl_item.expect_local());
+-        if res.is_ok() {
+-            match ty_impl_item.kind {
+-                ty::AssocKind::Fn { .. } => {
+-                    compare_impl_item::refine::check_refining_return_position_impl_trait_in_trait(
+-                        tcx,
+-                        ty_impl_item,
+-                        ty_trait_item,
+-                        tcx.impl_trait_ref(ty_impl_item.container_id(tcx))
+-                            .instantiate_identity()
+-                            .skip_norm_wip(),
+-                    );
+-                }
+-                ty::AssocKind::Const { .. } => {}
+-                ty::AssocKind::Type { .. } => {}
+-            }
+-        }
++        let _ = tcx.ensure_result().compare_impl_item(impl_item.expect_local());
+ 
+         if self_is_guaranteed_unsize_self && tcx.generics_require_sized_self(ty_trait_item.def_id) {
+             tcx.emit_node_span_lint(
+diff --git a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+index 2f65b443dd5ecbe0972766596864d16846748ee5..26caa765204ed388f34865cd3fe6d11e85e2aba3 100644
+--- a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
++++ b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+@@ -71,6 +71,12 @@ fn compare_impl_method<'tcx>(
+ ) -> Result<(), ErrorGuaranteed> {
+     check_method_is_structurally_compatible(tcx, impl_m, trait_m, impl_trait_ref, false)?;
+     compare_method_clause_entailment(tcx, impl_m, trait_m, impl_trait_ref)?;
++    refine::check_refining_return_position_impl_trait_in_trait(
++        tcx,
++        impl_m,
++        trait_m,
++        impl_trait_ref,
++    );
+     Ok(())
+ }
+ 

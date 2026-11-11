@@ -1,0 +1,1 @@
+Compiles a crate whose source uses hard tabs and triggers a private-method error (plus a dead-code warning). On the clean compiler the reported columns count a tab as one column (10:4, 5:3); the injected compiler reports expanded display columns (10:7, 5:9).

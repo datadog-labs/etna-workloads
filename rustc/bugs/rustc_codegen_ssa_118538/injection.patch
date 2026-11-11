@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_codegen_ssa/src/size_of_val.rs b/compiler/rustc_codegen_ssa/src/size_of_val.rs
+index 0ef0179eac6c4603a80ecd2accce02ada438dd6a..5885dc4262d5656f0ced74b6ac2530088886546b 100644
+--- a/compiler/rustc_codegen_ssa/src/size_of_val.rs
++++ b/compiler/rustc_codegen_ssa/src/size_of_val.rs
+@@ -112,18 +112,10 @@ pub fn size_and_align_of_dst<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
+ 
+             // # First compute the dynamic alignment
+ 
+-            // For packed types, we need to cap the alignment.
+-            if let ty::Adt(def, _) = t.kind()
+-                && let Some(packed) = def.repr().pack
+-            {
+-                if packed.bytes() == 1 {
+-                    // We know this will be capped to 1.
+-                    unsized_align = bx.const_usize(1);
+-                } else {
+-                    // We have to dynamically compute `min(unsized_align, packed)`.
+-                    let packed = bx.const_usize(packed.bytes());
+-                    let cmp = bx.icmp(IntPredicate::IntULT, unsized_align, packed);
+-                    unsized_align = bx.select(cmp, unsized_align, packed);
++            // Packed types ignore the alignment of their fields.
++            if let ty::Adt(def, _) = t.kind() {
++                if def.repr().packed() {
++                    unsized_align = sized_align;
+                 }
+             }
+ 
+diff --git a/compiler/rustc_const_eval/src/interpret/eval_context.rs b/compiler/rustc_const_eval/src/interpret/eval_context.rs
+index 45d57f77a4079d0f1b9e56f02d7a0b34c8a6acef..8db5e85f7bec409d24fed384b3c0a49f73e7c6d0 100644
+--- a/compiler/rustc_const_eval/src/interpret/eval_context.rs
++++ b/compiler/rustc_const_eval/src/interpret/eval_context.rs
+@@ -459,11 +459,11 @@ pub(super) fn size_and_align_from_meta(
+ 
+                 // # First compute the dynamic alignment
+ 
+-                // Packed type alignment needs to be capped.
+-                if let ty::Adt(def, _) = layout.ty.kind()
+-                    && let Some(packed) = def.repr().pack
+-                {
+-                    unsized_align = unsized_align.min(packed);
++                // Packed types ignore the alignment of their fields.
++                if let ty::Adt(def, _) = layout.ty.kind() {
++                    if def.repr().packed() {
++                        unsized_align = sized_align;
++                    }
+                 }
+ 
+                 // Choose max of two known alignments (combined value must

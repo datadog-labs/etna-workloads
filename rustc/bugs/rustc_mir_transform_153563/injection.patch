@@ -1,0 +1,97 @@
+diff --git a/compiler/rustc_mir_transform/src/diagnostics.rs b/compiler/rustc_mir_transform/src/diagnostics.rs
+index 16e850adc34f9e74be9ea4997cc31c7eed5e5304..3647275372313730541e6a212d65fda2b4d22f8a 100644
+--- a/compiler/rustc_mir_transform/src/diagnostics.rs
++++ b/compiler/rustc_mir_transform/src/diagnostics.rs
+@@ -125,14 +125,6 @@ pub(crate) fn lint(&self) -> &'static Lint {
+     }
+ }
+ 
+-#[derive(Diagnostic)]
+-#[diag("this operation will panic at runtime")]
+-pub(crate) struct ConstNIsZero {
+-    #[label("const parameter `{$const_param_name}` is zero")]
+-    pub const_param_span: Span,
+-    pub const_param_name: Symbol,
+-}
+-
+ #[derive(Diagnostic)]
+ #[diag("call to inline assembly that may unwind")]
+ pub(crate) struct AsmUnwindCall {
+diff --git a/compiler/rustc_mir_transform/src/known_panics_lint.rs b/compiler/rustc_mir_transform/src/known_panics_lint.rs
+index a2f2f8fa063c20fa3cfe3e825e6f95b7ed867284..e8ee6855c22de284a9ee3810ef3a5fe8842482fe 100644
+--- a/compiler/rustc_mir_transform/src/known_panics_lint.rs
++++ b/compiler/rustc_mir_transform/src/known_panics_lint.rs
+@@ -8,23 +8,19 @@
+ use rustc_const_eval::const_eval::DummyMachine;
+ use rustc_const_eval::interpret::{ImmTy, InterpCx, InterpResult, Projectable, Scalar, interp_ok};
+ use rustc_data_structures::fx::FxHashSet;
++use rustc_hir::HirId;
+ use rustc_hir::def::DefKind;
+-use rustc_hir::{HirId, find_attr};
+ use rustc_index::IndexVec;
+ use rustc_index::bit_set::DenseBitSet;
+ use rustc_middle::bug;
+ use rustc_middle::mir::visit::{MutatingUseContext, NonMutatingUseContext, PlaceContext, Visitor};
+ use rustc_middle::mir::*;
+ use rustc_middle::ty::layout::{LayoutError, LayoutOf, LayoutOfHelpers, TyAndLayout};
+-use rustc_middle::ty::{
+-    self, ConstInt, GenericArgKind, GenericParamDefKind, ScalarInt, Ty, TyCtxt, TypeVisitableExt,
+-    Unnormalized,
+-};
+-use rustc_session::lint::builtin::UNCONDITIONAL_PANIC;
++use rustc_middle::ty::{self, ConstInt, ScalarInt, Ty, TyCtxt, TypeVisitableExt, Unnormalized};
+ use rustc_span::Span;
+ use tracing::{debug, instrument, trace};
+ 
+-use crate::diagnostics::{AssertLint, AssertLintKind, ConstNIsZero};
++use crate::diagnostics::{AssertLint, AssertLintKind};
+ 
+ pub(super) struct KnownPanicsLint;
+ 
+@@ -769,38 +765,6 @@ fn visit_terminator(&mut self, terminator: &Terminator<'tcx>, location: Location
+                 }
+                 // We failed to evaluate the discriminant, fallback to visiting all successors.
+             }
+-            TerminatorKind::Call { func, args: _, .. } => {
+-                if let Some((def_id, generic_args)) = func.const_fn_def() {
+-                    for (index, arg) in generic_args.iter().enumerate() {
+-                        if let GenericArgKind::Const(ct) = arg.kind() {
+-                            let generics = self.tcx.generics_of(def_id);
+-                            let param_def = generics.param_at(index, self.tcx);
+-
+-                            if let GenericParamDefKind::Const { .. } = param_def.kind
+-                                && find_attr!(self.tcx, param_def.def_id, RustcPanicsWhenZero)
+-                                && let Some(0) = ct.try_to_target_usize(self.tcx)
+-                            {
+-                                // We managed to figure-out that the value of a
+-                                // `#[rustc_panics_when_zero]` const-generic parameter is zero.
+-                                //
+-                                // Let's report it as an unconditional panic.
+-                                let source_info = self.body.source_info(location);
+-                                if let Some(lint_root) = self.lint_root(*source_info) {
+-                                    self.tcx.emit_node_span_lint(
+-                                        UNCONDITIONAL_PANIC,
+-                                        lint_root,
+-                                        source_info.span,
+-                                        ConstNIsZero {
+-                                            const_param_span: source_info.span,
+-                                            const_param_name: param_def.name,
+-                                        },
+-                                    );
+-                                }
+-                            }
+-                        }
+-                    }
+-                }
+-            }
+             // None of these have Operands to const-propagate.
+             TerminatorKind::Goto { .. }
+             | TerminatorKind::UnwindResume
+@@ -813,6 +777,7 @@ fn visit_terminator(&mut self, terminator: &Terminator<'tcx>, location: Location
+             | TerminatorKind::CoroutineDrop
+             | TerminatorKind::FalseEdge { .. }
+             | TerminatorKind::FalseUnwind { .. }
++            | TerminatorKind::Call { .. }
+             | TerminatorKind::InlineAsm { .. } => {}
+         }
+ 

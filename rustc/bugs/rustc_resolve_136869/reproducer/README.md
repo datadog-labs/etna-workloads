@@ -1,0 +1,1 @@
+Shows the diagnostic for `let x = u64 = 0;` / `let x = u64;`: the clean compiler suggests using `:` for a type annotation, while the injected one suggests `let u64 = 0` (a new binding) and omits the second suggestion.

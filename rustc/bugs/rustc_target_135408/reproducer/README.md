@@ -1,0 +1,1 @@
+The reproducer compiles a Rust-ABI function returning f32 for i686 (SSE2 target) and prints the return-value instructions. The clean compiler returns the float in an SSE register (movss into xmm0); the injected compiler returns it in an integer register (movl into eax), as the fix for x86-sse2 float ABI was undone.

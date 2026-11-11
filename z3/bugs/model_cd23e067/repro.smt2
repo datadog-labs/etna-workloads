@@ -1,0 +1,5 @@
+(declare-fun f (Int) Int)
+(declare-const zs (Seq Int))
+(assert (= (seq.len (seq.map (lambda ((x Int)) (f x)) zs)) 0))
+(check-sat)
+(get-value (f))

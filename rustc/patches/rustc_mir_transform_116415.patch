@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_mir_transform/src/lib.rs b/compiler/rustc_mir_transform/src/lib.rs
+index d2dd77c9863189aa7b01528f27c36d13f8309db3..0fcd0149cab087b1d21f38de8dd8279239c46f6c 100644
+--- a/compiler/rustc_mir_transform/src/lib.rs
++++ b/compiler/rustc_mir_transform/src/lib.rs
+@@ -631,6 +631,7 @@ pub fn run_analysis_to_runtime_passes<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'
+ fn run_analysis_cleanup_passes<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+     let passes: &[&dyn MirPass<'tcx>] = &[
+         &impossible_clauses::ImpossibleClauses,
++        &add_subtyping_projections::Subtyper,
+         &cleanup_post_borrowck::CleanupPostBorrowck,
+         &remove_noop_landing_pads::RemoveNoopLandingPads,
+         &simplify::SimplifyCfg::PostAnalysis,
+@@ -647,8 +648,6 @@ fn run_runtime_lowering_passes<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+         &add_call_guards::CriticalCallEdges,
+         // Must be done before drop elaboration because we need to drop opaque types, too.
+         &post_analysis_normalize::PostAnalysisNormalize,
+-        // Calling this after `PostAnalysisNormalize` ensures that we don't deal with opaque types.
+-        &add_subtyping_projections::Subtyper,
+         &elaborate_drops::ElaborateDrops,
+         // Needs to happen after drop elaboration.
+         &Lint(check_call_recursion::CheckDropRecursion),

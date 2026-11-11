@@ -1,0 +1,7 @@
+(declare-const x Int)
+(declare-const y Int)
+(declare-fun f (Int) Int)
+(assert (= (f (- x)) 1))
+(assert (= (f y) 2))
+(assert (= x y))
+(check-sat-using (then euf-completion smt))

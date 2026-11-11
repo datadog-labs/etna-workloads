@@ -1,0 +1,55 @@
+diff --git a/compiler/rustc_mir_transform/src/liveness.rs b/compiler/rustc_mir_transform/src/liveness.rs
+index 4da8ca0760257403ed040cf549de4ab9474beb2a..8984242eaf03434e0c327e3fb9cf5c29a379f4ec 100644
+--- a/compiler/rustc_mir_transform/src/liveness.rs
++++ b/compiler/rustc_mir_transform/src/liveness.rs
+@@ -1204,34 +1204,33 @@ fn report_unused_assignments(self) {
+                 continue;
+             }
+ 
+-            let mut next_direct_assignments: Vec<(Span, Location)> = Vec::new();
++            let mut next_direct_assign = None;
+             let mut dead_statements = Vec::with_capacity(statements.len());
+ 
+-            for (source_info, Access { live, kind, is_direct, location }) in statements.into_iter()
++            for (source_info, Access { live, kind, is_direct, location: _ }) in
++                statements.into_iter()
+             {
+-                let direct_assignment = kind == AccessKind::Assign && is_direct;
+-                let should_report = !live && (is_direct || !is_maybe_drop_guard);
+-
+-                let overwrite = if should_report && direct_assignment {
+-                    next_direct_assignments
+-                        .iter()
+-                        .rfind(|(_, overwrite_location)| {
+-                            location.is_predecessor_of(*overwrite_location, self.body)
+-                        })
+-                        .map(|&(overwrite_span, _)| diagnostics::UnusedAssignOverwrite {
++                let overwrite = match (kind, is_direct, next_direct_assign) {
++                    (AccessKind::Assign, true, Some(overwrite_span)) => {
++                        Some(diagnostics::UnusedAssignOverwrite {
+                             assigned_span: source_info.span,
+                             overwrite_span,
+                             name,
+                         })
+-                } else {
+-                    None
++                    }
++                    _ => None,
+                 };
+ 
+-                if direct_assignment {
+-                    next_direct_assignments.push((source_info.span, location));
++                if kind == AccessKind::Assign && is_direct {
++                    next_direct_assign = Some(source_info.span);
+                 }
+ 
+-                if !should_report {
++                if live {
++                    continue;
++                }
++                // If this place was dropped and has non-trivial drop,
++                // skip reporting field assignments.
++                if !is_direct && is_maybe_drop_guard {
+                     continue;
+                 }
+                 dead_statements.push((source_info, kind, is_direct, overwrite));

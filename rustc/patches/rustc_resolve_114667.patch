@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..83043bc09d038ed5a5e8fbc60d0673fe371cefc3 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -934,27 +934,7 @@ fn visit_ty(&mut self, ty: &'ast Ty) {
+ 
+                 self.smart_resolve_path(ty.id, qself, path, source);
+ 
+-                // Check whether we should interpret this as a bare trait object.
+-                if qself.is_none()
+-                    && let Some(partial_res) = self.r.partial_res_map.get(&ty.id)
+-                    && let Some(Res::Def(DefKind::Trait | DefKind::TraitAlias, _)) =
+-                        partial_res.full_res()
+-                {
+-                    // This path is actually a bare trait object. In case of a bare `Fn`-trait
+-                    // object with anonymous lifetimes, we need this rib to correctly place the
+-                    // synthetic lifetimes.
+-                    let span = ty.span.shrink_to_lo().to(path.span.shrink_to_lo());
+-                    self.with_generic_param_rib(
+-                        &[],
+-                        RibKind::Normal,
+-                        ty.id,
+-                        LifetimeBinderKind::PolyTrait,
+-                        span,
+-                        |this| this.visit_path(path),
+-                    );
+-                } else {
+-                    visit::walk_ty(self, ty)
+-                }
++                visit::walk_ty(self, ty)
+             }
+             TyKind::ImplicitSelf => {
+                 let self_ty = Ident::with_dummy_span(kw::SelfUpper);

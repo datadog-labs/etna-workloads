@@ -1,0 +1,7 @@
+(set-logic ALL)
+(declare-fun f ((Array Int Int)) Int)
+(declare-fun a () (Array Int Int))
+(declare-fun k () Int)
+(assert (> (f (lambda ((i Int)) (+ i k))) 3))
+(assert (= (select a 1) 2))
+(check-sat)

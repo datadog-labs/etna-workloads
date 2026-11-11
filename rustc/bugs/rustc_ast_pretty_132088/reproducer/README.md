@@ -1,0 +1,1 @@
+Pretty-printing (-Zunpretty=normal) an extern static with a safety qualifier: the clean compiler prints 'pub unsafe static STATIC', the injected one prints 'unsafe' on a separate line before 'pub static'.

@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
+index 613202ef35345b08d941a5f7d4000ec0445164d1..54cb4b9dc50178dd1218d6f8119edf5b307d32f6 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/bounds.rs
+@@ -495,8 +495,17 @@ pub(super) fn lower_assoc_item_constraint(
+                 let term = match term {
+                     hir::Term::Ty(ty) => self.lower_ty(ty).into(),
+                     hir::Term::Const(ct) => {
+-                        let ty = projection_term
+-                            .map_bound(|alias| alias.expect_ct().type_of(tcx).skip_norm_wip());
++                        let ty = if candidate.def_id() != trait_ref.def_id() {
++                            // Assoc const not found directly on the bound's trait
++                            // (i.e. it comes from a supertrait).
++                            let reported = tcx.dcx().delayed_bug(
++                                "Could not find associated const on trait",
++                            );
++                            projection_term.map_bound(|_| Ty::new_error(tcx, reported))
++                        } else {
++                            projection_term
++                                .map_bound(|alias| alias.expect_ct().type_of(tcx).skip_norm_wip())
++                        };
+                         let ty = check_assoc_const_binding_type(
+                             self,
+                             constraint.ident,

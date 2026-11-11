@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..2c5f5bab09b64e2dfd9a7005c6ed4f43827f66fe 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -1990,10 +1990,9 @@ fn report_return_mismatched_types<'infcx>(
+                 kind: hir::ExprKind::Closure(&hir::Closure { body, .. }),
+                 ..
+             }) = parent
++            && !matches!(fcx.tcx.hir_body(body).value.kind, hir::ExprKind::Block(..))
+         {
+-            let needs_block =
+-                !matches!(fcx.tcx.hir_body(body).value.kind, hir::ExprKind::Block(..));
+-            fcx.suggest_missing_semicolon(&mut err, expr, expected, needs_block, true);
++            fcx.suggest_missing_semicolon(&mut err, expr, expected, true, true);
+         }
+         // Verify that this is a tail expression of a function, otherwise the
+         // label pointing out the cause for the type coercion will be wrong
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..0242d9c67ff1e8781397d70e7eb36bdb8ec6125a 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -860,7 +860,7 @@ pub(crate) fn suggest_missing_semicolon(
+         expression: &'tcx hir::Expr<'tcx>,
+         expected: Ty<'tcx>,
+         needs_block: bool,
+-        parent_is_closure: bool,
++        _parent_is_closure: bool,
+     ) {
+         if !expected.is_unit() {
+             return;
+@@ -907,17 +907,6 @@ pub(crate) fn suggest_missing_semicolon(
+                     );
+                 }
+             }
+-            ExprKind::Path(..) | ExprKind::Lit(_)
+-                if parent_is_closure
+-                    && !expression.span.in_external_macro(self.tcx.sess.source_map()) =>
+-            {
+-                err.span_suggestion_verbose(
+-                    expression.span.shrink_to_lo(),
+-                    "consider ignoring the value",
+-                    "_ = ",
+-                    Applicability::MachineApplicable,
+-                );
+-            }
+             _ => {
+                 if let hir::Node::Block(block) = self.tcx.parent_hir_node(expression.hir_id)
+                     && let hir::Node::Expr(expr) = self.tcx.parent_hir_node(block.hir_id)

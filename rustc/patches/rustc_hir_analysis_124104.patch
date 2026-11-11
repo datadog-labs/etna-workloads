@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 01df2e199a5ac723567e7ab4e8d477377218decb..a4e8929543d8fa24299c0426468f2b3cbbf02b0e 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -578,7 +578,6 @@ fn check_opaque_precise_captures<'tcx>(tcx: TyCtxt<'tcx>, opaque_def_id: LocalDe
+     };
+ 
+     let mut expected_captures = UnordSet::default();
+-    let mut shadowed_captures = UnordSet::default();
+     let mut seen_params = UnordMap::default();
+     let mut prev_non_lifetime_param = None;
+     for arg in precise_capturing_args {
+@@ -617,19 +616,6 @@ fn check_opaque_precise_captures<'tcx>(tcx: TyCtxt<'tcx>, opaque_def_id: LocalDe
+         match tcx.named_bound_var(hir_id) {
+             Some(ResolvedArg::EarlyBound(def_id)) => {
+                 expected_captures.insert(def_id.to_def_id());
+-
+-                // Make sure we allow capturing these lifetimes through `Self` and
+-                // `T::Assoc` projection syntax, too. These will occur when we only
+-                // see lifetimes are captured after hir-lowering -- this aligns with
+-                // the cases that were stabilized with the `impl_trait_projection`
+-                // feature -- see <https://github.com/rust-lang/rust/pull/115659>.
+-                if let DefKind::LifetimeParam = tcx.def_kind(def_id)
+-                    && let Some(def_id) = tcx
+-                        .map_opaque_lifetime_to_parent_lifetime(def_id)
+-                        .opt_param_def_id(tcx, tcx.parent(opaque_def_id.to_def_id()))
+-                {
+-                    shadowed_captures.insert(def_id);
+-                }
+             }
+             _ => {
+                 tcx.dcx()
+@@ -656,9 +642,6 @@ fn check_opaque_precise_captures<'tcx>(tcx: TyCtxt<'tcx>, opaque_def_id: LocalDe
+             // If a param is shadowed by a early-bound (duplicated) lifetime, then
+             // it may or may not be captured as invariant, depending on if it shows
+             // up through `Self` or `T::Assoc` syntax.
+-            if shadowed_captures.contains(&param.def_id) {
+-                continue;
+-            }
+ 
+             match param.kind {
+                 ty::GenericParamDefKind::Lifetime => {

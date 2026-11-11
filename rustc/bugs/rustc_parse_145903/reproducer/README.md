@@ -1,0 +1,1 @@
+Compiling `const* u8` as a type: the fixed compiler reports "raw pointer types must be written as `*const T`" with a suggestion to move the `*`; the injected compiler lacks that parser check and emits unrelated errors ("expected `mut` or `const` keyword in raw pointer type", "expected a trait, found type").

@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_middle/src/ty/util.rs b/compiler/rustc_middle/src/ty/util.rs
+index adf153b68dae6329e1a918a5b0e4a0b708cb91ef..3b79ccb8729fe3e63313dc22f5f146a90216e4d8 100644
+--- a/compiler/rustc_middle/src/ty/util.rs
++++ b/compiler/rustc_middle/src/ty/util.rs
+@@ -1426,10 +1426,8 @@ pub fn has_significant_drop(self, tcx: TyCtxt<'tcx>, typing_env: ty::TypingEnv<'
+ 
+                 // This doesn't depend on regions, so try to minimize distinct
+                 // query keys used.
+-                // FIX: Use try_normalize to avoid crashing. If it fails, return true.
+-                tcx.try_normalize_erasing_regions(typing_env, Unnormalized::new_wip(query_ty))
+-                    .map(|erased| tcx.has_significant_drop_raw(typing_env.as_query_input(erased)))
+-                    .unwrap_or(true)
++                let erased = tcx.normalize_erasing_regions(typing_env, Unnormalized::new_wip(query_ty));
++                tcx.has_significant_drop_raw(typing_env.as_query_input(erased))
+             }
+         }
+     }

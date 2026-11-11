@@ -1,0 +1,57 @@
+diff --git a/compiler/rustc_resolve/src/ident.rs b/compiler/rustc_resolve/src/ident.rs
+index 2a1b208f94c34e33885c0c8c30524150d9f78054..73e6675bd95c85cd89a82ff0a49cc7d1062a1e28 100644
+--- a/compiler/rustc_resolve/src/ident.rs
++++ b/compiler/rustc_resolve/src/ident.rs
+@@ -1617,13 +1617,7 @@ fn validate_res_from_ribs(
+                             {
+                                 if let Some(span) = finalize {
+                                     let error = match cause {
+-                                        NoConstantGenericsReason::IsEnumDiscriminant => {
+-                                            ResolutionError::ParamInEnumDiscriminant {
+-                                                name: rib_ident.name,
+-                                                param_kind: ParamKindInEnumDiscriminant::Type,
+-                                            }
+-                                        }
+-                                        NoConstantGenericsReason::NonTrivialConstArg => {
++                                        NoConstantGenericsReason::NonTrivialConstArg | NoConstantGenericsReason::IsEnumDiscriminant => {
+                                             ResolutionError::ParamInNonTrivialAnonConst {
+                                                 is_gca: self.features.generic_const_args(),
+                                                 name: rib_ident.name,
+@@ -1709,13 +1703,7 @@ fn validate_res_from_ribs(
+                             if let ConstantHasGenerics::No(cause) = trivial {
+                                 if let Some(span) = finalize {
+                                     let error = match cause {
+-                                        NoConstantGenericsReason::IsEnumDiscriminant => {
+-                                            ResolutionError::ParamInEnumDiscriminant {
+-                                                name: rib_ident.name,
+-                                                param_kind: ParamKindInEnumDiscriminant::Const,
+-                                            }
+-                                        }
+-                                        NoConstantGenericsReason::NonTrivialConstArg => {
++                                        NoConstantGenericsReason::NonTrivialConstArg | NoConstantGenericsReason::IsEnumDiscriminant => {
+                                             ResolutionError::ParamInNonTrivialAnonConst {
+                                                 is_gca: self.features.generic_const_args(),
+                                                 name: rib_ident.name,
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..13f161cc984ed556785061d85ca54ae7c8f772f4 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -4020,16 +4020,8 @@ pub(crate) fn emit_forbidden_non_static_lifetime_error(
+         lifetime_ref: &ast::Lifetime,
+     ) -> ErrorGuaranteed {
+         match cause {
+-            NoConstantGenericsReason::IsEnumDiscriminant => self
+-                .r
+-                .dcx()
+-                .create_err(diagnostics::ParamInEnumDiscriminant {
+-                    span: lifetime_ref.ident.span,
+-                    name: lifetime_ref.ident.name,
+-                    param_kind: diagnostics::ParamKindInEnumDiscriminant::Lifetime,
+-                })
+-                .emit(),
+-            NoConstantGenericsReason::NonTrivialConstArg => {
++            NoConstantGenericsReason::NonTrivialConstArg
++            | NoConstantGenericsReason::IsEnumDiscriminant => {
+                 assert!(!self.r.features.generic_const_exprs());
+                 self.r
+                     .dcx()

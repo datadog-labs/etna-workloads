@@ -1,0 +1,1 @@
+Recursive struct whose field uses an associated type with generic args from an extern crate. The injected compiler queries `params_in_repr` on a non-ADT (assoc type) def from metadata and panics (ICE, status 101) instead of reporting the infinite-size error (status 1).

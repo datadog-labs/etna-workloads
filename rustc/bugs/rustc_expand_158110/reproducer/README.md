@@ -1,0 +1,1 @@
+A `macro_rules!` attribute macro (`macro_attr`) defined in an auxiliary crate is used from another crate without enabling the feature. The clean compiler reports "`macro_rules!` attributes are unstable" and fails; the injected compiler accepts it silently with exit status 0.

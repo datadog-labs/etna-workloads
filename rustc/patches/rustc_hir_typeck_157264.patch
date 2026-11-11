@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..07a08d23f537b2b88eee51d541bbe7b5ff730e3f 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -4830,24 +4830,7 @@ fn detect_and_explain_multiple_crate_versions_of_trait_item(
+         let hir::Node::Expr(rcvr) = self.tcx.hir_node(hir_id) else {
+             return false;
+         };
+-        // The trait may have generic parameters beyond `Self` (e.g. `Borrow<Borrowed>`), and
+-        // `rcvr_ty` may even be unknown. We only ever know the receiver type (the `Self` arg),
+-        // so fill `Self` from `rcvr_ty` when available and the remaining parameters with fresh
+-        // inference variables; building a `TraitRef` with a partial arg list would otherwise trip
+-        // `debug_assert_args_compatible` and ICE. See #157189.
+-        let trait_ref = ty::TraitRef::new_from_args(
+-            self.tcx,
+-            trait_def_id,
+-            ty::GenericArgs::for_item(self.tcx, trait_def_id, |param, _| {
+-                if param.index == 0
+-                    && let Some(rcvr_ty) = rcvr_ty
+-                {
+-                    rcvr_ty.into()
+-                } else {
+-                    self.var_for_def(rcvr.span, param)
+-                }
+-            }),
+-        );
++        let trait_ref = ty::TraitRef::new(self.tcx, trait_def_id, rcvr_ty.into_iter());
+         let trait_pred = ty::Binder::dummy(ty::TraitPredicate {
+             trait_ref,
+             polarity: ty::PredicatePolarity::Positive,

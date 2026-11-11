@@ -1,0 +1,81 @@
+error[E0308]: mismatched types
+  --> main.rs:20:26
+   |
+20 |     let b: fn() -> u32 = bar; //~ ERROR mismatched types [E0308]
+   |            -----------   ^^^ expected fn pointer, found fn item
+   |            |
+   |            expected due to this
+   |
+   = note: expected fn pointer `fn() -> u32`
+                 found fn item `fn() -> () {bar}`
+
+error[E0308]: mismatched types
+  --> main.rs:21:22
+   |
+21 |     let f: fn(i32) = foo; //~ ERROR mismatched types [E0308]
+   |            -------   ^^^ expected fn pointer, found fn item
+   |            |
+   |            expected due to this
+   |
+   = note: expected fn pointer `fn(_) -> ()`
+                 found fn item `fn(_) -> u32 {foo}`
+
+error[E0308]: mismatched types
+  --> main.rs:24:34
+   |
+24 |     let _: for<'a> fn(&'a i32) = extern_foo; //~ ERROR mismatched types [E0308]
+   |            -------------------   ^^^^^^^^^^ expected "Rust" fn, found "C" fn
+   |            |
+   |            expected due to this
+   |
+   = note: expected fn pointer `for<'a> fn(&'a _)`
+                 found fn item `for<'a> extern "C" fn(&'a _) {extern_foo}`
+
+error[E0308]: mismatched types
+  --> main.rs:25:34
+   |
+25 |     let _: for<'a> fn(&'a i32) = unsafe_extern_foo; //~ ERROR mismatched types [E0308]
+   |            -------------------   ^^^^^^^^^^^^^^^^^ expected safe fn, found unsafe fn
+   |            |
+   |            expected due to this
+   |
+   = note: expected fn pointer `for<'a> fn(&'a _)`
+                 found fn item `for<'a> unsafe extern "C" fn(&'a _) {unsafe_extern_foo}`
+   = note: unsafe functions cannot be coerced into safe function pointers
+
+error[E0308]: mismatched types
+  --> main.rs:26:45
+   |
+26 |     let _: for<'a> extern "C" fn(&'a i32) = rust_foo; //~ ERROR mismatched types [E0308]
+   |            ------------------------------   ^^^^^^^^ expected "C" fn, found "Rust" fn
+   |            |
+   |            expected due to this
+   |
+   = note: expected fn pointer `for<'a> extern "C" fn(&'a _)`
+                 found fn item `for<'a> fn(&'a _) {rust_foo}`
+
+error[E0308]: mismatched types
+  --> main.rs:27:52
+   |
+27 |     let _: for<'a> unsafe extern "C" fn(&'a i32) = rust_foo; //~ ERROR mismatched types [E0308]
+   |            -------------------------------------   ^^^^^^^^ expected "C" fn, found "Rust" fn
+   |            |
+   |            expected due to this
+   |
+   = note: expected fn pointer `for<'a> unsafe extern "C" fn(&'a _)`
+                 found fn item `for<'a> fn(&'a _) {rust_foo}`
+
+warning: unused variable: `x`
+ --> main.rs:9:8
+  |
+9 | fn foo(x: i32) -> u32 {
+  |        ^ help: if this is intentional, prefix it with an underscore: `_x`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+error: aborting due to 6 previous errors; 1 warning emitted
+
+For more information about this error, try `rustc --explain E0308`.
+rustc exit: 1
+
+[exit 0]

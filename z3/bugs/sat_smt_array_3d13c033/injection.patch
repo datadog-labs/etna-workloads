@@ -1,0 +1,27 @@
+--- a/src/sat/smt/array_axioms.cpp
++++ b/src/sat/smt/array_axioms.cpp
+@@ -155,6 +155,8 @@
+         ptr_buffer<expr> sel1_args, sel2_args;
+         unsigned num_args = select->get_num_args();
+ 
++        if (select->get_arg(0) != store && expr2enode(select->get_arg(0))->get_root() == expr2enode(store)->get_root()) 
++            return false;
+         bool has_diff = false;
+         for (unsigned i = 1; i < num_args; ++i) 
+             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
+--- a/src/sat/smt/array_solver.cpp
++++ b/src/sat/smt/array_solver.cpp
+@@ -243,8 +243,11 @@
+         
+         auto& d = get_var_data(v);
+ 
+-        for (euf::enode* lambda : d.m_lambdas) 
+-            propagate_select_axioms(d, lambda);        
++        for (euf::enode* lambda : d.m_lambdas) {
++            expr* e = lambda->get_expr();
++            if (a.is_const(e) || a.is_map(e)) 
++                propagate_select_axioms(d, lambda);
++        }
+         
+         if (!should_prop_upward(d))
+             return;

@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_parse/src/diagnostics.rs b/compiler/rustc_parse/src/diagnostics.rs
+index 7897239d248ea2bad17942868e8a3b7184f843a2..4c22946c2eedda904d1639ba684b467ef5b515c3 100644
+--- a/compiler/rustc_parse/src/diagnostics.rs
++++ b/compiler/rustc_parse/src/diagnostics.rs
+@@ -2506,7 +2506,7 @@ pub(crate) struct ExternItemCannotBeConst {
+         applicability = "machine-applicable",
+         style = "verbose"
+     )]
+-    pub const_span: Option<Span>,
++    pub const_span: Span,
+ }
+ 
+ #[derive(Diagnostic)]
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..c25a4c00bc0dd314aa29b0797ddd667e343ca779 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -1510,8 +1510,7 @@ pub fn parse_foreign_item(
+                     Ok(kind) => kind,
+                     Err(kind) => match kind {
+                         ItemKind::Const(ConstItem { ident, ty, body, .. }) => {
+-                            let const_span = Some(span.with_hi(ident.span.lo()))
+-                                .filter(|span| span.can_be_used_for_suggestions());
++                            let const_span = span.with_hi(ident.span.lo());
+                             self.dcx().emit_err(diagnostics::ExternItemCannotBeConst {
+                                 ident_span: ident.span,
+                                 const_span,

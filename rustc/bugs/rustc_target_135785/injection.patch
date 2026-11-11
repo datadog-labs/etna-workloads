@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_target/src/callconv/s390x.rs b/compiler/rustc_target/src/callconv/s390x.rs
+index 581c1e2e862c5bd59aa564fbeea2c4f8c0449e88..705dffb2e6ca93baea3d380004644d830285238b 100644
+--- a/compiler/rustc_target/src/callconv/s390x.rs
++++ b/compiler/rustc_target/src/callconv/s390x.rs
+@@ -43,17 +43,9 @@ fn classify_arg<'a, Ty, C>(cx: &C, arg: &mut ArgAbi<'a, Ty>)
+     }
+ 
+     let size = arg.layout.size;
+-    if size.bits() <= 128 {
+-        if let BackendRepr::SimdVector { .. } = arg.layout.backend_repr {
+-            // pass non-wrapped vector types using `PassMode::Direct`
+-            return;
+-        }
+-
+-        if arg.layout.is_single_vector_element(cx, size) {
+-            // pass non-transparent wrappers around a vector as `PassMode::Cast`
+-            arg.cast_to(Reg::opaque_vector(size));
+-            return;
+-        }
++    if size.bits() <= 128 && arg.layout.is_single_vector_element(cx, size) {
++        arg.cast_to(Reg::opaque_vector(size));
++        return;
+     }
+     if !arg.layout.is_aggregate() && size.bits() <= 64 {
+         arg.extend_integer_width_to(64);
