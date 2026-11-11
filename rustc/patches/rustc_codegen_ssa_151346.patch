@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/operand.rs b/compiler/rustc_codegen_ssa/src/mir/operand.rs
+index c1a1b2db6fa9d87ea1f65c3ba228cb44a1a6e649..1dd5159151563883ce6bf2f091a64a0c5c801edb 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/operand.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/operand.rs
+@@ -1161,14 +1161,8 @@ pub fn codegen_operand(
+                 if constant_ty.is_simd() {
+                     // However, some SIMD types do not actually use the vector ABI
+                     // (in particular, packed SIMD types do not). Ensure we exclude those.
+-                    //
+-                    // We also have to exclude vectors of pointers because `immediate_const_vector`
+-                    // does not work for those.
+                     let layout = bx.layout_of(constant_ty);
+-                    let (_, element_ty) = constant_ty.simd_size_and_type(bx.tcx());
+-                    if let BackendRepr::SimdVector { .. } = layout.backend_repr
+-                        && element_ty.is_numeric()
+-                    {
++                    if let BackendRepr::SimdVector { .. } = layout.backend_repr {
+                         let (llval, ty) = self.immediate_const_vector(bx, constant);
+                         return OperandRef {
+                             val: OperandValue::Immediate(llval),

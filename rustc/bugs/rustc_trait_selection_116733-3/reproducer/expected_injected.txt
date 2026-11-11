@@ -1,0 +1,67 @@
+warning: unused variable: `x`
+ --> main.rs:6:8
+  |
+6 | fn foo(x: &mut i32) -> impl Sized + Captures<'_> + 'static {}
+  |        ^ help: if this is intentional, prefix it with an underscore: `_x`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+error[E0499]: cannot borrow `*i` as mutable more than once at a time
+  --> main.rs:11:17
+   |
+10 |     let x = foo(i);
+   |                 - first mutable borrow occurs here
+11 |     let y = foo(i);
+   |                 ^ second mutable borrow occurs here
+12 | }
+   | - first borrow might be used here, when `x` is dropped and runs the destructor for type `impl Captures<'_> + 'static`
+
+warning: unused variable: `x`
+  --> main.rs:10:9
+   |
+10 |     let x = foo(i);
+   |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+warning: unused variable: `y`
+  --> main.rs:11:9
+   |
+11 |     let y = foo(i);
+   |         ^ help: if this is intentional, prefix it with an underscore: `_y`
+
+error[E0716]: temporary value dropped while borrowed
+  --> main.rs:17:22
+   |
+17 |         let x = &mut 1;
+   |                      ^ creates a temporary value which is freed while still in use
+18 |         y = foo(x);
+19 |     }
+   |     - temporary value is freed at the end of this statement
+20 | }
+   | - borrow might be used here, when `y` is dropped and runs the destructor for type `impl Captures<'_> + 'static`
+   |
+   = note: consider using a `let` binding to create a longer lived value
+
+warning: variable `y` is assigned to, but never used
+  --> main.rs:15:9
+   |
+15 |     let y;
+   |         ^
+   |
+   = note: consider using `_y` instead
+
+warning: value assigned to `y` is never read
+  --> main.rs:18:9
+   |
+18 |         y = foo(x);
+   |         ^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+error: aborting due to 2 previous errors; 5 warnings emitted
+
+Some errors have detailed explanations: E0499, E0716.
+For more information about an error, try `rustc --explain E0499`.
+rustc exit: 1
+
+[exit 0]

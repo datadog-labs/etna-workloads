@@ -1,0 +1,49 @@
+error[E0109]: type arguments are not allowed on self type
+ --> main.rs:9:37
+  |
+9 |     pub fn f(field: &[u32]) -> Self<u32> { //~ ERROR type arguments are not allowed on self type
+  |                                ---- ^^^ type argument not allowed
+  |                                |
+  |                                not allowed on self type
+  |
+note: `Self` is of type `MyStruct<'_>`
+ --> main.rs:4:12
+  |
+4 | pub struct MyStruct<'field> {
+  |            ^^^^^^^^ `Self` corresponds to this type
+...
+8 | impl MyStruct<'_> {
+  | ----------------- `Self` is on type `MyStruct` in this `impl`
+help: the `Self` type doesn't accept type parameters, use the concrete type's name `MyStruct` instead if you want to specify its type parameters
+  |
+9 -     pub fn f(field: &[u32]) -> Self<u32> { //~ ERROR type arguments are not allowed on self type
+9 +     pub fn f(field: &[u32]) -> MyStruct<u32> { //~ ERROR type arguments are not allowed on self type
+  |
+
+error: internal compiler error: unmatched arg and hir arg: found '?1 vs Type(Ty { hir_id: HirId(DefId(0:7 ~ main[c7f8]::{impl#0}::f).17), span: main.rs:9:37: 9:40 (#0), kind: Path(Resolved(None, Path { span: main.rs:9:37: 9:40 (#0), res: PrimTy(Uint(u32)), segments: [PathSegment { ident: u32#0, hir_id: HirId(DefId(0:7 ~ main[c7f8]::{impl#0}::f).18), res: PrimTy(Uint(u32)), args: None, infer_args: false, delegation_child_segment: false }] })) })
+ --> main.rs:9:37
+  |
+9 |     pub fn f(field: &[u32]) -> Self<u32> { //~ ERROR type arguments are not allowed on self type
+  |                                     ^^^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_borrowck/src/diagnostics/region_name.rs:746:32:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [mir_borrowck] borrow-checking `<impl at main.rs:8:1: 8:18>::f`
+#1 [analysis] running analysis passes on crate `main`
+end of query stack
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0109`.
+rustc exit: 101
+
+[exit 0]

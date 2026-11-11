@@ -1,0 +1,53 @@
+diff --git a/compiler/rustc_resolve/src/diagnostics/impls.rs b/compiler/rustc_resolve/src/diagnostics/impls.rs
+index 9fa762c87ef3eb581d7d0ecc4cddd07717b1ae85..fdd01d829e9a4fe6d6cc3d1d8baaf2a0cf945a54 100644
+--- a/compiler/rustc_resolve/src/diagnostics/impls.rs
++++ b/compiler/rustc_resolve/src/diagnostics/impls.rs
+@@ -2032,16 +2032,8 @@ pub(crate) fn unresolved_macro_suggestions(
+                     // Don't confuse the user with tool modules or open modules.
+                     continue;
+                 }
+-                Res::Def(DefKind::Trait, trait_def_id) if macro_kind == MacroKind::Derive => {
+-                    if let crate::DeclKind::Import { import, .. } = binding.kind
+-                        && !import.span.is_dummy()
+-                    {
+-                        self.record_use(ident, binding, Used::Other);
+-                    }
+-                    let trait_span = self.def_span(trait_def_id);
+-                    err.span_note(trait_span, format!("`{ident}` is a trait, not a derive macro"));
+-                    err.help(format!("consider implementing `{ident}` for your type manually"));
+-                    return;
++                Res::Def(DefKind::Trait, _) if macro_kind == MacroKind::Derive => {
++                    "only a trait, without a derive macro".to_string()
+                 }
+                 res => format!(
+                     "{} {}, not {} {}",
+@@ -2073,29 +2065,6 @@ pub(crate) fn unresolved_macro_suggestions(
+             return;
+         }
+ 
+-        // Not in scope: check if the name refers to a trait importable from elsewhere.
+-        if macro_kind == MacroKind::Derive {
+-            let trait_candidates =
+-                self.lookup_import_candidates(ident, TypeNS, parent_scope, |res| {
+-                    matches!(res, Res::Def(DefKind::Trait, _))
+-                });
+-            let mut seen = FxHashSet::default();
+-            for candidate in &trait_candidates {
+-                if let Some(def_id) = candidate.did
+-                    && seen.insert(def_id)
+-                {
+-                    err.span_note(
+-                        self.def_span(def_id),
+-                        format!("`{ident}` is a trait, not a derive macro"),
+-                    );
+-                }
+-            }
+-            if !seen.is_empty() {
+-                err.help(format!("consider implementing `{ident}` for your type manually"));
+-                return;
+-            }
+-        }
+-
+         if self.macro_names.contains(&IdentKey::new(ident)) {
+             err.subdiagnostic(AddedMacroUse);
+             return;

@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_middle/src/mir/pretty.rs b/compiler/rustc_middle/src/mir/pretty.rs
+index 021c1c176d7884492d86f9f2534ee797b9ef0c46..3f730f816b04e5c2051234544fc80d7d39d7156e 100644
+--- a/compiler/rustc_middle/src/mir/pretty.rs
++++ b/compiler/rustc_middle/src/mir/pretty.rs
+@@ -1636,25 +1636,12 @@ fn visit_const_operand(&mut self, c: &ConstOperand<'tcx>, _: Location) {
+             Some(GlobalAlloc::TypeId { ty }) => write!(w, " (typeid for {ty})")?,
+             Some(GlobalAlloc::Static(did)) if !tcx.is_foreign_item(did) => {
+                 write!(w, " (static: {}", tcx.def_path_str(did))?;
+-                if body.phase <= MirPhase::Runtime(RuntimePhase::PostCleanup)
+-                    && body
+-                        .source
+-                        .def_id()
+-                        .as_local()
+-                        .is_some_and(|def_id| tcx.hir_body_const_context(def_id).is_some())
+-                {
+-                    // Statics may be cyclic and evaluating them too early
+-                    // in the MIR pipeline may cause cycle errors even though
+-                    // normal compilation is fine.
+-                    write!(w, ")")?;
+-                } else {
+-                    match tcx.eval_static_initializer(did) {
+-                        Ok(alloc) => {
+-                            write!(w, ", ")?;
+-                            write_allocation_track_relocs(w, alloc)?;
+-                        }
+-                        Err(_) => write!(w, ", error during initializer evaluation)")?,
++                match tcx.eval_static_initializer(did) {
++                    Ok(alloc) => {
++                        write!(w, ", ")?;
++                        write_allocation_track_relocs(w, alloc)?;
+                     }
++                    Err(_) => write!(w, ", error during initializer evaluation)")?,
+                 }
+             }
+             Some(GlobalAlloc::Static(did)) => {

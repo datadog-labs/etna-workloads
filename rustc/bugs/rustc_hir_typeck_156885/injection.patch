@@ -1,0 +1,219 @@
+diff --git a/compiler/rustc_hir_typeck/src/cast.rs b/compiler/rustc_hir_typeck/src/cast.rs
+index 4cbeaa6278049df77dd80bf129fe34a0babc981e..0d0163177c62efff7090e88f8d15308ab14f7070 100644
+--- a/compiler/rustc_hir_typeck/src/cast.rs
++++ b/compiler/rustc_hir_typeck/src/cast.rs
+@@ -784,21 +784,23 @@ fn is_non_trivial_ref_trait_object_upcast(&self, fcx: &FnCtxt<'a, 'tcx>) -> bool
+         )
+     }
+ 
+-    fn expr_span_for_type_resolution(&self, fcx: &FnCtxt<'a, 'tcx>) -> Span {
++    #[instrument(skip(fcx), level = "debug")]
++    pub(crate) fn check(mut self, fcx: &FnCtxt<'a, 'tcx>) {
+         if let hir::ExprKind::Index(_, idx, _) = self.expr.kind
+-            && fcx.resolve_vars_if_possible(self.expr_ty).is_ty_var()
+-            && fcx.resolve_vars_if_possible(fcx.node_ty(idx.hir_id)).is_ty_var()
++            && self.expr_ty.has_infer()
+         {
+-            index_operand_ambiguity_span(idx)
+-        } else {
+-            self.expr_span
++            let idx_ty = fcx.resolve_vars_if_possible(fcx.node_ty(idx.hir_id));
++            if idx_ty.is_ty_var() {
++                let resolved = fcx.structurally_resolve_type(idx.span, idx_ty);
++                if resolved.references_error() {
++                    self.expr_ty = resolved;
++                }
++            }
++        }
++        // Skip if idx resolution above already emitted a diagnostic and set expr_ty to error.
++        if !self.expr_ty.references_error() {
++            self.expr_ty = fcx.structurally_resolve_type(self.expr_span, self.expr_ty);
+         }
+-    }
+-
+-    #[instrument(skip(fcx), level = "debug")]
+-    pub(crate) fn check(mut self, fcx: &FnCtxt<'a, 'tcx>) {
+-        let expr_span = self.expr_span_for_type_resolution(fcx);
+-        self.expr_ty = fcx.structurally_resolve_type(expr_span, self.expr_ty);
+         self.cast_ty = fcx.structurally_resolve_type(self.cast_span, self.cast_ty);
+ 
+         debug!("check_cast({}, {:?} as {:?})", self.expr.hir_id, self.expr_ty, self.cast_ty);
+@@ -1226,10 +1228,3 @@ fn try_suggest_collection_to_bool(&self, fcx: &FnCtxt<'a, 'tcx>, err: &mut Diag<
+         }
+     }
+ }
+-
+-fn index_operand_ambiguity_span(expr: &hir::Expr<'_>) -> Span {
+-    match expr.kind {
+-        hir::ExprKind::MethodCall(segment, ..) => segment.ident.span,
+-        _ => expr.span,
+-    }
+-}
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs
+index be24a5e7d0b8c814f4c7dc7136902290f66aed56..adb6858ade2700de29247a250436e2a11910524f 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs
+@@ -4,11 +4,8 @@
+ use rustc_hir::def::{DefKind, Res};
+ use rustc_hir::def_id::DefId;
+ use rustc_infer::traits::ObligationCauseCode;
+-use rustc_middle::ty::{
+-    self, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitableExt, TypeVisitor,
+-};
++use rustc_middle::ty::{self, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitor};
+ use rustc_span::{Span, kw};
+-use rustc_trait_selection::infer::InferCtxtExt;
+ use rustc_trait_selection::traits;
+ 
+ use crate::FnCtxt;
+@@ -40,10 +37,6 @@ pub(crate) fn adjust_fulfillment_error_for_expr_obligation(
+         &self,
+         error: &mut traits::FulfillmentError<'tcx>,
+     ) -> bool {
+-        if self.adjust_binop_index_operand(error) {
+-            return true;
+-        }
+-
+         let (def_id, hir_id, idx, flavor) = match *error.obligation.cause.code().peel_derives() {
+             ObligationCauseCode::WhereClauseInExpr(def_id, _, hir_id, idx) => {
+                 (def_id, hir_id, idx, ClauseFlavor::Where)
+@@ -172,119 +165,6 @@ pub(crate) fn adjust_fulfillment_error_for_expr_obligation(
+         }
+     }
+ 
+-    fn adjust_binop_index_operand(&self, error: &mut traits::FulfillmentError<'tcx>) -> bool {
+-        let ObligationCauseCode::BinOp { lhs_hir_id, rhs_hir_id, .. } =
+-            *error.obligation.cause.code().peel_derives()
+-        else {
+-            return false;
+-        };
+-        if !matches!(error.code, traits::FulfillmentErrorCode::Ambiguity { .. })
+-            || !error.obligation.predicate.has_infer()
+-        {
+-            return false;
+-        }
+-
+-        let hir::Node::Expr(lhs_expr) = self.tcx.hir_node(lhs_hir_id) else {
+-            return false;
+-        };
+-        let hir::Node::Expr(rhs_expr) = self.tcx.hir_node(rhs_hir_id) else {
+-            return false;
+-        };
+-        let Some(binop) = self.binop_for_operands(lhs_hir_id, rhs_hir_id) else {
+-            return false;
+-        };
+-        let hir::ExprKind::Index(indexed_expr, idx, _) = rhs_expr.kind else {
+-            return false;
+-        };
+-        if !self.resolve_vars_if_possible(self.node_ty(idx.hir_id)).is_ty_var() {
+-            return false;
+-        }
+-        let lhs_ty = self.resolve_vars_if_possible(self.node_ty(lhs_expr.hir_id));
+-        let indexed_ty = self.resolve_vars_if_possible(self.node_ty(indexed_expr.hir_id));
+-        let rhs_ty = match *indexed_ty.kind() {
+-            ty::Array(element_ty, _) | ty::Slice(element_ty) => element_ty,
+-            ty::Ref(_, pointee_ty, _) => match *pointee_ty.kind() {
+-                ty::Array(element_ty, _) | ty::Slice(element_ty) => element_ty,
+-                _ => self.resolve_vars_if_possible(self.node_ty(rhs_expr.hir_id)),
+-            },
+-            _ => self.resolve_vars_if_possible(self.node_ty(rhs_expr.hir_id)),
+-        };
+-        if !self.binop_accepts_types(binop.node, lhs_ty, rhs_ty) {
+-            return false;
+-        }
+-
+-        error.obligation.cause.span = match idx.kind {
+-            hir::ExprKind::MethodCall(segment, ..) => segment.ident.span,
+-            _ => idx.span,
+-        };
+-        true
+-    }
+-
+-    fn binop_for_operands(
+-        &self,
+-        lhs_hir_id: hir::HirId,
+-        rhs_hir_id: hir::HirId,
+-    ) -> Option<hir::BinOp> {
+-        let hir::Node::Expr(parent_expr) = self.tcx.parent_hir_node(rhs_hir_id) else {
+-            return None;
+-        };
+-        let hir::ExprKind::Binary(binop, lhs_expr, rhs_expr) = parent_expr.kind else {
+-            return None;
+-        };
+-        (lhs_expr.hir_id == lhs_hir_id && rhs_expr.hir_id == rhs_hir_id).then_some(binop)
+-    }
+-
+-    fn binop_accepts_types(
+-        &self,
+-        binop: hir::BinOpKind,
+-        lhs_ty: Ty<'tcx>,
+-        rhs_ty: Ty<'tcx>,
+-    ) -> bool {
+-        let lhs_ty = self.deref_ty_if_possible(lhs_ty);
+-        let rhs_ty = self.deref_ty_if_possible(rhs_ty);
+-        if lhs_ty.references_error() || rhs_ty.references_error() {
+-            return true;
+-        }
+-
+-        match binop {
+-            hir::BinOpKind::Shl | hir::BinOpKind::Shr => {
+-                lhs_ty.is_integral() && rhs_ty.is_integral()
+-            }
+-            hir::BinOpKind::Add
+-            | hir::BinOpKind::Sub
+-            | hir::BinOpKind::Mul
+-            | hir::BinOpKind::Div
+-            | hir::BinOpKind::Rem => {
+-                self.can_eq(self.param_env, lhs_ty, rhs_ty)
+-                    && (lhs_ty.is_integral() || lhs_ty.is_floating_point())
+-                    && (rhs_ty.is_integral() || rhs_ty.is_floating_point())
+-            }
+-            hir::BinOpKind::BitXor | hir::BinOpKind::BitAnd | hir::BinOpKind::BitOr => {
+-                self.can_eq(self.param_env, lhs_ty, rhs_ty)
+-                    && ((lhs_ty.is_integral() && rhs_ty.is_integral())
+-                        || (lhs_ty.is_bool() && rhs_ty.is_bool()))
+-            }
+-            hir::BinOpKind::Eq
+-            | hir::BinOpKind::Ne
+-            | hir::BinOpKind::Lt
+-            | hir::BinOpKind::Le
+-            | hir::BinOpKind::Ge
+-            | hir::BinOpKind::Gt => {
+-                self.can_eq(self.param_env, lhs_ty, rhs_ty)
+-                    && lhs_ty.is_scalar()
+-                    && rhs_ty.is_scalar()
+-            }
+-            hir::BinOpKind::And | hir::BinOpKind::Or => lhs_ty.is_bool() && rhs_ty.is_bool(),
+-        }
+-    }
+-
+-    fn deref_ty_if_possible(&self, ty: Ty<'tcx>) -> Ty<'tcx> {
+-        match ty.kind() {
+-            ty::Ref(_, ty, hir::Mutability::Not) => *ty,
+-            _ => ty,
+-        }
+-    }
+-
+     fn point_at_expr_if_possible(
+         &self,
+         error: &mut traits::FulfillmentError<'tcx>,
+diff --git a/compiler/rustc_hir_typeck/src/op.rs b/compiler/rustc_hir_typeck/src/op.rs
+index c28976555432bf0b60763f9c66865e6ebd5d6816..5cc0bc4e09011dda867508740b221fe66589175b 100644
+--- a/compiler/rustc_hir_typeck/src/op.rs
++++ b/compiler/rustc_hir_typeck/src/op.rs
+@@ -315,6 +315,15 @@ fn overloaded_binop_ret_ty(
+ 
+                 self.write_method_call_and_enforce_effects(expr.hir_id, expr.span, method);
+ 
++                if method.sig.output().has_infer()
++                    && let hir::ExprKind::Index(_, idx, _) = rhs_expr.kind
++                {
++                    let idx_ty = self.resolve_vars_if_possible(self.node_ty(idx.hir_id));
++                    if idx_ty.is_ty_var() {
++                        self.structurally_resolve_type(idx.span, idx_ty);
++                    }
++                }
++
+                 method.sig.output()
+             }
+             // error types are considered "builtin"

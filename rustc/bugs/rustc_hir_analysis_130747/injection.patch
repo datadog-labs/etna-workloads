@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs
+index e4874c41d5cdd11064c5379ae1a0c188e0a87724..6a3bff1ce73e195b0d4ac8e6a26271edf136e755 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs
+@@ -40,20 +40,8 @@ pub(crate) fn validate_cmse_abi<'tcx>(
+                 return;
+             }
+         },
+-        ExternAbi::CmseNonSecureEntry => {
+-            let Some(hir::FnSig { decl, .. }) = tcx.hir_node(hir_id).fn_sig() else {
+-                // might happen when this ABI is used incorrectly. That will be handled elsewhere
+-                return;
+-            };
+-
+-            // An `extern "cmse-nonsecure-entry"` function cannot be c-variadic. We run
+-            // into https://github.com/rust-lang/rust/issues/132142 if we don't explicitly bail.
+-            if decl.c_variadic() {
+-                return;
+-            }
+-
+-            decl
+-        }
++        // `C-cmse-nonsecure-entry` functions are not validated here.
++        ExternAbi::CmseNonSecureEntry => return,
+         _ => return,
+     };
+ 

@@ -1,0 +1,1 @@
+Compiling a const-generic tuple argument containing an infer const (S<{ (1, _) }>) checks fine on the clean compiler, but the injected compiler crashes (SIGSEGV) because tuple elements are wrongly treated as unambiguous.

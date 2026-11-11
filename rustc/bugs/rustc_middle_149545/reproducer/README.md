@@ -1,0 +1,1 @@
+Compiles a nested `type_ascribe!(type_ascribe!(*ptr, !), _)` under `let _ =`. The injected compiler recurses infinitely in `expr_guaranteed_to_constitute_read_for_never` (it passes `expr` instead of `parent_expr`) and overflows the stack (SIGSEGV); the clean compiler compiles successfully.

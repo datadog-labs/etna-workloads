@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_middle/src/ty/diagnostics.rs b/compiler/rustc_middle/src/ty/diagnostics.rs
+index 94a6ae918a7039adda888ec610d5ee9ae3824ac7..45f6515a4f10918101bbc639e7aa4d8176d82eec 100644
+--- a/compiler/rustc_middle/src/ty/diagnostics.rs
++++ b/compiler/rustc_middle/src/ty/diagnostics.rs
+@@ -1,5 +1,6 @@
+ //! Diagnostics related methods for `Ty`.
+ 
++use crate::ty::print::PrintTraitPredicateExt as _;
+ use std::fmt::Write;
+ use std::ops::ControlFlow;
+ 
+@@ -141,7 +142,7 @@ pub fn suggest_arbitrary_trait_bound<'tcx>(
+     }
+ 
+     let param_name = trait_pred.skip_binder().self_ty().to_string();
+-    let mut constraint = trait_pred.to_string();
++    let mut constraint = trait_pred.skip_binder().print_modifiers_and_trait_path().to_string();
+ 
+     if let Some((name, term)) = associated_ty {
+         // FIXME: this case overlaps with code in TyCtxt::note_and_explain_type_err.
+@@ -168,7 +169,7 @@ pub fn suggest_arbitrary_trait_bound<'tcx>(
+              this requirement",
+             if generics.where_clause_span.is_empty() { "introducing a" } else { "extending the" },
+         ),
+-        format!("{} {constraint}", generics.add_where_or_trailing_comma()),
++        format!("{} {}: {}", generics.add_where_or_trailing_comma(), param_name, constraint),
+         Applicability::MaybeIncorrect,
+     );
+     true

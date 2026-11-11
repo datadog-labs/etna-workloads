@@ -1,0 +1,1 @@
+Compiles a wide-pointer comparison and prints the suggestion applicability values from the JSON diagnostics. The clean compiler reports MaybeIncorrect; the injected one reports MachineApplicable, which lets rustfix apply conflicting suggestions together.

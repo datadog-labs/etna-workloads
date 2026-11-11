@@ -1,0 +1,1 @@
+Prints stable MIR (-Z unpretty=stable-mir) for an array-repeat expression; the injected compiler mis-indents StorageLive/StorageDead statements and prints the Repeat rvalue as 'move _3 " " 4' instead of '[move _3; 4]'.

@@ -1,0 +1,1 @@
+Fields/variants marked unstable in a staged-api crate must still count for inhabitedness. On the clean compiler `match x {}` on `Foo<Void>` and a match omitting the `Complete(!)` variant are accepted/handled; the injected compiler treats unstable fields as inhabited and reports E0004 non-exhaustive patterns.

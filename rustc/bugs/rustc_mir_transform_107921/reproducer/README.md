@@ -1,0 +1,1 @@
+Dumps MIR after the DataflowConstProp pass for a function computing 255u8 + 1 with overflow checks on. The clean compiler folds the checked add to 'const (0_u8, true)' with 'assert(!const true, ...)'; the injected compiler fails to propagate the overflow flag and leaves 'AddWithOverflow(...)' plus an assert on the tuple field.

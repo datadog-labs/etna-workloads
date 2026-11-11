@@ -1,0 +1,105 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..4895b54faeff8fe246b1cbde6f6c8c76336c4f25 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -4373,8 +4373,7 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                             "instead, you are more likely to want"
+                         };
+                         let mut owned_sugg = lt.kind == MissingLifetimeKind::Ampersand;
+-                        let mut sugg_slice_to_vec_or_string = false;
+-                        let mut sugg = vec![(lt.span, String::new())];
++                                                let mut sugg = vec![(lt.span, String::new())];
+                         if let Some((kind, _span)) = self.diag_metadata.current_function
+                             && let FnKind::Fn(_, _, ast::Fn { sig, .. }) = kind
+                         {
+@@ -4418,8 +4417,7 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                                                         lt.span.with_hi(ty.span.hi()),
+                                                         "String".to_string(),
+                                                     )];
+-                                                    sugg_slice_to_vec_or_string = true;
+-                                                }
++                                                                                                    }
+                                                 Some(Res::PrimTy(..)) => {}
+                                                 Some(Res::Def(
+                                                     DefKind::Struct
+@@ -4445,8 +4443,7 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                                                         lt.span.with_hi(ty.span.hi()),
+                                                         "String".to_string(),
+                                                     )];
+-                                                    sugg_slice_to_vec_or_string = true;
+-                                                }
++                                                                                                    }
+                                                 Res::PrimTy(..) => {}
+                                                 Res::Def(
+                                                     DefKind::Struct
+@@ -4476,18 +4473,10 @@ fn add_missing_lifetime_specifiers_label<'a>(
+                                         (lt.span.with_hi(inner_ty.span.lo()), "Vec<".to_string()),
+                                         (ty.span.with_lo(inner_ty.span.hi()), ">".to_string()),
+                                     ];
+-                                    sugg_slice_to_vec_or_string = true;
+-                                }
++                                                                    }
+                             }
+                         }
+                         if owned_sugg {
+-                            // Suggest to remove the ref prefix (usually an &) from the return type.
+-                            if let Some(span) =
+-                                self.find_ref_prefix_span_for_owned_suggestion(lt.span)
+-                                && !sugg_slice_to_vec_or_string
+-                            {
+-                                sugg = vec![(span, String::new())];
+-                            }
+                             err.multipart_suggestion(
+                                 format!("{pre} to return an owned value"),
+                                 sugg,
+@@ -4514,23 +4503,6 @@ fn add_missing_lifetime_specifiers_label<'a>(
+             }
+         }
+     }
+-
+-    fn find_ref_prefix_span_for_owned_suggestion(&self, lifetime: Span) -> Option<Span> {
+-        let mut finder = RefPrefixSpanFinder { lifetime, span: None };
+-        if let Some(item) = self.diag_metadata.current_item {
+-            finder.visit_item(item);
+-        } else if let Some((kind, _span)) = self.diag_metadata.current_function
+-            && let FnKind::Fn(_, _, ast::Fn { sig, .. }) = kind
+-        {
+-            for param in &sig.decl.inputs {
+-                finder.visit_ty(&param.ty);
+-            }
+-            if let ast::FnRetTy::Ty(ret_ty) = &sig.decl.output {
+-                finder.visit_ty(ret_ty);
+-            }
+-        }
+-        finder.span
+-    }
+ }
+ 
+ fn mk_where_bound_predicate(
+@@ -4631,26 +4603,6 @@ fn visit_ty(&mut self, t: &'ast Ty) {
+     }
+ }
+ 
+-struct RefPrefixSpanFinder {
+-    lifetime: Span,
+-    span: Option<Span>,
+-}
+-
+-impl<'ast> Visitor<'ast> for RefPrefixSpanFinder {
+-    fn visit_ty(&mut self, t: &'ast Ty) {
+-        if self.span.is_some() {
+-            return;
+-        }
+-        if let TyKind::Ref(_, mut_ty) | TyKind::PinnedRef(_, mut_ty) = &t.kind
+-            && t.span.lo() == self.lifetime.lo()
+-        {
+-            self.span = Some(t.span.with_hi(mut_ty.ty.span.lo()));
+-            return;
+-        }
+-        walk_ty(self, t);
+-    }
+-}
+-
+ /// Shadowing involving a label is only a warning for historical reasons.
+ //FIXME: make this a proper lint.
+ pub(super) fn signal_label_shadowing(sess: &Session, orig: Span, shadower: Ident) {

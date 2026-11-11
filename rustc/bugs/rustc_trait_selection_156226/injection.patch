@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_error.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_error.rs
+index ee8a4099b21cf8565cfdc1091acde0eb059e4a45..19502f68e642fb34cc6c4396b0e7cab46d88ef7a 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_error.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/nice_region_error/placeholder_error.rs
+@@ -360,43 +360,6 @@ fn report_trait_placeholder_mismatch(
+             actual_impl_expl_notes,
+         });
+ 
+-        let mut current_code = cause.code();
+-        let mut coroutine_def_id = None;
+-
+-        loop {
+-            match current_code {
+-                ObligationCauseCode::MatchImpl(inner_cause, _) => {
+-                    current_code = inner_cause.code();
+-                }
+-                ObligationCauseCode::BuiltinDerived(derived) => {
+-                    let self_ty = derived.parent_trait_pred.skip_binder().self_ty();
+-
+-                    if let ty::Coroutine(def_id, _) | ty::CoroutineWitness(def_id, _) =
+-                        self_ty.kind()
+-                    {
+-                        coroutine_def_id = Some(*def_id);
+-                        break;
+-                    }
+-
+-                    current_code = &derived.parent_code;
+-                }
+-                _ => break,
+-            }
+-        }
+-
+-        if let Some(def_id) = coroutine_def_id {
+-            if self.tcx().trait_is_auto(trait_def_id) {
+-                let c_span = self.tcx().def_span(def_id);
+-                let descr = self.tcx().def_descr(def_id);
+-                let trait_name = self.tcx().def_path_str(trait_def_id);
+-
+-                err.span_label(
+-                    c_span,
+-                    format!("this {descr} captures a value whose type is not `{trait_name}`"),
+-                );
+-            }
+-        }
+-
+         // When the mismatched trait is an Fn-trait and the self type is a closure with
+         // unannotated parameters, suggest adding explicit type annotations. This turns
+         // the confusing lifetime-generality error into an actionable hint, e.g.:

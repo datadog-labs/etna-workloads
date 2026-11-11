@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 01df2e199a5ac723567e7ab4e8d477377218decb..351f811e6f2c2e5c0bfdcb70128565987e5ac18e 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -245,9 +245,6 @@ fn check_opaque(tcx: TyCtxt<'_>, def_id: LocalDefId) {
+         return;
+     }
+ 
+-    if tcx.type_of(def_id).instantiate_identity().skip_norm_wip().references_error() {
+-        return;
+-    }
+     if check_opaque_for_cycles(tcx, def_id).is_err() {
+         return;
+     }
+@@ -374,17 +371,11 @@ fn check_opaque_meets_bounds<'tcx>(
+     match ocx.eq(&misc_cause, param_env, opaque_ty, hidden_ty) {
+         Ok(()) => {}
+         Err(ty_err) => {
+-            // Some types may be left "stranded" if they can't be reached
+-            // from a lowered rustc_middle bound but they're mentioned in the HIR.
+-            // This will happen, e.g., when a nested opaque is inside of a non-
+-            // existent associated type, like `impl Trait<Missing = impl Trait>`.
+-            // See <tests/ui/impl-trait/stranded-opaque.rs>.
+             let ty_err = ty_err.to_string(tcx);
+-            let guar = tcx.dcx().span_delayed_bug(
++            tcx.dcx().span_bug(
+                 span,
+                 format!("could not unify `{hidden_ty}` with revealed type:\n{ty_err}"),
+             );
+-            return Err(guar);
+         }
+     }
+ 

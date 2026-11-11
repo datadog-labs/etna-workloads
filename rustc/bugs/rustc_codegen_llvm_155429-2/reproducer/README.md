@@ -1,0 +1,1 @@
+Compiles a no_core c-variadic function reading an i128 via va_arg for aarch64-pc-windows-msvc and prints the emitted assembly. The clean compiler aligns the va_list pointer to 16 bytes (add #15 / and #-16) before loading the i128; the injected compiler disables higher alignment on Windows AArch64, so it loads from the unaligned pointer (a single ldp), misreading the argument.

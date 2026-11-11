@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+index 3d8c23ebdf8d33141dfbd9435df55368d3b92ac9..e15c124c5f35ac23593bd807bbc7e7b30721b2af 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/dyn_trait.rs
+@@ -232,7 +232,7 @@ pub(super) fn lower_trait_object_ty(
+                         ordered_associated_items.extend(
+                             tcx.associated_items(pred.trait_ref.def_id)
+                                 .in_definition_order()
+-                                .filter(|item| item.can_have_equality_constraint(tcx))
++                                .filter(|item| item.is_type() || matches!(item.kind, ty::AssocKind::Const { .. }))
+                                 // Traits with RPITITs are simply not dyn compatible (for now).
+                                 .filter(|item| !item.is_impl_trait_in_trait())
+                                 .map(|item| (item.def_id, trait_ref)),
+diff --git a/compiler/rustc_middle/src/ty/sty.rs b/compiler/rustc_middle/src/ty/sty.rs
+index 054d4e18d3b70912e14aed7b22e56cb82d1124d6..dbc5ea2ee088c1d6c5135c27e0e354ae0bad1f7f 100644
+--- a/compiler/rustc_middle/src/ty/sty.rs
++++ b/compiler/rustc_middle/src/ty/sty.rs
+@@ -770,7 +770,7 @@ pub fn new_dynamic(
+                 .map(|principal| {
+                     tcx.associated_items(principal.def_id())
+                         .in_definition_order()
+-                        .filter(|item| item.can_have_equality_constraint(tcx))
++                        .filter(|item| item.is_type() || matches!(item.kind, ty::AssocKind::Const { .. }))
+                         .filter(|item| !item.is_impl_trait_in_trait())
+                         .filter(|item| !tcx.generics_require_sized_self(item.def_id))
+                         .count()
+diff --git a/compiler/rustc_sanitizers/src/cfi/typeid/itanium_cxx_abi/transform.rs b/compiler/rustc_sanitizers/src/cfi/typeid/itanium_cxx_abi/transform.rs
+index 1d4accd8ad3b66937137f54862c83af0dfc2beeb..c0f191d6a7c9a0a0b0975aec6892294dbf1e5e47 100644
+--- a/compiler/rustc_sanitizers/src/cfi/typeid/itanium_cxx_abi/transform.rs
++++ b/compiler/rustc_sanitizers/src/cfi/typeid/itanium_cxx_abi/transform.rs
+@@ -242,7 +242,7 @@ fn trait_object_ty<'tcx>(tcx: TyCtxt<'tcx>, poly_trait_ref: ty::PolyTraitRef<'tc
+         .flat_map(|super_poly_trait_ref| {
+             tcx.associated_items(super_poly_trait_ref.def_id())
+                 .in_definition_order()
+-                .filter(|item| item.can_have_equality_constraint(tcx))
++                .filter(|item| item.is_type() || matches!(item.kind, ty::AssocKind::Const { .. }))
+                 .filter(|item| !tcx.generics_require_sized_self(item.def_id))
+                 .map(move |assoc_item| {
+                     super_poly_trait_ref.map_bound(|super_trait_ref| {

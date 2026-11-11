@@ -1,0 +1,1 @@
+An `async move` closure that is FnOnce (it consumes a captured String) must force its inner coroutine to move too; on the injected compiler the borrow of `x` gives a spurious E0597 and compilation fails, while the clean compiler builds and runs it.

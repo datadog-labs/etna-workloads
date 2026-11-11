@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_mir_transform/src/lib.rs b/compiler/rustc_mir_transform/src/lib.rs
+index d2dd77c9863189aa7b01528f27c36d13f8309db3..2320e767bf3fc2b2f6513a596b46f41ecfec3aef 100644
+--- a/compiler/rustc_mir_transform/src/lib.rs
++++ b/compiler/rustc_mir_transform/src/lib.rs
+@@ -645,9 +645,6 @@ fn run_runtime_lowering_passes<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+     let passes: &[&dyn MirPass<'tcx>] = &[
+         // These next passes must be executed together.
+         &add_call_guards::CriticalCallEdges,
+-        // Must be done before drop elaboration because we need to drop opaque types, too.
+-        &post_analysis_normalize::PostAnalysisNormalize,
+-        // Calling this after `PostAnalysisNormalize` ensures that we don't deal with opaque types.
+         &add_subtyping_projections::Subtyper,
+         &elaborate_drops::ElaborateDrops,
+         // Needs to happen after drop elaboration.
+@@ -708,6 +705,8 @@ fn o1<T>(x: T) -> WithMinOptLevel<T> {
+             &instsimplify::InstSimplify::BeforeInline,
+             // Perform inlining of `#[rustc_force_inline]`-annotated callees.
+             &inline::ForceInline,
++            // Has to be done before inlining, since inlined code is in RevealAll mode.
++            &post_analysis_normalize::PostAnalysisNormalize,
+             // Perform inlining, which may add a lot of code.
+             &inline::Inline,
+             // Inlining may have introduced a lot of redundant code and a large move pattern.
+diff --git a/compiler/rustc_mir_transform/src/post_analysis_normalize.rs b/compiler/rustc_mir_transform/src/post_analysis_normalize.rs
+index 532e1097b55468a7a710ddaa42445886337b75ff..ec7239476844e8eaa4c69c55f7d58592f4bff315 100644
+--- a/compiler/rustc_mir_transform/src/post_analysis_normalize.rs
++++ b/compiler/rustc_mir_transform/src/post_analysis_normalize.rs
+@@ -18,9 +18,12 @@ fn run_pass(&self, tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+         PostAnalysisNormalizeVisitor { tcx, typing_env }.visit_body_preserves_cfg(body);
+     }
+ 
+-    fn policy(&self, _sess: &rustc_session::Session) -> PassPolicy {
+-        // Reveals opaque types and normalizes MIR while transitioning to the runtime dialect.
+-        PassPolicy::Required
++    fn policy(&self, sess: &rustc_session::Session) -> PassPolicy {
++        let inline_on = matches!(
++            crate::MirPass::policy(&crate::inline::Inline, sess),
++            PassPolicy::Optional { generally_enabled: true, .. }
++        );
++        PassPolicy::optional_non_optimization(sess.mir_opt_level() >= 3 || inline_on)
+     }
+ }
+ 

@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_session/src/options.rs b/compiler/rustc_session/src/options.rs
+index 3c3f1d69fe2c1d8994ad604c961d2be300268478..9ab24a1ed13476127d7a265cc1ff8ab15fc7c4ac 100644
+--- a/compiler/rustc_session/src/options.rs
++++ b/compiler/rustc_session/src/options.rs
+@@ -13,7 +13,6 @@
+ use rustc_feature::UnstableFeatures;
+ use rustc_hashes::Hash64;
+ use rustc_macros::{BlobDecodable, Encodable};
+-use rustc_span::edit_distance::edit_distance;
+ use rustc_span::edition::Edition;
+ use rustc_span::{RealFileName, RemapPathScopeComponents, SourceFileHashAlgorithm};
+ use rustc_target::spec::{
+@@ -777,27 +776,7 @@ fn build_options<O: Default>(
+                     collected_options.mitigations.reset_mitigation(*mitigation, index);
+                 }
+             }
+-            None => {
+-                let mut error =
+-                    early_dcx.early_struct_fatal(format!("unknown {outputname} option: `{key}`"));
+-                let max_dist = option_to_lookup.chars().count().max(3) / 3;
+-                if let Some(option) = descrs
+-                    .iter()
+-                    .filter(|option| option.removed.is_none())
+-                    .filter_map(|option| {
+-                        edit_distance(&option_to_lookup, option.name, max_dist)
+-                            .map(|dist| (dist, option))
+-                    })
+-                    .min_by_key(|(dist, _)| *dist)
+-                    .map(|(_, option)| option)
+-                {
+-                    let name = option.name.replace('_', "-");
+-                    let value =
+-                        if option.type_desc == desc::parse_no_value { "" } else { "=<value>" };
+-                    error.help(format!("you might have meant to use `-{prefix} {name}{value}`"));
+-                }
+-                error.emit()
+-            }
++            None => early_dcx.early_fatal(format!("unknown {outputname} option: `{key}`")),
+         }
+     }
+     op

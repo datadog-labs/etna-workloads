@@ -1,0 +1,1 @@
+Compiles a no_core AArch64 library with -Zsanitizer=shadow-call-stack -Zfixed-x18 for aarch64-unknown-linux-gnu and aarch64-unknown-none. The fixed compiler accepts it (status 0) because fixed-x18 unconditionally allows the shadow call stack on AArch64; the injected compiler rejects it with 'shadow-call-stack sanitizer is not supported for this target' (status 1).

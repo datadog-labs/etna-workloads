@@ -1,0 +1,114 @@
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> main.rs:7:12
+  |
+7 | #![feature(rustc_attrs)]
+  |            ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: `extern` fn uses type `dyn Trait`, which is not FFI-safe
+  --> main.rs:32:38
+   |
+32 | pub extern "C" fn c_nounwind(trait_: &dyn Trait) {
+   |                                      ^^^^^^^^^^ not FFI-safe
+   |
+   = note: trait objects have no C equivalent
+   = note: `#[warn(improper_ctypes_definitions)]` on by default
+
+; ModuleID = 'main.ad2734f5d66cd8f9-cgu.0'
+source_filename = "main.ad2734f5d66cd8f9-cgu.0"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: nounwind nonlazybind uwtable
+define void @c_nounwind({ i64, i64 } %0) unnamed_addr #0 !guid !4 {
+start:
+  %_3 = alloca [12 x i8], align 4
+  %1 = alloca [16 x i8], align 8
+  %trait_ = alloca [16 x i8], align 8
+  call void @llvm.lifetime.start.p0(ptr %1)
+  store { i64, i64 } %0, ptr %1, align 8
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %trait_, ptr align 8 %1, i64 16, i1 false)
+  call void @llvm.lifetime.end.p0(ptr %1)
+  call void @llvm.lifetime.start.p0(ptr %_3)
+  store i32 1, ptr %_3, align 4
+  %2 = getelementptr inbounds i8, ptr %_3, i64 4
+  store i32 1, ptr %2, align 4
+  %3 = getelementptr inbounds i8, ptr %_3, i64 8
+  store i32 1, ptr %3, align 4
+  %4 = load ptr, ptr %trait_, align 8, !nonnull !5, !noundef !5
+  %5 = getelementptr inbounds i8, ptr %trait_, i64 8
+  %6 = load ptr, ptr %5, align 8, !nonnull !5, !align !6, !noundef !5
+  %7 = getelementptr inbounds i8, ptr %6, i64 24
+  %8 = load ptr, ptr %7, align 8, !invariant.load !5, !nonnull !5
+  call void %8(ptr noundef %4, ptr noalias nofree noundef align 4 captures(address) dereferenceable(12) %_3) #3
+  call void @llvm.lifetime.end.p0(ptr %_3)
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @foo(ptr noundef nonnull %trait_.0, ptr noalias nofree noundef readonly align 8 captures(address, read_provenance) dereferenceable(32) %trait_.1) unnamed_addr #1 !guid !7 {
+start:
+  %_3 = alloca [12 x i8], align 4
+  call void @llvm.lifetime.start.p0(ptr %_3)
+  store i32 1, ptr %_3, align 4
+  %0 = getelementptr inbounds i8, ptr %_3, i64 4
+  store i32 1, ptr %0, align 4
+  %1 = getelementptr inbounds i8, ptr %_3, i64 8
+  store i32 1, ptr %1, align 4
+  %2 = getelementptr inbounds i8, ptr %trait_.1, i64 24
+  %3 = load ptr, ptr %2, align 8, !invariant.load !5, !nonnull !5
+  call void %3(ptr noundef %trait_.0, ptr noalias nofree noundef align 4 captures(address) dereferenceable(12) %_3) #3
+  call void @llvm.lifetime.end.p0(ptr %_3)
+  ret void
+}
+
+; Function Attrs: nounwind nonlazybind uwtable
+define void @foo_nounwind(ptr noundef nonnull %trait_.0, ptr noalias nofree noundef readonly align 8 captures(address, read_provenance) dereferenceable(32) %trait_.1) unnamed_addr #0 !guid !8 {
+start:
+  %_3 = alloca [12 x i8], align 4
+  call void @llvm.lifetime.start.p0(ptr %_3)
+  store i32 1, ptr %_3, align 4
+  %0 = getelementptr inbounds i8, ptr %_3, i64 4
+  store i32 1, ptr %0, align 4
+  %1 = getelementptr inbounds i8, ptr %_3, i64 8
+  store i32 1, ptr %1, align 4
+  %2 = getelementptr inbounds i8, ptr %trait_.1, i64 24
+  %3 = load ptr, ptr %2, align 8, !invariant.load !5, !nonnull !5
+  call void %3(ptr noundef %trait_.0, ptr noalias nofree noundef align 4 captures(address) dereferenceable(12) %_3) #3
+  call void @llvm.lifetime.end.p0(ptr %_3)
+  ret void
+}
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0(ptr captures(none)) #2
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias writeonly captures(none), ptr noalias readonly captures(none), i64, i1 immarg) #2
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0(ptr captures(none)) #2
+
+attributes #0 = { nounwind nonlazybind uwtable "probe-stack"="inline-asm" "target-cpu"="x86-64" }
+attributes #1 = { nonlazybind uwtable "probe-stack"="inline-asm" "target-cpu"="x86-64" }
+attributes #2 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
+attributes #3 = { inlinehint }
+
+!llvm.module.flags = !{!0, !1, !2}
+!llvm.ident = !{!3}
+
+!0 = !{i32 8, !"PIC Level", i32 2}
+!1 = !{i32 2, !"RtLibUseGOT", i32 1}
+!2 = !{i32 7, !"uwtable", i32 2}
+!3 = !{!"rustc version 1.99.1-dev"}
+!4 = !{i64 3456009827538228046}
+!5 = !{}
+!6 = !{i64 8}
+!7 = !{i64 6699318081062747564}
+!8 = !{i64 6410439953868836461}
+warning: 2 warnings emitted
+
+rustc exit: 0
+
+[exit 0]

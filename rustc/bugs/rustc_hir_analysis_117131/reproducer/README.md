@@ -1,0 +1,1 @@
+Compiles a trait with a default method returning nested RPITITs (`impl Deref<Target = impl Deref<Target = impl Sized>>`). The clean compiler accepts it; the injected one (which installs only one RPITIT's GAT bounds in the param-env) reports E0271 type mismatch and exits 1.

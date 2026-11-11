@@ -1,0 +1,1 @@
+With -Zmir-opt-level=0, -Zvalidate-mir and DestinationPropagation/DSE enabled, the SingleUseConsts pass leaves invalid debuginfo (a debug entry referring to a removed local); the injected compiler hits an ICE "_4 is not in debuginfo" while the clean one compiles successfully.

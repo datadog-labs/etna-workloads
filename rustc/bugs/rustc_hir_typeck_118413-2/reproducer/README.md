@@ -1,0 +1,1 @@
+For a struct literal using shorthand field init (`Stuff { count }`) where `count` is an `Option<i32>`, the type-mismatch suggestion to call `.expect(...)` must be `count: count.expect("REASON")`. The injected compiler drops the `count: ` prefix and suggests the invalid `Stuff { count.expect("REASON") }`.

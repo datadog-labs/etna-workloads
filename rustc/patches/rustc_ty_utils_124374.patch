@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_ty_utils/src/instance.rs b/compiler/rustc_ty_utils/src/instance.rs
+index c0f476a7feaca1b49cf488ceb8f7c2df33d3a58c..fbcdc6bbf7ef16c74a8bab3c7347ceb0960278de 100644
+--- a/compiler/rustc_ty_utils/src/instance.rs
++++ b/compiler/rustc_ty_utils/src/instance.rs
+@@ -123,9 +123,17 @@ fn resolve_associated_item<'tcx>(
+     let input = typing_env.as_query_input(trait_ref);
+     let vtbl = match tcx.codegen_select_candidate(input) {
+         Ok(vtbl) => vtbl,
+-        Err(CodegenObligationError::Ambiguity | CodegenObligationError::Unimplemented) => {
+-            return Ok(None);
++        Err(CodegenObligationError::Ambiguity) => {
++            let reported = tcx.dcx().span_delayed_bug(
++                tcx.def_span(trait_item_id),
++                format!(
++                    "encountered ambiguity selecting `{trait_ref:?}` during codegen, presuming due to \
++                     overflow or prior type error",
++                ),
++            );
++            return Err(reported);
+         }
++        Err(CodegenObligationError::Unimplemented) => return Ok(None),
+         Err(CodegenObligationError::UnconstrainedParam(guar)) => return Err(guar),
+     };
+ 

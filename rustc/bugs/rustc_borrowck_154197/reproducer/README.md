@@ -1,0 +1,1 @@
+A move out of a custom Deref type (`MyBox(vec![..]).into_iter()`) gives E0507. The fixed compiler suggests the UFCS form `<Vec<i32> as Clone>::clone(&MyBox(..))`. The injected compiler suggests `.clone()`, which would clone the wrapper.

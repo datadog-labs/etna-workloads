@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+index 8ff4c3bf28c34895e8656b36eea5c697ad0602b7..709ea2461ddb794b031d406f182fb0ff184bfc8e 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+@@ -1510,6 +1510,31 @@ pub(crate) fn add_required_obligations_with_code(
+         ) {
+             self.register_predicate(obligation);
+         }
++
++        // Check `[const]` bounds eagerly on path expressions, even if the path is only used as a
++        // function pointer and never called.
++        if self.tcx.features().const_trait_impl()
++            && self.tcx.is_conditionally_const(def_id)
++            && let Some(const_context) = self.tcx.hir_body_const_context(self.body_def_id)
++        {
++            let host = match const_context {
++                hir::ConstContext::Const { .. } | hir::ConstContext::Static(_) => {
++                    ty::BoundConstness::Const
++                }
++                hir::ConstContext::ConstFn => ty::BoundConstness::Maybe,
++            };
++            for (idx, (cond, pred_span)) in
++                self.tcx.const_conditions(def_id).instantiate(self.tcx, args).into_iter().enumerate()
++            {
++                let cause = self.cause(span, code(idx, pred_span));
++                self.register_predicate(traits::Obligation::new(
++                    self.tcx,
++                    cause,
++                    self.param_env,
++                    cond.to_host_effect_clause(self.tcx, host).skip_norm_wip(),
++                ));
++            }
++        }
+     }
+ 
+     #[instrument(level = "debug", skip(self, sp), ret)]

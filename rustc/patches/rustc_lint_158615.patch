@@ -1,0 +1,68 @@
+diff --git a/compiler/rustc_lint/src/builtin.rs b/compiler/rustc_lint/src/builtin.rs
+index 627fb962d5dbf13f988ba1bf03fc77c64ac22b9b..5703d9f4a29d0c49ac72fc44e9787c1f81416d82 100644
+--- a/compiler/rustc_lint/src/builtin.rs
++++ b/compiler/rustc_lint/src/builtin.rs
+@@ -2039,24 +2039,6 @@ fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'_>) {
+                                         continue;
+                                     };
+                                     let index = ty_generics.param_def_id_to_index[&def_id];
+-                                    // Removing a `T: 'r` outlives bound can silently change
+-                                    // the object lifetime default for `Struct<'r, dyn Trait>`
+-                                    // (RFC 599): the explicit bound sets the default to `'r`,
+-                                    // so removing it may change it to `'static` (or cause an
+-                                    // ambiguity error if there is no unique default). Only
+-                                    // suppress the lint for non-higher-ranked predicates when
+-                                    // T is not `Sized` (i.e. can hold trait object types).
+-                                    // Higher-ranked predicates (`for<'x> T: 'r`) are excluded
+-                                    // from RFC 599 object lifetime defaulting and are always
+-                                    // safe to remove.
+-                                    if predicate.bound_generic_params.is_empty() {
+-                                        let ty_param = &ty_generics.own_params[index as usize];
+-                                        let param_ty =
+-                                            Ty::new_param(cx.tcx, ty_param.index, ty_param.name);
+-                                        if !param_ty.is_sized(cx.tcx, cx.typing_env()) {
+-                                            continue;
+-                                        }
+-                                    }
+                                     (
+                                         Self::lifetimes_outliving_type(
+                                             // don't warn if the inferred span actually came from the predicate we're looking at
+diff --git a/compiler/rustc_lint_defs/src/builtin.rs b/compiler/rustc_lint_defs/src/builtin.rs
+index 451d7faa1ce8759529026b6be05d37ff38edeb67..a53307a8c055343f354c178665cd21173d73dbfd 100644
+--- a/compiler/rustc_lint_defs/src/builtin.rs
++++ b/compiler/rustc_lint_defs/src/builtin.rs
+@@ -2337,8 +2337,34 @@ pub fn lint_vec() -> crate::LintVec {
+     /// > fn render<'r>(_: Ref<'r, dyn std::fmt::Display + 'static>) {}
+     /// > ```
+     ///
++    /// > [!WARNING]
++    /// > Implicit lifetime bounds are not semantically equivalent to explicit ones since the latter
++    /// > may affect the implicit lifetime bound of trait object types that are passed as arguments
++    /// > to the overarching struct, enum or union.
++    /// > Rephrased, they participate in [trait object lifetime defaulting][TOLD].
++    /// >
++    /// > Consider the following piece of code where removing bound `T: 'a` would lead to a lifetime
++    /// > error in function `scope`:
++    /// >
++    /// > ```rust,no_run
++    /// > struct Ref<'a, T: ?Sized + 'a>(&'a T);
++    /// >
++    /// > fn scope() {
++    /// >     let buf = String::new();
++    /// >     let str = buf.as_str();
++    /// >     render(Ref(&str));
++    /// > }
++    /// >
++    /// > fn render(_: Ref<dyn std::fmt::Display>) {}
++    /// > ```
++    /// >
++    /// > Consequently, removing explicit outlives-bounds on type parameters of publicly reachable types
++    /// > constitutes a **breaking change** if the lifetime refers to a lifetime parameter and
++    /// > the type parameter is not bounded by `Sized` (thereby admitting trait object types).
++    ///
+     /// [RFC 2093]: https://github.com/rust-lang/rfcs/blob/master/text/2093-infer-outlives.md
+     /// [TOLD]: https://doc.rust-lang.org/reference/lifetime-elision.html#default-trait-object-lifetimes
++    /// [TOLD]: https://doc.rust-lang.org/reference/lifetime-elision.html#default-trait-object-lifetimes
+     pub EXPLICIT_OUTLIVES_REQUIREMENTS,
+     Allow,
+     "outlives requirements can be inferred"

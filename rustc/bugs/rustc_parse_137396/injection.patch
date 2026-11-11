@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_parse/src/parser/ty.rs b/compiler/rustc_parse/src/parser/ty.rs
+index 1d2021cfe50aea5240460bb2466877ee3982e5f8..20233b3639073d1278b8ce596e090ffac1653fda 100644
+--- a/compiler/rustc_parse/src/parser/ty.rs
++++ b/compiler/rustc_parse/src/parser/ty.rs
+@@ -141,37 +141,14 @@ pub(super) fn parse_ty_with_generics_recovery(
+     /// The difference from `parse_ty` is that this version allows `...`
+     /// (`CVarArgs`) at the top level of the type.
+     pub(super) fn parse_ty_for_param(&mut self) -> PResult<'a, Box<Ty>> {
+-        let ty = self.parse_ty_common(
++        self.parse_ty_common(
+             AllowPlus::Yes,
+             AllowCVariadic::Yes,
+             RecoverQPath::Yes,
+             RecoverReturnSign::Yes,
+             None,
+             RecoverQuestionMark::Yes,
+-        )?;
+-
+-        // Recover a trailing `= EXPR` if present.
+-        if self.may_recover()
+-            && self.check_noexpect(&token::Eq)
+-            && self.look_ahead(1, |tok| tok.can_begin_expr())
+-        {
+-            let snapshot = self.create_snapshot_for_diagnostic();
+-            self.bump();
+-            let eq_span = self.prev_token.span;
+-            match self.parse_expr() {
+-                Ok(e) => {
+-                    self.dcx()
+-                        .struct_span_err(eq_span.to(e.span), "parameter defaults are not supported")
+-                        .emit();
+-                }
+-                Err(diag) => {
+-                    diag.cancel();
+-                    self.restore_snapshot(snapshot);
+-                }
+-            }
+-        }
+-
+-        Ok(ty)
++        )
+     }
+ 
+     /// Parses a type in restricted contexts where `+` is not permitted.

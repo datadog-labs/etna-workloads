@@ -1,0 +1,77 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..80cec41234edf9fb9d586397b38a7aa457859a16 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -203,6 +203,10 @@ fn trait_assoc_type_def_id_by_name(
+         })
+     }
+ 
++    fn assoc_type_required_generic_args_suggestion(&self, assoc_type_def_id: DefId) -> String {
++        self.r.item_required_generic_args_suggestion(assoc_type_def_id)
++    }
++
+     /// This does best-effort work to generate suggestions for associated types.
+     fn suggest_assoc_type_from_bounds(
+         &mut self,
+@@ -317,10 +321,7 @@ fn suggest_assoc_type_from_bounds(
+             record_from_generics(self, generics);
+         }
+ 
+-        if let Some(item) = self.diag_metadata.current_item
+-            && matches!(item.kind, ItemKind::Impl(..))
+-            && let Some(assoc) = self.diag_metadata.current_impl_item
+-        {
++        if let Some(assoc) = self.diag_metadata.current_impl_item {
+             let generics = match &assoc.kind {
+                 AssocItemKind::Const(ast::ConstItem { generics, .. })
+                 | AssocItemKind::Fn(ast::Fn { generics, .. })
+@@ -343,7 +344,7 @@ fn suggest_assoc_type_from_bounds(
+                 let assoc_segment = format!(
+                     "{}{}",
+                     assoc_name,
+-                    self.r.item_required_generic_args_suggestion(assoc_type_def_id)
++                    self.assoc_type_required_generic_args_suggestion(assoc_type_def_id)
+                 );
+                 suggestions.insert(format!("{ty_param}::{assoc_segment}"));
+             } else {
+@@ -351,7 +352,7 @@ fn suggest_assoc_type_from_bounds(
+                     let assoc_segment = format!(
+                         "{}{}",
+                         assoc_name,
+-                        self.r.item_required_generic_args_suggestion(assoc_type_def_id)
++                        self.assoc_type_required_generic_args_suggestion(assoc_type_def_id)
+                     );
+                     for trait_path in trait_paths {
+                         suggestions
+@@ -368,13 +369,24 @@ fn suggest_assoc_type_from_bounds(
+         let mut suggestions: Vec<String> = suggestions.into_iter().collect();
+         suggestions.sort();
+ 
+-        err.span_suggestions_with_style(
+-            ident_span,
+-            "you might have meant to use an associated type of the same name",
+-            suggestions,
+-            Applicability::MaybeIncorrect,
+-            SuggestionStyle::ShowAlways,
+-        );
++        match suggestions.as_slice() {
++            [one] => {
++                err.span_suggestion_verbose(
++                    ident_span,
++                    "use the associated type",
++                    one,
++                    Applicability::MaybeIncorrect,
++                );
++            }
++            _ => {
++                err.span_suggestions(
++                    ident_span,
++                    "use an associated type",
++                    suggestions,
++                    Applicability::MaybeIncorrect,
++                );
++            }
++        };
+ 
+         true
+     }

@@ -1,0 +1,1 @@
+Compiles an infinitely recursive generic function (func<T> calls func<&mut Map<T,_>>) at opt-level 0 so monomorphization overflows. The clean compiler reports E0275 with a short, deduplicated requirement type and hidden redundant requirements; the injected compiler (HAS_RE_ERASED no longer counted as local-region flag) prints a different, longer/unfreshened overflow type chain.

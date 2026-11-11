@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+index f55833c1bf6da228478bc4624ad342844e2692e9..30298d88075ccc03230c8d0d5b1ea269b3af3c77 100644
+--- a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
++++ b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+@@ -904,27 +904,11 @@ fn visit_lifetime(&mut self, lifetime_ref: &'tcx hir::Lifetime) {
+     fn visit_qpath(&mut self, qpath: &'tcx hir::QPath<'tcx>, id: HirId, _: Span) {
+         match qpath {
+             hir::QPath::Resolved(maybe_qself, path) => {
+-                // Visit the path before the self type since computing the trait object lifetime
+-                // default for the latter requires all lifetime arguments of the trait ref to be
+-                // already resolved.
+-                self.visit_path(path, id);
+                 if let Some(qself) = maybe_qself {
+-                    let container =
+-                        self.eligible_container(path, RevSegIdx(1).reverse(path.segments));
+-
+-                    let object_lifetime_defaults =
+-                        container.map_or(Vec::new(), |(def_id, segs)| {
+-                            let generics = self.tcx.generics_of(def_id);
+-                            self.compute_object_lifetime_defaults(generics, segs)
+-                        });
+-
+-                    if let Some(&lt) = object_lifetime_defaults.first() {
+-                        let scope = Scope::ObjectLifetimeDefault { lifetime: lt, s: self.scope };
+-                        self.with(scope, |this| this.visit_ty_unambig(qself));
+-                    } else {
+-                        self.visit_ty_unambig(qself);
+-                    }
++                    let scope = Scope::ObjectLifetimeDefault { lifetime: None, s: self.scope };
++                    self.with(scope, |this| this.visit_ty_unambig(qself));
+                 }
++                self.visit_path(path, id);
+             }
+             hir::QPath::TypeRelative(qself, segment) => {
+                 // Computing the trait object lifetime defaults that are induced by type-relative

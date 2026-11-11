@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_mir_transform/src/dataflow_const_prop.rs b/compiler/rustc_mir_transform/src/dataflow_const_prop.rs
+index 2af68a9046e5a6bee7cf1b551fe75d3c82449064..2a749cbbf02ea9d194173b25a2cfc88cb83c55fc 100644
+--- a/compiler/rustc_mir_transform/src/dataflow_const_prop.rs
++++ b/compiler/rustc_mir_transform/src/dataflow_const_prop.rs
+@@ -375,6 +375,13 @@ fn handle_assign(
+                     }
+                     if let Some(overflow_target) = overflow_target {
+                         // We have flooded `target` earlier.
++                        // Overflow cannot be reliably propagated.
++                        let overflow = match overflow {
++                            FlatSet::Elem(o) if o.to_bool().discard_err() == Some(true) => {
++                                FlatSet::Top
++                            }
++                            o => o,
++                        };
+                         state.insert_value_idx(overflow_target, overflow, &self.map);
+                     }
+                 }

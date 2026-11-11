@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/probe.rs b/compiler/rustc_hir_typeck/src/method/probe.rs
+index b2e0a3bd7a195f2edbf03d89438609e17e8c8898..5051fe1d751e43ec3ab9dadfaf109ef9fec74746 100644
+--- a/compiler/rustc_hir_typeck/src/method/probe.rs
++++ b/compiler/rustc_hir_typeck/src/method/probe.rs
+@@ -458,7 +458,7 @@ pub(crate) fn probe_op<OP, R>(
+         // If our autoderef loop had reached the recursion limit,
+         // report an overflow error, but continue going on with
+         // the truncated autoderef list.
+-        if steps.reached_recursion_limit && !is_suggestion.0 {
++        if steps.reached_recursion_limit {
+             self.probe(|_| {
+                 let ty = &steps
+                     .steps
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..74a2f045fbfd3e7a64082395eadf7ea29010f64f 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -532,7 +532,7 @@ fn create_no_assoc_err(
+         let span = item_ident.span;
+         if let ty::Adt(def, generics) = rcvr_ty.kind() {
+             if generics.len() > 0 {
+-                let mut autoderef = self.autoderef(span, rcvr_ty).silence_errors();
++                let mut autoderef = self.autoderef(span, rcvr_ty);
+                 let candidate_found = autoderef.any(|(ty, _)| {
+                     if let ty::Adt(adt_def, _) = ty.kind() {
+                         self.tcx

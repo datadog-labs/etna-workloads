@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+index 49e6dc334ff80dc2ca74719212a355497fce20e7..b1350f60e3a31564b57fb851524933d83c226718 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+@@ -1069,8 +1069,8 @@ fn show_mutating_upvar(
+     // Attempt to search similar mutable associated items for suggestion.
+     // In the future, attempt in all path but initially for RHS of for_loop
+     fn suggest_similar_mut_method_for_for_loop(&self, err: &mut Diag<'_>, span: Span) {
+-        use hir::ExprKind::{AddrOf, Block, Call, MethodCall};
+-        use hir::{BorrowKind, Expr};
++        use hir::Expr;
++        use hir::ExprKind::{Block, Call, MethodCall};
+ 
+         let tcx = self.infcx.tcx;
+         struct Finder {
+@@ -1135,15 +1135,6 @@ fn visit_expr(&mut self, e: &'tcx hir::Expr<'tcx>) -> Self::Result {
+                         );
+                     }
+                 }
+-                AddrOf(BorrowKind::Ref, Mutability::Not, expr) => {
+-                    // We have `for _ in &i`, suggest `for _ in &mut i`.
+-                    err.span_suggestion_verbose(
+-                        expr.span.shrink_to_lo(),
+-                        "use a mutable iterator instead",
+-                        "mut ",
+-                        Applicability::MachineApplicable,
+-                    );
+-                }
+                 ExprKind::Path(hir::QPath::Resolved(None, path))
+                     if let hir::def::Res::Local(hir_id) = path.res
+                         && let hir::Node::LetStmt(stmt) =

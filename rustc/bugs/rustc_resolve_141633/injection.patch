@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..aa5327ed81d558d2a9da8d97c45a56c9330f1b72 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -28,7 +28,7 @@
+ use rustc_session::{Session, lint};
+ use rustc_span::edit_distance::{edit_distance, find_best_match_for_name};
+ use rustc_span::edition::Edition;
+-use rustc_span::{DUMMY_SP, DesugaringKind, Ident, Span, Symbol, kw, sym};
++use rustc_span::{DUMMY_SP, Ident, Span, Symbol, kw, sym};
+ use thin_vec::{ThinVec, thin_vec};
+ use tracing::debug;
+ 
+@@ -1033,15 +1033,12 @@ fn try_lookup_name_relaxed(
+                     AssocSuggestion::Field(field_span) => {
+                         if self_is_available {
+                             let source_map = self.r.tcx.sess.source_map();
+-                            let field_is_format_named_arg = matches!(
+-                                span.desugaring_kind(),
+-                                Some(DesugaringKind::FormatLiteral { .. })
+-                            ) && source_map
++                            // check if the field is used in a format string, such as `"{x}"`
++                            let field_is_format_named_arg = source_map
+                                 .span_to_source(span, |s, start, _| {
+-                                    Ok(s.get(start.saturating_sub(1)..start) == Some("{"))
+-                                })
+-                                .unwrap_or(false);
+-                            if field_is_format_named_arg {
++                                    Ok(s.get(start - 1..start) == Some("{"))
++                                });
++                            if let Ok(true) = field_is_format_named_arg {
+                                 err.help(
+                                     format!("you might have meant to use the available field in a format string: `\"{{}}\", self.{}`", segment.ident.name),
+                                 );

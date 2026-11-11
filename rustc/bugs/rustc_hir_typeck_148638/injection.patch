@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_hir_typeck/src/inline_asm.rs b/compiler/rustc_hir_typeck/src/inline_asm.rs
+index cfe64fce180e9473a4357c434a5ac72da972a2e2..2eee9446b5687f1dc1cafd420b1b74056e8b0f6b 100644
+--- a/compiler/rustc_hir_typeck/src/inline_asm.rs
++++ b/compiler/rustc_hir_typeck/src/inline_asm.rs
+@@ -11,7 +11,7 @@
+ };
+ use rustc_session::lint;
+ use rustc_span::def_id::LocalDefId;
+-use rustc_span::{ErrorGuaranteed, Span, Symbol, sym};
++use rustc_span::{Span, Symbol, sym};
+ use rustc_target::asm::{
+     InlineAsmReg, InlineAsmRegClass, InlineAsmRegOrRegClass, InlineAsmType, ModifierInfo,
+ };
+@@ -31,7 +31,6 @@ enum NonAsmTypeReason<'tcx> {
+     InvalidElement(DefId, Ty<'tcx>),
+     NotSizedPtr(Ty<'tcx>),
+     EmptySIMDArray(Ty<'tcx>),
+-    Tainted(ErrorGuaranteed),
+ }
+ 
+ impl<'a, 'tcx> InlineAsmCtxt<'a, 'tcx> {
+@@ -99,11 +98,11 @@ fn get_asm_ty(
+             }
+             ty::Adt(adt, args) if adt.repr().simd() => {
+                 if !adt.is_struct() {
+-                    let guar = self.fcx.dcx().span_delayed_bug(
++                    self.fcx.dcx().span_delayed_bug(
+                         span,
+                         format!("repr(simd) should only be used on structs, got {}", adt.descr()),
+                     );
+-                    return Err(NonAsmTypeReason::Tainted(guar));
++                    return Err(NonAsmTypeReason::Invalid(ty));
+                 }
+ 
+                 let fields = &adt.non_enum_variant().fields;
+@@ -268,9 +267,6 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+                         let msg = format!("use of empty SIMD vector `{ty}`");
+                         self.fcx.dcx().struct_span_err(expr.span, msg).emit();
+                     }
+-                    NonAsmTypeReason::Tainted(_error_guard) => {
+-                        // An error has already been reported.
+-                    }
+                 }
+                 return None;
+             }

@@ -1,0 +1,1 @@
+With #![deny(unused_parens)], a macro call `wrap!(unary(routine()))` where the argument is matched as `$name:ident $arg:expr` triggers the lint; the suggestion to remove the parentheses should keep a space (`unary routine()`), but the injected compiler suggests `unaryroutine()`, which merges the two tokens.

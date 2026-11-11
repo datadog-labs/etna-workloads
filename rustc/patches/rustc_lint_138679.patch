@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_lint/src/builtin.rs b/compiler/rustc_lint/src/builtin.rs
+index 627fb962d5dbf13f988ba1bf03fc77c64ac22b9b..74c187e22ba7c6dd48198815ab03f112e84481c9 100644
+--- a/compiler/rustc_lint/src/builtin.rs
++++ b/compiler/rustc_lint/src/builtin.rs
+@@ -150,10 +150,7 @@ fn check_expr(&mut self, cx: &EarlyContext<'_>, e: &ast::Expr) {
+ 
+ impl<'tcx> LateLintPass<'tcx> for NonShorthandFieldPatterns {
+     fn check_pat(&mut self, cx: &LateContext<'_>, pat: &hir::Pat<'_>) {
+-        // The result shouldn't be tainted, otherwise it will cause ICE.
+-        if let PatKind::Struct(ref qpath, field_pats, _) = pat.kind
+-            && cx.typeck_results().tainted_by_errors.is_none()
+-        {
++        if let PatKind::Struct(ref qpath, field_pats, _) = pat.kind {
+             let variant = cx
+                 .typeck_results()
+                 .pat_ty(pat)
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..c0397593409dfc66885cd62247a3a765f45c9eb4 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -583,11 +583,6 @@ impl<'tcx> Visitor<'tcx> for MarkSymbolVisitor<'tcx> {
+     fn visit_nested_body(&mut self, body: hir::BodyId) -> Self::Result {
+         let typeck_results = self.tcx.typeck_body(body);
+ 
+-        // The result shouldn't be tainted, otherwise it will cause ICE.
+-        if let Some(guar) = typeck_results.tainted_by_errors {
+-            return ControlFlow::Break(guar);
+-        }
+-
+         let old_maybe_typeck_results = self.maybe_typeck_results.replace(typeck_results);
+         let body = self.tcx.hir_body(body);
+         let result = self.visit_body(body);

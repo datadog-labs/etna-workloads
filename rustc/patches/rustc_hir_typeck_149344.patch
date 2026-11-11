@@ -1,0 +1,58 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..ae8ea0b0ebb1567caa35cf950b26472a82005641 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -2357,16 +2357,14 @@ pub(crate) fn suggest_missing_unwrap_expect(
+             )),
+         );
+ 
+-        let (article, kind, variant, sugg_operator) = if self.tcx.is_diagnostic_item(sym::Result, adt.did())
+-            // Do not suggest `.expect()` in const context where it's not available. rust-lang/rust#149316
+-            && !self.tcx.hir_is_inside_const_context(expr.hir_id)
+-        {
+-            ("a", "Result", "Err", ret_ty_matches(sym::Result))
+-        } else if self.tcx.is_diagnostic_item(sym::Option, adt.did()) {
+-            ("an", "Option", "None", ret_ty_matches(sym::Option))
+-        } else {
+-            return false;
+-        };
++        let (article, kind, variant, sugg_operator) =
++            if self.tcx.is_diagnostic_item(sym::Result, adt.did()) {
++                ("a", "Result", "Err", ret_ty_matches(sym::Result))
++            } else if self.tcx.is_diagnostic_item(sym::Option, adt.did()) {
++                ("an", "Option", "None", ret_ty_matches(sym::Option))
++            } else {
++                return false;
++            };
+         if is_ctor || !self.may_coerce(args.type_at(0), expected) {
+             return false;
+         }
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..b22cdd86d6c3cafbef9b807f69532183b92e0172 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -3344,16 +3344,14 @@ fn suggest_unwrapping_inner_self(
+                             tcx.def_span(pick.item.def_id),
+                             format!("the method `{item_name}` exists on the type `{self_ty}`"),
+                         );
+-                        let (article, kind, variant, question) = if tcx.is_diagnostic_item(sym::Result, kind.did())
+-                            // Do not suggest `.expect()` in const context where it's not available. rust-lang/rust#149316
+-                            && !tcx.hir_is_inside_const_context(expr.hir_id)
+-                        {
+-                            ("a", "Result", "Err", ret_ty_matches(sym::Result))
+-                        } else if tcx.is_diagnostic_item(sym::Option, kind.did()) {
+-                            ("an", "Option", "None", ret_ty_matches(sym::Option))
+-                        } else {
+-                            return;
+-                        };
++                        let (article, kind, variant, question) =
++                            if tcx.is_diagnostic_item(sym::Result, kind.did()) {
++                                ("a", "Result", "Err", ret_ty_matches(sym::Result))
++                            } else if tcx.is_diagnostic_item(sym::Option, kind.did()) {
++                                ("an", "Option", "None", ret_ty_matches(sym::Option))
++                            } else {
++                                return;
++                            };
+                         if question {
+                             err.span_suggestion_verbose(
+                                 expr.span.shrink_to_hi(),

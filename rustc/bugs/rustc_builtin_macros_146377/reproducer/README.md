@@ -1,0 +1,1 @@
+Shows that an expression-context include! of a file starting with a shebang line must not strip the shebang: the clean compiler reports a parse error, while the injected compiler silently strips it and compiles.

@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..ebc749140ac000aba031af3eefc1959df0c102d4 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -3085,11 +3085,7 @@ fn parse_expr_for(&mut self, opt_label: Option<Label>, lo: Span) -> PResult<'a,
+             ));
+         }
+ 
+-        let (attrs, loop_block) = self.parse_inner_attrs_and_block(
+-            // Only suggest moving erroneous block label to the loop header
+-            // if there is not already a label there
+-            opt_label.is_none().then_some(lo),
+-        )?;
++        let (attrs, loop_block) = self.parse_inner_attrs_and_block(None)?;
+ 
+         let kind = ExprKind::ForLoop(Box::new(ForLoop {
+             pat,
+@@ -3165,11 +3161,7 @@ fn parse_expr_while(&mut self, opt_label: Option<Label>, lo: Span) -> PResult<'a
+             err
+         })?;
+         let (attrs, body) = self
+-            .parse_inner_attrs_and_block(
+-                // Only suggest moving erroneous block label to the loop header
+-                // if there is not already a label there
+-                opt_label.is_none().then_some(lo),
+-            )
++            .parse_inner_attrs_and_block(None)
+             .map_err(|mut err| {
+                 err.span_label(lo, "while parsing the body of this `while` expression");
+                 err.span_label(cond.span, "this `while` condition successfully parsed");
+@@ -3188,11 +3180,7 @@ fn parse_expr_while(&mut self, opt_label: Option<Label>, lo: Span) -> PResult<'a
+     /// Parses `loop { ... }` (`loop` token already eaten).
+     fn parse_expr_loop(&mut self, opt_label: Option<Label>, lo: Span) -> PResult<'a, Box<Expr>> {
+         let loop_span = self.prev_token.span;
+-        let (attrs, body) = self.parse_inner_attrs_and_block(
+-            // Only suggest moving erroneous block label to the loop header
+-            // if there is not already a label there
+-            opt_label.is_none().then_some(lo),
+-        )?;
++        let (attrs, body) = self.parse_inner_attrs_and_block(None)?;
+         self.recover_loop_else("loop", lo)?;
+         Ok(self.mk_expr_with_attrs(
+             lo.to(self.prev_token.span),

@@ -1,0 +1,50 @@
+diff --git a/compiler/rustc_const_eval/src/check_consts/check.rs b/compiler/rustc_const_eval/src/check_consts/check.rs
+index 7648bf4eb241de9de50428c33441c90f9cbe57dd..9ee2c4e56ecc76b4f64165afef812be2f1232cbd 100644
+--- a/compiler/rustc_const_eval/src/check_consts/check.rs
++++ b/compiler/rustc_const_eval/src/check_consts/check.rs
+@@ -434,13 +434,9 @@ pub fn check_drop_terminator(
+     ) {
+         let ty_of_dropped_place = dropped_place.ty(self.body, self.tcx).ty;
+ 
+-        let needs_drop = if let Some(local) = dropped_place.as_local() {
+-            self.qualifs.needs_drop(self.ccx, local, location)
+-        } else {
+-            qualifs::NeedsDrop::in_any_value_of_ty(self.ccx, ty_of_dropped_place)
+-        };
+-        // If this type doesn't need a drop at all, then there's nothing to enforce.
+-        if !needs_drop {
++        let ty_needs_non_const_drop =
++            qualifs::NeedsNonConstDrop::in_any_value_of_ty(self.ccx, ty_of_dropped_place);
++        if !ty_needs_non_const_drop {
+             return;
+         }
+ 
+@@ -450,17 +446,19 @@ pub fn check_drop_terminator(
+             err_span = self.body.local_decls[local].source_info.span;
+             self.qualifs.needs_non_const_drop(self.ccx, local, location)
+         } else {
+-            qualifs::NeedsNonConstDrop::in_any_value_of_ty(self.ccx, ty_of_dropped_place)
++            true
+         };
+ 
+-        self.check_op_spanned(
+-            ops::LiveDrop {
+-                dropped_at: terminator_span,
+-                dropped_ty: ty_of_dropped_place,
+-                needs_non_const_drop,
+-            },
+-            err_span,
+-        );
++        if needs_non_const_drop {
++            self.check_op_spanned(
++                ops::LiveDrop {
++                    dropped_at: terminator_span,
++                    dropped_ty: ty_of_dropped_place,
++                    needs_non_const_drop,
++                },
++                err_span,
++            );
++        }
+     }
+ 
+     /// Check the const stability of the given item (fn or trait).

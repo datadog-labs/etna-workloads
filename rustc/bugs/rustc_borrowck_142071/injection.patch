@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
+index e7e05e561d13f7b557dc3711d37854d942640f5d..14c3efc1b9f073ed24a5e7c1c9ab0f021c4b96d8 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/member_constraints.rs
+@@ -63,7 +63,7 @@ fn apply_member_constraint<'tcx>(
+ ) {
+     // If the member region lives in a higher universe, we currently choose
+     // the most conservative option by leaving it unchanged.
+-    if !rcx.max_placeholder_universe_reached(member).is_root() {
++    if !rcx.max_nameable_universe(member).is_root() {
+         debug!("member region reached non root universe, bailing");
+         return;
+     }
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/region_ctxt.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/region_ctxt.rs
+index ae5a213c5c37d49b898a79545c454e10200e13e0..9a8550ac95fa9529b4812508d03f12b950270c19 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/region_ctxt.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/region_ctxt.rs
+@@ -105,6 +105,14 @@ pub(super) fn representative(&self, vid: RegionVid) -> Representative {
+         self.scc_annotations[scc].representative
+     }
+ 
++    pub(crate) fn max_nameable_universe(
++        &self,
++        scc: ConstraintSccIndex,
++    ) -> UniverseIndex {
++        self.scc_annotations[scc].max_nameable_universe()
++    }
++
++    #[allow(dead_code)]
+     pub(crate) fn max_placeholder_universe_reached(
+         &self,
+         scc: ConstraintSccIndex,

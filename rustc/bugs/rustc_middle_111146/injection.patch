@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_middle/src/ty/mod.rs b/compiler/rustc_middle/src/ty/mod.rs
+index cd9e5f6903478c18fbc280dd94327c9ac7b16269..8a0046edd9d11f37b7cbab7033c5a55574a62643 100644
+--- a/compiler/rustc_middle/src/ty/mod.rs
++++ b/compiler/rustc_middle/src/ty/mod.rs
+@@ -1837,9 +1837,10 @@ pub fn item_name(self, id: impl IntoQueryKey<DefId>) -> Symbol {
+     pub fn opt_item_ident(self, def_id: impl IntoQueryKey<DefId>) -> Option<Ident> {
+         let def_id = def_id.into_query_key();
+         let def = self.opt_item_name(def_id)?;
+-        let span = self
+-            .def_ident_span(def_id)
+-            .unwrap_or_else(|| bug!("missing ident span for {def_id:?}"));
++        let span = def_id
++            .as_local()
++            .and_then(|id| self.def_ident_span(id))
++            .unwrap_or(rustc_span::DUMMY_SP);
+         Some(Ident::new(def, span))
+     }
+ 

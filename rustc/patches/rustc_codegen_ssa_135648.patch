@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs b/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
+index 33cc321ea6d3217df0a3262ffcf3d12bb0618aff..66a6ad99eb5240020441c28ef1ec4cd4b6f3a693 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
+@@ -206,7 +206,7 @@ fn prefix_and_suffix<'tcx>(
+             }
+             Linkage::LinkOnceAny | Linkage::LinkOnceODR | Linkage::WeakAny | Linkage::WeakODR => {
+                 match asm_binary_format {
+-                    BinaryFormat::Elf | BinaryFormat::Coff | BinaryFormat::Wasm => {
++                    BinaryFormat::Elf | BinaryFormat::Coff => {
+                         writeln!(w, ".weak {asm_name}")?;
+                     }
+                     BinaryFormat::Xcoff => {
+@@ -216,6 +216,9 @@ fn prefix_and_suffix<'tcx>(
+                             "cannot create weak symbols from inline assembly for this target",
+                         )
+                     }
++                    BinaryFormat::Wasm => {
++                        writeln!(w, ".globl {asm_name}")?;
++                    }
+                     BinaryFormat::MachO => {
+                         writeln!(w, ".globl {asm_name}")?;
+                         writeln!(w, ".weak_definition {asm_name}")?;

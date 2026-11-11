@@ -1,0 +1,1 @@
+Compiles a leaf crate (default threshold) with a division (assert terminator) and a dependent crate (both default threshold, -O3), then checks whether the call was inlined; the injected compiler counts asserts as calls so the function is not cross-crate inlinable and a call (or tail jump) remains.

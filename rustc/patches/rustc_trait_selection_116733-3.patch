@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs b/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
+index 5cba32d742f62219e30fe1ef7add3c33acd64b3e..67ecd89e6491ee601b871debd6e5b33388ef25ba 100644
+--- a/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
++++ b/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
+@@ -480,6 +480,13 @@ pub struct FreeRegionsVisitor<'tcx, OP: FnMut(ty::Region<'tcx>)> {
+     pub op: OP,
+ }
+ 
++impl<'tcx, OP: FnMut(ty::Region<'tcx>)> FreeRegionsVisitor<'tcx, OP> {
++    // Pre-fix behaviour: aliases are walked structurally (all free regions).
++    fn consider_alias_bounds(&self) -> bool {
++        false
++    }
++}
++
+ impl<'tcx, OP> TypeVisitor<TyCtxt<'tcx>> for FreeRegionsVisitor<'tcx, OP>
+ where
+     OP: FnMut(ty::Region<'tcx>),
+@@ -509,7 +516,7 @@ fn visit_ty(&mut self, ty: Ty<'tcx>) {
+             // either `'static` or a unique outlives region, and if one is
+             // found, we just need to prove that that region is still live.
+             // If one is not found, then we continue to walk through the alias.
+-            ty::Alias(_, ty::AliasTy { kind, args, .. }) => {
++            ty::Alias(_, ty::AliasTy { kind, args, .. }) if self.consider_alias_bounds() => {
+                 let tcx = self.tcx;
+                 let param_env = self.param_env;
+ 

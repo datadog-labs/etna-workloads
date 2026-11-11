@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/specialize/mod.rs b/compiler/rustc_trait_selection/src/traits/specialize/mod.rs
+index a142d8f40fffecd09af2d187763f3b77442e864c..00844743e569d86ca8011b003bc4b2dee3d53e9c 100644
+--- a/compiler/rustc_trait_selection/src/traits/specialize/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/specialize/mod.rs
+@@ -511,19 +511,15 @@ fn report_negative_positive_conflict<'tcx>(
+     negative_impl_def_id: DefId,
+     positive_impl_def_id: DefId,
+ ) -> ErrorGuaranteed {
+-    let mut diag = tcx.dcx().create_err(NegativePositiveConflict {
+-        impl_span: tcx.def_span(local_impl_def_id),
+-        trait_desc: overlap.trait_ref,
+-        self_ty: overlap.self_ty,
+-        negative_impl_span: tcx.span_of_impl(negative_impl_def_id),
+-        positive_impl_span: tcx.span_of_impl(positive_impl_def_id),
+-    });
+-
+-    for cause in &overlap.intercrate_ambiguity_causes {
+-        cause.add_intercrate_ambiguity_hint(&mut diag);
+-    }
+-
+-    diag.emit()
++    tcx.dcx()
++        .create_err(NegativePositiveConflict {
++            impl_span: tcx.def_span(local_impl_def_id),
++            trait_desc: overlap.trait_ref,
++            self_ty: overlap.self_ty,
++            negative_impl_span: tcx.span_of_impl(negative_impl_def_id),
++            positive_impl_span: tcx.span_of_impl(positive_impl_def_id),
++        })
++        .emit()
+ }
+ 
+ fn report_conflicting_impls<'tcx>(
+@@ -566,10 +562,6 @@ fn decorate<'tcx, G: EmissionGuarantee>(
+             }
+         }
+ 
+-        for cause in &overlap.intercrate_ambiguity_causes {
+-            cause.add_intercrate_ambiguity_hint(err);
+-        }
+-
+         if overlap.involves_placeholder {
+             coherence::add_placeholder_note(err);
+         }

@@ -1,0 +1,14 @@
+diff --git a/compiler/rustc_resolve/src/imports.rs b/compiler/rustc_resolve/src/imports.rs
+index 499f9ea297362d8c3245265b5945a44218bbde3a..7fdeacf6bfebe930a40941316b01a02bf1410b8e 100644
+--- a/compiler/rustc_resolve/src/imports.rs
++++ b/compiler/rustc_resolve/src/imports.rs
+@@ -653,7 +653,9 @@ pub(crate) fn try_plant_decl_into_local_module(
+                 return Ok(());
+             }
+             if decl.is_glob_import() {
++                let shadowed = resolution.non_glob_decl.is_some();
+                 resolution.glob_decl = Some(match resolution.glob_decl {
++                    Some(old_decl) if shadowed && old_decl.res() != decl.res() => decl,
+                     Some(old_decl) => this.select_glob_decl(old_decl, decl),
+                     None => decl,
+                 });

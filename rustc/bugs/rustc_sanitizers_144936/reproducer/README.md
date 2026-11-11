@@ -1,0 +1,1 @@
+Calling a `Box<dyn Fn(u32)>` wrapping a fn item via `Fn::call` under CFI (with LTO). The injected compiler does not rewrite `FnPtrShim` when generalizing, so the CFI type id mismatches and the program dies with SIGILL instead of printing "ok".

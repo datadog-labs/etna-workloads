@@ -1,0 +1,1 @@
+Shows that with a crate aliased as `usize` (extern crate empty as usize), `usize<()>` should report 'type arguments are not allowed on builtin type usize'; the injected compiler wrongly says 'on crate empty' because the segment's partial resolution isn't fixed up to the primitive type.

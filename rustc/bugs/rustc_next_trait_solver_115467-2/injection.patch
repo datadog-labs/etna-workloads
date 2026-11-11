@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs b/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
+index aa26a122817bb43cd7aea436f5b845bf389655f8..92cff49f345496ec72cec531c85b8414fff5eea1 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
+@@ -919,12 +919,6 @@ pub(in crate::solve) fn predicates_for_object_candidate<D, I>(
+     // FIXME(mgca): Also add associated consts to
+     // the requirements here.
+     for associated_type_def_id in cx.associated_type_def_ids(trait_ref.def_id) {
+-        // associated types that require `Self: Sized` do not show up in the built-in
+-        // implementation of `Trait for dyn Trait`, and can be dropped here.
+-        if cx.generics_require_sized_self(associated_type_def_id) {
+-            continue;
+-        }
+-
+         requirements.extend(
+             cx.item_bounds(associated_type_def_id)
+                 .iter_instantiated(cx, trait_ref.args)
+diff --git a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+index 203ed5a62a8b9f59f22fcedaaec85ba6388ce57c..57291618e09379a4a438b3503a9256d7240306f7 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+@@ -552,9 +552,6 @@ fn confirm_object_candidate(
+         let assoc_types: Vec<_> = tcx
+             .associated_items(trait_predicate.def_id())
+             .in_definition_order()
+-            // Associated types that require `Self: Sized` do not show up in the built-in
+-            // implementation of `Trait for dyn Trait`, and can be dropped here.
+-            .filter(|item| !tcx.generics_require_sized_self(item.def_id))
+             .filter_map(|item| if item.is_type() { Some(item.def_id) } else { None })
+             .collect();
+ 

@@ -1,0 +1,54 @@
+error[E0277]: the trait bound `T: Foo` is not satisfied
+  --> main.rs:8:1
+   |
+ 8 | / impl<T> Bar for T
+ 9 | | //~^ ERROR the trait bound `T: Foo` is not satisfied
+10 | | where
+11 | |     <T as Foo>::Assoc: Sized,
+   | |_____________________________^ the trait `Foo` is not implemented for `T`
+   |
+help: consider further restricting type parameter `T` with trait `Foo`
+   |
+11 |     <T as Foo>::Assoc: Sized, T: Foo
+   |                               ++++++
+
+error[E0277]: the trait bound `T: Foo` is not satisfied
+  --> main.rs:13:5
+   |
+13 |     fn method() {}
+   |     ^^^^^^^^^^^ the trait `Foo` is not implemented for `T`
+   |
+help: consider further restricting type parameter `T` with trait `Foo`
+   |
+11 |     <T as Foo>::Assoc: Sized, T: Foo
+   |                               ++++++
+
+error: internal compiler error: compiler/rustc_trait_selection/src/traits/normalize.rs:71:17: deeply_normalize should not be called with pending obligations: [
+                                    Obligation(predicate=Binder { value: TraitPredicate(<_ as std::marker::Sized>, polarity:Positive), bound_vars: [] }, depth=1),
+                                ]
+ --> main.rs:6:20
+  |
+6 |     fn method() -> impl Sized;
+  |                    ^^^^^^^^^^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_trait_selection/src/traits/normalize.rs:71:17:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [compare_impl_item] checking assoc item `<impl at main.rs:8:1: 11:30>::method::{anon_assoc#0}` is compatible with trait definition
+#1 [check_well_formed] checking that `<impl at main.rs:8:1: 11:30>` is well-formed
+... and 2 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 3 previous errors
+
+For more information about this error, try `rustc --explain E0277`.
+rustc exit: 101
+
+[exit 0]

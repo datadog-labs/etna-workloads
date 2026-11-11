@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_mir_transform/src/cross_crate_inline.rs b/compiler/rustc_mir_transform/src/cross_crate_inline.rs
+index 13b3304fda8f2b9209385190811e80847a936f86..376a9533fd4c2066ca06acf9a274d75c6ac35ed5 100644
+--- a/compiler/rustc_mir_transform/src/cross_crate_inline.rs
++++ b/compiler/rustc_mir_transform/src/cross_crate_inline.rs
+@@ -64,16 +64,6 @@ fn cross_crate_inlinable(tcx: TyCtxt<'_>, def_id: LocalDefId) -> bool {
+         return true;
+     }
+ 
+-    let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+-    for ty in sig.inputs().skip_binder().iter().chain(std::iter::once(&sig.output().skip_binder()))
+-    {
+-        // FIXME(f16_f128): in order to avoid crashes building `core`, always inline to skip
+-        // codegen if the function is not used.
+-        if ty == &tcx.types.f16 || ty == &tcx.types.f128 {
+-            return true;
+-        }
+-    }
+-
+     // Don't do any inference when incremental compilation is enabled; the additional inlining that
+     // inference permits also creates more work for small edits.
+     if tcx.sess.opts.incremental.is_some() {

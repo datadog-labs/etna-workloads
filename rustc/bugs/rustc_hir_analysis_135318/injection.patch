@@ -1,0 +1,73 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/dump.rs b/compiler/rustc_hir_analysis/src/collect/dump.rs
+index 66968826e5275ba571b5437baf5ca8652c370480..2cdb745a49fe8fcb88c597dd46e7d7196ae29327 100644
+--- a/compiler/rustc_hir_analysis/src/collect/dump.rs
++++ b/compiler/rustc_hir_analysis/src/collect/dump.rs
+@@ -135,6 +135,7 @@ fn visit_anon_const(&mut self, c: &'tcx rustc_hir::AnonConst) {
+     }
+ }
+ 
++#[allow(dead_code)]
+ pub(crate) fn vtables<'tcx>(tcx: TyCtxt<'tcx>) {
+     for id in tcx.hir_free_items() {
+         let def_id = id.owner_id.def_id;
+diff --git a/compiler/rustc_hir_analysis/src/lib.rs b/compiler/rustc_hir_analysis/src/lib.rs
+index 572200dbd7634ed366d573b7fcab01d1d7d150b3..257e998c11b6b14471fc5e240a3fe77d6c5aeb80 100644
+--- a/compiler/rustc_hir_analysis/src/lib.rs
++++ b/compiler/rustc_hir_analysis/src/lib.rs
+@@ -209,7 +209,6 @@ pub fn check_crate(tcx: TyCtxt<'_>) {
+             collect::dump::opaque_hidden_types(tcx);
+             collect::dump::clauses_and_item_bounds(tcx);
+             collect::dump::def_parents(tcx);
+-            collect::dump::vtables(tcx);
+         });
+     }
+ 
+diff --git a/compiler/rustc_trait_selection/src/traits/vtable.rs b/compiler/rustc_trait_selection/src/traits/vtable.rs
+index 77d7a39a6eb77371d46c7e90c15f61de9a475c37..f4583cdf9ab41f34d120e01fc1c83df15b29423c 100644
+--- a/compiler/rustc_trait_selection/src/traits/vtable.rs
++++ b/compiler/rustc_trait_selection/src/traits/vtable.rs
+@@ -2,6 +2,7 @@
+ use std::ops::ControlFlow;
+ 
+ use rustc_hir::def_id::DefId;
++use rustc_hir::find_attr;
+ use rustc_infer::traits::util::PredicateSet;
+ use rustc_middle::bug;
+ use rustc_middle::query::Providers;
+@@ -9,7 +10,7 @@
+     self, GenericArgs, GenericParamDefKind, Ty, TyCtxt, TypeVisitableExt, Unnormalized, Upcast,
+     VtblEntry,
+ };
+-use rustc_span::DUMMY_SP;
++use rustc_span::{DUMMY_SP, Span};
+ use smallvec::{SmallVec, smallvec};
+ use tracing::debug;
+ 
+@@ -229,6 +230,15 @@ fn own_existential_vtable_entries_iter(
+     own_entries
+ }
+ 
++fn dump_vtable_entries<'tcx>(
++    tcx: TyCtxt<'tcx>,
++    sp: Span,
++    trait_ref: ty::TraitRef<'tcx>,
++    entries: &[VtblEntry<'tcx>],
++) {
++    tcx.dcx().span_err(sp, format!("vtable entries for `{trait_ref}`: {entries:#?}"));
++}
++
+ /// Given a trait `trait_ref`, iterates the vtable entries
+ /// that come from `trait_ref`, including its supertraits.
+ fn vtable_entries<'tcx>(
+@@ -305,6 +315,11 @@ fn vtable_entries<'tcx>(
+ 
+     let _ = prepare_vtable_segments(tcx, trait_ref, vtable_segment_callback);
+ 
++    if find_attr!(tcx, trait_ref.def_id, RustcDumpVtable(..)) {
++        let sp = tcx.def_span(trait_ref.def_id);
++        dump_vtable_entries(tcx, sp, trait_ref, &entries);
++    }
++
+     tcx.arena.alloc_from_iter(entries)
+ }
+ 

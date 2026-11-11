@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+index e347dc2d13dfcb2172a7c2b2b4c4e2c854e4d26a..c50d6ff9dc85221ff5ec0546db4b92f38ceb4c7d 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+@@ -540,17 +540,10 @@ pub(crate) fn apply_definition_site_hidden_types<'tcx>(
+     let mut errors = Vec::new();
+     for &(key, hidden_type) in opaque_types {
+         let Some(expected) = hidden_types.get(&key.def_id) else {
+-            if !tcx.use_typing_mode_post_typeck_until_borrowck() {
+-                if let &ty::Alias(_, ty::AliasTy { kind: ty::Opaque { def_id }, args, .. }) =
+-                    hidden_type.ty.kind()
+-                    && def_id == key.def_id.to_def_id()
+-                    && args == key.args
+-                {
+-                    continue;
+-                } else {
+-                    unreachable!("non-defining use in defining scope");
+-                }
+-            }
++            assert!(
++                tcx.use_typing_mode_post_typeck_until_borrowck(),
++                "non-defining use in defining scope"
++            );
+             errors.push(DeferredOpaqueTypeError::NonDefiningUseInDefiningScope {
+                 span: hidden_type.span,
+                 opaque_type_key: key,

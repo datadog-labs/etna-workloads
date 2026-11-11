@@ -1,0 +1,77 @@
+error[E0505]: cannot move out of `value` because it is borrowed
+  --> main.rs:15:13
+   |
+ 9 |     let f = |x: &E| {
+   |             ------- borrow of `value` occurs here
+10 |         match &x {
+11 |             E::Number(_) if let E::Number(ref mut n) = *value => { }
+   |                                                        ------ borrow occurs due to use in closure
+...
+15 |     let x = value;
+   |             ^^^^^ move out of `value` occurs here
+16 |     //~^ ERROR cannot move out of `value` because it is borrowed
+17 |     drop(f);
+   |          - borrow later used here
+
+warning: unused variable: `n`
+  --> main.rs:11:43
+   |
+11 |             E::Number(_) if let E::Number(ref mut n) = *value => { }
+   |                                           ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_n`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `x`
+  --> main.rs:15:9
+   |
+15 |     let x = value;
+   |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+error[E0382]: use of moved value: `value`
+  --> main.rs:27:13
+   |
+20 | fn if_let_move(value: Box<E>) {
+   |                ----- move occurs because `value` has type `Box<E>`, which does not implement the `Copy` trait
+21 |     let f = |x: &E| {
+   |             ------- value moved into closure here
+22 |         match &x {
+23 |             E::Number(_) if let E::String(s) = *value => { }
+   |                                                ------ variable moved due to use in closure
+...
+27 |     let x = value;
+   |             ^^^^^ value used here after move
+   |
+note: if `E` implemented `Clone`, you could clone the value
+  --> main.rs:31:1
+   |
+23 |             E::Number(_) if let E::String(s) = *value => { }
+   |                                                ------ you could clone this value
+...
+31 | enum E {
+   | ^^^^^^ consider implementing `Clone` for this type
+
+warning: unused variable: `s`
+  --> main.rs:23:43
+   |
+23 |             E::Number(_) if let E::String(s) = *value => { }
+   |                                           ^ help: if this is intentional, prefix it with an underscore: `_s`
+
+warning: unused variable: `f`
+  --> main.rs:21:9
+   |
+21 |     let f = |x: &E| {
+   |         ^ help: if this is intentional, prefix it with an underscore: `_f`
+
+warning: unused variable: `x`
+  --> main.rs:27:9
+   |
+27 |     let x = value;
+   |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+error: aborting due to 2 previous errors; 5 warnings emitted
+
+Some errors have detailed explanations: E0382, E0505.
+For more information about an error, try `rustc --explain E0382`.
+rustc exit: 1
+
+[exit 0]

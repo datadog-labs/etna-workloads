@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/probe.rs b/compiler/rustc_hir_typeck/src/method/probe.rs
+index b2e0a3bd7a195f2edbf03d89438609e17e8c8898..93fd6f2887a448350d0b0a8d5f00c56da90c54e6 100644
+--- a/compiler/rustc_hir_typeck/src/method/probe.rs
++++ b/compiler/rustc_hir_typeck/src/method/probe.rs
+@@ -2040,7 +2040,7 @@ fn consider_probe(
+                     let impl_bounds =
+                         self.tcx.clauses_of(impl_def_id).instantiate(self.tcx, impl_args);
+                     // Convert the bounds into obligations.
+-                    ocx.register_obligations(traits::predicates_for_generics(
++                    for o in traits::predicates_for_generics(
+                         |idx, span| {
+                             let code = ObligationCauseCode::WhereClauseInExpr(
+                                 impl_def_id,
+@@ -2053,7 +2053,16 @@ fn consider_probe(
+                         |clause| ocx.normalize(cause, self.param_env, clause),
+                         self.param_env,
+                         impl_bounds,
+-                    ));
++                    ) {
++                        if !self.infcx.predicate_may_hold(&o) {
++                            result = ProbeResult::NoMatch;
++                            possibly_unsatisfied_predicates.push((
++                                self.resolve_vars_if_possible(o.predicate),
++                                None,
++                                Some(o.cause),
++                            ));
++                        }
++                    }
+                 }
+                 TraitCandidate(poly_trait_ref, _) => {
+                     // Some trait methods are excluded for arrays before 2021.

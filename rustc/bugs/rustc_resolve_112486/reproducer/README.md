@@ -1,0 +1,1 @@
+With a where-clause `<T as TryFrom<String>>::Error: ParseError` (an enum used as a trait), E0404 suggests constraining the associated type. The clean compiler suggests `T: TryFrom<String, Error = ParseError>`; the injected one wrongly prints `T: TryFrom<String><Error = ParseError>` for a trait path with existing generic args.

@@ -1,0 +1,131 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs
+index 1a66ddb8e223880f0bf888a32a00bd5ca8b706ba..d60aea28eb76f1b46d1603beb7f565e1524fa5ae 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs
+@@ -89,7 +89,7 @@ fn where_x_is_kind<'tcx>(&self, infcx: &InferCtxt<'tcx>, in_type: Ty<'tcx>) -> &
+         } else if self.name == "_" {
+             let displayed_ty = infcx
+                 .resolve_vars_if_possible(in_type)
+-                .fold_with(&mut ClosureEraser { infcx, depth: 0 });
++                .fold_with(&mut ClosureEraser { tcx: infcx.tcx });
+             if displayed_ty.is_ty_or_numeric_infer() {
+                 ""
+             } else {
+@@ -172,99 +172,26 @@ fn try_get_prefix(&self) -> Option<&str> {
+     }
+ }
+ 
+-struct ClosureEraser<'a, 'tcx> {
+-    infcx: &'a InferCtxt<'tcx>,
+-    depth: usize,
++struct ClosureEraser<'tcx> {
++    tcx: TyCtxt<'tcx>,
+ }
+ 
+-impl<'a, 'tcx> ClosureEraser<'a, 'tcx> {
+-    fn new_infer(&mut self) -> Ty<'tcx> {
+-        self.infcx.next_ty_var(DUMMY_SP)
+-    }
+-}
+-
+-impl<'a, 'tcx> TypeFolder<TyCtxt<'tcx>> for ClosureEraser<'a, 'tcx> {
++impl<'tcx> TypeFolder<TyCtxt<'tcx>> for ClosureEraser<'tcx> {
+     fn cx(&self) -> TyCtxt<'tcx> {
+-        self.infcx.tcx
++        self.tcx
+     }
+ 
+     fn fold_ty(&mut self, ty: Ty<'tcx>) -> Ty<'tcx> {
+-        self.depth += 1;
+-        let ty = match ty.kind() {
++        match ty.kind() {
+             ty::Closure(_, args) => {
+-                // For a closure type, we turn it into a function pointer so that it gets rendered
+-                // as `fn(args) -> Ret`.
+                 let closure_sig = args.as_closure().sig();
+                 Ty::new_fn_ptr(
+-                    self.cx(),
+-                    self.cx().signature_unclosure(closure_sig, hir::Safety::Safe),
++                    self.tcx,
++                    self.tcx.signature_unclosure(closure_sig, hir::Safety::Safe),
+                 )
+             }
+-            ty::Adt(_, args) if !args.iter().any(|a| a.has_infer()) => {
+-                // We have a type that doesn't have any inference variables, so we replace
+-                // the whole thing with `_`. The type system already knows about this type in
+-                // its entirety and it is redundant to specify it for the user. The user only
+-                // needs to specify the type parameters that we *couldn't* figure out.
+-                self.new_infer()
+-            }
+-            ty::Adt(def, args) => {
+-                let generics = self.cx().generics_of(def.did());
+-                let generics: Vec<bool> = generics
+-                    .own_params
+-                    .iter()
+-                    .map(|param| param.default_value(self.cx()).is_some())
+-                    .collect();
+-                let ty = Ty::new_adt(
+-                    self.cx(),
+-                    *def,
+-                    self.cx().mk_args_from_iter(generics.into_iter().zip(args.iter()).map(
+-                        |(has_default, arg)| {
+-                            if arg.has_infer() {
+-                                // This param has an unsubstituted type variable, meaning that this
+-                                // type has a (potentially deeply nested) type parameter from the
+-                                // corresponding type's definition. We have explicitly asked this
+-                                // type to not be hidden. In either case, we keep the type and don't
+-                                // substitute with `_` just yet.
+-                                arg.fold_with(self)
+-                            } else if has_default {
+-                                // We have a type param that has a default type, like the allocator
+-                                // in Vec. We decided to show `Vec` itself, because it hasn't yet
+-                                // been replaced by an `_` `Infer`, but we want to ensure that the
+-                                // type parameter with default types does *not* get replaced with
+-                                // `_` because then we'd end up with `Vec<_, _>`, instead of
+-                                // `Vec<_>`.
+-                                arg
+-                            } else if let GenericArgKind::Type(_) = arg.kind() {
+-                                // We don't replace lifetime or const params, only type params.
+-                                self.new_infer().into()
+-                            } else {
+-                                arg.fold_with(self)
+-                            }
+-                        },
+-                    )),
+-                );
+-                ty
+-            }
+-            _ if ty.has_infer() => {
+-                // This type has a (potentially nested) type parameter that we couldn't figure out.
+-                // We will print this depth of type, so at least the type name and at least one of
+-                // its type parameters.
+-                ty.super_fold_with(self)
+-            }
+-            // We are in the top-level type, not one of its type parameters. Name it with its
+-            // parameters replaced.
+-            _ if self.depth == 1 => ty.super_fold_with(self),
+-            // We don't have an unknown type parameter anywhere, and we are in a type parameter.
+-            // Replace with `_`.
+-            _ => self.new_infer(),
+-        };
+-        self.depth -= 1;
+-        ty
+-    }
+-
+-    fn fold_const(&mut self, c: ty::Const<'tcx>) -> ty::Const<'tcx> {
+-        // Avoid accidentally erasing the type of the const.
+-        c
++            _ => ty.super_fold_with(self),
++        }
+     }
+ }
+ 
+@@ -311,7 +238,7 @@ fn ty_to_string<'tcx>(
+     let ty = infcx.resolve_vars_if_possible(ty);
+     // We use `fn` ptr syntax for closures, but this only works when the closure does not capture
+     // anything. We also remove all type parameters that are fully known to the type system.
+-    let ty = ty.fold_with(&mut ClosureEraser { infcx, depth: 0 });
++    let ty = ty.fold_with(&mut ClosureEraser { tcx: infcx.tcx });
+ 
+     match (ty.kind(), called_method_def_id) {
+         // We don't want the regular output for `fn`s because it includes its path in

@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs b/compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs
+index 559ca0a98c58e866867046ac94005b46ce1c4630..bb1492c498e12ceb1194a280c4240f4687dfc827 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/eval_ctxt/mod.rs
+@@ -1619,6 +1619,17 @@ pub(in crate::solve) fn evaluate_added_goals_and_make_canonical_response(
+             },
+         );
+ 
++        // Bail with overflow if the response has too many non-region variables.
++        if !matches!(self.current_goal_kind, CurrentGoalKind::ProjectionComputeAssocTermCandidate)
++        {
++            let num_non_region_vars = canonical.var_kinds.iter().filter(|c| !c.is_region()).count();
++            if num_non_region_vars > self.cx().recursion_limit() {
++                debug!(?num_non_region_vars, "too many inference variables -> overflow");
++                let Certainty::Maybe(info) = Certainty::overflow(true) else { unreachable!() };
++                return Ok(self.make_ambiguous_response_no_constraints(info));
++            }
++        }
++
+         Ok(canonical)
+     }
+ 

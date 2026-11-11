@@ -1,0 +1,16 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/project.rs b/compiler/rustc_trait_selection/src/traits/project.rs
+index 7da8c68ff894a0ff74bd55e1f5b07b671bac5259..0de240ebfcce959af811b9fa2135dd2e46c1e245 100644
+--- a/compiler/rustc_trait_selection/src/traits/project.rs
++++ b/compiler/rustc_trait_selection/src/traits/project.rs
+@@ -637,6 +637,11 @@ pub fn compute_inherent_assoc_term_args<'a, 'b, 'tcx>(
+         }
+     }
+ 
++    // Substitute using the ADT's args rather than the inferred impl args.
++    let impl_args = match alias_term.self_ty().kind() {
++        ty::Adt(_, adt_args) if adt_args.len() == impl_args.len() => *adt_args,
++        _ => impl_args,
++    };
+     alias_term.rebase_inherent_args_onto_impl(impl_args, tcx)
+ }
+ 

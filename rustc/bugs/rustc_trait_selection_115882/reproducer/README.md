@@ -1,0 +1,1 @@
+A lifetime-bound failure on a trait type parameter used inside a method: the clean compiler suggests adding `where T: 'a` on the method, while the injected one suggests the invalid `trait Trait3<T: 'a>` (out-of-scope lifetime).

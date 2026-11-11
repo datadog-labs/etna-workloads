@@ -1,0 +1,93 @@
+diff --git a/compiler/rustc_hir_typeck/src/callee.rs b/compiler/rustc_hir_typeck/src/callee.rs
+index e250ec4c7af40e3b1523bd0348add562f52b4292..8df73dd55a6085e811096cffd5ce13051cef3c0c 100644
+--- a/compiler/rustc_hir_typeck/src/callee.rs
++++ b/compiler/rustc_hir_typeck/src/callee.rs
+@@ -141,6 +141,7 @@ pub(crate) fn check_expr_call(
+                     self.check_expr(arg);
+                 }
+ 
++                let mut recovered_ty = None;
+                 if let hir::ExprKind::Path(hir::QPath::Resolved(_, path)) = &callee_expr.kind
+                     && let [segment] = path.segments
+                 {
+@@ -149,12 +150,15 @@ pub(crate) fn check_expr_call(
+                         StashKey::CallIntoMethod,
+                         |err| {
+                             // Try suggesting `foo(a)` -> `a.foo()` if possible.
+-                            self.suggest_call_as_method(
++                            recovered_ty = self.suggest_call_as_method(
+                                 err, segment, arg_exprs, call_expr, expected,
+                             );
+                         },
+                     );
+                 }
++                if let Some(ty) = recovered_ty {
++                    return ty;
++                }
+ 
+                 let guar = self.report_invalid_callee(call_expr, callee_expr, expr_ty, arg_exprs);
+                 Ty::new_error(self.tcx, guar)
+@@ -812,12 +816,9 @@ fn suggest_call_as_method(
+         arg_exprs: &'tcx [hir::Expr<'tcx>],
+         call_expr: &'tcx hir::Expr<'tcx>,
+         expected: Expectation<'tcx>,
+-    ) {
++    ) -> Option<Ty<'tcx>> {
+         if let [callee_expr, rest @ ..] = arg_exprs {
+-            let Some(callee_ty) = self.typeck_results.borrow().expr_ty_adjusted_opt(callee_expr)
+-            else {
+-                return;
+-            };
++            let callee_ty = self.typeck_results.borrow().expr_ty_adjusted_opt(callee_expr)?;
+ 
+             // First, do a probe with `IsSuggestion(true)` to avoid emitting
+             // any strange errors. If it's successful, then we'll do a true
+@@ -831,7 +832,7 @@ fn suggest_call_as_method(
+                 ProbeScope::AllTraits,
+                 expected.only_has_type(self),
+             ) else {
+-                return;
++                return None;
+             };
+ 
+             let pick = self.confirm_method_for_diagnostic(
+@@ -843,12 +844,12 @@ fn suggest_call_as_method(
+                 segment,
+             );
+             if pick.illegal_sized_bound.is_some() {
+-                return;
++                return None;
+             }
+ 
+             let Some(callee_expr_span) = callee_expr.span.find_ancestor_inside(call_expr.span)
+             else {
+-                return;
++                return None;
+             };
+             let up_to_rcvr_span = segment.ident.span.until(callee_expr_span);
+             let rest_span = callee_expr_span.shrink_to_hi().to(call_expr.span.shrink_to_hi());
+@@ -889,8 +890,24 @@ fn suggest_call_as_method(
+                     sugg,
+                     Applicability::MaybeIncorrect,
+                 );
++
++                // Let's check the method fully now
++                self.check_argument_types(
++                    segment.ident.span,
++                    call_expr,
++                    &pick.callee.sig.inputs()[1..],
++                    pick.callee.sig.output(),
++                    expected,
++                    rest,
++                    pick.callee.sig.fn_sig_kind.c_variadic(),
++                    TupleArgumentsFlag::DontTupleArguments,
++                    SplatLoweringInfo::FnDef(pick.callee.def_id),
++                    Some(pick.callee.args),
++                );
++                return Some(pick.callee.sig.output());
+             }
+         }
++        None
+     }
+ 
+     fn report_invalid_callee(

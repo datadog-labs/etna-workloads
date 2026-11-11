@@ -1,0 +1,47 @@
+diff --git a/compiler/rustc_borrowck/src/type_check/free_region_relations.rs b/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
+index 5309ea8cb81b5d21db0d30d23807fa548fbe96f7..95501ae3bdc14588f94e8957e783fdf99f17de29 100644
+--- a/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
++++ b/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
+@@ -1,6 +1,5 @@
+ use rustc_data_structures::frozen::Frozen;
+ use rustc_data_structures::transitive_relation::{TransitiveRelation, TransitiveRelationBuilder};
+-use rustc_hir::def::DefKind;
+ use rustc_hir::def_id::LocalDefId;
+ use rustc_infer::infer::canonical::{OriginalQueryValues, QueryRegionConstraints};
+ use rustc_infer::infer::outlives::env::RegionBoundPairs;
+@@ -286,35 +285,6 @@ pub(crate) fn create_old(mut self) -> CreateResult<'tcx> {
+             normalized_inputs_and_output.push(norm_ty);
+         }
+ 
+-        // Add implied bounds from impl header.
+-        //
+-        // We don't use `assumed_wf_types` to source the entire set of implied bounds for
+-        // a few reasons:
+-        // - `DefiningTy` for closure has the `&'env Self` type while `assumed_wf_types` doesn't
+-        // - We compute implied bounds from the unnormalized types in the `DefiningTy` but do not
+-        //   do so for types in impl headers
+-        // - We must compute the normalized signature and then compute implied bounds from that
+-        //   in order to connect any unconstrained region vars created during normalization to
+-        //   the types of the locals corresponding to the inputs and outputs of the item. (#136547)
+-        if matches!(tcx.def_kind(defining_ty_def_id), DefKind::AssocFn | DefKind::AssocConst { .. })
+-        {
+-            for &(ty, _) in tcx.assumed_wf_types(tcx.local_parent(defining_ty_def_id)) {
+-                let result: Result<_, ErrorGuaranteed> = self
+-                    .infcx
+-                    .fully_perform(Normalize { value: ty::Unnormalized::new_wip(ty) }, span);
+-                let Ok(TypeOpOutput { output: norm_ty, constraints: c, .. }) = result else {
+-                    continue;
+-                };
+-
+-                constraints.extend(c);
+-
+-                // We currently add implied bounds from the normalized ty only.
+-                // This is more conservative and matches wfcheck behavior.
+-                let c = self.add_implied_bounds(norm_ty, span);
+-                constraints.extend(c);
+-            }
+-        }
+-
+         for c in constraints {
+             constraint_conversion::ConstraintConversion::new(
+                 self.infcx,

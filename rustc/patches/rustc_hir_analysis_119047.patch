@@ -1,0 +1,51 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/entry.rs b/compiler/rustc_hir_analysis/src/check/entry.rs
+index c34147756f1534ddd3b64da60701e233d05c76cc..3e233aa8a56ba4894ca3ca3304067701ac6dc5a6 100644
+--- a/compiler/rustc_hir_analysis/src/check/entry.rs
++++ b/compiler/rustc_hir_analysis/src/check/entry.rs
+@@ -90,6 +90,23 @@ fn main_fn_return_type_span(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Span> {
+ 
+     let main_diagnostics_def_id = main_fn_diagnostics_def_id(tcx, main_def_id, main_span);
+ 
++    let main_fn_generics = tcx.generics_of(main_def_id);
++    let main_fn_clauses = tcx.clauses_of(main_def_id);
++    if main_fn_generics.count() != 0 || !main_fnsig.bound_vars().is_empty() {
++        let generics_param_span = main_fn_generics_params_span(tcx, main_def_id);
++        return Err(tcx.dcx().emit_err(diagnostics::MainFunctionGenericParameters {
++            span: generics_param_span.unwrap_or(main_span),
++            label_span: generics_param_span,
++        }));
++    } else if !main_fn_clauses.clauses.is_empty() {
++        // Generics may bring in implicit clauses, so we skip this check if generics are present.
++        let generics_where_clauses_span = main_fn_where_clauses_span(tcx, main_def_id);
++        return Err(tcx.dcx().emit_err(diagnostics::WhereClauseOnMain {
++            span: generics_where_clauses_span.unwrap_or(main_span),
++            generics_span: generics_where_clauses_span,
++        }));
++    }
++
+     let main_asyncness = tcx.asyncness(main_def_id);
+     if main_asyncness.is_async() {
+         let asyncness_span = main_fn_asyncness_span(tcx, main_def_id);
+@@ -166,22 +183,5 @@ fn main_fn_return_type_span(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Span> {
+         expected_sig,
+     )?;
+ 
+-    let main_fn_generics = tcx.generics_of(main_def_id);
+-    let main_fn_clauses = tcx.clauses_of(main_def_id);
+-    if main_fn_generics.count() != 0 || !main_fnsig.bound_vars().is_empty() {
+-        let generics_param_span = main_fn_generics_params_span(tcx, main_def_id);
+-        return Err(tcx.dcx().emit_err(diagnostics::MainFunctionGenericParameters {
+-            span: generics_param_span.unwrap_or(main_span),
+-            label_span: generics_param_span,
+-        }));
+-    } else if !main_fn_clauses.clauses.is_empty() {
+-        // Generics may bring in implicit clauses, so we skip this check if generics are present.
+-        let generics_where_clauses_span = main_fn_where_clauses_span(tcx, main_def_id);
+-        return Err(tcx.dcx().emit_err(diagnostics::WhereClauseOnMain {
+-            span: generics_where_clauses_span.unwrap_or(main_span),
+-            generics_span: generics_where_clauses_span,
+-        }));
+-    }
+-
+     Ok(())
+ }

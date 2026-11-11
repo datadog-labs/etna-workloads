@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/const_evaluatable.rs b/compiler/rustc_trait_selection/src/traits/const_evaluatable.rs
+index 74413d430b1cd6e1c91a84c8307b9ea683829f88..897a6bcaed06587ad7a7246b917b25557e452192 100644
+--- a/compiler/rustc_trait_selection/src/traits/const_evaluatable.rs
++++ b/compiler/rustc_trait_selection/src/traits/const_evaluatable.rs
+@@ -181,9 +181,7 @@ fn visit_const(&mut self, c: ty::Const<'tcx>) {
+                     Some(Ok(o)) if o == c => Some(Ok(c)),
+                     Some(_) => Some(Err(())),
+                 };
+-            }
+-
+-            if let ty::ConstKind::Expr(e) = c.kind() {
++            } else if let ty::ConstKind::Expr(e) = c.kind() {
+                 e.visit_with(self);
+             } else {
+                 // FIXME(generic_const_exprs): This doesn't recurse into `<T as Trait<U>>::ASSOC`'s args.
+@@ -203,10 +201,20 @@ fn visit_const(&mut self, c: ty::Const<'tcx>) {
+         match clause.kind().skip_binder() {
+             ty::ClauseKind::ConstEvaluatable(ce) => {
+                 let b_ct = tcx.expand_abstract_consts(ce);
+-                let mut v = Visitor { ct, infcx, param_env, single_match };
++                let mut v = Visitor { ct, infcx, param_env, single_match: None };
+                 let _ = b_ct.visit_with(&mut v);
+ 
+-                single_match = v.single_match;
++                if let Some(inner) = v.single_match {
++                    single_match = if let Ok(inner) = inner {
++                        match single_match {
++                            None => Some(Ok(inner)),
++                            Some(Ok(prev)) if prev == inner => Some(Ok(prev)),
++                            Some(_) => Some(Err(())),
++                        }
++                    } else {
++                        Some(Err(()))
++                    };
++                }
+             }
+             _ => {} // don't care
+         }

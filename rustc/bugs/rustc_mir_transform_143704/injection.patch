@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_mir_transform/src/inline/cycle.rs b/compiler/rustc_mir_transform/src/inline/cycle.rs
+index dc9cc38fcb733071db724bcbb4cbda066f093e0d..ea655f3587201655b1a027754ae8d76b9c406983 100644
+--- a/compiler/rustc_mir_transform/src/inline/cycle.rs
++++ b/compiler/rustc_mir_transform/src/inline/cycle.rs
+@@ -105,12 +105,9 @@ fn process<'tcx>(
+             continue;
+         }
+ 
+-        let callee_reaches_root = if let Some(&c) = seen.get(&callee) {
+-            // Even if we have seen this callee before, and thus don't need
+-            // to recurse into it, we still need to propagate whether it reaches
+-            // the root so that we can mark all the involved callers, in case we
+-            // end up reaching that same recursive callee through some *other* cycle.
+-            c
++        let callee_reaches_root = if seen.contains_key(&callee) {
++            // Already visited: don't propagate whether it reaches the root.
++            false
+         } else {
+             seen.insert(callee, false);
+             let recursion = recursion_limiter.entry(callee.def_id()).or_default();

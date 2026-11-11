@@ -1,0 +1,46 @@
+diff --git a/compiler/rustc_ast_lowering/src/delegation/resolution.rs b/compiler/rustc_ast_lowering/src/delegation/resolution.rs
+index dd1b9518e6d7fffd6f47b266b16a8ab22a03e830..f2c9ca35f78af7a22c3bf3346f751a987fc5596f 100644
+--- a/compiler/rustc_ast_lowering/src/delegation/resolution.rs
++++ b/compiler/rustc_ast_lowering/src/delegation/resolution.rs
+@@ -119,7 +119,7 @@ pub(super) fn resolve_delegation(
+             .delegation_infos
+             .get(&def_id)
+             .map(|info| {
+-                info.resolution_id.and_then(|id| self.check_for_cycles(id, span).map(|_| id))
++                info.resolution_id.and_then(|id| self.check_for_cycles(id, span))
+             })
+             .unwrap_or_else(|| {
+                 Err(tcx.dcx().span_delayed_bug(
+@@ -163,7 +163,7 @@ pub(super) fn resolve_delegation(
+         Ok((res, self.resolve_and_generate_generics(delegation, sig_id)?))
+     }
+ 
+-    fn check_for_cycles(&self, mut def_id: DefId, span: Span) -> Result<(), ErrorGuaranteed> {
++    fn check_for_cycles(&self, mut def_id: DefId, span: Span) -> Result<DefId, ErrorGuaranteed> {
+         let tcx = self.tcx();
+         let mut visited: FxHashSet<DefId> = Default::default();
+ 
+@@ -185,7 +185,7 @@ fn check_for_cycles(&self, mut def_id: DefId, span: Span) -> Result<(), ErrorGua
+                     });
+                 }
+             } else {
+-                return Ok(());
++                return Ok(def_id);
+             }
+         }
+     }
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..79f4c32c28eb816ef46625c4d06dc2f6a947fa68 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -3710,9 +3710,7 @@ fn resolve_impl_item(
+                             |i, s, c| MethodNotMemberOfTrait(i, s, c),
+                         );
+ 
+-                        // Here we don't use `trait_id`, as we can process unresolved trait, however
+-                        // in this case we are still in a trait impl, https://github.com/rust-lang/rust/issues/150152
+-                        this.resolve_delegation(delegation, item.id, is_in_trait_impl);
++                        this.resolve_delegation(delegation, item.id, trait_id.is_some());
+                     },
+                 );
+             }

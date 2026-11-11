@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_mir_build/src/thir/cx/expr.rs b/compiler/rustc_mir_build/src/thir/cx/expr.rs
+index 3cade7d6a0a7ab8d3ba69908df70ca5e2b876e04..e9d31d4d60f17366f9d85da075c02e36caaccafc 100644
+--- a/compiler/rustc_mir_build/src/thir/cx/expr.rs
++++ b/compiler/rustc_mir_build/src/thir/cx/expr.rs
+@@ -356,14 +356,7 @@ fn mirror_expr_cast(
+                 .unwrap_or_else(|e| panic!("could not compute layout for {discr_ty:?}: {e:?}"))
+                 .size;
+ 
+-            let (lit, overflowing) = ScalarInt::truncate_from_uint(discr_offset as u128, size);
+-            if overflowing {
+-                // An erroneous enum with too many variants for its repr will emit E0081 and E0370
+-                self.tcx.dcx().span_delayed_bug(
+-                    source.span,
+-                    "overflowing enum wasn't rejected by hir analysis",
+-                );
+-            }
++            let lit = ScalarInt::try_from_uint(discr_offset as u128, size).unwrap();
+             let kind = ExprKind::NonHirLiteral { lit, user_ty: None };
+             let offset = self.thir.exprs.push(Expr { temp_scope_id, ty: discr_ty, span, kind });
+ 

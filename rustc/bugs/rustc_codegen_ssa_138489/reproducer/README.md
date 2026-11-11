@@ -1,0 +1,1 @@
+Compiles a function that passes a Copy array (still used afterwards) indirectly to a fn pointer; codegen copies it to a temporary alloca. The clean compiler brackets those temporaries with llvm.lifetime.start/end in the emitted LLVM IR (3 each); the injected compiler emits none (0). The script prints the counts.

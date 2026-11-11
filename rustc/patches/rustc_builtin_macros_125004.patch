@@ -1,0 +1,73 @@
+diff --git a/compiler/rustc_builtin_macros/src/format_foreign.rs b/compiler/rustc_builtin_macros/src/format_foreign.rs
+index cf563a53973ca6fadc6b51d21e2eee533bbf28a0..c44d2044feaab7ab539ee14ca045c4d9ab11ccbb 100644
+--- a/compiler/rustc_builtin_macros/src/format_foreign.rs
++++ b/compiler/rustc_builtin_macros/src/format_foreign.rs
+@@ -266,13 +266,13 @@ enum Num {
+     }
+ 
+     impl Num {
+-        fn from_str(s: &str, arg: Option<&str>) -> Option<Self> {
++        fn from_str(s: &str, arg: Option<&str>) -> Self {
+             if let Some(arg) = arg {
+-                arg.parse().ok().map(|arg| Num::Arg(arg))
++                Num::Arg(arg.parse().unwrap_or_else(|_| panic!("invalid format arg `{arg:?}`")))
+             } else if s == "*" {
+-                Some(Num::Next)
++                Num::Next
+             } else {
+-                s.parse().ok().map(|num| Num::Num(num))
++                Num::Num(s.parse().unwrap_or_else(|_| panic!("invalid format num `{s:?}`")))
+             }
+         }
+ 
+@@ -424,10 +424,7 @@ macro_rules! move_to {
+                             state = Prec;
+                             parameter = None;
+                             flags = "";
+-                            width = at.slice_between(end).and_then(|num| Num::from_str(num, None));
+-                            if width.is_none() {
+-                                return fallback();
+-                            }
++                            width = Some(Num::from_str(at.slice_between(end).unwrap(), None));
+                             move_to!(end);
+                         }
+                         // It's invalid, is what it is.
+@@ -458,10 +455,7 @@ macro_rules! move_to {
+                 '1'..='9' => {
+                     let end = at_next_cp_while(next, char::is_ascii_digit);
+                     state = Prec;
+-                    width = at.slice_between(end).and_then(|num| Num::from_str(num, None));
+-                    if width.is_none() {
+-                        return fallback();
+-                    }
++                    width = Some(Num::from_str(at.slice_between(end).unwrap(), None));
+                     move_to!(end);
+                 }
+                 _ => {
+@@ -477,7 +471,7 @@ macro_rules! move_to {
+             match end.next_cp() {
+                 Some(('$', end2)) => {
+                     state = Prec;
+-                    width = Num::from_str("", at.slice_between(end));
++                    width = Some(Num::from_str("", Some(at.slice_between(end).unwrap())));
+                     move_to!(end2);
+                 }
+                 _ => {
+@@ -509,7 +503,7 @@ macro_rules! move_to {
+                     match end.next_cp() {
+                         Some(('$', end2)) => {
+                             state = Length;
+-                            precision = Num::from_str("*", next.slice_between(end));
++                            precision = Some(Num::from_str("*", next.slice_between(end)));
+                             move_to!(end2);
+                         }
+                         _ => {
+@@ -522,7 +516,7 @@ macro_rules! move_to {
+                 '0'..='9' => {
+                     let end = at_next_cp_while(next, char::is_ascii_digit);
+                     state = Length;
+-                    precision = at.slice_between(end).and_then(|num| Num::from_str(num, None));
++                    precision = Some(Num::from_str(at.slice_between(end).unwrap(), None));
+                     move_to!(end);
+                 }
+                 _ => return fallback(),

@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_typeck/src/writeback.rs b/compiler/rustc_hir_typeck/src/writeback.rs
+index 7b1f38f882747159daf7219904ace29410bd6e44..df8993dfc568767152dbb3b69b925ddb27f05163 100644
+--- a/compiler/rustc_hir_typeck/src/writeback.rs
++++ b/compiler/rustc_hir_typeck/src/writeback.rs
+@@ -18,6 +18,7 @@
+ use rustc_hir::intravisit::{self, InferKind, Visitor};
+ use rustc_hir::{self as hir, AmbigArg, HirId, find_attr};
+ use rustc_infer::traits::solve::Goal;
++use rustc_middle::span_bug;
+ use rustc_middle::traits::ObligationCause;
+ use rustc_middle::ty::adjustment::{Adjust, Adjustment, PointerCoercion};
+ use rustc_middle::ty::{
+@@ -797,7 +798,16 @@ fn visit_offset_of_container_types(&mut self) {
+             let hir_id = HirId { owner: common_hir_owner, local_id };
+             let indices = indices
+                 .iter()
+-                .map(|&(ty, variant, field)| (self.resolve(ty, &hir_id), variant, field))
++                .map(|&(ty, variant, field)| {
++                    if cfg!(debug_assertions) && ty.has_infer() {
++                        span_bug!(
++                            hir_id.to_span(self.fcx.tcx),
++                            "writeback: `{:?}` has inference variables",
++                            ty
++                        );
++                    };
++                    (ty, variant, field)
++                })
+                 .collect();
+             self.typeck_results.offset_of_data_mut().insert(hir_id, indices);
+         }

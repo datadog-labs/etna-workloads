@@ -1,0 +1,1 @@
+Compiles a crate incrementally, then recompiles with -Zunstable-options (which adds internal lints without changing the tracked command-line hash); with the bug, skippable_lints is reused from cache and the ICH verification fails with an ICE.

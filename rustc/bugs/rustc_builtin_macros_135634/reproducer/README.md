@@ -1,0 +1,1 @@
+Expands `#[derive(Clone, Copy)]` with `-Zunpretty=expanded`. On a correct compiler the generated `unsafe impl TrivialClone` carries `#[doc(hidden)]`; the injected bug drops that attribute, so TrivialClone would show up in rustdoc output.

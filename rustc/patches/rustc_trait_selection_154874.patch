@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/effects.rs b/compiler/rustc_trait_selection/src/traits/effects.rs
+index 127a46f60b3d95896697d1ddf3e5a670585a341b..b6870bb9e90beecbfba5269d0b193155ef86e5f3 100644
+--- a/compiler/rustc_trait_selection/src/traits/effects.rs
++++ b/compiler/rustc_trait_selection/src/traits/effects.rs
+@@ -559,7 +559,17 @@ fn evaluate_host_effect_for_fn_goal<'tcx>(
+         // but they don't really need to right now.
+         ty::CoroutineClosure(_, _) => return Err(EvaluationFailure::NoSolution),
+ 
+-        ty::Closure(def, args) => (def, ty::Binder::dummy(args)),
++        ty::Closure(def, args) => {
++            let sig =
++                args.as_closure().sig().no_bound_vars().ok_or(EvaluationFailure::NoSolution)?;
++            (
++                def,
++                ty::Binder::dummy(tcx.mk_args_from_iter(
++                    [ty::GenericArg::from(*sig.inputs().get(0).unwrap()), sig.output().into()]
++                        .into_iter(),
++                )),
++            )
++        }
+ 
+         // Everything else needs explicit impls or cannot have an impl
+         _ => return Err(EvaluationFailure::NoSolution),

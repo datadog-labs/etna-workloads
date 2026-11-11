@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..850d961dc7ef3bc213d863168d5167deeade473d 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -56,7 +56,7 @@
+ };
+ use rustc_middle::ty::error::TypeError;
+ use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitableExt, Unnormalized};
+-use rustc_span::{BytePos, DUMMY_SP, Span};
++use rustc_span::{BytePos, DUMMY_SP, DesugaringKind, Span};
+ use rustc_trait_selection::infer::InferCtxtExt as _;
+ use rustc_trait_selection::solve::inspect::{self, InferCtxtProofTreeExt, ProofTreeVisitor};
+ use rustc_trait_selection::solve::{Certainty, Goal, NoSolution};
+@@ -2015,9 +2015,10 @@ fn report_return_mismatched_types<'infcx>(
+                 // If the block is from an external macro or try (`?`) desugaring, then
+                 // do not suggest adding a semicolon, because there's nowhere to put it.
+                 // See issues #81943 and #87051.
+-                // Similarly, if the block is from a loop desugaring, then also do not
+-                // suggest adding a semicolon. See issue #150850.
+-                && cond_expr.span.desugaring_kind().is_none()
++                && matches!(
++                    cond_expr.span.desugaring_kind(),
++                    None | Some(DesugaringKind::WhileLoop)
++                )
+                 && !cond_expr.span.in_external_macro(fcx.tcx.sess.source_map())
+                 && !matches!(
+                     cond_expr.kind,

@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_lexer/src/lib.rs b/compiler/rustc_lexer/src/lib.rs
+index dc6e3b1f358dcc46ebad1e6c22cc1e07b3d74cba..6d9a033a9fcc2180e6d15f9d4f43b7e189358724 100644
+--- a/compiler/rustc_lexer/src/lib.rs
++++ b/compiler/rustc_lexer/src/lib.rs
+@@ -851,11 +851,12 @@ fn invalid_ident(&mut self) -> TokenKind {
+             const ZERO_WIDTH_JOINER: char = '\u{200d}';
+             is_id_continue(c) || (!c.is_ascii() && c.is_emoji_char()) || c == ZERO_WIDTH_JOINER
+         });
+-        // An invalid identifier followed by '#' or '"' or '\'' could be
+-        // interpreted as an invalid literal prefix. We don't bother doing that
+-        // because the treatment of invalid identifiers and invalid prefixes
+-        // would be the same.
+-        InvalidIdent
++        // Known prefixes must have been handled earlier. So if
++        // we see a prefix here, it is definitely an unknown prefix.
++        match self.first() {
++            '#' | '"' | '\'' => UnknownPrefix,
++            _ => InvalidIdent,
++        }
+     }
+ 
+     fn c_or_byte_string(

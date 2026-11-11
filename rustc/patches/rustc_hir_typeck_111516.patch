@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..125eb5d2f84a823ed546bc9806f35162eab1ab05 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -3603,6 +3603,20 @@ fn consider_suggesting_derives_for_ty(
+             | sym::Hash
+             | sym::Debug => true,
+             _ => false,
++        } && match trait_pred.trait_ref.args.as_slice() {
++            // Only suggest deriving if lhs == rhs...
++            [lhs, rhs] => {
++                if let Some(lhs) = lhs.as_type()
++                    && let Some(rhs) = rhs.as_type()
++                {
++                    self.can_eq(self.param_env, lhs, rhs)
++                } else {
++                    false
++                }
++            }
++            // Unary ops can always be derived
++            [_] => true,
++            _ => false,
+         };
+ 
+         if !can_derive {

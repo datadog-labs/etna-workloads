@@ -1,0 +1,1 @@
+With `#![deny(unused_parens)]`, `let _r = (&raw const x);` is accepted on a clean compiler (parens around `&raw` are deliberately not linted), but the injected compiler reports "unnecessary parentheses around assigned value" and fails to compile.

@@ -1,0 +1,60 @@
+error[E0308]: mismatched types
+  --> main.rs:13:12
+   |
+ 8 | impl<T: TryAdd> TryAdd for Option<T> {
+   |      - found this type parameter
+...
+13 |         Ok(self) //~ ERROR mismatched types
+   |         -- ^^^^ expected `Option<<T as TryAdd>::Output>`, found `Option<T>`
+   |         |
+   |         arguments to this enum variant are incorrect
+   |
+   = note: expected enum `Option<<T as TryAdd>::Output>`
+              found enum `Option<T>`
+help: the type constructed contains `Option<T>` due to the type of the argument passed
+  --> main.rs:13:9
+   |
+13 |         Ok(self) //~ ERROR mismatched types
+   |         ^^^----^
+   |            |
+   |            this argument influences the type of `Ok`
+note: tuple variant defined here
+  --> library/core/src/result.rs:562:4
+help: consider further restricting this bound
+   |
+ 8 | impl<T: TryAdd<Output = T>> TryAdd for Option<T> {
+   |               ++++++++++++
+
+error[E0308]: mismatched types
+  --> main.rs:26:12
+   |
+21 | impl<T: TryAdd<Error = X>> TryAdd for Other<T> {
+   |      - found this type parameter
+...
+26 |         Ok(self) //~ ERROR mismatched types
+   |         -- ^^^^ expected `Other<<T as TryAdd>::Output>`, found `Other<T>`
+   |         |
+   |         arguments to this enum variant are incorrect
+   |
+   = note: expected struct `Other<<T as TryAdd>::Output>`
+              found struct `Other<T>`
+help: the type constructed contains `Other<T>` due to the type of the argument passed
+  --> main.rs:26:9
+   |
+26 |         Ok(self) //~ ERROR mismatched types
+   |         ^^^----^
+   |            |
+   |            this argument influences the type of `Ok`
+note: tuple variant defined here
+  --> library/core/src/result.rs:562:4
+help: consider further restricting this bound
+   |
+21 | impl<T: TryAdd<Error = X, Output = T>> TryAdd for Other<T> {
+   |                         ++++++++++++
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0308`.
+rustc exit: 1
+
+[exit 0]

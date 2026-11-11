@@ -1,0 +1,1 @@
+Compiles a for loop over chars.by_ref() that also calls chars.next() in the body; the clean compiler adds a note and a 'while let' suggestion explaining the for loop advances the iterator, which the injected compiler omits.

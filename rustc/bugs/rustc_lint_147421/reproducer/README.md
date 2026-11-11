@@ -1,0 +1,1 @@
+Calling `.into_iter()` on an array produced by a macro (`dbg!`) inside a `for` loop triggers the array_into_iter lint. Without the upstream fix, the suggestion uses an empty span from the macro expansion, so the injected compiler panics (ICE, exit 101: "Span ... must not be empty and have no suggestion"), while the clean compiler just emits warnings and succeeds.

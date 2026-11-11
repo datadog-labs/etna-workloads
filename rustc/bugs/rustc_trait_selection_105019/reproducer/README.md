@@ -1,0 +1,1 @@
+Compiling a call `x.starts_with("hi".to_string() + " you")` fails with E0277 (String: Pattern). The "consider borrowing here" suggestion should wrap the binary expression in parentheses, `&("hi".to_string() + " you")`; the injected compiler omits the parentheses, suggesting `&"hi".to_string() + " you"`, which is wrong.

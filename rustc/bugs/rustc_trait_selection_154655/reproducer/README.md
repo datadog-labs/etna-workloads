@@ -1,0 +1,1 @@
+Compiling main.rs produces a mismatched-types error whose "consider further restricting this bound" suggestion should insert `, Error = E` inside `Deserializer<'de, ...>`; the injected compiler puts the suggestion at the wrong span, yielding `Deserializer<'de><Error = E>`.

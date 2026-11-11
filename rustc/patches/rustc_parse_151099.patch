@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_parse/src/parser/generics.rs b/compiler/rustc_parse/src/parser/generics.rs
+index ec9860c0f35bfb4892dd914733f6f9143d9131da..05a4b5dd61ed583e566f82331a3393f896968f01 100644
+--- a/compiler/rustc_parse/src/parser/generics.rs
++++ b/compiler/rustc_parse/src/parser/generics.rs
+@@ -109,31 +109,7 @@ pub(crate) fn parse_const_param(
+ 
+         self.expect_keyword(exp!(Const))?;
+         let ident = self.parse_ident()?;
+-        if let Err(mut err) = self.expect(exp!(Colon)) {
+-            return if self.token.kind == token::Comma || self.token.kind == token::Gt {
+-                // Recover parse from `<const N>` where the type is missing.
+-                let span = const_span.to(ident.span);
+-                err.span_suggestion_verbose(
+-                    ident.span.shrink_to_hi(),
+-                    "you likely meant to write the type of the const parameter here",
+-                    ": /* Type */".to_string(),
+-                    Applicability::HasPlaceholders,
+-                );
+-                let kind = TyKind::Err(err.emit());
+-                let ty = self.mk_ty(span, kind);
+-                Ok(GenericParam {
+-                    ident,
+-                    id: ast::DUMMY_NODE_ID,
+-                    attrs: preceding_attrs,
+-                    bounds: ThinVec::new(),
+-                    kind: GenericParamKind::Const { ty, span, default: None },
+-                    is_placeholder: false,
+-                    colon_span: None,
+-                })
+-            } else {
+-                Err(err)
+-            };
+-        }
++        self.expect(exp!(Colon))?;
+         let ty = self.parse_ty()?;
+ 
+         // Parse optional const generics default value.

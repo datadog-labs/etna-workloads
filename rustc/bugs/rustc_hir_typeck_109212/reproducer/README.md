@@ -1,0 +1,1 @@
+An unstable method `Foo::foo` in an auxiliary crate must not be suggested as a similar name for a call to `foo1`. The injected compiler wrongly prints "there is a method `foo` with a similar name"; the clean one only reports "method not found".

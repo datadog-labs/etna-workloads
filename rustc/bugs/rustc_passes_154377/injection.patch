@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..ee3808f9f054f4b744989f30037563f573047385 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -156,29 +156,21 @@ fn own_comes_from_allow_expect(&self, def_id: LocalDefId) -> ComesFromAllowExpec
+ 
+     fn check_def_id(&mut self, def_id: DefId) {
+         if let Some(def_id) = def_id.as_local() {
+-            let own_comes_from_allow_expect = self.own_comes_from_allow_expect(def_id);
+-
+             if should_explore(self.tcx, def_id) {
+                 self.worklist.push(WorkItem {
+                     id: def_id,
+-                    propagated: self.propagated_comes_from_allow_expect,
+-                    own: own_comes_from_allow_expect,
++                    propagated: ComesFromAllowExpect::No,
++                    own: ComesFromAllowExpect::No,
+                 });
+             }
+-
+-            if own_comes_from_allow_expect == ComesFromAllowExpect::No {
+-                self.live_symbols.insert(def_id);
+-            }
++            self.live_symbols.insert(def_id);
+         }
+     }
+ 
+     fn insert_def_id(&mut self, def_id: DefId) {
+         if let Some(def_id) = def_id.as_local() {
+             debug_assert!(!should_explore(self.tcx, def_id));
+-
+-            if self.own_comes_from_allow_expect(def_id) == ComesFromAllowExpect::No {
+-                self.live_symbols.insert(def_id);
+-            }
++            self.live_symbols.insert(def_id);
+         }
+     }
+ 

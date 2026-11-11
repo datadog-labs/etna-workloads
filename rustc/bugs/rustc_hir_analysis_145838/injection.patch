@@ -1,0 +1,51 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/region.rs b/compiler/rustc_hir_analysis/src/check/region.rs
+index e60318756d5c79157dfe6a9420dbe6f00bfe1f8c..2f90f7348fef374facd0f5c79a4f7ccbca6f6626 100644
+--- a/compiler/rustc_hir_analysis/src/check/region.rs
++++ b/compiler/rustc_hir_analysis/src/check/region.rs
+@@ -467,12 +467,8 @@ fn resolve_local<'tcx>(
+     // A, but the inner rvalues `a()` and `b()` have an extended lifetime
+     // due to rule C.
+ 
+-    let extend_initializer = match let_kind {
+-        LetKind::Regular => true,
+-        LetKind::Super
+-            if let Some(scope) =
+-                visitor.extended_super_lets.remove(&pat.unwrap().hir_id.local_id) =>
+-        {
++    if let_kind == LetKind::Super {
++        if let Some(scope) = visitor.extended_super_lets.remove(&pat.unwrap().hir_id.local_id) {
+             // This expression was lifetime-extended by a parent let binding. E.g.
+             //
+             //     let a = {
+@@ -485,10 +481,7 @@ fn resolve_local<'tcx>(
+             // Processing of `let a` will have already decided to extend the lifetime of this
+             // `super let` to its own var_scope. We use that scope.
+             visitor.cx.var_parent = scope;
+-            // Extend temporaries to live in the same scope as the parent `let`'s bindings.
+-            true
+-        }
+-        LetKind::Super => {
++        } else {
+             // This `super let` is not subject to lifetime extension from a parent let binding. E.g.
+             //
+             //     identity({ super let x = temp(); &x }).method();
+@@ -501,17 +494,10 @@ fn resolve_local<'tcx>(
+                 visitor.cx.var_parent =
+                     Some(visitor.scope_tree.default_temporary_scope(inner_scope).0)
+             }
+-            // Don't lifetime-extend child `super let`s or block tail expressions' temporaries in
+-            // the initializer when this `super let` is not itself extended by a parent `let`
+-            // (#145784). Block tail expressions are temporary drop scopes in Editions 2024 and
+-            // later, their temps shouldn't outlive the block in e.g. `f(pin!({ &temp() }))`.
+-            false
+         }
+-    };
++    }
+ 
+-    if let Some(expr) = init
+-        && extend_initializer
+-    {
++    if let Some(expr) = init {
+         record_rvalue_scope_if_borrow_expr(visitor, expr, visitor.cx.var_parent);
+ 
+         if let Some(pat) = pat {

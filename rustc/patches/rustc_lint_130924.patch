@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_lint/src/foreign_modules.rs b/compiler/rustc_lint/src/foreign_modules.rs
+index 144eb7c87327de39622fa74b07fefedc548e3f92..59dd9f68095fc1ea798652817423c2d2447002ef 100644
+--- a/compiler/rustc_lint/src/foreign_modules.rs
++++ b/compiler/rustc_lint/src/foreign_modules.rs
+@@ -271,7 +271,7 @@ fn structurally_same_type_impl<'tcx>(
+             |ty: Ty<'tcx>| ty.is_primitive() || matches!(ty.kind(), ty::RawPtr(..) | ty::Ref(..));
+ 
+         match (a.kind(), b.kind()) {
+-            (&ty::Adt(a_def, a_gen_args), &ty::Adt(b_def, b_gen_args)) => {
++            (&ty::Adt(a_def, _), &ty::Adt(b_def, _)) => {
+                 // Only `repr(C)` types can be compared structurally.
+                 if !(a_def.repr().c() && b_def.repr().c()) {
+                     return false;
+@@ -295,8 +295,8 @@ fn structurally_same_type_impl<'tcx>(
+                             seen_types,
+                             tcx,
+                             typing_env,
+-                            tcx.type_of(a_did).instantiate(tcx, a_gen_args).skip_norm_wip(),
+-                            tcx.type_of(b_did).instantiate(tcx, b_gen_args).skip_norm_wip(),
++                            tcx.type_of(a_did).instantiate_identity().skip_norm_wip(),
++                            tcx.type_of(b_did).instantiate_identity().skip_norm_wip(),
+                         )
+                     },
+                 )

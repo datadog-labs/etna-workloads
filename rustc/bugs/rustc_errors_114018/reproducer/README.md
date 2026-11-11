@@ -1,0 +1,1 @@
+With the human emitter, a diagnostic spanning two files (primary in main.rs, secondary note in other.rs) should label the second snippet with other.rs; the injected compiler labels it with the primary file name.

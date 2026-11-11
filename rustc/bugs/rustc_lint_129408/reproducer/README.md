@@ -1,0 +1,1 @@
+One-paragraph: a macro-expanded drop($e) of a Copy value triggers dropping_copy_types; the injected compiler builds a suggestion with spans from the macro context and ICEs (status 101, panic 'Span must not be empty'), while the clean compiler emits a normal lint error (status 1).

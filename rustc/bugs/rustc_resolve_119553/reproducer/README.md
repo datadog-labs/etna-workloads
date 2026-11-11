@@ -1,0 +1,1 @@
+Private trait from an extern crate implemented with a nonexistent method; fixed compiler reports ordinary errors (exit 1), injected one ICEs in rustc_resolve (expect_local on non-local DefId, exit 101).

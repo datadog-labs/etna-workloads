@@ -1,0 +1,1 @@
+Compiles a crate twice with the same incremental dir; the second run changes only `#[define_opaque(...)]` on `a`. A correct compiler hashes define_opaque and reports "item does not constrain Foo::{opaque#0}" on the second run; the injected one reuses stale results and compiles successfully.

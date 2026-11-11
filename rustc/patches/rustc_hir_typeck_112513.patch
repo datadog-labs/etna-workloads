@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..c73afa4858c5bd67226583a7e5679570492dacb8 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -1841,7 +1841,12 @@ pub(crate) fn coerce_inner<'a>(
+                         let then_span = fcx.find_block_span_from_hir_id(then_expr.hir_id);
+                         let else_span = fcx.find_block_span_from_hir_id(else_expr.hir_id);
+                         // Don't suggest wrapping whole block in `Box::new`.
+-                        if then_span != then_expr.span && else_span != else_expr.span {
++                        let is_empty_block = |e: &hir::Expr<'_>| {
++                            matches!(e.kind, hir::ExprKind::Block(b, _) if b.expr.is_none() && b.stmts.is_empty())
++                        };
++                        if (then_span != then_expr.span || is_empty_block(then_expr))
++                            && (else_span != else_expr.span || is_empty_block(else_expr))
++                        {
+                             let then_ty = fcx.typeck_results.borrow().expr_ty(then_expr);
+                             let else_ty = fcx.typeck_results.borrow().expr_ty(else_expr);
+                             self.suggest_boxing_tail_for_return_position_impl_trait(

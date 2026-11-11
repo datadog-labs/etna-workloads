@@ -1,0 +1,78 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr_use_visitor.rs b/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
+index b2255c8d9679a6742227268590fc8476f09f50d4..a74e3d2f5f2fad4f03b61e34d074cffda106bb21 100644
+--- a/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
++++ b/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
+@@ -904,72 +904,7 @@ fn walk_pat(
+                     // even in an irrefutable pattern.
+                     read_discriminant();
+                 }
+-                PatKind::Expr(PatExpr { kind: PatExprKind::Path(qpath), hir_id, span }) => {
+-                    // A `Path` pattern is just a name like `Foo`. This is either a
+-                    // named constant or else it refers to an ADT variant
+-
+-                    let res = self.cx.typeck_results().qpath_res(qpath, *hir_id);
+-                    match res {
+-                        Res::Def(DefKind::Const { .. }, _)
+-                        | Res::Def(DefKind::AssocConst { .. }, _) => {
+-                            // Named constants have to be equated with the value
+-                            // being matched, so that's a read of the value being matched.
+-                            //
+-                            // FIXME: Does the MIR code skip this read when matching on a ZST?
+-                            // If so, we can also skip it here.
+-                            read_discriminant();
+-                        }
+-                        _ => {
+-                            // Otherwise, this is a struct/enum variant, and so it's
+-                            // only a read if we need to read the discriminant.
+-                            if self.is_multivariant_adt(place.place.ty(), *span) {
+-                                read_discriminant();
+-                            }
+-                        }
+-                    }
+-                }
+-                PatKind::Expr(_) | PatKind::Range(..) => {
+-                    // When matching against a literal or range, we need to
+-                    // borrow the place to compare it against the pattern.
+-                    //
+-                    // Note that we do this read even if the range matches all
+-                    // possible values, such as 0..=u8::MAX. This is because
+-                    // we don't want to depend on consteval here.
+-                    //
+-                    // FIXME: What if the type being matched only has one
+-                    // possible value?
+-                    read_discriminant();
+-                }
+-                PatKind::Struct(..) | PatKind::TupleStruct(..) => {
+-                    if self.is_multivariant_adt(place.place.ty(), pat.span) {
+-                        read_discriminant();
+-                    }
+-                }
+-                PatKind::Slice(lhs, wild, rhs) => {
+-                    // We don't need to test the length if the pattern is `[..]`
+-                    if matches!((lhs, wild, rhs), (&[], Some(_), &[]))
+-                        // Arrays have a statically known size, so
+-                        // there is no need to read their length
+-                        || place.place.ty().peel_refs().is_array()
+-                    {
+-                        // No read necessary
+-                    } else {
+-                        read_discriminant();
+-                    }
+-                }
+-                PatKind::Or(_)
+-                | PatKind::Box(_)
+-                | PatKind::Ref(..)
+-                | PatKind::Guard(..)
+-                | PatKind::Tuple(..)
+-                | PatKind::Wild
+-                | PatKind::Missing
+-                | PatKind::Err(_) => {
+-                    // If the PatKind is Or, Box, Ref, Guard, or Tuple, the relevant accesses
+-                    // are made later as these patterns contains subpatterns.
+-                    // If the PatKind is Missing, Wild or Err, any relevant accesses are made when processing
+-                    // the other patterns that are part of the match
+-                }
++                _ => {}
+             }
+ 
+             Ok(())

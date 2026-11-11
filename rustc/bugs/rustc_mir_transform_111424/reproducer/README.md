@@ -1,0 +1,1 @@
+Compiles a function that passes an unsized argument (`callee(*x)` with `x: Box<[i32]>`, `#[inline(always)]` callee) and dumps MIR after the Inline pass. The clean compiler refuses to inline calls with unsized arguments; the injected one inlines, creating an unsized local `[i32]` and an `(inlined callee)` scope, which the script counts.

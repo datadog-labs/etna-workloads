@@ -1,0 +1,1 @@
+main returns a type whose Termination impl requires `for<'a> &'a (): IsStatic`, which only holds for 'static. The clean compiler reports "implementation of `IsStatic` is not general enough" (exit 1); the injected one skips region resolution of the main return type check and accepts the program (exit 0).

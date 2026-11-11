@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_mir_build/src/builder/scope.rs b/compiler/rustc_mir_build/src/builder/scope.rs
+index a5707e0177c63a2ef05d8ab0aa5600a313074026..3aa8cae118a80492968a1d33c0f9c82cf38452d0 100644
+--- a/compiler/rustc_mir_build/src/builder/scope.rs
++++ b/compiler/rustc_mir_build/src/builder/scope.rs
+@@ -1107,10 +1107,6 @@ pub(crate) fn break_for_tail_call(
+                     let local =
+                         place.as_local().unwrap_or_else(|| bug!("projection in tail call args"));
+ 
+-                    if !self.local_decls[local].ty.needs_drop(self.tcx, self.typing_env()) {
+-                        return None;
+-                    }
+-
+                     Some(DropData { source_info, local, kind: DropKind::Value })
+                 }
+                 Operand::Constant(_) | Operand::RuntimeChecks(_) => None,
+@@ -1121,7 +1117,6 @@ pub(crate) fn break_for_tail_call(
+             self.scopes.scopes.iter().rev().nth(1).unwrap().region_scope,
+             DUMMY_SP,
+         );
+-        let typing_env = self.typing_env();
+         let unwind_drops = &mut self.scopes.unwind_drops;
+ 
+         // the innermost scope contains only the destructors for the tail call arguments
+@@ -1132,10 +1127,6 @@ pub(crate) fn break_for_tail_call(
+                 let source_info = drop_data.source_info;
+                 let local = drop_data.local;
+ 
+-                if !self.local_decls[local].ty.needs_drop(self.tcx, typing_env) {
+-                    continue;
+-                }
+-
+                 match drop_data.kind {
+                     DropKind::Value => {
+                         // `unwind_to` should drop the value that we're about to

@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_expand/src/proc_macro_server.rs b/compiler/rustc_expand/src/proc_macro_server.rs
+index 7b52a5600ae2aa77bba58d997e43c9aa5995188d..1bbbfa382125a7dbafdaafe75ca6f79b1e3b1667 100644
+--- a/compiler/rustc_expand/src/proc_macro_server.rs
++++ b/compiler/rustc_expand/src/proc_macro_server.rs
+@@ -492,11 +492,9 @@ fn track_path(&mut self, path: &str) {
+     fn literal_from_str(&mut self, s: &str) -> Result<Literal<Self::Span, Self::Symbol>, String> {
+         let name = FileName::proc_macro_source_code(s);
+ 
+-        let mut parser = rustc_errors::catch_fatal_errors(|| {
++        let mut parser =
+             new_parser_from_source_str(self.psess(), name, s.to_owned(), StripTokens::Nothing)
+-        })
+-        .map_err(|_| String::from("failed to parse to literal"))?
+-        .map_err(cancel_diags_into_string)?;
++                .map_err(cancel_diags_into_string)?;
+ 
+         let first_span = parser.token.span.data();
+         let minus_present = parser.eat(exp!(Minus));
+@@ -573,15 +571,12 @@ fn ts_is_empty(&mut self, stream: &Self::TokenStream) -> bool {
+     }
+ 
+     fn ts_from_str(&mut self, src: &str) -> Result<Self::TokenStream, String> {
+-        rustc_errors::catch_fatal_errors(|| {
+-            source_str_to_stream(
+-                self.psess(),
+-                FileName::proc_macro_source_code(src),
+-                src.to_string(),
+-                Some(self.call_site),
+-            )
+-        })
+-        .map_err(|_| String::from("failed to parse to tokenstream"))?
++        source_str_to_stream(
++            self.psess(),
++            FileName::proc_macro_source_code(src),
++            src.to_string(),
++            Some(self.call_site),
++        )
+         .map_err(cancel_diags_into_string)
+     }
+ 

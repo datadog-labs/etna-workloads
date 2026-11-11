@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..28e10aef85beb5a7ac9129d88ce4893a6c8c4e0f 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -2598,7 +2598,7 @@ fn note_candidates_on_method_error(
+ 
+     /// Look at all the associated functions without receivers in the type's inherent impls
+     /// to look for builders that return `Self`, `Option<Self>` or `Result<Self, _>`.
+-    fn find_builder_fn(&self, err: &mut Diag<'_>, rcvr_ty: Ty<'tcx>, expr_id: hir::HirId) {
++    fn find_builder_fn(&self, err: &mut Diag<'_>, rcvr_ty: Ty<'tcx>, _expr_id: hir::HirId) {
+         let ty::Adt(adt_def, _) = rcvr_ty.kind() else {
+             return;
+         };
+@@ -2607,22 +2607,8 @@ fn find_builder_fn(&self, err: &mut Diag<'_>, rcvr_ty: Ty<'tcx>, expr_id: hir::H
+             .inherent_impls(adt_def.did())
+             .iter()
+             .flat_map(|&i| self.tcx.associated_items(i).in_definition_order())
+-            // Only assoc fn with no receivers and only if
+-            // they are resolvable
+-            .filter(|item| {
+-                matches!(item.kind, ty::AssocKind::Fn { has_self: false, .. })
+-                    && self
+-                        .probe_for_name(
+-                            Mode::Path,
+-                            item.ident(self.tcx),
+-                            None,
+-                            IsSuggestion(true),
+-                            rcvr_ty,
+-                            expr_id,
+-                            ProbeScope::TraitsInScope,
+-                        )
+-                        .is_ok()
+-            })
++            // Only assoc fn with no receivers.
++            .filter(|item| matches!(item.kind, ty::AssocKind::Fn { has_self: false, .. }))
+             .filter_map(|item| {
+                 // Only assoc fns that return `Self`, `Option<Self>` or `Result<Self, _>`.
+                 let ret_ty = self

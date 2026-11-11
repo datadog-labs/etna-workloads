@@ -1,0 +1,58 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..15571c61b91712091d1ddf641c80e508d7aeed88 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -3490,7 +3490,7 @@ pub(crate) fn note_unmet_impls_on_type(
+             .collect();
+ 
+         // Note for local items and foreign items respectively.
+-        let (mut local_preds, mut foreign_preds): (Vec<_>, Vec<_>) =
++        let (mut local_preds, foreign_preds): (Vec<_>, Vec<_>) =
+             preds.iter().partition(|&(_, pred)| {
+                 if let ty::Adt(def, _) = pred.self_ty().kind() {
+                     def.did().is_local()
+@@ -3523,7 +3523,7 @@ pub(crate) fn note_unmet_impls_on_type(
+                 );
+             }
+         }
+-        if local_spans.primary_span().is_some() {
++        if foreign_preds.is_empty() && local_spans.primary_span().is_some() {
+             let msg = if let [(_, local_pred)] = local_preds.as_slice() {
+                 format!(
+                     "an implementation of `{}` might be missing for `{}`",
+@@ -3542,35 +3542,6 @@ pub(crate) fn note_unmet_impls_on_type(
+             err.span_note(local_spans, msg);
+         }
+ 
+-        foreign_preds
+-            .sort_by_key(|(_, pred): &(_, ty::TraitPredicate<'_>)| pred.trait_ref.to_string());
+-
+-        for (_, pred) in &foreign_preds {
+-            let ty = pred.self_ty();
+-            let ty::Adt(def, _) = ty.kind() else { continue };
+-            let span = self.tcx.def_span(def.did());
+-            if span.is_dummy() {
+-                continue;
+-            }
+-            let mut mspan: MultiSpan = span.into();
+-            mspan.push_span_label(span, format!("`{ty}` is defined in another crate"));
+-            err.span_note(
+-                mspan,
+-                format!("`{ty}` does not implement `{}`", pred.trait_ref.print_trait_sugared()),
+-            );
+-
+-            foreign_preds.iter().find(|&(root_pred, pred)| {
+-                if let ty::PredicateKind::Clause(ty::ClauseKind::Trait(root_pred)) =
+-                    root_pred.kind().skip_binder()
+-                    && let Some(root_adt) = root_pred.self_ty().ty_adt_def()
+-                {
+-                    self.suggest_hashmap_on_unsatisfied_hashset_buildhasher(err, pred, root_adt)
+-                } else {
+-                    false
+-                }
+-            });
+-        }
+-
+         let preds: Vec<_> = errors
+             .iter()
+             .map(|e| (e.obligation.predicate, None, Some(e.obligation.cause.clone())))

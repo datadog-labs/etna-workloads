@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..5c0421839bcaa582ee69c56b14782eb8dfdadba5 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -1437,7 +1437,6 @@ fn suggest_ident_hidden_by_hygiene(&self, err: &mut Diag<'_>, path: &[Segment],
+         let callsite_span = span.source_callsite();
+         for rib in self.ribs[ValueNS].iter().rev() {
+             for (binding_ident, _) in &rib.bindings {
+-                // Case 1: the identifier is defined in the same scope as the macro is called
+                 if binding_ident.name == ident.name
+                     && !binding_ident.span.eq_ctxt(span)
+                     && !binding_ident.span.from_expansion()
+@@ -1449,19 +1448,6 @@ fn suggest_ident_hidden_by_hygiene(&self, err: &mut Diag<'_>, path: &[Segment],
+                     );
+                     return;
+                 }
+-
+-                // Case 2: the identifier is defined in a macro call in the same scope
+-                if binding_ident.name == ident.name
+-                    && binding_ident.span.from_expansion()
+-                    && binding_ident.span.source_callsite().eq_ctxt(callsite_span)
+-                    && binding_ident.span.source_callsite().lo() < callsite_span.lo()
+-                {
+-                    err.span_help(
+-                        binding_ident.span,
+-                        "an identifier with the same name is defined here, but is not accessible due to macro hygiene",
+-                    );
+-                    return;
+-                }
+             }
+         }
+     }

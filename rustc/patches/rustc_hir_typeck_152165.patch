@@ -1,0 +1,94 @@
+diff --git a/compiler/rustc_hir_typeck/src/upvar.rs b/compiler/rustc_hir_typeck/src/upvar.rs
+index 91771fb37d18a6b0ab3d46e235faab97ccb3e97a..8f469e95b26742cfe5a1328f49bacf3034e0c080 100644
+--- a/compiler/rustc_hir_typeck/src/upvar.rs
++++ b/compiler/rustc_hir_typeck/src/upvar.rs
+@@ -50,6 +50,7 @@
+ use rustc_middle::{bug, span_bug};
+ use rustc_session::lint;
+ use rustc_span::{BytePos, Pos, Span, Symbol, sym};
++use rustc_trait_selection::traits::ObligationCtxt;
+ use rustc_trait_selection::infer::InferCtxtExt;
+ use tracing::{debug, instrument};
+ 
+@@ -385,7 +386,7 @@ fn analyze_closure(
+                     // the projections.
+                     origin.1.projections.clear()
+                 }
+-
++                self.try_structurally_resolve_place_ty(origin.0, &mut origin.1);
+                 self.typeck_results
+                     .borrow_mut()
+                     .closure_kind_origins_mut()
+@@ -805,6 +806,7 @@ fn compute_min_captures(
+             typeck_results.closure_min_captures.remove(&closure_def_id).unwrap_or_default();
+ 
+         for (mut place, capture_info) in capture_information.into_iter() {
++            let span = capture_info.path_expr_id.map_or(closure_span, |e| self.tcx.hir_span(e));
+             let var_hir_id = match place.base {
+                 PlaceBase::Upvar(upvar_id) => upvar_id.var_path.hir_id,
+                 base => bug!("Expected upvar, found={:?}", base),
+@@ -1821,7 +1823,27 @@ fn place_for_root_variable(
+ 
+         // Normalize eagerly when inserting into `capture_information`, so all downstream
+         // capture analysis can assume a normalized `Place`.
+-        self.normalize(self.tcx.hir_span(var_hir_id), Unnormalized::new_wip(place))
++        place
++    }
++
++    pub(crate) fn try_structurally_resolve_place_ty(&self, span: Span, place: &mut Place<'tcx>) {
++        let cause = self.misc(span);
++        let ocx = ObligationCtxt::new_with_diagnostics(&self.infcx);
++        let deeply_normalize = |ty| {
++            let ty = self.resolve_vars_if_possible(ty);
++            match ocx.deeply_normalize(&cause, self.param_env, Unnormalized::new_wip(ty)) {
++                Ok(ty) => ty,
++                Err(errors) => {
++                    let guar = self.err_ctxt().report_fulfillment_errors(errors);
++                    Ty::new_error(self.tcx, guar)
++                }
++            }
++        };
++
++        place.base_ty = deeply_normalize(place.base_ty);
++        for proj in &mut place.projections {
++            proj.ty = deeply_normalize(proj.ty);
++        }
+     }
+ 
+     fn should_log_capture_analysis(&self, closure_def_id: LocalDefId) -> bool {
+@@ -2127,7 +2149,7 @@ fn fake_read(
+         let dummy_capture_kind = ty::UpvarCapture::ByRef(ty::BorrowKind::Immutable);
+ 
+         let span = self.fcx.tcx.hir_span(diag_expr_id);
+-        let place = self.fcx.normalize(span, Unnormalized::new_wip(place_with_id.place.clone()));
++        let place = place_with_id.place.clone();
+ 
+         let (place, _) = restrict_capture_precision(place, dummy_capture_kind);
+ 
+@@ -2141,7 +2163,7 @@ fn consume(&mut self, place_with_id: &PlaceWithHirId<'tcx>, diag_expr_id: HirId)
+         assert_eq!(self.closure_def_id, upvar_id.closure_expr_id);
+ 
+         let span = self.fcx.tcx.hir_span(diag_expr_id);
+-        let place = self.fcx.normalize(span, Unnormalized::new_wip(place_with_id.place.clone()));
++        let place = place_with_id.place.clone();
+ 
+         self.capture_information.push((
+             place,
+@@ -2159,7 +2181,7 @@ fn use_cloned(&mut self, place_with_id: &PlaceWithHirId<'tcx>, diag_expr_id: Hir
+         assert_eq!(self.closure_def_id, upvar_id.closure_expr_id);
+ 
+         let span = self.fcx.tcx.hir_span(diag_expr_id);
+-        let place = self.fcx.normalize(span, Unnormalized::new_wip(place_with_id.place.clone()));
++        let place = place_with_id.place.clone();
+ 
+         self.capture_information.push((
+             place,
+@@ -2185,7 +2207,7 @@ fn borrow(
+         let capture_kind = ty::UpvarCapture::ByRef(bk);
+ 
+         let span = self.fcx.tcx.hir_span(diag_expr_id);
+-        let place = self.fcx.normalize(span, Unnormalized::new_wip(place_with_id.place.clone()));
++        let place = place_with_id.place.clone();
+ 
+         // We only want repr packed restriction to be applied to reading references into a packed
+         // struct, and not when the data is being moved. Therefore we call this method here instead

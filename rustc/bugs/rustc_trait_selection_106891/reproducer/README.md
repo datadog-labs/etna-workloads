@@ -1,0 +1,1 @@
+Closure with |x: i32| passed to find (expects &i32): on the clean compiler the diagnostic suggests borrowing the argument (&i32) because {integer} infers equal to i32; the injected compiler uses structural equality and omits the suggestion.

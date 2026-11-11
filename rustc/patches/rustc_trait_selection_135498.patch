@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_trait_selection/src/solve/select.rs b/compiler/rustc_trait_selection/src/solve/select.rs
+index b413b8b5ed9c77eb4f8d0f0f6a02b8ee50e86f9e..ed9862b0642fb8cb24c50abf1d28aef1df7da0d6 100644
+--- a/compiler/rustc_trait_selection/src/solve/select.rs
++++ b/compiler/rustc_trait_selection/src/solve/select.rs
+@@ -119,10 +119,6 @@ fn candidate_should_be_dropped_in_favor_of<'tcx>(
+             CandidateSource::BuiltinImpl(BuiltinImplSource::Object(a)),
+             CandidateSource::BuiltinImpl(BuiltinImplSource::Object(b)),
+         ) => a >= b,
+-        (
+-            CandidateSource::BuiltinImpl(BuiltinImplSource::TraitUpcasting(a)),
+-            CandidateSource::BuiltinImpl(BuiltinImplSource::TraitUpcasting(b)),
+-        ) => a >= b,
+         // Prefer dyn candidates over non-dyn candidates. This is necessary to
+         // handle the unsoundness between `impl<T: ?Sized> Any for T` and `dyn Any: Any`.
+         (
+diff --git a/compiler/rustc_trait_selection/src/traits/select/mod.rs b/compiler/rustc_trait_selection/src/traits/select/mod.rs
+index 9b4ee13bf1b63c92e6cf7702652c183595192e54..8869c02dc652aa87a4228d3032c1608db6b0734b 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/mod.rs
+@@ -1993,19 +1993,6 @@ fn winnow_candidates(
+             Some(None) => {}
+             None => return None,
+         }
+-        // Same for upcasting.
+-        let upcast_bound = candidates
+-            .iter()
+-            .filter_map(|c| {
+-                if let TraitUpcastingUnsizeCandidate(i) = c.candidate { Some(i) } else { None }
+-            })
+-            .try_reduce(|c1, c2| if has_non_region_infer { None } else { Some(c1.min(c2)) });
+-        match upcast_bound {
+-            Some(Some(index)) => return Some(TraitUpcastingUnsizeCandidate(index)),
+-            Some(None) => {}
+-            None => return None,
+-        }
+-
+         // Finally, handle overlapping user-written impls.
+         let impls = candidates.iter().filter_map(|c| {
+             if let ImplCandidate(def_id) = c.candidate {

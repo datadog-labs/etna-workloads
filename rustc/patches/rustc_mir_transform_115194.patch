@@ -1,0 +1,16 @@
+diff --git a/compiler/rustc_mir_transform/src/inline.rs b/compiler/rustc_mir_transform/src/inline.rs
+index 47df95a37a60fd73e48eb113557bed576796a3ff..aa47aeb15943e20846b063a4611e6c2e0aa55e0e 100644
+--- a/compiler/rustc_mir_transform/src/inline.rs
++++ b/compiler/rustc_mir_transform/src/inline.rs
+@@ -820,7 +820,10 @@ fn check_codegen_attributes<'tcx, I: Inliner<'tcx>>(
+     // Reachability pass defines which functions are eligible for inlining. Generally inlining
+     // other functions is incorrect because they could reference symbols that aren't exported.
+     let is_generic = callsite.callee.args.non_erasable_generics().next().is_some();
+-    if !is_generic && !tcx.cross_crate_inlinable(callsite.callee.def_id()) {
++    if callsite.callee.def_id().is_local()
++        && !is_generic
++        && !tcx.cross_crate_inlinable(callsite.callee.def_id())
++    {
+         return Err("not exported");
+     }
+ 

@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_mir_build/src/thir/pattern/const_to_pat.rs b/compiler/rustc_mir_build/src/thir/pattern/const_to_pat.rs
+index 0230840ef2fb8b19a09cc88bb5b721e33a102620..1d90bcae6f62e63116bafb0ee6c39de3c74db076 100644
+--- a/compiler/rustc_mir_build/src/thir/pattern/const_to_pat.rs
++++ b/compiler/rustc_mir_build/src/thir/pattern/const_to_pat.rs
+@@ -27,7 +27,7 @@
+ 
+ use super::PatCtxt;
+ use crate::diagnostics::{
+-    ConstPatternDependsOnGenericParameter, CouldNotEvalConstPattern, InvalidPattern, NaNPattern,
++    ConstPatternDependsOnGenericParameter, CouldNotEvalConstPattern, InvalidPattern,
+     PointerPattern, SuggestEq, TypeNotPartialEq, TypeNotStructural, UnionPattern, UnsizedPattern,
+ };
+ 
+@@ -438,22 +438,7 @@ fn valtree_to_pat(&self, value: ty::Value<'tcx>) -> Box<Pat<'tcx>> {
+                     );
+                 }
+             }
+-            ty::Float(flt) => {
+-                let v = valtree.to_leaf();
+-                let is_nan = match flt {
+-                    ty::FloatTy::F16 => v.to_f16().is_nan(),
+-                    ty::FloatTy::F32 => v.to_f32().is_nan(),
+-                    ty::FloatTy::F64 => v.to_f64().is_nan(),
+-                    ty::FloatTy::F128 => v.to_f128().is_nan(),
+-                };
+-                if is_nan {
+-                    // NaNs are not ever equal to anything so they make no sense as patterns.
+-                    // Also see <https://github.com/rust-lang/rfcs/pull/3535>.
+-                    return self.mk_err(tcx.dcx().create_err(NaNPattern { span }), ty);
+-                } else {
+-                    PatKind::Constant { value }
+-                }
+-            }
++            ty::Float(_) => PatKind::Constant { value },
+             ty::Pat(..) | ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::RawPtr(..) => {
+                 // The raw pointers we see here have been "vetted" by valtree construction to be
+                 // just integers, so we simply allow them.

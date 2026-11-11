@@ -1,0 +1,95 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/mod.rs b/compiler/rustc_codegen_ssa/src/mir/mod.rs
+index f8f4f09f75825150835529f1686c78d38c4cac1d..6e6c4a486f0bc8aec516318e6bfb8b17f7ea4d10 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/mod.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/mod.rs
+@@ -148,12 +148,7 @@ enum LocalRef<'tcx, V> {
+     /// `UnsizedPlace(p)`: `p` itself is a thin pointer (indirect place).
+     /// `*p` is the wide pointer that references the actual unsized place.
+     ///
+-    /// MIR only supports unsized args, not dynamically-sized locals, so
+-    /// new unsized temps don't exist and we must reuse the referred-to place.
+-    ///
+-    /// FIXME: Since the removal of unsized locals in <https://github.com/rust-lang/rust/pull/142911>,
+-    /// can we maybe use `Place` here? Or refactor it in another way? There are quite a few
+-    /// `UnsizedPlace => bug` branches now.
++    /// Rust has no alloca and thus no ability to move the unsized place.
+     UnsizedPlace(PlaceRef<'tcx, V>),
+     /// The backend [`OperandValue`] has already been generated.
+     Operand(OperandRef<'tcx, V>),
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+index 9becad0db1ca2a5a96bfb3073e3c29a77b9590da..561ed8f3927b9e8bedf5c6163b8aaf93078cb49e 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+@@ -235,8 +235,6 @@ pub(in super::super) fn check_argument_types(
+                 arg_expr.span,
+                 ObligationCauseCode::WellFormed(None),
+             );
+-
+-            self.check_place_expr_if_unsized(fn_input_ty, arg_expr);
+         }
+ 
+         // First, let's unify the formal method signature with the expectation eagerly.
+@@ -842,21 +840,6 @@ fn check_tupled_arguments(
+         }
+     }
+ 
+-    /// If `unsized_fn_params` is active, check that unsized values are place expressions. Since
+-    /// the removal of `unsized_locals` in <https://github.com/rust-lang/rust/pull/142911> we can't
+-    /// store them in MIR locals as temporaries.
+-    ///
+-    /// If `unsized_fn_params` is inactive, this will be checked in borrowck instead.
+-    fn check_place_expr_if_unsized(&self, ty: Ty<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
+-        if self.tcx.features().unsized_fn_params() && !expr.is_syntactic_place_expr() {
+-            self.require_type_is_sized(
+-                ty,
+-                expr.span,
+-                ObligationCauseCode::UnsizedNonPlaceExpr(expr.span),
+-            );
+-        }
+-    }
+-
+     fn report_arg_errors(
+         &self,
+         compatibility_diagonal: IndexVec<ProvidedIdx, Compatibility<'tcx>>,
+@@ -1266,8 +1249,7 @@ fn check_stmt(&self, stmt: &'tcx hir::Stmt<'tcx>) {
+                 });
+             }
+             hir::StmtKind::Semi(expr) => {
+-                let ty = self.check_expr(expr);
+-                self.check_place_expr_if_unsized(ty, expr);
++                self.check_expr(expr);
+             }
+         }
+ 
+diff --git a/compiler/rustc_middle/src/traits/mod.rs b/compiler/rustc_middle/src/traits/mod.rs
+index b8cd0791a783e59ed6b7a7ecc2e0d876a002197c..13fd15c3404f5a871c68288c9817dfb3367a6604 100644
+--- a/compiler/rustc_middle/src/traits/mod.rs
++++ b/compiler/rustc_middle/src/traits/mod.rs
+@@ -418,10 +418,6 @@ pub enum ObligationCauseCode<'tcx> {
+     /// Obligations emitted during the normalization of a free type alias.
+     TypeAlias(ObligationCauseCodeHandle<'tcx>, Span, DefId),
+ 
+-    /// Only reachable if the `unsized_fn_params` feature is used. Unsized function arguments must
+-    /// be place expressions because we can't store them in MIR locals as temporaries.
+-    UnsizedNonPlaceExpr(Span),
+-
+     /// Error derived when checking an impl item is compatible with
+     /// its corresponding trait item's definition
+     CompareEii {
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..fabe0d97dde4a4c61e5fb2909ec8c45faa570e4b 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -4649,12 +4649,6 @@ pub(super) fn note_obligation_cause_code<G: EmissionGuarantee, T>(
+                 );
+                 suggest_remove_deref(err, &expr);
+             }
+-            ObligationCauseCode::UnsizedNonPlaceExpr(span) => {
+-                err.span_note(
+-                    span,
+-                    "unsized values must be place expressions and cannot be put in temporaries",
+-                );
+-            }
+             ObligationCauseCode::CompareEii { .. } => {
+                 panic!("trait bounds on EII not yet supported ")
+             }

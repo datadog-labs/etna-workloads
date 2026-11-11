@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_borrowck/src/type_check/mod.rs b/compiler/rustc_borrowck/src/type_check/mod.rs
+index 14b1c9b31ef9f6f769bc88a6fc3d10e035b43419..baf6a455af631f5a0615d84dd1d62be1c19798d0 100644
+--- a/compiler/rustc_borrowck/src/type_check/mod.rs
++++ b/compiler/rustc_borrowck/src/type_check/mod.rs
+@@ -1529,7 +1529,9 @@ fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
+                                         tcx.mk_poly_existential_predicates(
+                                             &src_tty.without_auto_traits().collect::<Vec<_>>(),
+                                         ),
+-                                        src_lt,
++                                        // FIXME: Once we disallow casting `*const dyn Trait + 'short`
++                                        // to `*const dyn Trait + 'long`, then this can just be `src_lt`.
++                                        dst_lt,
+                                     );
+                                     let dst_obj = Ty::new_dynamic(
+                                         tcx,
+@@ -1561,31 +1563,7 @@ fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
+                                     )
+                                     .unwrap();
+                                 }
+-                                (None, None) => {
+-                                    // `struct_tail` returns regions which haven't been mapped
+-                                    // to nll vars yet so we do it here as `outlives_constraints`
+-                                    // expects nll vars.
+-                                    let src_lt = self.universal_regions.to_region_vid(src_lt);
+-                                    let dst_lt = self.universal_regions.to_region_vid(dst_lt);
+-
+-                                    // The principalless (no non-auto traits) case:
+-                                    // You can only cast `dyn Send + 'long` to `dyn Send + 'short`.
+-                                    self.constraints.outlives_constraints.push(
+-                                        OutlivesConstraint {
+-                                            sup: src_lt,
+-                                            sub: dst_lt,
+-                                            locations: location.to_locations(),
+-                                            span: location.to_locations().span(self.body),
+-                                            category: ConstraintCategory::Cast {
+-                                                is_raw_ptr_dyn_type_cast: true,
+-                                                is_implicit_coercion: false,
+-                                                unsize_to: None,
+-                                            },
+-                                            variance_info: ty::VarianceDiagInfo::default(),
+-                                            from_closure: false,
+-                                        },
+-                                    );
+-                                }
++                                (None, None) => {}
+                                 (None, Some(_)) => bug!(
+                                     "introducing a principal should have errored in HIR typeck"
+                                 ),

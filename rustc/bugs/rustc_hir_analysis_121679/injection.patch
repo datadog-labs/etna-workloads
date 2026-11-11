@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 01df2e199a5ac723567e7ab4e8d477377218decb..f8ae3c8d656f39f6de676462730e785336ef198f 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -409,6 +409,11 @@ fn check_opaque_meets_bounds<'tcx>(
+     // This should only affect TAIT as this function is not soundness critical for RPITs.
+     //
+     // cc trait-system-refactor-initiative#159
++    if let hir::OpaqueTyOrigin::FnReturn { .. } | hir::OpaqueTyOrigin::AsyncFn { .. } = origin {
++        // Checked when type checking the function containing them.
++        let _ = infcx.take_opaque_types();
++        return Ok(());
++    }
+     let wf_tys = ocx.assumed_wf_types_and_report_errors(param_env, defining_use_anchor)?;
+     ocx.resolve_regions_and_report_errors(defining_use_anchor, param_env, wf_tys)?;
+ 
+diff --git a/compiler/rustc_infer/src/infer/opaque_types/mod.rs b/compiler/rustc_infer/src/infer/opaque_types/mod.rs
+index 08c7c49417124ce05f60360448bb45b16c1e5d8a..11cc598572f9e50601bbe6933e6b2d6cef61f3c1 100644
+--- a/compiler/rustc_infer/src/infer/opaque_types/mod.rs
++++ b/compiler/rustc_infer/src/infer/opaque_types/mod.rs
+@@ -314,7 +314,6 @@ pub fn add_item_bounds_for_hidden_type(
+         // type during MIR borrowck, causing us to infer the wrong
+         // lifetime for its member constraints which then results in
+         // unexpected region errors.
+-        goals.push(Goal::new(tcx, param_env, ty::ClauseKind::WellFormed(hidden_ty.into())));
+ 
+         let replace_opaques_in = |clause: ty::Clause<'tcx>, goals: &mut Vec<_>| {
+             clause.fold_with(&mut BottomUpFolder {

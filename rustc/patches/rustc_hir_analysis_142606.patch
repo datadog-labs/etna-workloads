@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/mod.rs b/compiler/rustc_hir_analysis/src/check/mod.rs
+index eac3762ef9af84e0e66bedcaf0675512ac6d0f41..41f7297f616673d8232611876d6b74b46639b149 100644
+--- a/compiler/rustc_hir_analysis/src/check/mod.rs
++++ b/compiler/rustc_hir_analysis/src/check/mod.rs
+@@ -126,15 +126,7 @@ pub(super) fn provide(providers: &mut Providers) {
+ }
+ 
+ fn adt_destructor(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<ty::Destructor> {
+-    let dtor = tcx.calculate_dtor(def_id, always_applicable::check_drop_impl);
+-    if dtor.is_none() && tcx.features().async_drop() {
+-        if let Some(async_dtor) = adt_async_destructor(tcx, def_id) {
+-            // When type has AsyncDrop impl, but doesn't have Drop impl, generate error
+-            let span = tcx.def_span(async_dtor.impl_did);
+-            tcx.dcx().emit_err(diagnostics::AsyncDropWithoutSyncDrop { span });
+-        }
+-    }
+-    dtor
++    tcx.calculate_dtor(def_id, always_applicable::check_drop_impl)
+ }
+ 
+ fn adt_async_destructor(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<ty::AsyncDestructor> {

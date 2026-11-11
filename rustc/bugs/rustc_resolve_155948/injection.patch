@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_resolve/src/build_reduced_graph.rs b/compiler/rustc_resolve/src/build_reduced_graph.rs
+index ad00003af9482da254039b361ac82dac0b003450..66b57b4be4041102c698b4a4ec17ad8f49b7d837 100644
+--- a/compiler/rustc_resolve/src/build_reduced_graph.rs
++++ b/compiler/rustc_resolve/src/build_reduced_graph.rs
+@@ -290,21 +290,16 @@ pub(crate) fn try_resolve_visibility(
+                 ) {
+                     PathResult::Module(ModuleOrUniformRoot::Module(module)) => {
+                         let res = module.res().expect("visibility resolved to unnamed block");
++                        if finalize {
++                            self.record_partial_res(id, PartialRes::new(res));
++                        }
+                         if module.is_normal() {
+                             match res {
+-                                Res::Err => {
+-                                    if finalize {
+-                                        self.record_partial_res(id, PartialRes::new(res));
+-                                    }
+-                                    Ok(Visibility::Public)
+-                                }
++                                Res::Err => Ok(Visibility::Public),
+                                 _ => {
+                                     let vis =
+                                         Visibility::Restricted(ModId::new_unchecked(res.def_id()));
+                                     if self.is_accessible_from(vis, parent_scope.module) {
+-                                        if finalize {
+-                                            self.record_partial_res(id, PartialRes::new(res));
+-                                        }
+                                         Ok(vis.expect_local())
+                                     } else {
+                                         Err(VisResolutionError::AncestorOnly(path.span))
+@@ -485,17 +480,10 @@ fn res(&self, def_id: impl Into<DefId>) -> Res {
+     }
+ 
+     fn resolve_visibility(&mut self, vis: &ast::Visibility) -> Visibility {
+-        match self.r.try_resolve_visibility(&self.parent_scope, vis, false) {
+-            Ok(vis) => vis,
+-            Err(error) => {
+-                self.r.delayed_vis_resolution_errors.push(DelayedVisResolutionError {
+-                    vis: vis.clone(),
+-                    parent_scope: self.parent_scope,
+-                    error,
+-                });
+-                Visibility::Public
+-            }
+-        }
++        self.r.try_resolve_visibility(&self.parent_scope, vis, true).unwrap_or_else(|err| {
++            self.r.report_vis_error(err);
++            Visibility::Public
++        })
+     }
+ 
+     fn insert_field_idents(&mut self, def_id: LocalDefId, fields: &[ast::FieldDef]) {

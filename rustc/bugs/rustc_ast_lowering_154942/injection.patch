@@ -1,0 +1,83 @@
+diff --git a/compiler/rustc_ast_lowering/src/delegation/mod.rs b/compiler/rustc_ast_lowering/src/delegation/mod.rs
+index 3b9074e67bdd27aa74c6caf251f6199ed3ace750..27af94d7f5b5249e78df1ef059f4c73a99ef5a4e 100644
+--- a/compiler/rustc_ast_lowering/src/delegation/mod.rs
++++ b/compiler/rustc_ast_lowering/src/delegation/mod.rs
+@@ -76,8 +76,9 @@ pub(crate) fn lower_delegation(&mut self, delegation: &Delegation) -> Delegation
+         let span = self.lower_span(delegation.last_segment_span());
+ 
+         let resolver = DelegationResolver::new(self);
+-        let Ok((res, mut generics)) = resolver.resolve_delegation(delegation, span) else {
+-            return self.generate_delegation_error(span, delegation);
++        let (res, mut generics) = match resolver.resolve_delegation(delegation, span) {
++            Ok(r) => r,
++            Err(err) => return self.generate_delegation_error(err, span, delegation),
+         };
+ 
+         self.add_attrs_if_needed(&res);
+@@ -528,6 +529,7 @@ fn process_segment(
+ 
+     fn generate_delegation_error(
+         &mut self,
++        err: rustc_span::ErrorGuaranteed,
+         span: Span,
+         delegation: &Delegation,
+     ) -> DelegationResults<'hir> {
+@@ -539,35 +541,31 @@ fn generate_delegation_error(
+         let ident = self.lower_ident(delegation.ident);
+ 
+         let body_id = self.lower_body(|this| {
+-            let path = this.lower_qpath(
+-                delegation.id,
+-                &delegation.qself,
+-                &delegation.path,
+-                ParamMode::Optional,
+-                AllowReturnTypeNotation::No,
+-                ImplTraitContext::Disallowed(ImplTraitPosition::Path),
+-                None,
+-            );
+-
+-            let callee_path = this.arena.alloc(this.mk_expr(hir::ExprKind::Path(path), span));
+-            let args = if let Some(block) = &delegation.body {
+-                this.arena.alloc_slice(&[this.lower_block_expr(block)])
+-            } else {
+-                &mut []
++            let body_expr = match &delegation.body {
++                Some(block) => {
++                    let stmts = this.arena.alloc_from_iter([hir::Stmt {
++                        hir_id: this.next_id(),
++                        kind: rustc_hir::StmtKind::Semi(
++                            this.arena.alloc(this.lower_block_expr(block)),
++                        ),
++                        span,
++                    }]);
++
++                    let block = this.arena.alloc(hir::Block {
++                        stmts,
++                        expr: None,
++                        hir_id: this.next_id(),
++                        rules: hir::BlockCheckMode::DefaultBlock,
++                        span,
++                        targeted_by_break: false,
++                    });
++
++                    hir::ExprKind::Block(block, None)
++                }
++                None => hir::ExprKind::Err(err),
+             };
+ 
+-            let call = this.arena.alloc(this.mk_expr(hir::ExprKind::Call(callee_path, args), span));
+-
+-            let block = this.arena.alloc(hir::Block {
+-                stmts: &[],
+-                expr: Some(call),
+-                hir_id: this.next_id(),
+-                rules: hir::BlockCheckMode::DefaultBlock,
+-                span,
+-                targeted_by_break: false,
+-            });
+-
+-            (&[], this.mk_expr(hir::ExprKind::Block(block, None), span))
++            (&[], this.mk_expr(body_expr, span))
+         });
+ 
+         let generics = hir::Generics::empty();

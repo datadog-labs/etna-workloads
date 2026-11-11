@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..ed91e1b56921da59244a9ef3010dbcb17d8fdcbb 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -5194,28 +5194,11 @@ fn resolve_expr(&mut self, expr: &'ast Expr, parent: Option<&'ast Expr>) {
+                 self.resolve_expr(e, Some(expr));
+             }
+ 
+-            ExprKind::Let(ref pat, ref scrutinee, _, Recovered::No) => {
++            ExprKind::Let(ref pat, ref scrutinee, _, _) => {
+                 self.visit_expr(scrutinee);
+                 self.resolve_pattern_top(pat, PatternSource::Let);
+             }
+ 
+-            ExprKind::Let(ref pat, ref scrutinee, _, Recovered::Yes(_)) => {
+-                self.visit_expr(scrutinee);
+-                // This is basically a tweaked, inlined `resolve_pattern_top`.
+-                let mut bindings = smallvec![(PatBoundCtx::Product, Default::default())];
+-                self.resolve_pattern(pat, PatternSource::Let, &mut bindings);
+-                // We still collect the bindings in this `let` expression which is in
+-                // an invalid position (and therefore shouldn't declare variables into
+-                // its parent scope). To avoid unnecessary errors though, we do just
+-                // reassign the resolutions to `Res::Err`.
+-                for (_, bindings) in &mut bindings {
+-                    for (_, binding) in bindings {
+-                        *binding = Res::Err;
+-                    }
+-                }
+-                self.apply_pattern_bindings(bindings);
+-            }
+-
+             ExprKind::If(ref cond, ref then, ref opt_else) => {
+                 self.with_rib(ValueNS, RibKind::Normal, |this| {
+                     let old = this.diag_metadata.in_if_condition.replace(cond);

@@ -1,0 +1,121 @@
+diff --git a/compiler/rustc_trait_selection/src/diagnostics.rs b/compiler/rustc_trait_selection/src/diagnostics.rs
+index 5588cf9054cf4bd4021d125c24f07d242c47bd9c..5bb683e2f1658ca24675e436d8d1414e2b1dafe1 100644
+--- a/compiler/rustc_trait_selection/src/diagnostics.rs
++++ b/compiler/rustc_trait_selection/src/diagnostics.rs
+@@ -1425,18 +1425,6 @@ pub(crate) enum ConsiderAddingAwait {
+         #[suggestion_part(code = ".await")]
+         spans: Vec<Span>,
+     },
+-    #[multipart_suggestion(
+-        "consider making the function `async` and `await`ing on the `Future`",
+-        style = "verbose",
+-        applicability = "maybe-incorrect"
+-    )]
+-    MakeFunctionAsync {
+-        #[suggestion_part(code = "{async_prefix}")]
+-        async_span: Span,
+-        async_prefix: String,
+-        #[suggestion_part(code = ".await")]
+-        await_span: Span,
+-    },
+ }
+ 
+ #[derive(Diagnostic)]
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs
+index db852701051cf7dcb4b719b95157cb31a2c6b5e3..5bd9a9c52de7f3164642d710ebe543f73dfaa31c 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs
+@@ -159,9 +159,8 @@ pub(super) fn suggest_tuple_pattern(
+     /// ```
+     ///
+     /// This routine checks if the found type `T` implements `Future<Output=U>` where `U` is the
+-    /// expected type. In an async body, it suggests adding `.await` to the expression. For a
+-    /// return expression in a synchronous function, it suggests making the function async and
+-    /// awaiting the expression together.
++    /// expected type. If this is the case, and we are inside of an async body, it suggests adding
++    /// `.await` to the tail of the expression.
+     pub(super) fn suggest_await_on_expect_found(
+         &self,
+         cause: &ObligationCause<'tcx>,
+@@ -179,14 +178,11 @@ pub(super) fn suggest_await_on_expect_found(
+                 hir::CoroutineDesugaring::Async | hir::CoroutineDesugaring::AsyncGen,
+                 _,
+             )) => (),
+-            Some(
++            None
++            | Some(
+                 hir::CoroutineKind::Coroutine(_)
+                 | hir::CoroutineKind::Desugared(hir::CoroutineDesugaring::Gen, _),
+             ) => return,
+-            None => {
+-                self.suggest_add_async_for_tail_return_expr(cause, exp_span, exp_found, diag);
+-                return;
+-            }
+         }
+ 
+         if let ObligationCauseCode::CompareImplItem { .. } = cause.code() {
+@@ -272,64 +268,6 @@ pub(super) fn suggest_await_on_expect_found(
+         }
+     }
+ 
+-    fn suggest_add_async_for_tail_return_expr(
+-        &self,
+-        cause: &ObligationCause<'tcx>,
+-        exp_span: Span,
+-        exp_found: &ty::error::ExpectedFound<Ty<'tcx>>,
+-        diag: &mut Diag<'_>,
+-    ) {
+-        let (ObligationCauseCode::BlockTailExpression(return_hir_id, ..)
+-        | ObligationCauseCode::ReturnValue(return_hir_id)) = cause.code()
+-        else {
+-            return;
+-        };
+-
+-        let body_def_id = cause.body_def_id;
+-        if !self.tcx.sess.at_least_rust_2018() || self.tcx.is_entrypoint(body_def_id.to_def_id()) {
+-            return;
+-        }
+-
+-        let node = self.tcx.hir_node_by_def_id(body_def_id);
+-        let (item_span, vis_span) = match node {
+-            Node::Item(item) if matches!(item.kind, hir::ItemKind::Fn { .. }) => {
+-                (item.span, item.vis_span)
+-            }
+-            Node::ImplItem(item) if matches!(item.kind, hir::ImplItemKind::Fn(..)) => {
+-                let Some(vis_span) = item.vis_span() else { return };
+-                (item.span, vis_span)
+-            }
+-            _ => return,
+-        };
+-        let Some(sig) = node.fn_sig() else {
+-            return;
+-        };
+-        if sig.header.asyncness.is_async()
+-            || sig.header.constness != hir::Constness::NotConst
+-            || item_span.from_expansion()
+-        {
+-            return;
+-        }
+-
+-        let (async_span, async_prefix) = if vis_span.is_empty() {
+-            (item_span.shrink_to_lo(), "async ".to_string())
+-        } else {
+-            (vis_span.shrink_to_hi(), " async".to_string())
+-        };
+-        let body_hir_id = self.tcx.local_def_id_to_hir_id(body_def_id);
+-        if self.tcx.hir_get_fn_id_for_return_block(*return_hir_id) == Some(body_hir_id)
+-            && let Some(found) = self.tcx.get_impl_future_output_ty(exp_found.found)
+-            && self.same_type_modulo_infer(exp_found.expected, found)
+-            && exp_span.can_be_used_for_suggestions()
+-        {
+-            diag.subdiagnostic(ConsiderAddingAwait::MakeFunctionAsync {
+-                async_span,
+-                async_prefix,
+-                await_span: exp_span.shrink_to_hi(),
+-            });
+-        }
+-    }
+-
+     pub(super) fn suggest_accessing_field_where_appropriate(
+         &self,
+         cause: &ObligationCause<'tcx>,

@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_borrowck/src/type_check/free_region_relations.rs b/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
+index 5309ea8cb81b5d21db0d30d23807fa548fbe96f7..5e65bee7723fee4bb34717d8ceebcb7bba7ddb49 100644
+--- a/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
++++ b/compiler/rustc_borrowck/src/type_check/free_region_relations.rs
+@@ -102,7 +102,20 @@ pub(crate) fn non_local_upper_bounds(&self, fr: RegionVid) -> Vec<RegionVid> {
+     /// (*) If there are multiple competing choices, we return all of them.
+     pub(crate) fn non_local_lower_bounds(&self, fr: RegionVid) -> Vec<RegionVid> {
+         debug!("non_local_lower_bound(fr={:?})", fr);
+-        self.non_local_bounds(&self.outlives, fr)
++        let lower_bounds = self.non_local_bounds(&self.outlives, fr);
++
++        // In case we find more than one, reduce to one for
++        // convenience.
++        let post_dom = self.outlives.mutual_immediate_postdominator(lower_bounds);
++
++        debug!("non_local_bound: post_dom={:?}", post_dom);
++
++        match post_dom {
++            Some(post_dom) if !self.universal_regions.is_local_free_region(post_dom) => {
++                vec![post_dom]
++            }
++            _ => vec![],
++        }
+     }
+ 
+     /// Helper for `non_local_upper_bounds` and `non_local_lower_bounds`.

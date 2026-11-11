@@ -1,0 +1,1 @@
+Compiles a case with a TransmuteFrom bound on an async closure type containing inference variables under -Znext-solver=globally. Clean rustc reports "type annotations needed" (exit 1); the injected one ICEs in layout_of with an assertion failure (exit 101).

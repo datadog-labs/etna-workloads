@@ -1,0 +1,1 @@
+A library glob-reexports the same name `C` from two modules (ambiguous globs). With the fix, the ambiguity is preserved in crate metadata, so a downstream crate using `C` gets an "`C` is ambiguous" error (exit 1). With the bug, the ambiguity is dropped from metadata and the downstream crate compiles silently (exit 0).

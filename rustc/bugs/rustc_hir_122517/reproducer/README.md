@@ -1,0 +1,1 @@
+Compiles a trait with an `async fn` (associated opaque type) incrementally with `-Z incremental-verify-ich`. The injected compiler panics (exit 101, `Option::unwrap()` on None in HIR stable hashing, because synthetic owner nodes have no hash); the clean compiler succeeds.

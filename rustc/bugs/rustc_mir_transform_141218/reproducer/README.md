@@ -1,0 +1,1 @@
+Uses custom MIR where `(*_2) = Adt::Some(copy _3)` reads from `*_4`, a reborrow of `*_2`. Clean GVN keeps the construction; the injected GVN rewrites it to the overlapping assignment `(*_2) = copy (*_4)`. The script prints the relevant optimized MIR lines.

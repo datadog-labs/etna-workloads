@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/region.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/region.rs
+index f92c0e14c8f3ad4b2540a87303a2dddfb2826060..c00ce775f48f6166e2c53bad3157454d6328199a 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/region.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/region.rs
+@@ -663,19 +663,11 @@ pub(super) fn report_placeholder_failure(
+                 if let ObligationCauseCode::WhereClause(_, span)
+                 | ObligationCauseCode::WhereClauseInExpr(_, span, ..) =
+                     &trace.cause.code().peel_derives()
++                    && !span.is_dummy()
+                 {
+                     let span = *span;
+-                    let mut err = self.report_concrete_failure(
+-                        generic_param_scope,
+-                        placeholder_origin,
+-                        sub,
+-                        sup,
+-                    );
+-                    if !span.is_dummy() {
+-                        err =
+-                            err.with_span_note(span, "the lifetime requirement is introduced here");
+-                    }
+-                    err
++                    self.report_concrete_failure(generic_param_scope, placeholder_origin, sub, sup)
++                        .with_span_note(span, "the lifetime requirement is introduced here")
+                 } else {
+                     unreachable!(
+                         "control flow ensures we have a `BindingObligation` or `WhereClauseInExpr` here..."

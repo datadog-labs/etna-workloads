@@ -1,0 +1,106 @@
+diff --git a/compiler/rustc_abi/src/extern_abi.rs b/compiler/rustc_abi/src/extern_abi.rs
+index 57fa6310b2bac1c248e40ceb55bd8c16297ae78a..cb2cdb329e3a414b0d37f173c83b8d1627ea18cc 100644
+--- a/compiler/rustc_abi/src/extern_abi.rs
++++ b/compiler/rustc_abi/src/extern_abi.rs
+@@ -38,10 +38,6 @@ pub enum ExternAbi {
+     /// Stronger than just `#[cold]` because `fn` pointers might be incompatible.
+     RustCold,
+ 
+-    /// An always-invalid ABI that's used to test "this ABI is not supported by this platform"
+-    /// in a platform-agnostic way.
+-    RustInvalid,
+-
+     /// Preserves no registers.
+     ///
+     /// Note, that this ABI is not stable in the registers it uses, is intended as an optimization
+@@ -202,7 +198,6 @@ fn from_str(s: &str) -> Result<$e_name, Self::Err> {
+             RiscvInterruptS =><= "riscv-interrupt-s",
+             RustCall =><= "rust-call",
+             RustCold =><= "rust-cold",
+-            RustInvalid =><= "rust-invalid",
+             RustPreserveNone =><= "rust-preserve-none",
+             Stdcall { unwind: false } =><= "stdcall",
+             Stdcall { unwind: true } =><= "stdcall-unwind",
+@@ -354,7 +349,6 @@ pub fn supports_guaranteed_tail_call(self) -> bool {
+             | Self::System { .. }
+             | Self::Rust
+             | Self::RustCold
+-            | Self::RustInvalid
+             | Self::Unadjusted
+             | Self::EfiApi
+             | Self::Aapcs { .. }
+diff --git a/compiler/rustc_ast_lowering/src/stability.rs b/compiler/rustc_ast_lowering/src/stability.rs
+index c56edb5f8ee7eec95108d6e45d16e7d89ed5c36a..4111742081d89d4c19b8deaa7b2f7eb12fd567b9 100644
+--- a/compiler/rustc_ast_lowering/src/stability.rs
++++ b/compiler/rustc_ast_lowering/src/stability.rs
+@@ -103,9 +103,6 @@ pub fn extern_abi_stability(abi: ExternAbi) -> Result<(), UnstableAbi> {
+         ExternAbi::RustTail => {
+             Err(UnstableAbi { abi, feature: sym::rust_tail_cc, explain: GateReason::Experimental })
+         }
+-        ExternAbi::RustInvalid => {
+-            Err(UnstableAbi { abi, feature: sym::rustc_attrs, explain: GateReason::ImplDetail })
+-        }
+         ExternAbi::GpuKernel => Err(UnstableAbi {
+             abi,
+             feature: sym::abi_gpu_kernel,
+diff --git a/compiler/rustc_middle/src/ty/layout.rs b/compiler/rustc_middle/src/ty/layout.rs
+index af2481f47c9bae53ad9284671cee1425d6ca6888..1c3432e985e891c604732f504c48110d416aab50 100644
+--- a/compiler/rustc_middle/src/ty/layout.rs
++++ b/compiler/rustc_middle/src/ty/layout.rs
+@@ -1335,7 +1335,6 @@ pub fn fn_can_unwind(tcx: TyCtxt<'_>, fn_def_id: Option<DefId>, abi: ExternAbi)
+         | Custom
+         | RiscvInterruptM
+         | RiscvInterruptS
+-        | RustInvalid
+         | Swift
+         | Unadjusted => false,
+         Rust | RustCall | RustCold | RustPreserveNone | RustTail => {
+diff --git a/compiler/rustc_public/src/ty/tys.rs b/compiler/rustc_public/src/ty/tys.rs
+index 35792ce2fcc237dc181b26893a883ccdee431991..b2f6d197883e2a639847b95630ecf21a582ef8af 100644
+--- a/compiler/rustc_public/src/ty/tys.rs
++++ b/compiler/rustc_public/src/ty/tys.rs
+@@ -873,7 +873,6 @@ pub enum Abi {
+     RiscvInterruptS,
+     RustPreserveNone,
+     RustTail,
+-    RustInvalid,
+     Custom,
+     Swift,
+ }
+diff --git a/compiler/rustc_public/src/unstable/convert/internal.rs b/compiler/rustc_public/src/unstable/convert/internal.rs
+index 4d2653a0db90b36624e26dfb52baf2326388324f..5548caa298b5e5577d62a7dba830dfce24067437 100644
+--- a/compiler/rustc_public/src/unstable/convert/internal.rs
++++ b/compiler/rustc_public/src/unstable/convert/internal.rs
+@@ -616,7 +616,6 @@ fn internal<'tcx>(
+             Abi::RustCall => rustc_abi::ExternAbi::RustCall,
+             Abi::Unadjusted => rustc_abi::ExternAbi::Unadjusted,
+             Abi::RustCold => rustc_abi::ExternAbi::RustCold,
+-            Abi::RustInvalid => rustc_abi::ExternAbi::RustInvalid,
+             Abi::RiscvInterruptM => rustc_abi::ExternAbi::RiscvInterruptM,
+             Abi::RiscvInterruptS => rustc_abi::ExternAbi::RiscvInterruptS,
+             Abi::RustPreserveNone => rustc_abi::ExternAbi::RustPreserveNone,
+diff --git a/compiler/rustc_public/src/unstable/convert/stable/ty.rs b/compiler/rustc_public/src/unstable/convert/stable/ty.rs
+index 160487400c38ce643bcecf3cf9d30dada6923ab2..1461050574b21549b4bb58bf524899ac1765e5b6 100644
+--- a/compiler/rustc_public/src/unstable/convert/stable/ty.rs
++++ b/compiler/rustc_public/src/unstable/convert/stable/ty.rs
+@@ -1038,7 +1038,6 @@ fn stable(&self, _: &mut Tables<'_, BridgeTys>, _: &CompilerCtxt<'_, BridgeTys>)
+             ExternAbi::RustCold => Abi::RustCold,
+             ExternAbi::RustPreserveNone => Abi::RustPreserveNone,
+             ExternAbi::RustTail => Abi::RustTail,
+-            ExternAbi::RustInvalid => Abi::RustInvalid,
+             ExternAbi::RiscvInterruptM => Abi::RiscvInterruptM,
+             ExternAbi::RiscvInterruptS => Abi::RiscvInterruptS,
+             ExternAbi::Custom => Abi::Custom,
+diff --git a/compiler/rustc_target/src/spec/abi_map.rs b/compiler/rustc_target/src/spec/abi_map.rs
+index 3f28b90c9095ec135ce2170351cfb21ea1698270..0d97e4e20b5a6e1d016c85334172156ba10b0cd8 100644
+--- a/compiler/rustc_target/src/spec/abi_map.rs
++++ b/compiler/rustc_target/src/spec/abi_map.rs
+@@ -121,8 +121,6 @@ pub fn canonize_abi(&self, extern_abi: ExternAbi, has_c_varargs: bool) -> AbiMap
+ 
+             // fallible lowerings
+             /* multi-platform */
+-            // always and forever
+-            (ExternAbi::RustInvalid, _) => return AbiMapping::Invalid,
+ 
+             (ExternAbi::Custom, ArchKind::Wasm | ArchKind::Spirv) => return AbiMapping::Invalid,
+             (ExternAbi::Custom, _) => CanonAbi::Custom,

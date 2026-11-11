@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..a58b1c8df5a15c29c634aa0b7a6392784c42bbde 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -2093,24 +2093,8 @@ fn report_return_mismatched_types<'infcx>(
+         err
+     }
+ 
+-    /// Checks whether the return type is unsized via an obligation, which makes
+-    /// sure we consider `dyn Trait: Sized` where clauses, which are trivially
+-    /// false but technically valid for typeck.
+     fn is_return_ty_definitely_unsized(&self, fcx: &FnCtxt<'_, 'tcx>) -> bool {
+-        if let Some(sig) = fcx.fn_sig() {
+-            !fcx.predicate_may_hold(&Obligation::new(
+-                fcx.tcx,
+-                ObligationCause::dummy(),
+-                fcx.param_env,
+-                ty::TraitRef::new(
+-                    fcx.tcx,
+-                    fcx.tcx.require_lang_item(LangItem::Sized, DUMMY_SP),
+-                    [sig.output()],
+-                ),
+-            ))
+-        } else {
+-            false
+-        }
++        if let Some(sig) = fcx.fn_sig() { matches!(sig.output().kind(), ty::Dynamic(..)) } else { false }
+     }
+ 
+     pub(crate) fn complete<'a>(self, fcx: &FnCtxt<'a, 'tcx>) -> Ty<'tcx> {

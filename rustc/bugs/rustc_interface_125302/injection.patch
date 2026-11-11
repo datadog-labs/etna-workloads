@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_interface/src/util.rs b/compiler/rustc_interface/src/util.rs
+index 23b152bd57240fb9f0eb995170476388d2b2d999..db4deefca73b03e866846c7deb33a3d286b2c921 100644
+--- a/compiler/rustc_interface/src/util.rs
++++ b/compiler/rustc_interface/src/util.rs
+@@ -123,7 +123,7 @@ pub(crate) fn check_abi_required_features(sess: &Session) {
+ pub static STACK_SIZE: OnceLock<usize> = OnceLock::new();
+ pub const DEFAULT_STACK_SIZE: usize = 16 * 1024 * 1024;
+ 
+-fn init_stack_size(early_dcx: &EarlyDiagCtxt) -> usize {
++fn init_stack_size(_early_dcx: &EarlyDiagCtxt) -> usize {
+     // Obey the environment setting or default
+     *STACK_SIZE.get_or_init(|| {
+         env::var_os("RUST_MIN_STACK")
+@@ -136,16 +136,7 @@ fn init_stack_size(early_dcx: &EarlyDiagCtxt) -> usize {
+             // rustc is a batch program, so error early on inputs which are unlikely to be intended
+             // so no one thinks we parsed them setting `RUST_MIN_STACK="64 megabytes"`
+             // FIXME: we could accept `RUST_MIN_STACK=64MB`, perhaps?
+-            .map(|s| {
+-                let s = s.trim();
+-                s.parse::<usize>().unwrap_or_else(|_| {
+-                    let mut err = early_dcx.early_struct_fatal(format!(
+-                        r#"`RUST_MIN_STACK` should be a number of bytes, but was "{s}""#,
+-                    ));
+-                    err.note("you can also unset `RUST_MIN_STACK` to use the default stack size");
+-                    err.emit()
+-                })
+-            })
++            .map(|s| s.trim().parse::<usize>().unwrap())
+             // otherwise pick a consistent default
+             .unwrap_or(DEFAULT_STACK_SIZE)
+     })

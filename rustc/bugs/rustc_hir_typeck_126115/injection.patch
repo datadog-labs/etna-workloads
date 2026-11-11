@@ -1,0 +1,96 @@
+diff --git a/compiler/rustc_hir_typeck/src/demand.rs b/compiler/rustc_hir_typeck/src/demand.rs
+index 671bf52205689398bb018faf4a4fe269695cbfd7..8c3d9e066a4c01afd502a7321ae06e8306bdc82c 100644
+--- a/compiler/rustc_hir_typeck/src/demand.rs
++++ b/compiler/rustc_hir_typeck/src/demand.rs
+@@ -945,8 +945,7 @@ fn annotate_alternative_method_deref(
+         ) else {
+             return;
+         };
+-
+-        let Ok(in_scope_methods) = self.probe_for_name_many(
++        let in_scope_methods = self.probe_for_name_many(
+             probe::Mode::MethodCall,
+             path.ident,
+             Some(expected),
+@@ -954,14 +953,11 @@ fn annotate_alternative_method_deref(
+             self_ty,
+             deref.hir_id,
+             probe::ProbeScope::TraitsInScope,
+-        ) else {
+-            return;
+-        };
+-
++        );
+         let other_methods_in_scope: Vec<_> =
+             in_scope_methods.iter().filter(|c| c.item.def_id != pick.item.def_id).collect();
+ 
+-        let Ok(all_methods) = self.probe_for_name_many(
++        let all_methods = self.probe_for_name_many(
+             probe::Mode::MethodCall,
+             path.ident,
+             Some(expected),
+@@ -969,10 +965,7 @@ fn annotate_alternative_method_deref(
+             self_ty,
+             deref.hir_id,
+             probe::ProbeScope::AllTraits,
+-        ) else {
+-            return;
+-        };
+-
++        );
+         let suggestions: Vec<_> = all_methods
+             .into_iter()
+             .filter(|c| c.item.def_id != pick.item.def_id)
+diff --git a/compiler/rustc_hir_typeck/src/method/probe.rs b/compiler/rustc_hir_typeck/src/method/probe.rs
+index b2e0a3bd7a195f2edbf03d89438609e17e8c8898..cb3c492ea4cff66d21335165750dfa799b5dd5fa 100644
+--- a/compiler/rustc_hir_typeck/src/method/probe.rs
++++ b/compiler/rustc_hir_typeck/src/method/probe.rs
+@@ -366,7 +366,7 @@ pub(crate) fn probe_for_name_many(
+         self_ty: Ty<'tcx>,
+         scope_expr_id: HirId,
+         scope: ProbeScope<'tcx>,
+-    ) -> Result<Vec<Candidate<'tcx>>, MethodError<'tcx>> {
++    ) -> Vec<Candidate<'tcx>> {
+         self.probe_op(
+             item_name.span,
+             mode,
+@@ -384,6 +384,7 @@ pub(crate) fn probe_for_name_many(
+                     .collect())
+             },
+         )
++        .unwrap()
+     }
+ 
+     pub(crate) fn probe_op<OP, R>(
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..046a6e48fb30ff2e8df52a1e90aff875dc7b54f7 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -2263,7 +2263,10 @@ fn lookup_segments_chain_for_no_match_method(
+                         .unwrap_or(Ty::new_misc_error(self.tcx)),
+                 );
+ 
+-                let Ok(candidates) = self.probe_for_name_many(
++                // FIXME: `probe_for_name_many` searches for methods in inherent implementations,
++                // so it may return a candidate that doesn't belong to this `revr_ty`. We need to
++                // check whether the instantiated type matches the received one.
++                for _matched_method in self.probe_for_name_many(
+                     Mode::MethodCall,
+                     item_name,
+                     None,
+@@ -2271,14 +2274,7 @@ fn lookup_segments_chain_for_no_match_method(
+                     rcvr_ty,
+                     source_expr.hir_id,
+                     ProbeScope::TraitsInScope,
+-                ) else {
+-                    return;
+-                };
+-
+-                // FIXME: `probe_for_name_many` searches for methods in inherent implementations,
+-                // so it may return a candidate that doesn't belong to this `revr_ty`. We need to
+-                // check whether the instantiated type matches the received one.
+-                for _matched_method in candidates {
++                ) {
+                     // found a match, push to stack
+                     stack_methods.push(rcvr_ty);
+                 }

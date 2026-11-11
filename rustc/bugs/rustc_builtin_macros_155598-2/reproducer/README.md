@@ -1,0 +1,1 @@
+Expands a type deriving both PartialOrd and Ord and prints the generated partial_cmp body. The fixed compiler emits ::core::cmp::Ord::cmp(self, other) (UFCS); the injected one emits self.cmp(other), which can resolve to an inherent method.

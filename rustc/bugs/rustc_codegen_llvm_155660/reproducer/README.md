@@ -1,0 +1,1 @@
+Compiles a no_core crate for sparc64 using va_arg::<i32> and prints the load in the generated assembly. On a correct compiler the big-endian sparc64 va_arg reads the right-adjusted i32 at offset 4 of the 8-byte slot (ldsw [%o1+4]); with the bug it loads from offset 0 (ldsw [%o1]), i.e. the wrong half of the slot.

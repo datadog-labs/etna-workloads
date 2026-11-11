@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+index 203ed5a62a8b9f59f22fcedaaec85ba6388ce57c..7c048c6041792e09e6a2ef5877489be8f28ae31c 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+@@ -147,6 +147,8 @@ fn confirm_projection_candidate(
+         obligation: &PolyTraitObligation<'tcx>,
+         idx: usize,
+     ) -> Result<PredicateObligations<'tcx>, SelectionError<'tcx>> {
++        let tcx = self.tcx();
++
+         let placeholder_trait_predicate =
+             self.infcx.enter_forall_and_leak_universe(obligation.predicate).trait_ref;
+         let placeholder_self_ty = self.infcx.shallow_resolve(placeholder_trait_predicate.self_ty());
+@@ -195,6 +197,29 @@ fn confirm_projection_candidate(
+                 .map_err(|_| SelectionError::Unimplemented)?,
+         );
+ 
++        if let ty::Alias(_, alias_ty @ ty::AliasTy { kind: ty::AliasTyKind::Projection { def_id }, .. }) =
++            placeholder_self_ty.kind()
++        {
++            let predicates = tcx.clauses_of(*def_id).instantiate_own(tcx, alias_ty.args);
++            for (predicate, _) in predicates {
++                let normalized = normalize_with_depth_to(
++                    self,
++                    obligation.param_env,
++                    obligation.cause.clone(),
++                    obligation.recursion_depth + 1,
++                    predicate,
++                    &mut obligations,
++                );
++                obligations.push(Obligation::with_depth(
++                    self.tcx(),
++                    obligation.cause.clone(),
++                    obligation.recursion_depth + 1,
++                    obligation.param_env,
++                    normalized,
++                ));
++            }
++        }
++
+         Ok(obligations)
+     }
+ 

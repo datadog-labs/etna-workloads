@@ -1,0 +1,1 @@
+An extra semicolon after a semicolon-terminated trait item (`fn create() -> u32;;`) should produce a "non-item in item list" error with a "consider removing this semicolon" suggestion; the injected compiler omits that suggestion.

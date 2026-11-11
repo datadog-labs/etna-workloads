@@ -1,0 +1,1 @@
+`println!("{x.0}")` on a tuple should give the dedicated "tuple index access isn't supported" diagnostic with a positional-argument suggestion; the injected compiler instead reports the generic "expected `}`, found `.`" error.

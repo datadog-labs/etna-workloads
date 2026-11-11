@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_ast_passes/src/feature_gate.rs b/compiler/rustc_ast_passes/src/feature_gate.rs
+index bd92f32e24b689397dc7879a6281b44aa924705b..fde40f6db7648cc9dfbb3f979d953c7715a553ae 100644
+--- a/compiler/rustc_ast_passes/src/feature_gate.rs
++++ b/compiler/rustc_ast_passes/src/feature_gate.rs
+@@ -1,5 +1,5 @@
+ use rustc_ast::visit::{self, AssocCtxt, FnKind, Visitor};
+-use rustc_ast::{self as ast, AttrVec, GenericBound, NodeId, PatKind, attr, token};
++use rustc_ast::{self as ast, AttrVec, NodeId, PatKind, attr, token};
+ use rustc_attr_ir::{Attribute, AttributeKind};
+ use rustc_attr_parsing::AttributeParser;
+ use rustc_errors::msg;
+@@ -138,14 +138,7 @@ fn check_late_bound_lifetime_defs(&self, params: &[ast::GenericParam]) {
+         for param in params {
+             if !param.bounds.is_empty() {
+                 let spans: Vec<_> = param.bounds.iter().map(|b| b.span()).collect();
+-                if param.bounds.iter().any(|bound| matches!(bound, GenericBound::Trait(_))) {
+-                    // Issue #149695
+-                    // Abort immediately otherwise items defined in complex bounds will be lowered into HIR,
+-                    // which will cause ICEs when errors of the items visit unlowered parents.
+-                    self.sess.dcx().emit_fatal(diagnostics::ForbiddenBound { spans });
+-                } else {
+-                    self.sess.dcx().emit_err(diagnostics::ForbiddenBound { spans });
+-                }
++                self.sess.dcx().emit_err(diagnostics::ForbiddenBound { spans });
+             }
+         }
+     }

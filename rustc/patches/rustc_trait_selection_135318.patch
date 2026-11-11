@@ -1,0 +1,80 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/vtable.rs b/compiler/rustc_trait_selection/src/traits/vtable.rs
+index 77d7a39a6eb77371d46c7e90c15f61de9a475c37..fb57f1151b4af2e7a20eeb3f3f08bca028487e0a 100644
+--- a/compiler/rustc_trait_selection/src/traits/vtable.rs
++++ b/compiler/rustc_trait_selection/src/traits/vtable.rs
+@@ -2,6 +2,8 @@
+ use std::ops::ControlFlow;
+ 
+ use rustc_hir::def_id::DefId;
++use rustc_infer::infer::TyCtxtInferExt;
++use rustc_infer::traits::ObligationCause;
+ use rustc_infer::traits::util::PredicateSet;
+ use rustc_middle::bug;
+ use rustc_middle::query::Providers;
+@@ -13,7 +15,7 @@
+ use smallvec::{SmallVec, smallvec};
+ use tracing::debug;
+ 
+-use crate::traits::is_vtable_safe_method;
++use crate::traits::{ObligationCtxt, is_vtable_safe_method};
+ 
+ #[derive(Clone, Debug)]
+ pub enum VtblSegment<'tcx> {
+@@ -338,9 +340,11 @@ pub(crate) fn first_method_vtable_slot<'tcx>(tcx: TyCtxt<'tcx>, key: ty::TraitRe
+                     vptr_offset += TyCtxt::COMMON_VTABLE_ENTRIES.len();
+                 }
+                 VtblSegment::TraitOwnEntries { trait_ref: vtable_principal, emit_vptr } => {
+-                    if ty::ExistentialTraitRef::erase_self_ty(tcx, vtable_principal)
+-                        == target_principal
+-                    {
++                    if trait_refs_are_compatible(
++                        tcx,
++                        ty::ExistentialTraitRef::erase_self_ty(tcx, vtable_principal),
++                        target_principal,
++                    ) {
+                         return ControlFlow::Break(vptr_offset);
+                     }
+ 
+@@ -406,9 +410,11 @@ pub(crate) fn supertrait_vtable_slot<'tcx>(
+                 VtblSegment::TraitOwnEntries { trait_ref: vtable_principal, emit_vptr } => {
+                     vptr_offset +=
+                         tcx.own_existential_vtable_entries(vtable_principal.def_id).len();
+-                    if ty::ExistentialTraitRef::erase_self_ty(tcx, vtable_principal)
+-                        == target_principal
+-                    {
++                    if trait_refs_are_compatible(
++                        tcx,
++                        ty::ExistentialTraitRef::erase_self_ty(tcx, vtable_principal),
++                        target_principal,
++                    ) {
+                         if emit_vptr {
+                             return ControlFlow::Break(Some(vptr_offset));
+                         } else {
+@@ -437,6 +443,27 @@ pub(crate) fn supertrait_vtable_slot<'tcx>(
+     })
+ }
+ 
++fn trait_refs_are_compatible<'tcx>(
++    tcx: TyCtxt<'tcx>,
++    vtable_principal: ty::ExistentialTraitRef<'tcx>,
++    target_principal: ty::ExistentialTraitRef<'tcx>,
++) -> bool {
++    if vtable_principal.def_id != target_principal.def_id {
++        return false;
++    }
++
++    let (infcx, param_env) =
++        tcx.infer_ctxt().build_with_typing_env(ty::TypingEnv::fully_monomorphized());
++    let ocx = ObligationCtxt::new(&infcx);
++    let source_principal = ocx.normalize(&ObligationCause::dummy(), param_env, Unnormalized::new_wip(vtable_principal));
++    let target_principal = ocx.normalize(&ObligationCause::dummy(), param_env, Unnormalized::new_wip(target_principal));
++    let Ok(()) = ocx.eq(&ObligationCause::dummy(), param_env, target_principal, source_principal)
++    else {
++        return false;
++    };
++    !ocx.evaluate_obligations_error_on_ambiguity().has_errors()
++}
++
+ pub(super) fn provide(providers: &mut Providers) {
+     *providers = Providers {
+         own_existential_vtable_entries,

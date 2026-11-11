@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_mir_transform/src/jump_threading.rs b/compiler/rustc_mir_transform/src/jump_threading.rs
+index e4c74e2dfa23b7884bb6a9abb0ecfb2cccf09482..0ca5e35831db6df57f41f9a83a3453e00e823584 100644
+--- a/compiler/rustc_mir_transform/src/jump_threading.rs
++++ b/compiler/rustc_mir_transform/src/jump_threading.rs
+@@ -65,6 +65,7 @@
+ use rustc_mir_dataflow::value_analysis::{
+     Map, PlaceCollectionMode, PlaceIndex, TrackElem, ValueIndex,
+ };
++use rustc_abi::{TagEncoding, Variants};
+ use rustc_span::DUMMY_SP;
+ use tracing::{debug, instrument, trace};
+ 
+@@ -621,9 +622,28 @@ fn process_statement(&mut self, stmt: &Statement<'tcx>, state: &mut ConditionSet
+                     return;
+                 };
+                 let enum_ty = place.ty(self.body, self.tcx).ty;
+-                // `SetDiscriminant` guarantees that the discriminant is now `variant_index`.
+-                // Even if the discriminant write does nothing due to niches, it is UB to set the
+-                // discriminant when the data does not encode the desired discriminant.
++                // `SetDiscriminant` may be a no-op if the assigned variant is the untagged variant
++                // of a niche encoding. If we cannot ensure that we write to the discriminant, do
++                // nothing.
++                let Ok(enum_layout) = self.tcx.layout_of(self.typing_env.as_query_input(enum_ty))
++                else {
++                    return;
++                };
++                let writes_discriminant = match enum_layout.variants {
++                    Variants::Single { index } => {
++                        assert_eq!(index, *variant_index);
++                        true
++                    }
++                    Variants::Empty => unreachable!("we have an enum value"),
++                    Variants::Multiple { tag_encoding: TagEncoding::Direct, .. } => true,
++                    Variants::Multiple {
++                        tag_encoding: TagEncoding::Niche { untagged_variant, .. },
++                        ..
++                    } => *variant_index != untagged_variant,
++                };
++                if !writes_discriminant {
++                    return;
++                }
+                 let Some(discr) =
+                     self.ecx.discriminant_for_variant(enum_ty, *variant_index).discard_err()
+                 else {

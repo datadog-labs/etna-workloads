@@ -1,0 +1,1 @@
+Compiling a no_core lib for aarch64-unknown-none-softfloat with #[target_feature(enable = "neon")]: the clean compiler only emits a future-compat lint warning (aarch64_softfloat_neon) and succeeds; the injected one makes it a hard error.

@@ -1,0 +1,1 @@
+A trailing comma after the last field in a struct pattern with inaccessible fields makes the suggestion to add `..` wrong on the injected compiler (it suggests `visible, ..,` instead of `visible, ..`).

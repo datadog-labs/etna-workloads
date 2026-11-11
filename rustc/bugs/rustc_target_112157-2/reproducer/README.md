@@ -1,0 +1,1 @@
+Compiles, for i686-apple-darwin, an extern "C" function taking a struct that contains a struct that contains a SIMD vector. On Darwin x86 such aggregates must be passed byval with align 16 (vector detection must recurse through nested aggregates). The clean compiler emits `byval([64 x i8]) align 16`; the injected one only checks one level deep and emits `align 4`.

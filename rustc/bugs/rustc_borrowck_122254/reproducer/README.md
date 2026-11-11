@@ -1,0 +1,1 @@
+Compiling a borrowck error where .clone() on &T (T: !Clone) only clones the reference; the clean compiler adds a note pointing at the useless clone call and suggests restricting T: Clone / deriving Clone, the injected one omits them.

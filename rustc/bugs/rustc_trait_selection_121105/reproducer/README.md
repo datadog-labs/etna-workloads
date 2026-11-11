@@ -1,0 +1,1 @@
+Compiles a mono-time infinitely recursive quicksort (recursion_limit=32); the clean compiler reports the E0275 overflow on the closure's FnMut requirement, while the injected one reports it on a useless 'constant 11 has type usize' ConstArgHasType goal.

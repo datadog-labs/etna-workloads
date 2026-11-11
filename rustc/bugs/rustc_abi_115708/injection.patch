@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_abi/src/callconv.rs b/compiler/rustc_abi/src/callconv.rs
+index 4fda4735b613c51ad27d52f9f75002a787b20a24..9ab14925025e89c24f8c6c64d5b8dbea82b4d758 100644
+--- a/compiler/rustc_abi/src/callconv.rs
++++ b/compiler/rustc_abi/src/callconv.rs
+@@ -118,18 +118,12 @@ pub fn homogeneous_aggregate<C>(&self, cx: &C) -> Result<HomogeneousAggregate, H
+                         let mut total = start;
+ 
+                         for i in 0..layout.fields.count() {
+-                            let field = layout.field(cx, i);
+-                            if field.is_1zst() {
+-                                // No data here and no impact on layout, can be ignored.
+-                                // (We might be able to also ignore all aligned ZST but that's less clear.)
+-                                continue;
+-                            }
+-
+                             if !is_union && total != layout.fields.offset(i) {
+-                                // This field isn't just after the previous one we considered, abort.
+                                 return Err(Heterogeneous);
+                             }
+ 
++                            let field = layout.field(cx, i);
++
+                             result = result.merge(field.homogeneous_aggregate(cx)?)?;
+ 
+                             // Keep track of the offset (without padding).

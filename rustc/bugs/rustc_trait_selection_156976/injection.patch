@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/mod.rs b/compiler/rustc_trait_selection/src/traits/mod.rs
+index eda63e09b1189e3ba489d6964c95117212191e74..4d7d99394b407e61f47c4b55b208b09adfffe92b 100644
+--- a/compiler/rustc_trait_selection/src/traits/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/mod.rs
+@@ -400,7 +400,13 @@ fn do_normalize_clauses<'tcx>(
+     // FIXME: We should avoid interning clauses both here and at the
+     // caller sites. We should also avoid cloning if possible.
+     let normalized_env = ty::ParamEnv::new(tcx.mk_clauses(&clauses));
+-    let _errors = infcx.resolve_regions(cause.body_def_id, normalized_env, []);
++    let errors = infcx.resolve_regions(cause.body_def_id, normalized_env, []);
++    if !errors.is_empty() {
++        tcx.dcx().span_delayed_bug(
++            cause.span,
++            format!("failed region resolution while normalizing {normalized_env:?}: {errors:?}"),
++        );
++    }
+     match infcx.fully_resolve(clauses.clone()) {
+         Ok(clauses) => clauses,
+         Err(fixup_err) => {

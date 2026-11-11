@@ -1,0 +1,119 @@
+error[E0700]: hidden type for `impl Fn(RefCell<HashMap<String, String>>)` captures lifetime that does not appear in bounds
+  --> main.rs:17:5
+   |
+13 |   fn apply<'a>(
+   |            -- hidden type `{closure@main.rs:17:5: 17:15}` captures the lifetime `'a` as defined here
+14 |       f: Arc<dyn Fn(Entry<'a, String, String>) + 'a>,
+15 |   ) -> impl Fn(RefCell<HashMap<String, String>>)
+   |        ----------------------------------------- opaque type defined here
+16 |   {
+17 | /     move |map| {
+18 | |     //~^ ERROR hidden type for `impl Fn(RefCell<HashMap<String, String>>)` captures lifetime that does not appear in bounds
+19 | |         let value = map.borrow_mut().entry("foo".to_string());
+...  |
+23 | |         f(wrapped_value);
+24 | |     }
+   | |_____^
+   |
+help: add a `use<...>` bound to explicitly capture `'a`
+   |
+15 | ) -> impl Fn(RefCell<HashMap<String, String>>) + use<'a>
+   |                                                +++++++++
+
+error[E0597]: `map` does not live long enough
+  --> main.rs:19:21
+   |
+14 |     f: Arc<dyn Fn(Entry<'a, String, String>) + 'a>,
+   |     - lifetime `'1` appears in the type of `f`
+...
+17 |     move |map| {
+   |           --- binding `map` declared here
+18 |     //~^ ERROR hidden type for `impl Fn(RefCell<HashMap<String, String>>)` captures lifetime that does not appear in bounds
+19 |         let value = map.borrow_mut().entry("foo".to_string());
+   |                     ^^^ borrowed value does not live long enough
+...
+23 |         f(wrapped_value);
+   |         ---------------- argument requires that `map` is borrowed for `'1`
+24 |     }
+   |     - `map` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'1` introduced here
+  --> library/core/src/ops/function.rs:76:33
+
+error[E0716]: temporary value dropped while borrowed
+  --> main.rs:19:21
+   |
+14 |     f: Arc<dyn Fn(Entry<'a, String, String>) + 'a>,
+   |     - lifetime `'1` appears in the type of `f`
+...
+19 |         let value = map.borrow_mut().entry("foo".to_string());
+   |                     ^^^^^^^^^^^^^^^^                         - temporary value is freed at the end of this statement
+   |                     |
+   |                     creates a temporary value which is freed while still in use
+...
+23 |         f(wrapped_value);
+   |         ---------------- argument requires that borrow lasts for `'1`
+   |
+note: requirement that the value outlives `'1` introduced here
+  --> library/core/src/ops/function.rs:76:33
+
+error[E0700]: hidden type for `impl Fn(RefCell<HashMap<String, String>>)` captures lifetime that does not appear in bounds
+  --> main.rs:32:5
+   |
+28 |   fn apply_box<'a>(
+   |                -- hidden type `{closure@main.rs:32:5: 32:15}` captures the lifetime `'a` as defined here
+29 |       f: Box<dyn Fn(Entry<'a, String, String>) + 'a>,
+30 |   ) -> impl Fn(RefCell<HashMap<String, String>>)
+   |        ----------------------------------------- opaque type defined here
+31 |   {
+32 | /     move |map| {
+33 | |     //~^ ERROR hidden type for `impl Fn(RefCell<HashMap<String, String>>)` captures lifetime that does not appear in bounds
+34 | |         let value = map.borrow_mut().entry("foo".to_string());
+...  |
+37 | |         f(value);
+38 | |     }
+   | |_____^
+   |
+help: add a `use<...>` bound to explicitly capture `'a`
+   |
+30 | ) -> impl Fn(RefCell<HashMap<String, String>>) + use<'a>
+   |                                                +++++++++
+
+error[E0597]: `map` does not live long enough
+  --> main.rs:34:21
+   |
+29 |     f: Box<dyn Fn(Entry<'a, String, String>) + 'a>,
+   |     - lifetime `'1` appears in the type of `f`
+...
+32 |     move |map| {
+   |           --- binding `map` declared here
+33 |     //~^ ERROR hidden type for `impl Fn(RefCell<HashMap<String, String>>)` captures lifetime that does not appear in bounds
+34 |         let value = map.borrow_mut().entry("foo".to_string());
+   |                     ^^^ borrowed value does not live long enough
+...
+37 |         f(value);
+   |         -------- argument requires that `map` is borrowed for `'1`
+38 |     }
+   |     - `map` dropped here while still borrowed
+
+error[E0716]: temporary value dropped while borrowed
+  --> main.rs:34:21
+   |
+29 |     f: Box<dyn Fn(Entry<'a, String, String>) + 'a>,
+   |     - lifetime `'1` appears in the type of `f`
+...
+34 |         let value = map.borrow_mut().entry("foo".to_string());
+   |                     ^^^^^^^^^^^^^^^^                         - temporary value is freed at the end of this statement
+   |                     |
+   |                     creates a temporary value which is freed while still in use
+...
+37 |         f(value);
+   |         -------- argument requires that borrow lasts for `'1`
+
+error: aborting due to 6 previous errors
+
+Some errors have detailed explanations: E0597, E0700, E0716.
+For more information about an error, try `rustc --explain E0597`.
+rustc exit: 1
+
+[exit 0]

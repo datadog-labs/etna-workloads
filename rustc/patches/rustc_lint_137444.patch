@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_lint/src/if_let_rescope.rs b/compiler/rustc_lint/src/if_let_rescope.rs
+index 60ee55e299d8797653c77f917ddce0dbed0e0cdb..2ae6a326b51c5281c67b5bf704d09eaa85d07999 100644
+--- a/compiler/rustc_lint/src/if_let_rescope.rs
++++ b/compiler/rustc_lint/src/if_let_rescope.rs
+@@ -476,14 +476,6 @@ fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) -> Self::Result {
+                 self.check_promoted_temp_with_drop(expr)?;
+                 intravisit::walk_expr(self, expr)
+             }
+-            // `(Drop, ()).1` introduces a temporary and then moves out of
+-            // part of it, therefore we should check it for temporaries.
+-            // FIXME: This may have false positives if we move the part
+-            // that actually has drop, but oh well.
+-            hir::ExprKind::Index(expr, _, _) | hir::ExprKind::Field(expr, _) => {
+-                self.check_promoted_temp_with_drop(expr)?;
+-                intravisit::walk_expr(self, expr)
+-            }
+             // If always introduces a temporary terminating scope for its cond and arms,
+             // so don't visit them.
+             hir::ExprKind::If(..) => ControlFlow::Continue(()),

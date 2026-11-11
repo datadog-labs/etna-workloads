@@ -1,0 +1,1 @@
+With an unused import `use std::fmt;` and a path `std::fmt::Result` that could be shortened through it, the clean compiler suppresses the unused_qualifications lint (the import is about to be removed as unused), while the injected compiler still emits an 'unnecessary qualification' warning suggesting `fmt::Result`.

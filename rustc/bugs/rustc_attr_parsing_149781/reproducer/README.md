@@ -1,0 +1,1 @@
+A proc macro expands to `#[no_mangle] ...` in edition 2024 (missing `unsafe`). The clean compiler emits the "unsafe attribute used without unsafe" error without a suggestion, since the attribute may come from a proc macro; the injected compiler wrongly adds a "wrap the attribute in `unsafe(...)`" help suggestion.

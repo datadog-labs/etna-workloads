@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/always_applicable.rs b/compiler/rustc_hir_analysis/src/check/always_applicable.rs
+index 6a30ff40eedc697214d30bad35dbbd1e4344b84d..464d867303e3e7beaa8b4e5e195d09517d89a3a2 100644
+--- a/compiler/rustc_hir_analysis/src/check/always_applicable.rs
++++ b/compiler/rustc_hir_analysis/src/check/always_applicable.rs
+@@ -402,9 +402,7 @@ fn check_drop_xor_pin_drop<'tcx>(
+                     None,
+                 ));
+             } else {
+-                return Err(tcx
+-                    .dcx()
+-                    .span_delayed_bug(tcx.def_span(drop_impl_did), "missing `Drop::drop`"));
++                return Ok(());
+             }
+         }
+         (Some(span), None) => {
+diff --git a/compiler/rustc_middle/src/ty/util.rs b/compiler/rustc_middle/src/ty/util.rs
+index adf153b68dae6329e1a918a5b0e4a0b708cb91ef..965774b7ac9c131e1bc12217323ed0ee7be7b20e 100644
+--- a/compiler/rustc_middle/src/ty/util.rs
++++ b/compiler/rustc_middle/src/ty/util.rs
+@@ -399,11 +399,6 @@ pub fn calculate_dtor(
+                 continue;
+             };
+ 
+-            if self.def_kind(item_id) != DefKind::AssocFn {
+-                self.dcx().span_delayed_bug(self.def_span(item_id), "drop is not a function");
+-                continue;
+-            }
+-
+             if let Some(old_item_id) = dtor_candidate {
+                 self.dcx()
+                     .struct_span_err(self.def_span(item_id), "multiple drop impls found")

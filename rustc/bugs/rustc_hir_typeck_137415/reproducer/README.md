@@ -1,0 +1,1 @@
+A two-crate reproducer: a library exports a macro whose body calls .map on an impl IntoIterator value. On the injected compiler the E0599 error gains a bogus 'call .into_iter() first' suggestion pointing into the external macro. The clean compiler omits that suggestion.

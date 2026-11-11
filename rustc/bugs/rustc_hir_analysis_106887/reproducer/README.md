@@ -1,0 +1,1 @@
+Compiles a fn returning `_` whose inferred type contains a fn item (Wrapper<fn() {foo}>). The clean compiler suggests the return type Wrapper<fn()> (via make_suggestable); the injected one gives no suggestion.

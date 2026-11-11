@@ -1,0 +1,1 @@
+Closure bodies with redundant parentheses (`|| (0 == 0)`) under deny(unused_parens): clean rustc reports 'unnecessary parentheses around closure body' and fails; the injected compiler misses the lint and compiles successfully.

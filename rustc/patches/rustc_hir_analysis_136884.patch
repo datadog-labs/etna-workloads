@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..7a52b5ee1cfaea267f77ddb7b0d3a152947fd6e2 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -2955,16 +2955,15 @@ fn lower_resolved_const_path(
+                     .span_err(path.span, "static items cannot be used as const arguments");
+                 return Const::new_error(tcx, guar);
+             }
+-            // FIXME(const_generics): create real consts to allow fn items as const paths.
+-            // Lowering these to recovered `FnDef` consts currently interacts poorly with WF
+-            // checking: WF of a `FnDef` walks the function signature, so a signature that mentions
+-            // the same function item as a const arg can recurse until it overflows/segfaults.
+-            Res::Def(DefKind::Fn | DefKind::AssocFn, _) => {
+-                let guar = self
+-                    .dcx()
+-                    .struct_span_err(span, "function items cannot be used as const args")
+-                    .emit();
+-                Const::new_error(tcx, guar)
++            // FIXME(const_generics): create real const to allow fn items as const paths
++            Res::Def(DefKind::Fn | DefKind::AssocFn, did) => {
++                self.dcx().span_delayed_bug(span, "function items cannot be used as const args");
++                let args = self.lower_generic_args_of_path_segment(
++                    span,
++                    did,
++                    path.segments.last().unwrap(),
++                );
++                ty::Const::new_value(tcx, ty::ValTree::zst(tcx), Ty::new_fn_def(tcx, did, ty::Binder::dummy(args)))
+             }
+             // Exhaustive match to be clear about what exactly we're considering to be
+             // an invalid Res for a const path.

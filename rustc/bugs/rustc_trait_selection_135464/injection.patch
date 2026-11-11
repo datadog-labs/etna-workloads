@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/project.rs b/compiler/rustc_trait_selection/src/traits/project.rs
+index 7da8c68ff894a0ff74bd55e1f5b07b671bac5259..db83484d3a39c47ee2d0aa6dfb16b2096e1ac427 100644
+--- a/compiler/rustc_trait_selection/src/traits/project.rs
++++ b/compiler/rustc_trait_selection/src/traits/project.rs
+@@ -1133,9 +1133,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
+                             // If returned by `struct_tail` this is the empty tuple.
+                             | ty::Tuple(..)
+                             // Integers and floats are always Sized, and so have unit type metadata.
+-                            | ty::Infer(ty::InferTy::IntVar(_) | ty::InferTy::FloatVar(..))
+-                            // This happens if we reach the recursion limit when finding the struct tail.
+-                            | ty::Error(..) => true,
++                            | ty::Infer(ty::InferTy::IntVar(_) | ty::InferTy::FloatVar(..)) => true,
+ 
+                             // We normalize from `Wrapper<Tail>::Metadata` to `Tail::Metadata` if able.
+                             // Otherwise, type parameters, opaques, and unnormalized projections have
+@@ -1166,7 +1164,8 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
+                             | ty::Alias(..)
+                             | ty::Bound(..)
+                             | ty::Placeholder(..)
+-                            | ty::Infer(..) => {
++                            | ty::Infer(..)
++                            | ty::Error(_) => {
+                                 if tail.has_infer_types() {
+                                     candidate_set.mark_ambiguous();
+                                 }

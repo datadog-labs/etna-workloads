@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs b/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
+index c5f6c96bd8634c892ec2e4586ee6a19b781dfd1e..8ec4405aca018b78b344c222f5663017e8bb0113 100644
+--- a/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
++++ b/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
+@@ -421,15 +421,6 @@ struct Visitor<'a, 'b> {
+ 
+     impl<'a, 'b> visit::Visitor<'a> for Visitor<'a, 'b> {
+         fn visit_ty(&mut self, ty: &'a ast::Ty) {
+-            let stack_len = self.bound_generic_params_stack.len();
+-            if let ast::TyKind::FnPtr(fn_ptr) = &ty.kind
+-                && !fn_ptr.generic_params.is_empty()
+-            {
+-                // Given a field `x: for<'a> fn(T::SomeType<'a>)`, we wan't to account for `'a` so
+-                // that we generate `where for<'a> T::SomeType<'a>: ::core::clone::Clone`. #122622
+-                self.bound_generic_params_stack.extend(fn_ptr.generic_params.iter().cloned());
+-            }
+-
+             if let ast::TyKind::Path(_, path) = &ty.kind
+                 && let Some(segment) = path.segments.first()
+                 && self.ty_param_names.contains(&segment.ident.name)
+@@ -439,9 +430,7 @@ fn visit_ty(&mut self, ty: &'a ast::Ty) {
+                     ty: Box::new(ty.clone()),
+                 });
+             }
+-
+-            visit::walk_ty(self, ty);
+-            self.bound_generic_params_stack.truncate(stack_len);
++            visit::walk_ty(self, ty)
+         }
+ 
+         // Place bound generic params on a stack, to extract them when a type is encountered.

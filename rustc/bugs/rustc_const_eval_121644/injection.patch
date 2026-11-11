@@ -1,0 +1,94 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/intern.rs b/compiler/rustc_const_eval/src/interpret/intern.rs
+index 49152f4c40ae2ef0d30a2cb6cedd3acf1efa75d0..430129f4938f72fe43723bb04866512a61a0384d 100644
+--- a/compiler/rustc_const_eval/src/interpret/intern.rs
++++ b/compiler/rustc_const_eval/src/interpret/intern.rs
+@@ -13,16 +13,13 @@
+ //! but that would require relying on type information, and given how many ways Rust has to lie
+ //! about type information, we want to avoid doing that.
+ 
+-use hir::def::DefKind;
+ use rustc_ast::Mutability;
+ use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
+ use rustc_hir as hir;
+-use rustc_hir::definitions::{DefPathData, PerParentDisambiguatorState};
+-use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs;
++use rustc_hir::definitions::PerParentDisambiguatorState;
+ use rustc_middle::mir::interpret::{
+-    AllocBytes, ConstAllocation, CtfeProvenance, InterpResult, Provenance,
++    AllocBytes, CtfeProvenance, InterpResult, Provenance,
+ };
+-use rustc_middle::query::TyCtxtAt;
+ use rustc_middle::span_bug;
+ use rustc_middle::ty::TyCtxt;
+ use rustc_middle::ty::layout::TyAndLayout;
+@@ -31,7 +28,7 @@
+ 
+ use super::{AllocId, Allocation, InterpCx, MPlaceTy, Machine, MemoryKind, PlaceTy, interp_ok};
+ use crate::const_eval::DummyMachine;
+-use crate::{const_eval, diagnostics};
++use crate::const_eval;
+ 
+ pub trait CompileTimeMachine<'tcx> = Machine<
+         'tcx,
+@@ -123,59 +120,11 @@ fn intern_shallow<'tcx, M: CompileTimeMachine<'tcx>>(
+ 
+     // link the alloc id to the actual allocation
+     let alloc = ecx.tcx.mk_const_alloc(alloc);
+-    if let Some(static_id) = ecx.machine.static_def_id() {
+-        intern_as_new_static(
+-            ecx.tcx,
+-            static_id,
+-            alloc_id,
+-            alloc,
+-            disambiguator.expect("disambiguator needed"),
+-        );
+-    } else {
+-        ecx.tcx.set_alloc_id_memory(alloc_id, alloc);
+-    }
++    let _ = disambiguator;
++    ecx.tcx.set_alloc_id_memory(alloc_id, alloc);
+     Ok(alloc.inner().provenance().ptrs().iter().map(|&(_, prov)| prov))
+ }
+ 
+-/// Creates a new `DefId` and feeds all the right queries to make this `DefId`
+-/// appear as if it were a user-written `static` (though it has no HIR).
+-fn intern_as_new_static<'tcx>(
+-    tcx: TyCtxtAt<'tcx>,
+-    static_id: LocalDefId,
+-    alloc_id: AllocId,
+-    alloc: ConstAllocation<'tcx>,
+-    disambiguator: &mut PerParentDisambiguatorState,
+-) {
+-    // `intern_const_alloc_recursive` is called once per static and it contains the `PerParentDisambiguatorState`.
+-    //  The `<static_id>::{{nested}}` path is thus unique to `intern_const_alloc_recursive` and the
+-    // `PerParentDisambiguatorState` ensures the generated path is unique for this call as we generate
+-    // `<static_id>::{{nested#n}}` where `n` is the `n`th `intern_as_new_static` call.
+-    let feed = tcx.create_def(
+-        static_id,
+-        None,
+-        DefKind::Static { safety: hir::Safety::Safe, mutability: alloc.0.mutability, nested: true },
+-        Some(DefPathData::NestedStatic),
+-        disambiguator,
+-    );
+-    tcx.set_nested_alloc_id_static(alloc_id, feed.def_id());
+-
+-    if tcx.is_thread_local_static(static_id.into()) {
+-        tcx.dcx()
+-            .emit_err(diagnostics::NestedStaticInThreadLocal { span: tcx.def_span(static_id) });
+-    }
+-
+-    // These do not inherit the codegen attrs of the parent static allocation, since
+-    // it doesn't make sense for them to inherit their `#[no_mangle]` and `#[link_name = ..]`
+-    // and the like.
+-    feed.codegen_fn_attrs(CodegenFnAttrs::new());
+-
+-    feed.eval_static_initializer(Ok(alloc));
+-    feed.generics_of(tcx.generics_of(static_id).clone());
+-    feed.def_ident_span(tcx.def_ident_span(static_id));
+-    feed.explicit_clauses_of(tcx.explicit_clauses_of(static_id));
+-    feed.feed_hir();
+-}
+-
+ /// How a constant value should be interned.
+ #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
+ pub enum InternKind {

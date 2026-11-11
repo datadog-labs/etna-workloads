@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_middle/src/ty/print/pretty.rs b/compiler/rustc_middle/src/ty/print/pretty.rs
+index 4ab474fd89fe6c70530aa0deb5234193db362bb4..67f71d131ced025e0a6db19053069593b033228c 100644
+--- a/compiler/rustc_middle/src/ty/print/pretty.rs
++++ b/compiler/rustc_middle/src/ty/print/pretty.rs
+@@ -1060,11 +1060,10 @@ fn pretty_print_opaque_impl_type(
+                     // `MetaSized`, and skip sizedness bounds to be added at the end.
+                     match tcx.as_lang_item(pred.def_id()) {
+                         Some(LangItem::Sized) => match pred.polarity {
+-                            ty::PredicatePolarity::Positive => {
++                            ty::PredicatePolarity::Positive | ty::PredicatePolarity::Negative => {
+                                 has_sized_bound = true;
+                                 continue;
+                             }
+-                            ty::PredicatePolarity::Negative => has_negative_sized_bound = true,
+                         },
+                         Some(LangItem::MetaSized) => {
+                             has_meta_sized_bound = true;
+@@ -1169,9 +1168,6 @@ fn pretty_print_opaque_impl_type(
+             write!(self, "{}", if first { "" } else { " + " })?;
+ 
+             self.wrap_binder(&trait_pred, WrapBinderMode::ForAll, |trait_pred, p| {
+-                if trait_pred.polarity == ty::PredicatePolarity::Negative {
+-                    write!(p, "!")?;
+-                }
+                 trait_pred.trait_ref.print_only_trait_name().print(p)?;
+ 
+                 let generics = tcx.generics_of(trait_pred.def_id());

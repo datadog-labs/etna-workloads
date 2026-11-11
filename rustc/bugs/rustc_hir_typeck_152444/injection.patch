@@ -1,0 +1,76 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..55323e908d982f54bbd248b3edce14bfddc0148f 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -691,7 +691,7 @@ fn coerce_unsized(&self, source: Ty<'tcx>, target: Ty<'tcx>) -> CoerceResult<'tc
+                 .infcx
+                 .visit_proof_tree(
+                     Goal::new(self.tcx, self.param_env, pred),
+-                    &mut CoerceVisitor { fcx: self.fcx, span: self.cause.span, errored: false },
++                    &mut CoerceVisitor { fcx: self.fcx, span: self.cause.span },
+                 )
+                 .is_break()
+             {
+@@ -2149,10 +2149,6 @@ fn simple_irrefutable_pattern(pat: &hir::Pat<'_>) -> bool {
+ struct CoerceVisitor<'a, 'tcx> {
+     fcx: &'a FnCtxt<'a, 'tcx>,
+     span: Span,
+-    /// Whether the coercion is impossible. If so we sometimes still try to
+-    /// coerce in these cases to emit better errors. This changes the behavior
+-    /// when hitting the recursion limit.
+-    errored: bool,
+ }
+ 
+ impl<'tcx> ProofTreeVisitor<'tcx> for CoerceVisitor<'_, 'tcx> {
+@@ -2179,7 +2175,6 @@ fn visit_goal(&mut self, goal: &inspect::InspectGoal<'_, 'tcx>) -> Self::Result
+             // If we prove the `Unsize` or `CoerceUnsized` goal, continue recursing.
+             Ok(Certainty::Yes) => ControlFlow::Continue(()),
+             Err(NoSolution) => {
+-                self.errored = true;
+                 // Even if we find no solution, continue recursing if we find a single candidate
+                 // for which we're shallowly certain it holds to get the right error source.
+                 if let [only_candidate] = &goal.candidates()[..]
+@@ -2212,15 +2207,4 @@ fn visit_goal(&mut self, goal: &inspect::InspectGoal<'_, 'tcx>) -> Self::Result
+             }
+         }
+     }
+-
+-    fn on_recursion_limit(&mut self) -> Self::Result {
+-        if self.errored {
+-            // This prevents accidentally committing unfulfilled unsized coercions while trying to
+-            // find the error source for diagnostics.
+-            // See https://github.com/rust-lang/trait-system-refactor-initiative/issues/266.
+-            ControlFlow::Break(())
+-        } else {
+-            ControlFlow::Continue(())
+-        }
+-    }
+ }
+diff --git a/compiler/rustc_trait_selection/src/solve/inspect/analyse.rs b/compiler/rustc_trait_selection/src/solve/inspect/analyse.rs
+index f7d6fe2481b2d48b4395e602d2311b12162d16eb..7abe7d063d62cbcc51f70c27bcc7b3ff4aa8b530 100644
+--- a/compiler/rustc_trait_selection/src/solve/inspect/analyse.rs
++++ b/compiler/rustc_trait_selection/src/solve/inspect/analyse.rs
+@@ -359,10 +359,9 @@ fn new(
+     pub(crate) fn visit_with<V: ProofTreeVisitor<'tcx>>(&self, visitor: &mut V) -> V::Result {
+         if self.depth < visitor.config().max_depth {
+             try_visit!(visitor.visit_goal(self));
+-            V::Result::output()
+-        } else {
+-            visitor.on_recursion_limit()
+         }
++
++        V::Result::output()
+     }
+ }
+ 
+@@ -377,10 +376,6 @@ fn config(&self) -> InspectConfig {
+     }
+ 
+     fn visit_goal(&mut self, goal: &InspectGoal<'_, 'tcx>) -> Self::Result;
+-
+-    fn on_recursion_limit(&mut self) -> Self::Result {
+-        Self::Result::output()
+-    }
+ }
+ 
+ #[extension(pub trait InferCtxtProofTreeExt<'tcx>)]

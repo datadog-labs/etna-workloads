@@ -1,0 +1,94 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 01df2e199a5ac723567e7ab4e8d477377218decb..046ae3098ecb573448a17f9d9313049e411652e5 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -984,29 +984,6 @@ pub(crate) fn check_item_type(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(),
+                 }));
+             } else {
+                 check_type_alias_type_params_are_used(tcx, def_id);
+-                res = res.and(enter_wf_checking_ctxt(tcx, def_id, |wfcx| {
+-                    // HACK: We sometimes incidentally check that const arguments have the correct
+-                    // type as a side effect of the anon const desugaring. To make this "consistent"
+-                    // for users we explicitly check `ConstArgHasType` clauses so that const args
+-                    // that don't go through an anon const still have their types checked.
+-                    //
+-                    // We use the unnormalized type as this mirrors the behaviour that we previously
+-                    // would have had when all const arguments were anon consts.
+-                    //
+-                    // Changing this to normalized obligations is a breaking change:
+-                    // `type Bar = [(); panic!()];` would become an error
+-                    if let Some(unnormalized_obligations) = wfcx.unnormalized_obligations(span, ty.skip_norm_wip())
+-                    {
+-                        let filtered_obligations =
+-                            unnormalized_obligations.into_iter().filter(|o| {
+-                                matches!(o.predicate.kind().skip_binder(),
+-                                    ty::PredicateKind::Clause(ty::ClauseKind::ConstArgHasType(ct, _))
+-                                    if matches!(ct.kind(), ty::ConstKind::Param(..)))
+-                            });
+-                        wfcx.ocx.register_obligations(filtered_obligations)
+-                    }
+-                    Ok(())
+-                }));
+             }
+ 
+             // Only `Node::Item` and `Node::ForeignItem` still have HIR based
+diff --git a/compiler/rustc_trait_selection/src/traits/wf.rs b/compiler/rustc_trait_selection/src/traits/wf.rs
+index 41d2d9adfea74905af7fab937da84716244e2821..76d74b7e6949cbe45a7e63b90064a514eacc5a29 100644
+--- a/compiler/rustc_trait_selection/src/traits/wf.rs
++++ b/compiler/rustc_trait_selection/src/traits/wf.rs
+@@ -953,53 +953,14 @@ fn visit_ty(&mut self, t: Ty<'tcx>) -> Self::Result {
+                 // FIXME(#27579) RFC also considers adding trait
+                 // obligations that don't refer to Self and
+                 // checking those
+-                if let Some(principal) = data.principal() {
+-                    let principal_def_id = principal.skip_binder().def_id;
++                if let Some(principal) = data.principal_def_id() {
+                     self.out.push(traits::Obligation::with_depth(
+                         tcx,
+                         self.cause(ObligationCauseCode::WellFormed(None)),
+                         self.recursion_depth,
+                         self.param_env,
+-                        ty::Binder::dummy(ty::PredicateKind::DynCompatible(principal_def_id)),
++                        ty::Binder::dummy(ty::PredicateKind::DynCompatible(principal)),
+                     ));
+-
+-                    // For the most part we don't add wf predicates corresponding to
+-                    // the trait ref's generic arguments which allows code like this
+-                    // to compile:
+-                    // ```rust
+-                    // trait Trait<T: Sized> {}
+-                    // fn foo(_: &dyn Trait<[u32]>) {}
+-                    // ```
+-                    //
+-                    // However, we sometimes incidentally check that const arguments
+-                    // have the correct type as a side effect of the anon const
+-                    // desugaring. To make this "consistent" for users we explicitly
+-                    // check `ConstArgHasType` clauses so that const args that don't
+-                    // go through an anon const still have their types checked.
+-                    //
+-                    // See also: https://rustc-dev-guide.rust-lang.org/const-generics.html
+-                    let args = principal.skip_binder().with_self_ty(self.tcx(), t).args;
+-                    let obligations =
+-                        self.nominal_obligations(principal_def_id, args).into_iter().filter(|o| {
+-                            let kind = o.predicate.kind().skip_binder();
+-                            match kind {
+-                                ty::PredicateKind::Clause(ty::ClauseKind::ConstArgHasType(
+-                                    ct,
+-                                    _,
+-                                )) if matches!(ct.kind(), ty::ConstKind::Param(..)) => {
+-                                    // ConstArgHasType clauses are not higher kinded. Assert as
+-                                    // such so we can fix this up if that ever changes.
+-                                    assert!(o.predicate.kind().bound_vars().is_empty());
+-                                    // In stable rust, variables from the trait object binder
+-                                    // cannot be referenced by a ConstArgHasType clause. However,
+-                                    // under `generic_const_parameter_types`, it can. Ignore those
+-                                    // predicates for now, to not have HKT-ConstArgHasTypes.
+-                                    !kind.has_escaping_bound_vars()
+-                                }
+-                                _ => false,
+-                            }
+-                        });
+-                    self.out.extend(obligations);
+                 }
+ 
+                 if !t.has_escaping_bound_vars() {

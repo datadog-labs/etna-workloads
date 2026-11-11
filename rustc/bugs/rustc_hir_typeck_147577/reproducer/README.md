@@ -1,0 +1,1 @@
+Calling a method on an ambiguous numeric type bound by a reference pattern in a closure (`|&v| v.pow(2)`) should yield a suggestion to annotate the closure parameter (`|&v: &i32|`); the injected compiler only emits a plain label without the suggestion.

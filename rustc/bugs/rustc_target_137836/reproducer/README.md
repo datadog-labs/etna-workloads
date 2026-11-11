@@ -1,0 +1,1 @@
+Compiles a crate using `#[cfg(target_vendor = "value")]`, triggering the unexpected-cfg-value warning, which lists all well-known target_vendor values. The clean compiler lists `openwrt` (the mips64-openwrt-linux-musl target sets vendor "openwrt"); the injected compiler omits it.

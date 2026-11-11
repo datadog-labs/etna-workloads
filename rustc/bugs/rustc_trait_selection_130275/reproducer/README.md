@@ -1,0 +1,1 @@
+A binary crate with the same name as its dependency (`samename`) hits a trait-bound error. The injected compiler calls `extern_crate` on the local crate while checking for same-named crates. It ICEs with status 101 instead of reporting E0277 with status 1.

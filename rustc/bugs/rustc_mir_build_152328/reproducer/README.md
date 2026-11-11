@@ -1,0 +1,1 @@
+The reproducer compiles a call to the deprecated-safe CommandExt::before_exec under deny(deprecated_safe_2024) and prints the help line of the diagnostic; the injected compiler suggests wrapping in unsafe with the wrong 'environment access single-threaded' guarantee text instead of the async-signal-safe closure text.

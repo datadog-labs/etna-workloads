@@ -1,0 +1,90 @@
+warning: the feature `core_intrinsics` is internal to the compiler or standard library
+ --> main.rs:5:29
+  |
+5 | #![feature(transmutability, core_intrinsics)]
+  |                             ^^^^^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+error: lifetime may not live long enough
+  --> main.rs:20:18
+   |
+19 |     fn extend_bare<'a>(src: &'a u8) -> &'static u8 {
+   |                    -- lifetime `'a` defined here
+20 |         unsafe { transmute(src) } //~ ERROR lifetime may not live long enough
+   |                  ^^^^^^^^^^^^^^ returning this value requires that `'a` must outlive `'static`
+
+error: lifetime may not live long enough
+  --> main.rs:28:18
+   |
+27 |     fn extend_nested<'a>(src: &'a &'a u8) -> &'a &'static u8 {
+   |                      -- lifetime `'a` defined here
+28 |         unsafe { transmute(src) } //~ ERROR lifetime may not live long enough
+   |                  ^^^^^^^^^^^^^^ returning this value requires that `'a` must outlive `'static`
+
+error: lifetime may not live long enough
+  --> main.rs:36:18
+   |
+35 |     fn extend_unit<'a>(src: (&'a u8,)) -> (&'static u8,) {
+   |                    -- lifetime `'a` defined here
+36 |         unsafe { transmute(src) } //~ ERROR lifetime may not live long enough
+   |                  ^^^^^^^^^^^^^^ returning this value requires that `'a` must outlive `'static`
+
+error: lifetime may not live long enough
+  --> main.rs:40:18
+   |
+39 |     fn extend_pair<'a>(src: (&'a u8, u8)) -> (&'static u8, u8) {
+   |                    -- lifetime `'a` defined here
+40 |         unsafe { transmute(src) } //~ ERROR lifetime may not live long enough
+   |                  ^^^^^^^^^^^^^^ returning this value requires that `'a` must outlive `'static`
+
+error: lifetime may not live long enough
+  --> main.rs:50:18
+   |
+49 |     fn extend_struct<'a>(src: Struct<'a>) -> Struct<'static> {
+   |                      -- lifetime `'a` defined here
+50 |         unsafe { transmute(src) } //~ ERROR lifetime may not live long enough
+   |                  ^^^^^^^^^^^^^^ returning this value requires that `'a` must outlive `'static`
+
+error: lifetime may not live long enough
+  --> main.rs:62:18
+   |
+61 |     fn extend_single<'a>(src: Single<'a>) -> Single<'static> {
+   |                      -- lifetime `'a` defined here
+62 |         unsafe { transmute(src) } //~ ERROR lifetime may not live long enough
+   |                  ^^^^^^^^^^^^^^ returning this value requires that `'a` must outlive `'static`
+
+error: lifetime may not live long enough
+  --> main.rs:72:18
+   |
+71 |     fn extend_multi<'a>(src: Multi<'a>) -> Multi<'static> {
+   |                     -- lifetime `'a` defined here
+72 |         unsafe { transmute(src) } //~ ERROR lifetime may not live long enough
+   |                  ^^^^^^^^^^^^^^ returning this value requires that `'a` must outlive `'static`
+
+error[E0521]: borrowed data escapes outside of function
+  --> main.rs:80:18
+   |
+79 |     fn call_extend_hrtb<'a>(src: &'a u8) -> &'static u8 {
+   |                         --  --- `src` is a reference that is only valid in the function body
+   |                         |
+   |                         lifetime `'a` defined here
+80 |         unsafe { extend_hrtb(src) } //~ ERROR borrowed data escapes outside of function
+   |                  ^^^^^^^^^^^^^^^^
+   |                  |
+   |                  `src` escapes the function body here
+   |                  argument requires that `'a` must outlive `'static`
+   |
+note: due to a current limitation of the type system, this implies a `'static` lifetime
+  --> main.rs:85:9
+   |
+85 |         for<'b> &'b u8: TransmuteFrom<&'a u8>,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 8 previous errors; 1 warning emitted
+
+For more information about this error, try `rustc --explain E0521`.
+rustc exit: 1
+
+[exit 0]

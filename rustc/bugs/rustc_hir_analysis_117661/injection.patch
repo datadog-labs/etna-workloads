@@ -1,0 +1,67 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+index e5dbae16d07d438ebd25e9d7b9196f030b43ec59..ee67a467d2946d08ff3c36917da9cfb074866de1 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+@@ -1134,7 +1134,7 @@ enum Descr {
+         // FIXME: This does not account for trait aliases. I think we should just make
+         //        `lower_trait_object_ty` compute the list of all specified items or give us the
+         //        necessary ingredients if it's too expensive to compute in the happy path.
+-        let bound_names: UnordMap<_, _> =
++        let _bound_names: UnordMap<_, _> =
+             trait_bounds
+                 .iter()
+                 .filter_map(|poly_trait_ref| {
+@@ -1196,40 +1196,21 @@ enum Descr {
+             *names.entry((item.name(), item.tag())).or_insert(0) += 1;
+         }
+         let mut dupes = false;
+-        let mut shadows = false;
+         for (item, trait_ref) in &missing_assoc_items {
+             let name = item.name();
+             let key = (name, item.tag());
+ 
+             if names[&key] > 1 {
+                 dupes = true;
+-            } else if bound_names.get(&key).is_some_and(|&def_id| def_id != item.def_id) {
+-                shadows = true;
+             }
+ 
+-            let prefix = if dupes || shadows {
++            let prefix = if dupes {
+                 format!("{}::", tcx.def_path_str(trait_ref.def_id()))
+             } else {
+                 String::new()
+             };
+-            let mut is_shadowed = false;
+-
+-            if let Some(&def_id) = bound_names.get(&key)
+-                && def_id != item.def_id
+-            {
+-                is_shadowed = true;
+-
+-                let rename_message = if def_id.is_local() { ", consider renaming it" } else { "" };
+-                err.span_label(
+-                    tcx.def_span(def_id),
+-                    format!("`{prefix}{name}` shadowed here{rename_message}"),
+-                );
+-            }
+-
+-            let rename_message = if is_shadowed { ", consider renaming it" } else { "" };
+-
+             if let Some(sp) = tcx.hir_span_if_local(item.def_id) {
+-                err.span_label(sp, format!("`{prefix}{name}` defined here{rename_message}"));
++                err.span_label(sp, format!("`{prefix}{name}` defined here"));
+             }
+         }
+         if potential_assoc_items.len() == missing_assoc_items.len() {
+@@ -1237,8 +1218,8 @@ enum Descr {
+             // extra type arguments present. A suggesting to replace the generic args with
+             // associated types is already emitted.
+             already_has_generics_args_suggestion = true;
+-        } else if let (Ok(snippet), false, false) =
+-            (tcx.sess.source_map().span_to_snippet(principal_span), dupes, shadows)
++        } else if let (Ok(snippet), false) =
++            (tcx.sess.source_map().span_to_snippet(principal_span), dupes)
+         {
+             let bindings: Vec<_> = missing_assoc_items
+                 .iter()

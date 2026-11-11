@@ -1,0 +1,32 @@
+error[E0391]: cycle detected when collecting associated items of `Foo`
+  --> main.rs:10:1
+   |
+10 | pub trait Foo<'a> {
+   | ^^^^^^^^^^^^^^^^^
+   |
+   = note: ...which requires collecting associated items or fields of `Foo`...
+   = note: ...which requires synthesizing RPITIT items for the opaque types for methods in `Foo`...
+note: ...which requires computing generics of `Foo::demo::{opaque#0}`...
+  --> main.rs:13:29
+   |
+13 |     fn demo<T>(other: T) -> impl Foo<'a, Assoc = Self::Assoc>
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...which requires computing generics of `Foo::demo`...
+  --> main.rs:13:5
+   |
+13 | /     fn demo<T>(other: T) -> impl Foo<'a, Assoc = Self::Assoc>
+14 | |     where
+15 | |         T: Foo<'a, Assoc = ()>;
+   | |_______________________________^
+   = note: ...which requires looking up a named region inside `Foo::demo`...
+   = note: ...which requires resolving lifetimes for `Foo::demo`...
+   = note: ...which again requires collecting associated items of `Foo`, completing the cycle
+   = note: cycle used when checking that `Foo` is well-formed
+   = note: for more information, see <https://rustc-dev-guide.rust-lang.org/overview.html#queries> and <https://rustc-dev-guide.rust-lang.org/query.html>
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0391`.
+rustc exit: 1
+
+[exit 0]

@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_sanitizers/src/cfi/typeid/itanium_cxx_abi/transform.rs b/compiler/rustc_sanitizers/src/cfi/typeid/itanium_cxx_abi/transform.rs
+index 1d4accd8ad3b66937137f54862c83af0dfc2beeb..88b1d69ba52b14dc2dc598ef1732c5fd66a9dfbd 100644
+--- a/compiler/rustc_sanitizers/src/cfi/typeid/itanium_cxx_abi/transform.rs
++++ b/compiler/rustc_sanitizers/src/cfi/typeid/itanium_cxx_abi/transform.rs
+@@ -312,35 +312,8 @@ pub(crate) fn transform_instance<'tcx>(
+     options: TransformTyOptions,
+ ) -> Instance<'tcx> {
+     // FIXME: account for async-drop-glue
+-    if (matches!(instance.def, ty::InstanceKind::Virtual(..))
+-        && tcx.is_lang_item(instance.def_id(), LangItem::DropGlue))
+-        || matches!(instance.def, ty::InstanceKind::Shim(ty::ShimKind::DropGlue(..)))
+-    {
+-        // Adjust the type ids of DropGlues
+-        //
+-        // DropGlues may have indirect calls to one or more given types drop function. Rust allows
+-        // for types to be erased to any trait object and retains the drop function for the original
+-        // type, which means at the indirect call sites in DropGlues, when typeid_for_fnabi is
+-        // called a second time, it only has information after type erasure and it could be a call
+-        // on any arbitrary trait object. Normalize them to a synthesized Drop trait object, both on
+-        // declaration/definition, and during code generation at call sites so they have the same
+-        // type id and match.
+-        //
+-        // FIXME(rcvalle): This allows a drop call on any trait object to call the drop function of
+-        //   any other type.
+-        //
+-        let def_id = tcx
+-            .lang_items()
+-            .drop_trait()
+-            .unwrap_or_else(|| bug!("typeid_for_instance: couldn't get drop_trait lang item"));
+-        let predicate = ty::ExistentialPredicate::Trait(ty::ExistentialTraitRef::new_from_args(
+-            tcx,
+-            def_id,
+-            ty::List::empty(),
+-        ));
+-        let predicates = tcx.mk_poly_existential_predicates(&[ty::Binder::dummy(predicate)]);
+-        let self_ty = Ty::new_dynamic(tcx, predicates, tcx.lifetimes.re_erased);
+-        instance.args = tcx.mk_args_trait(self_ty, List::empty());
++    if false {
++        unreachable!()
+     } else if let ty::InstanceKind::Virtual(def_id, _) = instance.def {
+         // Transform self into a trait object of the trait that defines the method for virtual
+         // functions to match the type erasure done below.

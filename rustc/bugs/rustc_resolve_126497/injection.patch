@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..de0625d1eb6c99147b54bdc645203f56207243a2 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -3906,16 +3906,15 @@ fn resolve_delegation(
+         self.r.delegation_infos.insert(self.r.current_owner.def_id, info);
+ 
+         let Some(body) = &delegation.body else { return };
+-        self.with_rib(ValueNS, RibKind::FnOrCoroutine, |this| {
+-            let ident = Ident::new(kw::SelfLower, body.span.normalize_to_macro_rules());
+-            let res = Res::Local(delegation.id);
+-            this.innermost_rib_bindings(ValueNS).insert(ident, res);
++        let span = delegation.path.segments.last().unwrap().ident.span;
++        let ident = Ident::new(kw::SelfLower, span);
++        let res = Res::Local(delegation.id);
++        self.innermost_rib_bindings(ValueNS).insert(ident, res);
+ 
+-            //As we lower target_expr_template body to a body of a function we need a label rib (#148889)
+-            this.with_label_rib(RibKind::FnOrCoroutine, |this| {
+-                this.with_lifetime_rib(LifetimeRibKind::elided(LifetimeRes::Infer), |this| {
+-                    this.visit_block(body);
+-                });
++        //As we lower target_expr_template body to a body of a function we need a label rib (#148889)
++        self.with_label_rib(RibKind::FnOrCoroutine, |this| {
++            this.with_lifetime_rib(LifetimeRibKind::elided(LifetimeRes::Infer), |this| {
++                this.visit_block(body);
+             });
+         });
+     }

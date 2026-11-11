@@ -1,0 +1,1 @@
+Delegation through a trait-impl 'reuse' of a recursively delegated trait method (reuse m::bar as foo in a trait, then reuse <X as T>::foo as baz inside an impl). The injected compiler ICEs (exit 101, panic in delegation generics lowering); the clean compiler compiles and runs it.

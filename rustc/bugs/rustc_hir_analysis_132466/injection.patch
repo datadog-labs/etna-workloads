@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+index f55833c1bf6da228478bc4624ad342844e2692e9..ffe01d6c65e6bf52e632fcd3ca4e0d0bff92706c 100644
+--- a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
++++ b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+@@ -540,23 +540,17 @@ fn visit_opaque_ty(&mut self, opaque: &'tcx rustc_hir::OpaqueTy<'tcx>) {
+             // We list scopes outwards, this causes us to see lifetime parameters in reverse
+             // declaration order. In order to make it consistent with what `generics_of` might
+             // give, we will reverse the IndexMap after early captures.
+-            let mut late_depth = 0;
+             let mut scope = self.scope;
+             let mut opaque_capture_scopes = vec![(opaque.def_id, &captures)];
+             loop {
+                 match *scope {
+-                    Scope::Binder { ref bound_vars, scope_type, s, .. } => {
++                    Scope::Binder { ref bound_vars, s, .. } => {
+                         for (&original_lifetime, &def) in bound_vars.iter().rev() {
+                             if let DefKind::LifetimeParam = self.tcx.def_kind(original_lifetime) {
+-                                let def = def.shifted(late_depth);
+                                 let ident = lifetime_ident(original_lifetime);
+                                 self.remap_opaque_captures(&opaque_capture_scopes, def, ident);
+                             }
+                         }
+-                        match scope_type {
+-                            BinderScopeType::Normal => late_depth += 1,
+-                            BinderScopeType::Concatenating => {}
+-                        }
+                         scope = s;
+                     }
+ 
+@@ -577,7 +571,6 @@ fn visit_opaque_ty(&mut self, opaque: &'tcx rustc_hir::OpaqueTy<'tcx>) {
+ 
+                     Scope::Opaque { captures, def_id, s } => {
+                         opaque_capture_scopes.push((def_id, captures));
+-                        late_depth = 0;
+                         scope = s;
+                     }
+ 

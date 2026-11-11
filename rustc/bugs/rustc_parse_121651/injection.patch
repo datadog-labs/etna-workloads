@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_parse/src/parser/diagnostics.rs b/compiler/rustc_parse/src/parser/diagnostics.rs
+index 0b91828639d368975752d141909656a3c796bfd2..ec8b7db3d6629a1b3d22c9a440e05a2ab8f7c6cb 100644
+--- a/compiler/rustc_parse/src/parser/diagnostics.rs
++++ b/compiler/rustc_parse/src/parser/diagnostics.rs
+@@ -864,8 +864,9 @@ pub(super) fn attr_on_non_tail_expr(&self, expr: &Expr) -> ErrorGuaranteed {
+                 {
+                     Ok(next_attr) => next_attr,
+                     Err(inner_err) => {
++                        err.cancel();
+                         inner_err.cancel();
+-                        return err.emit();
++                        return self.dcx().span_delayed_bug(expr.span, "not a tail expression");
+                     }
+                 }
+                 && let ast::AttrKind::Normal(next_attr_kind) = next_attr.kind
+@@ -876,8 +877,9 @@ pub(super) fn attr_on_non_tail_expr(&self, expr: &Expr) -> ErrorGuaranteed {
+                 let next_expr = match snapshot.parse_expr() {
+                     Ok(next_expr) => next_expr,
+                     Err(inner_err) => {
++                        err.cancel();
+                         inner_err.cancel();
+-                        return err.emit();
++                        return self.dcx().span_delayed_bug(expr.span, "not a tail expression");
+                     }
+                 };
+                 // We have for sure

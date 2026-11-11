@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_parse/src/diagnostics.rs b/compiler/rustc_parse/src/diagnostics.rs
+index 7897239d248ea2bad17942868e8a3b7184f843a2..fa3fabefb8ddc1b260a3f80c171708a8fe9c9182 100644
+--- a/compiler/rustc_parse/src/diagnostics.rs
++++ b/compiler/rustc_parse/src/diagnostics.rs
+@@ -4648,7 +4648,7 @@ pub(crate) struct ReservedMultihashLint {
+ 
+ #[derive(Subdiagnostic)]
+ #[suggestion(
+-    "if you meant to write a path, use a double colon",
++    "if you meant to write a path, use a double colon:",
+     code = "::",
+     applicability = "maybe-incorrect"
+ )]
+@@ -4659,7 +4659,7 @@ pub(crate) struct UseDoubleColonSuggestion {
+ 
+ #[derive(Subdiagnostic)]
+ #[multipart_suggestion(
+-    "if you meant to create a regular struct, use curly braces",
++    "if you meant to create a regular struct, use curly braces:",
+     applicability = "maybe-incorrect"
+ )]
+ pub(crate) struct UseRegularStructSuggestion {
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..e1495abbb17075cfb4bb47c9bc492b0f08eda3d5 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -2173,10 +2173,8 @@ pub(super) fn parse_tuple_struct_body(&mut self) -> PResult<'a, ThinVec<FieldDef
+         })
+         .map(|(r, _)| r)
+         .map_err(|mut error| {
+-            if self.token == token::Colon {
+-                error.subdiagnostic(UseDoubleColonSuggestion { colon: self.token.span });
+-            }
+             if encountered_colon {
++                error.subdiagnostic(UseDoubleColonSuggestion { colon: self.token.span });
+                 self.eat_to_tokens(&[exp!(CloseParen)]);
+                 self.bump();
+                 error.subdiagnostic(UseRegularStructSuggestion {

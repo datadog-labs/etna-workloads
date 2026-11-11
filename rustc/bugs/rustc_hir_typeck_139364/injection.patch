@@ -1,0 +1,66 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..d75907ea3b5b14de345ced8cbcbcb41148c2635f 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -29,7 +29,6 @@
+ use rustc_middle::ty::fast_reject::{DeepRejectCtxt, TreatParams, simplify_type};
+ use rustc_middle::ty::print::{
+     PrintTraitRefExt as _, with_crate_prefix, with_forced_trimmed_paths,
+-    with_no_visible_paths_if_doc_hidden,
+ };
+ use rustc_middle::ty::{
+     self, GenericArgKind, IsSuggestable, RegionExt, Ty, TyCtxt, TypeVisitableExt,
+@@ -4033,9 +4032,7 @@ fn suggest_use_candidates<F>(&self, candidates: Vec<DefId>, handle_candidates: F
+             let path_strings = candidates.iter().map(|trait_did| {
+                 format!(
+                     "{prefix}{}{postfix}\n",
+-                    with_no_visible_paths_if_doc_hidden!(with_crate_prefix!(
+-                        self.tcx.def_path_str(*trait_did)
+-                    )),
++                    with_crate_prefix!(self.tcx.def_path_str(*trait_did)),
+                 )
+             });
+ 
+@@ -4043,9 +4040,7 @@ fn suggest_use_candidates<F>(&self, candidates: Vec<DefId>, handle_candidates: F
+                 let parent_did = parent_map.get(trait_did).unwrap();
+                 format!(
+                     "{prefix}{}::*{postfix} // trait {}\n",
+-                    with_no_visible_paths_if_doc_hidden!(with_crate_prefix!(
+-                        self.tcx.def_path_str(*parent_did)
+-                    )),
++                    with_crate_prefix!(self.tcx.def_path_str(*parent_did)),
+                     self.tcx.item_name(*trait_did),
+                 )
+             });
+diff --git a/compiler/rustc_middle/src/ty/print/pretty.rs b/compiler/rustc_middle/src/ty/print/pretty.rs
+index 4ab474fd89fe6c70530aa0deb5234193db362bb4..4f0e5c59be2697656e8e481d8c3a48d173441fda 100644
+--- a/compiler/rustc_middle/src/ty/print/pretty.rs
++++ b/compiler/rustc_middle/src/ty/print/pretty.rs
+@@ -38,7 +38,6 @@
+     static FORCE_TRIMMED_PATH: Cell<bool> = const { Cell::new(false) };
+     static REDUCED_QUERIES: Cell<bool> = const { Cell::new(false) };
+     static NO_VISIBLE_PATH: Cell<bool> = const { Cell::new(false) };
+-    static NO_VISIBLE_PATH_IF_DOC_HIDDEN: Cell<bool> = const { Cell::new(false) };
+     static RTN_MODE: Cell<RtnMode> = const { Cell::new(RtnMode::ForDiagnostic) };
+ }
+ 
+@@ -121,8 +120,6 @@ pub fn $name() -> bool {
+     /// Prevent selection of visible paths. `Display` impl of DefId will prefer
+     /// visible (public) reexports of types as paths.
+     fn with_no_visible_paths(NoVisibleGuard, NO_VISIBLE_PATH);
+-    /// Prevent selection of visible paths if the paths are through a doc hidden path.
+-    fn with_no_visible_paths_if_doc_hidden(NoVisibleIfDocHiddenGuard, NO_VISIBLE_PATH_IF_DOC_HIDDEN);
+ );
+ 
+ #[must_use]
+@@ -565,10 +562,6 @@ fn try_print_visible_def_path_recur(
+             return Ok(false);
+         };
+ 
+-        if self.tcx().is_doc_hidden(visible_parent) && with_no_visible_paths_if_doc_hidden() {
+-            return Ok(false);
+-        }
+-
+         let actual_parent = self.tcx().opt_parent(def_id);
+         debug!(
+             "try_print_visible_def_path: visible_parent={:?} actual_parent={:?}",

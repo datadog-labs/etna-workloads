@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs b/compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs
+index c5b69c563b2fe573677e8d1f7abc57c0606604b9..c7192941d4d3619454d138a870cfa7c960b48ba7 100644
+--- a/compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs
++++ b/compiler/rustc_mir_dataflow/src/impls/borrowed_locals.rs
+@@ -74,10 +74,8 @@ fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
+         self.super_rvalue(rvalue, location);
+ 
+         match rvalue {
+-            // We ignore fake borrows as these get removed after analysis and shouldn't effect
+-            // the layout of generators.
+             Rvalue::RawPtr(_, borrowed_place)
+-            | Rvalue::Ref(_, BorrowKind::Mut { .. } | BorrowKind::Shared, borrowed_place)
++            | Rvalue::Ref(_, _, borrowed_place)
+             | Rvalue::Reborrow(_, _, borrowed_place) => {
+                 if !borrowed_place.is_indirect() {
+                     self.trans.gen_(borrowed_place.local);
+@@ -85,7 +83,6 @@ fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
+             }
+ 
+             Rvalue::Cast(..)
+-            | Rvalue::Ref(_, BorrowKind::Fake(_), _)
+             | Rvalue::Use(..)
+             | Rvalue::ThreadLocalRef(..)
+             | Rvalue::Repeat(..)

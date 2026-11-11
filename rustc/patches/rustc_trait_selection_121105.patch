@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/fulfill.rs b/compiler/rustc_trait_selection/src/traits/fulfill.rs
+index d0452052f10f69f56a47976c26e896e42a5d8e69..4d83fa6b3cea697337a3d697454bfbcac009839e 100644
+--- a/compiler/rustc_trait_selection/src/traits/fulfill.rs
++++ b/compiler/rustc_trait_selection/src/traits/fulfill.rs
+@@ -533,9 +533,20 @@ fn process_obligation(
+                 ty::PredicateKind::NormalizesTo(..) => {
+                     bug!("NormalizesTo is only used by the new solver")
+                 }
+-                // Compute `ConstArgHasType` above the overflow check below.
+-                // This is because this is not ever a useful obligation to report
+-                // as the cause of an overflow.
++
++                // General case overflow check. Allow `process_trait_obligation`
++                // and `process_projection_obligation` to handle checking for
++                // the recursion limit themselves. Also don't check some
++                // predicate kinds that don't give further obligations.
++                _ if !self
++                    .selcx
++                    .tcx()
++                    .recursion_limit()
++                    .value_within_limit(obligation.recursion_depth) =>
++                {
++                    self.selcx.infcx.err_ctxt().report_overflow_obligation(&obligation, false);
++                }
++
+                 ty::PredicateKind::Clause(ty::ClauseKind::ConstArgHasType(ct, ty)) => {
+                     let ct = infcx.shallow_resolve_const(ct);
+                     let ct_ty = match ct.kind() {
+@@ -591,19 +602,6 @@ fn process_obligation(
+                     }
+                 }
+ 
+-                // General case overflow check. Allow `process_trait_obligation`
+-                // and `process_projection_obligation` to handle checking for
+-                // the recursion limit themselves. Also don't check some
+-                // predicate kinds that don't give further obligations.
+-                _ if !self
+-                    .selcx
+-                    .tcx()
+-                    .recursion_limit()
+-                    .value_within_limit(obligation.recursion_depth) =>
+-                {
+-                    self.selcx.infcx.err_ctxt().report_overflow_obligation(&obligation, false);
+-                }
+-
+                 ty::PredicateKind::Clause(ty::ClauseKind::WellFormed(term)) => {
+                     if term.is_trivially_wf(self.selcx.tcx()) {
+                         return ProcessResult::Changed(thin_vec![]);

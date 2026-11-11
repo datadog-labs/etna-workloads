@@ -1,0 +1,1 @@
+Compiles a pattern using a const that points to a self-referential static (issue 144719). The clean compiler reports 'constant Y cannot be used as pattern' (exit 1); the injected one lacks cycle detection in valtree construction and overflows the stack (SIGSEGV).

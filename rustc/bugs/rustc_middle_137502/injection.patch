@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_middle/src/mir/pretty.rs b/compiler/rustc_middle/src/mir/pretty.rs
+index 021c1c176d7884492d86f9f2534ee797b9ef0c46..5d9e85866e6d1ede69983832c02cdca6049f796a 100644
+--- a/compiler/rustc_middle/src/mir/pretty.rs
++++ b/compiler/rustc_middle/src/mir/pretty.rs
+@@ -695,8 +695,6 @@ fn write_mir_sig(tcx: TyCtxt<'_>, body: &Body<'_>, w: &mut dyn io::Write) -> io:
+         (_, _) if is_function => write!(w, "fn ")?,
+         // anon consts are not an item and have no sig
+         (DefKind::AnonConst, _) => {}
+-        // `global_asm!` have fake bodies, which we may dump after mir-build
+-        (DefKind::GlobalAsm, _) => {}
+         _ => bug!("Unexpected def kind {:?}", kind),
+     }
+ 
+diff --git a/compiler/rustc_mir_transform/src/lib.rs b/compiler/rustc_mir_transform/src/lib.rs
+index d2dd77c9863189aa7b01528f27c36d13f8309db3..567e6e1a0d7db871f81f003e66d4e51405e8e2ef 100644
+--- a/compiler/rustc_mir_transform/src/lib.rs
++++ b/compiler/rustc_mir_transform/src/lib.rs
+@@ -328,10 +328,6 @@ fn mir_keys(tcx: TyCtxt<'_>, (): ()) -> FxIndexSet<LocalDefId> {
+     // All body-owners have MIR associated with them.
+     let mut set: FxIndexSet<_> = tcx.hir_body_owners().collect();
+ 
+-    // Remove the fake bodies for `global_asm!`, since they're not useful
+-    // to be emitted (`--emit=mir`) or encoded (in metadata).
+-    set.retain(|&def_id| !matches!(tcx.def_kind(def_id), DefKind::GlobalAsm));
+-
+     // Coroutine-closures (e.g. async closures) have an additional by-move MIR
+     // body that isn't in the HIR.
+     for body_owner in tcx.hir_body_owners() {

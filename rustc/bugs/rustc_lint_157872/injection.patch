@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_lint/src/noop_method_call.rs b/compiler/rustc_lint/src/noop_method_call.rs
+index 64acd732013996daaf9dc9b1a94769922673f200..7884aadaa79b853de056870e6d9b20cb001e3256 100644
+--- a/compiler/rustc_lint/src/noop_method_call.rs
++++ b/compiler/rustc_lint/src/noop_method_call.rs
+@@ -145,8 +145,6 @@ fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
+                 },
+             );
+         } else {
+-            // Report the method call's return type before adjustments required by its parent.
+-            let unadjusted_expr_ty = cx.typeck_results().expr_ty(expr);
+             match name {
+                 // If `type_of(x) == T` and `x.borrow()` is used to get `&T`,
+                 // then that should be allowed
+@@ -154,12 +152,12 @@ fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
+                 sym::noop_method_clone => cx.emit_span_lint(
+                     SUSPICIOUS_DOUBLE_REF_OP,
+                     span,
+-                    SuspiciousDoubleRefCloneDiag { ty: unadjusted_expr_ty },
++                    SuspiciousDoubleRefCloneDiag { ty: expr_ty },
+                 ),
+                 sym::noop_method_deref => cx.emit_span_lint(
+                     SUSPICIOUS_DOUBLE_REF_OP,
+                     span,
+-                    SuspiciousDoubleRefDerefDiag { ty: unadjusted_expr_ty },
++                    SuspiciousDoubleRefDerefDiag { ty: expr_ty },
+                 ),
+                 _ => return,
+             }

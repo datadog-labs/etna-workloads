@@ -1,0 +1,86 @@
+diff --git a/compiler/rustc_mir_transform/src/cross_crate_inline.rs b/compiler/rustc_mir_transform/src/cross_crate_inline.rs
+index 13b3304fda8f2b9209385190811e80847a936f86..e396d00facfb834f6bb3bbe735c4193f5f5870ee 100644
+--- a/compiler/rustc_mir_transform/src/cross_crate_inline.rs
++++ b/compiler/rustc_mir_transform/src/cross_crate_inline.rs
+@@ -2,7 +2,6 @@
+ use rustc_hir::def::DefKind;
+ use rustc_hir::def_id::LocalDefId;
+ use rustc_hir::{self as hir, find_attr};
+-use rustc_middle::bug;
+ use rustc_middle::mir::visit::Visitor;
+ use rustc_middle::mir::*;
+ use rustc_middle::query::Providers;
+@@ -109,15 +108,6 @@ fn cross_crate_inlinable(tcx: TyCtxt<'_>, def_id: LocalDefId) -> bool {
+         && checker.statements <= threshold
+ }
+ 
+-// The threshold that CostChecker computes is balancing the desire to make more things
+-// inlinable cross crates against the growth in incremental CGU size that happens when too many
+-// things in the sysroot are made inlinable.
+-// Permitting calls causes the size of some incremental CGUs to grow, because more functions are
+-// made inlinable out of the sysroot or dependencies.
+-// Assert terminators are similar to calls, but do not have the same impact on compile time, so
+-// those are just treated as statements.
+-// A threshold exists at all because we don't want to blindly mark a huge function as inlinable.
+-
+ struct CostChecker<'b, 'tcx> {
+     tcx: TyCtxt<'tcx>,
+     callee_body: &'b Body<'tcx>,
+@@ -137,10 +127,9 @@ fn visit_statement(&mut self, statement: &Statement<'tcx>, _: Location) {
+     }
+ 
+     fn visit_terminator(&mut self, terminator: &Terminator<'tcx>, _: Location) {
+-        self.statements += 1;
+         let tcx = self.tcx;
+-        match &terminator.kind {
+-            TerminatorKind::Drop { place, unwind, .. } => {
++        match terminator.kind {
++            TerminatorKind::Drop { ref place, unwind, .. } => {
+                 let ty = place.ty(self.callee_body, tcx).ty;
+                 if !ty.is_trivially_pure_clone_copy() {
+                     self.calls += 1;
+@@ -149,7 +138,7 @@ fn visit_terminator(&mut self, terminator: &Terminator<'tcx>, _: Location) {
+                     }
+                 }
+             }
+-            TerminatorKind::Call { func, unwind, .. } => {
++            TerminatorKind::Call { ref func, unwind, .. } => {
+                 // We track calls because they make our function not a leaf (and in theory, the
+                 // number of calls indicates how likely this function is to perturb other CGUs).
+                 // But there are a handful of intrinsics such as raw_eq that should not block
+@@ -165,31 +154,21 @@ fn visit_terminator(&mut self, terminator: &Terminator<'tcx>, _: Location) {
+                     self.landing_pads += 1;
+                 }
+             }
+-            TerminatorKind::TailCall { .. } => {
+-                self.calls += 1;
+-            }
+             TerminatorKind::Assert { unwind, .. } => {
++                self.calls += 1;
+                 if let UnwindAction::Cleanup(_) = unwind {
+                     self.landing_pads += 1;
+                 }
+             }
+             TerminatorKind::UnwindResume => self.resumes += 1,
+             TerminatorKind::InlineAsm { unwind, .. } => {
++                self.statements += 1;
+                 if let UnwindAction::Cleanup(_) = unwind {
+                     self.landing_pads += 1;
+                 }
+             }
+-            TerminatorKind::Return
+-            | TerminatorKind::Goto { .. }
+-            | TerminatorKind::SwitchInt { .. }
+-            | TerminatorKind::Unreachable
+-            | TerminatorKind::UnwindTerminate(_) => {}
+-            kind @ (TerminatorKind::FalseUnwind { .. }
+-            | TerminatorKind::FalseEdge { .. }
+-            | TerminatorKind::Yield { .. }
+-            | TerminatorKind::CoroutineDrop) => {
+-                bug!("{kind:?} should not be in runtime MIR");
+-            }
++            TerminatorKind::Return => {}
++            _ => self.statements += 1,
+         }
+     }
+ }

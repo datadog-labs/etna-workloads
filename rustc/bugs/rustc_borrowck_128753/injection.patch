@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+index e347dc2d13dfcb2172a7c2b2b4c4e2c854e4d26a..09781adc3d39031614dd4f21a4df5542393e4661 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+@@ -721,22 +721,18 @@ pub(crate) fn name_regions_for_member_constraint<T>(&self, tcx: TyCtxt<'tcx>, ty
+                     return universal_region;
+                 }
+ 
+-                // Nothing exact found, so we pick a named upper bound, if there's only one.
+-                // If there's >1 universal region, then we probably are dealing w/ an intersection
+-                // region which cannot be mapped back to a universal.
+-                // FIXME: We could probably compute the LUB if there is one.
++                // Nothing exact found, so we pick the first one that we find.
+                 let scc = self.constraint_sccs.scc(vid);
+                 let rev_scc_graph =
+                     ReverseSccGraph::compute(&self.constraint_sccs, self.universal_regions());
+-                let upper_bounds: Vec<_> = rev_scc_graph
+-                    .upper_bounds(scc)
+-                    .filter_map(|vid| self.definitions[vid].external_name)
+-                    .filter(|r| !r.is_static())
+-                    .collect();
+-                match &upper_bounds[..] {
+-                    [universal_region] => *universal_region,
+-                    _ => region,
++                for vid in rev_scc_graph.upper_bounds(scc) {
++                    match self.definitions[vid].external_name {
++                        None => {}
++                        Some(region) if region.is_static() => {}
++                        Some(region) => return region,
++                    }
+                 }
++                region
+             }
+             _ => region,
+         })

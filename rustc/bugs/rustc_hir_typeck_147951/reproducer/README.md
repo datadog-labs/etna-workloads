@@ -1,0 +1,1 @@
+Type-checks a let chain containing 'y += 2' on a bool. The fixed compiler emits the dedicated 'binary assignment operation += cannot be used in a let chain' diagnostic; the injected one emits generic E0368.

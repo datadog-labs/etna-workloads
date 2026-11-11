@@ -1,0 +1,1 @@
+Compiles two naked functions with #[instruction_set(arm::t32)] and #[instruction_set(arm::a32)] for armv5te and thumbv5te targets and prints the directives (.arm/.thumb/.thumb_func) in the emitted module asm. The clean compiler honors the attribute regardless of target mode; the injected one ignores it and emits the target's default mode (e.g. test_thumb gets .arm on armv5te).

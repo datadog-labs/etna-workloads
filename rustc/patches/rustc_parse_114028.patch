@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_parse/src/parser/diagnostics.rs b/compiler/rustc_parse/src/parser/diagnostics.rs
+index 0b91828639d368975752d141909656a3c796bfd2..93abde43b6558f80ee7da7ce422464b0133a6d59 100644
+--- a/compiler/rustc_parse/src/parser/diagnostics.rs
++++ b/compiler/rustc_parse/src/parser/diagnostics.rs
+@@ -472,14 +472,6 @@ fn tokens_to_string(tokens: &[TokenType]) -> String {
+ 
+         // Special-case "expected `;`" errors.
+         if expected.contains(&TokenType::Semi) {
+-            // If the user is trying to write a ternary expression, recover it and
+-            // return an Err to prevent a cascade of irrelevant diagnostics.
+-            if self.prev_token == token::Question
+-                && let Err(e) = self.maybe_recover_from_ternary_operator(None)
+-            {
+-                return Err(e);
+-            }
+-
+             if self.token.span == DUMMY_SP || self.prev_token.span == DUMMY_SP {
+                 // Likely inside a macro, can't provide meaningful suggestions.
+             } else if !sm.is_multiline(self.prev_token.span.until(self.token.span)) {
+diff --git a/compiler/rustc_parse/src/parser/stmt.rs b/compiler/rustc_parse/src/parser/stmt.rs
+index 7c3752cfff1871fdb83b106deb71bbb822d9fe94..45eeb2b9c86133921ae9b02fa8489270684f6f19 100644
+--- a/compiler/rustc_parse/src/parser/stmt.rs
++++ b/compiler/rustc_parse/src/parser/stmt.rs
+@@ -988,12 +988,7 @@ pub fn parse_full_stmt(&mut self, recover: AttemptLocalParseRecovery) -> PResult
+             {
+                 // Just check for errors and recover; do not eat semicolon yet.
+ 
+-                let expect_result =
+-                    if let Err(e) = self.maybe_recover_from_ternary_operator(Some(expr.span)) {
+-                        Err(e)
+-                    } else {
+-                        self.expect_one_of(&[], &[exp!(Semi), exp!(CloseBrace)])
+-                    };
++                let expect_result = self.expect_one_of(&[], &[exp!(Semi), exp!(CloseBrace)]);
+ 
+                 // Try to both emit a better diagnostic, and avoid further errors by replacing
+                 // the `expr` with `ExprKind::Err`.

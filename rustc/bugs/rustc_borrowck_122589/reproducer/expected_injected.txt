@@ -1,0 +1,30 @@
+error[E0382]: use of moved value: `value`
+ --> main.rs:5:9
+  |
+3 | async fn clone_async_block(value: String) {
+  |                            ----- move occurs because `value` has type `String`, which does not implement the `Copy` trait
+4 |     for _ in 0..10 {
+  |     -------------- inside of this loop
+5 |         async { //~ ERROR: use of moved value: `value` [E0382]
+  |         ^^^^^ value moved here, in previous iteration of loop
+6 |             drop(value);
+  |                  ----- use occurs due to use in coroutine
+  |
+help: consider moving the expression out of the loop so it is only moved once
+  |
+4 ~     let mut value = drop(value);
+5 ~     for _ in 0..10 {
+6 |         async { //~ ERROR: use of moved value: `value` [E0382]
+7 ~             value;
+  |
+help: consider cloning the value if the performance cost is acceptable
+  |
+6 |             drop(value.clone());
+  |                       ++++++++
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0382`.
+rustc exit: 1
+
+[exit 0]

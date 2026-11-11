@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..4a125187d16ff87c7e6e783b37e92d8b78f6bdca 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -555,11 +555,14 @@ fn check_param_uses_if_mcg<T>(&self, term: T, span: Span, is_self_alias: bool) -
+         T: ty::TypeFoldable<TyCtxt<'tcx>>,
+     {
+         let tcx = self.tcx();
+-        if let Some(context) = self.anon_const_forbids_generic_params()
++        let parent_def_id = self.item_def_id();
++        if tcx.def_kind(parent_def_id) == DefKind::AnonConst
++            && let ty::AnonConstKind::MCG = tcx.anon_const_kind(parent_def_id)
++            && let Some(context) = Some(ForbidParamContext::ConstArgument)
+             // Fast path if contains no params/escaping bound vars.
+             && (term.has_param() || term.has_escaping_bound_vars())
+         {
+-            let anon_const_def_id = self.item_def_id();
++            let anon_const_def_id = parent_def_id;
+             let mut folder =
+                 ForbidParamUsesFolder { tcx, anon_const_def_id, span, is_self_alias, context };
+             term.fold_with(&mut folder)

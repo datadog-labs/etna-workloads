@@ -1,0 +1,143 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..ae029b30595adb22d032d2517b52bfb4d0aad003 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -882,7 +882,7 @@ fn parse_borrow_modifiers(&mut self) -> (ast::BorrowKind, ast::Mutability) {
+             // `raw [ const | mut ]`.
+             let found_raw = self.eat_keyword(exp!(Raw));
+             assert!(found_raw);
+-            let mutability = self.parse_mut_or_const().unwrap();
++            let mutability = self.parse_const_or_mut().unwrap();
+             (ast::BorrowKind::Raw, mutability)
+         } else {
+             match self.parse_pin_and_mut() {
+diff --git a/compiler/rustc_parse/src/parser/mod.rs b/compiler/rustc_parse/src/parser/mod.rs
+index c67f220e84bd94a1879ce9127ef10f62b059d3e1..9b3a5b0696f0f46b0e4f3094ebaae68a5871f941 100644
+--- a/compiler/rustc_parse/src/parser/mod.rs
++++ b/compiler/rustc_parse/src/parser/mod.rs
+@@ -1308,16 +1308,12 @@ fn parse_const_block(&mut self, span: Span, pat: bool) -> PResult<'a, Box<Expr>>
+         Ok(self.mk_expr_with_attrs(span.to(blk_span), kind, attrs))
+     }
+ 
+-    /// Parse nothing or `mut`.
++    /// Parses mutability (`mut` or nothing).
+     fn parse_mutability(&mut self) -> Mutability {
+         if self.eat_keyword(exp!(Mut)) { Mutability::Mut } else { Mutability::Not }
+     }
+ 
+-    /// Parse nothing or a by-reference mode.
+-    ///
+-    /// ```ebnf
+-    /// ByRef = "ref" PinAndMut?
+-    /// ```
++    /// Parses reference binding mode (`ref`, `ref mut`, `ref pin const`, `ref pin mut`, or nothing).
+     fn parse_byref(&mut self) -> ByRef {
+         if self.eat_keyword(exp!(Ref)) {
+             let (pinnedness, mutability) = self.parse_pin_and_mut();
+@@ -1327,12 +1323,8 @@ fn parse_byref(&mut self) -> ByRef {
+         }
+     }
+ 
+-    /// Parse nothing or "explicit" mutability.
+-    ///
+-    /// ```ebnf
+-    /// MutOrConst = "mut" | "const"
+-    /// ```
+-    fn parse_mut_or_const(&mut self) -> Option<Mutability> {
++    /// Possibly parses mutability (`const` or `mut`).
++    fn parse_const_or_mut(&mut self) -> Option<Mutability> {
+         if self.eat_keyword(exp!(Mut)) {
+             Some(Mutability::Mut)
+         } else if self.eat_keyword(exp!(Const)) {
+@@ -1342,11 +1334,6 @@ fn parse_mut_or_const(&mut self) -> Option<Mutability> {
+         }
+     }
+ 
+-    /// Parse a field name.
+-    ///
+-    /// ```enbf
+-    /// FieldName = IntLit | Ident
+-    /// ```
+     pub fn parse_field_name(&mut self) -> PResult<'a, Ident> {
+         if let token::Literal(token::Lit { kind: token::Integer, symbol, suffix }) = self.token.kind
+         {
+diff --git a/compiler/rustc_parse/src/parser/pat.rs b/compiler/rustc_parse/src/parser/pat.rs
+index d017a27e8f77f3b58414fe5390c2fd82d37013db..ac9685ccb9e9dff2d4834ebb92cac93d95c9f480 100644
+--- a/compiler/rustc_parse/src/parser/pat.rs
++++ b/compiler/rustc_parse/src/parser/pat.rs
+@@ -1723,14 +1723,11 @@ fn recover_bad_dot_dot(&self) {
+         self.dcx().emit_err(DotDotDotForRemainingFields { span: self.token.span, token_str });
+     }
+ 
+-    /// Parse a field in a struct pattern.
+-    ///
+-    /// ```ebnf
+-    /// PatField = FieldName ":" Pat | "box"? "mut"? ByRef? Ident
+-    /// ```
+     fn parse_pat_field(&mut self, lo: Span, attrs: AttrVec) -> PResult<'a, PatField> {
++        // Check if a colon exists one ahead. This means we're parsing a fieldname.
+         let hi;
+         let (subpat, fieldname, is_shorthand) = if self.look_ahead(1, |t| t == &token::Colon) {
++            // Parsing a pattern of the form `fieldname: pat`.
+             let fieldname = self.parse_field_name()?;
+             self.bump();
+             let pat = self.parse_pat_allow_top_guard(
+@@ -1742,6 +1739,7 @@ fn parse_pat_field(&mut self, lo: Span, attrs: AttrVec) -> PResult<'a, PatField>
+             hi = pat.span;
+             (pat, fieldname, false)
+         } else {
++            // Parsing a pattern of the form `(box) (ref) (mut) fieldname`.
+             let is_box = self.eat_keyword(exp!(Box));
+             if is_box {
+                 self.psess.gated_spans.gate(sym::box_patterns, self.prev_token.span);
+@@ -1750,7 +1748,7 @@ fn parse_pat_field(&mut self, lo: Span, attrs: AttrVec) -> PResult<'a, PatField>
+             let mutability = self.parse_mutability();
+             let by_ref = self.parse_byref();
+ 
+-            let fieldname = self.parse_ident_common(false)?;
++            let fieldname = self.parse_field_name()?;
+             hi = self.prev_token.span;
+             let ann = BindingMode(by_ref, mutability);
+             let fieldpat = self.mk_pat_ident(boxed_span.to(hi), ann, fieldname);
+diff --git a/compiler/rustc_parse/src/parser/ty.rs b/compiler/rustc_parse/src/parser/ty.rs
+index 1d2021cfe50aea5240460bb2466877ee3982e5f8..142f53d506c2601cabcb8cb2dbd0503fccc61029 100644
+--- a/compiler/rustc_parse/src/parser/ty.rs
++++ b/compiler/rustc_parse/src/parser/ty.rs
+@@ -592,7 +592,7 @@ fn parse_remaining_bounds(
+     /// Parses a raw pointer with a C-style typo
+     fn parse_ty_c_style_pointer(&mut self) -> PResult<'a, TyKind> {
+         let kw_span = self.token.span;
+-        let mutbl = self.parse_mut_or_const();
++        let mutbl = self.parse_const_or_mut();
+ 
+         if let Some(mutbl) = mutbl
+             && self.eat(exp!(Star))
+@@ -626,7 +626,7 @@ fn parse_ty_c_style_pointer(&mut self) -> PResult<'a, TyKind> {
+ 
+     /// Parses a raw pointer type: `*[const | mut] $type`.
+     fn parse_ty_ptr(&mut self) -> PResult<'a, TyKind> {
+-        let mutbl = self.parse_mut_or_const().unwrap_or_else(|| {
++        let mutbl = self.parse_const_or_mut().unwrap_or_else(|| {
+             let span = self.prev_token.span;
+             self.dcx().emit_err(ExpectedMutOrConstInRawPointerType {
+                 span,
+@@ -770,16 +770,14 @@ fn parse_borrowed_pointee(&mut self) -> PResult<'a, TyKind> {
+         })
+     }
+ 
+-    /// Parse nothing, mutability or `pin` followed by "explicit" mutability.
++    /// Parses `pin` and `mut` annotations on references, patterns, or borrow modifiers.
+     ///
+-    /// ```ebnf
+-    /// PinAndMut = "pin" MutOrConst | "mut"
+-    /// ```
++    /// It must be either `pin const`, `pin mut`, `mut`, or nothing (immutable).
+     pub(crate) fn parse_pin_and_mut(&mut self) -> (Pinnedness, Mutability) {
+         if self.token.is_ident_named(sym::pin) && self.look_ahead(1, Token::is_mutability) {
+             self.psess.gated_spans.gate(sym::pin_ergonomics, self.token.span);
+             assert!(self.eat_keyword(exp!(Pin)));
+-            let mutbl = self.parse_mut_or_const().unwrap();
++            let mutbl = self.parse_const_or_mut().unwrap();
+             (Pinnedness::Pinned, mutbl)
+         } else {
+             (Pinnedness::Not, self.parse_mutability())

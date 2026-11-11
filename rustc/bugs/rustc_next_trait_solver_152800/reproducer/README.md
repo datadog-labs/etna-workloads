@@ -1,0 +1,1 @@
+Compiles a function with a recursively defined projection bound under -Znext-solver. The fixed compiler hits the recursion limit and reports an unsatisfied trait bound error (exit 1); the injected compiler (no recursion limit in FindParamInClause) recurses infinitely and crashes with a stack overflow (SIGSEGV).

@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_mir_build/src/builder/matches/match_pair.rs b/compiler/rustc_mir_build/src/builder/matches/match_pair.rs
+index b4ce8149f5e4d3624f1246b4189d9ebf9e599670..8afdae4063fc8753b888c25f9d501ec45cd42594 100644
+--- a/compiler/rustc_mir_build/src/builder/matches/match_pair.rs
++++ b/compiler/rustc_mir_build/src/builder/matches/match_pair.rs
+@@ -398,8 +398,15 @@ fn lower_thir_pat(
+ 
+                 // We treat non-exhaustive enums the same independent of the crate they are
+                 // defined in, to avoid differences in the operational semantics between crates.
+-                let refutable =
+-                    adt_def.variants().len() > 1 || adt_def.is_variant_list_non_exhaustive();
++                let PatKind::Variant { args, .. } = pattern.kind else { unreachable!() };
++                let irrefutable = adt_def.variants().iter_enumerated().all(|(i, v)| {
++                    i == variant_index
++                        || !v
++                            .inhabited_predicate(cx.tcx, adt_def)
++                            .instantiate(cx.tcx, args)
++                            .apply_ignore_module(cx.tcx, cx.infcx.typing_env(cx.param_env))
++                }) && !adt_def.variant_list_has_applicable_non_exhaustive();
++                let refutable = !irrefutable;
+                 if refutable {
+                     Some(TestableCase::Variant { adt_def, variant_index })
+                 } else {

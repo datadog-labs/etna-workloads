@@ -1,0 +1,1 @@
+A proc macro respans a raw-string format literal onto a multi-byte input span (or a joined span that is not a valid raw string). The clean compiler reports normal format-string errors (exit 1); the injected one lacks the closing-quote/hash suffix checks in rustc_parse_format and ICEs/panics (exit 101).

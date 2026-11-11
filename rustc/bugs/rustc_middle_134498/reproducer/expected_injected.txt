@@ -1,0 +1,126 @@
+// WARNING: This output format is intended for human consumers only
+// and is subject to change without notice. Knock yourself out.
+// HINT: See also -Z dump-mir for MIR at specific points during compilation.
+fn <impl at main.rs:3:10: 3:15>::fmt(_1: &Thing, _2: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    debug self => _1;
+    debug f => _2;
+    let mut _0: std::result::Result<(), std::fmt::Error>;
+    let mut _3: &str;
+    let mut _4: &str;
+    let mut _5: &dyn std::fmt::Debug;
+    let _6: &&&Thing;
+    let _7: &&Thing;
+
+    bb0: {
+        _3 = const "Thing";
+        _4 = const "next";
+        _7 = &((*_1).0: &Thing);
+        _6 = &_7;
+        _5 = copy _6 as &dyn std::fmt::Debug (PointerCoercion(Unsize, Implicit));
+        _0 = Formatter::<'_>::debug_struct_field1_finish(copy _2, move _3, move _4, move _5) -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        return;
+    }
+}
+
+alloc6 (size: 4, align: 1) {
+    6e 65 78 74                                     │ next
+}
+
+alloc5 (size: 5, align: 1) {
+    54 68 69 6e 67                                  │ Thing
+}
+
+static THING: Thing = {
+    let mut _0: Thing;
+    let mut _1: &Thing;
+    let _2: &Thing;
+    let _3: &Thing;
+
+    bb0: {
+        StorageLive(_1);
+        StorageLive(_2);
+        StorageLive(_3);
+        _3 = const {alloc1: &Thing};
+        _2 = &(*_3);
+        _1 = &(*_2);
+        _0 = Thing { next: move _1 };
+        StorageDead(_2);
+        StorageDead(_1);
+        return;
+    }
+}
+
+alloc1 (static: THING, size: 8, align: 8) {
+    ╾─────alloc1<imm>─────╼                         │ ╾──────╼
+}
+
+fn thing() -> &Thing {
+    let mut _0: &Thing;
+
+    bb0: {
+        _0 = const {alloc3: &Thing};
+        return;
+    }
+}
+
+alloc3 (static: MUTUALLY_RECURSIVE, size: 8, align: 8) {
+    ╾─────alloc3<imm>─────╼                         │ ╾──────╼
+}
+
+// MIR FOR CTFE
+fn thing() -> &Thing {
+    let mut _0: &Thing;
+    let _1: &Thing;
+    let _2: &Thing;
+
+    bb0: {
+        StorageLive(_1);
+        StorageLive(_2);
+        _2 = const {alloc3: &Thing};
+        _1 = &(*_2);
+        _0 = &(*_1);
+        StorageDead(_2);
+        StorageDead(_1);
+        return;
+    }
+}
+
+alloc3 (static: MUTUALLY_RECURSIVE, size: 8, align: 8) {
+    ╾─────alloc3<imm>─────╼                         │ ╾──────╼
+}
+
+static MUTUALLY_RECURSIVE: Thing = {
+    let mut _0: Thing;
+    let mut _1: &Thing;
+
+    bb0: {
+        StorageLive(_1);
+        ConstEvalCounter;
+        _1 = thing() -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        _0 = Thing { next: move _1 };
+        StorageDead(_1);
+        return;
+    }
+}
+
+fn main() -> () {
+    let mut _0: ();
+    let _1: &Thing;
+
+    bb0: {
+        _1 = thing() -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        return;
+    }
+}
+rustc exit: 0
+
+[exit 0]

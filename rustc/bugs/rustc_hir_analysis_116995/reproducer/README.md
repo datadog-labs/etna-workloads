@@ -1,0 +1,1 @@
+When an impl method in a local crate has a different number of type parameters than the trait method declared in a foreign crate, the clean compiler also points at the foreign trait's method ("expected 0 type parameters"); the injected compiler only prints "found 1 type parameter, expected 0" on the impl and omits the foreign span.

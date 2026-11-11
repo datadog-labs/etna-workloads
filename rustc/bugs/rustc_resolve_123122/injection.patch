@@ -1,0 +1,53 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..7e475b6254c120d9a9e2f7a2e305708eb078c429 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -3864,7 +3864,7 @@ fn suggest_introducing_lifetime_filtered(
+         for rib in self.lifetime_ribs.iter().rev() {
+             let mut should_continue = true;
+             match rib.kind {
+-                LifetimeRibKind::Generics { binder, span, kind } => {
++                LifetimeRibKind::Generics { binder: _, span, kind } => {
+                     // Avoid suggesting placing lifetime parameters on constant items unless the relevant
+                     // feature is enabled. Suggest the parent item as a possible location if applicable.
+                     if let LifetimeBinderKind::ConstItem = kind
+@@ -3897,38 +3897,11 @@ fn suggest_introducing_lifetime_filtered(
+                             | LifetimeBinderKind::WhereBound
+                     );
+ 
+-                    let mut rm_inner_binders: FxIndexSet<Span> = Default::default();
++                    let rm_inner_binders: FxIndexSet<Span> = Default::default();
+                     let (span, sugg) = if span.is_empty() {
+                         let mut binder_idents: FxIndexSet<Ident> = Default::default();
+                         binder_idents.insert(name.unwrap_or(Ident::from_str("'a")));
+ 
+-                        // We need to special case binders in the following situation:
+-                        // Change `T: for<'a> Trait<T> + 'b` to `for<'a, 'b> T: Trait<T> + 'b`
+-                        // T: for<'a> Trait<T> + 'b
+-                        //    ^^^^^^^  remove existing inner binder `for<'a>`
+-                        // for<'a, 'b> T: Trait<T> + 'b
+-                        // ^^^^^^^^^^^  suggest outer binder `for<'a, 'b>`
+-                        if let LifetimeBinderKind::WhereBound = kind
+-                            && let Some(predicate) = self.diag_metadata.current_where_predicate
+-                            && let ast::WherePredicateKind::BoundPredicate(
+-                                ast::WhereBoundPredicate { bounded_ty, bounds, .. },
+-                            ) = &predicate.kind
+-                            && bounded_ty.id == binder
+-                        {
+-                            for bound in bounds {
+-                                if let ast::GenericBound::Trait(poly_trait_ref) = bound
+-                                    && let span = poly_trait_ref
+-                                        .span
+-                                        .with_hi(poly_trait_ref.trait_ref.path.span.lo())
+-                                    && !span.is_empty()
+-                                {
+-                                    rm_inner_binders.insert(span);
+-                                    poly_trait_ref.bound_generic_params.iter().for_each(|v| {
+-                                        binder_idents.insert(v.ident);
+-                                    });
+-                                }
+-                            }
+-                        }
+ 
+                         let binders_sugg: String = binder_idents
+                             .into_iter()

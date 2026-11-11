@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+index e5dbae16d07d438ebd25e9d7b9196f030b43ec59..aa9a1115d7ac313b7d038e2cd1c602b95fd23c62 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+@@ -1254,12 +1254,12 @@ enum Descr {
+                     )
+                 })
+                 .collect();
+-            let code = if let Some(snippet) = snippet.strip_suffix("<>") {
+-                // Empty generics
+-                format!("{snippet}<{}>", bindings.join(", "))
+-            } else if let Some(snippet) = snippet.strip_suffix('>') {
+-                // Non-empty generics
+-                format!("{snippet}, {}>", bindings.join(", "))
++            // FIXME(fmease): Does not account for `dyn Trait<>` (suggs `dyn Trait<, X = Y>`).
++            let code = if let Some(snippet) = snippet.strip_suffix('>') {
++                // The user wrote `Trait<'a>` or similar and we don't have a term we can suggest,
++                // but at least we can clue them to the correct syntax `Trait<'a, Item = /* ... */>`
++                // while accounting for the `<'a>` in the suggestion.
++                format!("{}, {}>", snippet, bindings.join(", "))
+             } else if in_expr_or_pat {
+                 // The user wrote `Trait`, so we don't have a term we can suggest, but at least we
+                 // can clue them to the correct syntax `Trait::<Item = /* ... */>`.

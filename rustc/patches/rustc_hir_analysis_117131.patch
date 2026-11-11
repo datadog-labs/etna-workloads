@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+index 2f65b443dd5ecbe0972766596864d16846748ee5..aad1e22c92716a2f01beba31f0d61aa54bb8ea35 100644
+--- a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
++++ b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+@@ -2629,24 +2629,7 @@ fn param_env_with_gat_bounds<'tcx>(
+     let container_id = impl_ty.container_id(tcx);
+     let mut clauses = param_env.caller_bounds().to_vec();
+ 
+-    // for RPITITs, we should install predicates that allow us to project all
+-    // of the RPITITs associated with the same body. This is because checking
+-    // the item bounds of RPITITs often involves nested RPITITs having to prove
+-    // bounds about themselves.
+-    let impl_tys_to_install = match impl_ty.kind {
+-        ty::AssocKind::Type {
+-            data:
+-                ty::AssocTypeData::Rpitit(
+-                    ty::ImplTraitInTraitData::Impl { fn_def_id }
+-                    | ty::ImplTraitInTraitData::Trait { fn_def_id, .. },
+-                ),
+-        } => tcx
+-            .associated_types_for_impl_traits_in_associated_fn(fn_def_id)
+-            .iter()
+-            .map(|def_id| tcx.associated_item(*def_id))
+-            .collect(),
+-        _ => vec![impl_ty],
+-    };
++    let impl_tys_to_install = vec![impl_ty];
+ 
+     for impl_ty in impl_tys_to_install {
+         let trait_ty = match impl_ty.container {

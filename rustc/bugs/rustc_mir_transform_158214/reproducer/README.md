@@ -1,0 +1,1 @@
+Dumps MIR after SimplifyComparisonIntegral for `if x == 42 {..}`. The fixed compiler keeps the `_2 = Eq(copy _1, const 42)` assignment (it may be used later); the injected compiler replaces it with `nop` (it deletes the comparison assignment whenever the discriminant is moved). The script greps the dump for Eq/nop/switchInt lines.

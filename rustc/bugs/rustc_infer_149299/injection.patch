@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_infer/src/traits/mod.rs b/compiler/rustc_infer/src/traits/mod.rs
+index 86aae77adcf8e2d801a5a0364bae77b47207a591..1af4b10f86290acfb2416d0447fbf3ddbc80e5bd 100644
+--- a/compiler/rustc_infer/src/traits/mod.rs
++++ b/compiler/rustc_infer/src/traits/mod.rs
+@@ -37,8 +37,6 @@
+ #[derive(Clone, TypeFoldable, TypeVisitable)]
+ pub struct Obligation<'tcx, T> {
+     /// The reason we have to prove this thing.
+-    /// FIXME: we shouldn't ignore the cause but instead change the affected visitors
+-    /// to only visit predicates manually.
+     #[type_foldable(identity)]
+     #[type_visitable(ignore)]
+     pub cause: ObligationCause<'tcx>,
+diff --git a/compiler/rustc_trait_selection/src/solve/fulfill/derive_errors.rs b/compiler/rustc_trait_selection/src/solve/fulfill/derive_errors.rs
+index bb75ae6247e38914506ecc4acd6041289e9915a2..5d4b0278afa32b067755af9ebdd87d1266031f27 100644
+--- a/compiler/rustc_trait_selection/src/solve/fulfill/derive_errors.rs
++++ b/compiler/rustc_trait_selection/src/solve/fulfill/derive_errors.rs
+@@ -177,11 +177,7 @@ fn find_best_leaf_obligation<'tcx>(
+                 )
+                 .break_value()
+                 .ok_or(())
+-                // walk around the fact that the cause in `Obligation` is ignored by folders so that
+-                // we can properly fudge the infer vars in cause code.
+-                .map(|o| (o.cause.clone(), o))
+         })
+-        .map(|(cause, o)| PredicateObligation { cause, ..o })
+         .unwrap_or(obligation);
+     deeply_normalize_for_diagnostics(infcx, obligation.param_env, obligation)
+ }

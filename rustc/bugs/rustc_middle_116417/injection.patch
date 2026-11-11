@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_middle/src/ty/mod.rs b/compiler/rustc_middle/src/ty/mod.rs
+index cd9e5f6903478c18fbc280dd94327c9ac7b16269..c53a1a40a95af9d3260d75c99037af9bf5c72db7 100644
+--- a/compiler/rustc_middle/src/ty/mod.rs
++++ b/compiler/rustc_middle/src/ty/mod.rs
+@@ -1185,7 +1185,11 @@ pub fn new(caller_bounds: Clauses<'tcx>) -> Self {
+ 
+     /// Creates a pair of param-env and value for use in queries.
+     pub fn and<T: TypeVisitable<TyCtxt<'tcx>>>(self, value: T) -> ParamEnvAnd<'tcx, T> {
+-        ParamEnvAnd { param_env: self, value }
++        if value.is_global() {
++            ParamEnvAnd { param_env: ParamEnv::empty(), value }
++        } else {
++            ParamEnvAnd { param_env: self, value }
++        }
+     }
+ 
+     /// Eagerly reveal all opaque types in the `param_env`.

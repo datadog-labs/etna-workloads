@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..153867617e2f9e3faeed67e84b108305b831456b 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -3760,13 +3760,9 @@ pub(super) fn suggest_trait_fn_ty_for_impl_fn_infer(
+                     .extend_to(tcx, assoc.def_id, |param, _| tcx.mk_param_from_def(param)),
+             )
+             .skip_norm_wip();
+-        let fn_sig = tcx.liberate_late_bound_regions(fn_hir_id.expect_owner().to_def_id(), fn_sig);
++        let ty = if let Some(arg_idx) = arg_idx { fn_sig.input(arg_idx) } else { fn_sig.output() };
+ 
+-        Some(if let Some(arg_idx) = arg_idx {
+-            *fn_sig.inputs().get(arg_idx)?
+-        } else {
+-            fn_sig.output()
+-        })
++        Some(tcx.liberate_late_bound_regions(fn_hir_id.expect_owner().to_def_id(), ty))
+     }
+ 
+     #[instrument(level = "trace", skip(self, generate_err))]

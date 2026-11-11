@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_mir_transform/src/gvn.rs b/compiler/rustc_mir_transform/src/gvn.rs
+index 9d751a7cc5bd003b2967fc95282570d09543f07e..a2c151604142b90f8ffbefb59fd12a0deb2b9d2e 100644
+--- a/compiler/rustc_mir_transform/src/gvn.rs
++++ b/compiler/rustc_mir_transform/src/gvn.rs
+@@ -504,8 +504,14 @@ fn new_pointer(&mut self, place: Place<'tcx>, kind: AddressKind) -> Option<VnInd
+             return None;
+         };
+         // Do not try evaluating inside `Index`, this has been done by `simplify_place_projection`.
+-        let projection =
+-            projection.map(|proj| proj.try_map(|index| self.locals[index], |ty| ty).ok_or(()));
++        let repeat_base = self.locals[place.local].filter(|&v| matches!(self.get(v), Value::Repeat(..)));
++        let projection = projection.map(|proj| {
++            proj.try_map(
++                |index| self.locals[index].or(repeat_base),
++                |ty| ty,
++            )
++            .ok_or(())
++        });
+         let projection = self.arena.try_alloc_from_iter(projection).ok()?;
+ 
+         let index = self.insert_unique(ty, |provenance| Value::Address {
+@@ -990,7 +996,15 @@ fn compute_place_value(
+                 place_ref = PlaceRef { local, projection: &place.projection[index..] };
+             }
+ 
+-            let Some(proj) = proj.try_map(|value| self.locals[value], |ty| ty) else {
++            let Some(proj) = proj.try_map(
++                |idx| match self.locals[idx] {
++                    Some(v) => Some(v),
++                    // Index into a repeat does not depend on the index value.
++                    None if matches!(self.get(value), Value::Repeat(..)) => Some(value),
++                    None => None,
++                },
++                |ty| ty,
++            ) else {
+                 return Err(place_ref);
+             };
+             let Some(ty_and_value) = self.project(place_ty, value, proj) else {

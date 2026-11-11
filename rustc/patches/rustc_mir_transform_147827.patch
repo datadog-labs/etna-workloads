@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_mir_transform/src/gvn.rs b/compiler/rustc_mir_transform/src/gvn.rs
+index 9d751a7cc5bd003b2967fc95282570d09543f07e..7c448254541200a2fb7b65c66129da1adbbb8c88 100644
+--- a/compiler/rustc_mir_transform/src/gvn.rs
++++ b/compiler/rustc_mir_transform/src/gvn.rs
+@@ -586,18 +586,8 @@ fn eval_to_const_inner(&mut self, value: VnIndex) -> Option<OpTy<'tcx>> {
+             // Keep runtime check constants as symbolic.
+             RuntimeChecks(..) => return None,
+ 
+-            // In general, evaluating repeat expressions just consumes a lot of memory.
+-            // But in the special case that the element is just Immediate::Uninit, we can evaluate
+-            // it without extra memory! If we don't propagate uninit values like this, LLVM can get
+-            // very confused: https://github.com/rust-lang/rust/issues/139355
+-            Repeat(value, _count) => {
+-                let value = self.eval_to_const(value)?;
+-                if value.is_immediate_uninit() {
+-                    ImmTy::uninit(ty).into()
+-                } else {
+-                    return None;
+-                }
+-            }
++            // Do not bother evaluating repeat expressions. This would uselessly consume memory.
++            Repeat(..) => return None,
+             Constant { ref value, disambiguator: _ } => {
+                 self.ecx.eval_mir_constant(value, DUMMY_SP, None).discard_err()?
+             }
+@@ -1902,13 +1892,7 @@ fn op_to_prop_const<'tcx>(
+ 
+     // Do not synthetize too large constants. Codegen will just memcpy them, which we'd like to
+     // avoid.
+-    // But we *do* want to synthesize any size constant if it is entirely uninit because that
+-    // benefits codegen, which has special handling for them.
+-    if !op.is_immediate_uninit()
+-        && !matches!(
+-            op.layout.backend_repr,
+-            BackendRepr::Scalar(..) | BackendRepr::ScalarPair { .. }
+-        )
++    if !matches!(op.layout.backend_repr, BackendRepr::Scalar(..) | BackendRepr::ScalarPair { .. })
+     {
+         return None;
+     }

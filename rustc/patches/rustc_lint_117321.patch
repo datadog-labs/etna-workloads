@@ -1,0 +1,62 @@
+diff --git a/compiler/rustc_lint/src/unused.rs b/compiler/rustc_lint/src/unused.rs
+index 0236ac75c2d642c402f5affabbf20bb8f5f93400..9e855656bb97c71ed063598a049de446afd16990 100644
+--- a/compiler/rustc_lint/src/unused.rs
++++ b/compiler/rustc_lint/src/unused.rs
+@@ -700,31 +700,17 @@ fn check_unused_parens_pat(
+             self.emit_unused_delims(cx, value.span, spans, "pattern", keep_space, false);
+         }
+     }
+-
+-    fn cast_followed_by_lt(&self, expr: &ast::Expr) -> Option<ast::NodeId> {
+-        if let ExprKind::Binary(op, lhs, _rhs) = &expr.kind
+-            && (op.node == ast::BinOpKind::Lt || op.node == ast::BinOpKind::Shl)
+-        {
+-            let mut cur = lhs;
+-            while let ExprKind::Binary(_, _, rhs) = &cur.kind {
+-                cur = rhs;
+-            }
+-
+-            if let ExprKind::Cast(_, ty) = &cur.kind
+-                && let ast::TyKind::Paren(_) = &ty.kind
+-            {
+-                return Some(ty.id);
+-            }
+-        }
+-        None
+-    }
+ }
+ 
+ impl EarlyLintPass for UnusedParens {
+     #[inline]
+     fn check_expr(&mut self, cx: &EarlyContext<'_>, e: &ast::Expr) {
+-        if let Some(ty_id) = self.cast_followed_by_lt(e) {
+-            self.parens_in_cast_in_lt.push(ty_id);
++        if let ExprKind::Binary(op, lhs, _rhs) = &e.kind
++            && (op.node == ast::BinOpKind::Lt || op.node == ast::BinOpKind::Shl)
++            && let ExprKind::Cast(_expr, ty) = &lhs.kind
++            && let ast::TyKind::Paren(_) = &ty.kind
++        {
++            self.parens_in_cast_in_lt.push(ty.id);
+         }
+ 
+         match e.kind {
+@@ -776,13 +762,17 @@ fn check_expr(&mut self, cx: &EarlyContext<'_>, e: &ast::Expr) {
+     }
+ 
+     fn check_expr_post(&mut self, _cx: &EarlyContext<'_>, e: &ast::Expr) {
+-        if let Some(ty_id) = self.cast_followed_by_lt(e) {
++        if let ExprKind::Binary(op, lhs, _rhs) = &e.kind
++            && (op.node == ast::BinOpKind::Lt || op.node == ast::BinOpKind::Shl)
++            && let ExprKind::Cast(_expr, ty) = &lhs.kind
++            && let ast::TyKind::Paren(_) = &ty.kind
++        {
+             let id = self
+                 .parens_in_cast_in_lt
+                 .pop()
+                 .expect("check_expr and check_expr_post must balance");
+             assert_eq!(
+-                id, ty_id,
++                id, ty.id,
+                 "check_expr, check_ty, and check_expr_post are called, in that order, by the visitor"
+             );
+         }

@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_resolve/src/diagnostics/mod.rs b/compiler/rustc_resolve/src/diagnostics/mod.rs
+index d4ce0dc78ca1fc5f308c23870628902e14c1b90e..553bee4ab58778e5856f3ac4c0ea3a7330479aea 100644
+--- a/compiler/rustc_resolve/src/diagnostics/mod.rs
++++ b/compiler/rustc_resolve/src/diagnostics/mod.rs
+@@ -1478,17 +1478,8 @@ pub(crate) struct OutOfScopeMacroCalls {
+ }
+ 
+ #[derive(Diagnostic)]
+-#[diag(
+-    "glob import doesn't reexport anything with visibility `{$import_vis}` because no imported item is public enough"
+-)]
+-pub(crate) struct RedundantImportVisibility {
+-    #[note("the most public imported item is `{$max_vis}`")]
+-    pub span: Span,
+-    #[help("reduce the glob import's visibility or increase visibility of imported items")]
+-    pub help: (),
+-    pub import_vis: String,
+-    pub max_vis: String,
+-}
++#[diag("glob import doesn't reexport anything because no candidate is public enough")]
++pub(crate) struct RedundantImportVisibility;
+ 
+ // FIXME: Make this properly translatable.
+ pub(crate) struct Ambiguity {
+diff --git a/compiler/rustc_resolve/src/imports.rs b/compiler/rustc_resolve/src/imports.rs
+index 499f9ea297362d8c3245265b5945a44218bbde3a..7adc3c41d4d16a4bd7e718b25568698ee31f8929 100644
+--- a/compiler/rustc_resolve/src/imports.rs
++++ b/compiler/rustc_resolve/src/imports.rs
+@@ -1354,12 +1354,7 @@ fn finalize_import(&mut self, import: Import<'ra>) -> Option<UnresolvedImportErr
+                         UNUSED_IMPORTS,
+                         id,
+                         import.span,
+-                        crate::diagnostics::RedundantImportVisibility {
+-                            span: import.span,
+-                            help: (),
+-                            max_vis: max_vis.to_string(def_id, self.tcx),
+-                            import_vis: import.vis.to_string(def_id, self.tcx),
+-                        },
++                        crate::diagnostics::RedundantImportVisibility,
+                     );
+                 }
+                 return None;

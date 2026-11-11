@@ -1,0 +1,72 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..457474aff7b7f520f65f147b90011e047c366293 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -1575,7 +1575,7 @@ fn parse_expr_bottom(&mut self) -> PResult<'a, Box<Expr>> {
+                     },
+                 )
+             } else if this.check_inline_const(0) {
+-                this.parse_const_block(lo, false)
++                this.parse_const_block(lo)
+             } else if this.may_recover() && this.is_do_catch_block() {
+                 this.recover_do_catch()
+             } else if this.is_try_block() {
+diff --git a/compiler/rustc_parse/src/parser/mod.rs b/compiler/rustc_parse/src/parser/mod.rs
+index c67f220e84bd94a1879ce9127ef10f62b059d3e1..67911f6ff1e924c501c5423ef97f1aab192e89ca 100644
+--- a/compiler/rustc_parse/src/parser/mod.rs
++++ b/compiler/rustc_parse/src/parser/mod.rs
+@@ -1285,7 +1285,7 @@ fn parse_constness_(&mut self, case: Case, is_closure: bool) -> Const {
+     }
+ 
+     /// Parses inline const expressions.
+-    fn parse_const_block(&mut self, span: Span, pat: bool) -> PResult<'a, Box<Expr>> {
++    fn parse_const_block(&mut self, span: Span) -> PResult<'a, Box<Expr>> {
+         self.expect_keyword(exp!(Const))?;
+         let (attrs, blk) = self.parse_inner_attrs_and_block(None)?;
+         let anon_const = AnonConst {
+@@ -1293,18 +1293,7 @@ fn parse_const_block(&mut self, span: Span, pat: bool) -> PResult<'a, Box<Expr>>
+             value: self.mk_expr(blk.span, ExprKind::Block(blk, None)),
+         };
+         let blk_span = anon_const.value.span;
+-        let kind = if pat {
+-            let guar = self
+-                .dcx()
+-                .struct_span_err(blk_span, "const blocks cannot be used as patterns")
+-                .with_help(
+-                    "use a named `const`-item or an `if`-guard (`x if x == const { ... }`) instead",
+-                )
+-                .emit();
+-            ExprKind::Err(guar)
+-        } else {
+-            ExprKind::ConstBlock(anon_const)
+-        };
++        let kind = ExprKind::ConstBlock(anon_const);
+         Ok(self.mk_expr_with_attrs(span.to(blk_span), kind, attrs))
+     }
+ 
+diff --git a/compiler/rustc_parse/src/parser/pat.rs b/compiler/rustc_parse/src/parser/pat.rs
+index d017a27e8f77f3b58414fe5390c2fd82d37013db..686901b550ef32d1fdff21c85e574aca80ad2ab4 100644
+--- a/compiler/rustc_parse/src/parser/pat.rs
++++ b/compiler/rustc_parse/src/parser/pat.rs
+@@ -791,8 +791,10 @@ fn parse_pat_with_range_pat(
+         } else if self.eat_keyword(exp!(Box)) {
+             self.parse_pat_box()?
+         } else if self.check_inline_const(0) {
+-            // Parse `const pat`
+-            let const_expr = self.parse_const_block(lo.to(self.token.span), true)?;
++            // Parse `const pat`.
++            // NOTE: This will always error later during AST lowering because
++            // inline const cannot be used as patterns.
++            let const_expr = self.parse_const_block(lo.to(self.token.span))?;
+ 
+             if let Some(re) = self.parse_range_end() {
+                 self.parse_pat_range_begin_with(const_expr, re)?
+@@ -1283,7 +1285,7 @@ fn parse_pat_range_end(&mut self) -> PResult<'a, Box<Expr>> {
+             .then_some(self.prev_token.span);
+ 
+         let bound = if self.check_inline_const(0) {
+-            self.parse_const_block(self.token.span, true)
++            self.parse_const_block(self.token.span)
+         } else if self.check_path() {
+             let lo = self.token.span;
+             let (qself, path) = if self.eat_lt() {

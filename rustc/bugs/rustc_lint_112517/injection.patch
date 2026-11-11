@@ -1,0 +1,47 @@
+diff --git a/compiler/rustc_lint/src/diagnostics.rs b/compiler/rustc_lint/src/diagnostics.rs
+index aca414919901010aa8a8225c0e49f5fa9c438cc7..bd877c603bca03a5435c03001b632499627affdb 100644
+--- a/compiler/rustc_lint/src/diagnostics.rs
++++ b/compiler/rustc_lint/src/diagnostics.rs
+@@ -1800,6 +1800,14 @@ pub(crate) struct SuspiciousDoubleRefCloneDiag<'a> {
+     pub ty: Ty<'a>,
+ }
+ 
++#[derive(Diagnostic)]
++#[diag(
++    "using `.borrow()` on a double reference, which returns `{$ty}` instead of borrowing the inner type"
++)]
++pub(crate) struct SuspiciousDoubleRefBorrowDiag<'a> {
++    pub ty: Ty<'a>,
++}
++
+ // non_local_defs.rs
+ pub(crate) enum NonLocalDefinitionsDiag {
+     Impl {
+diff --git a/compiler/rustc_lint/src/noop_method_call.rs b/compiler/rustc_lint/src/noop_method_call.rs
+index 64acd732013996daaf9dc9b1a94769922673f200..69ad5d79c6a997832d7634c834ab5997bf1b1058 100644
+--- a/compiler/rustc_lint/src/noop_method_call.rs
++++ b/compiler/rustc_lint/src/noop_method_call.rs
+@@ -8,7 +8,7 @@
+ 
+ use crate::context::LintContext;
+ use crate::diagnostics::{
+-    NoopMethodCallDiag, SuspiciousDoubleRefCloneDiag, SuspiciousDoubleRefDerefDiag,
++    NoopMethodCallDiag, SuspiciousDoubleRefBorrowDiag, SuspiciousDoubleRefCloneDiag, SuspiciousDoubleRefDerefDiag,
+ };
+ use crate::{LateContext, LateLintPass};
+ 
+@@ -148,9 +148,11 @@ fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
+             // Report the method call's return type before adjustments required by its parent.
+             let unadjusted_expr_ty = cx.typeck_results().expr_ty(expr);
+             match name {
+-                // If `type_of(x) == T` and `x.borrow()` is used to get `&T`,
+-                // then that should be allowed
+-                sym::noop_method_borrow => return,
++                sym::noop_method_borrow => cx.emit_span_lint(
++                    SUSPICIOUS_DOUBLE_REF_OP,
++                    span,
++                    SuspiciousDoubleRefBorrowDiag { ty: unadjusted_expr_ty },
++                ),
+                 sym::noop_method_clone => cx.emit_span_lint(
+                     SUSPICIOUS_DOUBLE_REF_OP,
+                     span,

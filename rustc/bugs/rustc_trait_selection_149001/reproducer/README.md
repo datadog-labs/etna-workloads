@@ -1,0 +1,1 @@
+Compiles crate1 (which has an `extern crate crate2;` path-imported dependency) and a main crate using it with an unsatisfied trait bound. The clean compiler reports only the missing-trait error; the injected one adds a false "multiple different versions of crate `crate1`" note.

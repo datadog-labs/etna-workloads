@@ -1,0 +1,1 @@
+Compiles the upstream test with non-trivial recursive `impl Sized` opaque definitions (build/build2/build3). The clean compiler reports "cannot resolve opaque type" errors (exit 1); the injected one, which no longer filters recursive hidden types in writeback, overflows the stack in exhaustiveness checking and dies with SIGSEGV.

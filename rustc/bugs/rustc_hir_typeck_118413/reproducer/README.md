@@ -1,0 +1,1 @@
+A mismatched-type error on a shorthand struct field (Demo { a }) where B: Into<A>; the Into::into suggestion should be 'a: a.into()', but the injected compiler suggests the invalid 'Demo { a.into() }' (field name dropped).

@@ -1,0 +1,51 @@
+diff --git a/compiler/rustc_mir_transform/src/liveness.rs b/compiler/rustc_mir_transform/src/liveness.rs
+index 4da8ca0760257403ed040cf549de4ab9474beb2a..e635b533f39b36f1d86fac2cd0405e8f5ca00419 100644
+--- a/compiler/rustc_mir_transform/src/liveness.rs
++++ b/compiler/rustc_mir_transform/src/liveness.rs
+@@ -958,6 +958,34 @@ fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+         visitor.found
+     }
+ 
++    /// Whether `span` lies inside the pattern of an `if let` match guard.
++    fn is_in_if_let_guard_pat(&self, span: Span) -> bool {
++        use rustc_hir as hir;
++        use rustc_hir::intravisit::{self, Visitor};
++
++        let Some(body_def_id) = self.body.source.def_id().as_local() else { return false };
++        let Some(hir_body) = self.tcx.hir_maybe_body_owned_by(body_def_id) else { return false };
++
++        struct GuardVisitor {
++            span: Span,
++            found: bool,
++        }
++        impl<'tcx> Visitor<'tcx> for GuardVisitor {
++            fn visit_arm(&mut self, arm: &'tcx hir::Arm<'tcx>) {
++                if let Some(guard) = arm.guard
++                    && let hir::ExprKind::Let(let_expr) = guard.kind
++                    && let_expr.pat.span.contains(self.span)
++                {
++                    self.found = true;
++                }
++                intravisit::walk_arm(self, arm);
++            }
++        }
++        let mut v = GuardVisitor { span, found: false };
++        v.visit_body(hir_body);
++        v.found
++    }
++
+     /// Report fully unused locals, and forget the corresponding assignments.
+     fn report_fully_unused(&mut self) {
+         let tcx = self.tcx;
+@@ -1028,6 +1056,11 @@ fn visit_const_operand(&mut self, constant: &ConstOperand<'tcx>, _: Location) {
+ 
+             let Some((name, def_span)) = self.checked_places.names[index] else { continue };
+ 
++            // Bindings introduced by `if let` guards are not walked.
++            if self.is_in_if_let_guard_pat(def_span) {
++                continue;
++            }
++
+             // #117284, when `ident_span` and `def_span` have different contexts
+             // we can't provide a good suggestion, instead we pointed out the spans from macro
+             let from_macro = def_span.from_expansion()

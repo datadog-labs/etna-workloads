@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/util.rs b/compiler/rustc_trait_selection/src/traits/util.rs
+index e611b4fc6b6ac5c7b80f2c547f4ce5fe5304041f..9e0b32d7ed36025ff228bae7ba182062d2d5fb76 100644
+--- a/compiler/rustc_trait_selection/src/traits/util.rs
++++ b/compiler/rustc_trait_selection/src/traits/util.rs
+@@ -235,6 +235,13 @@ pub fn sizedness_fast_path<'tcx>(
+             _ => return false,
+         };
+ 
++        // FIXME(sized_hierarchy): this temporarily reverts the `sized_hierarchy` feature
++        // while a proper fix for `tests/ui/sized-hierarchy/incomplete-inference-issue-143992.rs`
++        // is pending a proper fix
++        if !tcx.features().sized_hierarchy() && matches!(sizedness, SizedTraitKind::MetaSized) {
++            return true;
++        }
++
+         if trait_pred.self_ty().has_trivial_sizedness(tcx, sizedness) {
+             debug!("fast path -- trivial sizedness");
+             return true;

@@ -1,0 +1,1 @@
+Runs rustc with -Zui-testing and -Ztreat-err-as-bug=1 to force an ICE with no RUST_BACKTRACE set. The clean compiler uses a full backtrace (contains begin_short_backtrace markers); the injected one ignores -Zui-testing and prints a short backtrace with an 'omitted frames' note.

@@ -1,0 +1,39 @@
+error: future cannot be sent between threads safely
+  --> main.rs:20:21
+   |
+20 |     require_handler(handler)
+   |                     ^^^^^^^ future returned by `handler` is not `Send`
+   |
+   = help: within `impl Future<Output = ()>`, the trait `Send` is not implemented for `*const i32`
+note: future is not `Send` as this value is used across an await
+  --> main.rs:15:14
+   |
+14 |     let a = &1 as *const i32;
+   |         - has type `*const i32` which is not `Send`
+15 |     async {}.await;
+   |              ^^^^^ await occurs here, with `a` maybe used later
+note: required by a bound in `require_handler`
+  --> main.rs:11:23
+   |
+11 | fn require_handler<H: Handler>(h: H) {}
+   |                       ^^^^^^^ required by this bound in `require_handler`
+
+warning: unused variable: `h`
+  --> main.rs:11:32
+   |
+11 | fn require_handler<H: Handler>(h: H) {}
+   |                                ^ help: if this is intentional, prefix it with an underscore: `_h`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `b`
+  --> main.rs:16:9
+   |
+16 |     let b = a;
+   |         ^ help: if this is intentional, prefix it with an underscore: `_b`
+
+error: aborting due to 1 previous error; 2 warnings emitted
+
+rustc exit: 1
+
+[exit 0]

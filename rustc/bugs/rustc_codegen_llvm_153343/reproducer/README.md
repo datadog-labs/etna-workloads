@@ -1,0 +1,1 @@
+Calling f32/f64 min with a signalling-NaN constant operand should return the non-NaN operand. The injected compiler lowers min/max to llvm.minnum instead of llvm.minimumnum, so optimized builds (opt-level=2) print NaN where the clean compiler prints 9/-9.

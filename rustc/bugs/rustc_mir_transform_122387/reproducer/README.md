@@ -1,0 +1,1 @@
+Emits optimized MIR for a tuple match over a 3-variant enum with -Zmir-enable-passes=+UnreachableEnumBranching. The clean compiler's EarlyOtherwiseBranch keeps the original unreachable otherwise block in the new inner switch (one 'unreachable;' in the MIR). The injected compiler redirects the otherwise to the destination block, so the unreachable block disappears (count 0).

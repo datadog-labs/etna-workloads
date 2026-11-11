@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..5c4f7239b542c22b7df50b5d61dc074a0051a850 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -2220,7 +2220,7 @@ fn smart_resolve_context_dependent_help(
+                     let span = find_span(&source, err);
+                     err.span_label(this.r.def_span(def_id), format!("`{path_str}` defined here"));
+ 
+-                    let (tail, descr, applicability, old_fields) = match source {
++                    let (tail, descr, applicability, _old_fields) = match source {
+                         PathSource::Pat => ("", "pattern", Applicability::MachineApplicable, None),
+                         PathSource::TupleStruct(_, args) => (
+                             "",
+@@ -2289,27 +2289,10 @@ fn smart_resolve_context_dependent_help(
+                         } else {
+                             let (fields, applicability) = match fields {
+                                 Some(fields) => {
+-                                    let fields = if let Some(old_fields) = old_fields {
+-                                        fields
+-                                            .iter()
+-                                            .enumerate()
+-                                            .map(|(idx, new)| (new, old_fields.get(idx)))
+-                                            .map(|(new, old)| {
+-                                                if let Some(Some(old)) = old
+-                                                    && new.as_str() != old
+-                                                {
+-                                                    format!("{new}: {old}")
+-                                                } else {
+-                                                    new.to_string()
+-                                                }
+-                                            })
+-                                            .collect::<Vec<String>>()
+-                                    } else {
+-                                        fields
+-                                            .iter()
+-                                            .map(|f| format!("{f}{tail}"))
+-                                            .collect::<Vec<String>>()
+-                                    };
++                                    let fields = fields
++                                        .iter()
++                                        .map(|f| format!("{f}{tail}"))
++                                        .collect::<Vec<String>>();
+ 
+                                     (fields.join(", "), applicability)
+                                 }

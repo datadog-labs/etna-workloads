@@ -1,0 +1,1 @@
+Shows stringify! of an expr/stmt fragment with outer attributes and a binary/cast expression: clean rustc prints '#[aa] 1 + 2' and '#[aa] 1 as u32'; the injected one drops the attribute ('1 + 2', '1 as u32') due to wrong token collection (UsePreAttrPos).

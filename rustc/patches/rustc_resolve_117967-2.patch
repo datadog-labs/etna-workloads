@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..a40d2f98cbb286e5e913d08373672f09c4f85300 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -2565,7 +2565,7 @@ enum Elision {
+                     // &Box<&Self>. In this case we won't consider
+                     // taking an alternative parameter lifetime; just avoid elision
+                     // entirely.
+-                    Set1::Many => Elision::Err,
++                    Set1::Many => Elision::None,
+                     // We do not have `self` elision: disregard the `Elision::Param` that we may
+                     // have found.
+                     Set1::Empty => Elision::None,
+@@ -2600,13 +2600,11 @@ struct FindReferenceVisitor<'a, 'ra, 'tcx> {
+         impl<'ra> Visitor<'ra> for FindReferenceVisitor<'_, '_, '_> {
+             fn visit_ty(&mut self, ty: &'ra Ty) {
+                 trace!("FindReferenceVisitor considering ty={:?}", ty);
+-                if let TyKind::Ref(lt, _) | TyKind::PinnedRef(lt, _) = ty.kind {
+-                    // See if anything inside the &thing contains Self
+-                    let mut visitor =
++                if let TyKind::Ref(lt, ref mt) | TyKind::PinnedRef(lt, ref mt) = ty.kind {
++                    // Only consider references immediately adjacent to Self
++                    let visitor =
+                         SelfVisitor { r: self.r, impl_self: self.impl_self, self_found: false };
+-                    visitor.visit_ty(ty);
+-                    trace!("FindReferenceVisitor: SelfVisitor self_found={:?}", visitor.self_found);
+-                    if visitor.self_found {
++                    if visitor.is_self_ty(&mt.ty) {
+                         let lt_id = if let Some(lt) = lt {
+                             lt.id
+                         } else {

@@ -1,0 +1,122 @@
+error[E0081]: discriminant value `3` assigned more than once
+ --> main.rs:1:1
+  |
+1 | enum Enum {
+  | ^^^^^^^^^
+2 |     //~^ ERROR discriminant value `3` assigned more than once
+3 |     P = 3,
+  |         - `3` assigned here
+4 |     //~^ NOTE `3` assigned here
+5 |     X = 3,
+  |         - `3` assigned here
+
+error[E0081]: discriminant value `1` assigned more than once
+  --> main.rs:11:1
+   |
+11 | enum EnumOverflowRepr {
+   | ^^^^^^^^^^^^^^^^^^^^^
+12 |     //~^ ERROR discriminant value `1` assigned more than once
+13 |     P = 257,
+   |         --- `1` (overflowed from `257`) assigned here
+14 |     //~^ NOTE `1` (overflowed from `257`) assigned here
+15 |     X = 513,
+   |         --- `1` (overflowed from `513`) assigned here
+
+error[E0081]: discriminant value `-1` assigned more than once
+  --> main.rs:20:1
+   |
+20 | enum NegDisEnum {
+   | ^^^^^^^^^^^^^^^
+21 |     //~^ ERROR discriminant value `-1` assigned more than once
+22 |     First = -1,
+   |             -- `-1` assigned here
+23 |     //~^ NOTE `-1` assigned here
+24 |     Second = -2,
+   |     ------ discriminant for `Last` incremented from this startpoint (`Second` + 1 variant later => `Last` = -1)
+25 |     //~^ NOTE discriminant for `Last` incremented from this startpoint (`Second` + 1 variant later => `Last` = -1)
+26 |     Last,
+   |     ---- `-1` assigned here
+
+error[E0081]: discriminant value `0` assigned more than once
+  --> main.rs:30:1
+   |
+30 | enum MultipleDuplicates {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+...
+33 |     V0,
+   |     -- `0` assigned here
+34 |     //~^ NOTE `0` assigned here
+35 |     V1 = 0,
+   |          - `0` assigned here
+...
+39 |     V4 = 0,
+   |          - `0` assigned here
+40 |     //~^ NOTE `0` assigned here
+41 |     V5 = -2,
+   |     -- discriminant for `V7` incremented from this startpoint (`V5` + 2 variants later => `V7` = 0)
+...
+45 |     V7,
+   |     -- `0` assigned here
+
+error[E0081]: discriminant value `-2` assigned more than once
+  --> main.rs:30:1
+   |
+30 | enum MultipleDuplicates {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 |     V5 = -2,
+   |          -- `-2` assigned here
+...
+47 |     V8 = -3,
+   |     -- discriminant for `V9` incremented from this startpoint (`V8` + 1 variant later => `V9` = -2)
+48 |     //~^ NOTE discriminant for `V9` incremented from this startpoint (`V8` + 1 variant later => `V9` = -2)
+49 |     V9,
+   |     -- `-2` assigned here
+
+error[E0370]: enum discriminant overflowed
+  --> main.rs:87:5
+   |
+87 |     X256,
+   |     ^^^^ overflowed on value after 255
+   |
+   = note: explicitly set `X256 = 0` if that is desired outcome
+
+error[E0081]: discriminant value `0` assigned more than once
+  --> main.rs:57:1
+   |
+57 | enum TooManyVariants {
+   | ^^^^^^^^^^^^^^^^^^^^
+58 |     //~^ ERROR discriminant value `0` assigned more than once
+59 |     X000, X001, X002, X003, X004, X005, X006, X007, X008, X009,
+   |     ----
+   |     |
+   |     `0` assigned here
+   |     discriminant for `X256` incremented from this startpoint (`X000` + 256 variants later => `X256` = 0)
+...
+87 |     X256,
+   |     ---- `0` assigned here
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_mir_build/src/thir/cx/expr.rs:359:76:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [thir_body] building THIR for `main`
+#1 [check_unsafety] unsafety-checking `main`
+... and 1 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 7 previous errors
+
+Some errors have detailed explanations: E0081, E0370.
+For more information about an error, try `rustc --explain E0081`.
+rustc exit: 101
+
+[exit 0]

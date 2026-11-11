@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..186f17bc94b8289f24bcf00f2228a5c247f2c19e 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -2289,18 +2289,17 @@ fn parse_opt_token_lit(&mut self) -> Option<(token::Lit, Span)> {
+     fn parse_opt_meta_item_lit(&mut self) -> Option<MetaItemLit> {
+         self.recover_after_dot();
+         let span = self.token.span;
+-        let uninterpolated_span = self.token_uninterpolated_span();
+         self.eat_token_lit().map(|token_lit| {
+             match MetaItemLit::from_token_lit(token_lit, span) {
+                 Ok(lit) => lit,
+                 Err(err) => {
+-                    let guar = report_lit_error(&self.psess, err, token_lit, uninterpolated_span);
++                    let guar = report_lit_error(&self.psess, err, token_lit, span);
+                     // Pack possible quotes and prefixes from the original literal into
+                     // the error literal's symbol so they can be pretty-printed faithfully.
+                     let suffixless_lit = token::Lit::new(token_lit.kind, token_lit.symbol, None);
+                     let symbol = Symbol::intern(&suffixless_lit.to_string());
+                     let token_lit = token::Lit::new(token::Err(guar), symbol, token_lit.suffix);
+-                    MetaItemLit::from_token_lit(token_lit, uninterpolated_span).unwrap()
++                    MetaItemLit::from_token_lit(token_lit, span).unwrap()
+                 }
+             }
+         })

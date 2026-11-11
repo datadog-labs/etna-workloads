@@ -1,0 +1,1 @@
+Asm with an empty first template string followed by an invalid instruction: the injected compiler misattributes the error span to the wrong line/string (and wrong assembly line number) because the newline separator is skipped after an empty first template.

@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_codegen_llvm/src/abi.rs b/compiler/rustc_codegen_llvm/src/abi.rs
+index 65bb32ee666f28cf1d2ae65eb08551d446dc2249..c6980f6e0dab1f3427c578d8734b3d243dd6b480 100644
+--- a/compiler/rustc_codegen_llvm/src/abi.rs
++++ b/compiler/rustc_codegen_llvm/src/abi.rs
+@@ -191,13 +191,9 @@ fn llvm_type<'ll>(&self, cx: &CodegenCx<'ll, '_>) -> &'ll Type {
+             self.rest.total.bytes().div_ceil(self.rest.unit.size.bytes())
+         };
+ 
+-        // Simplify to a single unit or an array if there's no prefix.
+-        // This produces the same layout, but using a simpler type.
++        // Simplify to a single unit or an array if there is no prefix.
+         if self.prefix.is_empty() {
+-            // We can't do this if is_consecutive is set and the unit would get
+-            // split on the target. Currently, this is only relevant for i128
+-            // registers.
+-            if rest_count == 1 && (!self.rest.is_consecutive || self.rest.unit != Reg::i128()) {
++            if rest_count == 1 {
+                 return rest_ll_unit;
+             }
+ 

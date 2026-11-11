@@ -1,0 +1,1 @@
+Shows JumpThreading threading over a no-op SetDiscriminant (niche untagged variant): counts remaining switchInt in the MIR of f; the clean compiler threads it away, the injected one leaves the switch.

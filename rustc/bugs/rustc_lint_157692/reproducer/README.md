@@ -1,0 +1,1 @@
+A proc-macro emits `&dyn (Send)` with all tokens reusing the span of a multibyte identifier. The injected unused_parens lint trims bytes off that span unconditionally and ICEs (panic in bytepos_to_file_char); the clean compiler skips the lint and succeeds.

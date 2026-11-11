@@ -1,0 +1,1 @@
+Compiles an async fn with a late-bound lifetime and a mismatched return in a nested closure/async context (from suggest-ret-on-async-w-late.rs); the clean compiler reports a normal type error (exit 1), the injected one ICEs with 'Not enough bound vars' (exit 101).

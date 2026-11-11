@@ -1,0 +1,1 @@
+Compiles a struct with a missing comma (parse error) and an unused type parameter; the clean compiler reports only the parse error, while the injected one also emits a redundant E0392 unused type parameter error.

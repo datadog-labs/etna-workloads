@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_target/src/callconv/wasm.rs b/compiler/rustc_target/src/callconv/wasm.rs
+index 5be8cd5d88f265661fc06b02dfba416f15ff52d1..3da152fc3175e13731fe251112abdd8ccb41e088 100644
+--- a/compiler/rustc_target/src/callconv/wasm.rs
++++ b/compiler/rustc_target/src/callconv/wasm.rs
+@@ -1,4 +1,4 @@
+-use rustc_abi::{BackendRepr, Float, HasDataLayout, Integer, Primitive, TyAbiInterface};
++use rustc_abi::{HasDataLayout, TyAbiInterface};
+ 
+ use crate::callconv::{ArgAbi, FnAbi};
+ 
+@@ -31,16 +31,6 @@ fn classify_ret<'a, Ty, C>(cx: &C, ret: &mut ArgAbi<'a, Ty>)
+     if ret.layout.is_aggregate() && !unwrap_trivial_aggregate(cx, ret) {
+         ret.make_indirect();
+     }
+-
+-    // `long double`, `__int128_t` and `__uint128_t` use an indirect return
+-    if let BackendRepr::Scalar(scalar) = ret.layout.backend_repr {
+-        match scalar.primitive() {
+-            Primitive::Int(Integer::I128, _) | Primitive::Float(Float::F128) => {
+-                ret.make_indirect();
+-            }
+-            _ => {}
+-        }
+-    }
+ }
+ 
+ fn classify_arg<'a, Ty, C>(cx: &C, arg: &mut ArgAbi<'a, Ty>)

@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+index 49e6dc334ff80dc2ca74719212a355497fce20e7..ac49a8c5c8665ac6aef3f1f2dbd3b138700b23b3 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+@@ -464,7 +464,12 @@ pub(crate) fn report_mutability_error(
+                     err.span_label(span, format!("cannot {act}"));
+                 }
+                 if suggest {
+-                    self.construct_mut_suggestion_for_local_binding_patterns(&mut err, local);
++                    err.span_suggestion_verbose(
++                        local_decl.source_info.span.shrink_to_lo(),
++                        "consider changing this to be mutable",
++                        "mut ",
++                        Applicability::MachineApplicable,
++                    );
+                     let tcx = self.infcx.tcx;
+                     if let ty::Closure(id, _) = *the_place_err.ty(self.body, tcx).ty.kind() {
+                         self.show_mutating_upvar(tcx, id.expect_local(), the_place_err, &mut err);
+@@ -931,6 +936,7 @@ fn is_error_in_trait(&self, local: Local) -> (bool, bool, Option<Span>) {
+         )
+     }
+ 
++    #[allow(dead_code)]
+     fn construct_mut_suggestion_for_local_binding_patterns(
+         &self,
+         err: &mut Diag<'_>,

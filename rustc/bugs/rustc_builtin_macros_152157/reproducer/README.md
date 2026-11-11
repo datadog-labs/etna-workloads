@@ -1,0 +1,1 @@
+Compiles a file with several asm!() calls whose template is a concat!() macro containing multibyte characters and an invalid format string, using JSON diagnostics. The clean compiler emits normal errors (exit 1); the injected compiler computes inner spans inside the macro-call template and ICEs in bytepos_to_file_charpos (exit 101, assertion failure).

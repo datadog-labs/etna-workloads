@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/query/normalize.rs b/compiler/rustc_trait_selection/src/traits/query/normalize.rs
+index 489e4f7a93d539cde46bdce83ae0a998db774656..74548b5896f2de7de7969b4169cfe14d3a6330bc 100644
+--- a/compiler/rustc_trait_selection/src/traits/query/normalize.rs
++++ b/compiler/rustc_trait_selection/src/traits/query/normalize.rs
+@@ -276,17 +276,23 @@ fn try_fold_const(
+             _ => return constant.try_super_fold_with(self),
+         };
+ 
+-        let constant = match alias_const.kind {
+-            ty::AliasConstKind::Anon { .. } => crate::traits::with_replaced_escaping_bound_vars(
+-                self.infcx,
+-                &mut self.universes,
+-                constant,
+-                |constant| crate::traits::evaluate_const(&self.infcx, constant, self.param_env),
+-            ),
+-            _ => self.try_fold_free_or_assoc(alias_const.into())?.expect_const(),
+-        };
+-        debug!(?constant, ?self.param_env);
+-        constant.try_super_fold_with(self)
++        match alias_const.kind {
++            ty::AliasConstKind::Anon { .. } => {
++                let constant = constant.try_super_fold_with(self)?;
++                debug!(?constant, ?self.param_env);
++                Ok(crate::traits::with_replaced_escaping_bound_vars(
++                    self.infcx,
++                    &mut self.universes,
++                    constant,
++                    |constant| crate::traits::evaluate_const(&self.infcx, constant, self.param_env),
++                ))
++            }
++            _ => {
++                let constant = self.try_fold_free_or_assoc(alias_const.into())?.expect_const();
++                debug!(?constant, ?self.param_env);
++                constant.try_super_fold_with(self)
++            }
++        }
+     }
+ 
+     #[inline]

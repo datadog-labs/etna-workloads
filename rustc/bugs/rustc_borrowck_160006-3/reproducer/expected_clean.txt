@@ -1,0 +1,25 @@
+error[E0382]: use of moved value: `entry`
+  --> main.rs:11:18
+   |
+ 6 |     for entry in fs::read_dir(".")? {
+   |         ----- move occurs because `entry` has type `Result<DirEntry, std::io::Error>`, which does not implement the `Copy` trait
+ 7 |     //~^ NOTE move occurs because `entry` has type `Result
+ 8 |         let file_type = entry?.file_type()?;
+   |                         ------ `entry` moved due to the question mark operator
+...
+11 |             dbg!(entry?.file_name()); //~ ERROR use of moved value
+   |                  ^^^^^ value used here after move
+   |
+note: the question mark operator is desugared into a call to `std::ops::Try::branch`, which takes ownership of the receiver `self`, which moves `entry`
+  --> library/core/src/ops/try_trait.rs:219:14
+help: you could `clone` the value and consume it, if the following trait bounds could be satisfied: `DirEntry: Clone` and `std::io::Error: Clone`
+   |
+ 8 |         let file_type = entry.clone()?.file_type()?;
+   |                              ++++++++
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0382`.
+rustc exit: 1
+
+[exit 0]

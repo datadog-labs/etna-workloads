@@ -1,0 +1,1 @@
+Compiles an AsyncFnOnce-called async closure; the injected compiler's MIR validation calls coroutine_by_move_body_def_id on a FnOnce async closure and ICEs with a stolen-MIR panic, while the clean compiler builds and runs it printing ok.

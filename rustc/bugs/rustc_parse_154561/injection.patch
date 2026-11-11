@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..73057321909f27268dc82bfcb6cb4c8417781840 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -193,23 +193,10 @@ pub(super) fn parse_item_common(
+             // At this point, we have failed to parse an item.
+             if !matches!(vis.kind, VisibilityKind::Inherited) {
+                 let vis_str = pprust::vis_to_string(&vis).trim_end().to_string();
+-                let mut err = this.dcx().create_err(diagnostics::VisibilityNotFollowedByItem {
++                this.dcx().emit_err(diagnostics::VisibilityNotFollowedByItem {
+                     span: vis.span,
+                     vis: vis_str,
+                 });
+-                if let Some((ident, _)) = this.token.ident()
+-                    && !ident.is_used_keyword()
+-                    && let Some((similar_kw, is_incorrect_case)) = ident
+-                        .name
+-                        .find_similar(&rustc_span::symbol::used_keywords(|| ident.span.edition()))
+-                {
+-                    err.subdiagnostic(diagnostics::MisspelledKw {
+-                        similar_kw: similar_kw.to_string(),
+-                        span: ident.span,
+-                        is_incorrect_case,
+-                    });
+-                }
+-                err.emit();
+             }
+ 
+             if let Defaultness::Default(span) = def {

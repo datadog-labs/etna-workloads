@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_abi/src/layout.rs b/compiler/rustc_abi/src/layout.rs
+index e8779d6ee6869e1dd9c2176c7f3ecf63878e0e34..d3f32b6c87c4c8afcc9e91dfe494915185e86d41 100644
+--- a/compiler/rustc_abi/src/layout.rs
++++ b/compiler/rustc_abi/src/layout.rs
+@@ -1310,10 +1310,6 @@ fn univariant_biased<
+         debug!("univariant min_size: {:?}", offset);
+         let min_size = offset;
+         let size = min_size.align_to(align);
+-        // FIXME(oli-obk): deduplicate and harden these checks
+-        if size.bytes() >= dl.obj_size_bound() {
+-            return Err(LayoutCalculatorError::SizeOverflow);
+-        }
+         let mut layout_of_single_non_zst_field = None;
+         let sized = unsized_field.is_none();
+         let mut abi = BackendRepr::Memory { sized };
+diff --git a/compiler/rustc_ty_utils/src/layout/invariant.rs b/compiler/rustc_ty_utils/src/layout/invariant.rs
+index 718804714098244aa4d2cd6deb086ea33f37040c..82f846b721ed4e9f3fa4a98d7ca23b4a511e52d9 100644
+--- a/compiler/rustc_ty_utils/src/layout/invariant.rs
++++ b/compiler/rustc_ty_utils/src/layout/invariant.rs
+@@ -12,9 +12,6 @@ pub(super) fn layout_sanity_check<'tcx>(cx: &LayoutCx<'tcx>, layout: &TyAndLayou
+     if !layout.size.bytes().is_multiple_of(layout.align.bytes()) {
+         bug!("size is not a multiple of align, in the following layout:\n{layout:#?}");
+     }
+-    if layout.size.bytes() >= tcx.data_layout.obj_size_bound() {
+-        bug!("size is too large, in the following layout:\n{layout:#?}");
+-    }
+     // FIXME(#124403): Once `repr_c_enums_larger_than_int` is a hard error, we could assert
+     // here that a repr(c) enum discriminant is never larger than a c_int.
+ 

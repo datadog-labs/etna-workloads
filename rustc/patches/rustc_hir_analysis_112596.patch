@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/mod.rs b/compiler/rustc_hir_analysis/src/check/mod.rs
+index eac3762ef9af84e0e66bedcaf0675512ac6d0f41..316ef1219f884fc2d38995c83ecdbf9e7164d36e 100644
+--- a/compiler/rustc_hir_analysis/src/check/mod.rs
++++ b/compiler/rustc_hir_analysis/src/check/mod.rs
+@@ -550,19 +550,7 @@ fn fn_sig_suggestion<'tcx>(
+         .chain(if sig.c_variadic() { Some("...".to_string()) } else { None })
+         .collect::<Vec<String>>()
+         .join(", ");
+-    let mut output = sig.output();
+-
+-    let asyncness = if tcx.asyncness(assoc.def_id).is_async() {
+-        output = tcx.get_impl_future_output_ty(output).unwrap_or_else(|| {
+-            span_bug!(
+-                ident.span,
+-                "expected async fn to have `impl Future` output, but it returns {output}"
+-            )
+-        });
+-        "async "
+-    } else {
+-        ""
+-    };
++    let output = sig.output();
+ 
+     let output = if !output.is_unit() { format!(" -> {output}") } else { String::new() };
+ 
+@@ -575,7 +563,7 @@ fn fn_sig_suggestion<'tcx>(
+     // fill in a significant portion of the missing code, and other subsequent
+     // suggestions can help the user fix the code.
+     // ignore-tidy-todo
+-    format!("{safety}{asyncness}fn {ident}{generics}({args}){output}{where_clauses} {{ todo!() }}")
++    format!("{safety}fn {ident}{generics}({args}){output}{where_clauses} {{ todo!() }}")
+ }
+ 
+ /// Return placeholder code for the given associated item.

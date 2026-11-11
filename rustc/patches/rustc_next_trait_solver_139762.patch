@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs b/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
+index 836b552f5129c188ae089545611dfaf22814089f..1f5ed4c57f9dcdf1b7d38c1c9b056187a1b79b7e 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
+@@ -1294,8 +1294,11 @@ pub(super) fn assemble_and_merge_candidates<G: GoalKind<D>>(
+                 // Even when a trait bound has been proven using a where-bound, we
+                 // still need to consider alias-bounds for normalization, see
+                 // `tests/ui/next-solver/alias-bound-shadowed-by-env.rs`.
+-                let (mut candidates, _) = self
+-                    .assemble_and_evaluate_candidates(goal, AssembleCandidatesFrom::EnvAndBounds)?;
++                let (mut candidates, _) =
++                    self.assemble_and_evaluate_candidates(goal, AssembleCandidatesFrom::All)?;
++                candidates.retain(|c| {
++                    matches!(c.source, CandidateSource::ParamEnv(_) | CandidateSource::AliasBound(_))
++                });
+                 debug!(?candidates);
+ 
+                 // If the trait goal has been proven by using the environment, we want to treat
+diff --git a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+index 08c634620300addde5a051df7622bb1dbddf4252..9884978f2b5cf78f2b1a069ce3ef543de1ca94f6 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+@@ -294,7 +294,6 @@ fn consider_impl_candidate(
+             // computing the `type_of` query for associated types that never apply, as
+             // this may result in query cycles in the case of RPITITs.
+             // See <https://github.com/rust-lang/trait-system-refactor-initiative/issues/185>.
+-            ecx.try_evaluate_added_goals()?;
+ 
+             // Add GAT where clauses from the trait's definition. This is necessary
+             // for soundness until we properly handle implied bounds on binders,

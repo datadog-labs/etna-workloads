@@ -1,0 +1,108 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/generics_of.rs b/compiler/rustc_hir_analysis/src/collect/generics_of.rs
+index e0bd6ed2741ce5caeb293bf011a30051f1ec1ebb..3cfac8bae6bfba288ff13c9ed29bd89b102228c4 100644
+--- a/compiler/rustc_hir_analysis/src/collect/generics_of.rs
++++ b/compiler/rustc_hir_analysis/src/collect/generics_of.rs
+@@ -29,43 +29,6 @@ fn into_diag(self, dcx: DiagCtxtHandle<'a>, level: Level) -> Diag<'a, ()> {
+         }
+     }
+ 
+-    // For an RPITIT, synthesize generics which are equal to the opaque's generics
+-    // and parent fn's generics compressed into one list.
+-    if let Some(ty::ImplTraitInTraitData::Trait { fn_def_id, opaque_def_id }) =
+-        tcx.opt_rpitit_info(def_id.to_def_id())
+-    {
+-        debug!("RPITIT fn_def_id={fn_def_id:?} opaque_def_id={opaque_def_id:?}");
+-        let trait_def_id = tcx.parent(fn_def_id);
+-        let opaque_ty_generics = tcx.generics_of(opaque_def_id);
+-        let opaque_ty_parent_count = opaque_ty_generics.parent_count;
+-        let mut own_params = opaque_ty_generics.own_params.clone();
+-
+-        let parent_generics = tcx.generics_of(trait_def_id);
+-        let parent_count = parent_generics.parent_count + parent_generics.own_params.len();
+-
+-        let mut trait_fn_params = tcx.generics_of(fn_def_id).own_params.clone();
+-
+-        for param in &mut own_params {
+-            param.index = param.index + parent_count as u32 + trait_fn_params.len() as u32
+-                - opaque_ty_parent_count as u32;
+-        }
+-
+-        trait_fn_params.extend(own_params);
+-        own_params = trait_fn_params;
+-
+-        let param_def_id_to_index =
+-            own_params.iter().map(|param| (param.def_id, param.index)).collect();
+-
+-        return ty::Generics {
+-            parent: Some(trait_def_id),
+-            parent_count,
+-            own_params,
+-            param_def_id_to_index,
+-            has_self: opaque_ty_generics.has_self,
+-            has_late_bound_regions: opaque_ty_generics.has_late_bound_regions,
+-        };
+-    }
+-
+     let hir_id = tcx.local_def_id_to_hir_id(def_id);
+     let node = tcx.hir_node(hir_id);
+ 
+diff --git a/compiler/rustc_ty_utils/src/assoc.rs b/compiler/rustc_ty_utils/src/assoc.rs
+index de94087498c756e6fc5ef8146c5c1b7393b52a17..1b3e6abdd280c262b7bae2f80846ba5c1b0a047a 100644
+--- a/compiler/rustc_ty_utils/src/assoc.rs
++++ b/compiler/rustc_ty_utils/src/assoc.rs
+@@ -4,7 +4,7 @@
+ use rustc_hir::intravisit::{self, Visitor};
+ use rustc_hir::{self as hir, ConstItemRhs, ImplItemImplKind, ItemKind};
+ use rustc_middle::query::Providers;
+-use rustc_middle::ty::{self, ImplTraitInTraitData, TyCtxt};
++use rustc_middle::ty::{self, GenericArgs, ImplTraitInTraitData, Ty, TyCtxt};
+ use rustc_middle::{bug, span_bug};
+ use rustc_span::Ident;
+ use rustc_span::symbol::kw;
+@@ -262,6 +262,46 @@ fn associated_type_for_impl_trait_in_trait(
+         container: ty::AssocContainer::Trait,
+     });
+ 
++    // Copy type_of of the opaque.
++    trait_assoc_ty.type_of(ty::EarlyBinder::bind(tcx, Ty::new_opaque(
++        tcx,
++        ty::IsRigid::No,
++        opaque_ty_def_id.to_def_id(),
++        GenericArgs::identity_for_item(tcx, opaque_ty_def_id),
++    )));
++
++    // Copy generics_of of the opaque type item but the trait is the parent.
++    trait_assoc_ty.generics_of({
++        let opaque_ty_generics = tcx.generics_of(opaque_ty_def_id);
++        let opaque_ty_parent_count = opaque_ty_generics.parent_count;
++        let mut own_params = opaque_ty_generics.own_params.clone();
++
++        let parent_generics = tcx.generics_of(trait_def_id);
++        let parent_count = parent_generics.parent_count + parent_generics.own_params.len();
++
++        let mut trait_fn_params = tcx.generics_of(fn_def_id).own_params.clone();
++
++        for param in &mut own_params {
++            param.index = param.index + parent_count as u32 + trait_fn_params.len() as u32
++                - opaque_ty_parent_count as u32;
++        }
++
++        trait_fn_params.extend(own_params);
++        own_params = trait_fn_params;
++
++        let param_def_id_to_index =
++            own_params.iter().map(|param| (param.def_id, param.index)).collect();
++
++        ty::Generics {
++            parent: Some(trait_def_id.to_def_id()),
++            parent_count,
++            own_params,
++            param_def_id_to_index,
++            has_self: opaque_ty_generics.has_self,
++            has_late_bound_regions: opaque_ty_generics.has_late_bound_regions,
++        }
++    });
++
+     // Copy visility of the containing function.
+     trait_assoc_ty.visibility(tcx.visibility(fn_def_id));
+ 

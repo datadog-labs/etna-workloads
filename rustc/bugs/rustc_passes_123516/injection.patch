@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..c950a8ad10042c996d4c52361b205b70d5998d02 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -235,7 +235,6 @@ fn handle_field_access(&mut self, lhs: &hir::Expr<'_>, hir_id: hir::HirId) {
+                 self.insert_def_id(def.non_enum_variant().fields[index].did);
+             }
+             ty::Tuple(..) => {}
+-            ty::Error(_) => {}
+             kind => span_bug!(lhs.span, "named field access on non-ADT: {kind:?}"),
+         }
+     }
+@@ -583,11 +582,6 @@ impl<'tcx> Visitor<'tcx> for MarkSymbolVisitor<'tcx> {
+     fn visit_nested_body(&mut self, body: hir::BodyId) -> Self::Result {
+         let typeck_results = self.tcx.typeck_body(body);
+ 
+-        // The result shouldn't be tainted, otherwise it will cause ICE.
+-        if let Some(guar) = typeck_results.tainted_by_errors {
+-            return ControlFlow::Break(guar);
+-        }
+-
+         let old_maybe_typeck_results = self.maybe_typeck_results.replace(typeck_results);
+         let body = self.tcx.hir_body(body);
+         let result = self.visit_body(body);

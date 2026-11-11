@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_borrowck/src/type_check/mod.rs b/compiler/rustc_borrowck/src/type_check/mod.rs
+index 14b1c9b31ef9f6f769bc88a6fc3d10e035b43419..b6e5e124f7135c7330939fa41c41c0590db7b9f6 100644
+--- a/compiler/rustc_borrowck/src/type_check/mod.rs
++++ b/compiler/rustc_borrowck/src/type_check/mod.rs
+@@ -883,7 +883,7 @@ fn visit_terminator(&mut self, term: &Terminator<'tcx>, term_location: Location)
+                     }
+                 }
+             }
+-            TerminatorKind::Yield { value, resume_arg, .. } => {
++            TerminatorKind::Yield { value, .. } => {
+                 match self.body.yield_ty() {
+                     None => span_mirbug!(self, term, "yield in non-coroutine"),
+                     Some(ty) => {
+@@ -905,28 +905,6 @@ fn visit_terminator(&mut self, term: &Terminator<'tcx>, term_location: Location)
+                         }
+                     }
+                 }
+-
+-                match self.body.resume_ty() {
+-                    None => span_mirbug!(self, term, "yield in non-coroutine"),
+-                    Some(ty) => {
+-                        let resume_ty = resume_arg.ty(self.body, tcx);
+-                        if let Err(terr) = self.sub_types(
+-                            ty,
+-                            resume_ty.ty,
+-                            term_location.to_locations(),
+-                            ConstraintCategory::Yield,
+-                        ) {
+-                            span_mirbug!(
+-                                self,
+-                                term,
+-                                "type of resume place is {:?}, but the resume type is {:?}: {:?}",
+-                                resume_ty,
+-                                ty,
+-                                terr
+-                            );
+-                        }
+-                    }
+-                }
+             }
+         }
+     }

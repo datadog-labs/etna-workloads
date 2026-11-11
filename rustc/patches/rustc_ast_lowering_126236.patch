@@ -1,0 +1,19 @@
+diff --git a/compiler/rustc_ast_lowering/src/delegation/resolution.rs b/compiler/rustc_ast_lowering/src/delegation/resolution.rs
+index dd1b9518e6d7fffd6f47b266b16a8ab22a03e830..782364d1f7fcbb71cdbd858034cc6d9623893556 100644
+--- a/compiler/rustc_ast_lowering/src/delegation/resolution.rs
++++ b/compiler/rustc_ast_lowering/src/delegation/resolution.rs
+@@ -179,10 +179,10 @@ fn check_for_cycles(&self, mut def_id: DefId, span: Span) -> Result<(), ErrorGua
+             {
+                 def_id = id;
+                 if visited.contains(&def_id) {
+-                    return Err(match visited.len() {
+-                        1 => tcx.dcx().emit_err(UnresolvedDelegationCallee { span }),
+-                        _ => tcx.dcx().emit_err(CycleInDelegationSignatureResolution { span }),
+-                    });
++                    if visited.len() == 1 {
++                        return Ok(());
++                    }
++                    return Err(tcx.dcx().emit_err(CycleInDelegationSignatureResolution { span }));
+                 }
+             } else {
+                 return Ok(());

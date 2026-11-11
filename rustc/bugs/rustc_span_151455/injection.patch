@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_span/src/lib.rs b/compiler/rustc_span/src/lib.rs
+index f6ae748560750e2bcf9e21eb154cff4d8aec1078..43eb7fd2ce0174cefa4070ace7afb18a7a451d9c 100644
+--- a/compiler/rustc_span/src/lib.rs
++++ b/compiler/rustc_span/src/lib.rs
+@@ -2446,12 +2446,14 @@ pub fn original_relative_byte_pos(&self, pos: BytePos) -> RelativeBytePos {
+     /// normalized one. Hence we need to convert those offsets to the normalized
+     /// form when constructing spans.
+     pub fn normalized_byte_pos(&self, offset: u32) -> BytePos {
+-        let diff =
+-            match self.normalized_pos.binary_search_by(|np| (np.pos.0 + np.diff).cmp(&offset)) {
+-                Ok(i) => self.normalized_pos[i].diff,
+-                Err(0) => 0,
+-                Err(i) => self.normalized_pos[i - 1].diff,
+-            };
++        let diff = match self
++            .normalized_pos
++            .binary_search_by(|np| (np.pos.0 + np.diff).cmp(&(self.start_pos.0 + offset)))
++        {
++            Ok(i) => self.normalized_pos[i].diff,
++            Err(0) => 0,
++            Err(i) => self.normalized_pos[i - 1].diff,
++        };
+ 
+         BytePos::from_u32(self.start_pos.0 + offset - diff)
+     }

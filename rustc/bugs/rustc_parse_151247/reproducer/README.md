@@ -1,0 +1,1 @@
+A const item missing its trailing semicolon followed by `&C` is over-parsed as a bit-and expression. The clean compiler recovers with a targeted "you may have meant to write a `;`" diagnostic and notes the bit-and parse; the injected compiler lacks this recovery and emits a different diagnostic plus follow-on errors (mismatched types, cycle detected).

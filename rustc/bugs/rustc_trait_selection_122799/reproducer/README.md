@@ -1,0 +1,1 @@
+Compiles a method call needing a fully qualified path suggestion whose args contain a closure; the clean compiler prints `_` in place of the closure type, the injected one prints the `{closure@...}` type.
