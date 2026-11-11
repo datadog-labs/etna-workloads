@@ -1,0 +1,7 @@
+(set-option :model_validate true)
+(declare-const x String)
+(declare-const y String)
+(assert (= y "Q"))
+(assert (= (str.replace (str.++ "ab" x) "a" y) "Qbc"))
+(check-sat)
+(get-value (x))

@@ -1,0 +1,6 @@
+(declare-datatypes ((Lst 1)) ((par (X) ((lnil) (lcons (lh X) (lt (Lst X)))))))
+(declare-datatype T ((leaf) (node (ch (Lst T)))) :subterm sub)
+(declare-const a T)
+(assert (sub a (node (lcons a lnil))))
+(assert (not (= a leaf)))
+(check-sat)

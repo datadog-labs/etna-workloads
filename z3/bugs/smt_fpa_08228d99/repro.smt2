@@ -1,0 +1,8 @@
+(set-logic ALL)
+(declare-const b (_ BitVec 16))
+(declare-const c (_ BitVec 16))
+(declare-fun f ((_ FloatingPoint 5 11)) (_ BitVec 8))
+(assert (fp.isNaN ((_ to_fp 5 11) b)))
+(assert (fp.isNaN ((_ to_fp 5 11) c)))
+(assert (distinct (f ((_ to_fp 5 11) b)) (f ((_ to_fp 5 11) c))))
+(check-sat)

@@ -1,0 +1,6 @@
+(set-option :smt.qi.profile true)
+(set-option :smt.qi.profile_freq 0)
+(declare-fun f (Int) Int)
+(assert (forall ((x Int)) (> (f x) 0)))
+(assert (< (f 1) 0))
+(check-sat)

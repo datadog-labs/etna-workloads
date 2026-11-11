@@ -1,0 +1,5 @@
+(set-option :sat.euf true)
+(set-option :tactic.default_tactic smt)
+(declare-fun RM2 () RoundingMode)
+(assert (= RM2 RM2))
+(check-sat)

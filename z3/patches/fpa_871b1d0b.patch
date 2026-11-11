@@ -1,0 +1,31 @@
+--- a/src/ast/fpa/fpa2bv_converter.cpp
++++ b/src/ast/fpa/fpa2bv_converter.cpp
+@@ -4790,18 +4790,6 @@
+     }
+ }
+ 
+-void fpa2bv_converter_wrapped::mk_uf(func_decl* f, unsigned num, expr* const* args, expr_ref& result) {
+-    result = m.mk_app(f, num, args);
+-    // Use the theory wrapper instead of introducing BV UFs and quantified
+-    // bridge axioms when applications contain bound variables.
+-    if (m_util.is_float(f->get_range())) {
+-        app_ref wrapped = wrap(result);
+-        result = unwrap(wrapped, f->get_range());
+-    }
+-    else if (m_util.is_rm(f->get_range()))
+-        result = m_util.mk_bv2rm(wrap(result));
+-}
+-
+ app_ref fpa2bv_converter_wrapped::wrap(expr* e) {
+     SASSERT(m_util.is_float(e) || m_util.is_rm(e));
+     SASSERT(!m_util.is_bvwrap(e));
+--- a/src/ast/fpa/fpa2bv_converter.h
++++ b/src/ast/fpa/fpa2bv_converter.h
+@@ -242,7 +242,6 @@
+         m_rw(rw) {}
+     void mk_const(func_decl * f, expr_ref & result) override;
+     void mk_rm_const(func_decl * f, expr_ref & result) override;
+-    void mk_uf(func_decl * f, unsigned num, expr * const * args, expr_ref & result) override;
+     app_ref wrap(expr * e);
+     app_ref unwrap(expr * e, sort * s);
+ 

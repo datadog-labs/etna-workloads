@@ -1,0 +1,5 @@
+(set-logic QF_FP)
+(define-fun t () (_ FloatingPoint 40 24) ((_ to_fp 40 24) RNE (/ 1.0 3.0)))
+(define-fun u () (_ FloatingPoint 40 24) (fp #b0 #x0000000001 #b00000000000000000000000))
+(assert (= ((_ fp.to_sbv 8) RTP u) #x01))
+(check-sat)

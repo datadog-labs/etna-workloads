@@ -1,0 +1,68 @@
+--- a/src/math/lp/lar_constraints.h
++++ b/src/math/lp/lar_constraints.h
+@@ -232,7 +232,6 @@
+     lar_base_constraint const& operator[](constraint_index ci) const { return *m_constraints[ci]; }    
+ 
+     bool valid_index(constraint_index ci) const { return ci < m_constraints.size(); }
+-    unsigned size() const { return m_constraints.size(); }
+ 
+     class active_constraints {
+         friend class constraint_set;
+--- a/src/math/lp/nla_core.cpp
++++ b/src/math/lp/nla_core.cpp
+@@ -894,13 +894,9 @@
+ lbool core::check_transcendentals_and_finish() {
+     if (m_transcendentals.empty())
+         return l_true;
+-    unsigned num_failures = m_transcendentals.num_failures();
+     m_transcendentals.check();
+     if (!m_lemmas.empty() || !m_literals.empty())
+         return l_false;
+-    // A delta-check failure on the current assignment must be settled by
+-    // nlsat; it cannot be deferred by the backoff and reported as l_true.
+-    bool failed_now = m_transcendentals.num_failures() > num_failures;
+     // The delta-check alone can nudge the LP assignment indefinitely
+     // without ever producing a certificate. Each failed delta-check
+     // bumps the affected application's accumulated Taylor degree
+@@ -914,13 +910,7 @@
+     // is applied here (rather than inside nra_solver itself) so it
+     // does not affect nra_solver's other, already-tuned call sites
+     // for problems that do have monomials to refine.
+-    bool run_nlsat = should_run_bounded_nlsat() && m_transcendentals.has_observed_failure();
+-    if (failed_now && !run_nlsat) {
+-        if (!params().arith_nl_nra())
+-            return l_undef;
+-        run_nlsat = true;
+-    }
+-    if (run_nlsat) {
++    if (should_run_bounded_nlsat() && m_transcendentals.has_observed_failure()) {
+         lbool ret = bounded_nlsat();
+         if (ret == l_false)
+             return l_false;
+--- a/src/math/lp/nla_transcendentals.h
++++ b/src/math/lp/nla_transcendentals.h
+@@ -217,11 +217,6 @@
+         // reactive delta-check alone was already about to succeed.
+         bool has_observed_failure() const { return m_num_failures > 0; }
+ 
+-        // number of delta-check failures observed so far; comparing it
+-        // before and after check() tells whether the current assignment
+-        // failed the delta-check.
+-        unsigned num_failures() const { return m_num_failures; }
+-
+     private:
+         bool check_app(app& a);
+         // atan2(y, x): the exact fact sign(val) == sign(y) whenever y != 0
+--- a/src/smt/theory_lra.cpp
++++ b/src/smt/theory_lra.cpp
+@@ -1220,10 +1220,6 @@
+         m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
+         m_scopes.resize(old_size);            
+         lp().pop(num_scopes);
+-        // Constraint indices of popped constraints are reused by lar_solver;
+-        // forget their sources so constraints that theory_lra does not track
+-        // (e.g. nla range axioms) are not explained by stale literals.
+-        m_constraint_sources.shrink(std::min(m_constraint_sources.size(), lp().constraints().size()));
+         // VERIFY(l_false != make_feasible());
+         m_new_bounds.reset();
+         m_bv_to_propagate.reset();

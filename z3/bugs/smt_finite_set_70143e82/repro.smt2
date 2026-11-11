@@ -1,0 +1,8 @@
+(declare-const s (FiniteSet Int))
+(declare-const a Int)(declare-const b Int)(declare-const c Int)
+(declare-const n Int)
+(assert (set.in a s))(assert (set.in b s))(assert (set.in c s))
+(assert (and (> a b) (> b c)))
+(assert (= n (set.size s)))
+(assert (<= n 1))
+(check-sat)

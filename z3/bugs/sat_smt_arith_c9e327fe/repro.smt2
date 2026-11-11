@@ -1,0 +1,6 @@
+(declare-const x Real)
+(define-const $1 Bool (< x 0.0))
+(assume $1)
+(declare-fun farkas (Int Bool) Proof)
+(define-const $2 Proof (farkas 0 $1))
+(infer $2)

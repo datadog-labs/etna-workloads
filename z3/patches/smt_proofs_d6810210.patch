@@ -1,0 +1,635 @@
+--- a/src/api/api_ast.cpp
++++ b/src/api/api_ast.cpp
+@@ -1168,8 +1168,6 @@
+         case PR_LEMMA_ADD: return Z3_OP_PR_LEMMA_ADD;
+         case PR_REDUNDANT_DEL: return Z3_OP_PR_REDUNDANT_DEL;
+         case PR_CLAUSE_TRAIL: return Z3_OP_PR_CLAUSE_TRAIL;
+-        case PR_TH_ASSUMPTION_ADD: return Z3_OP_PR_TH_ASSUMPTION_ADD;
+-        case PR_TH_LEMMA_ADD: return Z3_OP_PR_TH_LEMMA_ADD;
+         case PR_DEF_INTRO: return Z3_OP_PR_DEF_INTRO;
+         case PR_APPLY_DEF: return Z3_OP_PR_APPLY_DEF;
+         case PR_IFF_OEQ: return Z3_OP_PR_IFF_OEQ;
+--- a/src/api/z3_api.h
++++ b/src/api/z3_api.h
+@@ -643,12 +643,6 @@
+    - Z3_OP_PR_CLAUSE_TRAIL,
+      Clausal proof trail of additions and deletions
+ 
+-   - Z3_OP_PR_TH_ASSUMPTION_ADD
+-     Clausal proof theory axiom addition, optionally carrying a proof certificate.
+-
+-   - Z3_OP_PR_TH_LEMMA_ADD
+-     Clausal proof theory lemma addition, optionally carrying a proof certificate.
+-
+    - Z3_OP_PR_DEF_INTRO: Introduces a name for a formula/term.
+        Suppose e is an expression with free variables x, and def-intro
+        introduces the name n(x). The possible cases are:
+@@ -1195,8 +1189,6 @@
+     Z3_OP_PR_MODUS_PONENS_OEQ,
+     Z3_OP_PR_TH_LEMMA,
+     Z3_OP_PR_HYPER_RESOLVE,
+-    Z3_OP_PR_TH_ASSUMPTION_ADD,
+-    Z3_OP_PR_TH_LEMMA_ADD,
+ 
+     // Relational algebra
+     Z3_OP_RA_STORE = 0x600,
+--- a/src/ast/ast.cpp
++++ b/src/ast/ast.cpp
+@@ -799,10 +799,10 @@
+     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
+     case PR_DEMODULATION:                 return mk_proof_decl("demodulation", k, num_parents, m_demodulation_decls);
+     case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
+-    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decls);
+-    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decls);
+-    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decls);
+-    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decls);
++    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decl);
++    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decl);
++    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decl);
++    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decl);
+     case PR_REDUNDANT_DEL:                return mk_proof_decl("del", k, num_parents, m_redundant_del_decl);
+     case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents, false);
+     default:
+@@ -922,10 +922,10 @@
+     DEC_REF(m_iff_oeq_decl);
+     DEC_REF(m_skolemize_decl);
+     DEC_REF(m_mp_oeq_decl);
+-    DEC_ARRAY_REF(m_assumption_add_decls);
+-    DEC_ARRAY_REF(m_lemma_add_decls);
+-    DEC_ARRAY_REF(m_th_assumption_add_decls);
+-    DEC_ARRAY_REF(m_th_lemma_add_decls);
++    DEC_REF(m_assumption_add_decl);
++    DEC_REF(m_lemma_add_decl);
++    DEC_REF(m_th_assumption_add_decl);
++    DEC_REF(m_th_lemma_add_decl);
+     DEC_REF(m_redundant_del_decl);
+     DEC_ARRAY_REF(m_apply_def_decls);
+     DEC_ARRAY_REF(m_nnf_pos_decls);
+--- a/src/ast/ast.h
++++ b/src/ast/ast.h
+@@ -1251,10 +1251,10 @@
+     func_decl * m_iff_oeq_decl = nullptr;
+     func_decl * m_skolemize_decl = nullptr;
+     func_decl * m_mp_oeq_decl = nullptr;
+-    ptr_vector<func_decl> m_assumption_add_decls;
+-    ptr_vector<func_decl> m_lemma_add_decls;
+-    ptr_vector<func_decl> m_th_assumption_add_decls;
+-    ptr_vector<func_decl> m_th_lemma_add_decls;
++    func_decl * m_assumption_add_decl = nullptr;
++    func_decl * m_lemma_add_decl = nullptr;
++    func_decl * m_th_assumption_add_decl = nullptr;
++    func_decl * m_th_lemma_add_decl = nullptr;
+     func_decl * m_redundant_del_decl = nullptr;
+     ptr_vector<func_decl> m_apply_def_decls;
+     ptr_vector<func_decl> m_nnf_pos_decls;
+--- a/src/params/smt_params_helper.hpp
++++ b/src/params/smt_params_helper.hpp
+@@ -198,7 +198,7 @@
+   BOOL_  (up_persist_clauses,                      "up.persist_clauses",                      false,                    "replay propagated clauses below the levels they are asserted") \
+   BOOL_  (array_weak,                              "array.weak",                              false,                    "weak array theory") \
+   BOOL_  (array_extensional,                       "array.extensional",                       true,                     "extensional array theory") \
+-  BOOL_  (clause_proof,                            "clause_proof",                            false,                    "record a clausal proof; with proof=true, replace learned-clause proof DAGs by a clause trail") \
++  BOOL_  (clause_proof,                            "clause_proof",                            false,                    "record a clausal proof") \
+   UINT_  (dack,                                    "dack",                                    1,                        "0 - disable dynamic ackermannization, 1 - expand Leibniz's axiom if a congruence is the root of a conflict, 2 - expand Leibniz's axiom if a congruence is used during conflict resolution") \
+   BOOL_  (dack_eq,                                 "dack.eq",                                 false,                    "enable dynamic ackermannization for transitivity of equalities") \
+   DOUBLE_(dack_factor,                             "dack.factor",                             0.1,                      "number of instance per conflict") \
+--- a/src/smt/smt_clause_proof.cpp
++++ b/src/smt/smt_clause_proof.cpp
+@@ -14,7 +14,6 @@
+ --*/
+ #include "smt/smt_clause_proof.h"
+ #include "smt/smt_context.h"
+-#include "smt/smt_conflict_resolution.h"
+ #include "ast/ast_pp.h"
+ #include "ast/ast_ll_pp.h"
+ #include <iostream>
+@@ -27,21 +26,7 @@
+         
+         auto proof_log = ctx.get_fparams().m_proof_log;
+         m_has_log = proof_log.is_non_empty_string();
+-        m_enabled = m_has_log;
+-    }
+-
+-    bool clause_proof::is_enabled() const {
+-        return m_enabled || ctx.get_fparams().m_clause_proof;
+-    }
+-
+-    void clause_proof::push() {
+-        m_scope_limits.push_back(m_trail.size());
+-    }
+-
+-    void clause_proof::pop(unsigned num_scopes) {
+-        unsigned new_size = m_scope_limits.size() - num_scopes;
+-        m_trail.shrink(m_scope_limits[new_size]);
+-        m_scope_limits.shrink(new_size);
++        m_enabled = ctx.get_fparams().m_clause_proof || m_has_log;        
+     }
+ 
+     void clause_proof::init_pp_out() {
+@@ -74,23 +59,9 @@
+     }
+ 
+     proof_ref clause_proof::justification2proof(status st, justification* j) {
+-        proof_ref r(m);
+-        if (j) {
+-            if (ctx.get_fparams().m_clause_proof && m.proofs_enabled()) {
+-                expr_ref fact(mk_or(m_lits), m);
+-                r = ctx.get_cr().mk_clause_proof(j);
+-                expr* clause = m.get_fact(r);
+-                if (clause != fact) {
+-                    m_lits.reset();
+-                    if (m.is_or(clause))
+-                        m_lits.append(to_app(clause)->get_num_args(), to_app(clause)->get_args());
+-                    else if (!m.is_false(clause))
+-                        m_lits.push_back(clause);
+-                }
+-            }
+-            else
+-                r = j->mk_proof(ctx.get_cr());
+-        }
++        proof* r = nullptr;
++        if (j)
++            r = j->mk_proof(ctx.get_cr());
+         if (r) 
+             return proof_ref(r, m);
+         if (!is_enabled())
+@@ -123,17 +94,20 @@
+             return;
+         justification* j = c.get_justification();
+         auto st = kind2st(c.get_kind());
+-        update(c, st, j, simp_lits);
++        auto pr = justification2proof(st, j);
++        CTRACE(mk_clause, pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
++        update(c, st, pr, simp_lits);        
+     }
+ 
+     void clause_proof::add(unsigned n, literal const* lits, clause_kind k, justification* j) {
+         if (!is_enabled())
+             return;
+         auto st = kind2st(k);
++        auto pr = justification2proof(st, j);
++        CTRACE(mk_clause, pr.get(), tout << mk_bounded_pp(pr, m, 4) << "\n";);
+         m_lits.reset();
+         for (unsigned i = 0; i < n; ++i) 
+             m_lits.push_back(ctx.literal2expr(lits[i]));
+-        auto pr = justification2proof(st, j);
+         update(st, m_lits, pr);
+     }
+ 
+@@ -156,8 +130,7 @@
+         if (!is_enabled())
+             return;
+         m_lits.reset();
+-        if (lit != false_literal)
+-            m_lits.push_back(ctx.literal2expr(lit));
++        m_lits.push_back(ctx.literal2expr(lit));
+         auto st = kind2st(k);
+         auto pr = justification2proof(st, j);
+         update(st, m_lits, pr);
+@@ -183,27 +156,14 @@
+         m_lits.reset();
+         for (literal l : ante)
+             m_lits.push_back(ctx.literal2expr(~l));
+-        if (lit != false_literal)
+-            m_lits.push_back(ctx.literal2expr(lit));
++        m_lits.push_back(ctx.literal2expr(lit));
+         auto st = clause_proof::status::th_lemma;
+         auto pr = justification2proof(st, jst);
+         update(st, m_lits, pr);
+     }
+ 
+     void clause_proof::del(clause& c) {
+-        update(c, status::deleted, nullptr, nullptr);
+-    }
+-
+-    void clause_proof::add(proof* certificate) {
+-        if (!is_enabled() || !certificate)
+-            return;
+-        m_lits.reset();
+-        expr* fact = m.get_fact(certificate);
+-        if (m.is_or(fact))
+-            m_lits.append(to_app(fact)->get_num_args(), to_app(fact)->get_args());
+-        else if (!m.is_false(fact))
+-            m_lits.push_back(fact);
+-        update(status::assumption, m_lits, certificate);
++        update(c, status::deleted, justification2proof(status::deleted, nullptr), nullptr);
+     }
+ 
+     std::ostream& clause_proof::display_literals(std::ostream& out, expr_ref_vector const& v) {
+@@ -262,7 +222,7 @@
+         }
+     }
+ 
+-    void clause_proof::update(clause& c, status st, justification* j, literal_buffer const* simp_lits) {
++    void clause_proof::update(clause& c, status st, proof* p, literal_buffer const* simp_lits) {
+         if (!is_enabled())
+             return;
+         m_lits.reset();
+@@ -271,8 +231,7 @@
+         if (simp_lits) 
+             for (auto lit : *simp_lits)
+                 m_lits.push_back(ctx.literal2expr(~lit));
+-        auto pr = justification2proof(st, j);
+-        update(st, m_lits, pr);
++        update(st, m_lits, p);        
+     }
+ 
+     proof_ref clause_proof::get_proof(bool inconsistent) {
+@@ -281,23 +240,24 @@
+             return proof_ref(m);
+         expr_ref_vector ps(m);
+         for (auto& info : m_trail) {
+-            // Preserve a disjunction used as a single Boolean literal.
+-            expr_ref fact(info.m_clause.empty() ? m.mk_false() : m.mk_or(info.m_clause), m);
++            expr_ref fact = mk_or(info.m_clause);
+             proof* pr = info.m_proof;
+-            if (pr == m_assumption || pr == m_rup || pr == m_smt || pr == m_del)
+-                pr = nullptr;
++            expr* args[2] = { pr, fact };
++            unsigned num_args = 2, offset = 0;
++            if (!pr) 
++                offset = 1;
+             switch (info.m_status) {
+             case status::assumption:
+-                ps.push_back(m.mk_assumption_add(pr, fact));
++                ps.push_back(m.mk_app(symbol("assumption"), num_args - offset, args + offset, m.mk_proof_sort()));
+                 break;
+             case status::lemma:
+-                ps.push_back(m.mk_lemma_add(pr, fact));
++                ps.push_back(m.mk_app(symbol("lemma"), num_args - offset, args + offset, m.mk_proof_sort()));
+                 break;
+             case status::th_assumption:
+-                ps.push_back(m.mk_th_assumption_add(pr, fact));
++                ps.push_back(m.mk_app(symbol("th-assumption"), num_args - offset, args + offset, m.mk_proof_sort()));
+                 break;
+             case status::th_lemma:
+-                ps.push_back(m.mk_th_lemma_add(pr, fact));
++                ps.push_back(m.mk_app(symbol("th-lemma"), num_args - offset, args + offset, m.mk_proof_sort()));
+                 break;
+             case status::deleted:
+                 ps.push_back(m.mk_redundant_del(fact));
+@@ -328,3 +288,4 @@
+     }
+ 
+ }
++
+--- a/src/smt/smt_clause_proof.h
++++ b/src/smt/smt_clause_proof.h
+@@ -57,7 +57,6 @@
+         ast_manager&    m;
+         expr_ref_vector m_lits;
+         vector<info>    m_trail;
+-        unsigned_vector m_scope_limits;
+         bool            m_enabled = false;
+         bool            m_has_log = false;
+         user_propagator::on_clause_eh_t m_on_clause_eh;
+@@ -69,7 +68,7 @@
+         void init_pp_out();
+         
+         void update(status st, expr_ref_vector& v, proof* p);
+-        void update(clause& c, status st, justification* j, literal_buffer const* simp_lits);
++        void update(clause& c, status st, proof* p, literal_buffer const* simp_lits);
+         status kind2st(clause_kind k);
+         proof_ref justification2proof(status st, justification* j);
+         void log(status st, proof* p);
+@@ -84,12 +83,9 @@
+         void add(clause& c, literal_buffer const* simp_lits = nullptr);
+         void add(unsigned n, literal const* lits, clause_kind k, justification* j);
+         void propagate(literal lit, justification* j, literal_vector const& ante);
+-        void add(proof* certificate);
+         void del(clause& c);
+         proof_ref get_proof(bool inconsistent);
+-        bool is_enabled() const;
+-        void push();
+-        void pop(unsigned num_scopes);
++        bool is_enabled() const { return m_enabled; }
+         void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) {
+             m_on_clause_eh = on_clause;
+             m_on_clause_ctx = ctx;
+@@ -100,3 +96,4 @@
+     std::ostream& operator<<(std::ostream& out, clause_proof::status st);
+ }
+ 
++
+--- a/src/smt/smt_conflict_resolution.cpp
++++ b/src/smt/smt_conflict_resolution.cpp
+@@ -342,9 +342,7 @@
+         literal_vector & antecedents = m_tmp_literal_vector;
+         antecedents.reset();
+         justification2literals_core(js, antecedents);
+-        if (!m_params.m_clause_proof || m_ctx.get_assignment(consequent) != l_true ||
+-            m_ctx.get_justification(consequent.var()) != b_justification(js))
+-            m_ctx.get_clause_proof().propagate(consequent, js, antecedents);
++        m_ctx.get_clause_proof().propagate(consequent, js, antecedents);
+         for (literal l : antecedents)
+             process_antecedent(l, num_marks);
+         (void)consequent;
+@@ -409,14 +407,7 @@
+         if (m_conflict_lvl <= m_ctx.get_search_level()) {
+             TRACE(conflict, tout << "problem is unsat\n";);
+             TRACE(conflict, m_ctx.display(tout););
+-            if (m_params.m_clause_proof && conflict.get_kind() == b_justification::JUSTIFICATION) {
+-                literal_vector antecedents;
+-                justification* reason = conflict.get_justification();
+-                justification2literals(reason, antecedents);
+-                m_ctx.get_clause_proof().propagate(
+-                    not_l == null_literal ? false_literal : ~not_l, reason, antecedents);
+-            }
+-            if (m.proofs_enabled() && !m_params.m_clause_proof)
++            if (m.proofs_enabled())
+                 mk_conflict_proof(conflict, not_l);
+             if (m_ctx.tracking_assumptions())
+                 mk_unsat_core(conflict, not_l);
+@@ -479,7 +470,7 @@
+               tout << "intern. scope level: " << m_lemma_iscope_lvl << "\n";
+               tout << "lemma: " << m_lemma << "\n";);
+ 
+-        if (m.proofs_enabled() && !m_params.m_clause_proof)
++        if (m.proofs_enabled())
+             mk_conflict_proof(conflict, not_l);
+     }
+ 
+@@ -927,13 +918,6 @@
+     */
+     proof * conflict_resolution::get_proof(literal l) {
+         proof * pr;
+-        if (m_clause_proof_hypotheses && !m_lit2proof.contains(l)) {
+-            expr_ref fact(m);
+-            m_ctx.literal2expr(l, fact);
+-            pr = l == true_literal ? m.mk_true_proof() : m.mk_hypothesis(fact);
+-            m_new_proofs.push_back(pr);
+-            m_lit2proof.insert(l, pr);
+-        }
+         if (m_lit2proof.find(l, pr)) {
+             TRACE(proof_gen_bug, tout << "lit2pr_cached: #" << l << " " << pr << " " << pr->get_id() << "\n";);
+             return pr;
+@@ -1267,7 +1251,23 @@
+         m_eq2proof.insert(lhs, rhs, pr);
+     }
+ 
+-    void conflict_resolution::process_proof_todo() {
++    void conflict_resolution::mk_conflict_proof(b_justification conflict, literal not_l) {
++        SASSERT(conflict.get_kind() != b_justification::BIN_CLAUSE);
++        SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::AXIOM || conflict.get_kind() == b_justification::JUSTIFICATION);
++        TRACE(mk_conflict_proof, m_ctx.display_literals(tout << "lemma literals:", m_lemma) << "\n";);
++
++        reset();
++        for (literal lit : m_lemma) m_ctx.set_mark(lit.var());
++        literal consequent;
++        if (not_l == null_literal) {
++            consequent = false_literal;
++        }
++        else {
++            consequent = ~not_l;
++            m_todo_pr.push_back(tp_elem(not_l));
++        }
++        visit_b_justification(consequent, conflict);
++        
+         while (!m_todo_pr.empty()) {
+             tp_elem & elem = m_todo_pr.back();
+ 
+@@ -1314,78 +1314,7 @@
+             }
+             }
+         }
+-    }
+-
+-    proof_ref conflict_resolution::mk_clause_proof(justification* js) {
+-        reset();
+-        flet<bool> hypotheses(m_clause_proof_hypotheses, true);
+-        try {
+-            get_proof(js);
+-            process_proof_todo();
+-            proof_ref pr(get_proof(js), m);
+-            if (!pr)
+-                throw default_exception("could not reconstruct a theory clause certificate");
+-            expr* fact = m.get_fact(pr);
+-            expr_ref_vector literals(m);
+-            bool has_hypotheses = false;
+-            // Conflict analysis can omit antecedents visited for an earlier reason.
+-            // Local certificates must discharge every literal hypothesis.
+-            for (auto const& entry : m_lit2proof) {
+-                if (!m.is_hypothesis(entry.m_value))
+-                    continue;
+-                has_hypotheses = true;
+-                expr_ref complement(m);
+-                m_ctx.literal2expr(~entry.m_key, complement);
+-                if (!literals.contains(complement))
+-                    literals.push_back(complement);
+-            }
+-            if (has_hypotheses) {
+-                if (!m.is_false(fact)) {
+-                    ptr_buffer<expr> conclusions;
+-                    if (m.is_or(fact))
+-                        conclusions.append(to_app(fact)->get_num_args(), to_app(fact)->get_args());
+-                    else
+-                        conclusions.push_back(fact);
+-                    ptr_buffer<proof> premises;
+-                    premises.push_back(pr);
+-                    for (expr* literal : conclusions) {
+-                        if (!literals.contains(literal))
+-                            literals.push_back(literal);
+-                        proof* opposite = m.mk_hypothesis(m.mk_not(literal));
+-                        m_new_proofs.push_back(opposite);
+-                        premises.push_back(opposite);
+-                    }
+-                    pr = m.mk_unit_resolution(premises.size(), premises.data(), m.mk_false());
+-                }
+-                expr_ref clause(mk_or(literals), m);
+-                pr = m.mk_lemma(pr, clause);
+-            }
+-            reset();
+-            return pr;
+-        }
+-        catch (...) {
+-            reset();
+-            throw;
+-        }
+-    }
+-
+-    void conflict_resolution::mk_conflict_proof(b_justification conflict, literal not_l) {
+-        SASSERT(conflict.get_kind() != b_justification::BIN_CLAUSE);
+-        SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::AXIOM || conflict.get_kind() == b_justification::JUSTIFICATION);
+-        TRACE(mk_conflict_proof, m_ctx.display_literals(tout << "lemma literals:", m_lemma) << "\n";);
+ 
+-        reset();
+-        for (literal lit : m_lemma) m_ctx.set_mark(lit.var());
+-        literal consequent;
+-        if (not_l == null_literal) {
+-            consequent = false_literal;
+-        }
+-        else {
+-            consequent = ~not_l;
+-            m_todo_pr.push_back(tp_elem(not_l));
+-        }
+-        visit_b_justification(consequent, conflict);
+-        process_proof_todo();
+         SASSERT(visit_b_justification(consequent, conflict));
+         proof * pr = nullptr;
+         if (not_l == null_literal) {
+--- a/src/smt/smt_conflict_resolution.h
++++ b/src/smt/smt_conflict_resolution.h
+@@ -105,7 +105,6 @@
+         proof_ref_vector               m_new_proofs;
+         ast_ref_vector                 m_trail;
+         proof_ref                      m_lemma_proof;
+-        bool                           m_clause_proof_hypotheses = false;
+ 
+         literal_vector                 m_assumptions;
+ 
+@@ -159,9 +158,7 @@
+         void mk_proof(enode * lhs, enode * rhs, ptr_buffer<proof> & result);
+         void mk_proof(enode * lhs, enode * rhs);
+         void reset();
+-        void process_proof_todo();
+         void mk_conflict_proof(b_justification conflict, literal not_l);
+-        proof_ref mk_clause_proof(justification* js);
+ 
+     protected:
+         template<bool Set>
+@@ -280,3 +277,5 @@
+ 
+ 
+ }
++
++
+--- a/src/smt/smt_context.cpp
++++ b/src/smt/smt_context.cpp
+@@ -281,13 +281,6 @@
+         bool_var_data & d          = get_bdata(l.var());
+         set_justification(l.var(), d, j);
+         d.m_scope_lvl              = m_scope_lvl;
+-        if (m_fparams.m_clause_proof && j.get_kind() == b_justification::JUSTIFICATION) {
+-            literal_vector antecedents;
+-            justification* reason = j.get_justification();
+-            if (!m.proofs_enabled())
+-                m_conflict_resolution->justification2literals(reason, antecedents);
+-            m_clause_proof.propagate(l, reason, antecedents);
+-        }
+         if (m_fparams.m_restart_adaptive && d.m_phase_available) {
+             m_agility             *= m_fparams.m_agility_factor;
+             if (!decision && d.m_phase == l.sign())
+@@ -2614,7 +2607,6 @@
+ 
+             m_scope_lvl = new_lvl;
+             if (new_lvl < m_base_lvl) {
+-                m_clause_proof.pop(m_base_lvl - new_lvl);
+                 m_base_lvl = new_lvl;
+                 m_search_lvl = new_lvl; // Remark: not really necessary
+             }
+@@ -2680,7 +2672,7 @@
+             literal l = cls[i];
+             switch(get_assignment(l)) {
+             case l_false:
+-                if (m.proofs_enabled() && !m_fparams.m_clause_proof)
++                if (m.proofs_enabled())
+                     simp_lits.push_back(~l);
+                 dec_ref(l);
+                 break;
+@@ -2706,7 +2698,7 @@
+             return true;
+         }
+ 
+-        if (m.proofs_enabled() && !m_fparams.m_clause_proof && !simp_lits.empty()) {
++        if (m.proofs_enabled() && !simp_lits.empty()) {
+             SASSERT(m_scope_lvl == m_base_lvl);
+             justification * js = cls.get_justification();
+             justification * new_js = nullptr;
+@@ -2753,11 +2745,7 @@
+                         // it is safe to replace with axiom, we are at the base level.
+                         SASSERT(m_scope_lvl == m_base_lvl);
+                         bool_var v0 = l0.var();
+-                        if (m_fparams.m_clause_proof) {
+-                            m_clause_proof.add(l0, CLS_LEARNED, nullptr);
+-                            m_bdata[v0].set_axiom();
+-                        }
+-                        else if (m.proofs_enabled()) {
++                        if (m.proofs_enabled()) {
+                             SASSERT(m_search_lvl == m_base_lvl);
+                             literal_buffer simp_lits;
+                             unsigned num_lits = cls->get_num_literals();
+@@ -3169,7 +3157,6 @@
+             VERIFY(!resolve_conflict()); // build the proof
+         }
+         push_scope();
+-        m_clause_proof.push();
+         m_base_scopes.push_back(base_scope());
+         base_scope & bs = m_base_scopes.back();
+         bs.m_lemmas_lim = m_lemmas.size();
+@@ -4493,7 +4480,7 @@
+             }
+ #endif
+             proof * pr = nullptr;
+-            if (m.proofs_enabled() && !m_fparams.m_clause_proof) {
++            if (m.proofs_enabled()) {
+                 pr = m_conflict_resolution->get_lemma_proof();
+                 // check_proof(pr);
+                 TRACE(context_proof, tout << mk_ll_pp(pr, m););
+@@ -4566,7 +4553,7 @@
+             }
+ #endif
+             justification * js = nullptr;
+-            if (m.proofs_enabled() && !m_fparams.m_clause_proof) {
++            if (m.proofs_enabled()) {
+                 js = alloc(justification_proof_wrapper, *this, pr, false);
+             }
+ #if 0
+@@ -4614,7 +4601,7 @@
+             update_phase_cache_counter();
+             return true;
+         }
+-        else if (m_fparams.m_clause_proof) {
++        else if (m_fparams.m_clause_proof && !m.proofs_enabled()) {
+             m_unsat_proof = m_clause_proof.get_proof(inconsistent());
+         }
+         else if (m.proofs_enabled()) {
+@@ -4964,11 +4951,6 @@
+     }
+ 
+     proof * context::get_proof() {        
+-        if (m_fparams.m_clause_proof && m_unsat_proof &&
+-            !is_app_of(m_unsat_proof, basic_family_id, PR_CLAUSE_TRAIL)) {
+-            m_clause_proof.add(m_unsat_proof);
+-            m_unsat_proof = m_clause_proof.get_proof(inconsistent());
+-        }
+         if (!m_unsat_proof) {
+             m_unsat_proof = m_clause_proof.get_proof(inconsistent());
+         }
+--- a/src/smt/smt_internalizer.cpp
++++ b/src/smt/smt_internalizer.cpp
+@@ -1544,8 +1544,7 @@
+                 else if (get_assignment(l2) == l_false) {
+                     assign(l1, b_justification(~l2));
+                 }
+-                if (!m_fparams.m_clause_proof)
+-                    m_clause_proof.add(l1, l2, k, j, &simp_lits);
++                m_clause_proof.add(l1, l2, k, j, &simp_lits);
+                 m_stats.m_num_mk_bin_clause++;
+                 return nullptr;
+             }
+@@ -1558,8 +1557,7 @@
+             bool reinit         = save_atoms;
+             SASSERT(!lemma || j == 0 || !j->in_region());
+             clause * cls = clause::mk(m, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.data());
+-            if (!m_fparams.m_clause_proof)
+-                m_clause_proof.add(*cls, &simp_lits);
++            m_clause_proof.add(*cls, &simp_lits);
+             if (lemma) {
+                 cls->set_activity(activity);
+                 if (k == CLS_LEARNED) {
+--- a/src/smt/smt_solver.cpp
++++ b/src/smt/smt_solver.cpp
+@@ -118,13 +118,6 @@
+         }
+ 
+         void updt_params(params_ref const & p) override {
+-            params_ref updated;
+-            updated.copy(solver::get_params());
+-            updated.append(p);
+-            smt_params_helper requested(updated);
+-            if (requested.clause_proof() != m_smt_params.m_clause_proof &&
+-                (m_context.size() != 0 || m_context.get_scope_level() != 0))
+-                throw default_exception("clause_proof cannot be changed after assertions or push; reset the solver first");
+             solver::updt_params(p);
+             m_smt_params.updt_params(solver::get_params());
+             m_context.updt_params(solver::get_params());

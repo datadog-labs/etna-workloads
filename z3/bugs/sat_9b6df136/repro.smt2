@@ -1,0 +1,5 @@
+(set-option :sat.drat.file "drat_out.txt")
+(set-option :sat.threads 2)
+(declare-const a Bool)
+(assert a)
+(check-sat)

@@ -1,0 +1,6 @@
+(set-logic ALL)
+(declare-const x (_ FloatingPoint 8 24))
+(assert (= x ((_ to_fp 8 24) RTP 1.0 (- 3000000000))))
+(check-sat)
+(get-value (x))
+(simplify ((_ to_fp 8 24) RTP 1.0 (- 3000000000)))

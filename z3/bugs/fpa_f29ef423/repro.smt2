@@ -1,0 +1,6 @@
+(set-logic QF_FPLRA)
+(declare-const rm RoundingMode)
+(declare-const q Real)
+(declare-const r Float32)
+(assert (= r ((_ to_fp 8 24) rm q)))
+(check-sat-assuming ((= rm RNE) (= q 1.0) (not (fp.eq r ((_ to_fp 8 24) RNE 1.0)))))

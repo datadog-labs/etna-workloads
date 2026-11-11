@@ -1,0 +1,6 @@
+(declare-const x Int)
+(declare-const y Int)
+(assert (= ((_ int2bv 8) x) #x05))
+(assert (<= (- x y) 5))
+(assert (>= (- x y) 2))
+(check-sat-using (then simplify fix-dl-var smt))

@@ -1,0 +1,47 @@
+--- a/src/ast/datatype_decl_plugin.cpp
++++ b/src/ast/datatype_decl_plugin.cpp
+@@ -804,20 +804,20 @@
+        \brief Return true if the inductive datatype is recursive.
+     */
+     bool util::is_recursive_core(sort* s) const {
+-        map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
++        obj_map<sort, status> already_found;
+         ptr_vector<sort> todo, subsorts;
+         sort* s0 = s;
+         todo.push_back(s);
+         status st;        
+         while (!todo.empty()) {
+             s = todo.back();
+-            if (already_found.find(datatype_name(s), st) && st == BLACK) {
++            if (already_found.find(s, st) && st == BLACK) {
+                 todo.pop_back();
+                 continue;
+             }
+             if (!is_declared(s))
+                 return true;
+-            already_found.insert(datatype_name(s), GRAY);
++            already_found.insert(s, GRAY);
+             def const& d = get_def(s);
+             bool can_process       = true;
+             for (constructor const* c : d) {
+@@ -828,9 +828,9 @@
+                     get_subsorts(d, subsorts);
+                     for (sort * s2 : subsorts) {
+                         if (is_datatype(s2)) {
+-                            if (already_found.find(datatype_name(s2), st)) {
++                            if (already_found.find(s2, st)) {
+                                 // type is recursive
+-                                if (st == GRAY && datatype_name(s0) == datatype_name(s2)) 
++                                if (st == GRAY && s0 == s2) 
+                                     return true;
+                             }
+                             else {
+@@ -842,7 +842,7 @@
+                 }
+             }
+             if (can_process) {
+-                already_found.insert(datatype_name(s), BLACK);
++                already_found.insert(s, BLACK);
+                 todo.pop_back();
+             }
+         }

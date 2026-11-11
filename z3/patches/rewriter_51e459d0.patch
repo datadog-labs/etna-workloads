@@ -1,0 +1,40 @@
+--- a/src/ast/rewriter/rewriter_def.h
++++ b/src/ast/rewriter/rewriter_def.h
+@@ -597,22 +597,12 @@
+         TRACE(reduce_quantifier_bug, tout << "rewrite patterns\n";);
+         expr * const * np  = it + 1;
+         expr * const * nnp = np + num_pats;
+-        unsigned j = 0;
+-        for (unsigned i = 0; i < num_pats; ++i) {
++        for (unsigned i = 0; i < num_pats; ++i)
+             if (m_manager.is_pattern(np[i]))
+-                new_pats[j++] = np[i];
+-            else {
+-                IF_VERBOSE(10, verbose_stream() << "[rewriter] dropping pattern (is_pattern check failed) for qid=" << q->get_qid() << " pattern[" << i << "]: " << mk_ismt2_pp(np[i], m_manager, 3) << "\n";);
+-            }
+-        }
+-        new_pats.shrink(j);
+-        num_pats = j;
+-        j = 0;
++                new_pats[i] = np[i];
+         for (unsigned i = 0; i < num_no_pats; ++i)
+             if (m_manager.is_pattern(nnp[i]))
+-                new_no_pats[j++] = nnp[i];
+-        new_no_pats.shrink(j);
+-        num_no_pats = j;
++                new_no_pats[i] = nnp[i];
+     }
+     if (ProofGen) {
+         quantifier_ref new_q(m().update_quantifier(q, num_pats, new_pats.data(), num_no_pats, new_no_pats.data(), new_body), m());
+--- a/src/ast/rewriter/th_rewriter.cpp
++++ b/src/ast/rewriter/th_rewriter.cpp
+@@ -943,9 +943,6 @@
+             m_pinned.reset();
+             TRACE(reduce_quantifier, tout << mk_ismt2_pp(old_q, m()) << "\n----->\n" << mk_ismt2_pp(q1, m()) << "\n";);
+             SASSERT(is_well_sorted(m(), q1));
+-            if (m().proofs_enabled() && q1 != old_q) {
+-                p1 = m().mk_rewrite(old_q, q1);
+-            }
+         }
+         SASSERT(old_q->get_sort() == q1->get_sort());
+         result = m_elim_unused_vars(q1);        

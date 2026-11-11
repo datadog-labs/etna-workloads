@@ -1,0 +1,181 @@
+--- a/src/math/lp/implied_bound.h
++++ b/src/math/lp/implied_bound.h
+@@ -18,7 +18,6 @@
+ 
+ --*/
+ #pragma once
+-#include <utility>
+ #include "math/lp/lp_settings.h"
+ #include "math/lp/lar_constraints.h"
+ namespace lp {
+@@ -47,7 +46,7 @@
+     // like explain_implied, but delivers each premise with its Farkas coefficient,
+     // normalized so that the bounded column has coefficient 1.
+     void explain_weighted(weighted_consumer const& consume) const { m_explain_weighted(consume); }
+-    void set_explain(dependency_explain f, weighted_explain w) { m_explain_bound = std::move(f); m_explain_weighted = std::move(w); }
++    void set_explain(dependency_explain f, weighted_explain w) { m_explain_bound = f; m_explain_weighted = w; }
+     lconstraint_kind kind() const {
+         lconstraint_kind k = m_is_lower_bound? GE : LE;
+         if (m_strict)
+@@ -65,8 +64,8 @@
+         m_j(j),
+         m_is_lower_bound(is_lower_bound),
+         m_strict(is_strict),
+-        m_explain_bound(std::move(get_dep)),
+-        m_explain_weighted(std::move(get_weighted)) {
++        m_explain_bound(get_dep),
++        m_explain_weighted(get_weighted) {
+     }
+ };
+ }
+--- a/src/math/lp/lp_bound_propagator.h
++++ b/src/math/lp/lp_bound_propagator.h
+@@ -164,9 +164,8 @@
+     }
+ 
+     // the caller is expected to have checked bound_is_interesting
+-    template <typename Explain, typename WeightedExplain>
+-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, Explain const& explain_bound,
+-                   WeightedExplain const& explain_weighted) {
++    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, implied_bound::dependency_explain explain_bound,
++                   implied_bound::weighted_explain explain_weighted) {
+         if (is_low) {
+             unsigned k;
+             if (m_improved_lower_bounds.find(j, k)) {
+--- a/src/math/lp/static_matrix.h
++++ b/src/math/lp/static_matrix.h
+@@ -310,7 +310,9 @@
+     void pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned j);
+     void pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, column_cell& c, unsigned j, int j_sign);
+     void transpose_rows(unsigned i, unsigned ii) {
+-        m_rows[i].swap(m_rows[ii]);
++        auto t = m_rows[i];
++        m_rows[i] = m_rows[ii];
++        m_rows[ii] = t;
+         // now fix the columns
+         for (auto & rc : m_rows[i]) {
+             column_cell & cc = m_columns[rc.var()][rc.offset()];
+--- a/src/util/mpq.cpp
++++ b/src/util/mpq.cpp
+@@ -19,8 +19,6 @@
+ #include "util/mpq.h"
+ #include "util/warning.h"
+ #include "util/z3_exception.h"
+-#include <cstdlib>
+-#include <numeric>
+ 
+ template<bool SYNCH>
+ mpq_manager<SYNCH>::~mpq_manager() {
+@@ -34,25 +32,7 @@
+ 
+ 
+ template<bool SYNCH>
+-bool mpq_manager<SYNCH>::small_addmul(mpq const& a, mpq const& b, mpq const& c, mpq& d) {
+-    int64_t an = a.m_num.value(), ad = a.m_den.value();
+-    int64_t bn = b.m_num.value(), bd = b.m_den.value();
+-    int64_t cn = c.m_num.value(), cd = c.m_den.value();
+-    // Three 20-bit factors and their sum fit in signed 64 bits.
+-    if ((std::abs(an) | ad | std::abs(bn) | bd | std::abs(cn) | cd) >= (1 << 20))
+-        return false;
+-    int64_t n = an * bd * cd + bn * cn * ad;
+-    int64_t den = ad * bd * cd;
+-    int64_t g = std::gcd(n, den);
+-    set(d.m_num, n / g);
+-    set(d.m_den, den / g);
+-    return true;
+-}
+-
+-template<bool SYNCH>
+ bool mpq_manager<SYNCH>::rat_lt(mpq const & a, mpq const & b) {
+-    if (is_small(a) && is_small(b))
+-        return int64_t(a.m_num.value()) * b.m_den.value() < int64_t(b.m_num.value()) * a.m_den.value();
+     mpz const & na = a.numerator();
+     mpz const & nb = b.numerator();
+     int sign_a = this->sign(na);
+@@ -373,22 +353,6 @@
+ template<bool SYNCH>
+ template<bool SUB>
+ void mpq_manager<SYNCH>::lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g, mpz& tmp1, mpz& tmp2, mpz& tmp3) {
+-    if (is_small(a) && is_small(b)) {
+-        int64_t an = a.m_num.value(), ad = a.m_den.value();
+-        int64_t bn = b.m_num.value(), bd = b.m_den.value();
+-        int64_t gcd = std::gcd(ad, bd);
+-        // Signed 32-bit numerators and positive 31-bit denominators leave room for both products.
+-        int64_t n = an * (bd / gcd);
+-        if (SUB)
+-            n -= bn * (ad / gcd);
+-        else
+-            n += bn * (ad / gcd);
+-        int64_t d = (ad / gcd) * bd;
+-        int64_t h = std::gcd(n, gcd);
+-        set(c.m_num, n / h);
+-        set(c.m_den, d / h);
+-        return;
+-    }
+     gcd(a.m_den, b.m_den, g);                   
+     if (is_one(g)) {                            
+        mul(a.m_num, b.m_den, tmp1);             
+@@ -398,36 +362,24 @@
+     }                                           
+     else {                                      
+         div(a.m_den, g, tmp3);                  
+-        // Keep the new denominator separate until b has been read: c may alias b.
+-        mul(tmp3, b.m_den, tmp1);
++        mul(tmp3, b.m_den, c.m_den);            
+         mul(tmp3, b.m_num, tmp2);               
+         div(b.m_den, g, tmp3);                  
+-        mul(tmp3, a.m_num, c.m_num);
+-        if (SUB) sub(c.m_num, tmp2, tmp3); else add(c.m_num, tmp2, tmp3);
+-        gcd(tmp3, g, tmp2);
+-        if (is_one(tmp2)) {
+-            set(c.m_num, tmp3);
++        mul(tmp3, a.m_num, tmp1);               
++        if (SUB) sub(tmp1, tmp2, tmp3); else add(tmp1, tmp2, tmp3);
++        gcd(tmp3, g, tmp1);                     
++        if (is_one(tmp1)) {                     
++            set(c.m_num, tmp3);                 
+         }                                       
+         else {                                  
+-            div(tmp3, tmp2, c.m_num);
+-            div(tmp1, tmp2, tmp1);
++            div(tmp3, tmp1, c.m_num);           
++            div(c.m_den, tmp1, c.m_den);        
+         }                                       
+-        set(c.m_den, tmp1);
+     }                                           
+ }
+ 
+ template<bool SYNCH>
+ void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2) {
+-    if (is_small(a) && is_small(b)) {
+-        int64_t an = a.m_num.value(), ad = a.m_den.value();
+-        int64_t bn = b.m_num.value(), bd = b.m_den.value();
+-        int64_t gcd1 = std::gcd(an, bd), gcd2 = std::gcd(bn, ad);
+-        int64_t n = (an / gcd1) * (bn / gcd2);
+-        int64_t d = (ad / gcd2) * (bd / gcd1);
+-        set(c.m_num, n);
+-        set(c.m_den, d);
+-        return;
+-    }
+ #if 1
+     gcd(a.m_den, b.m_num, g1);
+     gcd(a.m_num, b.m_den, g2);
+--- a/src/util/mpq.h
++++ b/src/util/mpq.h
+@@ -105,7 +105,6 @@
+     void lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g, mpz& tmp1, mpz& tmp2, mpz& tmp3);
+ 
+     void rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2);
+-    bool small_addmul(mpq const& a, mpq const& b, mpq const& c, mpq& d);
+ 
+ public:
+     typedef mpq numeral;
+@@ -339,8 +338,6 @@
+             set(d, a);
+         }
+         else {
+-            if (is_small(a) && is_small(b) && is_small(c) && small_addmul(a, b, c, d))
+-                return;
+             if (SYNCH) {
+                 mpq tmp;
+                 mul(b,c,tmp);

@@ -1,0 +1,5 @@
+(declare-const a (_ BitVec 8))
+(declare-const b (_ BitVec 8))
+(simplify (bvor (concat #x00 a) (concat #x00 b)))
+(simplify (bvand (concat #x00 a) (concat #x00 b)))
+(simplify (bvsrem_i (bvsrem_i a #x06) #x03))

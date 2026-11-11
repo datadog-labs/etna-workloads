@@ -1,0 +1,56 @@
+--- a/src/ast/rewriter/seq_rewriter.cpp
++++ b/src/ast/rewriter/seq_rewriter.cpp
+@@ -1266,12 +1266,6 @@
+         return BR_REWRITE2;
+     }
+ 
+-    auto [bounded_a, max_a] = max_length(a);
+-    if (bounded_a && max_a <= 1) {
+-        result = m().mk_or(str().mk_is_empty(b), m().mk_eq(a, b));
+-        return BR_REWRITE2;
+-    }
+-
+     for (unsigned i = 0; bs.size() + i <= as.size(); ++i) {
+         unsigned j = 0;
+         for (; j < bs.size() && as.get(j+i) == bs.get(j); ++j) {};
+--- a/src/smt/smt_setup.cpp
++++ b/src/smt/smt_setup.cpp
+@@ -593,7 +593,6 @@
+         else {
+             throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto'");
+         }
+-        // m_params.m_phase_selection = PS_ALWAYS_TRUE;
+     }
+ 
+     bool is_arith(static_features const & st) {
+@@ -964,3 +963,4 @@
+     }
+ 
+ }
++
+--- a/src/tactic/tactic.cpp
++++ b/src/tactic/tactic.cpp
+@@ -101,12 +101,10 @@
+     params_ref p;
+     std::function<tactic* (ast_manager& m, params_ref const& p)> m_mk_tactic;
+     tactic* m_tactic = nullptr;
+-    symbol m_logic;
+     void ensure_tactic() {
+         if (!m_tactic) {
+             m_tactic = m_mk_tactic(m, p);
+             m_tactic->updt_params(p);
+-            m_tactic->set_logic(m_logic);
+         }
+     }
+ public:
+@@ -120,10 +118,6 @@
+         this->p.append(p);
+         if (m_tactic) m_tactic->updt_params(p);
+     }
+-    void set_logic(symbol const& l) override {
+-        m_logic = l;
+-        if (m_tactic) m_tactic->set_logic(l);
+-    }
+     void cleanup() override { if (m_tactic) m_tactic->cleanup(); }
+     char const* name() const override { return "lazy tactic"; }
+     void collect_statistics(statistics& st) const override { if (m_tactic) m_tactic->collect_statistics(st); }

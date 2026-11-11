@@ -1,0 +1,34 @@
+--- a/src/ast/rewriter/bv2int_translator.cpp
++++ b/src/ast/rewriter/bv2int_translator.cpp
+@@ -474,9 +474,7 @@
+         rational N = bv_size(e);
+         expr* signx = a.mk_ge(x, a.mk_int(N / 2));
+         expr* signy = a.mk_ge(y, a.mk_int(N / 2));
+-        expr_ref absx(m.mk_ite(signx, a.mk_sub(a.mk_int(N), x), x), m);
+-        expr_ref absy(m.mk_ite(signy, a.mk_sub(a.mk_int(N), y), y), m);
+-        expr* u = a.mk_mod(absx, absy);
++        expr* u = a.mk_mod(x, y);
+         // u = 0 ->  0
+         // y = 0 ->  x
+         // x < 0, y < 0 ->  -u
+--- a/src/ast/rewriter/bv_rewriter.cpp
++++ b/src/ast/rewriter/bv_rewriter.cpp
+@@ -2405,9 +2405,6 @@
+         result = x;
+         return BR_DONE;
+     }
+-    // BV addition/subtraction preserves rotation amounts only when width divides 2^width.
+-    if (!is_power_of_two(get_bv_size(arg1)))
+-        return BR_FAILED;
+     if (m_util.is_ext_rotate_left(arg1, x, y)) {
+         result = m_util.mk_bv_rotate_left(x, m_util.mk_bv_add(y, arg2));
+         return BR_REWRITE2;
+@@ -2432,8 +2429,6 @@
+         result = x;
+         return BR_DONE;
+     }
+-    if (!is_power_of_two(get_bv_size(arg1)))
+-        return BR_FAILED;
+     if (m_util.is_ext_rotate_right(arg1, x, y)) {
+         result = m_util.mk_bv_rotate_right(x, m_util.mk_bv_add(y, arg2));
+         return BR_REWRITE2;

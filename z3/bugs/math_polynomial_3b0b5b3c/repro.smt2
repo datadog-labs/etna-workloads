@@ -1,0 +1,6 @@
+(set-option :pp.decimal false)
+(set-option :rewriter.arith_lhs true)
+(declare-const x Real)
+(define-fun r () Real (root-obj (+ (^ x 2) (- 2)) 2))
+(simplify r)
+(simplify (= (+ (* (- 1) x) r) 5))

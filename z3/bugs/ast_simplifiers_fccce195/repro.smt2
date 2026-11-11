@@ -1,0 +1,8 @@
+(set-option :smt.mbqi false)
+(set-option :smt.ematching false)
+(set-simplifier demodulator)
+(declare-fun f (Int) Int)
+(assert (forall ((x Int)) (= (f x) (+ x 1))))
+(check-sat)
+(assert (not (= (f 2) 3)))
+(check-sat)

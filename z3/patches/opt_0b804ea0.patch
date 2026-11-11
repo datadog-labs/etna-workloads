@@ -1,0 +1,37 @@
+--- a/src/api/z3_optimization.h
++++ b/src/api/z3_optimization.h
+@@ -197,8 +197,7 @@
+     Z3_ast_vector Z3_API Z3_optimize_get_unsat_core(Z3_context c, Z3_optimize o);
+ 
+     /**
+-       \brief Set parameters on optimization context, including parameters for
+-       the underlying SMT solver.
++       \brief Set parameters on optimization context.
+ 
+        \param c - context
+        \param o - optimization context
+@@ -428,3 +427,4 @@
+ #ifdef __cplusplus
+ }
+ #endif // __cplusplus
++
+--- a/src/opt/opt_context.cpp
++++ b/src/opt/opt_context.cpp
+@@ -913,7 +913,8 @@
+         opt_params p(m_params);        
+         if (p.optsmt_engine() == symbol("symba") ||
+             p.optsmt_engine() == symbol("farkas")) {
+-            m_params.set_uint("arith.solver", static_cast<unsigned>(arith_solver_id::AS_OPTINF));
++            auto str = std::to_string((unsigned)(arith_solver_id::AS_OPTINF));
++            gparams::set("smt.arith.solver", str.c_str());
+         }
+     }
+ 
+@@ -1873,7 +1874,6 @@
+ 
+     void context::collect_param_descrs(param_descrs & r) {
+         opt_params::collect_param_descrs(r);
+-        smt::kernel::collect_param_descrs(r);
+         insert_timeout(r);
+         insert_ctrl_c(r);
+     }

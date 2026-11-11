@@ -1,0 +1,5 @@
+(set-option :rlimit 14450)
+(declare-const s String)
+(assert (str.in_re s (re.inter (re.inter (re.comp (re.* (re.* (str.to_re "abc")))) (re.comp (re.union (re.* (str.to_re "bac")) (re.union (str.to_re "aa") (re.range "a" "c")) (re.union (str.to_re "c") (str.to_re "b") (str.to_re "aba"))))) (re.opt (re.inter (re.++ (re.union (str.to_re "b") (str.to_re "aab") (str.to_re "bca")) (re.union (re.range "a" "c") (str.to_re "caa") (str.to_re "cca"))) (re.union (re.opt (str.to_re "cac")) (re.opt (re.range "a" "c")) (re.* (re.range "a" "c"))))))))
+(assert (not (str.in_re s (re.union (re.inter (re.opt (re.comp (str.to_re "ab"))) (re.inter (re.* (str.to_re "ab")) (re.union (str.to_re "cb") (re.range "a" "c") (str.to_re "c")))) (re.++ (re.union (re.opt (str.to_re "aa")) (re.union (str.to_re "aaa") (str.to_re "b") (re.range "a" "c"))) (re.comp (re.* (re.range "a" "c")))) (re.opt (re.opt (re.inter (str.to_re "cc") (str.to_re "aa"))))))))
+(check-sat)

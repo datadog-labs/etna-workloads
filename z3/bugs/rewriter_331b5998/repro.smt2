@@ -1,0 +1,5 @@
+(declare-sort S 0)
+(declare-const s S)
+(assert (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)
+           ((as const (Array S (_ BitVec 8))) #x01)))
+(check-sat)

@@ -1,0 +1,56 @@
+--- a/src/ast/macros/macro_manager.cpp
++++ b/src/ast/macros/macro_manager.cpp
+@@ -332,8 +332,7 @@
+             subst_args.resize(num, 0);
+             for (unsigned i = 0; i < num; ++i) {
+                 var * v = to_var(head->get_arg(i));
+-                if (v->get_idx() >= num)
+-                    return false;
++                SASSERT(v->get_idx() < num);
+                 unsigned nidx = num - v->get_idx() - 1;
+                 SASSERT(subst_args[nidx] == 0);
+                 subst_args[nidx] = n->get_arg(i);
+--- a/src/tactic/arith/fix_dl_var_tactic.cpp
++++ b/src/tactic/arith/fix_dl_var_tactic.cpp
+@@ -25,6 +25,7 @@
+ #include "ast/rewriter/th_rewriter.h"
+ #include "ast/converters/generic_model_converter.h"
+ #include "ast/arith_decl_plugin.h"
++#include "ast/seq_decl_plugin.h"
+ #include "ast/expr_substitution.h"
+ #include "ast/ast_smt2_pp.h"
+ #include "ast/ast_pp.h"
+@@ -35,6 +36,7 @@
+         struct failed : public std::exception {};
+         ast_manager &          m;
+         arith_util &           m_util;
++        seq_util               m_seq;
+         expr_fast_mark1 *      m_visited = nullptr;
+         ptr_vector<expr>       m_todo;
+         obj_map<app, unsigned> m_occs;
+@@ -42,7 +44,8 @@
+ 
+         is_target(arith_util & u):
+             m(u.get_manager()),
+-            m_util(u) {
++            m_util(u),
++            m_seq(m) {
+         }
+         
+         void throw_failed(expr * ctx1, expr * ctx2 = nullptr) {
+@@ -55,6 +58,15 @@
+             return s->get_family_id() == m_util.get_family_id();
+         }
+ 
++        // Return true if n is uninterpreted with respect to arithmetic.
++        // sequence theory is not disjoint from arithmetic
++        bool is_uninterp(expr * n) {
++            if (!is_app(n)) return false;
++            app* t = to_app(n);
++            family_id fid = t->get_family_id();
++            return fid != m_util.get_family_id() && fid != m_seq.get_family_id();
++        }
++
+         // Remark: we say an expression is nested, if it occurs inside the boolean structure of the formula.
+         // That is, the expression is not part of an unit clause comprising of a single inequality/equality.
+         

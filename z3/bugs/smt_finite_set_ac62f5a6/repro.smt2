@@ -1,0 +1,8 @@
+(set-logic ALL)
+(declare-const a (FiniteSet Int))
+(declare-const b (FiniteSet Int))
+(declare-const c Bool)
+(declare-const x Int)
+(assert (set.in x (ite c a b)))
+(assert (not (set.in x (set.union a b))))
+(check-sat)

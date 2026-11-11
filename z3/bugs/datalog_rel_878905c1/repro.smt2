@@ -1,0 +1,5 @@
+(set-logic QF_BV)
+(declare-const x (_ BitVec 600000000))
+(declare-const y (_ BitVec 600000000))
+(assert (not (= (bvand x y) (bvand y x))))
+(check-sat)

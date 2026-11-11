@@ -1,0 +1,7 @@
+(set-option :lp.int_hammer_period 16)
+(declare-const a Real)
+(declare-const b Real)
+(assert (xor (= 0.0 b) (> (mod (to_int (- a)) 50) 3)))
+(minimize a)
+(check-sat)
+(get-objectives)

@@ -1,0 +1,28 @@
+--- a/src/smt/theory_lra.cpp
++++ b/src/smt/theory_lra.cpp
+@@ -4588,23 +4588,14 @@
+         // value the LP core cannot snap on the next solve (assertion
+         // non_basic_columns_are_set_correctly).  The rational part remains a
+         // sound bound for the optimizer to validate via check_bound.
+-        inf_eps lp_val_no_eps(lp_val.get_infinity(), inf_rational(lp_val.get_rational()));
+         switch (nla_st) {
+         case FC_DONE:
+-            // NLA satisfied: keep the optimal assignment, return LP value
+-            blocker = mk_gt(v);
+-            result = lp_val_no_eps;
+             st = lp::lp_status::FEASIBLE;
+-            return true;
++            return false;
+         case FC_CONTINUE:
+-            // NLA found the LP optimum violates nonlinear constraints.
+-            // Restore x but return the LP optimum value and blocker
+-            // as a bound for the optimizer to validate via check_bound().
+             lp().restore_x();
+-            blocker = mk_gt(v, lp_ival);
+-            result = lp_val_no_eps;
+             st = lp::lp_status::FEASIBLE;
+-            return true;
++            return false;
+         case FC_GIVEUP:
+             lp().restore_x();
+             st = lp::lp_status::UNBOUNDED;

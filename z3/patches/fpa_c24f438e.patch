@@ -1,0 +1,32 @@
+--- a/src/ast/fpa/fpa2bv_converter.cpp
++++ b/src/ast/fpa/fpa2bv_converter.cpp
+@@ -2797,7 +2797,9 @@
+             res_sig = sig;
+ 
+         res_sig = m_bv_util.mk_zero_extend(1, res_sig); // extra zero in the front for the rounder.
+-        SASSERT(m_bv_util.get_bv_size(res_sig) == to_sbits + 4);
++        unsigned sig_sz = m_bv_util.get_bv_size(res_sig);
++        (void) sig_sz;
++        SASSERT(sig_sz == to_sbits + 4);
+ 
+         expr_ref exponent_overflow(m), exponent_underflow(m);
+         exponent_overflow = m.mk_false();
+@@ -2811,7 +2813,7 @@
+             lz_ext = m_bv_util.mk_zero_extend(to_ebits - from_ebits + 2, lz);
+             res_exp = m_bv_util.mk_bv_sub(res_exp, lz_ext);
+         }
+-        else if (from_ebits >= (to_ebits + 2)) {
++        else if (from_ebits > (to_ebits + 2)) {
+             unsigned ebits_diff = from_ebits - (to_ebits + 2);
+ 
+             // subtract lz for subnormal numbers.
+@@ -2856,6 +2858,9 @@
+             res_exp = m.mk_ite(ovf_cond, max_exp, res_exp);
+             res_exp = m.mk_ite(udf_cond, min_exp, res_exp);
+         }
++        else { // from_ebits == (to_ebits + 2)
++            res_exp = m_bv_util.mk_bv_sub(exp, lz);
++        }
+ 
+         SASSERT(m_bv_util.get_bv_size(res_exp) == to_ebits + 2);
+         SASSERT(is_well_sorted(m, res_exp));

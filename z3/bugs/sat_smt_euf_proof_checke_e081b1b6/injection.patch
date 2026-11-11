@@ -1,0 +1,36 @@
+--- a/src/sat/smt/euf_proof_checker.cpp
++++ b/src/sat/smt/euf_proof_checker.cpp
+@@ -94,23 +94,6 @@
+             return m_uf.find(expr2id(x)) == m_uf.find(expr2id(y));
+         }
+ 
+-        bool has_id(expr* e) const {
+-            return m_expr2id.get(e->get_id(), {0, 0}).first == m_ts;
+-        }
+-
+-        // a Boolean term (not x) that occurs inside an equality is interpreted:
+-        // x and (not x) cannot share a class, including via true or false.
+-        bool negation_violated() {
+-            for (unsigned v = 0; v < m_uf.get_num_vars(); ++v) {
+-                expr* e = m_id2expr[v], *x = nullptr;
+-                if (!m.is_not(e, x) || !has_id(x))
+-                    continue;
+-                if (are_equal(e, x))
+-                    return true;
+-            }
+-            return false;
+-        }
+-
+         bool congruence(bool comm, app* x, app* y) {
+             if (x->get_decl() != y->get_decl())
+                 return false;
+@@ -212,9 +195,6 @@
+                 if (are_equal(a, b))
+                     return true;
+ 
+-            if (negation_violated())
+-                return true;
+-
+             // check if some equivalence class contains two distinct values.            
+             for (unsigned v = 0; v < m_uf.get_num_vars(); ++v) {
+                 if (v != m_uf.find(v))

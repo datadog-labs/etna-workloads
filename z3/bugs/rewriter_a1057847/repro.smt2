@@ -1,0 +1,6 @@
+(set-option :model_validate true)
+(declare-datatypes ((S 0)) (((g (gi Int)) (h (h1 S) (h2 S)))))
+(declare-const a S)(declare-const b S)(declare-const c S)(declare-const d S)(declare-const e S)(declare-const f S)
+(assert (distinct a b c d e f))
+(check-sat)
+(get-model)
