@@ -1,0 +1,59 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..f747d1c 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2149,12 +2149,12 @@ let occur_in env ty0 t =
+ 
+ let rec local_non_recursive_abbrev ~allow_rec strict visited env p ty =
+   (*Format.eprintf "@[Check %s =@ %a@]@." (Path.name p) !Btype.print_raw ty;*)
+-  if not (List.memq (get_id ty) visited) then begin
++  if not (List.memq (get_id ty) !visited) then begin
+     match get_desc ty with
+       Tconstr(p', args, _abbrev) ->
+         if Env_unscoped.path_equiv env p p' then raise Occur;
+-        if allow_rec && not strict && is_contractive env p' then () else
+-        let visited = get_id ty :: visited in
++        if allow_rec && not strict && is_contractive env p' then () else begin
++        visited := get_id ty :: !visited;
+         begin try
+           (* try expanding, since [p] could be hidden *)
+           local_non_recursive_abbrev ~allow_rec strict visited env p
+@@ -2169,11 +2169,11 @@ let rec local_non_recursive_abbrev ~allow_rec strict visited env p ty =
+               let strict = strict || not (is_Tvar tv) in
+               local_non_recursive_abbrev ~allow_rec strict visited env p ty)
+             params args
+-        end
++        end end
+     | Tobject _ | Tvariant _ when not strict ->
+         ()
+     | Tfunctor (_, id, pack, t) ->
+-      let visited = get_id ty :: visited in
++      visited := get_id ty :: !visited;
+       List.iter (fun (_, ty) ->
+           local_non_recursive_abbrev ~allow_rec strict visited env p ty)
+           pack.pack_constraints;
+@@ -2181,18 +2181,21 @@ let rec local_non_recursive_abbrev ~allow_rec strict visited env p ty =
+       let env = Env.add_module (Ident.of_unscoped id) Mp_present mty env in
+       local_non_recursive_abbrev ~allow_rec strict visited env p t
+     | _ ->
+-        if strict || not allow_rec then (* PR#7374 *)
+-          let visited = get_id ty :: visited in
++        if strict || not allow_rec then begin (* PR#7374 *)
++          visited := get_id ty :: !visited;
+           iter_type_expr
+             (local_non_recursive_abbrev ~allow_rec true visited env p) ty
++        end
+   end
+ 
++let visited_abbrev = ref []
++
+ let local_non_recursive_abbrev uenv p ty =
+   let env = get_env uenv in
+   let allow_rec = allow_recursive_equations uenv in
+   try (* PR#7397: need to check trace_gadt_instances *)
+     wrap_trace_gadt_instances env
+-      (local_non_recursive_abbrev ~allow_rec false [] env p) ty;
++      (local_non_recursive_abbrev ~allow_rec false visited_abbrev env p) ty;
+     true
+   with Occur -> false
+ 

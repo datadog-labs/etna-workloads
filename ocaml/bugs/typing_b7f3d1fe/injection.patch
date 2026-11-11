@@ -1,0 +1,33 @@
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..0159781 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -1479,10 +1479,6 @@ let rec transl_modtype env smty =
+   Builtin_attributes.warning_scope smty.pmty_attributes
+     (fun () -> transl_modtype_aux env smty)
+ 
+-and transl_modtype_functor_arg env sarg =
+-  let mty = transl_modtype env sarg in
+-  {mty with mty_type = Mtype.scrape_for_functor_arg env mty.mty_type}
+-
+ and transl_modtype_aux env smty =
+   let loc = smty.pmty_loc in
+   match smty.pmty_desc with
+@@ -1503,7 +1499,7 @@ and transl_modtype_aux env smty =
+         match sarg_opt with
+         | Unit -> Unit, Types.Unit, env
+         | Named (param, sarg) ->
+-          let arg = transl_modtype_functor_arg env sarg in
++          let arg = transl_modtype env sarg in
+           let (id, newenv) =
+             match param.txt with
+             | None -> None, env
+@@ -2424,7 +2420,7 @@ and type_module_aux ~alias ~strengthen ~funct_body anchor env smod =
+         | Unit ->
+           Unit, Types.Unit, env, Shape.for_unnamed_functor_param, false
+         | Named (param, smty) ->
+-          let mty = transl_modtype_functor_arg env smty in
++          let mty = transl_modtype env smty in
+           let scope = Ctype.create_scope () in
+           let (id, newenv, var) =
+             match param.txt with

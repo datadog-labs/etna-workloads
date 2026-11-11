@@ -1,0 +1,33 @@
+diff --git a/typing/typedecl.ml b/typing/typedecl.ml
+index 63eee2a..d7abe80 100644
+--- a/typing/typedecl.ml
++++ b/typing/typedecl.ml
+@@ -157,21 +157,13 @@ let is_float env ty =
+ 
+ (* Determine if a type definition defines a fixed type. (PW) *)
+ let is_fixed_type sd =
+-  let rec has_row_var sty =
+-    match sty.ptyp_desc with
+-      Ptyp_alias (sty, _) -> has_row_var sty
+-    | Ptyp_class _
+-    | Ptyp_object (_, Open)
+-    | Ptyp_variant (_, Open, _)
+-    | Ptyp_variant (_, Closed, Some _) -> true
+-    | _ -> false
+-  in
+-  match sd.ptype_manifest with
+-    None -> false
+-  | Some sty ->
+-      sd.ptype_kind = Ptype_abstract &&
+-      sd.ptype_private = Private &&
+-      has_row_var sty
++  (match sd.ptype_manifest with
++   | Some { ptyp_desc =
++       (Ptyp_variant _|Ptyp_object _|Ptyp_class _|Ptyp_alias
++         ({ptyp_desc = Ptyp_variant _|Ptyp_object _|Ptyp_class _},_)) } -> true
++   | _ -> false) &&
++  sd.ptype_kind = Ptype_abstract &&
++  sd.ptype_private = Private
+ 
+ (* Set the row variable to a fixed type in a private row type declaration.
+    (e.g. [ type t = private [< `A | `B ] ] or [type u = private < .. > ])

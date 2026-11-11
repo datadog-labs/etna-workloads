@@ -1,0 +1,46 @@
+diff --git a/asmcomp/asmpackager.ml b/asmcomp/asmpackager.ml
+index 3cec133..698f0ff 100644
+--- a/asmcomp/asmpackager.ml
++++ b/asmcomp/asmpackager.ml
+@@ -111,7 +111,6 @@ let make_package_object ~ppf_dump members target coercion ~backend =
+         let main_module_block_size, code =
+           Translmod.transl_package_flambda components coercion
+         in
+-        let code = Simplif.simplify_lambda code in
+         let program =
+           { Lambda.
+             code;
+@@ -125,7 +124,6 @@ let make_package_object ~ppf_dump members target coercion ~backend =
+         let main_module_block_size, code =
+           Translmod.transl_store_package components module_ident coercion
+         in
+-        let code = Simplif.simplify_lambda code in
+         let program =
+           { Lambda.
+             code;
+diff --git a/bytecomp/bytepackager.ml b/bytecomp/bytepackager.ml
+index 6ec0434..4ff7046 100644
+--- a/bytecomp/bytepackager.ml
++++ b/bytecomp/bytepackager.ml
+@@ -222,7 +222,6 @@ let build_global_target ~ppf_dump oc target_name state components coercion =
+   let lam =
+     Translmod.transl_package
+       components (Ident.create_persistent target_name) coercion in
+-  let lam = Simplif.simplify_lambda lam in
+   if !Clflags.dump_lambda then
+     Format.fprintf ppf_dump "%a@." Printlambda.lambda lam;
+   let instrs =
+diff --git a/lambda/translmod.ml b/lambda/translmod.ml
+index ce42707..00bfde0 100644
+--- a/lambda/translmod.ml
++++ b/lambda/translmod.ml
+@@ -87,8 +87,7 @@ let rec apply_coercion loc strict restr arg =
+   | Tcoerce_structure(pos_cc_list, id_pos_list) ->
+       name_lambda strict arg (fun id ->
+         let get_field pos =
+-          if pos < 0 then lambda_unit
+-          else Lprim(Pfield (pos, Pointer, Mutable), [Lvar id], loc)
++          Lprim(Pfield (pos, Pointer, Mutable), [Lvar id], loc)
+         in
+         let lam =
+           Lprim(Pmakeblock(0, Immutable, None),

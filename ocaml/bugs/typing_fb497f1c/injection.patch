@@ -1,0 +1,27 @@
+diff --git a/typing/includecore.ml b/typing/includecore.ml
+index 1a38bd4..eebc514 100644
+--- a/typing/includecore.ml
++++ b/typing/includecore.ml
+@@ -1097,9 +1097,21 @@ let extension_constructors ~loc env ~mark id ext1 ext2 =
+     let r =
+       Variant_diffing.compare_constructors ~loc env
+         ext1.ext_type_params ext2.ext_type_params
+-        ext1.ext_ret_type ext2.ext_ret_type
++        None None
+         ext1.ext_args ext2.ext_args
+     in
++    let r =
++      if r <> None then r else
++      match ext1.ext_ret_type, ext2.ext_ret_type with
++      | Some r1, Some r2 ->
++          begin match Ctype.equal env true [r1] [r2] with
++          | exception Ctype.Equality err -> Some (Type err)
++          | () -> None
++          end
++      | Some _, None -> Some (Explicit_return_type First)
++      | None, Some _ -> Some (Explicit_return_type Second)
++      | None, None -> None
++    in
+     match r with
+     | Some r -> Some (Constructor_mismatch (id, ext1, ext2, r))
+     | None ->

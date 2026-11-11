@@ -1,0 +1,19 @@
+diff --git a/otherlibs/str/str.ml b/otherlibs/str/str.ml
+index 2fb5de9..46ae2b0 100644
+--- a/otherlibs/str/str.ml
++++ b/otherlibs/str/str.ml
+@@ -533,10 +533,12 @@ let parse s =
+           assert false
+       | '(' ->
+           let group_no = !group_counter in
+-          incr group_counter;
++          if group_no < 32 then incr group_counter;
+           let (r, j) = regexp0 (i+1) in
+           if j + 1 < len && s.[j] = '\\' && s.[j+1] = ')' then
+-            (Group(group_no, r), j + 2)
++            if group_no < 32
++            then (Group(group_no, r), j + 2)
++            else (r, j + 2)
+           else
+             failwith "\\( group not closed by \\)"
+       | '1' .. '9' as c ->

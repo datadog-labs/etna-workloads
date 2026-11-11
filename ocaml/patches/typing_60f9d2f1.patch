@@ -1,0 +1,48 @@
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..9014dcd 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -679,6 +679,11 @@ let error err = raise (Error err)
+ let lookup_error loc env err =
+   error (Lookup_error(loc, env, err))
+ 
++let copy_local ~from env =
++  { env with
++    local_constraints = from.local_constraints;
++    flags = from.flags }
++
+ let same_type_declarations e1 e2 =
+   e1.types == e2.types &&
+   e1.modules == e2.modules &&
+diff --git a/typing/env.mli b/typing/env.mli
+index 4bdb908..b4461f7 100644
+--- a/typing/env.mli
++++ b/typing/env.mli
+@@ -55,6 +55,7 @@ type address =
+ type t
+ 
+ val empty: t
++val copy_local: from:t -> t -> t
+ val initial: t
+ val diff: t -> t -> Ident.t list
+ 
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..a1fa8f8 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -2265,13 +2265,11 @@ and type_pat_aux
+   | Ppat_open (lid,p) ->
+       let path, new_env =
+         !type_open Asttypes.Fresh !!penv sp.ppat_loc lid in
++      let env0 = !!penv in
+       Pattern_env.set_env penv new_env;
+       let p = type_pat tps category ~penv p expected_ty in
+       let new_env = !!penv in
+-      begin match Env.remove_last_open path new_env with
+-      | None -> assert false
+-      | Some closed_env -> Pattern_env.set_env penv closed_env
+-      end;
++      Pattern_env.set_env penv (Env.copy_local ~from:new_env env0);
+       { p with pat_extra = (Tpat_open (path,lid,new_env),
+                                 loc, sp.ppat_attributes) :: p.pat_extra }
+   | Ppat_exception p ->

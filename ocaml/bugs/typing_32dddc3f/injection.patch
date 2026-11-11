@@ -1,0 +1,26 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..12bf53a 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -3076,9 +3076,7 @@ let add_gadt_equation uenv source destination =
+   end
+ 
+ let eq_package_path env p1 p2 =
+-  Env_unscoped.path_equiv env p1 p2 ||
+-  Env_unscoped.path_equiv env (Env.normalize_modtype_path env p1)
+-             (Env.normalize_modtype_path env p2)
++  Env_unscoped.path_equiv env p1 p2
+ 
+ let nondep_type' = ref (fun _ _ _ -> assert false)
+ let package_subtype = ref (fun _ _ _ -> assert false)
+@@ -3142,9 +3140,7 @@ let compare_package env unify_list lv1 pack1 lv2 pack2 =
+   and ntl1 = complete_type_list env pack2.pack_constraints lv1 pack1 in
+   unify_list (List.map snd ntl1) (List.map snd ntl2);
+   if eq_package_path env pack1.pack_path pack2.pack_path then Ok ()
+-  else Result.bind
+-      (!package_subtype env pack1 pack2)
+-      (fun () -> !package_subtype env pack2 pack1)
++  else Error (Errortrace.Package_cannot_scrape pack1.pack_path)
+ 
+ (* force unification in Reither when one side has a non-conjunctive type *)
+ (* Code smell: this could also be put in unification_environment.

@@ -1,0 +1,46 @@
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..e59d41c 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -2326,14 +2326,6 @@ and add_cltype ?shape id ty env =
+ let add_module ?noalias ?shape id presence mty env =
+   add_module_declaration ~check:false ?noalias ?shape id presence (md mty) env
+ 
+-let add_module_lazy ~update_summary id presence mty env =
+-  let md = Subst.Lazy.{mdl_type = mty;
+-                       mdl_attributes = [];
+-                       mdl_loc = Location.none;
+-                       mdl_uid = Uid.internal_not_actually_unique}
+-  in
+-  add_module_declaration_lazy ~update_summary id presence md env
+-
+ let add_local_constraint path info env =
+   { env with
+     local_constraints = Path.Map.add path info env.local_constraints }
+diff --git a/typing/env.mli b/typing/env.mli
+index 4bdb908..3241a2e 100644
+--- a/typing/env.mli
++++ b/typing/env.mli
+@@ -326,8 +326,6 @@ val add_extension:
+   extension_constructor -> t -> t
+ val add_module: ?noalias:bool -> ?shape:Shape.t ->
+   Ident.t -> module_presence -> module_type -> t -> t
+-val add_module_lazy: update_summary:bool ->
+-  Ident.t -> module_presence -> Subst.Lazy.modtype -> t -> t
+ val add_module_declaration: ?noalias:bool -> ?shape:Shape.t -> check:bool ->
+   Ident.t -> module_presence -> module_declaration -> t -> t
+ val add_module_declaration_lazy: update_summary:bool ->
+diff --git a/typing/mtype.ml b/typing/mtype.ml
+index c8f6e59..002a1c7 100644
+--- a/typing/mtype.ml
++++ b/typing/mtype.ml
+@@ -46,9 +46,6 @@ let rec strengthen_lazy ~aliasable env mty p =
+       MtyL_signature(strengthen_lazy_sig ~aliasable env sg p)
+   | MtyL_functor(Named (Some param, arg), res)
+     when !Clflags.applicative_functors ->
+-      let env =
+-        Env.add_module_lazy ~update_summary:false param Mp_present arg env
+-      in
+       MtyL_functor(Named (Some param, arg),
+         strengthen_lazy ~aliasable:false env res (Papply(p, Pident param)))
+   | MtyL_functor(Named (None, arg), res)

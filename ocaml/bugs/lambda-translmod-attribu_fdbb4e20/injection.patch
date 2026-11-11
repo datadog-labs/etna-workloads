@@ -1,0 +1,26 @@
+diff --git a/lambda/translmod.ml b/lambda/translmod.ml
+index ce42707..b8aba06 100644
+--- a/lambda/translmod.ml
++++ b/lambda/translmod.ml
+@@ -669,7 +669,9 @@ and transl_struct_item ~scopes fields rootpath item next =
+       | Some id ->
+           Llet(pure_module mb.mb_expr, Pgenval, id, module_body, body)
+       end
+-  | Tstr_module ({mb_presence=Mp_absent}) ->
++  | Tstr_module ({mb_presence=Mp_absent} as mb) ->
++      ignore (Translattribute.get_inlined_attribute_on_module mb.mb_expr);
++      ignore (Translattribute.get_inline_attribute mb.mb_attributes);
+       next fields
+   | Tstr_recmodule bindings ->
+       let ext_fields =
+@@ -1114,7 +1116,9 @@ let transl_store_structure ~scopes glob map prims aliases str =
+                            transl_store ~scopes rootpath
+                              (add_ident true id subst)
+                              cont rem))
+-        | Tstr_module ({mb_presence=Mp_absent}) ->
++        | Tstr_module ({mb_presence=Mp_absent} as mb) ->
++            ignore (Translattribute.get_inlined_attribute_on_module mb.mb_expr);
++            ignore (Translattribute.get_inline_attribute mb.mb_attributes);
+             transl_store ~scopes rootpath subst cont rem
+         | Tstr_recmodule bindings ->
+             let ids = List.filter_map (fun mb -> mb.mb_id) bindings in

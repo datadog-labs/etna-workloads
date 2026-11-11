@@ -1,0 +1,17 @@
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..10f1f7a 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -2257,7 +2257,11 @@ and package_constraints env loc mty constrs =
+     | Mty_signature sg ->
+         Mty_signature (package_constraints_sig env loc sg constrs)
+     | Mty_functor _ | Mty_alias _ -> assert false
+-    | Mty_ident p -> raise(Error(loc, env, Cannot_scrape_package_type p))
++    | Mty_ident p ->
++        begin match Env.find_modtype p env with
++        | exception Not_found -> assert false
++        | _ -> raise(Error(loc, env, Cannot_scrape_package_type p))
++        end
+   end
+ 
+ let modtype_of_package env loc pack =

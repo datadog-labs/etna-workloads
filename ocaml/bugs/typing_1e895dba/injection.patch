@@ -1,0 +1,83 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..b988d80 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -4444,10 +4444,13 @@ let copy_spine ty =
+   For_copy.with_scope (fun copy_scope ->
+         copy_spine ~unscoped:empty_unscoped_mapping copy_scope ty)
+ 
+-let generalize_class_signature_spine sign =
++let generalize_class_signature_spine is_local sign =
+   (* Generalize the spine of methods *)
+   sign.csig_meths <-
+-    Meths.map (fun (priv, virt, ty) -> priv, virt, copy_spine ty)
++    Meths.mapi
++      (fun label (priv, virt, ty) ->
++         if is_local label then priv, virt, copy_spine ty
++         else priv, virt, ty)
+       sign.csig_meths
+ 
+                         (***********************************)
+diff --git a/typing/ctype.mli b/typing/ctype.mli
+index 0f7bbab..31f84d4 100644
+--- a/typing/ctype.mli
++++ b/typing/ctype.mli
+@@ -158,7 +158,8 @@ val lower_variables_only: Env.t -> int -> type_expr -> unit
+         (* Lower all variables to the given level *)
+ val enforce_current_level: Env.t -> type_expr -> unit
+         (* Lower whole type to !current_level *)
+-val generalize_class_signature_spine: class_signature -> unit
++val generalize_class_signature_spine:
++  (string -> bool) -> class_signature -> unit
+        (* Special function to generalize methods during inference *)
+ val limited_generalize: type_expr -> inside:type_expr -> unit
+         (* Only generalize some part of the type
+diff --git a/typing/typeclass.ml b/typing/typeclass.ml
+index adf9daf..d80551f 100644
+--- a/typing/typeclass.ml
++++ b/typing/typeclass.ml
+@@ -845,7 +845,7 @@ and class_fields_first_pass self_loc cl_num sign self_scope
+           (class_field_first_pass self_loc cl_num sign self_scope)
+           init_acc cfs)
+   in
+-  List.rev acc.rev_fields, acc.vars
++  List.rev acc.rev_fields, acc.vars, acc.local_meths
+ 
+ and class_field_second_pass cl_num sign met_env field =
+   let mkcf desc loc attrs =
+@@ -998,7 +998,7 @@ and class_structure cl_num virt self_scope final val_env met_env loc
+   end;
+ 
+   (* Typing of class fields *)
+-  let (fields, vars) =
++  let (fields, vars, local_meths) =
+     class_fields_first_pass self_loc cl_num sign self_scope
+            val_env par_env str
+   in
+@@ -1026,7 +1026,25 @@ and class_structure cl_num virt self_scope final val_env met_env loc
+         raise(Error(loc, val_env, Closing_self_type sign));
+   end;
+   (* Typing of method bodies *)
+-  Ctype.generalize_class_signature_spine sign;
++  Ctype.generalize_class_signature_spine
++    (fun label ->
++       virt = Virtual
++       || MethSet.mem label local_meths
++       || List.length
++            (List.filter (function Inherit _ -> true | _ -> false) fields) > 1
++       || not
++            (List.exists
++               (function
++                 | Inherit { parent = { cl_type; _ }; _ } ->
++                     (match cl_type with
++                      | Cty_constr (Path.Pident _ as p, _, _)
++                        when (Env.find_class p val_env).cty_new <> None ->
++                          let psig = Btype.signature_of_class_type cl_type in
++                          Meths.mem label psig.csig_meths
++                      | _ -> false)
++                 | _ -> false)
++               fields))
++    sign;
+   let self_var_kind =
+     match virt with
+     | Virtual -> Self_virtual(ref meths)

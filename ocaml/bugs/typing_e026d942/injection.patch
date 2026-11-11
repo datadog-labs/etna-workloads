@@ -1,0 +1,49 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..4165f47 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -154,8 +154,6 @@ exception Cannot_unify_universal_variables of {
+ let univar_mismatch ~order got expected =
+   Cannot_unify_universal_variables { order; diff = {got;expected} }
+ 
+-exception Out_of_scope_universal_variable
+-
+ exception Matches_failure of Env.t * unification_error
+ 
+ exception Incompatible
+@@ -2235,7 +2233,7 @@ let rec unify_univar t1 t2 = function
+       | None, Some _ -> raise (univar_mismatch ~order:Less t1 t2)
+       end
+   | [] ->
+-      raise Out_of_scope_universal_variable
++      Misc.fatal_error "Ctype.unify_univar: univar not in scope"
+ 
+ (* The same as [unify_univar], but raises the appropriate exception instead of
+    [Cannot_unify_universal_variables] *)
+@@ -2243,13 +2241,6 @@ let unify_univar_for (type a) (tr_exn : a trace_exn) t1 t2 univar_pairs =
+   try unify_univar t1 t2 univar_pairs with
+   | Cannot_unify_universal_variables {order; diff} ->
+       raise_for tr_exn (Univar (Var_mismatch {order; diff}))
+-  | Out_of_scope_universal_variable ->
+-      (* Allow unscoped univars when checking for equality, since one
+-         might want to compare arbitrary subparts of types, ignoring scopes;
+-         see Typedecl_variance (#13514) for instance *)
+-      match tr_exn with
+-      | Equality -> raise_unexplained_for tr_exn
+-      | _ -> fatal_error "Ctype.unify_univar_for: univar not in scope"
+ 
+ (* Test the occurrence of free univars and unscoped identifiers in a type *)
+ (* That's way too expensive. Must do some kind of caching *)
+@@ -2883,10 +2874,8 @@ let rec mcomp type_pairs env t1 t2 =
+                  t1 tl1 t2 tl2 (mcomp type_pairs env)
+              with Escape _ -> raise Incompatible)
+         | (Tunivar _, Tunivar _) ->
+-            begin try unify_univar t1' t2' !univar_pairs with
+-            | Cannot_unify_universal_variables _ -> raise Incompatible
+-            | Out_of_scope_universal_variable -> ()
+-            end
++            (try unify_univar t1' t2' !univar_pairs
++             with Cannot_unify_universal_variables _ -> raise Incompatible)
+         | (_, _) ->
+             raise Incompatible
+       end

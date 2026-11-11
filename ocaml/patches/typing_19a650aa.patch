@@ -1,0 +1,50 @@
+diff --git a/typing/btype.ml b/typing/btype.ml
+index 2f63821..13707ee 100644
+--- a/typing/btype.ml
++++ b/typing/btype.ml
+@@ -214,16 +214,7 @@ let merge_fixed_explanation fixed1 fixed2 =
+   | None, None -> None
+ 
+ 
+-let fixed_explanation row =
+-  match row_fixed row with
+-  | Some _ as x -> x
+-  | None ->
+-      let ty = row_more row in
+-      match get_desc ty with
+-      | Tvar _ | Tnil -> None
+-      | Tunivar _ -> Some (Univar ty)
+-      | Tconstr (p,_,_) -> Some (Reified p)
+-      | _ -> assert false
++let fixed_explanation row = row_fixed row
+ 
+ let is_fixed row = match row_fixed row with
+   | None -> false
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..7ad3788 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -1347,14 +1347,6 @@ let rec copy ?partial ?keep_names ?scope ?(unscoped = empty_unscoped_mapping)
+                     if keep then more else newty mored
+                 |  _ -> assert false
+               in
+-              let row =
+-                match get_desc more' with (* PR#6163 *)
+-                  Tconstr (x,_,_) when not (is_fixed row) ->
+-                    let Row {fields; more; closed; name} = row_repr row in
+-                    create_row ~fields ~more ~closed ~name
+-                      ~fixed:(Some (Reified x))
+-                | _ -> row
+-              in
+               (* Open row if partial for pattern and contains Reither *)
+               let more', row =
+                 match partial with
+@@ -2735,7 +2727,7 @@ let reify uenv t =
+                 let level = get_level m in
+                 let path, t = create_fresh_constr level o in
+                 let row =
+-                  let fixed = Some (Reified path) in
++                  let fixed = None in
+                   create_row ~fields:[] ~more:t ~fixed
+                     ~name:(row_name r) ~closed:(row_closed r) in
+                 link_type m (newty2 ~level (Tvariant row));

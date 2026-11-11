@@ -1,0 +1,6 @@
+cd "$(dirname "$0")"
+d=$(mktemp -d)
+if "$1/bin/ocamlc" -o "$d/a" repro.ml >/dev/null 2>&1 && [ "$("$d/a")" = 0 ]; then
+  echo ok; rm -rf "$d"; exit 0
+fi
+echo "bug: compile failure"; rm -rf "$d"; exit 1

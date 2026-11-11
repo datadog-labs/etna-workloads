@@ -1,0 +1,31 @@
+diff --git a/lambda/translmod.ml b/lambda/translmod.ml
+index ce42707..861cb68 100644
+--- a/lambda/translmod.ml
++++ b/lambda/translmod.ml
+@@ -667,7 +667,7 @@ and transl_struct_item ~scopes fields rootpath item next =
+           Lsequence (Lprim(Pignore, [module_body],
+                            of_location ~scopes mb.mb_name.loc), body)
+       | Some id ->
+-          Llet(pure_module mb.mb_expr, Pgenval, id, module_body, body)
++          Llet(Strict, Pgenval, id, module_body, body)
+       end
+   | Tstr_module ({mb_presence=Mp_absent}) ->
+       next fields
+@@ -708,7 +708,7 @@ and transl_struct_item ~scopes fields rootpath item next =
+                        [Lvar mid], of_location ~scopes incl.incl_loc), body)
+       in
+       let body = rebind_idents 0 fields ids in
+-      Llet(pure_module modl, Pgenval, mid,
++      Llet(Strict, Pgenval, mid,
+            transl_module ~scopes Tcoerce_none None modl, body)
+ 
+   | Tstr_open od ->
+@@ -1472,7 +1472,7 @@ let transl_toplevel_item ~scopes item =
+       set_toplevel_unique_name ext.tyexn_constructor.ext_id;
+       toploop_setvalue ext.tyexn_constructor.ext_id
+         (transl_extension_constructor ~scopes
+-           item.str_env None ext.tyexn_constructor)
++           Env.initial None ext.tyexn_constructor)
+   | Tstr_module {mb_id=None; mb_presence=Mp_present; mb_expr=modl} ->
+       transl_module ~scopes Tcoerce_none None modl
+   | Tstr_module {mb_id=Some id; mb_presence=Mp_present; mb_expr=modl} ->

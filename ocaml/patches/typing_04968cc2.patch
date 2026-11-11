@@ -1,0 +1,24 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..9aba32e 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -923,9 +923,18 @@ let rec update_level env level expand ty =
+         add_to_pool ~level (Transient_expr.repr ty)
+     in
+     match get_desc ty with
+-      Tconstr(p, _tl, _abbrev) when level < Path.scope p ->
++      Tconstr(p, _tl, _abbrev)
++      when level < Path.scope p
++        || (match Env.find_type p env with
++            | {type_is_newtype = true; type_manifest = Some m;
++               type_expansion_scope = sc} ->
++                level < sc && (match get_desc m with
++                               | Tconstr _ -> false | _ -> true)
++            | _ -> false
++            | exception Not_found -> false) ->
+         (* Try first to replace an abbreviation by its expansion. *)
+         begin try
++          if (Env.find_type p env).type_is_newtype then raise Cannot_expand;
+           let ty' = !forward_try_expand_safe env ty in
+           link_type ty ty';
+           update_level env level expand ty'

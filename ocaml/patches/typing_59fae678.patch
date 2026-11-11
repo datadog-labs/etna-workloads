@@ -1,0 +1,43 @@
+diff --git a/typing/typeopt.ml b/typing/typeopt.ml
+index 71ff8b6..83dfd8a 100644
+--- a/typing/typeopt.ml
++++ b/typing/typeopt.ml
+@@ -172,23 +172,21 @@ let bigarray_type_kind_and_layout env typ =
+       (Pbigarray_unknown, Pbigarray_unknown_layout)
+ 
+ let value_kind env ty =
+-  match scrape_ty env ty with
+-  | None -> Pgenval
+-  | Some ty ->
+-  if is_immediate (Ctype.immediacy env ty) then Pintval
+-  else begin
+-    match get_desc ty with
+-    | Tconstr(p, _, _) when Path.same p Predef.path_float ->
+-        Pfloatval
+-    | Tconstr(p, _, _) when Path.same p Predef.path_int32 ->
+-        Pboxedintval Pint32
+-    | Tconstr(p, _, _) when Path.same p Predef.path_int64 ->
+-        Pboxedintval Pint64
+-    | Tconstr(p, _, _) when Path.same p Predef.path_nativeint ->
+-        Pboxedintval Pnativeint
+-    | _ ->
+-        Pgenval
+-  end
++  match scrape env ty with
++  | Some (Tconstr(p, _, _)) when Path.same p Predef.path_int ->
++      Pintval
++  | Some (Tconstr(p, _, _)) when Path.same p Predef.path_char ->
++      Pintval
++  | Some (Tconstr(p, _, _)) when Path.same p Predef.path_float ->
++      Pfloatval
++  | Some (Tconstr(p, _, _)) when Path.same p Predef.path_int32 ->
++      Pboxedintval Pint32
++  | Some (Tconstr(p, _, _)) when Path.same p Predef.path_int64 ->
++      Pboxedintval Pint64
++  | Some (Tconstr(p, _, _)) when Path.same p Predef.path_nativeint ->
++      Pboxedintval Pnativeint
++  | _ ->
++      Pgenval
+ 
+ (** Whether a forward block is needed for a lazy thunk on a value, i.e.
+     if the value can be represented as a float/forward/lazy *)

@@ -1,0 +1,32 @@
+diff --git a/lambda/simplif.ml b/lambda/simplif.ml
+index 500c074..7ae34c0 100644
+--- a/lambda/simplif.ml
++++ b/lambda/simplif.ml
+@@ -351,6 +351,9 @@ let exact_application {kind; params; _} args =
+   let arity = List.length params in
+   Lambda.find_exact_application kind ~arity args
+ 
++let local_exact_application {params; _} args =
++  Lambda.find_exact_application Curried ~arity:(List.length params) args
++
+ let beta_reduce params body args =
+   List.fold_left2 (fun l (param, kind) arg -> Llet(Strict, kind, param, arg, l))
+                   body params args
+@@ -874,7 +877,7 @@ let simplify_local_functions lam =
+     | Lapply {ap_func = Lvar id; ap_args; _} ->
+         begin match Hashtbl.find_opt slots id with
+         | Some {func; _}
+-          when exact_application func ap_args = None ->
++          when local_exact_application func ap_args = None ->
+             (* Wrong arity *)
+             Hashtbl.remove slots id
+         | Some {scope = Some scope; _} when scope != !current_scope ->
+@@ -920,7 +923,7 @@ let simplify_local_functions lam =
+       | Lapply {ap_func = Lvar id; ap_args; _} when Hashtbl.mem static_id id ->
+          let st = Hashtbl.find static_id id in
+          let slot = Hashtbl.find slots id in
+-         begin match exact_application slot.func ap_args with
++         begin match local_exact_application slot.func ap_args with
+            | None -> assert false
+            | Some exact_args ->
+               Lstaticraise (st, List.map rewrite exact_args)

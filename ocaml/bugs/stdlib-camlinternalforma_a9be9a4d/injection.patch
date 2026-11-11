@@ -1,0 +1,58 @@
+diff --git a/stdlib/camlinternalFormat.ml b/stdlib/camlinternalFormat.ml
+index de65731..802af08 100644
+--- a/stdlib/camlinternalFormat.ml
++++ b/stdlib/camlinternalFormat.ml
+@@ -460,8 +460,8 @@ let bprint_float_fmt buf ign_flag fconv pad prec =
+   bprint_precision buf prec;
+   buffer_add_char buf (char_of_fconv fconv)
+ 
+-(* Compute the literal string representation of a Formatting_lit. *)
+-(* Used by Printf and Scanf where formatting is not interpreted. *)
++(* Compute the literal string representation of a formatting_lit. *)
++(* Also used by Printf and Scanf where formatting is not interpreted. *)
+ let string_of_formatting_lit formatting_lit = match formatting_lit with
+   | Close_box            -> "@]"
+   | Close_tag            -> "@}"
+@@ -474,6 +474,14 @@ let string_of_formatting_lit formatting_lit = match formatting_lit with
+   | Escaped_percent      -> "@%"
+   | Scan_indic c -> "@" ^ (String.make 1 c)
+ 
++(* Compute the literal string representation of a formatting. *)
++(* Also used by Printf and Scanf where formatting is not interpreted. *)
++let string_of_formatting_gen : type a b c d e f .
++    (a, b, c, d, e, f) formatting_gen -> string =
++  fun formatting_gen -> match formatting_gen with
++  | Open_tag (Format (_, str)) -> str
++  | Open_box (Format (_, str)) -> str
++
+ (***)
+ 
+ (* Print a literal char in a buffer, escape '%' by "%%". *)
+@@ -625,12 +633,8 @@ let bprint_fmt buf fmt =
+       bprint_string_literal buf (string_of_formatting_lit fmting_lit);
+       fmtiter rest ign_flag;
+     | Formatting_gen (fmting_gen, rest) ->
+-      begin match fmting_gen with
+-      | Open_tag (Format (_, str)) ->
+-        buffer_add_string buf "@{"; buffer_add_string buf str
+-      | Open_box (Format (_, str)) ->
+-        buffer_add_string buf "@["; buffer_add_string buf str
+-      end;
++      bprint_string_literal buf "@{";
++      bprint_string_literal buf (string_of_formatting_gen fmting_gen);
+       fmtiter rest ign_flag;
+ 
+     | End_of_format -> ()
+diff --git a/stdlib/camlinternalFormat.mli b/stdlib/camlinternalFormat.mli
+index 9d1506c..650558b 100644
+--- a/stdlib/camlinternalFormat.mli
++++ b/stdlib/camlinternalFormat.mli
+@@ -106,6 +106,8 @@ val format_of_string_format :
+ 
+ val char_of_iconv : CamlinternalFormatBasics.int_conv -> char
+ val string_of_formatting_lit : CamlinternalFormatBasics.formatting_lit -> string
++val string_of_formatting_gen :
++  ('a, 'b, 'c, 'd, 'e, 'f) CamlinternalFormatBasics.formatting_gen -> string
+ 
+ val string_of_fmtty :
+   ('a, 'b, 'c, 'd, 'e, 'f) CamlinternalFormatBasics.fmtty -> string

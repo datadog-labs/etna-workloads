@@ -1,0 +1,38 @@
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..2ee59a2 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -937,8 +937,15 @@ let sign_of_cmi ~freshen { Persistent_env.Persistent_signature.cmi; _ } =
+           Subst.identity mty
+       else mty
+     in
++    let env =
++      let add_imported_persistent env (name, _digest) =
++        let id = Ident.create_persistent name in
++        { env with modules = IdTbl.add id Mod_persistent env.modules }
++      in
++      List.fold_left add_imported_persistent empty cmi.cmi_crcs
++    in
+     components_of_module ~alerts ~uid:md.md_uid
+-      empty Subst.identity
++      env Subst.identity
+       path mda_address mty mda_shape
+   in
+   {
+@@ -1248,7 +1255,15 @@ let find_type_descrs p env =
+ 
+ let rec find_module_address path env =
+   match path with
+-  | Pident id -> get_address (find_ident_module id env).mda_address
++  | Pident id ->
++      begin match IdTbl.find_same id env.modules with
++      | Mod_local data -> get_address data.mda_address
++      | Mod_unbound _ -> raise Not_found
++      | Mod_persistent ->
++          if not (Current_unit.Name.is_ident id) then
++            Aident id
++          else raise Not_found
++      end
+   | Pdot(p, s) ->
+       let c = find_structure_components p env in
+       get_address (NameMap.find s c.comp_modules).mda_address

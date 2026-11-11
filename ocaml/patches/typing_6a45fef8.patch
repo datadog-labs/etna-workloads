@@ -1,0 +1,27 @@
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..2fa6cf4 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -2993,19 +2993,19 @@ and get_functor_components ~errors ~loc lid env comps =
+   | Error (No_components_alias p) ->
+       may_lookup_error errors loc env (Cannot_scrape_alias(lid, p))
+ 
+-and lookup_all_args ~errors ~use lid0 env =
++and lookup_all_args ~errors ~use ~loc lid0 env =
+   let rec loop_lid_arg args = function
+     | Lident _ | Ldot _ as f_lid ->
+         (f_lid, args)
+     | Lapply (f_lid, arg_lid) ->
+-        let { txt = arg_lid; loc } = arg_lid in
++        let { txt = arg_lid; loc = _ } = arg_lid in
+         let arg_path, arg_md = lookup_module ~errors ~use ~loc arg_lid env in
+         loop_lid_arg ((f_lid,arg_path,arg_md.md_type)::args) f_lid.txt
+   in
+   loop_lid_arg [] lid0
+ 
+ and lookup_apply ~errors ~use ~loc lid0 env =
+-  let f0_lid, args0 = lookup_all_args ~errors ~use lid0 env in
++  let f0_lid, args0 = lookup_all_args ~errors ~use ~loc lid0 env in
+   let args_for_errors = List.map (fun (_,p,mty) -> (p,mty)) args0 in
+   let f0_path, f0_comp =
+     lookup_module_components ~errors ~use ~loc f0_lid env

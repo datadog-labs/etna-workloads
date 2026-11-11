@@ -1,0 +1,22 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..d335acb 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -6231,7 +6231,16 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
+     not tvar && List.for_all ((=) Nolabel) ls
+   in
+   let may_coerce =
+-    if not (is_inferred sarg) then None else
++    let eligible =
++      is_inferred sarg ||
++      match sarg.pexp_desc with
++      | Pexp_let _ -> true
++      | Pexp_function
++          ({pparam_desc = Pparam_val (l, _, _); _} :: _, _, _) ->
++          is_optional l
++      | _ -> false
++    in
++    if not eligible then None else
+     let work () =
+       let te = expand_head env ty_expected' in
+       match get_desc te with

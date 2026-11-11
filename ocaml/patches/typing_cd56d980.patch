@@ -1,0 +1,17 @@
+diff --git a/typing/typetexp.ml b/typing/typetexp.ml
+index ebcffd5..73e8ef3 100644
+--- a/typing/typetexp.ml
++++ b/typing/typetexp.ml
+@@ -533,8 +533,10 @@ and transl_type_aux env ~row_context ~aliased ~policy styp =
+       ctyp (Ttyp_object (fields, o)) (newobj ty)
+   | Ptyp_class(lid, stl) ->
+       let (path, decl) =
+-        let path, decl = Env.lookup_cltype ~loc:lid.loc lid.txt env in
+-        (path, decl.clty_hash_type)
++        match Env.lookup_cltype ~loc:lid.loc lid.txt env with
++        | path, decl -> (path, decl.clty_hash_type)
++        | exception Env.Error _ ->
++            ignore (Env.lookup_class ~loc:lid.loc lid.txt env); assert false
+       in
+       if List.length stl <> decl.type_arity then
+         raise(Error(styp.ptyp_loc, env,

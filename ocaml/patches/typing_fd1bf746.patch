@@ -1,0 +1,27 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..0ba3f6e 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -867,7 +867,11 @@ and build_as_type_aux (env : Env.t) p =
+       if keep then p.pat_type else
+       let tyl = List.map (build_as_type env) pl in
+       let ty_args, ty_res, _ =
+-        instance_constructor Keep_existentials_flexible cstr in
++        with_level ~level:generic_level
++          (fun () -> instance_constructor Keep_existentials_flexible cstr)
++      in
++      let tv = newvar () in
++      unify_pat env {p with pat_type = ty_res} tv;
+       (* [p] is a valid result of type inference, so the levels inside its
+          types are correct (higher than the scopes). [tyl] is obtained
+          from [pl], which is part of [p], so that all the locally abstract
+@@ -934,8 +938,7 @@ and build_as_type_aux (env : Env.t) p =
+    [instance_unshared] would have to be modified.
+  *)
+ let solve_Ppat_alias env pat =
+-  with_local_level_generalize (fun () ->
+-    with_level ~level:(generic_level - 10) (fun () -> build_as_type env pat))
++  with_local_level_generalize (fun () -> build_as_type env pat)
+ 
+ (* Extracts the first element from a list matching a label. Roughly:
+      pat <- List.assoc_opt label patl;

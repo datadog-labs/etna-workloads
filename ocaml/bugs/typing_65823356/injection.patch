@@ -1,0 +1,29 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..acdaebe 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -3645,8 +3645,7 @@ and unify_row uenv row1 row2 =
+           if closed && not (row_closed row) then
+             raise_for Unify (Variant (Fixed_row(pos,Cannot_be_closed,fixed)))
+           else if rest <> [] then
+-            let case = Cannot_add_tags (List.map fst rest) in
+-            raise_for Unify (Variant (Fixed_row(pos,case,fixed)))
++            raise_for Unify (Variant (No_tags(pos,rest)))
+     end;
+     (* The following test is not principal... should rather use Tnil *)
+     let rm = row_more row in
+@@ -3690,11 +3689,11 @@ and unify_row uenv row1 row2 =
+   end
+ 
+ and unify_row_field uenv fixed1 fixed2 rm1 rm2 l f1 f2 =
+-  let if_not_fixed (pos,fixed) f =
++  let if_not_fixed (_pos,fixed) f =
+     match fixed with
+     | None -> f ()
+-    | Some fix ->
+-        let tr = [Variant(Fixed_row(pos,Cannot_add_tags [l],fix))] in
++    | Some _ ->
++        let tr = [Variant(Incompatible_types_for l)] in
+         raise_trace_for Unify tr in
+   let first = First, fixed1 and second = Second, fixed2 in
+   let either_fixed = match fixed1, fixed2 with

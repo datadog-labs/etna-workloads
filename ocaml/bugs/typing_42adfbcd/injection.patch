@@ -1,0 +1,40 @@
+diff --git a/typing/subst.ml b/typing/subst.ml
+index ac011c9..07046e2 100644
+--- a/typing/subst.ml
++++ b/typing/subst.ml
+@@ -139,12 +139,6 @@ let rec type_path s path =
+          | Pcstr_ty _ -> Pextra_ty (type_path s p, extra)
+          | Pext_ty -> Pextra_ty (value_path s p, extra)
+ 
+-let to_subst_by_type_function s p =
+-  match Path.Map.find p s.types with
+-  | Path _ -> false
+-  | Type_function _ -> true
+-  | exception Not_found -> false
+-
+ (* Special type ids for saved signatures *)
+ 
+ let new_id = s_ref (-1)
+@@ -300,9 +294,7 @@ let rec typexp copy_scope s ty =
+             match !name with
+             | None -> None
+             | Some (p, tl) ->
+-                if to_subst_by_type_function s p
+-                then None
+-                else Some (type_path s p, List.map (typexp copy_scope s) tl)
++                Some (type_path s p, List.map (typexp copy_scope s) tl)
+           in
+           Tobject (t1', ref name')
+       | Tvariant row ->
+@@ -340,10 +332,7 @@ let rec typexp copy_scope s ty =
+                 copy_row (typexp copy_scope s) true row (not dup) more' in
+               match row_name row with
+               | Some (p, tl) ->
+-                  let name =
+-                    if to_subst_by_type_function s p then None
+-                    else Some (type_path s p, tl)
+-                  in
++                  let name = Some (type_path s p, tl) in
+                   Tvariant (set_row_name row name)
+               | None ->
+                   Tvariant row

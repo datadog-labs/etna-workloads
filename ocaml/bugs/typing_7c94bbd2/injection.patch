@@ -1,0 +1,33 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..ba9c2fa 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -5128,7 +5128,9 @@ and type_expect_
+           | _ ->
+               raise (Error (loc, env, Not_a_packed_module ty_expected))
+           in
+-          let (modl, pack') = !type_package env m pack in
++          let (modl, pack') =
++            Typetexp.TyVarEnv.with_local_scope
++              (fun () -> !type_package env m pack) in
+           rue {
+             exp_desc = Texp_pack modl;
+             exp_loc = loc; exp_extra = [];
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..5a91638 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -3213,7 +3213,12 @@ let type_package env m pack =
+                      if decl.type_arity > 0 then begin
+                        fl
+                      end else begin
+-                       let t = Btype.newgenty (Tconstr (path,[],ref Mnil)) in
++                       let t =
++                         match decl.type_manifest with
++                         | Some t -> t
++                         | None ->
++                           Btype.newgenty (Tconstr (path,[],ref Mnil))
++                       in
+                        (lid, t) :: fl
+                      end
+                end)

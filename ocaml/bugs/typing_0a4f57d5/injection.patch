@@ -1,0 +1,28 @@
+diff --git a/typing/typetexp.ml b/typing/typetexp.ml
+index ebcffd5..8cd8b75 100644
+--- a/typing/typetexp.ml
++++ b/typing/typetexp.ml
+@@ -389,12 +389,12 @@ let sort_constraints_no_duplicates loc env l =
+ 
+ (* Translation of type expressions *)
+ 
+-let strict_ident c = (c = '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z')
++let strict_lowercase c = (c = '_' || c >= 'a' && c <= 'z')
+ 
+ let validate_name = function
+     None -> None
+   | Some name as s ->
+-      if name <> "" && strict_ident name.[0] then s else None
++      if name <> "" && strict_lowercase name.[0] then s else None
+ 
+ let new_global_var ?name () =
+   new_global_var ?name:(validate_name name) ()
+@@ -462,7 +462,7 @@ and transl_type_aux env ~row_context ~aliased ~policy styp =
+       begin try
+         TyVarEnv.lookup_local ~row_context:row_context name
+       with Not_found ->
+-        let v = TyVarEnv.new_var ~name policy in
++        let v = TyVarEnv.new_var ?name:(validate_name (Some name)) policy in
+         TyVarEnv.remember_used name v styp.ptyp_loc;
+         v
+       end

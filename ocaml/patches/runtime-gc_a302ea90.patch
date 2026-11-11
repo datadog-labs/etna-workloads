@@ -1,0 +1,28 @@
+diff --git a/runtime/minor_gc.c b/runtime/minor_gc.c
+index b429672..fff632b 100644
+--- a/runtime/minor_gc.c
++++ b/runtime/minor_gc.c
+@@ -666,6 +666,11 @@ caml_empty_minor_heap_promote(caml_domain_state* domain,
+   caml_gc_log("promoted %d roots, %" CAML_PRIuNAT " bytes",
+               remembered_roots, st.live_bytes);
+ 
++  CAML_EV_BEGIN(EV_MINOR_FINALIZERS_ADMIN);
++  caml_gc_log("running finalizer data structure book-keeping");
++  caml_final_update_last_minor(domain);
++  CAML_EV_END(EV_MINOR_FINALIZERS_ADMIN);
++
+ #ifdef DEBUG
+   caml_global_barrier(participating_count);
+   caml_gc_log("ref_base: %p, ref_ptr: %p",
+@@ -925,11 +930,6 @@ caml_stw_empty_minor_heap_no_major_slice(caml_domain_state* domain,
+   custom_finalize_minor(domain);
+   CAML_EV_END(EV_MINOR_FINALIZED);
+ 
+-  CAML_EV_BEGIN(EV_MINOR_FINALIZERS_ADMIN);
+-  caml_gc_log("running finalizer data structure book-keeping");
+-  caml_final_update_last_minor(domain);
+-  CAML_EV_END(EV_MINOR_FINALIZERS_ADMIN);
+-
+   CAML_EV_BEGIN(EV_MINOR_CLEAR);
+   caml_gc_log("running stw empty_minor_heap_domain_clear");
+   caml_empty_minor_heap_domain_clear(domain);

@@ -1,0 +1,208 @@
+diff --git a/driver/compile_common.ml b/driver/compile_common.ml
+index 9b56c54..d519f8e 100644
+--- a/driver/compile_common.ml
++++ b/driver/compile_common.ml
+@@ -51,7 +51,6 @@ let typecheck_intf info ast =
+     |> Typemod.type_interface info.env
+     |> print_if info.ppf_dump Clflags.dump_typedtree Printtyped.interface
+   in
+-  let alerts = Builtin_attributes.alerts_of_sig ~mark:true ast in
+   let sg = tsg.Typedtree.sig_type in
+   if !Clflags.print_types then
+     Printtyp.wrap_printing_env ~error:false info.env (fun () ->
+@@ -62,10 +61,11 @@ let typecheck_intf info ast =
+   Typecore.force_delayed_checks ();
+   Builtin_attributes.warn_unused ();
+   Warnings.check_fatal ();
+-  alerts, tsg
++  tsg
+ 
+-let emit_signature info alerts tsg =
++let emit_signature info ast tsg =
+   let sg =
++    let alerts = Builtin_attributes.alerts_of_sig ast in
+     Env.save_signature ~alerts tsg.Typedtree.sig_type
+       (Unit_info.cmi info.target)
+   in
+@@ -75,9 +75,9 @@ let interface info =
+   Profile.record_call (Unit_info.source_file info.target) @@ fun () ->
+   let ast = parse_intf info in
+   if Clflags.(should_stop_after Compiler_pass.Parsing) then () else begin
+-    let alerts, tsg = typecheck_intf info ast in
++    let tsg = typecheck_intf info ast in
+     if not !Clflags.print_types then begin
+-      emit_signature info alerts tsg
++      emit_signature info ast tsg
+     end
+   end
+ 
+diff --git a/driver/compile_common.mli b/driver/compile_common.mli
+index e3cb0fc..9a594f1 100644
+--- a/driver/compile_common.mli
++++ b/driver/compile_common.mli
+@@ -47,17 +47,14 @@ val with_info :
+ val parse_intf : info -> Parsetree.signature
+ (** [parse_intf info] parses an interface (usually an [.mli] file). *)
+ 
+-val typecheck_intf :
+-  info -> Parsetree.signature -> Misc.alerts * Typedtree.signature
+-(** [typecheck_intf info parsetree] typechecks an interface and returns the
+-    typedtree of the associated signature, together with the alerts appearing at
+-    the top of the signature (before any other non-attribute item).
++val typecheck_intf : info -> Parsetree.signature -> Typedtree.signature
++(** [typecheck_intf info parsetree] typechecks an interface and returns
++    the typedtree of the associated signature.
+ *)
+ 
+-val emit_signature : info -> Misc.alerts -> Typedtree.signature -> unit
+-(** [emit_signature info alerts typedtree] emits the [.cmi] file containing the
+-    given signature and compilation unit alerts (as returned eg by
+-    [typecheck_intf] above).
++val emit_signature : info -> Parsetree.signature -> Typedtree.signature -> unit
++(** [emit_signature info parsetree typedtree] emits the [.cmi] file
++    containing the given signature.
+ *)
+ 
+ val interface : info -> unit
+diff --git a/parsing/builtin_attributes.ml b/parsing/builtin_attributes.ml
+index 8cf7612..336de3e 100644
+--- a/parsing/builtin_attributes.ml
++++ b/parsing/builtin_attributes.ml
+@@ -46,7 +46,6 @@ let compiler_stops_before_attributes_consumed () =
+ 
+ let warn_unused () =
+   let keys = List.of_seq (Attribute_table.to_seq_keys unused_attrs) in
+-  Attribute_table.clear unused_attrs;
+   if not (compiler_stops_before_attributes_consumed ()) then
+     let keys = List.sort attr_order keys in
+     List.iter (fun sloc ->
+@@ -280,10 +279,7 @@ let rec attrs_of_sig = function
+   | _ ->
+       []
+ 
+-let alerts_of_sig ~mark sg =
+-  let a = attrs_of_sig sg in
+-  if mark then mark_alerts_used a;
+-  alerts_of_attrs a
++let alerts_of_sig sg = alerts_of_attrs (attrs_of_sig sg)
+ 
+ let rec attrs_of_str = function
+   | {pstr_desc = Pstr_attribute a} :: tl ->
+@@ -291,10 +287,7 @@ let rec attrs_of_str = function
+   | _ ->
+       []
+ 
+-let alerts_of_str ~mark str =
+-  let a = attrs_of_str str in
+-  if mark then mark_alerts_used a;
+-  alerts_of_attrs a
++let alerts_of_str str = alerts_of_attrs (attrs_of_str str)
+ 
+ let warn_payload loc txt msg =
+   Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg))
+@@ -324,19 +317,15 @@ let warning_attribute ?(ppwarning = true) =
+           with Arg.Bad msg -> warn_payload loc name.txt msg
+         end
+     | k ->
++        (* Don't [mark_used] in the [Some] cases - that happens in [Env] or
++           [type_mod] if they are in a valid place.  Do [mark_used] in the
++           [None] case, which is just malformed and covered by the "Invalid
++           payload" warning. *)
+         match kind_and_message k with
+         | Some ("all", _) ->
+             warn_payload loc name.txt "The alert name 'all' is reserved"
+-        | Some _ ->
+-            (* Do [mark_used] in the [Some] case only if Warning 53 is
+-               disabled. Later, they will be marked used (provided they are in a
+-               valid place) in [compile_common], when they are extracted to be
+-               persisted inside the [.cmi] file. *)
+-            if not (Warnings.is_active (Misplaced_attribute ""))
+-            then mark_used name
++        | Some _ -> ()
+         | None -> begin
+-            (* Do [mark_used] in the [None] case, which is just malformed and
+-               covered by the "Invalid payload" warning. *)
+             mark_used name;
+             warn_payload loc name.txt "Invalid payload"
+           end
+diff --git a/parsing/builtin_attributes.mli b/parsing/builtin_attributes.mli
+index 1111092..978811e 100644
+--- a/parsing/builtin_attributes.mli
++++ b/parsing/builtin_attributes.mli
+@@ -117,8 +117,8 @@ val check_alerts_inclusion:
+   def:Location.t -> use:Location.t -> Location.t -> Parsetree.attributes ->
+   Parsetree.attributes -> string -> unit
+ val alerts_of_attrs: Parsetree.attributes -> Misc.alerts
+-val alerts_of_sig: mark:bool -> Parsetree.signature -> Misc.alerts
+-val alerts_of_str: mark:bool -> Parsetree.structure -> Misc.alerts
++val alerts_of_sig: Parsetree.signature -> Misc.alerts
++val alerts_of_str: Parsetree.structure -> Misc.alerts
+ 
+ val check_deprecated_mutable:
+     Location.t -> Parsetree.attributes -> string -> unit
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..8b22986 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -1588,7 +1588,7 @@ and transl_with ~loc env remove_aliases (rev_tconstraints, sg) constr =
+   ((path, lid, constr) :: rev_tconstraints, sg)
+ 
+ 
+-and transl_signature env sg =
++and transl_signature ?(toplevel = false) env sg =
+   let names = Signature_names.create () in
+   let rec transl_sig env sg =
+     match sg with
+@@ -1889,6 +1889,8 @@ and transl_signature env sg =
+             typedtree, sg, final_env
+         | Psig_attribute x ->
+             Builtin_attributes.warning_attribute x;
++            if toplevel || not (Warnings.is_active (Misplaced_attribute ""))
++            then Builtin_attributes.mark_alert_used x;
+             let (trem,rem, final_env) = transl_sig env srem in
+             mksig (Tsig_attribute x) env loc :: trem, rem, final_env
+         | Psig_extension (ext, _attrs) ->
+@@ -3079,6 +3081,8 @@ and type_str_item ~names ~toplevel ~funct_body anchor env shape_map
+         raise (Error_forward (Builtin_attributes.error_of_extension ext))
+     | Pstr_attribute x ->
+         Builtin_attributes.warning_attribute x;
++        if toplevel || not (Warnings.is_active (Misplaced_attribute "")) then
++          Builtin_attributes.mark_alert_used x;
+         Tstr_attribute x, [], shape_map, env
+   in
+   { str_desc = desc; str_loc = loc; str_env = env }, sg, shape_map, new_env
+@@ -3355,8 +3359,8 @@ let type_implementation target initial_env ast =
+              declarations like "let x = true;; let x = 1;;", because in this
+              case, the inferred signature contains only the last declaration. *)
+           let shape = Shape_reduce.local_reduce Env.empty shape in
+-          let alerts = Builtin_attributes.alerts_of_str ~mark:true ast in
+           if not !Clflags.dont_write_files then begin
++            let alerts = Builtin_attributes.alerts_of_str ast in
+             let cmi =
+               Env.save_signature ~alerts simple_sg (Unit_info.cmi target)
+             in
+@@ -3384,7 +3388,10 @@ let save_signature target tsg initial_env cmi =
+     (Cmt_format.Interface tsg) initial_env (Some cmi) None
+ 
+ let type_interface env ast =
+-  transl_signature env ast
++  transl_signature ~toplevel:true env ast
++
++let transl_signature env ast =
++  transl_signature ~toplevel:false env ast
+ 
+ (* "Packaging" of several compilation units into one unit
+    having them as sub-modules.  *)
+diff --git a/typing/typemod.mli b/typing/typemod.mli
+index 835c9f3..303f7b6 100644
+--- a/typing/typemod.mli
++++ b/typing/typemod.mli
+@@ -43,6 +43,8 @@ val type_implementation:
+   Typedtree.implementation
+ val type_interface:
+         Env.t -> Parsetree.signature -> Typedtree.signature
++val transl_signature:
++        Env.t -> Parsetree.signature -> Typedtree.signature
+ val check_nongen_signature:
+         Env.t -> Types.signature -> unit
+         (*

@@ -1,0 +1,62 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..2fe8d01 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -3152,6 +3152,13 @@ let compare_package env unify_list lv1 pack1 lv2 pack2 =
+    environment is built in subst. *)
+ let rigid_variants = ref false
+ 
++let passive_variants = ref false
++let with_passive_variants f x =
++  if !passive_variants then f x else
++  match passive_variants := true; f x with
++  | r           -> passive_variants := false; r
++  | exception e -> passive_variants := false; raise e
++
+ let unify1_var uenv t1 t2 =
+   assert (is_Tvar t1);
+   occur_for Unify uenv t1 t2;
+@@ -3715,6 +3722,7 @@ and unify_row_field uenv fixed1 fixed2 rm1 rm2 l f1 f2 =
+         List.iter2 (unify uenv) tl1 tl2
+       end
+       else let redo =
++        not !passive_variants &&
+         (m1 || m2 || either_fixed ||
+          !rigid_variants && (List.length tl1 = 1 || List.length tl2 = 1)) &&
+         begin match tl1 @ tl2 with [] -> false
+@@ -3736,6 +3744,7 @@ and unify_row_field uenv fixed1 fixed2 rm1 rm2 l f1 f2 =
+         [], [] -> ()
+       | (tu1::tlu1), _ :: _ ->
+           (* Attempt to merge all the types containing univars *)
++          if not !passive_variants then
+           List.iter (unify uenv tu1) (tlu1@tlu2)
+       | (tu::_, []) | ([], tu::_) ->
+           occur_univar_or_unscoped_for Unify env tu
+diff --git a/typing/ctype.mli b/typing/ctype.mli
+index 0f7bbab..5466b97 100644
+--- a/typing/ctype.mli
++++ b/typing/ctype.mli
+@@ -331,6 +331,8 @@ val unify_gadt:
+ val unify_var: Env.t -> type_expr -> type_expr -> unit
+         (* Same as [unify], but allow free univars when first type
+            is a variable. *)
++val with_passive_variants: ('a -> 'b) -> ('a -> 'b)
++        (* Call [f] in passive_variants mode, for exhaustiveness check. *)
+ 
+ type filtered_arrow =
+   { ty_param : type_expr;
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..1cf7e8a 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -2754,7 +2754,9 @@ let partial_pred ~lev ~splitting_mode ?(explode=0) env expected_ty p =
+       } in
+   try
+     let typed_p =
+-      check_counter_example_pat ~counter_example_args penv p expected_ty
++      Ctype.with_passive_variants
++        (check_counter_example_pat ~counter_example_args penv p)
++        expected_ty
+     in
+     set_state state penv;
+     (* types are invalidated but we don't need them here *)

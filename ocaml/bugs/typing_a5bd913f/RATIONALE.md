@@ -1,0 +1,3 @@
+# Rationale
+File typing/btype.ml, `copy_type_desc`, Tfield case. Fix hunk `@@ -477,7 +477,7 @@ let rec copy_type_desc` replaced `copy_kind k` (fresh kind) with the shared kind. Today's code uses `field_kind_internal_repr k` (shared); I reintroduced copying: a private (FKvar) kind becomes a fresh `field_private ()`, public/absent are kept (via `field_kind_repr`, since constructors are abstract in btype).
+Commands: `make -j8 && make -j8 ocamltest && sh run-oracle.sh` -> field_kind.ml failed (o3 prints no x, Assert_failure). Final `make clean && make -j8 && make -j8 ocamltest` then run-oracle: failed.

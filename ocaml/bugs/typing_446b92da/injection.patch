@@ -1,0 +1,45 @@
+diff --git a/typing/value_rec_check.ml b/typing/value_rec_check.ml
+index b7af466..46e9923 100644
+--- a/typing/value_rec_check.ml
++++ b/typing/value_rec_check.ml
+@@ -627,33 +627,14 @@ let rec expression : Typedtree.expression -> term_judg =
+       *)
+       expression arg << Guard
+     | Texp_apply (e, args)  ->
+-        (* [args] may contain omitted arguments, corresponding to labels in
+-           the function's type that were not passed in the actual application.
+-           The arguments before the first omitted argument are passed to the
+-           function immediately, so they are dereferenced. The arguments after
+-           the first omitted one are stored in a closure, so guarded.
+-           The function itself is called immediately (dereferenced) if there
+-           is at least one argument before the first omitted one.
+-           On the other hand, if the first argument is omitted then the
+-           function is stored in the closure without being called. *)
+-        let rec split_args ~has_omitted_arg = function
+-          | [] -> [], []
+-          | (_, Omitted ()) :: rest -> split_args ~has_omitted_arg:true rest
+-          | (_, Arg arg) :: rest ->
+-            let applied, delayed = split_args ~has_omitted_arg rest in
+-            if has_omitted_arg
+-            then applied, arg :: delayed
+-            else arg :: applied, delayed
+-        in
+-        let applied, delayed = split_args ~has_omitted_arg:false args in
+-        let function_mode =
+-          match applied with
+-          | [] -> Guard
+-          | _ :: _ -> Dereference
++        let arg (_, eo) = match eo with
++          | Omitted () -> empty
++          | Arg e -> expression e in
++        let app_mode = if List.exists is_abstracted_arg args
++          then Guard
++          else Dereference
+         in
+-        join [expression e << function_mode;
+-              list expression applied << Dereference;
+-              list expression delayed << Guard]
++        join [expression e; list arg args] << app_mode
+     | Texp_tuple exprs ->
+       list expression (List.map snd exprs) << Guard
+     | Texp_atomic_loc (expr, _, _) ->

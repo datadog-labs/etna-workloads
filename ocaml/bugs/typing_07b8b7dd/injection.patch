@@ -1,0 +1,35 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..40af46e 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -3298,22 +3298,6 @@ let rec is_nonexpansive exp =
+       is_nonexpansive body
+   | Texp_apply(e, (_,Omitted ())::el) ->
+       is_nonexpansive e && List.for_all is_nonexpansive_arg (List.map snd el)
+-  | Texp_match(e, cases, _, _) ->
+-     (* Not sure this is necessary, if [e] is nonexpansive then we shouldn't
+-         care if there are exception patterns. But the previous version enforced
+-         that there be none, so... *)
+-      let contains_exception_pat pat =
+-        exists_general_pattern { f = fun (type k) (p : k general_pattern) ->
+-          match p.pat_desc with
+-          | Tpat_exception _ -> true
+-          | _ -> false } pat
+-      in
+-      is_nonexpansive e &&
+-      List.for_all
+-        (fun {c_lhs; c_guard; c_rhs} ->
+-           is_nonexpansive_opt c_guard && is_nonexpansive c_rhs
+-           && not (contains_exception_pat c_lhs)
+-        ) cases
+   | Texp_tuple el ->
+       List.for_all (fun (_, e) -> is_nonexpansive e) el
+   | Texp_construct( _, _, el) ->
+@@ -3382,6 +3366,7 @@ let rec is_nonexpansive exp =
+   | Texp_send _
+   | Texp_instvar _
+   | Texp_setinstvar _
++  | Texp_match _
+   | Texp_override _
+   | Texp_letop _
+   | Texp_extension_constructor _ ->

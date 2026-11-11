@@ -1,0 +1,50 @@
+diff --git a/lambda/matching.ml b/lambda/matching.ml
+index 4fdf67a..abf8bb4 100644
+--- a/lambda/matching.ml
++++ b/lambda/matching.ml
+@@ -493,8 +493,6 @@ module Context : sig
+ 
+   val lub : pattern -> t -> t
+ 
+-  val erase_first_col : t -> t
+-
+   val matches : t -> matrix -> bool
+ 
+   val combine : t -> t
+@@ -528,11 +526,6 @@ end = struct
+       | _ :: xs -> { left = Patterns.omega :: left; right = xs }
+       | _ -> assert false
+ 
+-    let erase_first_col { left; right } =
+-      match right with
+-      | _ :: right -> { left; right = Patterns.omega :: right }
+-      | _ -> assert false
+-
+     let rshift { left; right } =
+       match left with
+       | p :: ps -> { left = ps; right = p :: right }
+@@ -577,8 +570,6 @@ end = struct
+ 
+   let rshift ctx = List.map Row.rshift ctx
+ 
+-  let erase_first_col ctx = List.map Row.erase_first_col ctx
+-
+   let rshift_num n ctx = List.map (Row.rshift_num n) ctx
+ 
+   let combine ctx = List.map Row.combine ctx
+@@ -3896,13 +3887,11 @@ and bind_match_arg kind v arg (lam, jumps) =
+        between the reads (due to a [when] guard or even a race from
+        another thread or domain), so we must be careful not to
+        propagate context information that could have become
+-       incorrect. We "fix" the context information on mutable arguments
+-       by calling [Context.erase_first_col] below.
++       incorrect.
+     *)
+     match mut_of_binding_kind kind with
+     | Immutable -> jumps
+-    | Mutable ->
+-        Jumps.map Context.erase_first_col jumps in
++    | Mutable -> jumps in
+   (bind_check kind v arg lam,
+    jumps)
+ 

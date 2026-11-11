@@ -1,0 +1,23 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..33dceff 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2300,7 +2300,7 @@ let occur_univar_or_unscoped ?(inj_only=false) env ty =
+                       in this position. Physical expansion, as done in `occur`,
+                       would be costly here, since we need to check inside
+                       object and variant types too. *)
+-                  if Variance.(if inj_only then mem Inj v else not (eq v null))
++                  if Variance.(if inj_only then mem Inj v else (mem May_pos v || mem May_neg v))
+                   then occur_rec env bound_uv bound_id t)
+                 tl td.type_variance
+             with Not_found ->
+@@ -2414,7 +2414,8 @@ let univars_escape env univar_pairs vl ty =
+             let td = Env.find_type p env in
+             List.iter2
+               (* see occur_univar_or_unscoped *)
+-              (fun t v -> if not Variance.(eq v null) then occur t)
++              (fun t v ->
++                if Variance.(mem May_pos v || mem May_neg v) then occur t)
+               tl td.type_variance
+           with Not_found ->
+             List.iter occur tl

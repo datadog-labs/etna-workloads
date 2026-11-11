@@ -1,0 +1,16 @@
+diff --git a/typing/includecore.ml b/typing/includecore.ml
+index 1a38bd4..c962c30 100644
+--- a/typing/includecore.ml
++++ b/typing/includecore.ml
+@@ -1053,7 +1053,10 @@ let type_declarations ?(equality = false) ~loc env ~mark name
+   let abstr' = abstr || decl2.type_private = Private in
+   let need_variance =
+     abstr' || decl1.type_private = Private || decl1.type_kind = Type_open in
+-  if not need_variance then None else
++  let private_abbrev =
++    decl2.type_private = Private && (match decl2.type_kind with Type_abstract _ -> true | _ -> false)
++    && decl2.type_manifest <> None in
++  if not need_variance || (private_abbrev && not abstr) then None else
+   let opn = decl2.type_kind = Type_open && decl2.type_manifest = None in
+   let constrained ty = not (Btype.is_Tvar ty) in
+   if List.for_all2

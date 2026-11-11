@@ -1,0 +1,101 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..a3a6d5d 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -6157,7 +6157,7 @@ let nongen_vars_in_class_declaration cty =
+ 
+ (* Normalize a type before printing, saving... *)
+ (* Cannot use mark_type because deep_occur uses it too *)
+-let rec normalize_type_rec mark ty =
++let rec normalize_type_rec env mark ty =
+   if try_mark_node mark ty then begin
+     let tm = row_of_type ty in
+     begin if not (is_Tconstr ty) && is_constr_row ~allow_ident:false tm then
+@@ -6178,7 +6178,7 @@ let rec normalize_type_rec mark ty =
+                 List.fold_left
+                   (fun tyl ty ->
+                      if List.exists
+-                          (fun ty' -> is_equal Env.empty false [ty] [ty'])
++                          (fun ty' -> is_equal env false [ty] [ty'])
+                           tyl
+                      then tyl
+                      else ty::tyl)
+@@ -6218,11 +6218,11 @@ let rec normalize_type_rec mark ty =
+         set_type_desc fi (get_desc fi')
+     | _ -> ()
+     end;
+-    iter_type_expr (normalize_type_rec mark) ty;
++    iter_type_expr (normalize_type_rec env mark) ty;
+   end
+ 
+-let normalize_type ty =
+-  with_type_mark (fun mark -> normalize_type_rec mark ty)
++let normalize_type env ty =
++  with_type_mark (fun mark -> normalize_type_rec env mark ty)
+ 
+ 
+                               (*************************)
+diff --git a/typing/ctype.mli b/typing/ctype.mli
+index 0f7bbab..59b127a 100644
+--- a/typing/ctype.mli
++++ b/typing/ctype.mli
+@@ -510,7 +510,7 @@ val nondep_cltype_declaration:
+         (* Same for class type declarations. *)
+ (*val correct_abbrev: Env.t -> Path.t -> type_expr list -> type_expr -> unit*)
+ val is_contractive: Env.t -> Path.t -> bool
+-val normalize_type: type_expr -> unit
++val normalize_type: Env.t -> type_expr -> unit
+ 
+ val nongen_vars_in_schema: Env.t -> type_expr -> Btype.TypeSet.t option
+         (* Return any non-generic variables in the type scheme *)
+diff --git a/typing/out_type.ml b/typing/out_type.ml
+index c60e7f9..b40e082 100644
+--- a/typing/out_type.ml
++++ b/typing/out_type.ml
+@@ -932,7 +932,7 @@ end = struct
+     weak_var_map := m
+ 
+   let reserve ty =
+-    normalize_type ty;
++    normalize_type !printing_env ty;
+     add_named_vars ty
+ end
+ 
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..9f9c135 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -3096,17 +3096,17 @@ let type_structure =
+ 
+ (* Normalize types in a signature *)
+ 
+-let rec normalize_modtype = function
++let rec normalize_modtype env = function
+     Mty_ident _
+   | Mty_alias _ -> ()
+-  | Mty_signature sg -> normalize_signature sg
+-  | Mty_functor(_param, body) -> normalize_modtype body
++  | Mty_signature sg -> normalize_signature env sg
++  | Mty_functor(_param, body) -> normalize_modtype env body
+ 
+-and normalize_signature sg = List.iter normalize_signature_item sg
++and normalize_signature env sg = List.iter (normalize_signature_item env) sg
+ 
+-and normalize_signature_item = function
+-    Sig_value(_id, desc, _) -> Ctype.normalize_type desc.val_type
+-  | Sig_module(_id, _, md, _, _) -> normalize_modtype md.md_type
++and normalize_signature_item env = function
++    Sig_value(_id, desc, _) -> Ctype.normalize_type env desc.val_type
++  | Sig_module(_id, _, md, _, _) -> normalize_modtype env md.md_type
+   | _ -> ()
+ 
+ (* Extract the module type of a module expression *)
+@@ -3348,7 +3348,7 @@ let type_implementation target initial_env ast =
+               sourcefile sg "(inferred signature)" simple_sg shape
+           in
+           check_nongen_signature finalenv simple_sg;
+-          normalize_signature simple_sg;
++          normalize_signature finalenv simple_sg;
+           Typecore.force_delayed_checks ();
+           (* See comment above. Here the target signature contains all
+              the values being exported. We can still capture unused

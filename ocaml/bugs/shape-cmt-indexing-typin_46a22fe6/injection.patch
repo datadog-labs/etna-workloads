@@ -1,0 +1,93 @@
+diff --git a/file_formats/cmt_format.ml b/file_formats/cmt_format.ml
+index c21335a..957deef 100644
+--- a/file_formats/cmt_format.ml
++++ b/file_formats/cmt_format.ml
+@@ -146,7 +146,7 @@ let iter_on_occurrences
+   let path_in_type typ name =
+     match Types.get_desc typ with
+     | Tconstr (type_path, _, _) ->
+-      Some (Path.Pextra_ty(type_path, Pcstr_ty name))
++      Some (Path.Pdot (type_path,  name))
+     | _ -> None
+   in
+   let add_constructor_description env lid =
+@@ -377,8 +377,7 @@ let index_occurrences binary_annots =
+        should make these successive reductions fast. *)
+     let rec index_components namespace lid path  =
+       let module_ = Shape.Sig_component_kind.Module in
+-      let scraped_path = Path.scrape_extra_ty path in
+-      match lid.Location.txt, scraped_path with
++      match lid.Location.txt, path with
+       | Longident.Ldot (lid', _), Path.Pdot (path', _) ->
+         reduce_and_store ~namespace lid path;
+         index_components module_ lid' path'
+diff --git a/typing/path.ml b/typing/path.ml
+index e0062b1..ba443c6 100644
+--- a/typing/path.ml
++++ b/typing/path.ml
+@@ -162,10 +162,6 @@ let flatten =
+   in
+   fun t -> flatten [] t
+ 
+-let rec scrape_extra_ty = function
+-  | Pextra_ty (t, _) -> scrape_extra_ty t
+-  | t -> t
+-
+ let heads p =
+   let rec heads p acc = match p with
+     | Pident id -> id :: acc
+diff --git a/typing/path.mli b/typing/path.mli
+index e43f1d1..553b5c4 100644
+--- a/typing/path.mli
++++ b/typing/path.mli
+@@ -72,9 +72,6 @@ val check_for_unbound_unscoped_idents:
+ 
+ val flatten : t -> [ `Contains_apply | `Ok of Ident.t * string list ]
+ 
+-val scrape_extra_ty: t -> t
+-(** Removes surrounding `Pext_ty` constructors from a path *)
+-
+ val name: ?paren:(string -> bool) -> t -> string
+     (* [paren] tells whether a path suffix needs parentheses *)
+ val head: t -> Ident.t
+diff --git a/typing/shape.ml b/typing/shape.ml
+index f519159..da039a0 100644
+--- a/typing/shape.ml
++++ b/typing/shape.ml
+@@ -309,22 +309,26 @@ let dummy_mod =
+ let of_path ~find_shape ~namespace path =
+   (* We need to handle the following cases:
+     Path of constructor:
+-      M.t.C [Pextra_ty("M.t", "C")]
++      M.t.C
+     Path of label:
+-      M.t.lbl [Pextra_ty("M.t", "lbl")]
++      M.t.lbl
+     Path of label of inline record:
+-      M.t.C.lbl [Pextra_ty(Pextra_ty("M.t", "C"), "lbl")] *)
++      M.t.C.lbl *)
+   let rec aux : Sig_component_kind.t -> Path.t -> t = fun ns -> function
+     | Pident id -> find_shape ns id
+-    | Pdot (path, name) -> proj (aux Module path) (name, ns)
++    | Pdot (path, name) ->
++        let namespace :  Sig_component_kind.t =
++          match (ns : Sig_component_kind.t) with
++          | Constructor -> Type
++          | Label -> Type
++          | _ -> Module
++        in
++        proj (aux namespace path) (name, ns)
+     | Papply (p1, p2) -> app (aux Module p1) ~arg:(aux Module p2)
+     | Pextra_ty (path, extra) -> begin
+-        match extra, ns, path with
+-        | Pcstr_ty name, Label, Pextra_ty _ ->
+-            (* Handle the M.t.C.lbl case *)
+-            proj (aux Constructor path) (name, ns)
+-        | Pcstr_ty name, _, _ -> proj (aux Type path) (name, ns)
+-        | Pext_ty, _, _ -> aux Extension_constructor path
++        match extra with
++          Pcstr_ty name -> proj (aux Type path) (name, Constructor)
++        | Pext_ty -> aux Extension_constructor path
+       end
+   in
+   aux namespace path

@@ -1,0 +1,25 @@
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..c03f07a 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -608,7 +608,7 @@ module Merge = struct
+     | item, [s] -> patch item s env outer_sg ~ghosts
+ 
+     (* Deep constraints *)
+-    | Sig_module(id, _, md, rs, priv) as current_item, s :: namelist
++    | Sig_module(id, _, md, rs, priv) as _current_item, s :: namelist
+       when Ident.name id = s ->
+         let sig_env = Env.add_signature outer_sg env in
+         let sg = extract_sig sig_env loc md.md_type in
+@@ -618,11 +618,6 @@ module Merge = struct
+         let path = path_concat id subpath in
+         begin
+           match md.md_type, destructive with
+-          | Mty_alias _, false ->
+-              (* Deep non-destructive substitutions inside aliases are checked,
+-                 but do not change the resulting signature *)
+-              return_payload ~ghosts
+-                ~replace_by:(Some current_item) path ~late_typedtree
+           | _, _ ->
+               let new_md = {md with md_type = Mty_signature newsg} in
+               let new_item = Sig_module(id, Mp_present, new_md, rs, priv) in

@@ -1,0 +1,28 @@
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..f3ab4f4 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -2978,12 +2978,11 @@ and lookup_structure_components ~errors ~use l env =
+   | Error (No_components_alias p) ->
+       may_lookup_error errors loc env (Cannot_scrape_alias(lid, p))
+ 
+-and get_functor_components ~errors ~loc lid env comps =
++and get_functor_components ~errors ~loc ~arg_mty lid env comps =
+   match get_components_res comps with
+   | Ok (Functor_comps fcomps) -> begin
+       match fcomps.fcomp_arg with
+-      | Unit -> (* PR#7611 *)
+-          may_lookup_error errors loc env (Generative_used_as_applicative lid)
++      | Unit -> fcomps, arg_mty
+       | Named (_, arg) -> fcomps, arg
+     end
+   | Ok (Structure_comps _) ->
+@@ -3013,7 +3012,7 @@ and lookup_apply ~errors ~use ~loc lid0 env =
+   let check_one_apply ~errors ~loc ~f_lid ~f_comp ~arg_path ~arg_mty env =
+     let f_comp, param_mty =
+       let { txt = f_lid; loc } = f_lid in
+-      get_functor_components ~errors ~loc f_lid env f_comp
++      get_functor_components ~errors ~loc ~arg_mty f_lid env f_comp
+     in
+     check_functor_appl
+       ~errors ~loc ~lid_whole_app:lid0

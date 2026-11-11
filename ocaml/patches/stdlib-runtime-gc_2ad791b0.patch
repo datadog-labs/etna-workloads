@@ -1,0 +1,44 @@
+diff --git a/stdlib/gc.ml b/stdlib/gc.ml
+index 9afa24e..a5e065f 100644
+--- a/stdlib/gc.ml
++++ b/stdlib/gc.ml
+@@ -53,7 +53,7 @@ external stat : unit -> stat = "caml_gc_stat"
+ external quick_stat : unit -> stat = "caml_gc_quick_stat"
+ external counters : unit -> (float * float * float) = "caml_gc_counters"
+ external minor_words : unit -> (float [@unboxed])
+-  = "caml_gc_minor_words" "caml_gc_minor_words_unboxed"
++  = "caml_gc_minor_words" "caml_gc_minor_words_unboxed" [@@noalloc]
+ external get : unit -> control = "caml_gc_get"
+ external set : control -> unit = "caml_gc_set"
+ external minor : unit -> unit = "caml_gc_minor"
+@@ -61,7 +61,7 @@ external major_slice : int -> int = "caml_gc_major_slice"
+ external major : unit -> unit = "caml_gc_major"
+ external full_major : unit -> unit = "caml_gc_full_major"
+ external compact : unit -> unit = "caml_gc_compaction"
+-external get_minor_free : unit -> int = "caml_get_minor_free"
++external get_minor_free : unit -> int = "caml_get_minor_free" [@@noalloc]
+ 
+ let eventlog_pause () = ()
+ let eventlog_resume () = ()
+diff --git a/stdlib/gc.mli b/stdlib/gc.mli
+index df5a1b9..4007ce4 100644
+--- a/stdlib/gc.mli
++++ b/stdlib/gc.mli
+@@ -268,7 +268,7 @@ external counters : unit -> float * float * float = "caml_gc_counters"
+     [quick_stat]. *)
+ 
+ external minor_words : unit -> (float [@unboxed])
+-  = "caml_gc_minor_words" "caml_gc_minor_words_unboxed"
++  = "caml_gc_minor_words" "caml_gc_minor_words_unboxed" [@@noalloc]
+ (** Number of words allocated in the minor heap by this domain or potentially
+     previous domains. This number is accurate in byte-code programs, but
+     only an approximation in programs compiled to native code.
+@@ -330,7 +330,7 @@ val allocated_bytes : unit -> float
+    a previous domain. It is returned as a [float] to avoid overflow problems
+    with [int] on 32-bit machines. *)
+ 
+-external get_minor_free : unit -> int = "caml_get_minor_free"
++external get_minor_free : unit -> int = "caml_get_minor_free" [@@noalloc]
+ (** Return the current size of the free space inside the minor heap of this
+    domain.
+ 

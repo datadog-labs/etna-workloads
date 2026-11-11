@@ -1,0 +1,29 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..501aa40 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -978,8 +978,7 @@ let rec update_level env level expand ty =
+         let env = Env.add_module (Ident.of_unscoped id) Mp_present mty env in
+         set_level ();
+         update_level env level expand t
+-    | Tfield(lab, _, ty1, _)
+-      when lab = dummy_method && level < get_scope ty1 ->
++    | Tfield(lab, _, _, _) when lab = dummy_method ->
+         raise_escape_exn Self
+     | _ ->
+         set_level ();
+diff --git a/typing/subst.ml b/typing/subst.ml
+index ac011c9..a8e4182 100644
+--- a/typing/subst.ml
++++ b/typing/subst.ml
+@@ -253,10 +253,6 @@ let rec typexp copy_scope s ty =
+       else ty
+   | Tsubst (ty, _) ->
+       ty
+-  | Tfield (m, k, _t1, _t2) when not s.for_saving && m = dummy_method
+-      && field_kind_repr k <> Fabsent && get_level ty < generic_level ->
+-      (* do not copy the type of self when it is not generalized *)
+-      ty
+ (* cannot do it, since it would omit substitution
+   | Tvariant row when not (static_row row) ->
+       ty

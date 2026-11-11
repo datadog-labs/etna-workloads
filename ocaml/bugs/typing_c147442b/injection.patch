@@ -1,0 +1,24 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..ecae694 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -932,18 +932,8 @@ let rec update_level env level expand ty =
+         with Cannot_expand ->
+           raise_escape_exn (Constructor p)
+         end
+-    | Tconstr(p, (_ :: _ as tl), _) ->
+-        let variance =
+-          try (Env.find_type p env).type_variance
+-          with Not_found -> List.map (fun _ -> Variance.unknown) tl in
+-        let needs_expand =
+-          expand ||
+-          List.exists2
+-            (fun var ty -> var = Variance.null && get_level ty > level)
+-            variance tl
+-        in
++    | Tconstr(_, _ :: _, _) when expand ->
+         begin try
+-          if not needs_expand then raise Cannot_expand;
+           let ty' = !forward_try_expand_safe env ty in
+           link_type ty ty';
+           update_level env level expand ty'

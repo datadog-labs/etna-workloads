@@ -1,0 +1,18 @@
+diff --git a/typing/includecore.ml b/typing/includecore.ml
+index 1a38bd4..39b20cd 100644
+--- a/typing/includecore.ml
++++ b/typing/includecore.ml
+@@ -652,8 +652,11 @@ module Variant_diffing = struct
+         if List.length arg1 <> List.length arg2 then
+           Some (Arity : constructor_mismatch)
+         else begin
+-        (* Ctype.equal must be called on all arguments at once, cf. PR#7378 *)
+-        match Ctype.equal env true (params1 @ arg1) (params2 @ arg2) with
++        match
++          List.iter2
++            (fun ty1 ty2 -> Ctype.equal env true (ty1::params1) (ty2::params2))
++            arg1 arg2
++        with
+         | exception Ctype.Equality err -> Some (Type err)
+         | () -> None
+       end

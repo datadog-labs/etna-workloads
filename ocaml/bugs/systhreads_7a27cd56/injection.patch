@@ -1,0 +1,55 @@
+diff --git a/otherlibs/systhreads/st_pthreads.h b/otherlibs/systhreads/st_pthreads.h
+index 9d2ede1..d22703a 100644
+--- a/otherlibs/systhreads/st_pthreads.h
++++ b/otherlibs/systhreads/st_pthreads.h
+@@ -157,44 +157,12 @@ static void st_masterlock_release(st_masterlock * m)
+ */
+ Caml_inline void st_thread_yield(st_masterlock * m)
+ {
+-  pthread_mutex_lock(&m->lock);
+-  /* We must hold the lock to call this. */
+-
+-  /* We already checked this without the lock, but we might have raced--if
+-     there's no waiter, there's nothing to do and no one to wake us if we did
+-     wait, so just keep going. */
+-  uintnat waiters = st_masterlock_waiters(m);
+-
+-  if (waiters == 0) {
+-    pthread_mutex_unlock(&m->lock);
+-    return;
+-  }
+-
+-  m->busy = false;
+-  atomic_fetch_add(&m->waiters, +1);
+-  pthread_cond_signal(&m->is_free);
+-  /* releasing the domain lock but not triggering bt messaging
+-     messaging the bt should not be required because yield assumes
+-     that a thread will resume execution (be it the yielding thread
+-     or a waiting thread */
+-  caml_release_domain_lock();
+-
+-  do {
+-    /* Note: the POSIX spec prevents the above signal from pairing with this
+-       wait, which is good: we'll reliably continue waiting until the next
+-       yield() or enter_blocking_section() call (or we see a spurious condvar
+-       wakeup, which are rare at best.) */
+-       pthread_cond_wait(&m->is_free, &m->lock);
+-  } while (m->busy);
+-
+-  m->busy = true;
+-  atomic_fetch_add(&m->waiters, -1);
+-
+-  caml_acquire_domain_lock();
+-
+-  pthread_mutex_unlock(&m->lock);
+-
+-  return;
++  struct timespec t;
++  st_masterlock_release(m);
++  t.tv_sec = 0;
++  t.tv_nsec = 1;
++  nanosleep(&t, NULL);
++  st_masterlock_acquire(m);
+ }
+ 
+ /* Triggered events */

@@ -1,0 +1,42 @@
+diff --git a/stdlib/hashtbl.ml b/stdlib/hashtbl.ml
+index dee5f0f..93b2c7c 100644
+--- a/stdlib/hashtbl.ml
++++ b/stdlib/hashtbl.ml
+@@ -479,14 +479,13 @@ module MakeSeeded(H: SeededHashedType): (SeededS with type key = H.t) =
+ 
+     (* Iterators *)
+ 
+-    let rec mem_in_bucket key = function
++    let mem h key =
++      let rec mem_in_bucket = function
+       | Empty ->
+           false
+       | Cons{key=k; next} ->
+-          H.equal k key || mem_in_bucket key next
+-
+-    let mem h key =
+-      mem_in_bucket key h.data.(key_index h key)
++          H.equal k key || mem_in_bucket next in
++      mem_in_bucket h.data.(key_index h key)
+ 
+     let add_seq tbl i =
+       Seq.iter (fun (k,v) -> add tbl k v) i
+@@ -657,14 +656,13 @@ let replace h key data =
+   let bucket = retrieve_bucket key l in
+   replace_bucket h key i l data bucket
+ 
+-let rec mem_in_bucket key = function
++let mem h key =
++  let rec mem_in_bucket = function
+   | Empty ->
+       false
+   | Cons{key=k; next} ->
+-      compare k key = 0 || mem_in_bucket key next
+-
+-let mem h key =
+-  mem_in_bucket key h.data.(key_index h key)
++      compare k key = 0 || mem_in_bucket next in
++  mem_in_bucket h.data.(key_index h key)
+ 
+ let add_seq tbl i =
+   Seq.iter (fun (k,v) -> add tbl k v) i

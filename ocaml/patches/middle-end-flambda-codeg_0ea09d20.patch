@@ -1,0 +1,71 @@
+diff --git a/lambda/translprim.ml b/lambda/translprim.ml
+index d5a9ebd..e62232a 100644
+--- a/lambda/translprim.ml
++++ b/lambda/translprim.ml
+@@ -238,9 +238,9 @@ let primitives_table =
+     "%nativeint_sub", Primitive ((Psubbint Pnativeint), 2);
+     "%nativeint_mul", Primitive ((Pmulbint Pnativeint), 2);
+     "%nativeint_div",
+-    Primitive ((Pdivbint { size = Pnativeint; is_safe = Safe }), 2);
++    Primitive ((Pdivbint { size = Pnativeint; is_safe = Unsafe }), 2);
+     "%nativeint_mod",
+-    Primitive ((Pmodbint { size = Pnativeint; is_safe = Safe }), 2);
++    Primitive ((Pmodbint { size = Pnativeint; is_safe = Unsafe }), 2);
+     "%nativeint_and", Primitive ((Pandbint Pnativeint), 2);
+     "%nativeint_or", Primitive ( (Porbint Pnativeint), 2);
+     "%nativeint_xor", Primitive ((Pxorbint Pnativeint), 2);
+@@ -253,8 +253,8 @@ let primitives_table =
+     "%int32_add", Primitive ((Paddbint Pint32), 2);
+     "%int32_sub", Primitive ((Psubbint Pint32), 2);
+     "%int32_mul", Primitive ((Pmulbint Pint32), 2);
+-    "%int32_div", Primitive ((Pdivbint { size = Pint32; is_safe = Safe }), 2);
+-    "%int32_mod", Primitive ((Pmodbint { size = Pint32; is_safe = Safe }), 2);
++    "%int32_div", Primitive ((Pdivbint { size = Pint32; is_safe = Unsafe }), 2);
++    "%int32_mod", Primitive ((Pmodbint { size = Pint32; is_safe = Unsafe }), 2);
+     "%int32_and", Primitive ((Pandbint Pint32), 2);
+     "%int32_or", Primitive ( (Porbint Pint32), 2);
+     "%int32_xor", Primitive ((Pxorbint Pint32), 2);
+@@ -267,8 +267,8 @@ let primitives_table =
+     "%int64_add", Primitive ((Paddbint Pint64), 2);
+     "%int64_sub", Primitive ((Psubbint Pint64), 2);
+     "%int64_mul", Primitive ((Pmulbint Pint64), 2);
+-    "%int64_div", Primitive ((Pdivbint { size = Pint64; is_safe = Safe }), 2);
+-    "%int64_mod", Primitive ((Pmodbint { size = Pint64; is_safe = Safe }), 2);
++    "%int64_div", Primitive ((Pdivbint { size = Pint64; is_safe = Unsafe }), 2);
++    "%int64_mod", Primitive ((Pmodbint { size = Pint64; is_safe = Unsafe }), 2);
+     "%int64_and", Primitive ((Pandbint Pint64), 2);
+     "%int64_or", Primitive ( (Porbint Pint64), 2);
+     "%int64_xor", Primitive ((Pxorbint Pint64), 2);
+diff --git a/middle_end/semantics_of_primitives.ml b/middle_end/semantics_of_primitives.ml
+index e92b526..953e31c 100644
+--- a/middle_end/semantics_of_primitives.ml
++++ b/middle_end/semantics_of_primitives.ml
+@@ -51,16 +51,9 @@ let for_primitive (prim : Clambda_primitives.primitive) =
+   | Pintcomp _ -> No_effects, No_coeffects
+   | Pcompare_ints | Pcompare_floats | Pcompare_bints _
+     -> No_effects, No_coeffects
+-  | Pdivbint { is_safe = Unsafe }
+-  | Pmodbint { is_safe = Unsafe }
+-  | Pdivint Unsafe
+-  | Pmodint Unsafe ->
+-      No_effects, No_coeffects  (* Will not raise [Division_by_zero]. *)
+-  | Pdivbint { is_safe = Safe }
+-  | Pmodbint { is_safe = Safe }
+-  | Pdivint Safe
+-  | Pmodint Safe ->
+-      Arbitrary_effects, No_coeffects
++  | Pdivint _
++  | Pmodint _ ->
++      No_effects, No_coeffects
+   | Poffsetint _ -> No_effects, No_coeffects
+   | Poffsetref _ -> Arbitrary_effects, Has_coeffects
+   | Pintoffloat
+@@ -83,6 +76,8 @@ let for_primitive (prim : Clambda_primitives.primitive) =
+   | Paddbint _
+   | Psubbint _
+   | Pmulbint _
++  | Pdivbint _
++  | Pmodbint _
+   | Pandbint _
+   | Porbint _
+   | Pxorbint _

@@ -1,0 +1,41 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..1ef9ba4 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -3950,26 +3950,6 @@ let may_contain_modules p =
+    | _ -> false)
+   p
+ 
+-let check_absent_variant env =
+-  iter_general_pattern { f = fun (type k) (pat : k general_pattern) ->
+-    match pat.pat_desc with
+-    | Tpat_variant (s, arg, row) ->
+-      let row = !row in
+-      if List.exists (fun (s',fi) -> s = s' && row_field_repr fi <> Rabsent)
+-          (row_fields row)
+-      || not (is_fixed row) && not (static_row row)  (* same as Ctype.poly *)
+-      then () else
+-      let ty_arg =
+-        match arg with None -> [] | Some p -> [duplicate_type p.pat_type] in
+-      let fields = [s, rf_either ty_arg ~no_arg:(arg=None) ~matched:true] in
+-      let row' =
+-        create_row ~fields
+-          ~more:(newvar ()) ~closed:false ~fixed:None ~name:None in
+-      (* Should fail *)
+-      unify_pat env {pat with pat_type = newty (Tvariant row')}
+-                     (duplicate_type pat.pat_type)
+-    | _ -> () }
+-
+ (* To find reasonable names for let-bound and lambda-bound idents *)
+ 
+ let rec name_pattern default = function
+@@ -6834,9 +6814,6 @@ and map_half_typed_cases
+       Partial
+   in
+   let unused_check delayed =
+-    List.iter (fun { typed_pat; branch_env; _ } ->
+-      check_absent_variant branch_env (as_comp_pattern category typed_pat)
+-    ) half_typed_cases;
+     with_level_if delayed ~level:lev begin fun () ->
+       check_unused ~lev env ty_arg_check val_cases ;
+       check_unused ~lev env Predef.type_exn exn_cases ;

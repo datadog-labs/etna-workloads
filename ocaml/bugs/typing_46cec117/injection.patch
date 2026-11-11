@@ -1,0 +1,46 @@
+diff --git a/typing/typedecl.ml b/typing/typedecl.ml
+index 63eee2a..ba8249a 100644
+--- a/typing/typedecl.ml
++++ b/typing/typedecl.ml
+@@ -1899,7 +1899,7 @@ let transl_package_constraint ~loc env ty =
+ 
+ (* Approximate a type declaration: just make all types abstract *)
+ 
+-let abstract_type_decl ~injective ~explanation arity =
++let abstract_type_decl ~explanation arity =
+   let rec make_params n =
+     if n <= 0 then [] else Ctype.newvar() :: make_params (n-1) in
+   Ctype.with_local_level_generalize begin fun () ->
+@@ -1908,7 +1908,7 @@ let abstract_type_decl ~injective ~explanation arity =
+       type_kind = Type_abstract explanation;
+       type_private = Public;
+       type_manifest = None;
+-      type_variance = Variance.unknown_signature ~injective ~arity;
++      type_variance = Misc.replicate_list Variance.full arity;
+       type_separability = Types.Separability.default_signature ~arity;
+       type_is_newtype = false;
+       type_expansion_scope = Btype.lowest_level;
+@@ -1924,9 +1924,8 @@ let approx_type_decl ~explanation sdecl_list =
+   let scope = Ctype.create_scope () in
+   List.map
+     (fun sdecl ->
+-      let injective = sdecl.ptype_kind <> Ptype_abstract in
+       (Ident.create_scoped ~scope sdecl.ptype_name.txt,
+-       abstract_type_decl ~injective ~explanation
++       abstract_type_decl ~explanation
+         (List.length sdecl.ptype_params)))
+     sdecl_list
+ 
+diff --git a/typing/typedecl.mli b/typing/typedecl.mli
+index f57ca97..cf41b3d 100644
+--- a/typing/typedecl.mli
++++ b/typing/typedecl.mli
+@@ -48,7 +48,7 @@ val transl_package_constraint:
+   loc:Location.t -> Env.t -> type_expr -> Types.type_declaration
+ 
+ val abstract_type_decl:
+-    injective:bool -> explanation:Types.type_origin -> int -> type_declaration
++    explanation:Types.type_origin -> int -> type_declaration
+ 
+ (** Approximate a list of type declarations with abstract types of the
+     given origin. *)

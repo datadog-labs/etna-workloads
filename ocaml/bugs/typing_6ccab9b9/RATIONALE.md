@@ -1,0 +1,3 @@
+# Rationale
+File typing/env.ml, `open_signature` (the first, low-level one): replaced `get_components_res (...)` with its `Error _` case by `get_components (...)` (which raises Not_found-style on missing module, handled by the existing `exception Not_found` case). This reverses fix hunk `@@ -2002,9 +2002,10 @@ let add_components slot root env0 comps =` (open_signature matching on get_components_res instead of get_components), so opening an alias to a missing module no longer reports "This is an alias for module MissingModule, which is missing".
+Commands: `make -j8 && make -j8 ocamltest && sh run-oracle.sh`; final after `make clean`. Result: pr9695_bad.ml fails (Unbound value x instead of alias error).

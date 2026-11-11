@@ -1,0 +1,33 @@
+diff --git a/lambda/translprim.ml b/lambda/translprim.ml
+index d5a9ebd..9d99974 100644
+--- a/lambda/translprim.ml
++++ b/lambda/translprim.ml
+@@ -940,7 +940,7 @@ let primitive_needs_event_after = function
+   | External _ | Sys_argv -> true
+   (* Primitives that may call an arbitrary OCaml function need an event *)
+   | Lazy_force | Send | Send_self | Send_cache
+-  | Apply | Revapply -> true
++  | Apply | Revapply -> false
+   | Raise _ | Raise_with_backtrace
+   | Loc _
+   | Frame_pointers | Identity
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..1e2531b 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -4442,13 +4442,13 @@ and type_expect_
+         | Texp_ident (_, _,
+                       {val_kind = Val_prim {prim_name="%revapply"}; val_type}),
+           [Nolabel, sarg; Nolabel, actual_sfunct]
+-          when is_inferred actual_sfunct
++          when false && is_inferred actual_sfunct
+             && check_apply_prim_type Revapply val_type ->
+             type_sfunct actual_sfunct, [Nolabel, sarg]
+         | Texp_ident (_, _,
+                       {val_kind = Val_prim {prim_name="%apply"}; val_type}),
+           [Nolabel, actual_sfunct; Nolabel, sarg]
+-          when check_apply_prim_type Apply val_type ->
++          when false && check_apply_prim_type Apply val_type ->
+             type_sfunct actual_sfunct, [Nolabel, sarg]
+         | _ ->
+             funct, sargs

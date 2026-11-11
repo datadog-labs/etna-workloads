@@ -1,0 +1,67 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..cbf1849 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2702,7 +2702,7 @@ let deep_occur_list t0 tyl =
+    This function is called only in [Pattern] mode. *)
+ let reify uenv t =
+   let fresh_constr_scope = get_equations_scope uenv in
+-  let create_fresh_constr lev name =
++  let create_fresh_constr name =
+     let name = match name with Some s -> "$'"^s | _ -> "$" in
+     let decl = new_local_type Definition in
+     let env = get_env uenv in
+@@ -2712,7 +2712,7 @@ let reify uenv t =
+     in
+     let id = enter_type uenv new_name decl ~scope:fresh_constr_scope in
+     let path = Path.Pident id in
+-    let t = newty2 ~level:lev (Tconstr (path,[],ref Mnil)) in
++    let t = newty2 ~level:(get_current_level ()) (Tconstr (path,[],ref Mnil)) in
+     path, t
+   in
+   let visited = ref TypeSet.empty in
+@@ -2722,7 +2722,7 @@ let reify uenv t =
+       match get_desc ty with
+         Tvar o ->
+           let level = get_level ty in
+-          let path, t = create_fresh_constr level o in
++          let path, t = create_fresh_constr o in
+           link_type ty t;
+           if level < fresh_constr_scope then
+             raise_for Unify (Escape (escape (Constructor path)))
+@@ -2733,7 +2733,7 @@ let reify uenv t =
+             match get_desc m with
+               Tvar o ->
+                 let level = get_level m in
+-                let path, t = create_fresh_constr level o in
++                let path, t = create_fresh_constr o in
+                 let row =
+                   let fixed = Some (Reified path) in
+                   create_row ~fields:[] ~more:t ~fixed
+@@ -3057,9 +3057,8 @@ let add_gadt_equation uenv source destination =
+   if has_free_univars env destination then
+     occur_univar_or_unscoped ~inj_only:true env destination
+   else if local_non_recursive_abbrev uenv source destination then begin
+-    let destination = duplicate_type destination in
+     let expansion_scope =
+-      Int.max (Path.scope source) (get_equations_scope uenv)
++      Int.max (Path.scope source) (get_equations_scope uenv) + 1
+     in
+     let type_origin =
+       match Env.find_type source env with
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..57d7120 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -2743,9 +2743,9 @@ let check_counter_example_pat ~counter_example_args penv tp expected_ty =
+ 
+ (* this function is passed to Partial.parmatch
+    to type check gadt nonexhaustiveness *)
+-let partial_pred ~lev ~splitting_mode ?(explode=0) env expected_ty p =
++let partial_pred ~lev:_ ~splitting_mode ?(explode=0) env expected_ty p =
+   let penv = Pattern_env.make env
+-      ~equations_scope:lev ~in_counterexample:true in
++      ~equations_scope:(get_current_level ()) ~in_counterexample:true in
+   let state = save_state penv in
+   let counter_example_args =
+       {

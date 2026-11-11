@@ -1,0 +1,31 @@
+diff --git a/runtime/alloc.c b/runtime/alloc.c
+index 7522f4b..4c96e78 100644
+--- a/runtime/alloc.c
++++ b/runtime/alloc.c
+@@ -51,7 +51,7 @@ CAMLexport value caml_alloc (mlsize_t wosize, tag_t tag)
+     if (tag < No_scan_tag) {
+       for (mlsize_t i = 0; i < wosize; i++) Field (result, i) = Val_unit;
+     }
+-    result = caml_check_urgent_gc (result);
++    result = caml_process_pending_actions_with_root (result);
+   }
+   return result;
+ }
+@@ -183,7 +183,7 @@ CAMLexport value caml_alloc_string (mlsize_t len)
+     Alloc_small (result, wosize, String_tag, Alloc_small_enter_GC);
+   }else{
+     result = caml_alloc_shr (wosize, String_tag);
+-    result = caml_check_urgent_gc (result);
++    result = caml_process_pending_actions_with_root (result);
+   }
+   Field (result, wosize - 1) = 0;
+   offset_index = Bsize_wsize (wosize) - 1;
+@@ -256,7 +256,7 @@ value caml_alloc_float_array(mlsize_t len)
+       Alloc_small (result, wosize, Double_array_tag, Alloc_small_enter_GC);
+   } else {
+     result = caml_alloc_shr (wosize, Double_array_tag);
+-    result = caml_check_urgent_gc (result);
++    result = caml_process_pending_actions_with_root (result);
+   }
+   return result;
+ #else

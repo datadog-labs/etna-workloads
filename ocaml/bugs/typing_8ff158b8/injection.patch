@@ -1,0 +1,25 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..b32d39a 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -3270,12 +3270,15 @@ and unify2_rec uenv t10 t1 t20 t2 =
+ 
+ and unify2_expand uenv t1 t1' t2 t2' =
+   (* Second step: expansion of abbreviations *)
+-  (* Expansion may change the representative of the types. *)
+   let env = get_env uenv in
+-  ignore (expand_head_unif env t1');
+-  ignore (expand_head_unif env t2');
+-  let t1' = expand_head_unif env t1' in
+-  let t2' = expand_head_unif env t2' in
++  let rec expand_both t1'' t2'' =
++    let t1' = expand_head_unif env t1'' in
++    let t2' = expand_head_unif env t2'' in
++    (* Expansion may have changed the representative of the types... *)
++    if unify_eq uenv t1' t1'' && unify_eq uenv t2' t2'' then (t1',t2') else
++    expand_both t1' t2'
++  in
++  let t1', t2' = expand_both t1' t2' in
+   let lv = Int.min (get_level t1') (get_level t2') in
+   let scope = Int.max (get_scope t1') (get_scope t2') in
+   update_level_for Unify env lv t2;

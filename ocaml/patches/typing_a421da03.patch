@@ -1,0 +1,26 @@
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..0bcc410 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -1171,14 +1171,13 @@ and approx_constraint env body constr =
+       sg
+   | Pwith_module (id, lid)
+   | Pwith_modsubst (id, lid) ->
+-      (* Lookup the module to make sure that it is not recursive.
+-         (GPR#1626) *)
+-      let path, approx_md =
+-        Env.lookup_module ~use:false ~loc:lid.loc lid.txt env in
+-      let _,_,sg =
+-        Merge.merge_module ~approx:true ~destructive env
+-          lid.loc body id approx_md path false in
+-      sg
++      match Env.lookup_module ~use:false ~loc:lid.loc lid.txt env with
++      | path, approx_md ->
++          let _,_,sg =
++            Merge.merge_module ~approx:true ~destructive env
++              lid.loc body id approx_md path false in
++          sg
++      | exception Env.Error _ -> body
+ 
+ 
+ let approx_modtype env smty =

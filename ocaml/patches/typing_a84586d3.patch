@@ -1,0 +1,36 @@
+diff --git a/typing/typedecl.ml b/typing/typedecl.ml
+index 63eee2a..8939f68 100644
+--- a/typing/typedecl.ml
++++ b/typing/typedecl.ml
+@@ -1193,6 +1193,15 @@ let transl_type_decl env rec_flag sdecl_list =
+       (tdecls, decls, shapes, temp_env, new_env)
+     end
+   in
++  (* Update temporary definitions (for well-founded recursive types) *)
++  begin match rec_flag with
++  | Asttypes.Nonrecursive -> ()
++  | Asttypes.Recursive ->
++      List.iter2
++        (fun (id, _) sdecl ->
++          update_type temp_env new_env id sdecl.ptype_loc)
++        ids_list sdecl_list
++  end;
+   (* Check for ill-formed abbrevs *)
+   let id_loc_list =
+     List.map2 (fun (id, _) sdecl -> (id, sdecl.ptype_loc))
+@@ -1220,15 +1229,6 @@ let transl_type_decl env rec_flag sdecl_list =
+   List.iter (fun (tdecl, _shape) ->
+     check_abbrev_regularity ~abs_env new_env id_loc_list to_check tdecl)
+     tdecls;
+-  (* Update temporary definitions (for well-founded recursive types) *)
+-  begin match rec_flag with
+-  | Asttypes.Nonrecursive -> ()
+-  | Asttypes.Recursive ->
+-      List.iter2
+-        (fun (id, _) sdecl ->
+-          update_type temp_env new_env id sdecl.ptype_loc)
+-        ids_list sdecl_list
+-  end;
+   (* Check that all type variables are closed *)
+   List.iter2
+     (fun sdecl (tdecl, _shape) ->

@@ -1,0 +1,140 @@
+diff --git a/runtime/caml/fiber.h b/runtime/caml/fiber.h
+index c2680d0..446e562 100644
+--- a/runtime/caml/fiber.h
++++ b/runtime/caml/fiber.h
+@@ -262,7 +262,6 @@ CAMLextern uintnat caml_get_init_stack_wsize(void);
+ void caml_change_max_stack_size (uintnat new_max_wsize);
+ void caml_maybe_expand_stack(void);
+ CAMLextern void caml_free_stack(struct stack_info* stk);
+-CAMLextern void caml_free_stack_cache(struct stack_info** cache);
+ 
+ /* gc_regs_buckets is allocated on-demand by [maybe_expand_stack]. */
+ CAMLextern void caml_free_gc_regs_buckets(value *gc_regs_buckets);
+diff --git a/runtime/domain.c b/runtime/domain.c
+index ed04538..8808b36 100644
+--- a/runtime/domain.c
++++ b/runtime/domain.c
+@@ -2409,8 +2409,6 @@ void caml_domain_terminate(bool last)
+   if(domain_state->current_stack != NULL) {
+     caml_free_stack(domain_state->current_stack);
+   }
+-  caml_free_stack_cache(domain_state->stack_cache);
+-  domain_state->stack_cache = NULL;
+   caml_free_backtrace_buffer(domain_state->backtrace_buffer);
+   caml_free_gc_regs_buckets(domain_state->gc_regs_buckets);
+ 
+diff --git a/runtime/fiber.c b/runtime/fiber.c
+index 4d2045b..a4d099d 100644
+--- a/runtime/fiber.c
++++ b/runtime/fiber.c
+@@ -181,8 +181,6 @@ alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket, value hval,
+       cache[cache_bucket] != NULL) {
+     stack = cache[cache_bucket];
+     cache[cache_bucket] =
+-      /* In the cache, reuse the exception_ptr field as an internal
+-         linked-list next pointer. */
+       (struct stack_info*)stack->exception_ptr;
+     CAMLassert(stack->cache_bucket == stack_cache_bucket(wosize));
+     hand = stack->handler;
+@@ -562,43 +560,6 @@ struct stack_info* caml_alloc_main_stack (uintnat init_wsize)
+   return stk;
+ }
+ 
+-atomic_uintnat caml_cache_stacks_per_class =
+-#if defined(USE_MMAP_MAP_STACK)
+-  1
+-#else
+-  128
+-#endif
+-  ;
+-
+-void caml_free_stack_memory(struct stack_info* stack) {
+-  atomic_fetch_sub(&live_stack_counter,
+-                   (value*)(stack->handler+1) - (value*)stack);
+-#ifdef DEBUG
+-  memset(stack, 0x42, (char*)stack->handler - (char*)stack);
+-#endif
+-#ifdef USE_MMAP_MAP_STACK
+-  munmap(stack, stack->size);
+-#else
+-  caml_stat_free(stack);
+-#endif
+-}
+-
+-void caml_free_stack_cache (struct stack_info** stack_cache)
+-{
+-  if (stack_cache == NULL)
+-    return;
+-
+-  struct stack_info* stored_stack;
+-  for (int i = 0; i < NUM_STACK_SIZE_CLASSES; i++) {
+-    while (stack_cache[i] != NULL) {
+-      stored_stack = stack_cache[i];
+-      stack_cache[i] = (struct stack_info*) stored_stack->exception_ptr;
+-      caml_free_stack_memory(stored_stack);
+-    };
+-  }
+-  caml_stat_free(stack_cache);
+-}
+-
+ void caml_free_stack (struct stack_info* stack)
+ {
+   CAMLnoalloc;
+@@ -607,24 +568,24 @@ void caml_free_stack (struct stack_info* stack)
+   CAMLassert(stack->magic == 42);
+   CAMLassert(cache != NULL);
+   if (stack->cache_bucket != -1) {
+-    struct stack_info* top = (struct stack_info*)cache[stack->cache_bucket];
+-    /* When stored inside the cache, the fiber id field is reused to count
+-       the number of fibers in the bucket */
+-    int64_t count = top ? top->id : 0;
+-    if (count < caml_cache_stacks_per_class) {
+-      /* Reuse exception_ptr to point to the next fiber in the bucket. */
+-      stack->exception_ptr = (void *)top;
+-      stack->id = count + 1;
+-      cache[stack->cache_bucket] = stack;
++    stack->exception_ptr =
++      (void*)(cache[stack->cache_bucket]);
++    cache[stack->cache_bucket] = stack;
+ #ifdef DEBUG
+     memset(Stack_base(stack), 0x42,
+            (Stack_high(stack)-Stack_base(stack))*sizeof(value));
+ #endif
+-    } else {
+-      caml_free_stack_memory(stack);
+-    }
+   } else {
+-    caml_free_stack_memory(stack);
++    atomic_fetch_sub(&live_stack_counter,
++                     (value*)(stack->handler+1) - (value*)stack);
++#ifdef DEBUG
++    memset(stack, 0x42, (char*)stack->handler - (char*)stack);
++#endif
++#ifdef USE_MMAP_MAP_STACK
++    munmap(stack, stack->size);
++#else
++    caml_stat_free(stack);
++#endif
+   }
+ }
+ 
+diff --git a/runtime/gc_ctrl.c b/runtime/gc_ctrl.c
+index 7c44651..71d13b1 100644
+--- a/runtime/gc_ctrl.c
++++ b/runtime/gc_ctrl.c
+@@ -51,7 +51,6 @@ extern _Atomic uintnat caml_custom_minor_ratio; /* see custom.c */
+ extern _Atomic uintnat caml_custom_minor_max_bsz; /* see custom.c */
+ extern uintnat caml_minor_heap_max_wsz; /* see domain.c */
+ extern atomic_uintnat caml_mark_stack_prune_factor; /* see major_gc.c */
+-extern atomic_uintnat caml_cache_stacks_per_class; /* see fiber.c */
+ 
+ CAMLprim value caml_gc_quick_stat(value v)
+ {
+@@ -515,7 +514,6 @@ static struct gc_tweak gc_tweaks[] = {
+ #define TWEAK(v) { #v, &caml_##v, 0 }
+   TWEAK(mark_stack_prune_factor),
+   TWEAK(small_heap_limit),
+-  TWEAK(cache_stacks_per_class),
+ #undef TWEAK
+ };
+ enum {N_GC_TWEAKS = sizeof(gc_tweaks)/sizeof(gc_tweaks[0])};

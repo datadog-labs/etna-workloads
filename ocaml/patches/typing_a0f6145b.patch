@@ -1,0 +1,48 @@
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..1ff67f6 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -2750,7 +2750,7 @@ and type_structure ?(toplevel = false) ~funct_body anchor env sstr =
+   if toplevel then run ()
+   else Builtin_attributes.warning_scope [] run
+ 
+-and type_str_item ~names ~toplevel ~funct_body anchor env shape_map
++and type_str_item ?(alias = true) ~names ~toplevel ~funct_body anchor env shape_map
+     {pstr_loc = loc; pstr_desc = desc} =
+   let desc, sg, shape_map, new_env =
+     match desc with
+@@ -2848,10 +2848,24 @@ and type_str_item ~names ~toplevel ~funct_body anchor env shape_map
+                   } ->
+         let outer_scope = Ctype.get_current_level () in
+         let scope = Ctype.create_scope () in
++        let alias =
++          alias ||
++          (match smodl.pmod_desc with
++           | Pmod_ident lid ->
++               let path = Env.lookup_module_path ~load:false ~loc:pmb_loc
++                   lid.txt env in
++               (match Env.scrape_alias env (Env.find_module path env).md_type
++                with
++                | Mty_signature sg ->
++                    List.for_all
++                      (function Sig_value _ -> false | _ -> true) sg
++                | _ -> false)
++           | _ -> false)
++        in
+         let modl, md_shape =
+           Builtin_attributes.warning_scope attrs
+             (fun () ->
+-               type_module ~alias:true ~strengthen:true ~funct_body
++               type_module ~alias ~strengthen:true ~funct_body
+                  (anchor_submodule name.txt anchor) env smodl
+             )
+         in
+@@ -3247,7 +3261,7 @@ let type_open_descr ?used_slot env od =
+ let type_str_item env pstri =
+   let si, _, _, new_env =
+     type_str_item
+-      ~toplevel:false ~funct_body:false ~names:(Signature_names.create ())
++      ~alias:false ~toplevel:false ~funct_body:false ~names:(Signature_names.create ())
+       None env Shape.Map.empty pstri
+   in
+   si, new_env

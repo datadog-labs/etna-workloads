@@ -1,0 +1,43 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..b90577a 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -7757,9 +7757,8 @@ let report_error ~loc env = function
+   | Label_not_mutable lid ->
+       Location.errorf ~loc "The record field %a is not mutable"
+         quoted_longident lid
+-  | Wrong_name (eorp, ty_expected, { type_path; kind; name; valid_names; }) ->
++  | Wrong_name (_eorp, _ty_expected, { type_path; kind; name; valid_names; }) ->
+      Printtyp.wrap_printing_env ~error:true env (fun () ->
+-         let { ty; explanation } = ty_expected in
+          if Path.is_constructor_typath type_path then
+            Location.aligned_error_hint ~loc
+              "@{<ralign>The field @}%a is not part of the record argument \
+@@ -7768,15 +7767,12 @@ let report_error ~loc env = function
+              (Style.as_inline_code Printtyp.type_path) type_path
+              (spellcheck name.txt valid_names)
+          else
+-           let intro ppf = Fmt.fprintf ppf "@[%s type@;<1 2>%a%a@]@\n"
+-             eorp (Style.as_inline_code Printtyp.type_expr) ty
+-             pp_doc (report_type_expected_explanation_opt explanation)
+-           in
+            let main =
+-             Fmt.doc_printf "@{<ralign>There is no %s @}%a within type %a"
++             Fmt.doc_printf "@{<ralign>The %s type @}%a has no %s %a"
++             (Datatype_kind.type_name kind)
++             (Style.as_inline_code Printtyp.type_path) type_path
+              (Datatype_kind.label_name kind)
+              Style.inline_code name.txt
+-             (Style.as_inline_code Printtyp.type_path) type_path
+            in
+            let main, sub =
+              match spellcheck name.txt valid_names with
+@@ -7785,7 +7781,7 @@ let report_error ~loc env = function
+                  let main, hint = Misc.align_error_hint ~main ~hint in
+                  main, [Location.mknoloc hint]
+            in
+-           Location.errorf ~loc ~sub "%t%a" intro pp_doc main
++           Location.errorf ~loc ~sub "%a" pp_doc main
+        )
+   | Name_type_mismatch (kind, lid, tp, tpl) ->
+       let type_name = Datatype_kind.type_name kind in

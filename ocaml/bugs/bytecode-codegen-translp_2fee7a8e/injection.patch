@@ -1,0 +1,30 @@
+diff --git a/bytecomp/bytegen.ml b/bytecomp/bytegen.ml
+index c735d13..77c2025 100644
+--- a/bytecomp/bytegen.ml
++++ b/bytecomp/bytegen.ml
+@@ -566,7 +566,7 @@ let rec comp_expr stack_info env exp sz cont =
+         end
+       end
+   | Lsend(kind, met, obj, args, _) ->
+-      assert (kind <> Cached);
++      let args = if kind = Cached then List.tl args else args in
+       let nargs = List.length args + 1 in
+       let getmethod, args' =
+         if kind = Self then (Kgetmethod, met::obj::args) else
+diff --git a/lambda/translprim.ml b/lambda/translprim.ml
+index d5a9ebd..305470a 100644
+--- a/lambda/translprim.ml
++++ b/lambda/translprim.ml
+@@ -814,11 +814,7 @@ let lambda_of_prim prim_name prim loc args arg_exps =
+   | Send_self, [obj; meth] ->
+       Lsend(Self, meth, obj, [], loc)
+   | Send_cache, [obj; meth; cache; pos] ->
+-      (* Cached mode only works in the native backend *)
+-      if !Clflags.native_code then
+-        Lsend(Cached, meth, obj, [cache; pos], loc)
+-      else
+-        Lsend(Public, meth, obj, [], loc)
++      Lsend(Cached, meth, obj, [cache; pos], loc)
+   | Frame_pointers, [] ->
+       let frame_pointers =
+         if !Clflags.native_code && Config.with_frame_pointers then 1 else 0

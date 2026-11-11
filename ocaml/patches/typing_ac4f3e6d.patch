@@ -1,0 +1,49 @@
+diff --git a/typing/typedecl_separability.ml b/typing/typedecl_separability.ml
+index 4dde667..bef2d11 100644
+--- a/typing/typedecl_separability.ml
++++ b/typing/typedecl_separability.ml
+@@ -115,6 +115,9 @@ let (++) = TVarMap.union (fun _ m1 m2 -> Some(max_mode m1 m2))
+ let empty = TVarMap.empty
+ 
+ 
++let best_msig decl = List.map (fun _ -> Ind) decl.type_params
++let worst_msig decl = List.map (fun _ -> Deepsep) decl.type_params
++
+ (** [immediate_subtypes ty] returns the list of all the
+    immediate sub-type-expressions of [ty]. They represent the biggest
+    sub-components that may be extracted using a constraint. For
+@@ -416,10 +419,10 @@ let check_type
+     | (Tobject(_,_)       , Sep    )
+     | ((Tnil | Tfield _)  , Sep    )
+     | (Tfunctor _         , Sep    )
+-    | (Tpackage _         , Sep    ) -> empty
+-    (* "Deeply separable" case for these same constructors. *)
++    | (Tpackage _         , Sep    )
+     | (Tarrow _           , Deepsep)
+-    | (Ttuple _           , Deepsep)
++    | (Ttuple _           , Deepsep) -> empty
++    (* "Deeply separable" case for these same constructors. *)
+     | (Tvariant(_)        , Deepsep)
+     | (Tobject(_,_)       , Deepsep)
+     | ((Tnil | Tfield _)  , Deepsep)
+@@ -463,7 +466,10 @@ let check_type
+     | (Tunivar(_)         , _      ) -> empty
+     (* Type constructor case. *)
+     | (Tconstr(path,tys,_), m      ) ->
+-        let msig = (Env.find_type path env).type_separability in
++        let decl = Env.find_type path env in
++        let msig =
++          if decl.type_private = Asttypes.Private then worst_msig decl
++          else decl.type_separability in
+         let on_param context (ty, m_param) =
+           let hyps = match m_param with
+             | Ind -> Hyps.guard hyps
+@@ -474,8 +480,6 @@ let check_type
+   in
+   check_type env Hyps.empty ty m
+ 
+-let best_msig decl = List.map (fun _ -> Ind) decl.type_params
+-let worst_msig decl = List.map (fun _ -> Deepsep) decl.type_params
+ 
+ (** [msig_of_external_type decl] infers the mode signature of an
+     abstract/external type. We must assume the worst, namely that this

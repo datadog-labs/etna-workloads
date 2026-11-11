@@ -1,0 +1,28 @@
+diff --git a/otherlibs/systhreads/st_pthreads.h b/otherlibs/systhreads/st_pthreads.h
+index 9d2ede1..5ae5967 100644
+--- a/otherlibs/systhreads/st_pthreads.h
++++ b/otherlibs/systhreads/st_pthreads.h
+@@ -157,6 +157,10 @@ static void st_masterlock_release(st_masterlock * m)
+ */
+ Caml_inline void st_thread_yield(st_masterlock * m)
+ {
++#ifdef __linux__
++  /* sched_yield() doesn't do what we want in Linux 2.6 and up (PR#2663) */
++  return;
++#endif
+   pthread_mutex_lock(&m->lock);
+   /* We must hold the lock to call this. */
+ 
+diff --git a/otherlibs/systhreads/thread.ml b/otherlibs/systhreads/thread.ml
+index 4df433f..5109fed 100644
+--- a/otherlibs/systhreads/thread.ml
++++ b/otherlibs/systhreads/thread.ml
+@@ -80,7 +80,7 @@ let () =
+ 
+ (* Wait functions *)
+ 
+-let delay = Unix.sleepf
++let delay time = ignore(Unix.select [] [] [] time)
+ 
+ let wait_timed_read fd d =
+   match Unix.select [fd] [] [] d with ([], _, _) -> false | (_, _, _) -> true
