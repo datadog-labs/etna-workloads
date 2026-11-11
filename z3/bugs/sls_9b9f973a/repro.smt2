@@ -1,0 +1,7 @@
+(set-option :sls.restart_base 0)
+(declare-const x Int)
+(declare-const y Int)
+(assert (= (+ (* 3 x) (* 5 y)) 1007))
+(assert (> x y))
+(assert (< (* x y) 9000))
+(check-sat-using sls-smt)

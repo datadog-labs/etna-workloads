@@ -1,0 +1,35 @@
+--- a/src/ast/euf/euf_egraph.cpp
++++ b/src/ast/euf/euf_egraph.cpp
+@@ -115,7 +115,6 @@
+             child->get_root()->add_parent(n);
+         DEBUG_CODE(for (enode* child : enode_args(n))  
+                        SASSERT(child->get_root()->m_parents.back() == n););
+-        m_updates.push_back(update_record(n, update_record::update_children()));
+     }
+ 
+     enode* egraph::mk(expr* f, unsigned generation, unsigned num_args, enode *const* args) {
+@@ -354,6 +353,11 @@
+         if (enable_merge != n->cgc_enabled()) {
+             toggle_cgc_enabled(n, false);
+             m_updates.push_back(update_record(n, update_record::toggle_cgc()));
++            if (enable_merge && n->num_args() > 0) {
++                auto [n2, comm] = insert_table(n);
++                if (n2 != n) 
++                    merge(n, n2, justification::congruence(comm, m_congruence_timestamp++));
++            }
+         }
+     }
+ 
+@@ -370,10 +374,9 @@
+        if (n->num_args() > 0) {
+            if (enable_merge) {
+                auto [n2, comm] = insert_table(n);
+-               if (n2 != n && !backtracking)
+-                   m_to_merge.push_back(to_merge(n, n2, comm));
++               (void)n2; (void)comm;
+            }
+-           else if (n->is_cgr())
++           else if (m_table.contains_ptr(n))
+                erase_from_table(n);
+        }
+        VERIFY(n->num_args() == 0 || !n->cgc_enabled() || m_table.contains(n));

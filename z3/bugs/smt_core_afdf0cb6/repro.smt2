@@ -1,0 +1,5 @@
+(declare-sort U 0)
+(declare-const x U) (declare-const y U) (declare-const p Bool)
+(declare-fun g (Bool) Bool)
+(assert (distinct (g (= x (ite p x y))) (g true)))
+(check-sat-assuming (p))

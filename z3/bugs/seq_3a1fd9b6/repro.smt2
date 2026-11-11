@@ -1,0 +1,6 @@
+(set-logic ALL)
+(declare-const x Int)
+(declare-const s (FiniteSet Int))
+(assert (= s (set.map (lambda ((y Int)) (+ y 1)) (set.singleton x))))
+(assert (not (set.in (+ x 1) s)))
+(check-sat)

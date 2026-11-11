@@ -1,0 +1,52 @@
+--- a/src/cmd_context/cmd_context.cpp
++++ b/src/cmd_context/cmd_context.cpp
+@@ -1453,15 +1453,6 @@
+     };
+     datatype::util dt(m());
+     func_decl_ref fn(m());
+-    if (s == symbol("is") && num_args == 1 && num_indices == 1 && indices[0].is_symbol() && dt.is_datatype(args[0]->get_sort())) {
+-        for (func_decl* c : *dt.get_datatype_constructors(args[0]->get_sort())) {
+-            if (c->get_name() == indices[0].get_symbol()) {
+-                r = dt.mk_is(c, args[0]);
+-                return true;
+-            }
+-        }
+-        throw cmd_exception("invalid datatype recognizer, unknown constructor ", indices[0].get_symbol());
+-    }
+     for (auto* c : dt.plugin().get_constructors(s)) {
+         if (c->accessors().size() != num_args)
+             continue;
+@@ -1539,11 +1530,9 @@
+             }
+         }
+     }
+-    if (!range && s == symbol("is") && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
+-        return;
+     if (try_mk_builtin_app(s, num_args, args, num_indices, indices, range, result)) 
+         return;
+-    if (!range && s != symbol("is") && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
++    if (!range && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
+         return;
+     
+     func_decls fs;
+--- a/src/parsers/smt2/smt2parser.cpp
++++ b/src/parsers/smt2/smt2parser.cpp
+@@ -1643,17 +1643,7 @@
+                     next();
+                 }
+                 else if (curr_is_identifier() || curr_is_lparen()) {
+-                    if (r == symbol("is") && curr_is_identifier()) {
+-                        symbol id = curr_id();
+-                        if (m_ctx.is_func_decl(id))
+-                            m_param_stack.push_back(parameter(m_ctx.find_func_decl(id)));
+-                        else
+-                            m_param_stack.push_back(parameter(id));
+-                        next();
+-                    }
+-                    else {
+-                        m_param_stack.push_back(parameter(parse_func_decl_ref()));
+-                    }
++                    m_param_stack.push_back(parameter(parse_func_decl_ref()));
+                 }
+                 else {
+                     throw parser_exception("invalid indexed identifier, integer, identifier or '(' expected");

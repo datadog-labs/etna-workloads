@@ -1,0 +1,5 @@
+(set-logic ALL)
+(declare-datatypes ((Maybe 1)) ((par (a) ((Nothing) (Just (Just_sel a))))))
+(declare-const x Int)
+(assert ((_ is Just) (Just x)))
+(check-sat)

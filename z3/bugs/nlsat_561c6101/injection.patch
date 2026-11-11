@@ -1,0 +1,71 @@
+--- a/src/nlsat/nlsat_explain.cpp
++++ b/src/nlsat/nlsat_explain.cpp
+@@ -760,8 +760,9 @@
+ 
+         void test_root_literal(atom::kind k, var y, unsigned i, poly * p, scoped_literal_vector& result) {
+             m_result = &result;
+-            on_scope_exit reset([&] { reset_result(); });
+             add_root_literal(k, y, i, p);
++            reset_already_added();
++            m_result = nullptr;
+         }
+ 
+         
+@@ -1592,7 +1593,6 @@
+             while (true) {
+                 try {
+                     m_result = &result;
+-                    on_scope_exit reset([&] { reset_result(); });
+                     process(num, ls);
+                     reset_result();
+                     TRACE(nlsat_explain, display(tout << "[explain] result\n", m_solver, result) << "\n";);
+@@ -1601,7 +1601,9 @@
+                 }
+                 catch (add_all_coeffs_restart const&) {
+                     TRACE(nlsat_explain, tout << "restarting explanation with all coefficients\n";);
++                    reset_already_added();
+                     result.shrink(base);
++                    m_result = nullptr;
+                 }
+             }
+         }
+@@ -1618,7 +1620,6 @@
+                   );
+ 
+             m_result = &result;
+-            on_scope_exit reset([&] { reset_result(); });
+             m_lower_stage_polys.reset();
+             collect_polys(num, ls, m_ps);
+             for (unsigned i = 0; i < m_lower_stage_polys.size(); i++) {
+@@ -1645,7 +1646,6 @@
+                 bool reordered = false;
+                 try {
+                     m_result = &result;
+-                    on_scope_exit reset([&] { reset_result(); });
+                     svector<literal> lits;
+                     TRACE(nlsat, tout << "project x" << x << "\n"; 
+                           m_solver.display(tout, num, ls);
+@@ -1702,7 +1702,9 @@
+                     if (reordered) {
+                         m_solver.restore_order();
+                     }
++                    reset_already_added();
+                     result.shrink(base);
++                    m_result = nullptr;
+                 }
+             }
+         }
+--- a/src/nlsat/nlsat_solver.cpp
++++ b/src/nlsat/nlsat_solver.cpp
+@@ -2828,11 +2828,6 @@
+                     for (char& m : i.m_marks)
+                         m = 0;
+                 }
+-                else {
+-                    // The counter tracks pending trail literals, not those
+-                    // already in the lemma when cancellation interrupts resolution.
+-                    i.reset_marks();
+-                }
+             }
+         };
+ 

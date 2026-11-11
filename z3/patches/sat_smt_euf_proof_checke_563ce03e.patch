@@ -1,0 +1,30 @@
+--- a/src/sat/smt/euf_proof_checker.cpp
++++ b/src/sat/smt/euf_proof_checker.cpp
+@@ -516,16 +516,8 @@
+         // Negating the hint's clause together with the logged clause, as the
+         // fallback once did, accepted any logged clause under a hint whose
+         // clause is a tautology.
+-        expr_ref_vector vc(m);
++        expr_ref_vector vc(clause);
+         bool hint_is_tautology = proof_hint && m_checker.vc(proof_hint, clause, vc);
+-        if (hint_is_tautology || !vc.empty()) {
+-            if (!hint_checked)
+-                follows = follows_from_hint(clause, proof_hint, rup_diag);
+-            if (!follows) {
+-                hint_is_tautology = false;
+-                vc.reset();
+-            }
+-        }
+ 
+         if (m_checker.requires_check(proof_hint)) {
+             log_verified(proof_hint, false);
+@@ -543,9 +535,6 @@
+             add_clause(clause);
+             return true;
+         }
+-        if (vc.empty())
+-            vc.append(clause);
+-
+         log_verified(proof_hint, false);
+ 
+         ensure_solver();

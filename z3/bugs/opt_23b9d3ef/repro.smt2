@@ -1,0 +1,8 @@
+(set-option :model_validate true)
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (not ((_ at-most 1) a b c)))
+(assert (not a))
+(assert (not b))
+(check-sat-using (then pb2bv sat))

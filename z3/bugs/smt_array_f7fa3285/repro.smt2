@@ -1,0 +1,6 @@
+(set-logic ALL)
+(declare-const b (Array Int Int))
+(declare-const c (Array Int Int))
+(assert (distinct (lambda ((i Int)) i) b))
+(assert (not (= (lambda ((i Int)) (+ i 1)) c)))
+(check-sat)

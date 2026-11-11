@@ -1,0 +1,68 @@
+--- a/src/ast/fpa_decl_plugin.cpp
++++ b/src/ast/fpa_decl_plugin.cpp
+@@ -204,11 +204,6 @@
+         m_manager->raise_exception("minimum number of exponent bits is 2");
+     if (ebits > 63)
+         m_manager->raise_exception("maximum number of exponent bits is 63");
+-    if (sbits > MPF_MAX_SBITS) {
+-        std::stringstream strm;
+-        strm << "maximum number of significand bits is " << MPF_MAX_SBITS;
+-        m_manager->raise_exception(strm.str());
+-    }
+ 
+     parameter ps[2] = { parameter(ebits), parameter(sbits) };
+     sort_size sz;
+--- a/src/ast/rewriter/fpa_rewriter.cpp
++++ b/src/ast/rewriter/fpa_rewriter.cpp
+@@ -118,11 +118,6 @@
+     unsigned ebits = f->get_parameter(0).get_int();
+     unsigned sbits = f->get_parameter(1).get_int();
+ 
+-    // mpf stores sbits in a 16-bit field. Leave larger formats symbolic
+-    // instead of creating a numeral with a truncated, and therefore wrong, sort.
+-    if (sbits > 0xffffu)
+-        return BR_FAILED;
+-
+     if (num_args == 1) {
+         if (m_util.bu().is_numeral(args[0], r1, bvs1)) {
+             // BV -> float
+@@ -1075,29 +1070,6 @@
+         return expr_ref(m().mk_or(ge, le), m());
+     };
+ 
+-    if (static_cast<mpf_exp_t>(sbits) > max_exp) {
+-        // MAX_FINITE and the nearest-rounding midpoint are both strictly
+-        // between 2^(max_exp + 1) - 1 and 2^(max_exp + 1).
+-        rational threshold = rational::power_of_two(static_cast<unsigned>(max_exp + 1));
+-        expr_ref thr(au.mk_int(threshold), m());
+-        expr_ref neg_thr(au.mk_int(-threshold), m());
+-        switch (rm) {
+-        case MPF_ROUND_NEAREST_TEVEN:
+-        case MPF_ROUND_NEAREST_TAWAY:
+-            return abs_ge(threshold);
+-        case MPF_ROUND_TOWARD_POSITIVE:
+-            return expr_ref(au.mk_ge(int_expr, thr), m());
+-        case MPF_ROUND_TOWARD_NEGATIVE:
+-            return expr_ref(au.mk_le(int_expr, neg_thr), m());
+-        case MPF_ROUND_TOWARD_ZERO:
+-            return expr_ref(m().mk_false(), m());
+-        }
+-    }
+-
+-    mpf_exp_t half_ulp_exp = max_exp - static_cast<mpf_exp_t>(sbits);
+-    if (half_ulp_exp > UINT_MAX)
+-        return expr_ref(m());
+-
+     // Compute MAX_FINITE as a rational
+     scoped_mpf max_val(m_fm);
+     m_fm.mk_max_value(ebits, sbits, false, max_val);
+@@ -1106,7 +1078,8 @@
+     rational max_finite(max_q);
+ 
+     // ULP at MAX_FINITE = 2^(max_exp - sbits + 1)
+-    rational half_ulp = rational::power_of_two(static_cast<unsigned>(half_ulp_exp));
++    int ulp_exp = (int)max_exp - (int)sbits + 1;
++    rational half_ulp = rational::power_of_two(ulp_exp) / rational(2);
+ 
+     expr_ref r(m());
+ 

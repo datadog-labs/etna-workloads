@@ -1,0 +1,8 @@
+(set-option :solver.axioms2files true)
+(declare-datatypes ((A 0) (B 0)) (((a1 (fa (Seq B))) (a0)) ((b1 (fb (Array Int A))) (b0))))
+(declare-const x A)
+(declare-const b Int)
+(assert (> (div (seq.len (fa x)) b) 3))
+(assert (< (seq.len (fa x)) 2))
+(assert (> b 0))
+(check-sat)

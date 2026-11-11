@@ -1,0 +1,5 @@
+(set-logic QF_SLIA)
+(declare-const x String)
+(assert (= x (seq.replace_all "abcabc" "b" "X")))
+(check-sat)
+(get-value (x))

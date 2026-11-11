@@ -1,0 +1,5 @@
+(simplify (str.indexof "a" "" 4294967295))
+(simplify (str.indexof "a" "" 1))
+(simplify (str.indexof "a" "" 18446744073709551616))
+(simplify (str.indexof "" "" 4294967296))
+(simplify (str.indexof "a" "" 2))

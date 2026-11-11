@@ -1,0 +1,6 @@
+(set-option :produce-proofs true)
+(declare-const x Real)
+(declare-const y Real)
+(assert (> (/ x y) 2.0))
+(assert (= (to_int x) 3))
+(check-sat)

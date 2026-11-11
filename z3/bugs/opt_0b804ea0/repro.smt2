@@ -1,0 +1,6 @@
+(set-option :opt.optsmt_engine symba)
+(declare-const x Int)
+(assert (> x 0))
+(minimize x)
+(check-sat)
+(get-option :smt.arith.solver)

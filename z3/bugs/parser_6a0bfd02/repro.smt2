@@ -1,0 +1,3 @@
+(declare-const |a\| Bool)
+(assert |a\|)
+(check-sat)

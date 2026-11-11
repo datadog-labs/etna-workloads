@@ -1,0 +1,62 @@
+--- a/src/muz/base/dl_rule.cpp
++++ b/src/muz/base/dl_rule.cpp
+@@ -914,7 +914,7 @@
+     // Quantifiers may appear only in the interpreted tail, it is therefore
+     // sufficient only to check the interpreted tail.
+     //
+-    void rule_manager::has_quantifiers(rule const& r, bool& existential, bool& universal, bool& lam) const {
++    void rule_manager::has_quantifiers(rule const& r, bool& existential, bool& universal) const {
+         unsigned sz = r.get_tail_size();
+         m_qproc.reset();
+         m_visited.reset();
+@@ -923,13 +923,12 @@
+         }
+         existential = m_qproc.m_exist;
+         universal = m_qproc.m_univ;
+-        lam = m_qproc.m_lambda;
+     }
+ 
+     bool rule_manager::has_quantifiers(rule const& r) const {
+-        bool exist, univ, lam;
+-        has_quantifiers(r, exist, univ, lam);
+-        return exist || univ || lam;
++        bool exist, univ;
++        has_quantifiers(r, exist, univ);
++        return exist || univ;
+     }
+ 
+     bool rule_manager::is_finite_domain(rule const& r) const {
+--- a/src/muz/base/dl_rule.h
++++ b/src/muz/base/dl_rule.h
+@@ -78,19 +78,18 @@
+     struct quantifier_finder_proc {
+         bool m_exist;
+         bool m_univ;
+-        bool m_lambda;
+-        quantifier_finder_proc() : m_exist(false), m_univ(false), m_lambda(false) {}
++        quantifier_finder_proc() : m_exist(false), m_univ(false) {}
+         void operator()(var * n) { }
+         void operator()(quantifier * n) {
+             switch (n->get_kind()) {
+             case forall_k: m_univ = true; break;
+             case exists_k: m_exist = true; break;
+-            case lambda_k: m_lambda = true; break;
++            case lambda_k: UNREACHABLE();
+             case choice_k: break;
+             }
+         }
+         void operator()(app * n) { }
+-        void reset() { m_exist = m_univ = m_lambda = false; }
++        void reset() { m_exist = m_univ = false; }
+     };
+ 
+     struct fd_finder_proc {
+@@ -279,7 +278,7 @@
+         std::ostream& display_smt2(rule const& r, std::ostream & out);
+ 
+         bool has_uninterpreted_non_predicates(rule const& r, func_decl*& f) const;
+-        void has_quantifiers(rule const& r, bool& existential, bool& universal, bool& lam) const;
++        void has_quantifiers(rule const& r, bool& existential, bool& universal) const;
+         bool has_quantifiers(rule const& r) const;
+         bool is_finite_domain(rule const& r) const;
+ 

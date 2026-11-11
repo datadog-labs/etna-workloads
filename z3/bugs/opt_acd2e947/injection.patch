@@ -1,0 +1,39 @@
+--- a/src/opt/optsmt.cpp
++++ b/src/opt/optsmt.cpp
+@@ -941,28 +941,15 @@
+         if (m_vars.empty()) {
+             return is_sat;
+         }
+-        // In box mode, optimize each objective independently.
+-        // Each objective gets its own push/pop scope so that bounds
+-        // from one objective do not constrain another.
+-        // Note: geometric_search is used unconditionally here, even when
+-        // m_optsmt_engine is "symba", because symba_opt and geometric_opt
+-        // optimize all objectives jointly, violating box mode semantics.
+-        //
+-        m_context.get_base_model(m_best_model);
+-        for (unsigned i = 0; i < m_vars.size() && m.inc(); ++i) {
+-            // Reset bounds for objective i so that update_lower_lex
+-            // contamination from earlier objectives does not affect it.
+-            m_lower[i] = inf_eps(rational(-1), inf_rational(0));
+-            m_upper[i] = inf_eps(rational(1), inf_rational(0));
+-            solver::scoped_push _push(*m_s);
+-            is_sat = geometric_search(i, true);
+-            if (is_sat == l_undef)
+-                return l_undef;
+-            if (is_sat == l_false)
+-                return l_false;
+-            m_models.set(i, m_best_model.get());
++        // assertions added during search are temporary.
++        solver::scoped_push _push(*m_s);
++        if (m_optsmt_engine == symbol("symba")) {
++            is_sat = symba_opt();
+         }
+-        return l_true;
++        else {
++            is_sat = geometric_opt();
++        }
++        return is_sat;
+     }
+ 
+ 

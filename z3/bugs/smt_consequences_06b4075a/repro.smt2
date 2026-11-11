@@ -1,0 +1,8 @@
+(declare-datatypes () ((Opt (none) (some (val Int)))))
+(declare-const a Opt)
+(declare-const b Opt)
+(declare-const t0 Bool)
+(declare-const t1 Bool)
+(assert (=> t0 (= (val a) 2)))
+(assert (=> t1 (= (val b) 9)))
+(get-consequences (t0 t1) ((val a) (val b)))

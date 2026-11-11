@@ -1,0 +1,5 @@
+(set-logic HORN)
+(declare-fun p (Int) Bool)
+(assert (forall ((x Int)) (=> (= ((lambda ((y Int)) (+ y 1)) x) 3) (p x))))
+(assert (forall ((x Int)) (=> (p x) false)))
+(check-sat)

@@ -1,0 +1,87 @@
+--- a/src/sat/sat_extension.h
++++ b/src/sat/sat_extension.h
+@@ -124,7 +124,7 @@
+         virtual bool check_model(model const& m) const { return true; }
+         virtual void gc_vars(unsigned num_vars) {}
+         virtual bool should_research(sat::literal_vector const& core) { return false;}
+-        virtual void add_assumptions(literal_set& ext_assumptions) {}
++        virtual void add_assumptions() {}
+         virtual bool tracking_assumptions() { return false; }
+         virtual bool enable_self_propagate() const { return false; }
+         virtual lbool local_search(bool_vector& phase) { return l_undef; }
+--- a/src/sat/sat_solver.cpp
++++ b/src/sat/sat_solver.cpp
+@@ -1984,8 +1984,11 @@
+     void solver::init_ext_assumptions() {
+         if (m_ext && m_ext->tracking_assumptions()) {
+             m_ext_assumption_set.reset();
++            unsigned trail_size = m_trail.size();
+             if (!inconsistent())
+-                m_ext->add_assumptions(m_ext_assumption_set);
++                m_ext->add_assumptions();
++            for (unsigned i = trail_size; i < m_trail.size(); ++i)
++                m_ext_assumption_set.insert(m_trail[i]);
+         }
+     }
+ 
+--- a/src/sat/smt/euf_solver.cpp
++++ b/src/sat/smt/euf_solver.cpp
+@@ -1026,9 +1026,9 @@
+         return result;
+     }
+ 
+-    void solver::add_assumptions(sat::literal_set& assumptions) {
++    void solver::add_assumptions() {
+         for (auto* e : m_solvers)
+-            e->add_assumptions(assumptions);
++            e->add_assumptions();
+     }
+ 
+     bool solver::tracking_assumptions() {
+--- a/src/sat/smt/euf_solver.h
++++ b/src/sat/smt/euf_solver.h
+@@ -351,7 +351,7 @@
+         bool unit_propagate() override;
+         bool can_propagate() override;
+         bool should_research(sat::literal_vector const& core) override;
+-        void add_assumptions(sat::literal_set& assumptions) override;
++        void add_assumptions() override;
+         bool tracking_assumptions() override;
+         std::string reason_unknown() override { return m_reason_unknown; }
+ 
+--- a/src/sat/smt/recfun_solver.cpp
++++ b/src/sat/smt/recfun_solver.cpp
+@@ -280,18 +280,13 @@
+         return true;
+     }
+ 
+-    void solver::add_assumptions(sat::literal_set& assumptions) {
++    void solver::add_assumptions() {
+         if (u().has_defs() || m_disabled_guards.empty()) {
+             app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
+             TRACEFN("add_theory_assumption " << dlimit);
+-            sat::literal assumption = mk_literal(dlimit); 
+-            assumptions.insert(assumption);
+-            s().assign_scoped(assumption);
+-            for (auto g : m_disabled_guards) {
+-                assumption = ~mk_literal(g);
+-                assumptions.insert(assumption);
+-                s().assign_scoped(assumption);
+-            }
++            s().assign_scoped(mk_literal(dlimit));
++            for (auto g : m_disabled_guards)
++                s().assign_scoped(~mk_literal(g));
+         }
+         for (expr* g : m_enabled_guards)
+             push_guard(g);
+--- a/src/sat/smt/recfun_solver.h
++++ b/src/sat/smt/recfun_solver.h
+@@ -109,7 +109,7 @@
+         void init_search() override {}
+         bool should_research(sat::literal_vector const& core) override;
+         bool is_beta_redex(euf::enode* p, euf::enode* n) const override;
+-        void add_assumptions(sat::literal_set& assumptions) override;
++        void add_assumptions() override;
+         bool tracking_assumptions() override { return true; }
+     };
+ }

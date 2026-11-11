@@ -1,0 +1,5 @@
+(declare-fun f (Int) Int)
+(declare-fun p (Int) Bool)
+(declare-fun q (Int) Bool)
+(assert (forall ((x Int)) (! (and (p x) (q x)) :pattern ((f x)))))
+(apply distribute-forall)

@@ -1,0 +1,8 @@
+(set-logic ALL)
+(declare-const x (_ BitVec 3))
+(declare-const y (_ BitVec 3))
+(declare-const z (_ BitVec 3))
+(assert (= y #b111))
+(assert (= z #b101))
+(assert (distinct (ext_rotate_left (ext_rotate_left x y) z) x))
+(check-sat)

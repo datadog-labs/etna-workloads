@@ -1,0 +1,91 @@
+--- a/src/opt/opt_context.cpp
++++ b/src/opt/opt_context.cpp
+@@ -143,7 +143,7 @@
+         m_optsmt(m, *this),
+         m_scoped_state(m),
+         m_fm(alloc(generic_model_converter, m, "opt")),
+-        m_model_fixed(),
++        m_model_fixed(false),
+         m_objective_refs(m),
+         m_core(m),
+         m_unknown("unknown")
+@@ -451,13 +451,13 @@
+     }
+ 
+     void context::fix_model(model_ref& mdl) {
+-        if (mdl && !m_model_fixed.contains(mdl.get())) {
++        if (mdl && !m_model_fixed) {
+             TRACE(opt, m_fm->display(tout << "fix-model\n");
+                   tout << *mdl << "\n";
+                   if (m_model_converter) m_model_converter->display(tout););
+             (*m_fm)(mdl);
+             apply(m_model_converter, mdl);
+-            m_model_fixed.push_back(mdl.get());
++            m_model_fixed = true;
+         }
+     }
+ 
+@@ -486,11 +486,9 @@
+         }
+         if (m_on_model_eh && m) {
+             model_ref md = m->copy();
+-            if (!m_model_fixed.contains(md.get()))
+-                fix_model(md);
++            fix_model(md);
+             flet<bool> _calling(m_calling_on_model, true);
+             m_on_model_eh(m_on_model_ctx, md);
+-            m_model_fixed.pop_back();
+         }
+     }
+ 
+@@ -664,12 +662,14 @@
+     lbool context::execute_box() {
+         if (m_box_index < m_box_models.size()) {
+             m_model = m_box_models[m_box_index];
++            m_model_fixed = false;
+             CTRACE(opt, m_model, tout << *m_model << "\n";);
+             ++m_box_index;           
+             return l_true;
+         }
+         if (m_box_index < m_objectives.size()) {
+             m_model = nullptr;
++            m_model_fixed = false;
+             ++m_box_index;
+             return l_undef;
+         }
+@@ -696,6 +696,7 @@
+         }
+         if (r == l_true && !m_box_models.empty()) {
+             m_model = m_box_models[0];
++            m_model_fixed = false;
+             CTRACE(opt, m_model, tout << *m_model << "\n";);
+         }
+         return r;
+@@ -806,6 +807,7 @@
+     void context::publish_pareto_result() {
+         SASSERT (m_pareto);
+         m_pareto->get_model(m_model, m_labels);
++        m_model_fixed = false;
+         update_bound(true);
+         update_bound(false);
+         TRACE(opt, model_smt2_pp(tout, m, *m_model.get(), 0););
+@@ -1848,7 +1850,7 @@
+         m_box_index = UINT_MAX;
+         m_box_models.reset();
+         m_model.reset();
+-        m_model_fixed.reset();
++        m_model_fixed = false;
+         m_core.reset();
+         m_model_available = false;
+     }
+--- a/src/opt/opt_context.h
++++ b/src/opt/opt_context.h
+@@ -190,7 +190,7 @@
+         bool m_model_available = false;
+         model_converter_ref          m_model_converter;
+         generic_model_converter_ref  m_fm;
+-        sref_vector<model>           m_model_fixed;
++        bool                         m_model_fixed;
+         unsigned                     m_model_counter;
+         obj_map<func_decl, unsigned> m_objective_fns;
+         obj_map<func_decl, expr*>    m_objective_orig;

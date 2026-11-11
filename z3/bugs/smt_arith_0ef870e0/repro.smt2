@@ -1,0 +1,6 @@
+(set-logic QF_SLIA)
+(declare-const t String)
+(declare-const i Int)
+(assert (distinct (str.substr t i 2) ""))
+(assert (str.in_re "x" (re.++ (str.to_re (str.substr t i 2)) re.allchar)))
+(check-sat)

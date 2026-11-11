@@ -1,0 +1,6 @@
+(declare-const lo String)
+(declare-const hi String)
+(declare-const x String)
+(assert (str.in_re x (re.++ (re.range lo hi) (str.to_re "a"))))
+(assert (= (str.len x) 2))
+(check-sat)

@@ -1,0 +1,5 @@
+(declare-const s String)
+(assert (> (str.len s) 2))
+(assert (not (= (str.substr (str.substr s 1 (- (* 2 (str.len s)) 1)) 0 (- (str.len (str.substr s 1 (- (* 2 (str.len s)) 1))) 2))
+                (str.substr s 1 (- (- (str.len s) 1) 2)))))
+(check-sat)

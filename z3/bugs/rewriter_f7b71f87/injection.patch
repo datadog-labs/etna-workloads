@@ -1,0 +1,263 @@
+--- a/src/ast/bv_decl_plugin.h
++++ b/src/ast/bv_decl_plugin.h
+@@ -394,7 +394,6 @@
+     MATCH_UNARY(is_bv_not);
+     MATCH_UNARY(is_redand);
+     MATCH_UNARY(is_redor);
+-    MATCH_UNARY(is_sign_ext);
+ 
+     MATCH_BINARY(is_ext_rotate_left);
+     MATCH_BINARY(is_ext_rotate_right);
+@@ -640,3 +639,4 @@
+ 
+ };
+ 
++
+--- a/src/ast/rewriter/bv_bounds_base.h
++++ b/src/ast/rewriter/bv_bounds_base.h
+@@ -213,14 +213,6 @@
+             return false;
+         }
+ 
+-        bool is_nonnegative(expr* t) const {
+-            interval b;
+-            unsigned sz = m_bv.get_bv_size(t);
+-            return m_bound.find(t, b) &&
+-                b.lo() <= b.hi() &&
+-                b.hi() < rational::power_of_two(sz - 1);
+-        }
+-
+         bool simplify_core(expr* t, expr_ref& result) {
+             expr* t1;
+             interval b;
+@@ -230,14 +222,6 @@
+                 return true;
+             }
+ 
+-            if (m_bv.is_sign_ext(t, t1)) {
+-                if (is_nonnegative(t1)) {
+-                    unsigned n = m_bv.get_bv_size(t) - m_bv.get_bv_size(t1);
+-                    result = m_bv.mk_zero_extend(n, t1);
+-                    return true;
+-                }
+-            }
+-
+             if (zero_patch(t, result))
+                 return result;
+             
+--- a/src/ast/rewriter/bv_rewriter.cpp
++++ b/src/ast/rewriter/bv_rewriter.cpp
+@@ -494,15 +494,6 @@
+         return BR_DONE;
+     }
+ 
+-    expr* x = nullptr, *y = nullptr;
+-    if (is_signed &&
+-        is_zero_extended(a, x) &&
+-        is_zero_extended(b, y) &&
+-        get_bv_size(x) == get_bv_size(y)) {
+-        result = m_util.mk_ule(x, y);
+-        return BR_REWRITE2;
+-    }
+-
+     if (is_num1)
+         r1 = m_util.norm(r1, sz, is_signed);
+     if (is_num2)
+@@ -853,24 +844,6 @@
+         UNREACHABLE();
+     }
+ 
+-    if (low == 0 && is_app(arg)) {
+-        expr* a = nullptr, *b = nullptr, *x = nullptr, *y = nullptr;
+-        decl_kind k = to_app(arg)->get_decl_kind();
+-        bool is_unsigned = k == OP_BUDIV_I || k == OP_BUREM_I;
+-        bool is_signed = k == OP_BSDIV_I || k == OP_BSREM_I;
+-        if ((is_unsigned || is_signed) && to_app(arg)->get_num_args() == 2) {
+-            a = to_app(arg)->get_arg(0);
+-            b = to_app(arg)->get_arg(1);
+-            bool extended = is_unsigned
+-                ? is_zero_extended(a, x) && is_zero_extended(b, y)
+-                : is_sign_extended(a, x) && is_sign_extended(b, y);
+-            if (extended && high + 1 == get_bv_size(x) && get_bv_size(x) == get_bv_size(y)) {
+-                result = m.mk_app(get_fid(), k, x, y);
+-                return BR_REWRITE1;
+-            }
+-        }
+-    }
+-
+     if (m_util.is_bv_not(arg) ||
+         m_util.is_bv_or(arg)  ||
+         m_util.is_bv_xor(arg) ||
+@@ -1277,23 +1250,11 @@
+             }
+         }
+ 
+-        if (r2.is_one() || r2.is_minus_one()) {
++        if (r2.is_one()) {
+             result = mk_zero(bv_size);
+             return BR_DONE;
+         }
+ 
+-        expr* x = nullptr, *divisor = nullptr;
+-        numeral divisor_value;
+-        unsigned divisor_size = 0;
+-        if (m_util.is_bv_sremi(arg1, x, divisor) && 
+-            !r2.is_zero() && is_numeral(divisor, divisor_value, divisor_size)) {
+-            divisor_value = m_util.norm(divisor_value, divisor_size, true);
+-            if (!divisor_value.is_zero() && (divisor_value % r2).is_zero()) {
+-                result = m.mk_app(get_fid(), OP_BSREM_I, x, arg2);
+-                return BR_REWRITE1;
+-            }
+-        }
+-
+         if (!r2.is_zero() && is_numeral(arg1, r1, bv_size)) {
+             r1 = m_util.norm(r1, bv_size, true);
+             result = mk_numeral(r1 % r2, bv_size);
+@@ -1788,51 +1749,7 @@
+         return BR_DONE;
+ }
+ 
+-bool bv_rewriter::is_zero_extended(expr* e, expr*& x) {
+-    expr* zero = nullptr;
+-    return m_util.is_concat(e, zero, x) && is_zero(zero);
+-}
+-
+-bool bv_rewriter::is_sign_extended(expr* e, expr*& x) {
+-    if (is_app(e) && to_app(e)->get_decl_kind() == OP_SIGN_EXT) {
+-        x = to_app(e)->get_arg(0);
+-        return true;
+-    }
+-    if (!m_util.is_concat(e) || to_app(e)->get_num_args() < 2)
+-        return false;
+-    app* a = to_app(e);
+-    x = a->get_arg(a->get_num_args() - 1);
+-    unsigned sz = get_bv_size(x);
+-    for (unsigned i = 0; i + 1 < a->get_num_args(); ++i) {
+-        expr* sign = a->get_arg(i);
+-        if (!m_util.is_extract(sign) ||
+-            m_util.get_extract_high(sign) != sz - 1 ||
+-            m_util.get_extract_low(sign) != sz - 1 ||
+-            to_app(sign)->get_arg(0) != x)
+-            return false;
+-    }
+-    return true;
+-}
+ 
+-bool bv_rewriter::factor_zero_extensions(
+-    decl_kind k, unsigned num, expr* const* args, expr_ref& result) {
+-    if (num < 2)
+-        return false;
+-    expr* x = nullptr;
+-    if (!is_zero_extended(args[0], x))
+-        return false;
+-    unsigned inner_size = get_bv_size(x);
+-    ptr_buffer<expr> inner_args;
+-    inner_args.push_back(x);
+-    for (unsigned i = 1; i < num; ++i) {
+-        if (!is_zero_extended(args[i], x) || get_bv_size(x) != inner_size)
+-            return false;
+-        inner_args.push_back(x);
+-    }
+-    expr* inner = m.mk_app(get_fid(), k, inner_args.size(), inner_args.data());
+-    result = m_util.mk_zero_extend(get_bv_size(args[0]) - inner_size, inner);
+-    return true;
+-}
+ 
+ br_status bv_rewriter::mk_zero_extend(unsigned n, expr * arg, expr_ref & result) {
+     if (n == 0) {
+@@ -1893,8 +1810,6 @@
+         result = args[0];
+         return BR_DONE;
+     }
+-    if (factor_zero_extensions(OP_BOR, num, args, result))
+-        return BR_REWRITE2;
+     unsigned sz    = get_bv_size(args[0]);
+     bool flattened = false;
+     ptr_buffer<expr> flat_args;
+@@ -2332,8 +2247,6 @@
+ }
+ 
+ br_status bv_rewriter::mk_bv_and(unsigned num, expr * const * args, expr_ref & result) {
+-    if (factor_zero_extensions(OP_BAND, num, args, result))
+-        return BR_REWRITE2;
+     ptr_buffer<expr> new_args;
+     for (unsigned i = 0; i < num; ++i) {
+         new_args.push_back(m_util.mk_bv_not(args[i]));
+@@ -3189,16 +3102,6 @@
+         return BR_REWRITE1;
+     }
+ 
+-    expr* x = nullptr, *y = nullptr;
+-    if (is_zero_extended(t, x) && is_zero_extended(e, y) && get_bv_size(x) == get_bv_size(y)) {
+-        result = m_util.mk_zero_extend(get_bv_size(t) - get_bv_size(x), m.mk_ite(c, x, y));
+-        return BR_REWRITE2;
+-    }
+-    if (is_sign_extended(t, x) && is_sign_extended(e, y) && get_bv_size(x) == get_bv_size(y)) {
+-        result = m_util.mk_sign_extend(get_bv_size(t) - get_bv_size(x), m.mk_ite(c, x, y));
+-        return BR_REWRITE2;
+-    }
+-
+     // if x = 0 then 0 else 1
+     expr* t1;
+     unsigned bit1, bit2, bit3;
+--- a/src/ast/rewriter/bv_rewriter.h
++++ b/src/ast/rewriter/bv_rewriter.h
+@@ -112,9 +112,6 @@
+     bool is_add_no_overflow(expr* e);
+     bool is_mul_no_overflow(expr* e);
+     unsigned num_leading_zero_bits(expr* e);
+-    bool is_zero_extended(expr* e, expr*& x);
+-    bool is_sign_extended(expr* e, expr*& x);
+-    bool factor_zero_extensions(decl_kind k, unsigned num, expr* const* args, expr_ref& result);
+ 
+     br_status mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, expr_ref & result);
+     br_status mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, expr_ref & result);
+@@ -268,3 +265,4 @@
+ 
+ 
+ };
++
+--- a/src/ast/simplifiers/bv_bounds_simplifier.cpp
++++ b/src/ast/simplifiers/bv_bounds_simplifier.cpp
+@@ -15,27 +15,21 @@
+ #include "ast/simplifiers/dominator_simplifier.h"
+ #include "ast/rewriter/bv_bounds_base.h"
+ #include "ast/rewriter/dom_simplifier.h"
+-#include "ast/rewriter/th_rewriter.h"
+ 
+ 
+ class dom_bv_bounds_simplifier : public dom_simplifier, public bv::bv_bounds_base {
+     params_ref         m_params;
+-    th_rewriter        m_rewriter;
+     
+ public:
+-    dom_bv_bounds_simplifier(ast_manager& m, params_ref const& p) :
+-        bv_bounds_base(m), m_rewriter(m) {
++    dom_bv_bounds_simplifier(ast_manager& m, params_ref const& p) : bv_bounds_base(m), m_params(p) {
+         updt_params(p);
+     }
+     
+     void updt_params(params_ref const & p) override {
+-        m_params.append(p);
+         m_propagate_eq = p.get_bool("propagate_eq", false);
+-        m_rewriter.updt_params(m_params);
+     }
+     
+     void collect_param_descrs(param_descrs& r) override {
+-        th_rewriter::get_param_descrs(r);
+         r.insert("propagate-eq", CPK_BOOL, "propagate equalities from inequalities", "false");
+     }
+     
+@@ -45,10 +39,9 @@
+     
+     void operator()(expr_ref& r) override {
+         expr_ref result(m);
+-        if (simplify_core(r, result)) {
+-            m_rewriter(result);
++        simplify_core(r, result);
++        if (result)
+             r = result;
+-        }
+     }       
+     
+     void pop(unsigned num_scopes) override {

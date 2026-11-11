@@ -1,0 +1,7 @@
+(set-logic ALL)
+(declare-const x (_ FloatingPoint 8 24))
+(assert (not (fp.isNaN x)))
+(assert (not (fp.isInfinite x)))
+(assert (= (fp.to_real x) 0.25))
+(check-sat)
+(get-value (x))

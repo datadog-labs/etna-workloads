@@ -1,0 +1,6 @@
+(declare-sort U 0)(declare-fun a () U)(declare-fun b () U)(declare-fun c () U)
+(define-const $15 Bool (= a b))(define-const $16 Bool (= b c))(define-const $13 Bool (= a c))
+(define-const $14 Bool (or $15 $13 $16))
+(define-const $9 Bool (distinct a b c))
+(declare-fun alldiff (Bool Bool) Proof)
+(infer $9 (not $14) (alldiff $9 (not $14)))

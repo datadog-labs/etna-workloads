@@ -1,0 +1,6 @@
+(set-option :proof true)
+(declare-fun b () Int)
+(declare-fun c () Int)
+(assert (<= b 7))
+(maximize c)
+(check-sat)

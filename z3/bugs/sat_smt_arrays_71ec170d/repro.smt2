@@ -1,0 +1,6 @@
+(set-option :sat.smt true)
+(set-option :smt.array.extensional true)
+(set-option :model_validate true)
+(assert (= (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0) #b0 #b1)
+           (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b1) #b1 #b0)))
+(check-sat)

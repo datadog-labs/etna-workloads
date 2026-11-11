@@ -1,0 +1,7 @@
+(set-logic QF_BV)
+(set-option :model_validate true)
+(declare-const v1 Bool)
+(declare-const v3 Bool)
+(assert (or v1 v3))
+(check-sat)
+(check-sat)

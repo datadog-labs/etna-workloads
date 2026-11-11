@@ -1,0 +1,51 @@
+--- a/src/ast/rewriter/seq_rewriter.cpp
++++ b/src/ast/rewriter/seq_rewriter.cpp
+@@ -355,10 +355,6 @@
+         SASSERT(num_args == 2);
+         st = mk_str_le(args[0], args[1], result);
+         break;
+-    case OP_STRING_LT:
+-        SASSERT(num_args == 2);
+-        st = mk_str_lt(args[0], args[1], result);
+-        break;
+     case OP_STRING_FROM_CODE:
+         SASSERT(num_args == 1);
+         st = mk_str_from_code(args[0], result);
+@@ -2526,7 +2522,7 @@
+ 
+ br_status seq_rewriter::mk_str_le(expr* a, expr* b, expr_ref& result) {
+     result = m().mk_not(str().mk_lex_lt(b, a));
+-    return BR_REWRITE2;
++    return BR_DONE;
+ }
+ 
+ br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
+--- a/src/ast/seq/seq_axioms.cpp
++++ b/src/ast/seq/seq_axioms.cpp
+@@ -1175,18 +1175,18 @@
+         expr_ref xcy = mk_concat(x, seq.str.mk_unit(c), y);
+         expr_ref xdz = mk_concat(x, seq.str.mk_unit(d), z);
+         expr_ref eq   = mk_eq(e1, e2);
+-        expr_ref pref21 = expr_ref(seq.str.mk_prefix(e2, e1), m);
+-        expr_ref pref12 = expr_ref(seq.str.mk_prefix(e1, e2), m);
++        expr_ref emp1 = mk_eq(e1, seq.str.mk_empty(s));
++        expr_ref emp2 = mk_eq(e2, seq.str.mk_empty(s));
+         expr_ref e1xcy = mk_eq(e1, xcy);
+         expr_ref e2xdz = mk_eq(e2, xdz);
+         expr_ref ltcd = expr_ref(seq.mk_lt(c, d), m);
+         expr_ref ltdc = expr_ref(seq.mk_lt(d, c), m);
+-        add_clause(~lt, pref12, e2xdz);
+-        add_clause(~lt, pref12, e1xcy);
+-        add_clause(~lt, pref12, ltcd);
+-        add_clause(lt, pref21, e1xcy);
+-        add_clause(lt, pref21, ltdc);
+-        add_clause(lt, pref21, e2xdz);
++        add_clause(~lt, e2xdz);
++        add_clause(~lt, emp1, e1xcy);
++        add_clause(~lt, emp1, ltcd);
++        add_clause(lt, eq, e1xcy);
++        add_clause(lt, eq, emp2, ltdc);
++        add_clause(lt, eq, emp2, e2xdz);
+         {
+             expr_ref distinct = ~eq;
+             add_clause(distinct, ~lt);

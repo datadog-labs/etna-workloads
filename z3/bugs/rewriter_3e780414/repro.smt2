@@ -1,0 +1,5 @@
+(set-logic ALL)
+(declare-const x Real)
+(assert (= x 2.0))
+(assert (not (= (sin (asin x)) 2.0)))
+(check-sat)

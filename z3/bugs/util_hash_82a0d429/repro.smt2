@@ -1,0 +1,8 @@
+(set-logic QF_UFLIA)
+(declare-const a Int)(declare-const b Int)(declare-const c Int)(declare-const d Int)
+(declare-fun f (Int) Int)(declare-fun g (Int Int) Int)
+(assert (> (+ (f a) (g b c)) (* 2 (f d))))
+(assert (distinct (f a) (f b) (f c) (g a d)))
+(assert (< 0 a 10))(assert (< a b))(assert (or (> c d) (= (g c c) (f 3))))
+(check-sat)
+(get-model)
