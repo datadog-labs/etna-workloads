@@ -1,0 +1,288 @@
+diff --git a/compiler/rustc_ast_lowering/src/diagnostics.rs b/compiler/rustc_ast_lowering/src/diagnostics.rs
+index b0fada9d3cd9e3d5d72e7ae3d79ec7eb02b7149c..2fbf8fac4c64e3c460f7ae38b6f53c87ee28a7bb 100644
+--- a/compiler/rustc_ast_lowering/src/diagnostics.rs
++++ b/compiler/rustc_ast_lowering/src/diagnostics.rs
+@@ -1,5 +1,5 @@
+ use rustc_errors::codes::*;
+-use rustc_errors::{DiagArgFromDisplay, DiagArgValue, DiagSymbolList, IntoDiagArg};
++use rustc_errors::{DiagArgFromDisplay, DiagSymbolList};
+ use rustc_macros::{Diagnostic, Subdiagnostic};
+ use rustc_span::{Ident, Span, Symbol};
+ 
+@@ -579,33 +579,3 @@ pub(crate) struct DelegationAttemptedBlockWithDefsRelowering {
+     #[primary_span]
+     pub span: Span,
+ }
+-
+-/// Whether resolving `impl` or `mut` restriction paths
+-#[derive(Debug, Clone, Copy)]
+-pub(crate) enum ResolvingRestrictionKind {
+-    Impl,
+-    Mut,
+-}
+-
+-impl IntoDiagArg for ResolvingRestrictionKind {
+-    fn into_diag_arg(self, _: &mut Option<std::path::PathBuf>) -> DiagArgValue {
+-        use std::borrow::Cow;
+-        match self {
+-            ResolvingRestrictionKind::Impl => DiagArgValue::Str(Cow::Borrowed("impl")),
+-            ResolvingRestrictionKind::Mut => DiagArgValue::Str(Cow::Borrowed("mut")),
+-        }
+-    }
+-}
+-
+-#[derive(Diagnostic)]
+-#[diag(
+-    "{$kind ->
+-    [impl] trait implementation
+-    *[mut] field mutation
+-} can only be restricted to ancestor modules"
+-)]
+-pub(crate) struct RestrictionAncestorOnly {
+-    #[primary_span]
+-    pub(crate) span: Span,
+-    pub(crate) kind: ResolvingRestrictionKind,
+-}
+diff --git a/compiler/rustc_ast_lowering/src/item.rs b/compiler/rustc_ast_lowering/src/item.rs
+index 316fe4edb61e6f3899f505852990d4dae4518be3..3cc27be600965a4259c00065edfd4ff3756bc7bc 100644
+--- a/compiler/rustc_ast_lowering/src/item.rs
++++ b/compiler/rustc_ast_lowering/src/item.rs
+@@ -26,7 +26,7 @@
+     FnDeclKind, GenericArgsMode, ImplTraitContext, ImplTraitPosition, LoweringContext, ParamMode,
+     RelaxedBoundForbiddenReason, RelaxedBoundPolicy,
+ };
+-use crate::diagnostics::{ConstComptimeFn, ResolvingRestrictionKind, RestrictionAncestorOnly};
++use crate::diagnostics::ConstComptimeFn;
+ 
+ pub(super) struct ItemLowerer<'a, 'hir> {
+     pub(super) tcx: TyCtxt<'hir>,
+@@ -498,7 +498,7 @@ fn lower_item_kind(
+                 items,
+             }) => {
+                 let constness = self.lower_constness(attrs, *constness);
+-                let impl_restriction = self.lower_impl_restriction(impl_restriction, hir_id);
++                let impl_restriction = self.lower_impl_restriction(impl_restriction);
+                 let ident = self.lower_ident(*ident);
+                 let (generics, (safety, items, bounds)) = self.lower_generics(
+                     generics,
+@@ -895,7 +895,7 @@ pub(super) fn lower_field_def(
+                 None => Ident::new(sym::integer(index), self.lower_span(f.span)),
+             },
+             vis_span: self.lower_span(f.vis.span),
+-            mut_restriction: self.lower_mut_restriction(f.mut_restriction(), hir_id),
++            mut_restriction: self.lower_mut_restriction(f.mut_restriction()),
+             default: f
+                 .default_value()
+                 .map(|v| self.lower_anon_const_to_anon_const(v, v.value.span)),
+@@ -1797,46 +1797,26 @@ pub(super) fn lower_safety(&self, s: Safety, default: hir::Safety) -> hir::Safet
+         }
+     }
+ 
+-    fn lower_restriction_kind(
+-        &mut self,
+-        restriction_kind: &RestrictionKind,
+-        hir_id: HirId,
+-        resolving_kind: ResolvingRestrictionKind,
+-    ) -> hir::RestrictionKind<'hir> {
+-        match restriction_kind {
++    fn lower_restriction_kind(&mut self, kind: &RestrictionKind) -> hir::RestrictionKind<'hir> {
++        match kind {
+             RestrictionKind::Unrestricted => hir::RestrictionKind::Unrestricted,
+             RestrictionKind::Restricted { path, id, shorthand: _ } => {
+                 let res = self.get_partial_res(*id);
+-                let parent_module = self.tcx.parent_module(hir_id);
+                 if let Some(did) = res.and_then(|res| res.expect_full_res().opt_def_id()) {
+-                    if !self.tcx.is_descendant_of(parent_module, did) {
+-                        // If the restriction path is not an ancestor of the item,
+-                        // emit an error and recover by lowering the restriction to `Unrestricted`.
+-                        self.dcx()
+-                            .create_err(RestrictionAncestorOnly {
+-                                span: path.span,
+-                                kind: resolving_kind,
+-                            })
+-                            .emit();
+-                        hir::RestrictionKind::Unrestricted
+-                    } else {
+-                        hir::RestrictionKind::Restricted(self.arena.alloc(hir::Path {
+-                            res: did,
+-                            segments: self.arena.alloc_from_iter(path.segments.iter().map(
+-                                |segment| {
+-                                    self.lower_path_segment(
+-                                        path.span,
+-                                        segment,
+-                                        ParamMode::Explicit,
+-                                        GenericArgsMode::Err,
+-                                        ImplTraitContext::Disallowed(ImplTraitPosition::Path),
+-                                        None,
+-                                    )
+-                                },
+-                            )),
+-                            span: self.lower_span(path.span),
+-                        }))
+-                    }
++                    hir::RestrictionKind::Restricted(self.arena.alloc(hir::Path {
++                        res: did,
++                        segments: self.arena.alloc_from_iter(path.segments.iter().map(|segment| {
++                            self.lower_path_segment(
++                                path.span,
++                                segment,
++                                ParamMode::Explicit,
++                                GenericArgsMode::Err,
++                                ImplTraitContext::Disallowed(ImplTraitPosition::Path),
++                                None,
++                            )
++                        })),
++                        span: self.lower_span(path.span),
++                    }))
+                 } else {
+                     self.dcx().span_delayed_bug(path.span, "should have errored in resolve");
+                     hir::RestrictionKind::Unrestricted
+@@ -1848,18 +1828,16 @@ fn lower_restriction_kind(
+     pub(super) fn lower_impl_restriction(
+         &mut self,
+         r: &ImplRestriction,
+-        hir_id: HirId,
+     ) -> &'hir hir::ImplRestriction<'hir> {
+-        let kind = self.lower_restriction_kind(&r.kind, hir_id, ResolvingRestrictionKind::Impl);
++        let kind = self.lower_restriction_kind(&r.kind);
+         self.arena.alloc(hir::ImplRestriction { kind, span: self.lower_span(r.span) })
+     }
+ 
+     pub(super) fn lower_mut_restriction(
+         &mut self,
+         r: &MutRestriction,
+-        hir_id: HirId,
+     ) -> &'hir hir::MutRestriction<'hir> {
+-        let kind = self.lower_restriction_kind(&r.kind, hir_id, ResolvingRestrictionKind::Mut);
++        let kind = self.lower_restriction_kind(&r.kind);
+         self.arena.alloc(hir::MutRestriction { kind, span: self.lower_span(r.span) })
+     }
+ 
+diff --git a/compiler/rustc_hir/src/hir.rs b/compiler/rustc_hir/src/hir.rs
+index 37b2ca7718498be3f43d034c3a078a21024db604..252296fcae90f0935564d8fef8051795f64a269f 100644
+--- a/compiler/rustc_hir/src/hir.rs
++++ b/compiler/rustc_hir/src/hir.rs
+@@ -4411,8 +4411,6 @@ pub enum RestrictionKind<'hir> {
+     /// The restriction does not affect the item.
+     Unrestricted,
+     /// The restriction only applies outside of this path.
+-    /// The path is guaranteed to resolve to an ancestor module
+-    /// of the restricted item.
+     Restricted(&'hir Path<'hir, DefId>),
+ }
+ 
+diff --git a/compiler/rustc_resolve/src/diagnostics/mod.rs b/compiler/rustc_resolve/src/diagnostics/mod.rs
+index d4ce0dc78ca1fc5f308c23870628902e14c1b90e..9053d45a41191b36da9fd3e6697092c1a5ad1e02 100644
+--- a/compiler/rustc_resolve/src/diagnostics/mod.rs
++++ b/compiler/rustc_resolve/src/diagnostics/mod.rs
+@@ -8,7 +8,7 @@
+ use rustc_span::{Ident, Span, Spanned, Symbol};
+ 
+ use crate::Res;
+-use crate::late::PatternSource;
++use crate::late::{PatternSource, ResolvingRestrictionKind};
+ 
+ pub(crate) mod impls;
+ 
+@@ -547,6 +547,19 @@ pub(crate) struct ExpectedModuleFound {
+ #[diag("cannot determine resolution for the visibility", code = E0578)]
+ pub(crate) struct Indeterminate(#[primary_span] pub(crate) Span);
+ 
++#[derive(Diagnostic)]
++#[diag(
++    "{$kind ->
++    [impl] trait implementation
++    *[mut] field mutation
++} can only be restricted to ancestor modules"
++)]
++pub(crate) struct RestrictionAncestorOnly {
++    #[primary_span]
++    pub(crate) span: Span,
++    pub(crate) kind: ResolvingRestrictionKind,
++}
++
+ #[derive(Diagnostic)]
+ #[diag("cannot use a tool module through an import")]
+ pub(crate) struct ToolModuleImported {
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..0990bf73690ea99dd17b3876cb727223be184045 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -426,6 +426,23 @@ pub(crate) enum AliasPossibility {
+     Maybe,
+ }
+ 
++/// Whether resolving `impl` or `mut` restriction paths
++#[derive(Debug, Clone, Copy)]
++pub(crate) enum ResolvingRestrictionKind {
++    Impl,
++    Mut,
++}
++
++impl IntoDiagArg for ResolvingRestrictionKind {
++    fn into_diag_arg(self, _: &mut Option<std::path::PathBuf>) -> DiagArgValue {
++        use std::borrow::Cow;
++        match self {
++            ResolvingRestrictionKind::Impl => DiagArgValue::Str(Cow::Borrowed("impl")),
++            ResolvingRestrictionKind::Mut => DiagArgValue::Str(Cow::Borrowed("mut")),
++        }
++    }
++}
++
+ #[derive(Copy, Clone, Debug)]
+ pub(crate) enum PathSource<'a, 'ast, 'ra> {
+     /// Type paths `Path`.
+@@ -1485,7 +1502,7 @@ fn visit_field_def(&mut self, f: &'ast FieldDef) {
+         let FieldDef { attrs, id: _, span: _, vis, ident, ty, is_placeholder: _, extras: _ } = f;
+         walk_list!(self, visit_attribute, attrs);
+         try_visit!(self.visit_vis(vis));
+-        self.resolve_restriction_path(&f.mut_restriction().kind);
++        self.resolve_restriction_path(&f.mut_restriction().kind, ResolvingRestrictionKind::Mut);
+         visit_opt!(self, visit_ident, ident);
+         try_visit!(self.visit_ty(ty));
+         if let Some(v) = f.default_value() {
+@@ -2858,7 +2875,10 @@ fn resolve_item(&mut self, item: &'ast Item) {
+ 
+             ItemKind::Trait(Trait { generics, bounds, items, impl_restriction, .. }) => {
+                 // resolve paths for `impl` restrictions
+-                self.resolve_restriction_path(&impl_restriction.kind);
++                self.resolve_restriction_path(
++                    &impl_restriction.kind,
++                    ResolvingRestrictionKind::Impl,
++                );
+ 
+                 // Create a new rib for the trait-wide type parameters.
+                 self.with_generic_param_rib(
+@@ -4474,11 +4494,31 @@ fn try_resolve_as_non_binding(
+         }
+     }
+ 
+-    fn resolve_restriction_path(&mut self, restriction: &'ast ast::RestrictionKind) {
++    fn resolve_restriction_path(
++        &mut self,
++        restriction: &'ast ast::RestrictionKind,
++        kind: ResolvingRestrictionKind,
++    ) {
+         match &restriction {
+             ast::RestrictionKind::Unrestricted => (),
+             ast::RestrictionKind::Restricted { path, id, shorthand: _ } => {
+                 self.smart_resolve_path(*id, &None, path, PathSource::Module);
++                if let Some(res) = self.r.partial_res_map[&id].full_res()
++                    && let Some(def_id) = res.opt_def_id()
++                {
++                    if !self.r.is_accessible_from(
++                        Visibility::Restricted(def_id),
++                        self.parent_scope.module,
++                    ) {
++                        self.r
++                            .dcx()
++                            .create_err(crate::diagnostics::RestrictionAncestorOnly {
++                                span: path.span,
++                                kind,
++                            })
++                            .emit();
++                    }
++                }
+             }
+         }
+     }

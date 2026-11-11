@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_middle/src/ty/layout.rs b/compiler/rustc_middle/src/ty/layout.rs
+index af2481f47c9bae53ad9284671cee1425d6ca6888..1b3e8072a5c504c7b18108fae098835330126077 100644
+--- a/compiler/rustc_middle/src/ty/layout.rs
++++ b/compiler/rustc_middle/src/ty/layout.rs
+@@ -356,25 +356,6 @@ fn compute_inner(
+     ) -> Result<SizeSkeleton<'tcx>, &'tcx LayoutError<'tcx>> {
+         debug_assert!(!ty.has_non_region_infer());
+ 
+-        // Bail out if we've recursed too deeply (issue #156137); a cyclic type
+-        // alias can otherwise blow the stack here. Using `>=` rather than `>`
+-        // means we fire exactly at the limit, which lets us report the
+-        // cycle-root type (`Thing<T>`) instead of an innocent field type.
+-        let recursion_limit = tcx.recursion_limit();
+-        if depth >= recursion_limit.0 {
+-            let suggested_limit = match recursion_limit {
+-                Limit(0) => Limit(2),
+-                limit => limit * 2,
+-            };
+-            let reported =
+-                tcx.dcx().emit_err(crate::diagnostics::RecursionLimitReachedSizeSkeleton {
+-                    span,
+-                    ty,
+-                    suggested_limit,
+-                });
+-            return Err(tcx.arena.alloc(LayoutError::ReferencesError(reported)));
+-        }
+-
+         // First try computing a static layout.
+         let err = match tcx.layout_of(typing_env.as_query_input(ty)) {
+             Ok(layout) => {

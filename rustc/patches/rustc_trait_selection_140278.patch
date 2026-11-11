@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+index 1897ed8fc84ebde76bc8de04ac4ad10464fd8e4d..cdf7944520884e081a9b877860a9cd9dc5d0b15c 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+@@ -1779,17 +1779,14 @@ pub(super) fn report_projection_error(
+                     return None;
+                 };
+ 
+-                let Ok(node) =
+-                    specialization_graph::assoc_def(self.tcx, impl_data.impl_def_id, proj.def_id())
+-                else {
+-                    return None;
+-                };
+-
+-                if !node.is_final() {
+-                    return None;
+-                }
++                let trait_assoc_ident = self.tcx.opt_associated_item(proj.def_id())?.ident(self.tcx);
++                let impl_item = self
++                    .tcx
++                    .associated_items(impl_data.impl_def_id)
++                    .in_definition_order()
++                    .find(|assoc| assoc.ident(self.tcx) == trait_assoc_ident)?;
+ 
+-                match self.tcx.hir_get_if_local(node.item.def_id) {
++                match self.tcx.hir_get_if_local(impl_item.def_id) {
+                     Some(
+                         hir::Node::TraitItem(hir::TraitItem {
+                             kind: hir::TraitItemKind::Type(_, Some(ty)),

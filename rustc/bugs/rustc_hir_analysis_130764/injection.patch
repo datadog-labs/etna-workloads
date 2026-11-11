@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_hir_analysis/src/coherence/inherent_impls.rs b/compiler/rustc_hir_analysis/src/coherence/inherent_impls.rs
+index 4e3aa41942845737d87f2efb70da2dcaf57063ed..721d569a59bac0c0185f6f5aa940975a07a2d679 100644
+--- a/compiler/rustc_hir_analysis/src/coherence/inherent_impls.rs
++++ b/compiler/rustc_hir_analysis/src/coherence/inherent_impls.rs
+@@ -41,7 +41,10 @@ pub(crate) fn crate_inherent_impls_validity_check(
+ }
+ 
+ pub(crate) fn crate_incoherent_impls(tcx: TyCtxt<'_>, simp: SimplifiedType) -> &[DefId] {
+-    let (crate_map, _) = tcx.crate_inherent_impls(());
++    let (crate_map, res) = tcx.crate_inherent_impls(());
++    if res.is_err() {
++        return &[];
++    }
+     tcx.arena.alloc_from_iter(
+         crate_map.incoherent_impls.get(&simp).unwrap_or(&Vec::new()).iter().map(|d| d.to_def_id()),
+     )
+@@ -49,7 +52,10 @@ pub(crate) fn crate_incoherent_impls(tcx: TyCtxt<'_>, simp: SimplifiedType) -> &
+ 
+ /// On-demand query: yields a vector of the inherent impls for a specific type.
+ pub(crate) fn inherent_impls(tcx: TyCtxt<'_>, ty_def_id: LocalDefId) -> &[DefId] {
+-    let (crate_map, _) = tcx.crate_inherent_impls(());
++    let (crate_map, res) = tcx.crate_inherent_impls(());
++    if res.is_err() {
++        return &[];
++    }
+     match crate_map.inherent_impls.get(&ty_def_id) {
+         Some(v) => &v[..],
+         None => &[],

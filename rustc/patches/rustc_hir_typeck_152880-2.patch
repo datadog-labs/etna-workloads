@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..302c6417dafcd97921d299b2d01647e7ea78572b 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -1271,10 +1271,20 @@ fn report_no_match_method_error(
+         let mut ty_file = None;
+         let mode = no_match_data.mode;
+         let is_method = mode == Mode::MethodCall;
++        let is_self_ty_path = if let SelfSource::QPath(ty) = source
++            && let hir::TyKind::Path(hir::QPath::Resolved(_, path)) = ty.kind
++            && let Res::SelfTyAlias { .. } = path.res
++        {
++            true
++        } else {
++            false
++        };
+         let item_kind = if is_method {
+             "method"
+         } else if rcvr_ty.is_enum() || rcvr_ty.is_fresh_ty() {
+             "variant, associated function, or constant"
++        } else if is_self_ty_path {
++            "associated item"
+         } else {
+             "associated function or constant"
+         };

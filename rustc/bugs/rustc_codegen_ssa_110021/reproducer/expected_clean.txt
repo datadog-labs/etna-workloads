@@ -1,0 +1,638 @@
+warning: the feature `custom_mir` is internal to the compiler or standard library
+ --> main.rs:6:12
+  |
+6 | #![feature(custom_mir)]
+  |            ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: the feature `core_intrinsics` is internal to the compiler or standard library
+ --> main.rs:5:12
+  |
+5 | #![feature(core_intrinsics)]
+  |            ^^^^^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+
+warning: type `Level3` is more private than the item `repeatedly_transparent_transmute`
+   --> main.rs:492:1
+    |
+492 | pub unsafe fn repeatedly_transparent_transmute(x: NonZero<u32>) -> Level3 {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ function `repeatedly_transparent_transmute` is reachable at visibility `pub`
+    |
+note: but type `Level3` is only usable at visibility `pub(crate)`
+   --> main.rs:486:1
+    |
+486 | struct Level3(Level2);
+    | ^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: field `1` is never read
+  --> main.rs:18:31
+   |
+18 | pub struct BigNever(ZstNever, u16, ZstNever);
+   |            --------           ^^^
+   |            |
+   |            field in this struct
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+help: consider changing the field to be of unit type to suppress this warning while preserving the field numbering, or remove the field
+   |
+18 - pub struct BigNever(ZstNever, u16, ZstNever);
+18 + pub struct BigNever(ZstNever, (), ZstNever);
+   |
+
+warning: field `0` is never read
+  --> main.rs:21:21
+   |
+21 | pub struct Scalar64(i64);
+   |            -------- ^^^
+   |            |
+   |            field in this struct
+   |
+   = help: consider removing this field
+
+warning: field `0` is never read
+   --> main.rs:460:28
+    |
+460 | pub struct HighAlignScalar(u8);
+    |            --------------- ^^
+    |            |
+    |            field in this struct
+    |
+    = help: consider removing this field
+
+warning: unnecessary transmute
+   --> main.rs:125:14
+    |
+125 |     unsafe { transmute::<u32, i32>(1 + x) + 1 }
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unnecessary_transmutes)]` on by default
+help: replace this with
+    |
+125 -     unsafe { transmute::<u32, i32>(1 + x) + 1 }
+125 +     unsafe { u32::cast_signed(1 + x) + 1 }
+    |
+
+warning: unnecessary transmute
+   --> main.rs:188:5
+    |
+188 |     transmute(x)
+    |     ^^^^^^^^^^^^
+    |
+help: replace this with
+    |
+188 -     transmute(x)
+188 +     u8::from(x)
+    |
+
+warning: unnecessary transmute
+   --> main.rs:226:5
+    |
+226 |     transmute(x)
+    |     ^^^^^^^^^^^^
+    |
+help: replace this with
+    |
+226 -     transmute(x)
+226 +     f32::from_bits(x)
+    |
+
+warning: unnecessary transmute
+   --> main.rs:235:5
+    |
+235 |     transmute(x)
+    |     ^^^^^^^^^^^^
+    |
+help: replace this with
+    |
+235 -     transmute(x)
+235 +     f32::to_bits(x)
+    |
+
+warning: unnecessary transmute
+   --> main.rs:243:5
+    |
+243 |     transmute(x)
+    |     ^^^^^^^^^^^^
+    |
+    = help: there's also `to_le_bytes` and `to_be_bytes` if you expect a particular byte order
+help: replace this with
+    |
+243 -     transmute(x)
+243 +     u32::to_ne_bytes(x)
+    |
+
+warning: unnecessary transmute
+   --> main.rs:252:5
+    |
+252 |     transmute(x)
+    |     ^^^^^^^^^^^^
+    |
+    = help: there's also `from_le_bytes` and `from_be_bytes` if you expect a particular byte order
+help: replace this with
+    |
+252 -     transmute(x)
+252 +     u32::from_ne_bytes(x)
+    |
+
+warning: variable `A` should have a snake case name
+   --> main.rs:497:17
+    |
+497 |             let A = CastTransmute::<NonZero<u32>, Level1>(x);
+    |                 ^ help: convert the identifier to snake case: `a`
+    |
+    = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `B` should have a snake case name
+   --> main.rs:498:17
+    |
+498 |             let B = CastTransmute::<Level1, Level2>(A);
+    |                 ^ help: convert the identifier to snake case: `b`
+
+; ModuleID = 'main.ad2734f5d66cd8f9-cgu.0'
+source_filename = "main.ad2734f5d66cd8f9-cgu.0"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: nonlazybind uwtable
+define noundef i8 @check_aggregate_from_bool(i1 noundef zeroext %x) unnamed_addr #0 !guid !4 {
+start:
+  %_0 = alloca [1 x i8], align 1
+  %0 = zext i1 %x to i8
+  store i8 %0, ptr %_0, align 1
+  %1 = load i8, ptr %_0, align 1
+  ret i8 %1
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef zeroext i1 @check_aggregate_to_bool(i8 noundef %0) unnamed_addr #0 !guid !5 {
+start:
+  %1 = alloca [1 x i8], align 1
+  %x = alloca [1 x i8], align 1
+  call void @llvm.lifetime.start.p0(ptr %1)
+  store i8 %0, ptr %1, align 1
+  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %x, ptr align 1 %1, i64 1, i1 false)
+  call void @llvm.lifetime.end.p0(ptr %1)
+  %2 = load i8, ptr %x, align 1, !range !6, !noundef !7
+  %_0 = trunc nuw i8 %2 to i1
+  ret i1 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define { i64, i64 } @check_array_to_pair(ptr noalias nofree noundef readonly align 1 captures(none) dead_on_return dereferenceable(16) %x) unnamed_addr #0 !guid !8 {
+start:
+  %_0.0 = load i64, ptr %x, align 1, !noundef !7
+  %0 = getelementptr inbounds i8, ptr %x, i64 8
+  %_0.1 = load i64, ptr %0, align 1, !noundef !7
+  %1 = insertvalue { i64, i64 } poison, i64 %_0.0, 0
+  %2 = insertvalue { i64, i64 } %1, i64 %_0.1, 1
+  ret { i64, i64 } %2
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_bigger_array(ptr dead_on_unwind noalias nofree noundef writable sret([28 x i8]) align 4 captures(none) dereferenceable(28) %_0, ptr noalias nofree noundef readonly align 4 captures(none) dead_on_return dereferenceable(12) %x) unnamed_addr #0 !guid !9 {
+start:
+  store i1 true, ptr poison, align 1
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i32 @check_bigger_size(i16 noundef %x) unnamed_addr #0 !guid !10 {
+start:
+  store i1 true, ptr poison, align 1
+  ret i32 poison
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i8 @check_byte_from_bool(i1 noundef zeroext %x) unnamed_addr #0 !guid !11 {
+start:
+  %_0 = zext i1 %x to i8
+  %0 = icmp ule i8 %_0, 1
+  call void @llvm.assume(i1 %0)
+  ret i8 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef zeroext i1 @check_byte_to_bool(i8 noundef %x) unnamed_addr #0 !guid !12 {
+start:
+  %0 = icmp ule i8 %x, 1
+  call void @llvm.assume(i1 %0)
+  %_0 = trunc nuw i8 %x to i1
+  ret i1 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef double @check_float_from_pointer(ptr noundef %x) unnamed_addr #0 !guid !13 {
+start:
+  %0 = ptrtoint ptr %x to i64
+  %_0 = bitcast i64 %0 to double
+  ret double %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef ptr @check_float_to_pointer(double noundef %x) unnamed_addr #0 !guid !14 {
+start:
+  %0 = bitcast double %x to i64
+  %_0 = inttoptr i64 %0 to ptr
+  ret ptr %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i64 @check_from_aggregate(i64 noundef %0) unnamed_addr #0 !guid !15 {
+start:
+  %1 = alloca [8 x i8], align 8
+  %x = alloca [8 x i8], align 4
+  call void @llvm.lifetime.start.p0(ptr %1)
+  store i64 %0, ptr %1, align 8
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %x, ptr align 8 %1, i64 8, i1 false)
+  call void @llvm.lifetime.end.p0(ptr %1)
+  %_0 = load i64, ptr %x, align 4, !noundef !7
+  ret i64 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i32 @check_from_bytes(i32 noundef %0) unnamed_addr #0 !guid !16 {
+start:
+  %1 = alloca [4 x i8], align 4
+  %x = alloca [4 x i8], align 1
+  call void @llvm.lifetime.start.p0(ptr %1)
+  store i32 %0, ptr %1, align 4
+  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %x, ptr align 4 %1, i64 4, i1 false)
+  call void @llvm.lifetime.end.p0(ptr %1)
+  %_0 = load i32, ptr %x, align 1, !noundef !7
+  ret i32 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_from_empty_array(ptr dead_on_unwind noalias nofree noundef writable sret([20 x i8]) align 4 captures(none) dereferenceable(20) %_0) unnamed_addr #0 !guid !17 {
+start:
+  store i1 true, ptr poison, align 1
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i32 @check_from_float(float noundef %x) unnamed_addr #0 !guid !18 {
+start:
+  %_0 = bitcast float %x to i32
+  ret i32 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i64 @check_from_newtype(i64 noundef %x) unnamed_addr #0 !guid !19 {
+start:
+  ret i64 %x
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i64 @check_from_overalign(i64 %0) unnamed_addr #0 !guid !20 {
+start:
+  %1 = alloca [8 x i8], align 8
+  %x = alloca [8 x i8], align 8
+  call void @llvm.lifetime.start.p0(ptr %1)
+  store i64 %0, ptr %1, align 8
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %x, ptr align 8 %1, i64 8, i1 false)
+  call void @llvm.lifetime.end.p0(ptr %1)
+  %_0 = load i64, ptr %x, align 8, !noundef !7
+  ret i64 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i64 @check_from_pair(i32 noundef range(i32 0, 2) %x.0, i32 %x.1) unnamed_addr #0 !guid !21 {
+start:
+  %0 = alloca [8 x i8], align 8
+  call void @llvm.lifetime.start.p0(ptr %0)
+  store i32 %x.0, ptr %0, align 8
+  %1 = getelementptr inbounds i8, ptr %0, i64 4
+  store i32 %x.1, ptr %1, align 4
+  %_0 = load i64, ptr %0, align 8, !noundef !7
+  call void @llvm.lifetime.end.p0(ptr %0)
+  ret i64 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i16 @check_from_uninhabited(i16 noundef %_1) unnamed_addr #0 !guid !22 {
+start:
+  store i1 true, ptr poison, align 1
+  ret i16 poison
+}
+
+; Function Attrs: nonlazybind uwtable
+define { float, double } @check_heterogeneous_float_pair(double noundef %x.0, float noundef %x.1) unnamed_addr #0 !guid !23 {
+start:
+  %0 = alloca [16 x i8], align 8
+  call void @llvm.lifetime.start.p0(ptr %0)
+  store double %x.0, ptr %0, align 8
+  %1 = getelementptr inbounds i8, ptr %0, i64 8
+  store float %x.1, ptr %1, align 8
+  %_0.0 = load float, ptr %0, align 8, !noundef !7
+  %2 = getelementptr inbounds i8, ptr %0, i64 8
+  %_0.1 = load double, ptr %2, align 8, !noundef !7
+  call void @llvm.lifetime.end.p0(ptr %0)
+  %3 = insertvalue { float, double } poison, float %_0.0, 0
+  %4 = insertvalue { float, double } %3, double %_0.1, 1
+  ret { float, double } %4
+}
+
+; Function Attrs: nonlazybind uwtable
+define { i1, i32 } @check_heterogeneous_integer_pair(i32 noundef %x.0, i1 noundef zeroext %x.1) unnamed_addr #0 !guid !24 {
+start:
+  %0 = alloca [8 x i8], align 4
+  call void @llvm.lifetime.start.p0(ptr %0)
+  store i32 %x.0, ptr %0, align 4
+  %1 = getelementptr inbounds i8, ptr %0, i64 4
+  %2 = zext i1 %x.1 to i8
+  store i8 %2, ptr %1, align 4
+  %3 = load i8, ptr %0, align 4, !range !6, !noundef !7
+  %_0.0 = trunc nuw i8 %3 to i1
+  %4 = getelementptr inbounds i8, ptr %0, i64 4
+  %_0.1 = load i32, ptr %4, align 4, !noundef !7
+  call void @llvm.lifetime.end.p0(ptr %0)
+  %5 = insertvalue { i1, i32 } poison, i1 %_0.0, 0
+  %6 = insertvalue { i1, i32 } %5, i32 %_0.1, 1
+  ret { i1, i32 } %6
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i32 @check_intermediate_passthrough(i32 noundef %x) unnamed_addr #0 !guid !25 {
+start:
+  %_3 = add i32 1, %x
+  %_0 = add i32 %_3, 1
+  ret i32 %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_issue_109992() unnamed_addr #0 !guid !26 {
+start:
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define { ptr, i64 } @check_issue_110005(i64 noundef %x.0, i1 noundef zeroext %x.1) unnamed_addr #0 !guid !27 {
+start:
+  %0 = alloca [16 x i8], align 8
+  call void @llvm.lifetime.start.p0(ptr %0)
+  store i64 %x.0, ptr %0, align 8
+  %1 = getelementptr inbounds i8, ptr %0, i64 8
+  %2 = zext i1 %x.1 to i8
+  store i8 %2, ptr %1, align 8
+  %_0.0 = load ptr, ptr %0, align 8, !noundef !7
+  %3 = getelementptr inbounds i8, ptr %0, i64 8
+  %_0.1 = load i64, ptr %3, align 8
+  call void @llvm.lifetime.end.p0(ptr %0)
+  %4 = insertvalue { ptr, i64 } poison, ptr %_0.0, 0
+  %5 = insertvalue { ptr, i64 } %4, i64 %_0.1, 1
+  ret { ptr, i64 } %5
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_long_array_less_aligned(ptr dead_on_unwind noalias nofree noundef writable sret([800 x i8]) align 2 captures(none) dereferenceable(800) %_0, ptr noalias nofree noundef readonly align 8 captures(none) dead_on_return dereferenceable(800) %x) unnamed_addr #0 !guid !28 {
+start:
+  call void @llvm.memcpy.p0.p0.i64(ptr align 2 %_0, ptr align 8 %x, i64 800, i1 false)
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_long_array_more_aligned(ptr dead_on_unwind noalias nofree noundef writable sret([100 x i8]) align 4 captures(none) dereferenceable(100) %_0, ptr noalias nofree noundef readonly align 1 captures(none) dead_on_return dereferenceable(100) %x) unnamed_addr #0 !guid !29 {
+start:
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %_0, ptr align 1 %x, i64 100, i1 false)
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define { i64, i16 } @check_maybe_uninit_pair(i16 %x.0, i64 %x.1) unnamed_addr #0 !guid !30 {
+start:
+  %0 = alloca [16 x i8], align 8
+  call void @llvm.lifetime.start.p0(ptr %0)
+  store i16 %x.0, ptr %0, align 8
+  %1 = getelementptr inbounds i8, ptr %0, i64 8
+  store i64 %x.1, ptr %1, align 8
+  %_0.0 = load i64, ptr %0, align 8
+  %2 = getelementptr inbounds i8, ptr %0, i64 8
+  %_0.1 = load i16, ptr %2, align 8
+  call void @llvm.lifetime.end.p0(ptr %0)
+  %3 = insertvalue { i64, i16 } poison, i64 %_0.0, 0
+  %4 = insertvalue { i64, i16 } %3, i16 %_0.1, 1
+  ret { i64, i16 } %4
+}
+
+; Function Attrs: nonlazybind uwtable
+define { i8, i8 } @check_nop_pair(i8 noundef %x.0, i8 noundef %x.1) unnamed_addr #0 !guid !31 {
+start:
+  %0 = insertvalue { i8, i8 } poison, i8 %x.0, 0
+  %1 = insertvalue { i8, i8 } %0, i8 %x.1, 1
+  ret { i8, i8 } %1
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_pair_to_array(ptr dead_on_unwind noalias nofree noundef writable sret([16 x i8]) align 1 captures(none) dereferenceable(16) %_0, i64 noundef %x.0, i64 noundef %x.1) unnamed_addr #0 !guid !32 {
+start:
+  store i64 %x.0, ptr %_0, align 1
+  %0 = getelementptr inbounds i8, ptr %_0, i64 8
+  store i64 %x.1, ptr %0, align 1
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define { ptr, i64 } @check_pair_to_dst_ref(i64 noundef %x.0, i64 noundef %x.1) unnamed_addr #0 !guid !33 {
+start:
+  %_0.0 = inttoptr i64 %x.0 to ptr
+  %0 = icmp ne ptr %_0.0, null
+  call void @llvm.assume(i1 %0)
+  %1 = insertvalue { ptr, i64 } poison, ptr %_0.0, 0
+  %2 = insertvalue { ptr, i64 } %1, i64 %x.1, 1
+  ret { ptr, i64 } %2
+}
+
+; Function Attrs: nonlazybind uwtable
+define { i1, i8 } @check_pair_with_bool(i8 noundef %x.0, i1 noundef zeroext %x.1) unnamed_addr #0 !guid !34 {
+start:
+  %0 = icmp ule i8 %x.0, 1
+  call void @llvm.assume(i1 %0)
+  %_0.0 = trunc nuw i8 %x.0 to i1
+  %_0.1 = zext i1 %x.1 to i8
+  %1 = icmp ule i8 %_0.1, 1
+  call void @llvm.assume(i1 %1)
+  %2 = insertvalue { i1, i8 } poison, i1 %_0.0, 0
+  %3 = insertvalue { i1, i8 } %2, i8 %_0.1, 1
+  ret { i1, i8 } %3
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_smaller_array(ptr dead_on_unwind noalias nofree noundef writable sret([12 x i8]) align 4 captures(none) dereferenceable(12) %_0, ptr noalias nofree noundef readonly align 4 captures(none) dead_on_return dereferenceable(28) %x) unnamed_addr #0 !guid !35 {
+start:
+  store i1 true, ptr poison, align 1
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i16 @check_smaller_size(i32 noundef %x) unnamed_addr #0 !guid !36 {
+start:
+  store i1 true, ptr poison, align 1
+  ret i16 poison
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i64 @check_to_aggregate(i64 noundef %x) unnamed_addr #0 !guid !37 {
+start:
+  %_0 = alloca [8 x i8], align 4
+  store i64 %x, ptr %_0, align 4
+  %0 = load i64, ptr %_0, align 4
+  ret i64 %0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i32 @check_to_bytes(i32 noundef %x) unnamed_addr #0 !guid !38 {
+start:
+  %_0 = alloca [4 x i8], align 1
+  store i32 %x, ptr %_0, align 1
+  %0 = load i32, ptr %_0, align 1
+  ret i32 %0
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_to_empty_array(ptr noalias nofree noundef readonly align 4 captures(none) dead_on_return dereferenceable(20) %_1) unnamed_addr #0 !guid !39 {
+start:
+  store i1 true, ptr poison, align 1
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef float @check_to_float(i32 noundef %x) unnamed_addr #0 !guid !40 {
+start:
+  %_0 = bitcast i32 %x to float
+  ret float %_0
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef i64 @check_to_newtype(i64 noundef %x) unnamed_addr #0 !guid !41 {
+start:
+  ret i64 %x
+}
+
+; Function Attrs: nonlazybind uwtable
+define i64 @check_to_overalign(i64 noundef %x) unnamed_addr #0 !guid !42 {
+start:
+  %_0 = alloca [8 x i8], align 8
+  store i64 %x, ptr %_0, align 8
+  %0 = load i64, ptr %_0, align 8
+  ret i64 %0
+}
+
+; Function Attrs: nonlazybind uwtable
+define { i32, i32 } @check_to_pair(i64 noundef %x) unnamed_addr #0 !guid !43 {
+start:
+  %0 = alloca [8 x i8], align 8
+  call void @llvm.lifetime.start.p0(ptr %0)
+  store i64 %x, ptr %0, align 8
+  %_0.0 = load i32, ptr %0, align 8, !range !44, !noundef !7
+  %1 = getelementptr inbounds i8, ptr %0, i64 4
+  %_0.1 = load i32, ptr %1, align 4
+  call void @llvm.lifetime.end.p0(ptr %0)
+  %2 = insertvalue { i32, i32 } poison, i32 %_0.0, 0
+  %3 = insertvalue { i32, i32 } %2, i32 %_0.1, 1
+  ret { i32, i32 } %3
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_to_uninhabited(i16 noundef %_1) unnamed_addr #0 !guid !45 {
+start:
+  store i1 true, ptr poison, align 1
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_unit_from_never() unnamed_addr #0 !guid !46 {
+start:
+  store i1 true, ptr poison, align 1
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define void @check_unit_to_never() unnamed_addr #0 !guid !47 {
+start:
+  store i1 true, ptr poison, align 1
+  ret void
+}
+
+; Function Attrs: nonlazybind uwtable
+define noundef range(i32 1, 0) i32 @repeatedly_transparent_transmute(i32 noundef range(i32 1, 0) %_1) unnamed_addr #0 !guid !48 {
+start:
+  ret i32 %_1
+}
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0(ptr captures(none)) #1
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias writeonly captures(none), ptr noalias readonly captures(none), i64, i1 immarg) #1
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0(ptr captures(none)) #1
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: write)
+declare void @llvm.assume(i1 noundef) #2
+
+attributes #0 = { nonlazybind uwtable "probe-stack"="inline-asm" "target-cpu"="x86-64" }
+attributes #1 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
+attributes #2 = { nocallback nofree nosync nounwind willreturn memory(inaccessiblemem: write) }
+
+!llvm.module.flags = !{!0, !1, !2}
+!llvm.ident = !{!3}
+
+!0 = !{i32 8, !"PIC Level", i32 2}
+!1 = !{i32 2, !"RtLibUseGOT", i32 1}
+!2 = !{i32 7, !"uwtable", i32 2}
+!3 = !{!"rustc version 1.99.1-dev"}
+!4 = !{i64 -8205513846777158711}
+!5 = !{i64 -5337268416728423357}
+!6 = !{i8 0, i8 2}
+!7 = !{}
+!8 = !{i64 4423919614860468646}
+!9 = !{i64 -6161278804431253430}
+!10 = !{i64 -5443890582459322458}
+!11 = !{i64 -5288105906305654731}
+!12 = !{i64 4663918462371498086}
+!13 = !{i64 2924872140157412489}
+!14 = !{i64 3261999569995258595}
+!15 = !{i64 8555606762724522053}
+!16 = !{i64 3510579538432237758}
+!17 = !{i64 -4307420332749516503}
+!18 = !{i64 -5622397728155548307}
+!19 = !{i64 7167672043708273330}
+!20 = !{i64 -4502255324470694032}
+!21 = !{i64 -8282946404194261932}
+!22 = !{i64 4541358869495036921}
+!23 = !{i64 6081354700706993592}
+!24 = !{i64 -8581996348124386202}
+!25 = !{i64 -5818092198274608113}
+!26 = !{i64 3757553733316036728}
+!27 = !{i64 -6958123548712801828}
+!28 = !{i64 6265459181963912646}
+!29 = !{i64 3711745680137749090}
+!30 = !{i64 574299990074462914}
+!31 = !{i64 -3665116314016338821}
+!32 = !{i64 1486245735981733917}
+!33 = !{i64 3849604571689297923}
+!34 = !{i64 -8848838692717841706}
+!35 = !{i64 3812466608915023269}
+!36 = !{i64 614591904721487189}
+!37 = !{i64 9137282559398275558}
+!38 = !{i64 -4306962182056397622}
+!39 = !{i64 4923355964229945633}
+!40 = !{i64 5594951797389493845}
+!41 = !{i64 4143528950207879474}
+!42 = !{i64 -1134194777389444585}
+!43 = !{i64 7204176545821453337}
+!44 = !{i32 0, i32 2}
+!45 = !{i64 -2267838066525752320}
+!46 = !{i64 2056491684277974534}
+!47 = !{i64 9001842058200235893}
+!48 = !{i64 -3300577174777265639}
+warning: 14 warnings emitted
+
+rustc exit: 0
+
+[exit 0]

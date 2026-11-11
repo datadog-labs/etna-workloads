@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..8cb9afc9fe3bef40530aca69e72a79b19fdc2c26 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -1229,28 +1229,7 @@ pub(super) fn suggest_cast_to_fn_pointer(
+             return false;
+         }
+ 
+-        let parenthesized_cast = |span: Span| {
+-            vec![
+-                (span.shrink_to_lo(), "(".to_string()),
+-                (span.shrink_to_hi(), format!(" as {})", candidate.self_ty())),
+-            ]
+-        };
+-        // Wrap method receivers and `&`-references in parens.
+-        let suggestion = if self.tcx.sess.source_map().span_followed_by(span, ".").is_some() {
+-            parenthesized_cast(span)
+-        } else if let Some(body) = self.tcx.hir_maybe_body_owned_by(obligation.cause.body_def_id) {
+-            let mut expr_finder = FindExprBySpan::new(span, self.tcx);
+-            expr_finder.visit_expr(body.value);
+-            if let Some(expr) = expr_finder.result
+-                && let hir::ExprKind::AddrOf(_, _, expr) = expr.kind
+-            {
+-                parenthesized_cast(expr.span)
+-            } else {
+-                vec![(span.shrink_to_hi(), format!(" as {}", candidate.self_ty()))]
+-            }
+-        } else {
+-            vec![(span.shrink_to_hi(), format!(" as {}", candidate.self_ty()))]
+-        };
++        let suggestion = vec![(span.shrink_to_hi(), format!(" as {}", candidate.self_ty()))];
+ 
+         let trait_ = self.tcx.short_string(candidate.print_trait_sugared(), err.long_ty_path());
+         let self_ty = self.tcx.short_string(candidate.self_ty(), err.long_ty_path());

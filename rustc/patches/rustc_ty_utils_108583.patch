@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_ty_utils/src/ty.rs b/compiler/rustc_ty_utils/src/ty.rs
+index 39f0da47942e483a76e15ca92a4411bcc1415c11..21d2743797f893e296772a02b26eff7df2471f8b 100644
+--- a/compiler/rustc_ty_utils/src/ty.rs
++++ b/compiler/rustc_ty_utils/src/ty.rs
+@@ -171,7 +171,6 @@ fn param_env(tcx: TyCtxt<'_>, def_id: DefId) -> ty::ParamEnv<'_> {
+     if tcx.def_kind(def_id) == DefKind::AssocFn
+         && let assoc_item = tcx.associated_item(def_id)
+         && assoc_item.container == ty::AssocContainer::Trait
+-        && assoc_item.defaultness(tcx).has_value()
+     {
+         let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+         // We accounted for the binder of the fn sig, so skip the binder.
+@@ -218,9 +217,7 @@ struct ImplTraitInTraitFinder<'a, 'tcx> {
+ 
+ impl<'tcx> TypeVisitor<TyCtxt<'tcx>> for ImplTraitInTraitFinder<'_, 'tcx> {
+     fn visit_binder<T: TypeVisitable<TyCtxt<'tcx>>>(&mut self, binder: &ty::Binder<'tcx, T>) {
+-        self.depth.shift_in(1);
+         binder.super_visit_with(self);
+-        self.depth.shift_out(1);
+     }
+ 
+     fn visit_ty(&mut self, ty: Ty<'tcx>) {
+@@ -245,7 +242,7 @@ fn visit_ty(&mut self, ty: Ty<'tcx>) {
+                             "we shouldn't walk non-predicate binders with `impl Trait`...",
+                         );
+                     }
+-                    ty::Region::new_bound(self.tcx, index.shifted_out_to_binder(self.depth), bv)
++                    ty::Region::new_bound(self.tcx, index, bv)
+                 } else {
+                     re
+                 }

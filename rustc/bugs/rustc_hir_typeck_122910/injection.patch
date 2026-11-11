@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_hir_typeck/src/pat.rs b/compiler/rustc_hir_typeck/src/pat.rs
+index f7ba6a78c65bde4d2d3ad24a21cf35f67e6f6027..a56766a40b54ac717bce010ba3bb89015cbdf35c 100644
+--- a/compiler/rustc_hir_typeck/src/pat.rs
++++ b/compiler/rustc_hir_typeck/src/pat.rs
+@@ -1596,26 +1596,8 @@ fn resolve_pat_path(
+                 );
+                 return Err(e);
+             }
+-            Res::SelfCtor(def_id) => {
+-                if let ty::Adt(adt_def, _) = *tcx.type_of(def_id).skip_binder().kind()
+-                    && adt_def.is_struct()
+-                    && let Some((CtorKind::Const, _)) = adt_def.non_enum_variant().ctor
+-                {
+-                    // Ok, we allow unit struct ctors in patterns only.
+-                } else {
+-                    let e = self.report_unexpected_variant_res(
+-                        res,
+-                        None,
+-                        &[],
+-                        qpath,
+-                        span,
+-                        E0533,
+-                        "unit struct",
+-                    );
+-                    return Err(e);
+-                }
+-            }
+-            Res::Def(
++            Res::SelfCtor(..)
++            | Res::Def(
+                 DefKind::Ctor(_, CtorKind::Const)
+                 | DefKind::Const { .. }
+                 | DefKind::AssocConst { .. }

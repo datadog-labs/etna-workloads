@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_middle/src/thir/visit.rs b/compiler/rustc_middle/src/thir/visit.rs
+index 24aa4ac513d450f53b82cb6c264b76d748639316..081d7789f278a8163522c10df82c29fd892fc864 100644
+--- a/compiler/rustc_middle/src/thir/visit.rs
++++ b/compiler/rustc_middle/src/thir/visit.rs
+@@ -76,9 +76,8 @@ pub fn walk_expr<'thir, 'tcx: 'thir, V: Visitor<'thir, 'tcx>>(
+         PointerCoercion { source, cast: _, is_from_as_cast: _ } => {
+             visitor.visit_expr(&visitor.thir()[source])
+         }
+-        Let { expr, ref pat } => {
++        Let { expr, .. } => {
+             visitor.visit_expr(&visitor.thir()[expr]);
+-            visitor.visit_pat(pat);
+         }
+         Loop { body } => visitor.visit_expr(&visitor.thir()[body]),
+         LoopMatch { match_data: LoopMatchMatchData { scrutinee, ref arms, .. }, .. }
+diff --git a/compiler/rustc_mir_build/src/check_unsafety.rs b/compiler/rustc_mir_build/src/check_unsafety.rs
+index 29a93e2994d0dd73d033c0a6b91fcb96de257e26..8e720dcaa60809da0fb2898aef5367a9a7a856b4 100644
+--- a/compiler/rustc_mir_build/src/check_unsafety.rs
++++ b/compiler/rustc_mir_build/src/check_unsafety.rs
+@@ -613,6 +613,14 @@ fn visit_expr(&mut self, expr: &'a Expr<'tcx>) {
+             | ExprKind::WrapUnsafeBinder { .. } => {
+                 self.requires_unsafe(expr.span, UnsafeBinderCast);
+             }
++            ExprKind::Let { expr: expr_id, .. } => {
++                let let_expr = &self.thir[expr_id];
++                if let ty::Adt(adt_def, _) = let_expr.ty.kind()
++                    && adt_def.is_union()
++                {
++                    self.requires_unsafe(expr.span, AccessToUnionField);
++                }
++            }
+             _ => {}
+         }
+         visit::walk_expr(self, expr);

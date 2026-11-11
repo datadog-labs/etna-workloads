@@ -1,0 +1,1 @@
+Aux crate compiled with --remap-path-prefix so its macro's source is unavailable; the unnecessary_transmutes lint on a transmute expanded from it panics (ICE, exit 101) on the injected compiler, but compiles fine on the clean one.

@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs
+index e4874c41d5cdd11064c5379ae1a0c188e0a87724..9ee471bd7c232b107eb8ff1d1dfd54360a45c90e 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/cmse.rs
+@@ -86,11 +86,6 @@ fn is_valid_cmse_inputs<'tcx>(
+     let fn_sig = tcx.erase_and_anonymize_regions(fn_sig);
+ 
+     for (ty, hir_ty) in fn_sig.inputs().iter().zip(fn_decl.inputs) {
+-        if ty.has_infer_types() {
+-            let err = LayoutError::Unknown(*ty);
+-            return Err((hir_ty.span, tcx.arena.alloc(err)));
+-        }
+-
+         let layout = tcx
+             .layout_of(ty::TypingEnv::fully_monomorphized().as_query_input(*ty))
+             .map_err(|e| (hir_ty.span, e))?;
+@@ -143,11 +138,6 @@ fn is_valid_cmse_output<'tcx>(
+         return Ok(());
+     }
+ 
+-    if return_type.has_infer_types() {
+-        let err = LayoutError::Unknown(return_type);
+-        return Err(tcx.arena.alloc(err));
+-    }
+-
+     let typing_env = ty::TypingEnv::fully_monomorphized();
+     let layout = tcx.layout_of(typing_env.as_query_input(return_type))?;
+     let layout_cx = LayoutCx::new(tcx, typing_env);

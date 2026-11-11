@@ -1,0 +1,1 @@
+Compiles a snippet where a binding inside a reference pattern (let &b = a) is mutated; the borrowck suggestion to make it mutable should parenthesize it as &(mut b), but the injected compiler suggests the invalid &mut b.

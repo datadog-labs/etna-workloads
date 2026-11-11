@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/mod.rs b/compiler/rustc_hir_typeck/src/method/mod.rs
+index 3425ba5d747d63e50647a74407098062370f4624..6fce2a8474295fa34c14f9c530f7f8557831eb98 100644
+--- a/compiler/rustc_hir_typeck/src/method/mod.rs
++++ b/compiler/rustc_hir_typeck/src/method/mod.rs
+@@ -115,7 +115,7 @@ pub(crate) fn method_exists_for_diagnostic(
+             }
+             Err(NoMatch(..)) => false,
+             Err(Ambiguity(..)) => true,
+-            Err(PrivateMatch(..)) => false,
++            Err(PrivateMatch(..)) => true,
+             Err(IllegalSizedBound { .. }) => true,
+             Err(BadReturnType) => true,
+             Err(ErrorReported(_)) => false,
+diff --git a/compiler/rustc_hir_typeck/src/method/probe.rs b/compiler/rustc_hir_typeck/src/method/probe.rs
+index b2e0a3bd7a195f2edbf03d89438609e17e8c8898..a42694550586ccdb624b3f3ecc5a5e662557d4ce 100644
+--- a/compiler/rustc_hir_typeck/src/method/probe.rs
++++ b/compiler/rustc_hir_typeck/src/method/probe.rs
+@@ -1233,6 +1233,9 @@ fn pick(mut self) -> PickResult<'tcx> {
+         // If it's a `lookup_probe_for_diagnostic`, then quit early. No need to
+         // probe for other candidates.
+         if self.is_suggestion.0 {
++            if let Some((kind, def_id)) = self.private_candidate.take() {
++                return Err(MethodError::PrivateMatch(kind, def_id, vec![]));
++            }
+             return Err(MethodError::NoMatch(NoMatchData {
+                 static_candidates: vec![],
+                 unsatisfied_predicates: vec![],

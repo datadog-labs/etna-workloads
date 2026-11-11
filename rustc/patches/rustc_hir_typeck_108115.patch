@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs
+index be24a5e7d0b8c814f4c7dc7136902290f66aed56..db965b1408614bc14c28d8f0714610baa08aafd4 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/adjust_fulfillment_errors.rs
+@@ -814,18 +814,14 @@ fn blame_specific_expr_if_possible_for_derived_predicate_obligation(
+         // This is the "trait" (meaning, the predicate "proved" by this `impl`) which provides the `Self` type we care about.
+         // For the purposes of this function, we hope that it is a `struct` type, and that our current `expr` is a literal of
+         // that struct type.
+-        let impl_trait_self_ref = if self.tcx.is_trait_alias(obligation.impl_or_alias_def_id) {
+-            ty::TraitRef::new_from_args(
+-                self.tcx,
+-                obligation.impl_or_alias_def_id,
+-                ty::GenericArgs::identity_for_item(self.tcx, obligation.impl_or_alias_def_id),
+-            )
+-        } else {
+-            self.tcx
+-                .impl_opt_trait_ref(obligation.impl_or_alias_def_id)
+-                .map(|impl_def| impl_def.skip_binder())
+-                // It is possible that this is absent. In this case, we make no progress.
+-                .ok_or(expr)?
++        let impl_trait_self_ref: Option<ty::TraitRef<'tcx>> = self
++            .tcx
++            .impl_opt_trait_ref(obligation.impl_or_alias_def_id)
++            .map(|impl_def| impl_def.skip_binder());
++
++        let Some(impl_trait_self_ref) = impl_trait_self_ref else {
++            // It is possible that this is absent. In this case, we make no progress.
++            return Err(expr);
+         };
+ 
+         // We only really care about the `Self` type itself, which we extract from the ref.

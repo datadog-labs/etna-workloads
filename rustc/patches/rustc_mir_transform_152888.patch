@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_mir_transform/src/elaborate_drop.rs b/compiler/rustc_mir_transform/src/elaborate_drop.rs
+index 492759d666c83e5e0f1b02f495e87275cc3deeff..907e4e5ad348e70f96e74750a5f958a381aaa7c3 100644
+--- a/compiler/rustc_mir_transform/src/elaborate_drop.rs
++++ b/compiler/rustc_mir_transform/src/elaborate_drop.rs
+@@ -257,13 +257,11 @@ fn build_async_drop(
+             .output();
+         let fut = self.new_temp(fut_ty);
+ 
+-        // Create an intermediate block that does StorageDead(fut) then jumps to succ.
+-        // This is necessary because we do not want to modify statements
+-        // in existing blocks, in case those are used somewhere else in MIR.
+-        let succ_with_dead = self.new_block_with_statements(
+-            unwind,
+-            vec![self.storage_dead(fut)],
+-            TerminatorKind::Goto { target: succ },
++        // StorageDead(fut) in self.succ block (at the begin)
++        let succ_with_dead = succ;
++        self.elaborator.patch().add_statement(
++            Location { block: self.succ, statement_index: 0 },
++            StatementKind::StorageDead(fut),
+         );
+         let dropline_with_dead = dropline.map(|target| {
+             self.new_block_with_statements(

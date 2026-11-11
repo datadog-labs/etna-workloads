@@ -1,0 +1,50 @@
+diff --git a/compiler/rustc_mir_transform/src/check_packed_ref.rs b/compiler/rustc_mir_transform/src/check_packed_ref.rs
+index fd87587b8f9ce79cd99be6720d342230f496a570..3a1d6bea5dc79abb88b9a93bbc4c525a2830ea5f 100644
+--- a/compiler/rustc_mir_transform/src/check_packed_ref.rs
++++ b/compiler/rustc_mir_transform/src/check_packed_ref.rs
+@@ -38,7 +38,7 @@ fn visit_statement(&mut self, statement: &Statement<'tcx>, location: Location) {
+ 
+     fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _location: Location) {
+         if context.is_borrow()
+-            && let Some((adt, pack)) =
++            && let Some((_adt, _pack)) =
+                 util::place_unalignment(self.tcx, self.body, self.typing_env, *place)
+         {
+             let def_id = self.body.source.instance.def_id();
+@@ -52,8 +52,6 @@ fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _location:
+             } else {
+                 self.tcx.dcx().emit_err(diagnostics::UnalignedPackedRef {
+                     span: self.source_info.span,
+-                    ty_descr: adt.descr(),
+-                    align: pack.bytes(),
+                 });
+             }
+         }
+diff --git a/compiler/rustc_mir_transform/src/diagnostics.rs b/compiler/rustc_mir_transform/src/diagnostics.rs
+index 16e850adc34f9e74be9ea4997cc31c7eed5e5304..9429ad578cbe509758cbba17a6ad64b23bdb57c9 100644
+--- a/compiler/rustc_mir_transform/src/diagnostics.rs
++++ b/compiler/rustc_mir_transform/src/diagnostics.rs
+@@ -54,12 +54,9 @@ pub(crate) enum ConstMutate {
+ }
+ 
+ #[derive(Diagnostic)]
+-#[diag("reference to field of packed {$ty_descr} is unaligned", code = E0793)]
++#[diag("reference to packed field is unaligned", code = E0793)]
+ #[note(
+-    "this {$ty_descr} is {$align ->
+-        [one] {\"\"}
+-        *[other] {\"at most \"}
+-    }{$align}-byte aligned, but the type of this field may require higher alignment"
++    "packed structs are only aligned by one byte, and many modern architectures penalize unaligned field accesses"
+ )]
+ #[note(
+     "creating a misaligned reference is undefined behavior (even if that reference is never dereferenced)"
+@@ -70,8 +67,6 @@ pub(crate) enum ConstMutate {
+ pub(crate) struct UnalignedPackedRef {
+     #[primary_span]
+     pub span: Span,
+-    pub ty_descr: &'static str,
+-    pub align: u64,
+ }
+ 
+ #[derive(Diagnostic)]

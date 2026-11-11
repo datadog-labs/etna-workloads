@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_parse/src/parser/expr.rs b/compiler/rustc_parse/src/parser/expr.rs
+index 3e03730ab632bee5fa24895b550eec1f0a16773f..eee471c4ddb0bcb971dace9e74ee6a9c8e9a5e0a 100644
+--- a/compiler/rustc_parse/src/parser/expr.rs
++++ b/compiler/rustc_parse/src/parser/expr.rs
+@@ -1381,22 +1381,12 @@ fn maybe_recover_struct_lit_bad_delims(
+ 
+     /// Parse an indexing expression `expr[...]`.
+     fn parse_expr_index(&mut self, lo: Span, base: Box<Expr>) -> PResult<'a, Box<Expr>> {
+-        let prev_token = self.prev_token;
++        let prev_span = self.prev_token.span;
+         let open_delim_span = self.token.span;
+         self.bump(); // `[`
+         let index = self.parse_expr()?;
+-        self.suggest_missing_semicolon_before_array(prev_token.span, open_delim_span)?;
+-        self.expect(exp!(CloseBracket)).map_err(|mut e| {
+-            if let TokenKind::Ident(_, _) = prev_token.kind {
+-                e.span_suggestion_verbose(
+-                    prev_token.span.shrink_to_hi(),
+-                    "you might have meant to call a macro",
+-                    "!".to_string(),
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
+-            e
+-        })?;
++        self.suggest_missing_semicolon_before_array(prev_span, open_delim_span)?;
++        self.expect(exp!(CloseBracket))?;
+         Ok(self.mk_expr(
+             lo.to(self.prev_token.span),
+             self.mk_index(base, index, open_delim_span.to(self.prev_token.span)),

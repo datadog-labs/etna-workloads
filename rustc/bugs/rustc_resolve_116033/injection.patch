@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_resolve/src/check_unused.rs b/compiler/rustc_resolve/src/check_unused.rs
+index dcbda2f96323e759bd1301f7fbdf660faed2dc2e..23967d2916115721b733820fd3f73858e7ea05b0 100644
+--- a/compiler/rustc_resolve/src/check_unused.rs
++++ b/compiler/rustc_resolve/src/check_unused.rs
+@@ -59,6 +59,7 @@ struct UnusedImportCheckVisitor<'a, 'ra, 'tcx> {
+     unused_imports: FxIndexMap<ast::NodeId, UnusedImport>,
+     extern_crate_items: Vec<ExternCrateToLint>,
+     base_use_tree: Option<&'a ast::UseTree>,
++    base_use_is_pub: bool,
+     base_id: ast::NodeId,
+     item_span: Span,
+ }
+@@ -103,7 +104,7 @@ fn check_import(&mut self, id: ast::NodeId, def_id: LocalDefId) {
+ 
+     fn check_use_tree(&mut self, use_tree: &'a ast::UseTree, id: ast::NodeId) {
+         let def_id = self.r.owner_def_id(id);
+-        if self.r.effective_visibilities.is_exported(def_id) {
++        if self.base_use_is_pub {
+             self.check_import_as_underscore(use_tree, id);
+             self.r.maybe_unused_trait_imports.swap_remove(&def_id);
+             return;
+@@ -255,6 +256,7 @@ fn visit_item(&mut self, item: &'a ast::Item) {
+             // Use the base UseTree's NodeId as the item id
+             // This allows the grouping of all the lints in the same item
+             ast::ItemKind::Use(use_tree) => {
++                self.base_use_is_pub = item.vis.kind.is_pub();
+                 self.base_id = item.id;
+                 self.base_use_tree = Some(use_tree);
+                 self.check_use_tree(use_tree, item.id);
+@@ -462,6 +464,7 @@ pub(crate) fn check_unused(&mut self, use_items: Vec<&ast::Item>) {
+             unused_imports: Default::default(),
+             extern_crate_items: Default::default(),
+             base_use_tree: None,
++            base_use_is_pub: false,
+             base_id: ast::DUMMY_NODE_ID,
+             item_span: DUMMY_SP,
+         };

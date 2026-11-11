@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_resolve/src/effective_visibilities.rs b/compiler/rustc_resolve/src/effective_visibilities.rs
+index 7fabc15d00bdad8dd9473a77087e63ab715a305d..7fd1f2c440485b82decc113d26909565f77d807c 100644
+--- a/compiler/rustc_resolve/src/effective_visibilities.rs
++++ b/compiler/rustc_resolve/src/effective_visibilities.rs
+@@ -149,11 +149,8 @@ fn update_decl_chain(
+         };
+         while let DeclKind::Import { source_decl, .. } = decl.kind {
+             self.update_import(decl, parent_id, priv_vis(self, parent_id, decl));
+-            // `ambiguity_vis_max` can cycle on mutual globs; follow each once.
+-            if let Some(most_visible) = decl.ambiguity_vis_max.get()
+-                && seen_most_visible.insert(most_visible)
+-            {
+-                self.update_decl_chain(most_visible, parent_id, seen_most_visible);
++            if let Some(most_visible) = decl.ambiguity_vis_max.get() {
++                self.update_import(most_visible, parent_id, priv_vis(self, parent_id, most_visible));
+             }
+             parent_id = ParentId::Import(decl);
+             decl = source_decl;

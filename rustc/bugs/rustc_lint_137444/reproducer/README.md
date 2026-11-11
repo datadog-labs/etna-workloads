@@ -1,0 +1,1 @@
+Shows that the if_let_rescope lint (denied) fires for `if let Some(x) = Some((droppy(), ()).1)` on the clean compiler; the injected compiler no longer treats field/index lvalues as possible temporaries and accepts the code silently.

@@ -1,0 +1,83 @@
+error[E0425]: cannot find type `E` in this scope
+ --> main.rs:8:24
+  |
+5 | struct B;
+  | --------- similarly named struct `B` defined here
+...
+8 | fn foo(g: F, y: F, e: &E) {
+  |                        ^
+  |
+help: a struct with a similar name exists
+  |
+8 - fn foo(g: F, y: F, e: &E) {
+8 + fn foo(g: F, y: F, e: &B) {
+  |
+help: you might be missing a type parameter
+  |
+8 | fn foo<E>(g: F, y: F, e: &E) {
+  |       +++
+
+error[E0425]: cannot find value `E` in this scope
+  --> main.rs:10:18
+   |
+10 |     foo(B, g, D, E, F, G)
+   |                  ^
+   |
+help: a local variable with a similar name exists
+   |
+10 -     foo(B, g, D, E, F, G)
+10 +     foo(B, g, D, e, F, G)
+   |
+help: consider importing one of these constants
+   |
+ 5 + use std::f128::consts::E;
+   |
+ 5 + use std::f16::consts::E;
+   |
+ 5 + use std::f32::consts::E;
+   |
+ 5 + use std::f64::consts::E;
+   |
+
+error[E0425]: cannot find value `G` in this scope
+  --> main.rs:10:24
+   |
+10 |     foo(B, g, D, E, F, G)
+   |                        ^
+   |
+help: a local variable with a similar name exists
+   |
+10 -     foo(B, g, D, E, F, G)
+10 +     foo(B, g, D, E, F, g)
+   |
+help: you might be missing a const parameter
+   |
+ 8 | fn foo<const G: /* Type */>(g: F, y: F, e: &E) {
+   |       +++++++++++++++++++++
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_errors/src/annotate_snippet_emitter_writer.rs:339:29:
+assertion `left == right` failed: all spans must be disjoint
+  left: Some([SubstitutionPart { span: main.rs:10:13: 10:16 (#0), snippet: "" }, SubstitutionPart { span: main.rs:10:15: 10:16 (#0), snippet: "/* e */" }])
+ right: None
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [typeck_root] type-checking `foo`
+#1 [analysis] running analysis passes on crate `main`
+end of query stack
+error: aborting due to 4 previous errors
+
+Some errors have detailed explanations: E0061, E0425.
+For more information about an error, try `rustc --explain E0061`.
+rustc exit: 101
+
+[exit 0]

@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_middle/src/ty/visit.rs b/compiler/rustc_middle/src/ty/visit.rs
+index 620e6da6a8f885235fb503a91b1af6c9e972579b..de14758c83ed86792df3bcb3113184091ccba2a9 100644
+--- a/compiler/rustc_middle/src/ty/visit.rs
++++ b/compiler/rustc_middle/src/ty/visit.rs
+@@ -141,7 +141,6 @@ fn collect_late_bound_regions<T>(
+     {
+         let mut collector = LateBoundRegionsCollector::new(just_constrained);
+         let value = value.skip_binder();
+-        let value = if just_constrained { self.expand_free_alias_tys(value) } else { value };
+         value.visit_with(&mut collector);
+         collector.regions
+     }
+@@ -181,16 +180,7 @@ fn visit_ty(&mut self, t: Ty<'tcx>) {
+             match t.kind() {
+                 // If we are only looking for "constrained" regions, we have to ignore the
+                 // inputs to a projection as they may not appear in the normalized form.
+-                ty::Alias(_, alias_ty) => {
+-                    match alias_ty.kind {
+-                        ty::Projection { .. } | ty::Inherent { .. } | ty::Opaque { .. } => return,
+-
+-                        // All free alias types should've been expanded beforehand.
+-                        ty::Free { .. } => {
+-                            bug!("unexpected free alias type")
+-                        }
+-                    }
+-                }
++                ty::Alias(..) => return,
+                 _ => {}
+             }
+         }

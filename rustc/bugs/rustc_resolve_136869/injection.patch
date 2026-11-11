@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..8c1760e0386a8f7239925aaa7834e5ed8e6260fe 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -3021,14 +3021,9 @@ fn likely_rust_type(path: &[Segment]) -> Option<Symbol> {
+     // try to give a suggestion for this pattern: `name = blah`, which is common in other languages
+     // suggest `let name = blah` to introduce a new binding
+     fn let_binding_suggestion(&self, err: &mut Diag<'_>, ident_span: Span) -> bool {
+-        if ident_span.from_expansion() {
+-            return false;
+-        }
+-
+-        // only suggest when the code is a assignment without prefix code
+         if let Some(Expr { kind: ExprKind::Assign(lhs, ..), .. }) = self.diag_metadata.in_assignment
+             && let ast::ExprKind::Path(None, ref path) = lhs.kind
+-            && self.r.tcx.sess.source_map().is_line_before_span_empty(ident_span)
++            && !ident_span.from_expansion()
+         {
+             let (span, text) = match path.segments.first() {
+                 Some(seg) if let Some(name) = seg.ident.as_str().strip_prefix("let") => {
+@@ -3047,22 +3042,6 @@ fn let_binding_suggestion(&self, err: &mut Diag<'_>, ident_span: Span) -> bool {
+             );
+             return true;
+         }
+-
+-        // a special case for #133713
+-        // '=' maybe a typo of `:`, which is a type annotation instead of assignment
+-        if err.code == Some(E0423)
+-            && let Some((let_span, None, Some(val_span))) = self.diag_metadata.current_let_binding
+-            && val_span.contains(ident_span)
+-            && val_span.lo() == ident_span.lo()
+-        {
+-            err.span_suggestion_verbose(
+-                let_span.shrink_to_hi().to(val_span.shrink_to_lo()),
+-                "you might have meant to use `:` for type annotation",
+-                ": ",
+-                Applicability::MaybeIncorrect,
+-            );
+-            return true;
+-        }
+         false
+     }
+ 

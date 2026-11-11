@@ -1,0 +1,1 @@
+Borrowck's "consider assigning a value" suggestion for an uninitialized `ref mut` binding should suggest `= 42`-style values of the referent type (here `0`); the injected compiler suggests a reference value (`&mut 0`), which would not type-check.

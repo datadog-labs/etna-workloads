@@ -1,0 +1,1 @@
+Passing a parenthesized token tree `(meow)` to a macro that uses it as a macro name makes the diagnostic span point at the metavariable use inside the macro body instead of the call-site argument, because the delimited metavar span is not used when there is no collision (injected bug). The error output differs.

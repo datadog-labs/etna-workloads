@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_middle/src/ty/util.rs b/compiler/rustc_middle/src/ty/util.rs
+index adf153b68dae6329e1a918a5b0e4a0b708cb91ef..dd2c4d3e614d7a44d968d22266b8b8e780751cb3 100644
+--- a/compiler/rustc_middle/src/ty/util.rs
++++ b/compiler/rustc_middle/src/ty/util.rs
+@@ -388,10 +388,7 @@ pub fn calculate_dtor(
+                 continue;
+             }
+ 
+-            if validate(self, impl_did).is_err() {
+-                // Already `ErrorGuaranteed`, no need to delay a span bug here.
+-                continue;
+-            }
++            let _ = validate(self, impl_did);
+ 
+             let Some(&item_id) = self.associated_item_def_ids(impl_did).first() else {
+                 self.dcx()
+@@ -435,10 +432,7 @@ pub fn calculate_async_dtor(
+                 continue;
+             }
+ 
+-            if validate(self, impl_did).is_err() {
+-                // Already `ErrorGuaranteed`, no need to delay a span bug here.
+-                continue;
+-            }
++            let _ = validate(self, impl_did);
+ 
+             if let Some(old_impl_did) = dtor_candidate {
+                 self.dcx()
+diff --git a/compiler/rustc_mir_transform/src/elaborate_drop.rs b/compiler/rustc_mir_transform/src/elaborate_drop.rs
+index 492759d666c83e5e0f1b02f495e87275cc3deeff..d8ab939975a07d3cb4cfa2dc4e25309f3a081282 100644
+--- a/compiler/rustc_mir_transform/src/elaborate_drop.rs
++++ b/compiler/rustc_mir_transform/src/elaborate_drop.rs
+@@ -242,7 +242,18 @@ fn build_async_drop(
+         let async_drop_fn_def_id = if call_destructor_only {
+             // Resolving obj.<AsyncDrop::drop>()
+             let async_drop_trait = tcx.require_lang_item(LangItem::AsyncDrop, span);
+-            tcx.associated_item_def_ids(async_drop_trait)[0]
++            let impl_did = drop_ty
++                .ty_adt_def()
++                .and_then(|adt| adt.async_destructor(tcx))
++                .map(|d| d.impl_did.expect_local().to_def_id());
++            match impl_did {
++                Some(impl_did) => {
++                    // The impl's item list may be empty if `drop` is not implemented.
++                    let _ = tcx.associated_item_def_ids(impl_did)[0];
++                    tcx.associated_item_def_ids(async_drop_trait)[0]
++                }
++                None => tcx.associated_item_def_ids(async_drop_trait)[0],
++            }
+         } else {
+             // Resolving async_drop_in_place<T> function for drop_ty
+             tcx.require_lang_item(LangItem::AsyncDropInPlace, span)

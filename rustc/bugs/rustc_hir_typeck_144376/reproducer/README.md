@@ -1,0 +1,1 @@
+Calling `.len()` on an `Option<Vec<_>>` hits the private `Option::len` method (E0624). The fixed compiler also adds a note that `len` exists on `Vec<{integer}>` and suggests `.expect("REASON")`. The injected compiler omits that suggestion, because the call to `suggest_unwrapping_inner_self` was removed.

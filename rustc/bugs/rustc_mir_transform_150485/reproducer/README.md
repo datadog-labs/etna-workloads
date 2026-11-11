@@ -1,0 +1,1 @@
+Compiles a function that reads fields through a reborrow, then mutates the source, then rebuilds the aggregate from the old values. With the bug, GVN rewrites the aggregate to a copy of the (already mutated) pointee, so the returned field a is 0 instead of 5.

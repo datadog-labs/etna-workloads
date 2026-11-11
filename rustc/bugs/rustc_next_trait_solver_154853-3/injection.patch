@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+index 08c634620300addde5a051df7622bb1dbddf4252..f3ab1a4b0927495358acc171142f85749044006e 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/normalizes_to.rs
+@@ -138,7 +138,6 @@ fn instantiate_normalizes_to_term(
+         goal: Goal<I, NormalizesTo<I>>,
+         value: I::Term,
+     ) -> Result<(), NoSolutionOrRerunNonErased> {
+-        self.push_const_arg_has_type_goal(goal.param_env, goal.predicate.alias, value)?;
+         // While `goal.predicate.term` should always be a fully unconstrained inference variable,
+         // `eq` can still fail if `value` is not fully normalized, due to `eq` eagerly normalizing,
+         // and that normalization can fail.
+diff --git a/compiler/rustc_trait_selection/src/traits/project.rs b/compiler/rustc_trait_selection/src/traits/project.rs
+index 7da8c68ff894a0ff74bd55e1f5b07b671bac5259..a8728fcc448bc222e837330ca3040ebf3999bc77 100644
+--- a/compiler/rustc_trait_selection/src/traits/project.rs
++++ b/compiler/rustc_trait_selection/src/traits/project.rs
+@@ -2074,17 +2074,6 @@ fn confirm_impl_candidate<'cx, 'tcx>(
+     } else {
+         assoc_term_own_obligations(selcx, obligation, &mut nested);
+         let instantiated_term = term.instantiate(tcx, args);
+-        let term_for_obligation = instantiated_term.skip_norm_wip();
+-        push_const_arg_has_type_obligation(
+-            tcx,
+-            &mut nested,
+-            &obligation.cause,
+-            obligation.recursion_depth + 1,
+-            obligation.param_env,
+-            term_for_obligation,
+-            assoc_term.item.def_id,
+-            args,
+-        );
+         Progress { term: instantiated_term, obligations: nested }
+     };
+     Ok(Projected::Progress(progress))

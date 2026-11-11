@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_metadata/src/rmeta/decoder/cstore_impl.rs b/compiler/rustc_metadata/src/rmeta/decoder/cstore_impl.rs
+index 8fe1d6561d135b13386c3926f21cbbbdec6656f9..5a08aa3e0327869a5645822184ff52be93b5e0bc 100644
+--- a/compiler/rustc_metadata/src/rmeta/decoder/cstore_impl.rs
++++ b/compiler/rustc_metadata/src/rmeta/decoder/cstore_impl.rs
+@@ -534,24 +534,14 @@ pub(in crate::rmeta) fn provide(providers: &mut Providers) {
+                             }
+                         }
+                         Entry::Vacant(entry) => {
+-                            if !fallback {
+-                                entry.insert(parent);
+-                            }
+-
+-                            // Make sure that we have not already explored this child
+-                            // through a previous fallback entry further up the BFS,
+-                            // in which case we do not want to put it back into the BFS queue,
+-                            // nor record a new fallback parent.
+-                            if fallback_map.contains_key(&def_id) {
+-                                return;
+-                            }
+-
+                             if fallback {
+                                 // We do all of the same steps to fallback entries as to
+                                 // preferred entries, except for recording them in a separate map.
+                                 // It is important to not return early in the fallback cases to
+                                 // ensure that we extend the BFS to the children of fallback items.
+                                 fallback_map.insert(def_id, parent);
++                            } else {
++                                entry.insert(parent);
+                             }
+ 
+                             if child.res.module_like_def_id().is_some() {

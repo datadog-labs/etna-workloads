@@ -1,0 +1,73 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/operand.rs b/compiler/rustc_const_eval/src/interpret/operand.rs
+index 7ef1597c1c06f402c8be1c99dd11576af8965594..d0a74869eb8efb8076338874d6af412e3800189e 100644
+--- a/compiler/rustc_const_eval/src/interpret/operand.rs
++++ b/compiler/rustc_const_eval/src/interpret/operand.rs
+@@ -256,6 +256,17 @@ fn deref(&self) -> &Immediate<Prov> {
+ }
+ 
+ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
++    #[inline(always)]
++    pub fn try_from_immediate(imm: Immediate<Prov>, layout: TyAndLayout<'tcx>) -> Option<Self> {
++        let matches_abi = match (imm, layout.backend_repr) {
++            (Immediate::Scalar(..), BackendRepr::Scalar(..)) => true,
++            (Immediate::ScalarPair(..), BackendRepr::ScalarPair { .. }) => true,
++            (Immediate::Uninit, _) => layout.is_sized(),
++            _ => false,
++        };
++        if matches_abi { Some(ImmTy { imm, layout }) } else { None }
++    }
++
+     #[inline]
+     pub fn from_scalar(val: Scalar<Prov>, layout: TyAndLayout<'tcx>) -> Self {
+         debug_assert!(layout.backend_repr.is_scalar(), "`ImmTy::from_scalar` on non-scalar layout");
+diff --git a/compiler/rustc_const_eval/src/interpret/place.rs b/compiler/rustc_const_eval/src/interpret/place.rs
+index 4e42eb4ae158feccea91ee0338a6a795b806d129..7f9f967aabfe094a192912759c09c42c112bb361 100644
+--- a/compiler/rustc_const_eval/src/interpret/place.rs
++++ b/compiler/rustc_const_eval/src/interpret/place.rs
+@@ -322,6 +322,14 @@ fn to_op<M: Machine<'tcx, Provenance = Prov>>(
+ 
+ // These are defined here because they produce a place.
+ impl<'tcx, Prov: Provenance> OpTy<'tcx, Prov> {
++    #[inline(always)]
++    pub fn try_as_immediate(&self) -> Option<ImmTy<'tcx, Prov>> {
++        match self.op() {
++            Operand::Indirect(_) => None,
++            Operand::Immediate(imm) => ImmTy::try_from_immediate(*imm, self.layout),
++        }
++    }
++
+     #[inline(always)]
+     pub fn as_mplace_or_imm(&self) -> Either<MPlaceTy<'tcx, Prov>, ImmTy<'tcx, Prov>> {
+         match self.op() {
+diff --git a/compiler/rustc_hir_analysis/src/collect/type_of.rs b/compiler/rustc_hir_analysis/src/collect/type_of.rs
+index 3402f56bef6dca1d9d0cb37b1bfbbfe2bb87a1a1..82eb0a887a44ead108bb2032d230546402cafd10 100644
+--- a/compiler/rustc_hir_analysis/src/collect/type_of.rs
++++ b/compiler/rustc_hir_analysis/src/collect/type_of.rs
+@@ -210,10 +210,8 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: LocalDefId) -> ty::EarlyBinder<'_
+                 // Verify that here to avoid ill-formed MIR.
+                 // We skip the `Sync` check to avoid cycles for type-alias-impl-trait,
+                 // relying on the fact that non-Sync statics don't ICE the rest of the compiler.
+-                match check_static_item(tcx, def_id, ty, /* should_check_for_sync */ false) {
+-                    Ok(()) => ty,
+-                    Err(guar) => Ty::new_error(tcx, guar),
+-                }
++                let _ = check_static_item(tcx, def_id, ty, /* should_check_for_sync */ false);
++                ty
+             }
+             ForeignItemKind::Type => Ty::new_foreign(tcx, def_id.to_def_id()),
+         },
+diff --git a/compiler/rustc_mir_transform/src/known_panics_lint.rs b/compiler/rustc_mir_transform/src/known_panics_lint.rs
+index a2f2f8fa063c20fa3cfe3e825e6f95b7ed867284..f7d31572a2f17ff900957a24553c96c7ebca3245 100644
+--- a/compiler/rustc_mir_transform/src/known_panics_lint.rs
++++ b/compiler/rustc_mir_transform/src/known_panics_lint.rs
+@@ -267,9 +267,7 @@ fn eval_constant(&mut self, c: &ConstOperand<'tcx>) -> Option<ImmTy<'tcx>> {
+             .try_normalize_erasing_regions(self.typing_env, Unnormalized::new_wip(c.const_))
+             .ok()?;
+ 
+-        self.use_ecx(|this| this.ecx.eval_mir_constant(&val, c.span, None))?
+-            .as_mplace_or_imm()
+-            .right()
++        self.use_ecx(|this| this.ecx.eval_mir_constant(&val, c.span, None))?.try_as_immediate()
+     }
+ 
+     /// Returns the value, if any, of evaluating `place`.

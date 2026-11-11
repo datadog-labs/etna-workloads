@@ -1,0 +1,1 @@
+Cross-crate static initialised with a closure referencing a nested fn: on the injected compiler the closure is not treated as recursively reachable, so the nested fn's MIR is missing and downstream compilation fails with 'missing optimized MIR'.

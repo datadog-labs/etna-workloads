@@ -1,0 +1,61 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..776fbc90be303d3454aedb505d12ac63f3b8154a 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -2858,33 +2858,32 @@ fn extract_node_id(t: &Ty) -> Option<NodeId> {
+         {
+             let res = binding.res();
+             if filter_fn(res) {
+-                match res {
+-                    Res::Def(DefKind::Fn | DefKind::AssocFn, def_id) => {
+-                        let has_self = match def_id.as_local() {
+-                            Some(def_id) => self
+-                                .r
+-                                .delegation_fn_sigs
+-                                .get(&def_id)
+-                                .is_some_and(|sig| sig.has_self),
+-                            None => {
+-                                self.r.tcx.fn_arg_idents(def_id).first().is_some_and(|&ident| {
+-                                    matches!(ident, Some(Ident { name: kw::SelfLower, .. }))
+-                                })
+-                            }
+-                        };
+-                        if has_self {
+-                            return Some(AssocSuggestion::MethodWithSelf { called });
+-                        } else {
++                let def_id = res.def_id();
++                let has_self = match def_id.as_local() {
++                    Some(def_id) => self
++                        .r
++                        .delegation_fn_sigs
++                        .get(&def_id)
++                        .is_some_and(|sig| sig.has_self),
++                    None => self.r.tcx.fn_arg_idents(def_id).first().is_some_and(|&ident| {
++                        matches!(ident, Some(Ident { name: kw::SelfLower, .. }))
++                    }),
++                };
++                if has_self {
++                    return Some(AssocSuggestion::MethodWithSelf { called });
++                } else {
++                    match res {
++                        Res::Def(DefKind::AssocFn, _) => {
+                             return Some(AssocSuggestion::AssocFn { called });
+                         }
++                        Res::Def(DefKind::AssocConst { .. }, _) => {
++                            return Some(AssocSuggestion::AssocConst);
++                        }
++                        Res::Def(DefKind::AssocTy, _) => {
++                            return Some(AssocSuggestion::AssocType);
++                        }
++                        _ => {}
+                     }
+-                    Res::Def(DefKind::AssocConst { .. }, _) => {
+-                        return Some(AssocSuggestion::AssocConst);
+-                    }
+-                    Res::Def(DefKind::AssocTy, _) => {
+-                        return Some(AssocSuggestion::AssocType);
+-                    }
+-                    _ => {}
+                 }
+             }
+         }

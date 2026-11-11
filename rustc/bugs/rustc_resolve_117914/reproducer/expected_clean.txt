@@ -1,0 +1,113 @@
+error[E0106]: missing lifetime specifier
+ --> main.rs:2:11
+  |
+2 | fn f() -> &isize {    //~ ERROR missing lifetime specifier
+  |           ^ expected named lifetime parameter
+  |
+  = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`
+  |
+2 | fn f() -> &'static isize {    //~ ERROR missing lifetime specifier
+  |            +++++++
+help: instead, you are more likely to want to return an owned value
+  |
+2 - fn f() -> &isize {    //~ ERROR missing lifetime specifier
+2 + fn f() -> isize {    //~ ERROR missing lifetime specifier
+  |
+
+error[E0106]: missing lifetime specifier
+ --> main.rs:7:33
+  |
+7 | fn g(_x: &isize, _y: &isize) -> &isize {    //~ ERROR missing lifetime specifier
+  |          ------      ------     ^ expected named lifetime parameter
+  |
+  = help: this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `_x` or `_y`
+help: consider introducing a named lifetime parameter
+  |
+7 | fn g<'a>(_x: &'a isize, _y: &'a isize) -> &'a isize {    //~ ERROR missing lifetime specifier
+  |     ++++      ++             ++            ++
+
+error[E0106]: missing lifetime specifier
+  --> main.rs:17:19
+   |
+17 | fn h(_x: &Foo) -> &isize { //~ ERROR missing lifetime specifier
+   |          ----     ^ expected named lifetime parameter
+   |
+   = help: this function's return type contains a borrowed value, but the signature does not say which one of `_x`'s 2 lifetimes it is borrowed from
+help: consider introducing a named lifetime parameter
+   |
+17 | fn h<'a>(_x: &'a Foo<'a>) -> &'a isize { //~ ERROR missing lifetime specifier
+   |     ++++      ++    ++++      ++
+
+error[E0106]: missing lifetime specifier
+  --> main.rs:21:20
+   |
+21 | fn i(_x: isize) -> &isize { //~ ERROR missing lifetime specifier
+   |                    ^ expected named lifetime parameter
+   |
+   = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`
+   |
+21 | fn i(_x: isize) -> &'static isize { //~ ERROR missing lifetime specifier
+   |                     +++++++
+help: instead, you are more likely to want to change the argument to be borrowed...
+   |
+21 | fn i(_x: &isize) -> &isize { //~ ERROR missing lifetime specifier
+   |          +
+help: ...or alternatively, you might want to return an owned value
+   |
+21 - fn i(_x: isize) -> &isize { //~ ERROR missing lifetime specifier
+21 + fn i(_x: isize) -> isize { //~ ERROR missing lifetime specifier
+   |
+
+error[E0106]: missing lifetime specifier
+  --> main.rs:34:24
+   |
+34 | fn j(_x: StaticStr) -> &isize { //~ ERROR missing lifetime specifier
+   |                        ^ expected named lifetime parameter
+   |
+   = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`
+   |
+34 | fn j(_x: StaticStr) -> &'static isize { //~ ERROR missing lifetime specifier
+   |                         +++++++
+help: instead, you are more likely to want to change the argument to be borrowed...
+   |
+34 | fn j(_x: &StaticStr) -> &isize { //~ ERROR missing lifetime specifier
+   |          +
+help: ...or alternatively, you might want to return an owned value
+   |
+34 - fn j(_x: StaticStr) -> &isize { //~ ERROR missing lifetime specifier
+34 + fn j(_x: StaticStr) -> isize { //~ ERROR missing lifetime specifier
+   |
+
+error[E0106]: missing lifetime specifier
+  --> main.rs:40:49
+   |
+40 | fn k<'a, T: WithLifetime<'a>>(_x: T::Output) -> &isize {
+   |                                                 ^ expected named lifetime parameter
+   |
+   = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'a` lifetime
+   |
+40 | fn k<'a, T: WithLifetime<'a>>(_x: T::Output) -> &'a isize {
+   |                                                  ++
+
+error[E0106]: missing lifetime specifier
+  --> main.rs:45:37
+   |
+45 | fn l<'a>(_: &'a str, _: &'a str) -> &str { "" }
+   |             -------     -------     ^ expected named lifetime parameter
+   |
+   = help: this function's return type contains a borrowed value with an elided lifetime, but the lifetime cannot be derived from the arguments
+help: consider using the `'a` lifetime
+   |
+45 | fn l<'a>(_: &'a str, _: &'a str) -> &'a str { "" }
+   |                                      ++
+
+error: aborting due to 7 previous errors
+
+For more information about this error, try `rustc --explain E0106`.
+rustc exit: 1
+
+[exit 0]

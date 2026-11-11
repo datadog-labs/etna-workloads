@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/mod.rs b/compiler/rustc_trait_selection/src/traits/mod.rs
+index eda63e09b1189e3ba489d6964c95117212191e74..bd156d0e721e6d2f194d7e3788f7be94fde9bdfe 100644
+--- a/compiler/rustc_trait_selection/src/traits/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/mod.rs
+@@ -700,24 +700,16 @@ pub fn try_evaluate_const<'tcx>(
+                 Some((def_id, ty::AnonConstKind::RepeatExprCount)) => {
+                     if alias_const.has_non_region_infer() {
+                         // Diagnostics will sometimes replace the identity args of anon consts in
+-                        // array repeat expr counts with inference variables so we have to handle this
+-                        // even though it is not something we should ever actually encounter.
+-                        //
+-                        // Array repeat expr counts are allowed to syntactically use generic parameters
+-                        // but must not actually depend on them in order to evalaute successfully. This means
+-                        // that it is actually fine to evalaute them in their own environment rather than with
+-                        // the actually provided generic arguments.
+-                        tcx.dcx().delayed_bug("AnonConst with infer args but no error reported");
++                        // array repeat expr counts with inference variables.
++                        let typing_env = infcx
++                            .typing_env(tcx.erase_and_anonymize_regions(param_env))
++                            .with_post_analysis_normalized(tcx);
++                        (alias_const.args, typing_env)
++                    } else {
++                        let args = GenericArgs::identity_for_item(tcx, def_id);
++                        let typing_env = ty::TypingEnv::post_analysis(tcx, def_id);
++                        (args, typing_env)
+                     }
+-
+-                    // The generic args of repeat expr counts under `min_const_generics` are not supposed to
+-                    // affect evaluation of the constant as this would make it a "truly" generic const arg.
+-                    // To prevent this we discard all the generic arguments and evalaute with identity args
+-                    // and in its own environment instead of the current environment we are normalizing in.
+-                    let args = GenericArgs::identity_for_item(tcx, def_id);
+-                    let typing_env = ty::TypingEnv::post_analysis(tcx, def_id);
+-
+-                    (args, typing_env)
+                 }
+                 Some((
+                     _,

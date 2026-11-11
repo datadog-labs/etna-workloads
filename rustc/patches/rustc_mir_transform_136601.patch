@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_mir_transform/src/check_null.rs b/compiler/rustc_mir_transform/src/check_null.rs
+index 7b4ccb11c7cf4a42d6497dd41536c9aba891b90d..1937cf477ac2614778a7fe2ae2e93e2cce185f3f 100644
+--- a/compiler/rustc_mir_transform/src/check_null.rs
++++ b/compiler/rustc_mir_transform/src/check_null.rs
+@@ -1,6 +1,6 @@
+ use rustc_hir::attrs::lang_items::LangItem;
+ use rustc_index::IndexVec;
+-use rustc_middle::mir::visit::{MutatingUseContext, NonMutatingUseContext, PlaceContext};
++use rustc_middle::mir::visit::PlaceContext;
+ use rustc_middle::mir::*;
+ use rustc_middle::ty::{Ty, TyCtxt};
+ use rustc_session::Session;
+@@ -31,7 +31,7 @@ fn insert_null_check<'tcx>(
+     tcx: TyCtxt<'tcx>,
+     pointer: Place<'tcx>,
+     pointee_ty: Ty<'tcx>,
+-    context: PlaceContext,
++    _context: PlaceContext,
+     local_decls: &mut IndexVec<Local, LocalDecl<'tcx>>,
+     stmts: &mut Vec<Statement<'tcx>>,
+     source_info: SourceInfo,
+@@ -53,20 +53,7 @@ fn insert_null_check<'tcx>(
+         const_: Const::Val(ConstValue::from_target_usize(0, &tcx), tcx.types.usize),
+     }));
+ 
+-    let (pointee_should_be_checked, assert_kind) = match context {
+-        // Borrows pointing to "null" are UB even if the pointee is a ZST.
+-        PlaceContext::NonMutatingUse(NonMutatingUseContext::SharedBorrow)
+-        | PlaceContext::MutatingUse(MutatingUseContext::Borrow) => {
+-            // Pointer should be checked unconditionally.
+-            (
+-                Operand::Constant(Box::new(ConstOperand {
+-                    span: source_info.span,
+-                    user_ty: None,
+-                    const_: Const::from_bool(tcx, true),
+-                })),
+-                AssertKind::NullReferenceConstructed,
+-            )
+-        }
++    let (pointee_should_be_checked, assert_kind) = match _context {
+         // Other usages of null pointers only are UB if the pointee is not a ZST.
+         _ => {
+             let size_of = tcx.require_lang_item(LangItem::SizeOf, source_info.span);

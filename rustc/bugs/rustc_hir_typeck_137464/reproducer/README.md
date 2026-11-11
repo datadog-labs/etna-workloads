@@ -1,0 +1,1 @@
+A derive macro expands to a function with a type mismatch (`T` vs `U`). The injected compiler adds a bogus "call `Into::into` on this expression" suggestion pointing into the derive attribute; the clean compiler omits it. The script counts the occurrences of that suggestion.

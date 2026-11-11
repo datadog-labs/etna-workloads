@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+index db863cb42f63ec23f261252e07e9d71f01437137..7d7558c35d19b790bf377df9cc0f8b56cbedac4e 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+@@ -928,9 +928,11 @@ fn assemble_candidates_from_object_ty(
+         }
+ 
+         self.infcx.probe(|_snapshot| {
+-            let poly_trait_predicate = self.infcx.resolve_vars_if_possible(obligation.predicate);
+-            self.infcx.enter_forall(poly_trait_predicate, |placeholder_trait_predicate| {
+-                let self_ty = placeholder_trait_predicate.self_ty();
++            if obligation.self_ty().bound_vars().iter().any(|v| !matches!(v, ty::BoundVariableKind::Region(_))) {
++                return;
++            }
++            let self_ty = self.tcx().instantiate_bound_regions_with_erased(obligation.self_ty());
++            {
+                 let principal_trait_ref = match self_ty.kind() {
+                     ty::Dynamic(data, ..) => {
+                         if data.auto_traits().any(|did| did == obligation.predicate.def_id()) {
+@@ -959,6 +961,9 @@ fn assemble_candidates_from_object_ty(
+ 
+                 debug!(?principal_trait_ref, "assemble_candidates_from_object_ty");
+ 
++                let poly_trait_predicate = self.infcx.resolve_vars_if_possible(obligation.predicate);
++                self.infcx.enter_forall(poly_trait_predicate, |placeholder_trait_predicate| {
++
+                 // Count only those upcast versions that match the trait-ref
+                 // we are looking for. Specifically, do not only check for the
+                 // correct trait, but also the correct type parameters.
+@@ -979,7 +984,8 @@ fn assemble_candidates_from_object_ty(
+                     .map(|(idx, _)| ObjectCandidate(idx));
+ 
+                 candidates.vec.extend(candidate_supertraits);
+-            })
++                });
++            }
+         })
+     }
+ 

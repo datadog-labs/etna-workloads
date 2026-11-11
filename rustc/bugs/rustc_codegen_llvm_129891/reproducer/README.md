@@ -1,0 +1,1 @@
+Compiles a naked function with -Zsanitizer=address, emitting LLVM IR, and counts whether the naked function's declaration attribute group contains sanitize_address. Clean prints 0; the injected compiler wrongly requests the sanitizer (prints 1).

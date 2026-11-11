@@ -1,0 +1,90 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
+index 35449284b5093e33196389aec832abf2ecc37caa..8cbfe8185c42c13cff4e796cd1db7a7e327330b6 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
+@@ -1362,85 +1362,6 @@ fn cmp_ty_refs<'tcx>(
+                 self.cmp_fn_sig(sig_tys1.with(*hdr1), None, sig_tys2.with(*hdr2), None)
+             }
+ 
+-            (ty::Alias(kind1, alias1), ty::Alias(kind2, alias2))
+-                if kind1 == kind2 && alias1 == alias2 && !self.tcx.sess.opts.verbose =>
+-            {
+-                let mut strs = (DiagStyledString::new(), DiagStyledString::new());
+-                strs.0.push_normal("_");
+-                strs.1.push_normal("_");
+-                strs
+-            }
+-
+-            (ty::Alias(kind1, alias1), ty::Alias(kind2, alias2)) if kind1 == kind2 => {
+-                let mut values = (DiagStyledString::new(), DiagStyledString::new());
+-                match (alias1.kind, alias2.kind) {
+-                    (ty::Projection { def_id: def_id1 }, ty::Projection { def_id: def_id2 })
+-                        // RPITIT projections use anonymous associated type and have no item name,
+-                        // so it will be ICE from call of `tcx.item_name(def_id)` below, issue #161915.
+-                        if !self.tcx.is_impl_trait_in_trait(def_id1)
+-                            && !self.tcx.is_impl_trait_in_trait(def_id2) =>
+-                    {
+-                        // `<Type as Trait>::Name<args>`
+-                        values.0.push_normal("<");
+-                        values.1.push_normal("<");
+-                        let (trait_ref1, args1) = alias1.trait_ref_and_own_args(self.tcx);
+-                        let (trait_ref2, args2) = alias2.trait_ref_and_own_args(self.tcx);
+-                        self.recurse(trait_ref1.self_ty(), trait_ref2.self_ty(), &mut values);
+-
+-                        values.0.push_normal(" as ");
+-                        values.1.push_normal(" as ");
+-                        if trait_ref1.def_id == trait_ref2.def_id {
+-                            if self.tcx.sess.opts.verbose {
+-                                values
+-                                    .0
+-                                    .push_normal(format!("{}", trait_ref1.print_only_trait_name()));
+-                                values
+-                                    .1
+-                                    .push_normal(format!("{}", trait_ref2.print_only_trait_name()));
+-                            } else {
+-                                with_forced_trimmed_paths! {{
+-                                    values
+-                                        .0
+-                                        .push_normal(format!("{}", trait_ref1.print_only_trait_name()));
+-                                    values
+-                                        .1
+-                                        .push_normal(format!("{}", trait_ref2.print_only_trait_name()));
+-                                }}
+-                            }
+-                            // We skip the type of `Self`:
+-                            let args1 = &trait_ref1.args[1..];
+-                            let args2 = &trait_ref2.args[1..];
+-                            self.compare_generics(&mut values, args1, args2);
+-                        } else {
+-                            values
+-                                .0
+-                                .push_highlighted(format!("{}", trait_ref1.print_trait_sugared()));
+-                            values
+-                                .1
+-                                .push_highlighted(format!("{}", trait_ref2.print_trait_sugared()));
+-                        }
+-                        values.0.push_normal(">::");
+-                        values.1.push_normal(">::");
+-                        let name1 = self.tcx.item_name(def_id1);
+-                        let name2 = self.tcx.item_name(def_id2);
+-                        if def_id1 == def_id2 {
+-                            values.0.push_normal(format!("{name1}"));
+-                            values.1.push_normal(format!("{name2}"));
+-                        } else {
+-                            // The two types are already different, so the arguments are not
+-                            // illuminating anything by highlighting them in any way.
+-                            values.0.push_highlighted(format!("{name1}"));
+-                            values.1.push_highlighted(format!("{name2}"));
+-                        }
+-                        self.compare_generics(&mut values, args1, args2);
+-                    }
+-                    _ => {
+-                        self.maybe_highlight(t1, t2, &mut values, self.tcx);
+-                    }
+-                }
+-                values
+-            }
+-
+             _ => {
+                 let mut strs = (DiagStyledString::new(), DiagStyledString::new());
+                 self.maybe_highlight(t1, t2, &mut strs, self.tcx);

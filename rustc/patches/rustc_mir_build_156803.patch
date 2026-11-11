@@ -1,0 +1,53 @@
+diff --git a/compiler/rustc_mir_build/src/builder/expr/as_place.rs b/compiler/rustc_mir_build/src/builder/expr/as_place.rs
+index e92f74722626b0fd77c6e7ef81f1115033d60057..ff7e518f91a81e5b7bea7cb34b8ad086af6bf48f 100644
+--- a/compiler/rustc_mir_build/src/builder/expr/as_place.rs
++++ b/compiler/rustc_mir_build/src/builder/expr/as_place.rs
+@@ -583,10 +583,6 @@ fn expr_as_place(
+             | ExprKind::ThreadLocalRef(_)
+             | ExprKind::Call { .. }
+             | ExprKind::ByUse { .. }
+-            // A reborrow is an rvalue. If a place is needed for it, materialize
+-            // the rvalue in a temporary instead of treating the reborrow
+-            // expression itself as an assignable place.
+-            | ExprKind::Reborrow { .. }
+             | ExprKind::WrapUnsafeBinder { .. } => {
+                 // these are not places, so we need to make a temporary.
+                 debug_assert!(!matches!(Category::of(&expr.kind), Some(Category::Place)));
+@@ -594,6 +590,12 @@ fn expr_as_place(
+                 let temp = unpack!(block = this.as_temp(block, temp_lifetime, expr_id, mutability));
+                 block.and(PlaceBuilder::from(temp))
+             }
++            ExprKind::Reborrow { .. } => {
++                // FIXME(reborrow): it should currently be impossible to end up evaluating a
++                // Reborrow expression as a place. That might not in the future, but what this then
++                // evaluates to requires further thought.
++                unreachable!();
++            }
+         }
+     }
+ 
+diff --git a/compiler/rustc_mir_build/src/builder/expr/category.rs b/compiler/rustc_mir_build/src/builder/expr/category.rs
+index 1a2f0a791b697ae94deab29ee791c549869db9b3..eb6a0754358d1980eeaa07a9b3441f39e48b1f4c 100644
+--- a/compiler/rustc_mir_build/src/builder/expr/category.rs
++++ b/compiler/rustc_mir_build/src/builder/expr/category.rs
+@@ -43,7 +43,8 @@ pub(crate) fn of(ek: &ExprKind<'_>) -> Option<Category> {
+             | ExprKind::PlaceTypeAscription { .. }
+             | ExprKind::ValueTypeAscription { .. }
+             | ExprKind::PlaceUnwrapUnsafeBinder { .. }
+-            | ExprKind::ValueUnwrapUnsafeBinder { .. } => Some(Category::Place),
++            | ExprKind::ValueUnwrapUnsafeBinder { .. }
++            | ExprKind::Reborrow { .. } => Some(Category::Place),
+ 
+             ExprKind::LogicalOp { .. }
+             | ExprKind::Match { .. }
+@@ -69,10 +70,6 @@ pub(crate) fn of(ek: &ExprKind<'_>) -> Option<Category> {
+             | ExprKind::Repeat { .. }
+             | ExprKind::Assign { .. }
+             | ExprKind::AssignOp { .. }
+-            // A reborrow expression produces a value represented in MIR as
+-            // `Rvalue::Reborrow`. Its source may be a place, but the reborrow
+-            // expression itself does not denote an assignable place.
+-            | ExprKind::Reborrow { .. }
+             | ExprKind::ThreadLocalRef(_)
+             | ExprKind::WrapUnsafeBinder { .. } => Some(Category::Rvalue(RvalueFunc::AsRvalue)),
+ 

@@ -1,0 +1,96 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs b/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
+index 5cba32d742f62219e30fe1ef7add3c33acd64b3e..a08c1e3971a9841be12ff458834ffbc8459fdae1 100644
+--- a/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
++++ b/compiler/rustc_trait_selection/src/traits/outlives_for_liveness.rs
+@@ -3,8 +3,7 @@
+ use rustc_hir::def_id::{DefId, LocalDefId};
+ use rustc_middle::bug;
+ use rustc_middle::ty::{
+-    self, Flags, ImplTraitInTraitData, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable,
+-    TypeVisitableExt, TypeVisitor,
++    self, Flags, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitableExt, TypeVisitor,
+ };
+ 
+ use crate::infer::outlives::test_type_match;
+@@ -129,12 +128,6 @@ pub(crate) fn args_known_to_outlive_alias_params<'tcx>(
+ ) -> ty::EarlyBinder<'tcx, Vec<(ty::Region<'tcx>, Vec<ty::GenericArg<'tcx>>)>> {
+     match tcx.def_kind(def_id) {
+         DefKind::OpaqueTy => args_known_to_outlive_opaque_params(tcx, def_id),
+-        DefKind::AssocTy
+-            if let Some(ImplTraitInTraitData::Trait { fn_def_id: _, opaque_def_id }) =
+-                tcx.opt_rpitit_info(def_id.to_def_id()) =>
+-        {
+-            args_known_to_outlive_opaque_params(tcx, opaque_def_id.expect_local())
+-        }
+         DefKind::AssocTy | DefKind::TyAlias => args_known_to_outlive_non_opaque_params(tcx, def_id),
+         kind => {
+             bug!("improper def_kind {kind:?} passed to `live_args_for_alias_from_outlives_bounds`")
+@@ -253,15 +246,14 @@ pub(crate) fn args_known_to_outlive_opaque_params<'tcx>(
+         }
+ 
+         for &(parent_outlives_region, opaque_region) in parent_outlives_regions.iter() {
+-            let region_outlives = parent_outlives_region == *parent_outlived_region
+-                || region_known_to_outlive(
+-                    tcx,
+-                    def_id,
+-                    parent_param_env,
+-                    &wf_tys,
+-                    parent_outlives_region,
+-                    *parent_outlived_region,
+-                );
++            let region_outlives = region_known_to_outlive(
++                tcx,
++                def_id,
++                parent_param_env,
++                &wf_tys,
++                parent_outlives_region,
++                *parent_outlived_region,
++            );
+             if !region_outlives {
+                 continue;
+             }
+@@ -283,7 +275,12 @@ pub(crate) fn args_known_to_outlive_non_opaque_params<'tcx>(
+     let self_identity_args = ty::GenericArgs::identity_for_item(tcx, def_id);
+     let param_env = tcx.param_env(def_id);
+     tracing::debug!(?param_env);
+-    let wf_tys = tcx.assumed_wf_types(def_id).iter().map(|(ty, _)| *ty).collect::<FxIndexSet<_>>();
++    // Only the alias's declared where-clauses are considered for RPITIT GATs.
++    let wf_tys = if tcx.is_impl_trait_in_trait(def_id.to_def_id()) {
++        FxIndexSet::default()
++    } else {
++        tcx.assumed_wf_types(def_id).iter().map(|(ty, _)| *ty).collect::<FxIndexSet<_>>()
++    };
+     let mut result = Vec::new();
+     for outlived_arg in self_identity_args.iter() {
+         let Some(outlived_region) = outlived_arg.as_region() else {
+@@ -513,6 +510,30 @@ fn visit_ty(&mut self, ty: Ty<'tcx>) {
+                 let tcx = self.tcx;
+                 let param_env = self.param_env;
+ 
++                // Opaques are special, because we need to map onto the opaque's parent.
++                if let ty::AliasTyKind::Opaque { def_id } = kind {
++                    match tcx.live_args_for_alias_from_outlives_bounds(kind) {
++                        Some(live_args) => {
++                            for &arg in live_args.as_ref().skip_binder() {
++                                let arg = ty::EarlyBinder::bind(tcx, arg)
++                                    .instantiate(tcx, args)
++                                    .skip_norm_wip();
++                                arg.visit_with(self);
++                            }
++                        }
++                        None => {
++                            let variances = tcx.variances_of(def_id);
++                            for (idx, s) in args.iter().enumerate() {
++                                if variances[idx] != ty::Bivariant {
++                                    s.visit_with(self);
++                                }
++                            }
++                        }
++                    }
++
++                    return;
++                }
++
+                 // For aliases other than opaques, we have to consider two
+                 // sources of information to identity potentially-live args:
+                 // - Bounds on alias item itself

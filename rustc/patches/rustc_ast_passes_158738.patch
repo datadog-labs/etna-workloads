@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_ast_passes/src/feature_gate.rs b/compiler/rustc_ast_passes/src/feature_gate.rs
+index bd92f32e24b689397dc7879a6281b44aa924705b..45c37b737d408b05d60626a0f118e1f8b3be46d4 100644
+--- a/compiler/rustc_ast_passes/src/feature_gate.rs
++++ b/compiler/rustc_ast_passes/src/feature_gate.rs
+@@ -733,10 +733,8 @@ fn check_new_solver_banned_features(sess: &Session, features: &Features) {
+         .find(|feat| feat.gate_name == sym::generic_const_exprs)
+         .map(|feat| feat.attr_sp)
+     {
+-        // Abort immediately, otherwise GCE can lower to `ConstKind::Expr`,
+-        // which the new solver intentionally does not support.
+         #[allow(rustc::symbol_intern_string_literal)]
+-        sess.dcx().emit_fatal(diagnostics::IncompatibleFeatures {
++        sess.dcx().emit_err(diagnostics::IncompatibleFeatures {
+             spans: vec![gce_span],
+             f1: Symbol::intern("-Znext-solver=globally"),
+             f2: sym::generic_const_exprs,
+diff --git a/compiler/rustc_next_trait_solver/src/solve/mod.rs b/compiler/rustc_next_trait_solver/src/solve/mod.rs
+index 3504882834268ad80f60111d4a3c37535ed0b3a0..06042956855db8f99945d3f4aa86ea43a07c4e75 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/mod.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/mod.rs
+@@ -231,13 +231,21 @@ fn compute_const_evaluatable_goal(
+                 }
+             }
+ 
+-            // We can freely ICE here as:
++            // We can freely ICE for `Param` and `Bound` here as:
+             // - `Param` gets replaced with a placeholder during canonicalization
+             // - `Bound` cannot exist as we don't have a binder around the self Type
+-            // - `Expr` is part of `feature(generic_const_exprs)` and is not implemented yet
+-            ty::ConstKind::Param(_) | ty::ConstKind::Bound(_, _) | ty::ConstKind::Expr(_) => {
++            ty::ConstKind::Param(_) | ty::ConstKind::Bound(_, _) => {
+                 panic!("unexpected const kind: {:?}", ct)
+             }
++
++            ty::ConstKind::Expr(_) => {
++                // `ConstKind::Expr` is part of `feature(generic_const_exprs)`,
++                // which is not implemented in the next solver and should be
++                // rejected by feature gating when the next solver is enabled
++                // globally. Recover with ambiguity instead of ICEing while
++                // compiling after errors.
++                self.evaluate_added_goals_and_make_canonical_response(Certainty::AMBIGUOUS)
++            }
+         }
+     }
+ 
+@@ -266,9 +274,14 @@ fn compute_const_arg_has_type_goal(
+             ty::ConstKind::Alias(ty::IsRigid::No, _) => unimplemented!(
+                 "non-rigid unevaluated constant for compute_const_arg_has_type_goal: {ct:?}"
+             ),
+-            ty::ConstKind::Expr(_) => unimplemented!(
+-                "`feature(generic_const_exprs)` is not supported in the new trait solver"
+-            ),
++            ty::ConstKind::Expr(_) => {
++                // `ConstKind::Expr` is part of `feature(generic_const_exprs)`,
++                // which is not implemented in the next solver. Recover with
++                // ambiguity instead of ICEing while compiling after errors.
++                return self
++                    .evaluate_added_goals_and_make_canonical_response(Certainty::AMBIGUOUS)
++                    .map_err(Into::into);
++            }
+             ty::ConstKind::Param(_) => {
+                 unreachable!("`ConstKind::Param` should have been canonicalized to `Placeholder`")
+             }

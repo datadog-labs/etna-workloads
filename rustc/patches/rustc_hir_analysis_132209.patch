@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..3e460c3dd033a0dc1d1822617603f0bbdff0c241 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -992,6 +992,7 @@ pub(crate) fn lower_poly_trait_ref(
+                 true
+             }
+         };
++        let is_maybe = matches!(polarity, hir::BoundPolarity::Maybe(_));
+         let bounds = if transient { &mut Vec::new() } else { bounds };
+ 
+         let polarity = match polarity {
+@@ -1016,6 +1017,11 @@ pub(crate) fn lower_poly_trait_ref(
+ 
+         let constraints = segment.args().constraints;
+ 
++        if is_maybe {
++            // No-op.
++            return arg_count;
++        }
++
+         if transient && (!generic_args[1..].is_empty() || !constraints.is_empty()) {
+             // Since the bound won't be present in the middle::ty IR as established above, any
+             // arguments or constraints won't be checked for well-formedness in later passes.

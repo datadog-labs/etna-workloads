@@ -1,0 +1,1 @@
+An async closure with precise captures (s.a and &mut s.b) is called via AsyncFnOnce, exercising the by-move body shim. The injected compiler builds the shim with wrong capture fields and hits an ICE (broken MIR validation); the clean compiler compiles and prints '2 x! y?'.

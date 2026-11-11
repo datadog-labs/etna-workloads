@@ -1,0 +1,1 @@
+Compiles a no_core crate for riscv32e-unknown-none-elf using asm!(clobber_abi("C")). The clean compiler picks the RV32E clobber set (no x16-x31) and succeeds; the injected one always uses the RV32I set and errors with 'cannot use register x16... can't be used with the e target feature'.

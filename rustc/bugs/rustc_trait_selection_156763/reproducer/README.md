@@ -1,0 +1,1 @@
+Reproduces an on_unimplemented/do_not_recommend error whose span comes from a proc-macro expansion; the injected compiler reports it at the attribute macro call site (with an 'originates in the attribute macro' note) rather than at the user's `&mut Arg` argument span.

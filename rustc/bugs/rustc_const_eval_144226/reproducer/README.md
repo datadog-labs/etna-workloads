@@ -1,0 +1,1 @@
+Compiles an extern static of unsized type [i8]; the injected compiler emits the E0277 unsized-static error twice (duplicate diagnostic, 3 errors instead of 2) because type_of no longer returns an error type for it.

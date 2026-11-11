@@ -1,0 +1,147 @@
+error[E0034]: multiple applicable items in scope
+  --> main.rs:16:7
+   |
+16 |     t.foo(); //~ ERROR multiple applicable items in scope
+   |       ^^^ multiple `foo` found
+   |
+note: candidate #1 is defined in the trait `A`
+  --> main.rs:4:5
+   |
+ 4 |     fn foo(&self); //~ NOTE candidate #1
+   |     ^^^^^^^^^^^^^^
+note: candidate #2 is defined in the trait `B`
+  --> main.rs:10:5
+   |
+10 |     fn foo(&self); //~ NOTE candidate #2
+   |     ^^^^^^^^^^^^^^
+help: disambiguate the method for candidate #1
+   |
+16 -     t.foo(); //~ ERROR multiple applicable items in scope
+16 +     A::foo(&t); //~ ERROR multiple applicable items in scope
+   |
+help: disambiguate the method for candidate #2
+   |
+16 -     t.foo(); //~ ERROR multiple applicable items in scope
+16 +     B::foo(&t); //~ ERROR multiple applicable items in scope
+   |
+
+error[E0034]: multiple applicable items in scope
+  --> main.rs:20:16
+   |
+20 |     let _ = T::CONST; //~ ERROR multiple applicable items in scope
+   |                ^^^^^ multiple `CONST` found
+   |
+note: candidate #1 is defined in the trait `A`
+  --> main.rs:3:5
+   |
+ 3 |     const CONST: usize = 1; //~ NOTE candidate #1
+   |     ^^^^^^^^^^^^^^^^^^
+note: candidate #2 is defined in the trait `B`
+  --> main.rs:9:5
+   |
+ 9 |     const CONST: usize; //~ NOTE candidate #2
+   |     ^^^^^^^^^^^^^^^^^^
+help: use fully-qualified syntax to disambiguate
+   |
+20 -     let _ = T::CONST; //~ ERROR multiple applicable items in scope
+20 +     let _ = <T as A>::CONST; //~ ERROR multiple applicable items in scope
+   |
+20 -     let _ = T::CONST; //~ ERROR multiple applicable items in scope
+20 +     let _ = <T as B>::CONST; //~ ERROR multiple applicable items in scope
+   |
+
+error[E0221]: ambiguous associated type `Type` in bounds of `T`
+  --> main.rs:23:12
+   |
+ 2 |     type Type; //~ NOTE ambiguous `Type` from `A`
+   |     --------- ambiguous `Type` from `A`
+...
+ 8 |     type Type; //~ NOTE ambiguous `Type` from `B`
+   |     --------- ambiguous `Type` from `B`
+...
+23 |     let _: T::Type; //~ ERROR ambiguous associated type
+   |            ^^^^^^^ ambiguous associated type `Type`
+   |
+help: use fully-qualified syntax to disambiguate
+   |
+23 -     let _: T::Type; //~ ERROR ambiguous associated type
+23 +     let _: <T as A>::Type; //~ ERROR ambiguous associated type
+   |
+help: use fully-qualified syntax to disambiguate
+   |
+23 -     let _: T::Type; //~ ERROR ambiguous associated type
+23 +     let _: <T as B>::Type; //~ ERROR ambiguous associated type
+   |
+
+error[E0034]: multiple applicable items in scope
+  --> main.rs:46:8
+   |
+46 |     S::foo(&s); //~ ERROR multiple applicable items in scope
+   |        ^^^ multiple `foo` found
+   |
+note: candidate #1 is defined in an impl of the trait `A` for the type `T`
+  --> main.rs:35:5
+   |
+35 |     fn foo(&self) {} //~ NOTE candidate #1
+   |     ^^^^^^^^^^^^^
+note: candidate #2 is defined in an impl of the trait `B` for the type `T`
+  --> main.rs:41:5
+   |
+41 |     fn foo(&self) {} //~ NOTE candidate #2
+   |     ^^^^^^^^^^^^^
+help: use fully-qualified syntax to disambiguate
+   |
+46 -     S::foo(&s); //~ ERROR multiple applicable items in scope
+46 +     A::foo(&s); //~ ERROR multiple applicable items in scope
+   |
+46 -     S::foo(&s); //~ ERROR multiple applicable items in scope
+46 +     B::foo(&s); //~ ERROR multiple applicable items in scope
+   |
+
+error[E0034]: multiple applicable items in scope
+  --> main.rs:49:16
+   |
+49 |     let _ = S::CONST; //~ ERROR multiple applicable items in scope
+   |                ^^^^^ multiple `CONST` found
+   |
+note: candidate #1 is defined in an impl of the trait `A` for the type `T`
+  --> main.rs:34:5
+   |
+34 |     const CONST: usize = 1; //~ NOTE candidate #1
+   |     ^^^^^^^^^^^^^^^^^^
+note: candidate #2 is defined in an impl of the trait `B` for the type `T`
+  --> main.rs:40:5
+   |
+40 |     const CONST: usize = 1; //~ NOTE candidate #2
+   |     ^^^^^^^^^^^^^^^^^^
+help: use fully-qualified syntax to disambiguate
+   |
+49 -     let _ = S::CONST; //~ ERROR multiple applicable items in scope
+49 +     let _ = <_ as A>::CONST; //~ ERROR multiple applicable items in scope
+   |
+49 -     let _ = S::CONST; //~ ERROR multiple applicable items in scope
+49 +     let _ = <_ as B>::CONST; //~ ERROR multiple applicable items in scope
+   |
+
+error[E0223]: ambiguous associated type
+  --> main.rs:52:12
+   |
+52 |     let _: S::Type; //~ ERROR ambiguous associated type
+   |            ^^^^^^^
+   |
+help: use fully-qualified syntax
+   |
+52 -     let _: S::Type; //~ ERROR ambiguous associated type
+52 +     let _: <S as A>::Type; //~ ERROR ambiguous associated type
+   |
+52 -     let _: S::Type; //~ ERROR ambiguous associated type
+52 +     let _: <S as B>::Type; //~ ERROR ambiguous associated type
+   |
+
+error: aborting due to 6 previous errors
+
+Some errors have detailed explanations: E0034, E0221, E0223.
+For more information about an error, try `rustc --explain E0034`.
+rustc exit: 1
+
+[exit 0]

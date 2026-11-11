@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..672ec7761f622a1251fe2346e8bc95f215626a67 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -2057,8 +2057,9 @@ fn report_return_mismatched_types<'infcx>(
+         // If this is due to a block, then maybe we forgot a `return`/`break`.
+         if due_to_block
+             && let Some(expr) = expression
++            && let parent_id = fcx.tcx.hir_get_parent_item(block_or_return_id)
+             && let Some(parent_fn_decl) =
+-                fcx.tcx.hir_fn_decl_by_hir_id(fcx.tcx.local_def_id_to_hir_id(fcx.body_def_id))
++                fcx.tcx.hir_fn_decl_by_hir_id(fcx.tcx.local_def_id_to_hir_id(parent_id.def_id))
+         {
+             fcx.suggest_missing_break_or_return_expr(
+                 &mut err,
+@@ -2067,7 +2068,7 @@ fn report_return_mismatched_types<'infcx>(
+                 expected,
+                 found,
+                 block_or_return_id,
+-                fcx.body_def_id,
++                parent_id.def_id,
+             );
+         }
+ 

@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_ty_utils/src/layout.rs b/compiler/rustc_ty_utils/src/layout.rs
+index 9e9aed008bf31464d871da96318ae53dbabb8edb..cb2f7e80f1734681dcb919d41b9cc34bbd3189fc 100644
+--- a/compiler/rustc_ty_utils/src/layout.rs
++++ b/compiler/rustc_ty_utils/src/layout.rs
+@@ -139,17 +139,13 @@ fn map_error<'tcx>(
+         }
+         LayoutCalculatorError::EmptyUnion => {
+             // This is always a compile error.
+-            let guar =
+-                cx.tcx().dcx().delayed_bug(format!("computed layout of empty union: {ty:?}"));
+-            LayoutError::ReferencesError(guar)
++            cx.tcx().dcx().delayed_bug(format!("computed layout of empty union: {ty:?}"));
++            LayoutError::Unknown(ty)
+         }
+         LayoutCalculatorError::ReprConflict => {
+             // packed enums are the only known trigger of this, but others might arise
+-            let guar = cx
+-                .tcx()
+-                .dcx()
+-                .delayed_bug(format!("computed impossible repr (packed enum?): {ty:?}"));
+-            LayoutError::ReferencesError(guar)
++            cx.tcx().dcx().delayed_bug(format!("computed impossible repr (packed enum?): {ty:?}"));
++            LayoutError::Unknown(ty)
+         }
+         LayoutCalculatorError::ZeroLengthSimdType => {
+             // Can't be caught in typeck if the array length is generic.
+@@ -703,11 +699,11 @@ fn layout_of_uncached<'tcx>(
+ 
+             if def.is_union() {
+                 if def.repr().pack.is_some() && def.repr().align.is_some() {
+-                    let guar = tcx.dcx().span_delayed_bug(
++                    tcx.dcx().span_delayed_bug(
+                         tcx.def_span(def.did()),
+                         "union cannot be packed and aligned",
+                     );
+-                    return Err(error(cx, LayoutError::ReferencesError(guar)));
++                    return Err(error(cx, LayoutError::Unknown(ty)));
+                 }
+ 
+                 return map_layout(cx.calc.layout_of_union(&def.repr(), &variants));

@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_hir_typeck/src/cast.rs b/compiler/rustc_hir_typeck/src/cast.rs
+index 4cbeaa6278049df77dd80bf129fe34a0babc981e..e5a83e350174654675ff2d494a4b36aa134eba18 100644
+--- a/compiler/rustc_hir_typeck/src/cast.rs
++++ b/compiler/rustc_hir_typeck/src/cast.rs
+@@ -604,12 +604,16 @@ fn report_cast_error(&self, fcx: &FnCtxt<'a, 'tcx>, e: CastError<'tcx>) {
+             CastError::SizedUnsizedCast => {
+                 let cast_ty = fcx.resolve_vars_if_possible(self.cast_ty);
+                 let expr_ty = fcx.resolve_vars_if_possible(self.expr_ty);
+-                fcx.dcx().emit_err(diagnostics::CastThinPointerToWidePointer {
++                let mut err = fcx.tcx.sess.dcx().create_err(diagnostics::CastThinPointerToWidePointer {
+                     span: self.span,
+                     expr_ty,
+                     cast_ty,
+                     teach: fcx.tcx.sess.teach(E0607),
+                 });
++                if self.expr_ty.references_error() {
++                    err.downgrade_to_delayed_bug();
++                }
++                err.emit();
+             }
+             CastError::IntToWideCast(known_metadata) => {
+                 let expr_if_nightly = fcx.tcx.sess.is_nightly_build().then_some(self.expr_span);

@@ -1,0 +1,1 @@
+Returns a `<T as Bar<u8>>::Assoc` where `<T as Bar<u16>>::Assoc` is expected. The E0308 note should print the projections with `_` for the shared self type and highlight only the differing trait parameter (`<_ as Bar<u16>>::Assoc`). The injected compiler prints the full alias types without that shortening.

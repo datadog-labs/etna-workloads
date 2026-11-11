@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..b713693931bfe17ab6a54e4c7eaacdfbf9b0b0f1 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -1347,9 +1347,8 @@ fn try_find_coercion_lub(
+             // See #88097 or `lub_closures_before_fnptr_coercion.rs` for where
+             // we would erroneously coerce closures to fnptrs when attempting to
+             // coerce a closure to itself.
+-            (ty::FnDef(..), ty::FnDef(..)) | (ty::Closure(..), ty::Closure(..)) => {
+-                let lubbed_ty = self.commit_if_ok(|snapshot| {
+-                    let outer_universe = self.infcx.universe();
++            (ty::FnDef(..), ty::FnDef(..)) => {
++                let lubbed_ty = self.commit_if_ok(|_| {
+ 
+                     // We need to eagerly handle nested obligations due to lazy norm.
+                     let result = if self.next_trait_solver() {
+@@ -1364,7 +1363,6 @@ fn try_find_coercion_lub(
+                         self.at(cause, self.param_env).lub(prev_ty, new_ty)
+                     };
+ 
+-                    self.leak_check(outer_universe, Some(snapshot))?;
+                     result
+                 });
+ 
+@@ -1378,7 +1376,9 @@ fn try_find_coercion_lub(
+                 }
+             }
+ 
+-            (ty::Closure(..), ty::FnDef(..)) | (ty::FnDef(..), ty::Closure(..)) => {
++            (ty::Closure(..), ty::FnDef(..))
++            | (ty::FnDef(..), ty::Closure(..))
++            | (ty::Closure(..), ty::Closure(..)) => {
+                 let a_sig = self.sig_for_coerce_lub(prev_ty, terr)?;
+                 let b_sig = self.sig_for_coerce_lub(new_ty, terr)?;
+                 Some((a_sig, b_sig))

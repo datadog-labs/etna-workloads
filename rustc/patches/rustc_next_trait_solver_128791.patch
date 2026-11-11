@@ -1,0 +1,55 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs b/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
+index aa26a122817bb43cd7aea436f5b845bf389655f8..ba5dfaed418c4ef21aee450c88a9c1d74ef7d0da 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/assembly/structural_traits.rs
+@@ -493,21 +493,9 @@ pub(in crate::solve) fn extract_tupled_inputs_and_output_from_async_callable<I:
+             ))
+         }
+ 
+-        ty::FnDef(def_id, _) => {
++        ty::FnDef(..) | ty::FnPtr(..) => {
+             let sig = self_ty.fn_sig(cx);
+-            if sig.is_fn_trait_compatible() && !cx.has_target_features(def_id) {
+-                fn_item_to_async_callable(cx, sig)
+-            } else {
+-                Err(NoSolution)
+-            }
+-        }
+-        ty::FnPtr(..) => {
+-            let sig = self_ty.fn_sig(cx);
+-            if sig.is_fn_trait_compatible() {
+-                fn_item_to_async_callable(cx, sig)
+-            } else {
+-                Err(NoSolution)
+-            }
++            fn_item_to_async_callable(cx, sig)
+         }
+ 
+         ty::Closure(_, args) => {
+diff --git a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+index db863cb42f63ec23f261252e07e9d71f01437137..13c489712f40bdad34b5c121bbfc2080eec8a0ff 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+@@ -519,20 +519,8 @@ fn assemble_async_closure_candidates(
+                 }
+                 candidates.vec.push(AsyncClosureCandidate);
+             }
+-            // Provide an impl, but only for suitable `fn` pointers.
+-            ty::FnPtr(sig_tys, hdr) => {
+-                if sig_tys.with(hdr).is_fn_trait_compatible() {
+-                    candidates.vec.push(AsyncClosureCandidate);
+-                }
+-            }
+-            // Provide an impl for suitable functions, rejecting `#[target_feature]` functions (RFC 2396).
+-            ty::FnDef(def_id, _) => {
+-                let tcx = self.tcx();
+-                if tcx.fn_sig(def_id).skip_binder().is_fn_trait_compatible()
+-                    && tcx.codegen_fn_attrs(def_id).target_features.is_empty()
+-                {
+-                    candidates.vec.push(AsyncClosureCandidate);
+-                }
++            ty::FnDef(..) | ty::FnPtr(..) => {
++                candidates.vec.push(AsyncClosureCandidate);
+             }
+             _ => {}
+         }

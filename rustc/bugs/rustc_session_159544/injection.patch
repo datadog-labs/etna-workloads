@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_session/src/diagnostics.rs b/compiler/rustc_session/src/diagnostics.rs
+index e8f29d8a9ee77d7c98c69668c96711542df09ced..30cbe17c72e8a31c53ebae468a0f9a4e2f4758d7 100644
+--- a/compiler/rustc_session/src/diagnostics.rs
++++ b/compiler/rustc_session/src/diagnostics.rs
+@@ -435,20 +435,11 @@ pub(crate) struct CrateNameEmpty {
+ 
+ #[derive(Diagnostic)]
+ #[diag("invalid character {$character} in crate name: `{$crate_name}`")]
+-#[note("crate names may only contain alphanumeric characters or underscores")]
+ pub(crate) struct InvalidCharacterInCrateName {
+     #[primary_span]
+     pub(crate) span: Option<Span>,
+     pub(crate) character: char,
+     pub(crate) crate_name: Symbol,
+-    #[subdiagnostic]
+-    pub(crate) suggestion: Option<InvalidCharacterInCrateNameSuggestion>,
+-}
+-
+-#[derive(Subdiagnostic)]
+-#[help("you might have meant to use `--crate-name={$suggested_name}`")]
+-pub(crate) struct InvalidCharacterInCrateNameSuggestion {
+-    pub(crate) suggested_name: String,
+ }
+ 
+ #[derive(Diagnostic)]
+diff --git a/compiler/rustc_session/src/output.rs b/compiler/rustc_session/src/output.rs
+index e2eb46c4ca87897e73c0fd75843320ae5f4f3b42..120eb04c6e8c434e109d45a3b19606b8fa0526fc 100644
+--- a/compiler/rustc_session/src/output.rs
++++ b/compiler/rustc_session/src/output.rs
+@@ -6,10 +6,7 @@
+ 
+ use crate::Session;
+ use crate::config::{CrateType, OutFileName, OutputFilenames, OutputType};
+-use crate::diagnostics::{
+-    CrateNameEmpty, FileIsNotWriteable, InvalidCharacterInCrateName,
+-    InvalidCharacterInCrateNameSuggestion,
+-};
++use crate::diagnostics::{CrateNameEmpty, FileIsNotWriteable, InvalidCharacterInCrateName};
+ 
+ pub fn out_filename(
+     sess: &Session,
+@@ -71,10 +68,6 @@ pub fn validate_crate_name(sess: &Session, crate_name: Symbol, span: Option<Span
+             span,
+             character: c,
+             crate_name,
+-            suggestion: span.is_none().then(|| InvalidCharacterInCrateNameSuggestion {
+-                suggested_name:
+-                    crate_name.as_str().replace(|c: char| c != '_' && !c.is_alphanumeric(), "_"),
+-            }),
+         }));
+     }
+ 

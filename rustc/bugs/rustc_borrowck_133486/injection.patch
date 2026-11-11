@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/move_errors.rs b/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
+index 9fac00016eac2e423e86dfe16dcb497d98f42d88..6653fb52671d585eb96713dc21e809851be302cf 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/move_errors.rs
+@@ -1177,6 +1177,7 @@ fn visit_pat(&mut self, p: &'tcx hir::Pat<'tcx>) {
+             return None;
+         };
+         let typeck_results = self.infcx.tcx.typeck(self.mir_def_id());
++        let pat_span = binding_info.pat_span;
+         let mut finder = BindingFinder {
+             typeck_results,
+             tcx,
+@@ -1191,21 +1192,37 @@ fn visit_pat(&mut self, p: &'tcx hir::Pat<'tcx>) {
+         };
+         finder.visit_body(body);
+ 
+-        let mut suggestions = Vec::new();
+-        for (binding_span, opt_ref_pat) in finder.ref_pat_for_binding {
+-            if let Some(ref_pat) = opt_ref_pat
+-                && !finder.cannot_remove.contains(&ref_pat.hir_id)
+-                && let hir::PatKind::Ref(subpat, pinned, mutbl) = ref_pat.kind
+-                && let Some(ref_span) = ref_pat.span.trim_end(subpat.span)
++        let mut suggestions: Vec<(Span, String, String)> = Vec::new();
++        for (binding_span, _) in finder.ref_pat_for_binding {
++            let Ok(pat_snippet) = tcx.sess.source_map().span_to_snippet(pat_span) else {
++                continue;
++            };
++            let Some(stripped) = pat_snippet.strip_prefix('&') else {
++                suggestions.push((
++                    binding_span.shrink_to_lo(),
++                    "consider borrowing the pattern binding".to_string(),
++                    "ref ".to_string(),
++                ));
++                continue;
++            };
++            let inner_pat_snippet = stripped.trim_start();
++            let (ref_span, to_remove) = if inner_pat_snippet.starts_with("mut")
++                && inner_pat_snippet["mut".len()..].starts_with(rustc_lexer::is_whitespace)
+             {
+-                let pinned_str = if pinned.is_pinned() { "pinned " } else { "" };
+-                let mutable_str = if mutbl.is_mut() { "mutable " } else { "" };
+-                let msg = format!("consider removing the {pinned_str}{mutable_str}borrow");
+-                suggestions.push((ref_span, msg, "".to_string()));
++                let inner = inner_pat_snippet["mut".len()..].trim_start();
++                (
++                    pat_span.with_hi(pat_span.lo() + BytePos((pat_snippet.len() - inner.len()) as u32)),
++                    "mutable borrow",
++                )
+             } else {
+-                let msg = "consider borrowing the pattern binding".to_string();
+-                suggestions.push((binding_span.shrink_to_lo(), msg, "ref ".to_string()));
+-            }
++                (
++                    pat_span.with_hi(
++                        pat_span.lo() + BytePos((pat_snippet.len() - inner_pat_snippet.len()) as u32),
++                    ),
++                    "borrow",
++                )
++            };
++            suggestions.push((ref_span, format!("consider removing the {to_remove}"), String::new()));
+         }
+         suggestions.sort_unstable_by_key(|&(span, _, _)| span);
+         suggestions.dedup_by_key(|&mut (span, _, _)| span);

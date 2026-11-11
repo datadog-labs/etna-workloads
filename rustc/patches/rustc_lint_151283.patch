@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_lint/src/unused/must_use.rs b/compiler/rustc_lint/src/unused/must_use.rs
+index dcbffa394a1a0decc3dd42f1956394d98d9b36ab..bda753a054d52b016b4ddf6725c2ea29560c220d 100644
+--- a/compiler/rustc_lint/src/unused/must_use.rs
++++ b/compiler/rustc_lint/src/unused/must_use.rs
+@@ -595,18 +595,10 @@ fn emit_must_use_untranslated(
+             );
+         }
+         MustUsePath::Def(span, def_id, reason) => {
+-            let ancenstor_span = span.find_ancestor_not_from_macro().unwrap_or(*span);
+-            let is_redundant_let_ignore = cx
+-                .sess()
+-                .source_map()
+-                .span_to_prev_source(ancenstor_span)
+-                .ok()
+-                .map(|prev| prev.trim_end().ends_with("let _ ="))
+-                .unwrap_or(false);
+-            let suggestion_span = if is_redundant_let_ignore { *span } else { ancenstor_span };
++            let span = span.find_ancestor_not_from_macro().unwrap_or(*span);
+             cx.emit_span_lint(
+                 UNUSED_MUST_USE,
+-                ancenstor_span,
++                span,
+                 UnusedDef {
+                     pre: descr_pre,
+                     post: descr_post,
+@@ -615,11 +607,11 @@ fn emit_must_use_untranslated(
+                     note: *reason,
+                     suggestion: (!is_inner).then_some(if expr_is_from_block {
+                         UnusedDefSuggestion::BlockTailExpr {
+-                            before_span: suggestion_span.shrink_to_lo(),
+-                            after_span: suggestion_span.shrink_to_hi(),
++                            before_span: span.shrink_to_lo(),
++                            after_span: span.shrink_to_hi(),
+                         }
+                     } else {
+-                        UnusedDefSuggestion::NormalExpr { span: suggestion_span.shrink_to_lo() }
++                        UnusedDefSuggestion::NormalExpr { span: span.shrink_to_lo() }
+                     }),
+                 },
+             );

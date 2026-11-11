@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_ty_utils/src/layout.rs b/compiler/rustc_ty_utils/src/layout.rs
+index 9e9aed008bf31464d871da96318ae53dbabb8edb..2bbd49e34b7c0dee349ad12d90c85e4a76927007 100644
+--- a/compiler/rustc_ty_utils/src/layout.rs
++++ b/compiler/rustc_ty_utils/src/layout.rs
+@@ -130,12 +130,14 @@ fn map_error<'tcx>(
+             // This is sometimes not a compile error if there are trivially false where clauses.
+             // See `tests/ui/layout/trivial-bounds-sized.rs` for an example.
+             assert!(field.layout.is_unsized(), "invalid layout error {err:#?}");
+-            if cx.typing_env.param_env.caller_bounds().is_empty() {
+-                cx.tcx().dcx().delayed_bug(format!(
++            if !field.ty.is_sized(cx.tcx(), cx.typing_env) {
++                let guar = cx.tcx().dcx().delayed_bug(format!(
+                     "encountered unexpected unsized field in layout of {ty:?}: {field:#?}"
+                 ));
++                LayoutError::ReferencesError(guar)
++            } else {
++                LayoutError::Unknown(ty)
+             }
+-            LayoutError::Unknown(ty)
+         }
+         LayoutCalculatorError::EmptyUnion => {
+             // This is always a compile error.

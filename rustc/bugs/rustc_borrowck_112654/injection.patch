@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_borrowck/src/type_check/input_output.rs b/compiler/rustc_borrowck/src/type_check/input_output.rs
+index fe40173b905d6a6aa7d55b510b836b42aab324f9..0691bd3f0e920db674802d93b680cdb4123ef074 100644
+--- a/compiler/rustc_borrowck/src/type_check/input_output.rs
++++ b/compiler/rustc_borrowck/src/type_check/input_output.rs
+@@ -209,7 +209,21 @@ pub(super) fn equate_inputs_and_outputs(&mut self, normalized_inputs_and_output:
+         // Equate expected output ty with the type of the RETURN_PLACE in MIR
+         let mir_output_ty = self.body.return_ty();
+         let output_span = self.body.local_decls[RETURN_PLACE].source_info.span;
+-        self.equate_normalized_input_or_output(normalized_output_ty, mir_output_ty, output_span);
++        if let Err(terr) = self.eq_types(
++            normalized_output_ty,
++            mir_output_ty,
++            Locations::All(output_span),
++            ConstraintCategory::BoringNoLocation,
++        ) {
++            span_mirbug!(
++                self,
++                Location::START,
++                "equate_inputs_and_outputs: `{:?}=={:?}` failed with `{:?}`",
++                normalized_output_ty,
++                mir_output_ty,
++                terr
++            );
++        };
+     }
+ 
+     #[instrument(skip(self), level = "debug")]

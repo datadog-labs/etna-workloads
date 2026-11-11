@@ -1,0 +1,1 @@
+With incremental compilation and -Zincremental-verify-ich, a mismatched-type literal in an mgca `type const` (`type const R: usize = 1_i32;`) makes the injected compiler ICE ("span without a parent", exit 101) because literal const-arg spans are no longer lowered; the clean compiler reports the normal type-mismatch error (exit 1).

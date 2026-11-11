@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_middle/src/hir/map.rs b/compiler/rustc_middle/src/hir/map.rs
+index 8ec27921a5787089a9b7d7f991db9fac6e5f2657..eac0359c65264d97d0f2909436872e7c09b06726 100644
+--- a/compiler/rustc_middle/src/hir/map.rs
++++ b/compiler/rustc_middle/src/hir/map.rs
+@@ -583,7 +583,15 @@ pub fn hir_is_inside_const_context(self, hir_id: HirId) -> bool {
+     /// }
+     /// ```
+     pub fn hir_get_fn_id_for_return_block(self, id: HirId) -> Option<HirId> {
+-        let enclosing_body_owner = self.local_def_id_to_hir_id(self.hir_enclosing_body_owner(id));
++        // Skip over anon consts so that nodes in e.g. a return type are attributed to the fn.
++        let enclosing_body_owner = self.local_def_id_to_hir_id(
++            self.hir_parent_iter(id)
++                .find_map(|(_, node)| match node {
++                    Node::AnonConst(_) => None,
++                    _ => node.associated_body().map(|(def_id, _)| def_id),
++                })
++                .unwrap_or_else(|| self.hir_enclosing_body_owner(id)),
++        );
+ 
+         // Return `None` if the `id` expression is not the returned value of the enclosing body
+         let mut iter = [id].into_iter().chain(self.hir_parent_id_iter(id)).peekable();

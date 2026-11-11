@@ -1,0 +1,78 @@
+diff --git a/compiler/rustc_attr_parsing/src/attributes/diagnostic/mod.rs b/compiler/rustc_attr_parsing/src/attributes/diagnostic/mod.rs
+index 60d80310b0f853e17063f54e0db545a0765d1162..c48dc42b0f9fe7f170a85ce2e6e551c2b506da28 100644
+--- a/compiler/rustc_attr_parsing/src/attributes/diagnostic/mod.rs
++++ b/compiler/rustc_attr_parsing/src/attributes/diagnostic/mod.rs
+@@ -702,12 +702,11 @@ fn parse_filter_format(input: Symbol) -> FilterFormatString {
+                 // if the integer type has been resolved, to allow targeting all integers.
+                 // `"{integer}"` and `"{float}"` come from numerics that haven't been inferred yet,
+                 // from the `Display` impl of `InferTy` to be precise.
+-                // `"{union|enum|struct}"` is used as a special selector for ADTs.
+                 //
+                 // Don't try to format these later!
+-                Position::ArgumentNamed(
+-                    arg @ ("integer" | "integral" | "float" | "union" | "enum" | "struct"),
+-                ) => LitOrArg::Lit(Symbol::intern(&format!("{{{arg}}}"))),
++                Position::ArgumentNamed(arg @ ("integer" | "integral" | "float")) => {
++                    LitOrArg::Lit(Symbol::intern(&format!("{{{arg}}}")))
++                }
+ 
+                 Position::ArgumentNamed(arg) => LitOrArg::Arg(Symbol::intern(arg)),
+                 Position::ArgumentImplicitlyIs(_) => LitOrArg::Lit(sym::empty_braces),
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..52d45a2d3365013db14525532139298983c0ab00 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -3593,13 +3593,13 @@ fn consider_suggesting_derives_for_ty(
+         let diagnostic_name = self.tcx.get_diagnostic_name(trait_pred.def_id())?;
+ 
+         let can_derive = match diagnostic_name {
+-            sym::Copy | sym::Clone => true,
+-            _ if adt.is_union() => false,
+             sym::Default
+             | sym::Eq
+             | sym::PartialEq
+             | sym::Ord
+             | sym::PartialOrd
++            | sym::Clone
++            | sym::Copy
+             | sym::Hash
+             | sym::Debug => true,
+             _ => false,
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/on_unimplemented.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/on_unimplemented.rs
+index f7e4ec6164c99a90a9f81fb0358f4197fba8e7d1..313ac2c847d0bbf34747845c76f60f42cf2d2d54 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/on_unimplemented.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/on_unimplemented.rs
+@@ -134,11 +134,8 @@ pub(crate) fn on_unimplemented_components(
+                 }
+             }
+ 
+-            if let Some(adt) = self_ty.ty_adt_def() {
+-                if adt.did().is_local() {
+-                    crate_local = true;
+-                }
+-                self_types.push(format!("{{{}}}", adt.descr()))
++            if let Some(true) = self_ty.ty_adt_def().map(|def| def.did().is_local()) {
++                crate_local = true;
+             }
+ 
+             // Allow targeting all integers using `{integral}`, even if the exact type was resolved
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..c9566b6d87e2071cc969f6eeb358be0029be47f6 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -4774,13 +4774,12 @@ pub fn can_suggest_derive(
+             _ => return false,
+         };
+         let is_derivable_trait = match diagnostic_name {
+-            sym::Copy | sym::Clone => true,
+-            _ if adt.is_union() => false,
++            sym::Default => !adt.is_enum(),
+             sym::PartialEq | sym::PartialOrd => {
+                 let rhs_ty = trait_pred.skip_binder().trait_ref.args.type_at(1);
+                 trait_pred.skip_binder().self_ty() == rhs_ty
+             }
+-            sym::Eq | sym::Ord | sym::Hash | sym::Debug | sym::Default => true,
++            sym::Eq | sym::Ord | sym::Clone | sym::Copy | sym::Hash | sym::Debug => true,
+             _ => false,
+         };
+         is_derivable_trait &&

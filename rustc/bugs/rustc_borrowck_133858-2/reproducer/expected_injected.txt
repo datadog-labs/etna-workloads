@@ -1,0 +1,211 @@
+error[E0597]: `x` does not live long enough
+  --> main.rs:14:13
+   |
+13 | fn simple<'a>(x: &'a i32) {
+   |           -- lifetime `'a` defined here
+14 |     let c = async || { println!("{}", *x); }; //~ ERROR `x` does not live long enough
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
+15 |     outlives::<'a>(c());
+16 |     outlives::<'a>(call_once(c));
+   |     ---------------------------- generic argument requires that `x` is borrowed for `'a`
+...
+21 | }
+   |  - `x` dropped here while still borrowed
+
+error[E0597]: `c` does not live long enough
+  --> main.rs:19:20
+   |
+13 | fn simple<'a>(x: &'a i32) {
+   |           -- lifetime `'a` defined here
+...
+18 |     let c = async move || { println!("{}", *x); };
+   |         - binding `c` declared here
+19 |     outlives::<'a>(c()); //~ ERROR `c` does not live long enough
+   |                    ^--
+   |                    |
+   |                    borrowed value does not live long enough
+   |                    argument requires that `c` is borrowed for `'a`
+20 |     outlives::<'a>(call_once(c));
+21 | }
+   | - `c` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'a` introduced here
+  --> main.rs:7:33
+   |
+ 7 | fn outlives<'a>(_: impl Sized + 'a) {}
+   |                                 ^^
+
+error[E0597]: `x` does not live long enough
+  --> main.rs:26:13
+   |
+25 | fn through_field<'a>(x: S<'a>) {
+   |                  -- lifetime `'a` defined here
+26 |     let c = async || { println!("{}", *x.0); }; //~ ERROR `x` does not live long enough
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
+27 |     outlives::<'a>(c());
+28 |     outlives::<'a>(call_once(c));
+   |     ---------------------------- generic argument requires that `x` is borrowed for `'a`
+...
+33 | }
+   |  - `x` dropped here while still borrowed
+
+error[E0505]: cannot move out of `x` because it is borrowed
+  --> main.rs:30:13
+   |
+25 | fn through_field<'a>(x: S<'a>) {
+   |                  -- lifetime `'a` defined here
+26 |     let c = async || { println!("{}", *x.0); }; //~ ERROR `x` does not live long enough
+   |             ---------------------------------- borrow of `x` occurs here
+27 |     outlives::<'a>(c());
+28 |     outlives::<'a>(call_once(c));
+   |     ---------------------------- generic argument requires that `x` is borrowed for `'a`
+29 |
+30 |     let c = async move || { println!("{}", *x.0); }; //~ ERROR cannot move out of `x`
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ move out of `x` occurs here
+
+error[E0597]: `c` does not live long enough
+  --> main.rs:31:20
+   |
+25 | fn through_field<'a>(x: S<'a>) {
+   |                  -- lifetime `'a` defined here
+...
+30 |     let c = async move || { println!("{}", *x.0); }; //~ ERROR cannot move out of `x`
+   |         - binding `c` declared here
+31 |     outlives::<'a>(c()); //~ ERROR `c` does not live long enough
+   |                    ^--
+   |                    |
+   |                    borrowed value does not live long enough
+   |                    argument requires that `c` is borrowed for `'a`
+32 |     outlives::<'a>(call_once(c)); //~ ERROR cannot move out of `c`
+33 | }
+   | - `c` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'a` introduced here
+  --> main.rs:7:33
+   |
+ 7 | fn outlives<'a>(_: impl Sized + 'a) {}
+   |                                 ^^
+
+error[E0505]: cannot move out of `c` because it is borrowed
+  --> main.rs:32:30
+   |
+25 | fn through_field<'a>(x: S<'a>) {
+   |                  -- lifetime `'a` defined here
+...
+30 |     let c = async move || { println!("{}", *x.0); }; //~ ERROR cannot move out of `x`
+   |         - binding `c` declared here
+31 |     outlives::<'a>(c()); //~ ERROR `c` does not live long enough
+   |                    ---
+   |                    |
+   |                    borrow of `c` occurs here
+   |                    argument requires that `c` is borrowed for `'a`
+32 |     outlives::<'a>(call_once(c)); //~ ERROR cannot move out of `c`
+   |                              ^ move out of `c` occurs here
+   |
+note: requirement that the value outlives `'a` introduced here
+  --> main.rs:7:33
+   |
+ 7 | fn outlives<'a>(_: impl Sized + 'a) {}
+   |                                 ^^
+
+error[E0597]: `x` does not live long enough
+  --> main.rs:36:13
+   |
+35 | fn through_field_and_ref<'a>(x: &S<'a>) {
+   |                          -- lifetime `'a` defined here
+36 |     let c = async || { println!("{}", *x.0); }; //~ ERROR `x` does not live long enough
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
+37 |     outlives::<'a>(c());
+38 |     outlives::<'a>(call_once(c)); //~ ERROR explicit lifetime required in the type of `x`
+   |     ---------------------------- generic argument requires that `x` is borrowed for `'a`
+39 | }
+   |  - `x` dropped here while still borrowed
+
+error[E0621]: explicit lifetime required in the type of `x`
+  --> main.rs:38:5
+   |
+38 |     outlives::<'a>(call_once(c)); //~ ERROR explicit lifetime required in the type of `x`
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ lifetime `'a` required
+   |
+help: add explicit lifetime `'a` to the type of `x`
+   |
+35 | fn through_field_and_ref<'a>(x: &'a S<'a>) {
+   |                                  ++
+
+error[E0597]: `c` does not live long enough
+  --> main.rs:43:20
+   |
+41 | fn through_field_and_ref_move<'a>(x: &S<'a>) {
+   |                               -- lifetime `'a` defined here
+42 |     let c = async move || { println!("{}", *x.0); };
+   |         - binding `c` declared here
+43 |     outlives::<'a>(c()); //~ ERROR `c` does not live long enough
+   |                    ^--
+   |                    |
+   |                    borrowed value does not live long enough
+   |                    argument requires that `c` is borrowed for `'a`
+44 |     outlives::<'a>(call_once(c)); //~ ERROR explicit lifetime required in the type of `x`
+45 | }
+   | - `c` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'a` introduced here
+  --> main.rs:7:33
+   |
+ 7 | fn outlives<'a>(_: impl Sized + 'a) {}
+   |                                 ^^
+
+error[E0621]: explicit lifetime required in the type of `x`
+  --> main.rs:44:5
+   |
+44 |     outlives::<'a>(call_once(c)); //~ ERROR explicit lifetime required in the type of `x`
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ lifetime `'a` required
+   |
+help: add explicit lifetime `'a` to the type of `x`
+   |
+41 | fn through_field_and_ref_move<'a>(x: &'a S<'a>) {
+   |                                       ++
+
+error[E0597]: `x` does not live long enough
+  --> main.rs:52:13
+   |
+51 | fn through_method<'a>(x: &'a i32) {
+   |                   -- lifetime `'a` defined here
+52 |     let c = async || { println!("{}", *x); }; //~ ERROR `x` does not live long enough
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ borrowed value does not live long enough
+53 |     T.outlives::<'a>(c());
+54 |     T.outlives::<'a>(call_once(c));
+   |     ------------------------------ generic argument requires that `x` is borrowed for `'a`
+...
+59 | }
+   |  - `x` dropped here while still borrowed
+
+error[E0597]: `c` does not live long enough
+  --> main.rs:57:22
+   |
+51 | fn through_method<'a>(x: &'a i32) {
+   |                   -- lifetime `'a` defined here
+...
+56 |     let c = async move || { println!("{}", *x); };
+   |         - binding `c` declared here
+57 |     T.outlives::<'a>(c()); //~ ERROR `c` does not live long enough
+   |                      ^--
+   |                      |
+   |                      borrowed value does not live long enough
+   |                      argument requires that `c` is borrowed for `'a`
+58 |     T.outlives::<'a>(call_once(c));
+59 | }
+   | - `c` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'a` introduced here
+  --> main.rs:49:47
+   |
+49 |     fn outlives<'a>(&'a self, _: impl Sized + 'a) {}
+   |                                               ^^
+
+error: aborting due to 12 previous errors
+
+Some errors have detailed explanations: E0505, E0597, E0621.
+For more information about an error, try `rustc --explain E0505`.
+rustc exit: 1
+
+[exit 0]

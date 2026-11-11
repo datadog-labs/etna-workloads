@@ -1,0 +1,1 @@
+A closure capture analysis (edition 2018, rust_2021_incompatible_closure_captures) over a struct whose field type is an ill-formed projection `<() as Owner>::Ty<T>` makes has_significant_drop normalize an unnormalizable type. The clean compiler reports ordinary E0277 errors (exit 1); the injected one ICEs (exit 101).

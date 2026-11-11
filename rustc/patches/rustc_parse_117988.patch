@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_parse/src/parser/stmt.rs b/compiler/rustc_parse/src/parser/stmt.rs
+index 7c3752cfff1871fdb83b106deb71bbb822d9fe94..a6a18e7d3cd7377d020d63167226334593f3fe5b 100644
+--- a/compiler/rustc_parse/src/parser/stmt.rs
++++ b/compiler/rustc_parse/src/parser/stmt.rs
+@@ -969,19 +969,6 @@ pub fn parse_full_stmt(&mut self, recover: AttemptLocalParseRecovery) -> PResult
+         let mut add_semi_to_stmt = false;
+ 
+         match &mut stmt.kind {
+-            // Expression without semicolon.
+-            StmtKind::Expr(expr)
+-                if classify::expr_requires_semi_to_be_stmt(expr)
+-                    && !expr.attrs.is_empty()
+-                    && !matches!(self.token.kind, token::Eof | token::Semi | token::CloseBrace) =>
+-            {
+-                // The user has written `#[attr] expr` which is unsupported. (#106020)
+-                let guar = self.attr_on_non_tail_expr(&expr);
+-                // We already emitted an error, so don't emit another type error
+-                let sp = expr.span.to(self.prev_token.span);
+-                *expr = self.mk_expr_err(sp, guar);
+-            }
+-
+             // Expression without semicolon.
+             StmtKind::Expr(expr)
+                 if self.token != token::Eof && classify::expr_requires_semi_to_be_stmt(expr) =>

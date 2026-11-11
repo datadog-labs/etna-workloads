@@ -1,0 +1,47 @@
+diff --git a/compiler/rustc_codegen_llvm/src/builder.rs b/compiler/rustc_codegen_llvm/src/builder.rs
+index b8e2b0029167af1027a9f4b894b7a8cc44117cbb..1a2f237eb492b5317b675a5eea7dbe76f329ebf6 100644
+--- a/compiler/rustc_codegen_llvm/src/builder.rs
++++ b/compiler/rustc_codegen_llvm/src/builder.rs
+@@ -16,6 +16,7 @@
+ use rustc_data_structures::small_c_str::SmallCStr;
+ use rustc_hir::attrs::{AttributeKind, UnrollAttr};
+ use rustc_hir::def_id::DefId;
++use rustc_middle::bug;
+ use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs;
+ use rustc_middle::ty::layout::{
+     FnAbiError, FnAbiOfHelpers, FnAbiRequest, HasTypingEnv, LayoutError, LayoutOfHelpers,
+@@ -1532,7 +1533,10 @@ fn tail_call(
+ 
+         match &fn_abi.ret.mode {
+             PassMode::Ignore | PassMode::Indirect { .. } => self.ret_void(),
+-            PassMode::Direct(_) | PassMode::Pair { .. } | PassMode::Cast { .. } => self.ret(call),
++            PassMode::Direct(_) | PassMode::Pair { .. } => self.ret(call),
++            mode @ PassMode::Cast { .. } => {
++                bug!("Encountered `PassMode::{mode:?}` during codegen")
++            }
+         }
+     }
+ 
+diff --git a/compiler/rustc_codegen_ssa/src/mir/block.rs b/compiler/rustc_codegen_ssa/src/mir/block.rs
+index 7f907bc630b2fc1b18a69ae1b963b364268659ed..ec41c9b0f46396c707c7f4611f0e7f321154dc45 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/block.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/block.rs
+@@ -1207,17 +1207,7 @@ fn codegen_call_terminator(
+                 let return_dest = self.make_return_dest(bx, destination, &fn_abi.ret, &mut llargs);
+                 target.map(|target| (return_dest, target))
+             }
+-            CallKind::Tail => {
+-                if fn_abi.ret.is_indirect() {
+-                    match self.make_return_dest(bx, destination, &fn_abi.ret, &mut llargs) {
+-                        ReturnDest::Nothing => {}
+-                        _ => bug!(
+-                            "tail calls to functions with indirect returns cannot store into a destination"
+-                        ),
+-                    }
+-                }
+-                None
+-            }
++            CallKind::Tail => None,
+         };
+ 
+         // Split the rust-call tupled arguments off.

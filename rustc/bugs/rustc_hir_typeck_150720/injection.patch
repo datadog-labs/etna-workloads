@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..74bfe27ae197218d0498b5be5ef9bb0214be4554 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -2117,7 +2117,6 @@ pub(crate) fn note_type_is_not_clone(
+                                     && data.impl_or_alias_def_id.is_local()
+                                 {
+                                     diag.help(manually_impl);
+-                                    suggest_derive = false;
+                                 }
+                             } else {
+                                 diag.help(msg);
+diff --git a/compiler/rustc_hir_typeck/src/method/suggest.rs b/compiler/rustc_hir_typeck/src/method/suggest.rs
+index a22b6f746a95283ff766864528b0618dde53fb82..8968f8749cd9f12e552e96a36e77aa7819cae893 100644
+--- a/compiler/rustc_hir_typeck/src/method/suggest.rs
++++ b/compiler/rustc_hir_typeck/src/method/suggest.rs
+@@ -3609,22 +3609,8 @@ fn consider_suggesting_derives_for_ty(
+             return None;
+         }
+ 
+-        let trait_def_id = trait_pred.def_id();
+         let self_ty = trait_pred.self_ty();
+ 
+-        // We need to check if there is already a manual implementation of the trait
+-        // for this specific ADT to avoid suggesting `#[derive(..)]` that would conflict.
+-        if self.tcx.non_blanket_impls_for_ty(trait_def_id, self_ty).any(|impl_def_id| {
+-            self.tcx
+-                .type_of(impl_def_id)
+-                .instantiate_identity()
+-                .skip_norm_wip()
+-                .ty_adt_def()
+-                .is_some_and(|def| def.did() == adt.did())
+-        }) {
+-            return None;
+-        }
+-
+         let mut derives = Vec::new();
+         let self_name = self_ty.to_string();
+         let self_span = self.tcx.def_span(adt.did());

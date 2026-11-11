@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_codegen_cranelift/src/constant.rs b/compiler/rustc_codegen_cranelift/src/constant.rs
+index 175ca37a3b74e7aadaf9823217a6e7ae85267637..7ab6107e634ae8dc76c5f76d0e46079b8f673af3 100644
+--- a/compiler/rustc_codegen_cranelift/src/constant.rs
++++ b/compiler/rustc_codegen_cranelift/src/constant.rs
+@@ -322,10 +322,7 @@ fn data_id_for_static(
+         // `extern_with_linkage_foo` will instead be initialized to
+         // zero.
+ 
+-        let ref_name = format!(
+-            "_rust_extern_with_linkage_{:016x}_{symbol_name}",
+-            tcx.stable_crate_id(LOCAL_CRATE)
+-        );
++        let ref_name = format!("_rust_extern_with_linkage_{}", symbol_name);
+         let ref_data_id = module.declare_data(&ref_name, Linkage::Local, false, false).unwrap();
+         let mut data = DataDescription::new();
+         data.set_align(align);
+diff --git a/compiler/rustc_codegen_gcc/src/consts.rs b/compiler/rustc_codegen_gcc/src/consts.rs
+index 42ff930968501171142e6cfcb34651f424f0b20d..3d754ec17fc45311f76f5956d6a8bdf8b7f6723d 100644
+--- a/compiler/rustc_codegen_gcc/src/consts.rs
++++ b/compiler/rustc_codegen_gcc/src/consts.rs
+@@ -7,7 +7,6 @@
+ };
+ use rustc_hir::attrs::Linkage;
+ use rustc_hir::def::DefKind;
+-use rustc_hir::def_id::LOCAL_CRATE;
+ use rustc_log::tracing::trace;
+ use rustc_middle::middle::codegen_fn_attrs::{CodegenFnAttrFlags, CodegenFnAttrs};
+ use rustc_middle::mir::interpret::{
+@@ -409,8 +408,8 @@ fn check_and_apply_linkage<'gcc, 'tcx>(
+         // linkage and there are no definitions), then
+         // `extern_with_linkage_foo` will instead be initialized to
+         // zero.
+-        let real_name =
+-            format!("_rust_extern_with_linkage_{:016x}_{sym}", cx.tcx.stable_crate_id(LOCAL_CRATE));
++        let mut real_name = "_rust_extern_with_linkage_".to_string();
++        real_name.push_str(sym);
+         let global2 = cx.define_global(&real_name, gcc_type, is_tls, attrs.link_section);
+         // FIXME(antoyo): set linkage.
+         let value = cx.const_ptrcast(global1.get_address(None), gcc_type);
+diff --git a/compiler/rustc_codegen_llvm/src/consts.rs b/compiler/rustc_codegen_llvm/src/consts.rs
+index 5ecd5c19b6f8e8609fdca0670eade6bebca80cd7..2655947b1830ad684a2c27bfd2cc72684f38779a 100644
+--- a/compiler/rustc_codegen_llvm/src/consts.rs
++++ b/compiler/rustc_codegen_llvm/src/consts.rs
+@@ -6,7 +6,7 @@
+ use rustc_hir::attrs::Linkage;
+ use rustc_hir::attrs::lang_items::LangItem;
+ use rustc_hir::def::DefKind;
+-use rustc_hir::def_id::{DefId, LOCAL_CRATE};
++use rustc_hir::def_id::DefId;
+ use rustc_middle::middle::codegen_fn_attrs::{CodegenFnAttrFlags, CodegenFnAttrs};
+ use rustc_middle::mir::interpret::{
+     Allocation, ConstAllocation, ErrorHandled, InitChunk, Pointer, Scalar as InterpScalar,
+@@ -237,8 +237,8 @@ fn check_and_apply_linkage<'ll, 'tcx>(
+         // linkage and there are no definitions), then
+         // `extern_with_linkage_foo` will instead be initialized to
+         // zero.
+-        let real_name =
+-            format!("_rust_extern_with_linkage_{:016x}_{sym}", cx.tcx.stable_crate_id(LOCAL_CRATE));
++        let mut real_name = "_rust_extern_with_linkage_".to_string();
++        real_name.push_str(sym);
+         let g2 = cx.define_global(&real_name, llty).unwrap_or_else(|| {
+             cx.sess().dcx().emit_fatal(SymbolAlreadyDefined {
+                 span: cx.tcx.def_span(def_id),

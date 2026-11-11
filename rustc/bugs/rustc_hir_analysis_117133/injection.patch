@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_hir_analysis/src/lib.rs b/compiler/rustc_hir_analysis/src/lib.rs
+index 572200dbd7634ed366d573b7fcab01d1d7d150b3..4c5e266156eab07b7fe43aa5703950bff403ebc0 100644
+--- a/compiler/rustc_hir_analysis/src/lib.rs
++++ b/compiler/rustc_hir_analysis/src/lib.rs
+@@ -148,6 +148,18 @@ pub fn provide(providers: &mut Providers) {
+ pub fn check_crate(tcx: TyCtxt<'_>) {
+     let _prof_timer = tcx.sess.timer("type_check_crate");
+ 
++    tcx.sess.time("impl_wf_inference", || {
++        // Check impls constrain their parameters before coherence, and bail out on errors.
++        for id in tcx.hir_crate_items(()).free_items() {
++            if matches!(tcx.def_kind(id.owner_id), DefKind::Impl { .. }) {
++                let _ = tcx.ensure_result().enforce_impl_non_lifetime_params_are_constrained(
++                    id.owner_id.def_id,
++                );
++            }
++        }
++        tcx.dcx().abort_if_errors();
++    });
++
+     tcx.sess.time("coherence_checking", || {
+         // When discarding query call results, use an explicit type to indicate
+         // what we are intending to discard, to help future type-based refactoring.

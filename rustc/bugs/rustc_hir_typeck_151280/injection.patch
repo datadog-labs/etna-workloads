@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_hir_typeck/src/pat.rs b/compiler/rustc_hir_typeck/src/pat.rs
+index f7ba6a78c65bde4d2d3ad24a21cf35f67e6f6027..e3b11d9e7c3ef69de677eb516d2ac6f1d47b0d11 100644
+--- a/compiler/rustc_hir_typeck/src/pat.rs
++++ b/compiler/rustc_hir_typeck/src/pat.rs
+@@ -2502,20 +2502,10 @@ fn error_no_accessible_fields(
+             .struct_span_err(pat.span, "pattern requires `..` due to inaccessible fields");
+ 
+         if let Some(field) = fields.last() {
+-            let tail_span = field.span.shrink_to_hi().to(pat.span.shrink_to_hi());
+-            let comma_hi_offset =
+-                self.tcx.sess.source_map().span_to_snippet(tail_span).ok().and_then(|snippet| {
+-                    let trimmed = snippet.trim_start();
+-                    trimmed.starts_with(',').then(|| (snippet.len() - trimmed.len() + 1) as u32)
+-                });
+             err.span_suggestion_verbose(
+-                if let Some(comma_hi_offset) = comma_hi_offset {
+-                    tail_span.with_hi(tail_span.lo() + BytePos(comma_hi_offset)).shrink_to_hi()
+-                } else {
+-                    field.span.shrink_to_hi()
+-                },
++                field.span.shrink_to_hi(),
+                 "ignore the inaccessible and unused fields",
+-                if comma_hi_offset.is_some() { " .." } else { ", .." },
++                ", ..",
+                 Applicability::MachineApplicable,
+             );
+         } else {

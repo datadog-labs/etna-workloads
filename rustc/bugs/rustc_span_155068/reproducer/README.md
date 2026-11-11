@@ -1,0 +1,1 @@
+Compiles a trait with a multibyte-named associated type followed by a misplaced where clause (type 否 where = ();). The clean compiler emits the deprecated-where-clause warning and exits 0; the injected compiler ICEs (assertion failed in bytepos_to_file_charpos, exit 134) because span_extend_prev_while miscomputes the offset for multibyte characters.

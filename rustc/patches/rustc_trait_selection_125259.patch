@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+index db863cb42f63ec23f261252e07e9d71f01437137..c95841835f3706f979afd87d9514466f879d4843 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/candidate_assembly.rs
+@@ -455,7 +455,12 @@ fn assemble_closure_candidates(
+                     // always be called once. It additionally implements `Fn`/`FnMut`
+                     // only if it has no upvars referencing the closure-env lifetime,
+                     // and if the closure kind permits it.
+-                    if closure_kind.extends(kind) && !args.has_self_borrows() {
++                    let no_borrows = match args.tupled_upvars_ty().kind() {
++                        ty::Tuple(tys) => tys.is_empty(),
++                        ty::Error(_) => false,
++                        _ => bug!("tuple_fields called on non-tuple"),
++                    };
++                    if closure_kind.extends(kind) && no_borrows {
+                         candidates.vec.push(ClosureCandidate { is_const });
+                     } else if kind == ty::ClosureKind::FnOnce {
+                         candidates.vec.push(ClosureCandidate { is_const });

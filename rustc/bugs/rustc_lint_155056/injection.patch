@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_lint/src/levels.rs b/compiler/rustc_lint/src/levels.rs
+index 113af3015efaf0011eba2f40e6164b0f0c5a44cd..06450f03c59390095c6faa0b0e6a2203c1a711ca 100644
+--- a/compiler/rustc_lint/src/levels.rs
++++ b/compiler/rustc_lint/src/levels.rs
+@@ -709,27 +709,33 @@ fn add(&mut self, attrs: &[impl AttributeExt], is_crate_node: bool) {
+                             if let ast::LitKind::Str(rationale, _) = name_value.kind {
+                                 reason = Some(rationale);
+                             } else {
+-                                sess.dcx().emit_err(MalformedAttribute {
++                                if self.lint_added_lints {
++sess.dcx().emit_err(MalformedAttribute {
+                                     span: name_value.span,
+                                     sub: MalformedAttributeSub::ReasonMustBeStringLiteral(
+                                         name_value.span,
+                                     ),
+                                 });
++}
+                             }
+                             // found reason, reslice meta list to exclude it
+                             metas.pop().unwrap();
+                         } else {
+-                            sess.dcx().emit_err(MalformedAttribute {
++                            if self.lint_added_lints {
++sess.dcx().emit_err(MalformedAttribute {
+                                 span: item.span,
+                                 sub: MalformedAttributeSub::BadAttributeArgument(item.span),
+                             });
++}
+                         }
+                     }
+                     ast::MetaItemKind::List(_) => {
+-                        sess.dcx().emit_err(MalformedAttribute {
++                        if self.lint_added_lints {
++sess.dcx().emit_err(MalformedAttribute {
+                             span: item.span,
+                             sub: MalformedAttributeSub::BadAttributeArgument(item.span),
+                         });
++}
+                     }
+                 }
+             }
+@@ -754,7 +760,9 @@ fn add(&mut self, attrs: &[impl AttributeExt], is_crate_node: bool) {
+                             MalformedAttributeSub::BadAttributeArgument(sp)
+                         };
+ 
+-                        sess.dcx().emit_err(MalformedAttribute { span: sp, sub });
++                        if self.lint_added_lints {
++sess.dcx().emit_err(MalformedAttribute { span: sp, sub });
++}
+                         continue;
+                     }
+                 };

@@ -1,0 +1,108 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+index 203ed5a62a8b9f59f22fcedaaec85ba6388ce57c..144e61a4993667d4592b7aa0f3d5c618cdb9b519 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+@@ -595,8 +595,15 @@ fn confirm_fn_pointer_candidate(
+         obligation: &PolyTraitObligation<'tcx>,
+     ) -> Result<PredicateObligations<'tcx>, SelectionError<'tcx>> {
+         debug!(?obligation, "confirm_fn_pointer_candidate");
++        let Some(unbound_predicate) = obligation.predicate.no_bound_vars() else {
++            // FIXME: Ideally we'd support `for<'a> fn(&'a ()): Fn(&'a ())`,
++            // but we do not currently. Luckily, such a bound is not
++            // particularly useful, so we don't expect users to write
++            // them often.
++            return Err(SelectionError::Unimplemented);
++        };
++        let self_ty = self.infcx.shallow_resolve(unbound_predicate.self_ty());
+         let placeholder_predicate = self.infcx.enter_forall_and_leak_universe(obligation.predicate);
+-        let self_ty = self.infcx.shallow_resolve(placeholder_predicate.self_ty());
+ 
+         let tcx = self.tcx();
+         let sig = self_ty.unnormalized_fn_sig(tcx);
+@@ -664,7 +671,7 @@ fn confirm_coroutine_candidate(
+         obligation: &PolyTraitObligation<'tcx>,
+     ) -> Result<PredicateObligations<'tcx>, SelectionError<'tcx>> {
+         let placeholder_predicate = self.infcx.enter_forall_and_leak_universe(obligation.predicate);
+-        let self_ty = self.infcx.shallow_resolve(placeholder_predicate.self_ty());
++        let self_ty = self.infcx.shallow_resolve(obligation.self_ty().skip_binder());
+         let ty::Coroutine(coroutine_def_id, args) = *self_ty.kind() else {
+             bug!("closure candidate for non-closure {:?}", obligation);
+         };
+@@ -694,19 +701,22 @@ fn confirm_future_candidate(
+         obligation: &PolyTraitObligation<'tcx>,
+     ) -> Result<PredicateObligations<'tcx>, SelectionError<'tcx>> {
+         let placeholder_predicate = self.infcx.enter_forall_and_leak_universe(obligation.predicate);
+-        let self_ty = self.infcx.shallow_resolve(placeholder_predicate.self_ty());
++        // Okay to skip binder because the args on coroutine types never
++        // touch bound regions, they just capture the in-scope
++        // type/region parameters.
++        let self_ty = self.infcx.shallow_resolve(obligation.self_ty().skip_binder());
+         let ty::Coroutine(coroutine_def_id, args) = *self_ty.kind() else {
+             bug!("closure candidate for non-closure {:?}", obligation);
+         };
+ 
+-        debug!(?obligation, ?coroutine_def_id, ?args, "confirm_future_candidate");
++        debug!(?obligation, ?coroutine_def_id, ?args, "confirm_future_candidate"); 
+ 
+         let coroutine_sig = args.as_coroutine().sig();
+ 
+         let (trait_ref, _) = super::util::future_trait_ref_and_outputs(
+             self.tcx(),
+             obligation.predicate.def_id(),
+-            self_ty,
++            obligation.predicate.no_bound_vars().expect("future has no bound vars").self_ty(),
+             coroutine_sig,
+         );
+ 
+@@ -724,7 +734,7 @@ fn confirm_iterator_candidate(
+         obligation: &PolyTraitObligation<'tcx>,
+     ) -> Result<PredicateObligations<'tcx>, SelectionError<'tcx>> {
+         let placeholder_predicate = self.infcx.enter_forall_and_leak_universe(obligation.predicate);
+-        let self_ty = self.infcx.shallow_resolve(placeholder_predicate.self_ty());
++        let self_ty = self.infcx.shallow_resolve(obligation.self_ty().skip_binder());
+         let ty::Coroutine(coroutine_def_id, args) = *self_ty.kind() else {
+             bug!("closure candidate for non-closure {:?}", obligation);
+         };
+@@ -736,7 +746,7 @@ fn confirm_iterator_candidate(
+         let (trait_ref, _) = super::util::iterator_trait_ref_and_outputs(
+             self.tcx(),
+             obligation.predicate.def_id(),
+-            self_ty,
++            obligation.predicate.no_bound_vars().expect("no bound vars").self_ty(),
+             gen_sig,
+         );
+ 
+@@ -754,7 +764,7 @@ fn confirm_async_iterator_candidate(
+         obligation: &PolyTraitObligation<'tcx>,
+     ) -> Result<PredicateObligations<'tcx>, SelectionError<'tcx>> {
+         let placeholder_predicate = self.infcx.enter_forall_and_leak_universe(obligation.predicate);
+-        let self_ty = self.infcx.shallow_resolve(placeholder_predicate.self_ty());
++        let self_ty = self.infcx.shallow_resolve(obligation.self_ty().skip_binder());
+         let ty::Coroutine(coroutine_def_id, args) = *self_ty.kind() else {
+             bug!("closure candidate for non-closure {:?}", obligation);
+         };
+@@ -766,7 +776,7 @@ fn confirm_async_iterator_candidate(
+         let (trait_ref, _) = super::util::async_iterator_trait_ref_and_outputs(
+             self.tcx(),
+             obligation.predicate.def_id(),
+-            self_ty,
++            obligation.predicate.no_bound_vars().expect("no bound vars").self_ty(),
+             gen_sig,
+         );
+ 
+@@ -789,7 +799,14 @@ fn confirm_closure_candidate(
+ 
+         let trait_ref = match *self_ty.kind() {
+             ty::Closure(..) => {
+-                self.closure_trait_ref_unnormalized(self_ty, obligation.predicate.def_id())
++                self.closure_trait_ref_unnormalized(
++                    obligation
++                        .predicate
++                        .self_ty()
++                        .no_bound_vars()
++                        .expect("unboxed closure type should not capture bound vars from the predicate"),
++                    obligation.predicate.def_id(),
++                )
+             }
+             ty::CoroutineClosure(_, args) => {
+                 args.as_coroutine_closure().coroutine_closure_sig().map_bound(|sig| {

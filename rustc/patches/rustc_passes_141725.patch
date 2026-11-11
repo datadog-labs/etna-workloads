@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_passes/src/input_stats.rs b/compiler/rustc_passes/src/input_stats.rs
+index 87193b73a1a9515702846ca6b51b5051cc366480..b28de3676e2e64bc3ed92d9d00add0c449457b36 100644
+--- a/compiler/rustc_passes/src/input_stats.rs
++++ b/compiler/rustc_passes/src/input_stats.rs
+@@ -448,16 +448,10 @@ fn visit_fn(
+         hir_visit::walk_fn(self, fk, fd, b, id)
+     }
+ 
+-    fn visit_use(&mut self, p: &'v hir::UsePath<'v>, _hir_id: HirId) {
++    fn visit_use(&mut self, p: &'v hir::UsePath<'v>, hir_id: HirId) {
+         // This is `visit_use`, but the type is `Path` so record it that way.
+         self.record("Path", None, p);
+-        // Don't call `hir_visit::walk_use(self, p, hir_id)`: it calls
+-        // `visit_path` up to three times, once for each namespace result in
+-        // `p.res`, by building temporary `Path`s that are not part of the real
+-        // HIR, which causes `p` to be double- or triple-counted. Instead just
+-        // walk the path internals (i.e. the segments) directly.
+-        let hir::Path { span: _, res: _, segments } = *p;
+-        ast_visit::walk_list!(self, visit_path_segment, segments);
++        hir_visit::walk_use(self, p, hir_id)
+     }
+ 
+     fn visit_trait_item(&mut self, ti: &'v hir::TraitItem<'v>) {

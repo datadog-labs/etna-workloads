@@ -1,0 +1,113 @@
+diff --git a/compiler/rustc_errors/src/diagnostic.rs b/compiler/rustc_errors/src/diagnostic.rs
+index d1dc3ab6e9525c460dc924cbe973ec32baac96b2..c6949617f1818a6660470dd08108936b164b4d21 100644
+--- a/compiler/rustc_errors/src/diagnostic.rs
++++ b/compiler/rustc_errors/src/diagnostic.rs
+@@ -198,43 +198,6 @@ pub fn highlighted<S: Into<String>>(t: S) -> DiagStyledString {
+     pub fn content(&self) -> String {
+         self.0.iter().map(|x| x.content.as_str()).collect::<String>()
+     }
+-
+-    /// Merge segments of the same style.
+-    pub fn compact(&mut self) {
+-        let segments = std::mem::take(&mut self.0);
+-        let mut iter = segments.into_iter();
+-        let Some(mut prev) = iter.next() else { return };
+-        while let Some(segment) = iter.next() {
+-            if prev.style == segment.style {
+-                prev.content.push_str(&segment.content);
+-            } else {
+-                self.0.push(prev);
+-                prev = segment;
+-            }
+-        }
+-        self.0.push(prev);
+-    }
+-
+-    /// Remove the middle of all long segments for shorter rendering.
+-    pub fn shorten(&mut self) {
+-        self.compact();
+-        /// The marker for removed text.
+-        const ELLIPSIS: &str = "...";
+-        /// How many chars at the start and end will remain.
+-        const PADDING: usize = 6;
+-        /// The distance after which it is not worth it to reduce the text.
+-        const DELTA: usize = 3;
+-
+-        for segment in self.0.iter_mut() {
+-            let char_len = segment.content.chars().count();
+-            if char_len > PADDING * 2 + ELLIPSIS.chars().count() + DELTA
+-                && let Some((left, _)) = segment.content.char_indices().nth(PADDING)
+-                && let Some((right, _)) = segment.content.char_indices().nth(char_len - PADDING)
+-            {
+-                segment.content.replace_range(left..right, ELLIPSIS);
+-            }
+-        }
+-    }
+ }
+ 
+ #[derive(Debug, PartialEq, Eq)]
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
+index 35449284b5093e33196389aec832abf2ecc37caa..40cb220850cd9159b87f8c63f8e26972de227689 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
+@@ -2383,52 +2383,16 @@ fn expected_found_str_term(
+                 // Use the terminal width as the basis to determine when to compress the printed
+                 // out type, but give ourselves some leeway to avoid ending up creating a file for
+                 // a type that is somewhat shorter than the path we'd write to.
+-                let len = self.tcx.sess.diagnostic_width();
++                let len = self.tcx.sess.diagnostic_width() + 40;
+                 let exp_s = exp.content();
+                 let fnd_s = fnd.content();
+-                if !self.tcx.sess.opts.verbose
+-                    && self.tcx.sess.opts.unstable_opts.write_long_types_to_disk
+-                {
+-                    // We aren't explicitly asking for `--verbose` output, and we are storing long
+-                    // types to disk, so we try to shorten the output.
+-                    if exp_s.len() > len && fnd_s.len() > len {
+-                        let exp_short = self.tcx.short_string(expected, long_ty_path);
+-                        let fnd_short = self.tcx.short_string(found, long_ty_path);
+-                        // We use a crude shortening on the highlighted strings themselves. This
+-                        // doesn't ensure that the two strings will look different, or that the
+-                        // output is very readable, but at least keeps the highlighting around.
+-                        exp.shorten();
+-                        fnd.shorten();
+-                        if exp_short != fnd_short {
+-                            // The short strings aren't the same visually, so it might make sense
+-                            // to use them instead.
+-                            if exp.0.len() <= 1 {
+-                                // The entire type is highlighted, let's use the short string
+-                                // instead, which is slightly better.
+-                                exp = DiagStyledString::highlighted(exp_short);
+-                            }
+-                            if fnd.0.len() <= 1 {
+-                                // The entire type is highlighted, let's use the short string
+-                                // instead, which is slightly better.
+-                                fnd = DiagStyledString::highlighted(fnd_short);
+-                            }
+-                        }
+-                    } else {
+-                        if exp_s.len() > len {
+-                            exp.shorten();
+-                            let exp_short = self.tcx.short_string(expected, long_ty_path);
+-                            if exp.0.len() <= 1 {
+-                                exp = DiagStyledString::highlighted(exp_short);
+-                            }
+-                        }
+-                        if fnd_s.len() > len {
+-                            fnd.shorten();
+-                            let fnd_short = self.tcx.short_string(found, long_ty_path);
+-                            if fnd.0.len() <= 1 {
+-                                fnd = DiagStyledString::highlighted(fnd_short);
+-                            }
+-                        }
+-                    }
++                if exp_s.len() > len && !self.tcx.sess.opts.verbose {
++                    let exp_s = self.tcx.short_string(expected, long_ty_path);
++                    exp = DiagStyledString::highlighted(exp_s);
++                }
++                if fnd_s.len() > len && !self.tcx.sess.opts.verbose {
++                    let fnd_s = self.tcx.short_string(found, long_ty_path);
++                    fnd = DiagStyledString::highlighted(fnd_s);
+                 }
+                 (exp, fnd)
+             }

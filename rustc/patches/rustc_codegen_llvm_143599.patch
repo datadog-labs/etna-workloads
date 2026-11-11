@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_codegen_llvm/src/asm.rs b/compiler/rustc_codegen_llvm/src/asm.rs
+index d8874a56a61b2e4756c855c4e8d6f488c6065722..452bfff3f6b8c98c2ddd1ae1420dd40ad1c448eb 100644
+--- a/compiler/rustc_codegen_llvm/src/asm.rs
++++ b/compiler/rustc_codegen_llvm/src/asm.rs
+@@ -417,19 +417,15 @@ fn codegen_global_asm(
+     ) {
+         let asm_arch = self.tcx.sess.asm_arch.unwrap();
+ 
++        // Default to Intel syntax on x86
++        let intel_syntax = matches!(asm_arch, InlineAsmArch::X86 | InlineAsmArch::X86_64)
++            && !options.contains(InlineAsmOptions::ATT_SYNTAX);
++
+         // Build the template string
+         let mut template_str = String::new();
+-
+-        // On X86 platforms there are two assembly syntaxes. Rust uses intel by default,
+-        // but AT&T can be specified explicitly.
+-        if matches!(asm_arch, InlineAsmArch::X86 | InlineAsmArch::X86_64) {
+-            if options.contains(InlineAsmOptions::ATT_SYNTAX) {
+-                template_str.push_str(".att_syntax\n")
+-            } else {
+-                template_str.push_str(".intel_syntax\n")
+-            }
++        if intel_syntax {
++            template_str.push_str(".intel_syntax\n");
+         }
+-
+         for piece in template {
+             match *piece {
+                 InlineAsmTemplatePiece::String(ref s) => template_str.push_str(s),
+@@ -491,11 +487,7 @@ fn codegen_global_asm(
+                 }
+             }
+         }
+-
+-        // Just to play it safe, if intel was used, reset the assembly syntax to att.
+-        if matches!(asm_arch, InlineAsmArch::X86 | InlineAsmArch::X86_64)
+-            && !options.contains(InlineAsmOptions::ATT_SYNTAX)
+-        {
++        if intel_syntax {
+             template_str.push_str("\n.att_syntax\n");
+         }
+ 

@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_codegen_llvm/src/builder.rs b/compiler/rustc_codegen_llvm/src/builder.rs
+index b8e2b0029167af1027a9f4b894b7a8cc44117cbb..f8414b953ae4e4af6f6fefd42ef4ca5a4a8d5f1a 100644
+--- a/compiler/rustc_codegen_llvm/src/builder.rs
++++ b/compiler/rustc_codegen_llvm/src/builder.rs
+@@ -1881,9 +1881,6 @@ fn call_lifetime_intrinsic(&mut self, intrinsic: &'static str, ptr: &'ll Value,
+         }
+ 
+         if crate::llvm_util::get_version() >= (22, 0, 0) {
+-            // LLVM 22 requires the lifetime intrinsic to act directly on the alloca,
+-            // there can't be an addrspacecast in between.
+-            let ptr = unsafe { llvm::LLVMRustStripPointerCasts(ptr) };
+             self.call_intrinsic(intrinsic, &[self.val_ty(ptr)], &[ptr]);
+         } else {
+             self.call_intrinsic(intrinsic, &[self.val_ty(ptr)], &[self.cx.const_u64(size), ptr]);
+diff --git a/compiler/rustc_codegen_llvm/src/llvm/ffi.rs b/compiler/rustc_codegen_llvm/src/llvm/ffi.rs
+index 1f0a2f662075b6d1545df3db236149d18f73a4b9..edc5d1ebc548b10e7f1e37f202f83a53418564c7 100644
+--- a/compiler/rustc_codegen_llvm/src/llvm/ffi.rs
++++ b/compiler/rustc_codegen_llvm/src/llvm/ffi.rs
+@@ -1970,7 +1970,6 @@ pub(crate) fn LLVMRustGlobalAddMetadata<'a>(
+         Metadata: &'a Metadata,
+     );
+     pub(crate) fn LLVMRustIsNonGVFunctionPointerTy(Val: &Value) -> bool;
+-    pub(crate) fn LLVMRustStripPointerCasts<'a>(Val: &'a Value) -> &'a Value;
+ 
+     // Operations on scalar constants
+     pub(crate) fn LLVMRustConstIntGetZExtValue(ConstantVal: &ConstantInt, Value: &mut u64) -> bool;
+diff --git a/compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp b/compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp
+index c928282596cdd3296db4330cc3d1feaf6abd1671..4e74dae42418c1330877d3b00512fe6b6119692f 100644
+--- a/compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp
++++ b/compiler/rustc_llvm/llvm-wrapper/RustWrapper.cpp
+@@ -1717,10 +1717,6 @@ extern "C" bool LLVMRustIsNonGVFunctionPointerTy(LLVMValueRef V) {
+   return false;
+ }
+ 
+-extern "C" LLVMValueRef LLVMRustStripPointerCasts(LLVMValueRef V) {
+-  return wrap(unwrap(V)->stripPointerCasts());
+-}
+-
+ extern "C" bool LLVMRustLLVMHasZlibCompression() {
+   return llvm::compression::zlib::isAvailable();
+ }

@@ -1,0 +1,1 @@
+Derives `CoercePointee` on a struct whose generic parameter carries the `#[pointee]` helper attribute. The clean compiler accepts it (the derive registers `pointee` as a helper attribute); the injected compiler registers no helper attributes for `CoercePointee` and reports "cannot find attribute `pointee` in this scope", exiting with an error.

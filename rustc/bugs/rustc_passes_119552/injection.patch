@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..bc098c7d6d1795d4a921478b2331ce0b7d69a274 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -600,16 +600,15 @@ fn visit_variant_data(&mut self, def: &'tcx hir::VariantData<'tcx>) -> Self::Res
+         let tcx = self.tcx;
+         let unconditionally_treat_fields_as_live = self.repr_unconditionally_treats_fields_as_live;
+         let has_repr_simd = self.repr_has_repr_simd;
+-        let effective_visibilities = &tcx.effective_visibilities(());
+         let live_fields = def.fields().iter().filter_map(|f| {
+             let def_id = f.def_id;
+             if unconditionally_treat_fields_as_live || (f.is_positional() && has_repr_simd) {
+                 return Some(def_id);
+             }
+-            if !effective_visibilities.is_reachable(f.hir_id.owner.def_id) {
++            if !tcx.visibility(f.hir_id.owner.def_id).is_public() {
+                 return None;
+             }
+-            if effective_visibilities.is_reachable(def_id) { Some(def_id) } else { None }
++            if tcx.visibility(def_id).is_public() { Some(def_id) } else { None }
+         });
+         self.live_symbols.extend(live_fields);
+ 

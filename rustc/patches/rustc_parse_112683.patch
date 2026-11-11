@@ -1,0 +1,22 @@
+diff --git a/compiler/rustc_parse/src/parser/asm.rs b/compiler/rustc_parse/src/parser/asm.rs
+index 5c177af0865654d44f5dc69e8ebaab87859278ac..980daa9ef914e7dcacf3d8324a1e99bfb8804e91 100644
+--- a/compiler/rustc_parse/src/parser/asm.rs
++++ b/compiler/rustc_parse/src/parser/asm.rs
+@@ -344,12 +344,16 @@ fn parse_clobber_abi<'a>(p: &mut Parser<'a>) -> PResult<'a, Vec<(Symbol, Span)>>
+     }
+ 
+     let mut new_abis = Vec::new();
+-    while !p.eat(exp!(CloseParen)) {
++    loop {
+         match p.parse_str_lit() {
+             Ok(str_lit) => {
+                 new_abis.push((str_lit.symbol_unescaped, str_lit.span));
+             }
+             Err(opt_lit) => {
++                // If the non-string literal is a closing paren then it's the end of the list and is fine
++                if p.eat(exp!(CloseParen)) {
++                    break;
++                }
+                 let span = opt_lit.map_or(p.token.span, |lit| lit.span);
+                 return Err(p.dcx().create_err(diagnostics::AsmExpectedStringLiteral { span }));
+             }

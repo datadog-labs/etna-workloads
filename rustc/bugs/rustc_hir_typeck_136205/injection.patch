@@ -1,0 +1,70 @@
+diff --git a/compiler/rustc_hir_typeck/src/place_op.rs b/compiler/rustc_hir_typeck/src/place_op.rs
+index b3ac237adf95662116f6d647d53771f3ecd268d4..5fe9b1be7ca00ea7ee6a9bdcd91b89a550bd480e 100644
+--- a/compiler/rustc_hir_typeck/src/place_op.rs
++++ b/compiler/rustc_hir_typeck/src/place_op.rs
+@@ -3,7 +3,6 @@
+ use rustc_hir as hir;
+ use rustc_hir_analysis::autoderef::Autoderef;
+ use rustc_infer::infer::InferOk;
+-use rustc_infer::traits::{Obligation, ObligationCauseCode};
+ use rustc_middle::span_bug;
+ use rustc_middle::ty::adjustment::{
+     Adjust, Adjustment, AllowTwoPhase, AutoBorrow, AutoBorrowMutability, DerefAdjustKind,
+@@ -140,14 +139,8 @@ fn try_index_step(
+             let mut self_ty = adjusted_ty;
+             if unsize {
+                 // We only unsize arrays here.
+-                if let ty::Array(element_ty, ct) = *adjusted_ty.kind() {
+-                    self.register_predicate(Obligation::new(
+-                        self.tcx,
+-                        self.cause(base_expr.span, ObligationCauseCode::ArrayLen(adjusted_ty)),
+-                        self.param_env,
+-                        ty::ClauseKind::ConstArgHasType(ct, self.tcx.types.usize),
+-                    ));
+-                    self_ty = Ty::new_slice(self.tcx, element_ty);
++                if let ty::Array(element_ty, _) = adjusted_ty.kind() {
++                    self_ty = Ty::new_slice(self.tcx, *element_ty);
+                 } else {
+                     continue;
+                 }
+diff --git a/compiler/rustc_middle/src/traits/mod.rs b/compiler/rustc_middle/src/traits/mod.rs
+index b8cd0791a783e59ed6b7a7ecc2e0d876a002197c..799e44c7c7c6218ccf88f6b2748b556fd00d5967 100644
+--- a/compiler/rustc_middle/src/traits/mod.rs
++++ b/compiler/rustc_middle/src/traits/mod.rs
+@@ -187,9 +187,6 @@ pub enum ObligationCauseCode<'tcx> {
+     /// A slice or array is WF only if `T: Sized`.
+     SliceOrArrayElem,
+ 
+-    /// An array `[T; N]` can only be indexed (and is only well-formed if) `N` has type usize.
+-    ArrayLen(Ty<'tcx>),
+-
+     /// A tuple is WF only if its middle elements are `Sized`.
+     TupleElem,
+ 
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..883d0408666a3dc23df503247f76631660663322 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -3656,9 +3656,6 @@ pub(super) fn note_obligation_cause_code<G: EmissionGuarantee, T>(
+             ObligationCauseCode::SliceOrArrayElem => {
+                 err.note("slice and array elements must have `Sized` type");
+             }
+-            ObligationCauseCode::ArrayLen(array_ty) => {
+-                err.note(format!("the length of array `{array_ty}` must be type `usize`"));
+-            }
+             ObligationCauseCode::TupleElem => {
+                 err.note("only the last element of a tuple may have a dynamically sized type");
+             }
+diff --git a/compiler/rustc_trait_selection/src/traits/wf.rs b/compiler/rustc_trait_selection/src/traits/wf.rs
+index 41d2d9adfea74905af7fab937da84716244e2821..e419b7651588649b7aec22abf31ba59a8cc9ba07 100644
+--- a/compiler/rustc_trait_selection/src/traits/wf.rs
++++ b/compiler/rustc_trait_selection/src/traits/wf.rs
+@@ -755,7 +755,7 @@ fn visit_ty(&mut self, t: Ty<'tcx>) -> Self::Result {
+                 self.require_sized(subty, ObligationCauseCode::SliceOrArrayElem);
+                 // Note that the len being WF is implicitly checked while visiting.
+                 // Here we just check that it's of type usize.
+-                let cause = self.cause(ObligationCauseCode::ArrayLen(t));
++                let cause = self.cause(ObligationCauseCode::Misc);
+                 self.out.push(traits::Obligation::with_depth(
+                     tcx,
+                     cause,

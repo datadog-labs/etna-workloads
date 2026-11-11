@@ -1,0 +1,1 @@
+With `#![deny(unused_parens)]`, the parentheses in `&mut (dyn MyTrait) + Send + Sync` inside a `dyn FnMut(..) -> ...` return type are required. The injected compiler wrongly reports them as unnecessary (issue 143653 false positive); the clean compiler compiles without error.

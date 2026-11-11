@@ -1,0 +1,1 @@
+A macro_rules macro defined in an edition-2015 crate expands to a fn returning RPIT without `use<>`. Used from an edition-2024 crate, the RPIT should keep 2015 capture rules (not capturing the `&Vec` lifetime). The injected compiler stamps the local crate's edition on the desugared span, so 2024 rules apply and borrowck wrongly reports E0502.

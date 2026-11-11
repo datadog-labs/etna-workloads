@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_parse/src/parser/ty.rs b/compiler/rustc_parse/src/parser/ty.rs
+index 1d2021cfe50aea5240460bb2466877ee3982e5f8..2a85b9f29c1fd0b6a2d392fd8d5b15af78962612 100644
+--- a/compiler/rustc_parse/src/parser/ty.rs
++++ b/compiler/rustc_parse/src/parser/ty.rs
+@@ -220,7 +220,7 @@ pub(super) fn parse_ty_no_question_mark_recover(&mut self) -> PResult<'a, Box<Ty
+     pub(super) fn parse_ty_for_where_clause(&mut self) -> PResult<'a, Box<Ty>> {
+         self.parse_ty_common(
+             AllowPlus::Yes,
+-            AllowCVariadic::No,
++            AllowCVariadic::Yes,
+             RecoverQPath::Yes,
+             RecoverReturnSign::OnlyFatArrow,
+             None,
+@@ -416,9 +416,8 @@ fn parse_ty_common(
+             match allow_c_variadic {
+                 AllowCVariadic::Yes => TyKind::CVarArgs,
+                 AllowCVariadic::No => {
+-                    // FIXME(c_variadic): Should we just allow `...` syntactically
++                    // FIXME(Centril): Should we just allow `...` syntactically
+                     // anywhere in a type and use semantic restrictions instead?
+-                    // NOTE: This may regress certain MBE calls if done incorrectly.
+                     let guar = self.dcx().emit_err(NestedCVariadicType { span: lo });
+                     TyKind::Err(guar)
+                 }

@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/always_applicable.rs b/compiler/rustc_hir_analysis/src/check/always_applicable.rs
+index 6a30ff40eedc697214d30bad35dbbd1e4344b84d..466edf2cadca12b821d7472e4b26eaa0ee83d7e6 100644
+--- a/compiler/rustc_hir_analysis/src/check/always_applicable.rs
++++ b/compiler/rustc_hir_analysis/src/check/always_applicable.rs
+@@ -287,14 +287,9 @@ fn ensure_impl_predicates_are_implied_by_item_defn<'tcx>(
+         .instantiate(tcx, adt_to_impl_args)
+         .skip_norm_wip();
+ 
+-    let fresh_impl_args = infcx.fresh_args_for_item(impl_span, impl_def_id.to_def_id());
+-    let fresh_adt_ty =
+-        tcx.impl_trait_ref(impl_def_id).instantiate(tcx, fresh_impl_args).skip_norm_wip().self_ty();
++    let _ = impl_adt_ty;
+ 
+-    ocx.eq(&ObligationCause::dummy_with_span(impl_span), adt_env, fresh_adt_ty, impl_adt_ty)
+-        .expect("equating fully generic trait ref should never fail");
+-
+-    for (clause, span) in tcx.clauses_of(impl_def_id).instantiate(tcx, fresh_impl_args) {
++    for (clause, span) in tcx.clauses_of(impl_def_id).instantiate_identity(tcx) {
+         let normalize_cause = traits::ObligationCause::misc(span, impl_def_id);
+         let pred = ocx.normalize(&normalize_cause, adt_env, clause);
+         let cause = traits::ObligationCause::new(

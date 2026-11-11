@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_attr_parsing/src/attributes/cfg.rs b/compiler/rustc_attr_parsing/src/attributes/cfg.rs
+index 7899ed0614a34db5f00b0e591c0b8dfb4176b17e..950d3ad3de4d790ecaa8290ebbe12c98b79dcc05 100644
+--- a/compiler/rustc_attr_parsing/src/attributes/cfg.rs
++++ b/compiler/rustc_attr_parsing/src/attributes/cfg.rs
+@@ -108,8 +108,7 @@ pub fn parse_cfg_entry(
+                 }
+             },
+             a @ (ArgParser::NoArgs | ArgParser::NameValue(_)) => {
+-                let Some(name) = meta.path().word_sym().filter(|s| !s.is_path_segment_keyword())
+-                else {
++                let Some(name) = meta.path().word_sym() else {
+                     return Err(cx.adcx().expected_identifier(meta.path().span()));
+                 };
+                 parse_name_value(name, meta.path().span(), a.as_name_value(), meta.span(), cx)?
+diff --git a/compiler/rustc_interface/src/interface.rs b/compiler/rustc_interface/src/interface.rs
+index 2737d2ca854a5ea609030836f3169f1cf27aebe9..356f7b7b6018cf75e75bd882b69d93546f0b4894 100644
+--- a/compiler/rustc_interface/src/interface.rs
++++ b/compiler/rustc_interface/src/interface.rs
+@@ -77,12 +77,6 @@ macro_rules! error {
+                                 MetaItemKind::NameValue(..) | MetaItemKind::Word => {
+                                     let ident = meta_item.ident().expect("multi-segment cfg key");
+ 
+-                                    if ident.is_path_segment_keyword() {
+-                                        error!(
+-                                            "malformed `cfg` input, expected a valid identifier"
+-                                        );
+-                                    }
+-
+                                     return (ident.name, meta_item.value_str());
+                                 }
+                             }
+@@ -200,10 +194,6 @@ macro_rules! error {
+                     error!("`cfg()` names cannot be after values");
+                 }
+ 
+-                if ident.is_path_segment_keyword() {
+-                    error!("malformed `cfg` input, expected a valid identifier");
+-                }
+-
+                 names.push(ident);
+             } else if let Some(boolean) = arg.boolean_literal() {
+                 if values_specified {

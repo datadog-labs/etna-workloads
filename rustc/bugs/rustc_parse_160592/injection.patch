@@ -1,0 +1,46 @@
+diff --git a/compiler/rustc_parse/src/lexer/diagnostics.rs b/compiler/rustc_parse/src/lexer/diagnostics.rs
+index 31c7d9af33beedb31d8cf1288b3c2438a8f42664..5c66d2be7dfdd71c35e1dcf5414641ebe9a39652 100644
+--- a/compiler/rustc_parse/src/lexer/diagnostics.rs
++++ b/compiler/rustc_parse/src/lexer/diagnostics.rs
+@@ -20,10 +20,6 @@ pub(super) struct TokenTreeDiagInfo {
+     /// Collect empty block spans that might have been auto-inserted by editors.
+     pub empty_block_spans: Vec<Span>,
+ 
+-    /// Spans of `&&`/`||` tokens that directly open a brace-delimited block,
+-    /// which usually means the user meant to continue an if-let chain.
+-    pub if_let_chain_hint_spans: Vec<Span>,
+-
+     /// Collect the spans of braces (Open, Close). Used only
+     /// for detecting if blocks are empty and only braces.
+     pub matching_block_spans: Vec<(Span, Span)>,
+@@ -128,10 +124,6 @@ pub(super) fn report_suspicious_mismatch_block(
+             err.span_label(parent.1, "...matches this closing brace");
+         }
+     }
+-
+-    for span in diag_info.if_let_chain_hint_spans.iter() {
+-        err.span_label(*span, "you might have meant to continue an if-let chain here");
+-    }
+ }
+ 
+ pub(crate) fn make_errors_for_mismatched_closing_delims<'psess>(
+diff --git a/compiler/rustc_parse/src/lexer/tokentrees.rs b/compiler/rustc_parse/src/lexer/tokentrees.rs
+index 3455947471503cc2594d226839548b57e00073ce..757cd755bf65fc78391d511e306783e28d134c69 100644
+--- a/compiler/rustc_parse/src/lexer/tokentrees.rs
++++ b/compiler/rustc_parse/src/lexer/tokentrees.rs
+@@ -90,15 +90,6 @@ fn lex_token_tree_open_delim(
+                     self.diag_info.matching_block_spans.push((pre_span, close_delimiter_span));
+                 }
+ 
+-                // A brace-delimited block whose first token is `&&`/`||` usually means
+-                // the user meant to continue an if-let chain, e.g. `if let P = e { && cond {`.
+-                if Delimiter::Brace == open_delim
+-                    && let Some(TokenTree::Token(tok, _)) = tts.iter().next()
+-                    && matches!(tok.kind, token::AndAnd | token::OrOr)
+-                {
+-                    self.diag_info.if_let_chain_hint_spans.push(tok.span);
+-                }
+-
+                 // Move past the closing delimiter.
+                 self.bump_minimal()
+             } else {

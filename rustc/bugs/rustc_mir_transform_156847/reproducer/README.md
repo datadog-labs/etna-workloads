@@ -1,0 +1,1 @@
+With an unused variable bound via a raw identifier in a struct shorthand pattern (`Foo { r#move }`), the "try ignoring the field" suggestion should be `r#move: _`; the injected compiler suggests `move: _`, which is invalid code.

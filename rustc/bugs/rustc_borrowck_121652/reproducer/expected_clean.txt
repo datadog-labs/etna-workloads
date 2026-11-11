@@ -1,0 +1,160 @@
+error[E0382]: use of moved value: `vec`
+ --> main.rs:6:33
+  |
+5 |     let vec = vec!["one", "two", "three"];
+  |         --- move occurs because `vec` has type `Vec<&str>`, which does not implement the `Copy` trait
+6 |     while let Some(item) = iter(vec).next() { //~ ERROR use of moved value
+  |     ----------------------------^^^--------
+  |     |                           |
+  |     |                           value moved here, in previous iteration of loop
+  |     inside of this loop
+  |
+note: consider changing this parameter type in function `iter` to borrow instead if owning the value isn't necessary
+ --> main.rs:1:17
+  |
+1 | fn iter<T>(vec: Vec<T>) -> impl Iterator<Item = T> {
+  |    ----         ^^^^^^ this parameter takes ownership of the value
+  |    |
+  |    in this function
+help: consider moving the expression out of the loop so it is only moved once
+  |
+6 ~     let mut value = iter(vec);
+7 ~     while let Some(item) = value.next() { //~ ERROR use of moved value
+  |
+
+error[E0382]: use of moved value: `vec`
+  --> main.rs:15:31
+   |
+12 |     let vec = vec!["one", "two", "three"];
+   |         --- move occurs because `vec` has type `Vec<&str>`, which does not implement the `Copy` trait
+13 |     loop {
+   |     ---- inside of this loop
+14 |     //~^ HELP consider moving the expression out of the loop so it is only moved once
+15 |         let Some(item) = iter(vec).next() else { //~ ERROR use of moved value
+   |                               ^^^ value moved here, in previous iteration of loop
+   |
+note: consider changing this parameter type in function `iter` to borrow instead if owning the value isn't necessary
+  --> main.rs:1:17
+   |
+ 1 | fn iter<T>(vec: Vec<T>) -> impl Iterator<Item = T> {
+   |    ----         ^^^^^^ this parameter takes ownership of the value
+   |    |
+   |    in this function
+help: consider moving the expression out of the loop so it is only moved once
+   |
+13 ~     let mut value = iter(vec);
+14 ~     loop {
+15 |     //~^ HELP consider moving the expression out of the loop so it is only moved once
+16 ~         let Some(item) = value.next() else { //~ ERROR use of moved value
+   |
+
+error[E0382]: use of moved value: `vec`
+  --> main.rs:25:25
+   |
+22 |     let vec = vec!["one", "two", "three"];
+   |         --- move occurs because `vec` has type `Vec<&str>`, which does not implement the `Copy` trait
+23 |     loop {
+   |     ---- inside of this loop
+24 |     //~^ HELP consider moving the expression out of the loop so it is only moved once
+25 |         let item = iter(vec).next(); //~ ERROR use of moved value
+   |                         ^^^ value moved here, in previous iteration of loop
+   |
+note: consider changing this parameter type in function `iter` to borrow instead if owning the value isn't necessary
+  --> main.rs:1:17
+   |
+ 1 | fn iter<T>(vec: Vec<T>) -> impl Iterator<Item = T> {
+   |    ----         ^^^^^^ this parameter takes ownership of the value
+   |    |
+   |    in this function
+help: consider moving the expression out of the loop so it is only moved once
+   |
+23 ~     let mut value = iter(vec);
+24 ~     loop {
+25 |     //~^ HELP consider moving the expression out of the loop so it is only moved once
+26 ~         let item = value.next(); //~ ERROR use of moved value
+   |
+help: consider cloning the value if the performance cost is acceptable
+   |
+25 |         let item = iter(vec.clone()).next(); //~ ERROR use of moved value
+   |                            ++++++++
+
+error[E0382]: use of moved value: `vec`
+  --> main.rs:37:34
+   |
+34 |     let vec = vec!["one", "two", "three"];
+   |         --- move occurs because `vec` has type `Vec<&str>`, which does not implement the `Copy` trait
+35 |     loop {
+   |     ---- inside of this loop
+36 |     //~^ HELP consider moving the expression out of the loop so it is only moved once
+37 |         if let Some(item) = iter(vec).next() { //~ ERROR use of moved value
+   |                                  ^^^ value moved here, in previous iteration of loop
+   |
+note: consider changing this parameter type in function `iter` to borrow instead if owning the value isn't necessary
+  --> main.rs:1:17
+   |
+ 1 | fn iter<T>(vec: Vec<T>) -> impl Iterator<Item = T> {
+   |    ----         ^^^^^^ this parameter takes ownership of the value
+   |    |
+   |    in this function
+help: consider moving the expression out of the loop so it is only moved once
+   |
+35 ~     let mut value = iter(vec);
+36 ~     loop {
+37 |     //~^ HELP consider moving the expression out of the loop so it is only moved once
+38 ~         if let Some(item) = value.next() { //~ ERROR use of moved value
+   |
+
+error[E0382]: use of moved value: `vec`
+  --> main.rs:50:46
+   |
+45 |         let vec = vec!["one", "two", "three"];
+   |             --- move occurs because `vec` has type `Vec<&str>`, which does not implement the `Copy` trait
+46 |         loop {
+   |         ---- inside of this loop
+47 |         //~^ HELP consider moving the expression out of the loop so it is only moved once
+48 |             loop {
+   |             ---- inside of this loop
+49 |                 loop {
+   |                 ---- inside of this loop
+50 |                     if let Some(item) = iter(vec).next() { //~ ERROR use of moved value
+   |                                              ^^^ value moved here, in previous iteration of loop
+   |
+note: consider changing this parameter type in function `iter` to borrow instead if owning the value isn't necessary
+  --> main.rs:1:17
+   |
+ 1 | fn iter<T>(vec: Vec<T>) -> impl Iterator<Item = T> {
+   |    ----         ^^^^^^ this parameter takes ownership of the value
+   |    |
+   |    in this function
+note: verify that your loop breaking logic is correct
+  --> main.rs:52:25
+   |
+44 |     loop {
+   |     ----
+45 |         let vec = vec!["one", "two", "three"];
+46 |         loop {
+   |         ----
+47 |         //~^ HELP consider moving the expression out of the loop so it is only moved once
+48 |             loop {
+   |             ----
+49 |                 loop {
+   |                 ----
+...
+52 |                         break;
+   |                         ^^^^^ this `break` exits the loop at line 49
+help: consider moving the expression out of the loop so it is only moved once
+   |
+46 ~         let mut value = iter(vec);
+47 ~         loop {
+48 |         //~^ HELP consider moving the expression out of the loop so it is only moved once
+49 |             loop {
+50 |                 loop {
+51 ~                     if let Some(item) = value.next() { //~ ERROR use of moved value
+   |
+
+error: aborting due to 5 previous errors
+
+For more information about this error, try `rustc --explain E0382`.
+rustc exit: 1
+
+[exit 0]

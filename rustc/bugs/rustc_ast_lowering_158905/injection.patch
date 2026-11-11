@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_ast_lowering/src/delegation/mod.rs b/compiler/rustc_ast_lowering/src/delegation/mod.rs
+index 3b9074e67bdd27aa74c6caf251f6199ed3ace750..8d081dccded80799bd9c5ea78330aaa793b19ccf 100644
+--- a/compiler/rustc_ast_lowering/src/delegation/mod.rs
++++ b/compiler/rustc_ast_lowering/src/delegation/mod.rs
+@@ -505,14 +505,11 @@ fn process_segment(
+             })
+             .unwrap_or_else(|| self.arena.alloc_from_iter(args_iter.consume_all(self)));
+ 
+-        // Do not omit constraints as there might be some and they must be present in HIR (#158812).
+-        let has_constraints = segment.args.is_some_and(|a| !a.constraints.is_empty());
+-
+         // Needed for better error messages (`trait-impl-wrong-args-count.rs` test).
+-        segment.args = (has_constraints || !new_args.is_empty()).then(|| {
++        segment.args = (!new_args.is_empty()).then(|| {
+             &*self.arena.alloc(hir::GenericArgs {
+                 args: new_args,
+-                constraints: segment.args.map(|a| a.constraints).unwrap_or(&[]),
++                constraints: &[],
+                 parenthesized: hir::GenericArgsParentheses::No,
+                 span_ext: segment.args.map_or(span, |args| args.span_ext),
+             })

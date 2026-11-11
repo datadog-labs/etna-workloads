@@ -1,0 +1,1 @@
+Compiles a trait with a GAT default `type Bar<T>: Baz<Self> = i32` whose bound needs `Self::Bar<()>: Eq<i32>` (known bug #117606). The clean compiler rejects it with an unsatisfied-bound error; with the injected change (check_type_bounds normalizing with the plain param-env instead of the GAT-bounds one) it is wrongly accepted (exit 0).

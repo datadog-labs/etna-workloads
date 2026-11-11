@@ -1,0 +1,46 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..9a546ef4bb042924b61acbf177b5f77cf6302d7b 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -2720,37 +2720,10 @@ fn lower_const_arg_struct(
+ 
+         for init in inits {
+             if !variant_def.fields.iter().any(|field_def| field_def.name == init.field.name) {
+-                let mut err = if adt_def.is_enum() {
+-                    struct_span_code_err!(
+-                        tcx.dcx(),
+-                        init.field.span,
+-                        E0559,
+-                        "variant `{}::{}` has no field named `{}`",
+-                        ty,
+-                        variant_def.name,
+-                        init.field
+-                    )
+-                } else {
+-                    struct_span_code_err!(
+-                        tcx.dcx(),
+-                        init.field.span,
+-                        E0560,
+-                        "struct `{}` has no field named `{}`",
+-                        variant_def.name,
+-                        init.field
+-                    )
+-                };
+-                if adt_def.is_enum() {
+-                    err.span_label(
+-                        init.field.span,
+-                        format!("`{}::{}` does not have this field", ty, variant_def.name),
+-                    );
+-                } else {
+-                    err.span_label(
+-                        init.field.span,
+-                        format!("`{}` does not have this field", variant_def.name),
+-                    );
+-                }
++                let err = tcx.dcx().struct_span_err(
++                    init.field.span,
++                    format!("struct `{}` has no field named `{}`", variant_def.name, init.field),
++                );
+                 return ty::Const::new_error(tcx, err.emit());
+             }
+         }

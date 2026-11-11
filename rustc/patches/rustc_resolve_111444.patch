@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..0bc435096a9581a782fc1826b8c5d181063b203a 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -1770,7 +1770,7 @@ fn resolve_lifetime(&mut self, lifetime: &'ast Lifetime, use_ctxt: visit::Lifeti
+             if let Some(&(_, res)) = rib.bindings.get(&normalized_ident) {
+                 self.record_lifetime_use(lifetime.id, res, LifetimeElisionCandidate::Ignore);
+ 
+-                if let LifetimeRes::Param { param, binder } = res {
++                if let LifetimeRes::Param { param, .. } = res {
+                     match self.lifetime_uses.entry(param) {
+                         Entry::Vacant(v) => {
+                             debug!("First use of {:?} at {:?}", res, ident.span);
+@@ -1784,16 +1784,10 @@ fn resolve_lifetime(&mut self, lifetime: &'ast Lifetime, use_ctxt: visit::Lifeti
+                                     LifetimeRibKind::Item
+                                     | LifetimeRibKind::AnonymousReportError
+                                     | LifetimeRibKind::ElisionFailure => Some(LifetimeUseSet::Many),
+-                                    // An anonymous lifetime is legal here, and bound to the right
+-                                    // place, go ahead.
+-                                    LifetimeRibKind::AnonymousCreateParameter {
+-                                        binder: anon_binder,
+-                                        ..
+-                                    } => Some(if binder == anon_binder {
+-                                        LifetimeUseSet::One { use_span: ident.span, use_ctxt }
+-                                    } else {
+-                                        LifetimeUseSet::Many
+-                                    }),
++                                    // An anonymous lifetime is legal here, go ahead.
++                                    LifetimeRibKind::AnonymousCreateParameter { .. } => {
++                                        Some(LifetimeUseSet::One { use_span: ident.span, use_ctxt })
++                                    }
+                                     // Only report if eliding the lifetime would have the same
+                                     // semantics.
+                                     LifetimeRibKind::Elided { res: r, error_in_path } => {

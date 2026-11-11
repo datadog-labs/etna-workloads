@@ -1,0 +1,1 @@
+An aux crate without checked_type_aliases defines `pub type Alias<T: Copy> = Option<T>;`. A dependent crate enabling `#![feature(checked_type_aliases)]` uses `eager::Alias<T>` with unbounded T. Clean rustc treats the extern alias as eager (bound ignored) and compiles; the injected one treats it as lazy and reports E0277 (`T: Copy` not satisfied).

@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_expand/src/expand.rs b/compiler/rustc_expand/src/expand.rs
+index fa7a2dce717b77e9052d438eb7326a9b90686d12..2e8a064539154b64da2be1e317ecc3970b90cbc0 100644
+--- a/compiler/rustc_expand/src/expand.rs
++++ b/compiler/rustc_expand/src/expand.rs
+@@ -37,7 +37,7 @@
+ use crate::base::*;
+ use crate::config::StripUnconfigured;
+ use crate::diagnostics::{
+-    EmptyDelegationMac, GlobDelegationOutsideImpls, GlobDelegationTraitlessQpath, IncompleteParse,
++    EmptyDelegationMac, GlobDelegationOutsideImpls, IncompleteParse,
+     RecursionLimitReached, RemoveExprNotSupported, RemoveNodeNotSupported, UnsupportedKeyValue,
+     WrongFragmentKind,
+ };
+@@ -2368,8 +2368,6 @@ fn flat_map_node<Node: InvocationCollectorNode<OutputTy: Default>>(
+                 }
+                 None if let Some((deleg, item)) = node.delegation() => {
+                     let DelegationSuffixes::List(suffixes) = &deleg.suffixes else {
+-                        let traitless_qself =
+-                            matches!(&deleg.qself, Some(qself) if qself.position == 0);
+                         let (item, of_trait) = match node.to_annotatable() {
+                             Annotatable::AssocItem(item, AssocCtxt::Impl { of_trait }) => {
+                                 (item, of_trait)
+@@ -2383,11 +2381,6 @@ fn flat_map_node<Node: InvocationCollectorNode<OutputTy: Default>>(
+                             }
+                             _ => unreachable!(),
+                         };
+-                        if traitless_qself {
+-                            let span = item.span;
+-                            self.cx.dcx().emit_err(GlobDelegationTraitlessQpath { span });
+-                            return Default::default();
+-                        }
+                         return self
+                             .collect_glob_delegation(item, of_trait, Node::KIND)
+                             .make_ast::<Node>();

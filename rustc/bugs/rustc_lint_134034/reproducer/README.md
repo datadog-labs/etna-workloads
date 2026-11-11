@@ -1,0 +1,1 @@
+With `#![deny(unused_parens)]`, `let Some(_) = (x!{}) else { return };` where `x!` is a macro expanding to an expression must not trigger unused_parens (parens wrap macro-expanded code). The injected compiler wrongly reports "unnecessary parentheses around assigned value" and fails; the clean one compiles successfully.

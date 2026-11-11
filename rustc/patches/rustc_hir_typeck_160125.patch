@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_hir_typeck/src/intrinsicck.rs b/compiler/rustc_hir_typeck/src/intrinsicck.rs
+index 18ea454f82c652fc5eee57d7722916ef8895bb1b..ad8524b508e33468b3098c9827eac702fe2c5f39 100644
+--- a/compiler/rustc_hir_typeck/src/intrinsicck.rs
++++ b/compiler/rustc_hir_typeck/src/intrinsicck.rs
+@@ -70,13 +70,13 @@ fn skeleton_string<'tcx>(
+ fn check_transmute<'tcx>(
+     tcx: TyCtxt<'tcx>,
+     typing_env: ty::TypingEnv<'tcx>,
+-    from: Unnormalized<'tcx, Ty<'tcx>>,
+-    to: Unnormalized<'tcx, Ty<'tcx>>,
++    from: Ty<'tcx>,
++    to: Ty<'tcx>,
+     hir_id: HirId,
+ ) -> Result<(), ErrorGuaranteed> {
+     let span = tcx.hir_span(hir_id);
+     let normalize = |ty| {
+-        if let Ok(ty) = tcx.try_normalize_erasing_regions(typing_env, ty) {
++        if let Ok(ty) = tcx.try_normalize_erasing_regions(typing_env, Unnormalized::new_wip(ty)) {
+             ty
+         } else {
+             Ty::new_error_with_message(
+@@ -253,7 +253,7 @@ pub(crate) fn check_transmutes(tcx: TyCtxt<'_>, owner: LocalDefId) -> Result<(),
+     let typing_env = ty::TypingEnv::codegen(tcx, owner);
+     let mut result = Ok(());
+     for &(from, to, hir_id) in &typeck_results.transmutes_to_check {
+-        let (to, from) = ty::set_aliases_to_non_rigid(tcx, (to, from)).unzip();
++        let (to, from) = ty::set_aliases_to_non_rigid(tcx, (to, from)).skip_normalization();
+         result = result.and(check_transmute(tcx, typing_env, from, to, hir_id));
+     }
+     result
+diff --git a/compiler/rustc_passes/src/layout_test.rs b/compiler/rustc_passes/src/layout_test.rs
+index 2fc94c70d28e8e47163035d1a9d267f427109130..9002a63d055e4b9d868a0c62d168e739931823f4 100644
+--- a/compiler/rustc_passes/src/layout_test.rs
++++ b/compiler/rustc_passes/src/layout_test.rs
+@@ -60,7 +60,7 @@ pub fn ensure_wf<'tcx>(
+ }
+ 
+ fn dump_layout_of(tcx: TyCtxt<'_>, item_def_id: LocalDefId, kinds: &[RustcDumpLayoutKind]) {
+-    let typing_env = ty::TypingEnv::codegen(tcx, item_def_id);
++    let typing_env = ty::TypingEnv::post_analysis(tcx, item_def_id);
+     let ty = tcx.type_of(item_def_id).instantiate_identity().skip_norm_wip();
+     let span = tcx.def_span(item_def_id.to_def_id());
+     if !ensure_wf(tcx, typing_env, ty, item_def_id, span) {

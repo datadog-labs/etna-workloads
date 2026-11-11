@@ -1,0 +1,95 @@
+error[E0261]: use of undeclared lifetime name `'b`
+ --> main.rs:4:32
+  |
+4 |   where T: for<'a> Trait1<T> + 'b { } //~ ERROR use of undeclared lifetime name `'b`
+  |                                ^^ undeclared lifetime
+  |
+  = note: for more information on higher-ranked polymorphism, visit https://doc.rust-lang.org/nomicon/hrtb.html
+help: consider making the bound lifetime-generic with a new `'b` lifetime
+  |
+4 -   where T: for<'a> Trait1<T> + 'b { } //~ ERROR use of undeclared lifetime name `'b`
+4 +   where for<'b, 'a> T: Trait1<T> + 'b { } //~ ERROR use of undeclared lifetime name `'b`
+  |
+help: consider introducing lifetime `'b` here
+  |
+3 | trait Trait1<'b, T>
+  |              +++
+
+error[E0261]: use of undeclared lifetime name `'b`
+ --> main.rs:8:10
+  |
+8 |     T: B<'b> + for<'a> A<'a>, //~ ERROR use of undeclared lifetime name `'b`
+  |          ^^ undeclared lifetime
+  |
+help: consider making the bound lifetime-generic with a new `'b` lifetime
+  |
+8 |     T: for<'b> B<'b> + for<'a> A<'a>, //~ ERROR use of undeclared lifetime name `'b`
+  |        +++++++
+help: consider making the bound lifetime-generic with a new `'b` lifetime
+  |
+8 -     T: B<'b> + for<'a> A<'a>, //~ ERROR use of undeclared lifetime name `'b`
+8 +     for<'b, 'a> T: B<'b> + A<'a>, //~ ERROR use of undeclared lifetime name `'b`
+  |
+help: consider introducing lifetime `'b` here
+  |
+6 | trait Trait2<'b, T>
+  |              +++
+
+error[E0261]: use of undeclared lifetime name `'b`
+  --> main.rs:14:10
+   |
+14 |     T: B<'b> + for<'a> A<'a> + 'c {}
+   |          ^^ undeclared lifetime
+   |
+help: consider making the bound lifetime-generic with a new `'b` lifetime
+   |
+14 |     T: for<'b> B<'b> + for<'a> A<'a> + 'c {}
+   |        +++++++
+help: consider making the bound lifetime-generic with a new `'b` lifetime
+   |
+14 -     T: B<'b> + for<'a> A<'a> + 'c {}
+14 +     for<'b, 'a> T: B<'b> + A<'a> + 'c {}
+   |
+help: consider introducing lifetime `'b` here
+   |
+12 | trait Trait3<'b, T>
+   |              +++
+
+error[E0261]: use of undeclared lifetime name `'c`
+  --> main.rs:14:32
+   |
+14 |     T: B<'b> + for<'a> A<'a> + 'c {}
+   |                                ^^ undeclared lifetime
+   |
+help: consider making the bound lifetime-generic with a new `'c` lifetime
+   |
+14 -     T: B<'b> + for<'a> A<'a> + 'c {}
+14 +     for<'c, 'a> T: B<'b> + A<'a> + 'c {}
+   |
+help: consider introducing lifetime `'c` here
+   |
+12 | trait Trait3<'c, T>
+   |              +++
+
+error[E0261]: use of undeclared lifetime name `'x`
+  --> main.rs:20:24
+   |
+20 |     T: for<'a> A<'a> + 'x + for<'b> B<'b>, //~ ERROR use of undeclared lifetime name `'x`
+   |                        ^^ undeclared lifetime
+   |
+help: consider making the bound lifetime-generic with a new `'x` lifetime
+   |
+20 -     T: for<'a> A<'a> + 'x + for<'b> B<'b>, //~ ERROR use of undeclared lifetime name `'x`
+20 +     for<'x, 'a, 'b> T: A<'a> + 'x + B<'b>, //~ ERROR use of undeclared lifetime name `'x`
+   |
+help: consider introducing lifetime `'x` here
+   |
+18 | trait Trait4<'x, T>
+   |              +++
+
+error: aborting due to 5 previous errors
+
+For more information about this error, try `rustc --explain E0261`.
+rustc exit: 1
+
+[exit 0]

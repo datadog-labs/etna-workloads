@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_resolve/src/late.rs b/compiler/rustc_resolve/src/late.rs
+index c21d3653a13be644350f850ca7995c14d8bcbcce..763a99937c69920a2e8993f478fc87d8508313a8 100644
+--- a/compiler/rustc_resolve/src/late.rs
++++ b/compiler/rustc_resolve/src/late.rs
+@@ -3781,13 +3781,11 @@ fn check_trait_item<F>(
+             let path = &self.current_trait_ref.as_ref().unwrap().1.path;
+             let path_names = path_names_to_string(path);
+             self.report_error(span, err(reported_ident, path_names, candidate));
+-            feed_visibility(self, module.def_id());
+             return;
+         };
+ 
+         let res = decl.res();
+         let Res::Def(def_kind, id_in_trait) = res else { bug!() };
+-        feed_visibility(self, id_in_trait);
+ 
+         match seen_trait_items.entry(id_in_trait) {
+             Entry::Occupied(entry) => {
+@@ -3812,6 +3810,7 @@ fn check_trait_item<F>(
+             | (DefKind::AssocConst { .. }, AssocItemKind::Const(..))
+             | (DefKind::AssocFn, AssocItemKind::Delegation(..)) => {
+                 self.r.record_partial_res(id, PartialRes::new(res));
++                feed_visibility(self, id_in_trait);
+                 return;
+             }
+             _ => {}

@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_hir/src/hir.rs b/compiler/rustc_hir/src/hir.rs
+index 37b2ca7718498be3f43d034c3a078a21024db604..7073a91d1ed12c3b5eb8ff5592599582deea1250 100644
+--- a/compiler/rustc_hir/src/hir.rs
++++ b/compiler/rustc_hir/src/hir.rs
+@@ -508,7 +508,7 @@ pub fn anon_const_hir_id(&self) -> Option<HirId> {
+ #[derive(Clone, Copy, Debug, StableHash)]
+ #[repr(u8, C)]
+ pub enum ConstArgKind<'hir, Unambig = ()> {
+-    Tup(&'hir [&'hir ConstArg<'hir>]),
++    Tup(&'hir [&'hir ConstArg<'hir, Unambig>]),
+     /// **Note:** Currently this is only used for bare const params
+     /// (`N` where `fn foo<const N: usize>(...)`),
+     /// not paths to any const (`N` where `const N: usize = ...`).
+diff --git a/compiler/rustc_hir/src/intravisit.rs b/compiler/rustc_hir/src/intravisit.rs
+index 3b721392519a741af51a8ab09bc831533ffde2d2..8e5b265060bc2e689bf18986af4c428db388ad2b 100644
+--- a/compiler/rustc_hir/src/intravisit.rs
++++ b/compiler/rustc_hir/src/intravisit.rs
+@@ -1090,7 +1090,7 @@ pub fn walk_const_arg<'v, V: Visitor<'v>>(
+     try_visit!(visitor.visit_id(*hir_id));
+     match kind {
+         ConstArgKind::Tup(exprs) => {
+-            walk_list!(visitor, visit_const_arg_unambig, *exprs);
++            walk_list!(visitor, visit_const_arg, *exprs);
+             V::Result::output()
+         }
+         ConstArgKind::Struct(qpath, field_exprs) => {

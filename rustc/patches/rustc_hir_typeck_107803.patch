@@ -1,0 +1,49 @@
+diff --git a/compiler/rustc_hir_typeck/src/method/probe.rs b/compiler/rustc_hir_typeck/src/method/probe.rs
+index b2e0a3bd7a195f2edbf03d89438609e17e8c8898..72d640124516e3813f044060b2d926450bd98abf 100644
+--- a/compiler/rustc_hir_typeck/src/method/probe.rs
++++ b/compiler/rustc_hir_typeck/src/method/probe.rs
+@@ -1135,29 +1135,21 @@ fn assemble_extension_candidates_for_trait(
+         let trait_ref = ty::TraitRef::new_from_args(self.tcx, trait_def_id, trait_args);
+ 
+         if self.tcx.is_trait_alias(trait_def_id) {
+-            // For trait aliases, recursively assume all explicitly named traits are relevant
+-            for (bound_trait_pred, _) in
+-                traits::expand_trait_aliases(self.tcx, [(trait_ref.upcast(self.tcx), self.span)]).0
+-            {
+-                assert_eq!(bound_trait_pred.polarity(), ty::PredicatePolarity::Positive);
+-                let bound_trait_ref = bound_trait_pred.map_bound(|pred| pred.trait_ref);
+-                for item in self.impl_or_trait_item(bound_trait_ref.def_id()) {
+-                    if !self.has_applicable_self(&item) {
+-                        self.record_static_candidate(CandidateSource::Trait(
+-                            bound_trait_ref.def_id(),
+-                        ));
+-                    } else {
+-                        self.push_candidate(
+-                            Candidate {
+-                                item,
+-                                import_ids,
+-                                kind: TraitCandidate(bound_trait_ref, lint_ambiguous),
+-                            },
+-                            false,
+-                        );
+-                    }
+-                }
+-            }
++            // For trait aliases, assume all supertraits are relevant.
++            let bounds = [ty::Binder::dummy(trait_ref)].into_iter();
++            self.assemble_candidates_for_bounds(
++                traits::supertraits(self.tcx, ty::Binder::dummy(trait_ref)).chain(bounds),
++                |this, new_trait_ref, item| {
++                    this.push_candidate(
++                        Candidate {
++                            item,
++                            import_ids,
++                            kind: TraitCandidate(new_trait_ref, lint_ambiguous),
++                        },
++                        false,
++                    );
++                },
++            );
+         } else {
+             debug_assert!(self.tcx.is_trait(trait_def_id));
+             if self.tcx.trait_is_auto(trait_def_id) {

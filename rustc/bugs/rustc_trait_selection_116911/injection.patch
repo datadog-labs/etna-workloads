@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..cb346b77f00a8b817078927ccb61782f172b99fa 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -3746,28 +3746,6 @@ pub(super) fn note_obligation_cause_code<G: EmissionGuarantee, T>(
+                                     this =
+                                         "the implicit `Sized` requirement on this type parameter";
+                                 }
+-                                if let Some(hir::Node::TraitItem(hir::TraitItem {
+-                                    generics,
+-                                    kind: hir::TraitItemKind::Type(bounds, None),
+-                                    ..
+-                                })) = tcx.hir_get_if_local(item_def_id)
+-                                    // Do not suggest relaxing if there is an explicit `Sized` obligation.
+-                                    && !bounds.iter()
+-                                        .filter_map(|bound| bound.trait_ref())
+-                                        .any(|tr| tr.trait_def_id().is_some_and(|def_id| tcx.is_lang_item(def_id, LangItem::Sized)))
+-                                {
+-                                    let (span, separator) = if let [.., last] = bounds {
+-                                        (last.span().shrink_to_hi(), " +")
+-                                    } else {
+-                                        (generics.span.shrink_to_hi(), ":")
+-                                    };
+-                                    err.span_suggestion_verbose(
+-                                        span,
+-                                        "consider relaxing the implicit `Sized` restriction",
+-                                        format!("{separator} ?Sized"),
+-                                        Applicability::MachineApplicable,
+-                                    );
+-                                }
+                             }
+                             if let DefKind::Trait = tcx.def_kind(item_def_id)
+                                 && !visible_item

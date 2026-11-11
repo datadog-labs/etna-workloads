@@ -1,0 +1,75 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..45c93ae424d2106f271a3da92c4bc4b8e39a6588 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -1372,37 +1372,9 @@ pub(super) fn suggest_add_clone_to_arg(
+                     .must_apply_modulo_regions()
+             };
+ 
+-            let existing_clone_call = match self.tcx.hir_node(*arg_hir_id) {
+-                // It's just a variable. Propose cloning it.
+-                Node::Expr(Expr { kind: hir::ExprKind::Path(_), .. }) => None,
+-                // It's already a call to `clone()`. We might be able to suggest
+-                // adding a `+ Clone` bound, though.
+-                Node::Expr(Expr {
+-                    kind:
+-                        hir::ExprKind::MethodCall(
+-                            hir::PathSegment { ident, .. },
+-                            _receiver,
+-                            [],
+-                            call_span,
+-                        ),
+-                    hir_id,
+-                    ..
+-                }) if ident.name == sym::clone
+-                    && !call_span.from_expansion()
+-                    && !has_clone(*inner_ty) =>
+-                {
+-                    // We only care about method calls corresponding to the real `Clone` trait.
+-                    let Some(typeck_results) = self.typeck_results.as_ref() else { return false };
+-                    let Some((DefKind::AssocFn, did)) = typeck_results.type_dependent_def(*hir_id)
+-                    else {
+-                        return false;
+-                    };
+-                    if self.tcx.trait_of_assoc(did) != Some(clone_trait) {
+-                        return false;
+-                    }
+-                    Some(ident.span)
+-                }
+-                _ => return false,
++            let arg_node = self.tcx.hir_node(*arg_hir_id);
++            let Node::Expr(Expr { kind: hir::ExprKind::Path(_), .. }) = arg_node else {
++                return false;
+             };
+ 
+             let new_obligation = self.mk_trait_obligation_with_new_self_ty(
+@@ -1422,23 +1394,12 @@ pub(super) fn suggest_add_clone_to_arg(
+                         None,
+                     );
+                 }
+-                if let Some(existing_clone_call) = existing_clone_call {
+-                    err.span_note(
+-                        existing_clone_call,
+-                        format!(
+-                            "this `clone()` copies the reference, \
+-                            which does not do anything, \
+-                            because `{inner_ty}` does not implement `Clone`"
+-                        ),
+-                    );
+-                } else {
+-                    err.span_suggestion_verbose(
+-                        obligation.cause.span.shrink_to_hi(),
+-                        "consider using clone here",
+-                        ".clone()".to_string(),
+-                        Applicability::MaybeIncorrect,
+-                    );
+-                }
++                err.span_suggestion_verbose(
++                    obligation.cause.span.shrink_to_hi(),
++                    "consider using clone here",
++                    ".clone()".to_string(),
++                    Applicability::MaybeIncorrect,
++                );
+                 return true;
+             }
+             false

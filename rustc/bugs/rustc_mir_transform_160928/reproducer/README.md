@@ -1,0 +1,1 @@
+Using a tuple struct constructor with a `mut(self)`-restricted field as a function value (`let f = inner::Wrapper;`) outside its module must be rejected with a "cannot be constructed" error. The injected compiler skips the check and compiles successfully.

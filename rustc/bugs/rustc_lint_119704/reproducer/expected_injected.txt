@@ -1,0 +1,51 @@
+warning: field `nickname` is never read
+  --> main.rs:20:5
+   |
+19 | struct Config {
+   |        ------ field in this struct
+20 |     nickname: Option<Box<u8>>,
+   |     ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+error: non-binding let on a type that has a destructor
+ --> main.rs:5:5
+  |
+5 |     let _ = foo(); //~ ERROR non-binding let on a type that has a destructor
+  |     ^^^^^^^^^^^^^^
+  |
+note: the lint level is defined here
+ --> main.rs:3:9
+  |
+3 | #![deny(let_underscore_drop)]
+  |         ^^^^^^^^^^^^^^^^^^^
+help: consider binding to an unused variable to avoid immediately dropping the value
+  |
+5 |     let _unused = foo(); //~ ERROR non-binding let on a type that has a destructor
+  |          ++++++
+help: consider immediately dropping the value
+  |
+5 -     let _ = foo(); //~ ERROR non-binding let on a type that has a destructor
+5 +     drop(foo()); //~ ERROR non-binding let on a type that has a destructor
+  |
+
+error: non-binding let on a type that has a destructor
+ --> main.rs:8:22
+  |
+8 | async fn from_config(_: Config) {}
+  |                      ^
+  |
+help: consider binding to an unused variable to avoid immediately dropping the value
+  |
+8 | async fn from_config(_unused: Config) {}
+  |                       ++++++
+help: consider immediately dropping the value
+  |
+8 | async fn from_config(drop(_): Config) {}
+  |                      +++++ +
+
+error: aborting due to 2 previous errors; 1 warning emitted
+
+rustc exit: 1
+
+[exit 0]

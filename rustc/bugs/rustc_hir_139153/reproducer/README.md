@@ -1,0 +1,1 @@
+Compiles an async closure to MIR and lists the generated function paths. The clean compiler names the synthetic by-move coroutine body `{synthetic#0}`; the injected one names it `{closure#1}` (wrong DefPathData, sharing the closure namespace).

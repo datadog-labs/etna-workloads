@@ -1,0 +1,35 @@
+diff --git a/compiler/rustc_codegen_cranelift/src/driver/aot.rs b/compiler/rustc_codegen_cranelift/src/driver/aot.rs
+index d6c25cf524a5c112acbc185c8622670f2cf51b3c..7b7ac6ba73ce4d776f1bc393dc030f442548ac48 100644
+--- a/compiler/rustc_codegen_cranelift/src/driver/aot.rs
++++ b/compiler/rustc_codegen_cranelift/src/driver/aot.rs
+@@ -156,7 +156,7 @@ fn codegen_cgu(tcx: TyCtxt<'_>, cgu_name: Symbol) -> AotModule {
+     for (mono_item, item_data) in mono_items {
+         match mono_item {
+             MonoItem::Fn(instance) => {
+-                let flags = tcx.codegen_instance_attrs(instance.def).flags;
++                let flags = tcx.codegen_fn_attrs(instance.def_id()).flags;
+                 if flags.contains(CodegenFnAttrFlags::NAKED) {
+                     rustc_codegen_ssa::mir::naked_asm::codegen_naked_asm(
+                         &mut GlobalAsmContext { tcx, global_asm: &mut module.global_asm },
+diff --git a/compiler/rustc_codegen_ssa/src/mono_item.rs b/compiler/rustc_codegen_ssa/src/mono_item.rs
+index f2cd9e228f282979e2fed69b288ec776ffcd5886..e47ba4aa232d1b8fd06f5b549e0f0c64c8a80b5a 100644
+--- a/compiler/rustc_codegen_ssa/src/mono_item.rs
++++ b/compiler/rustc_codegen_ssa/src/mono_item.rs
+@@ -42,7 +42,7 @@ fn define<Bx: BuilderMethods<'a, 'tcx>>(
+                 base::codegen_global_asm(cx, item_id);
+             }
+             MonoItem::Fn(instance) => {
+-                let flags = cx.tcx().codegen_instance_attrs(instance.def).flags;
++                let flags = cx.tcx().codegen_fn_attrs(instance.def_id()).flags;
+                 if flags.contains(CodegenFnAttrFlags::NAKED) {
+                     naked_asm::codegen_naked_asm::<Bx::CodegenCx>(cx, instance, item_data);
+                 } else {
+@@ -72,7 +72,7 @@ fn predefine<Bx: BuilderMethods<'a, 'tcx>>(
+                 cx.predefine_static(def_id, linkage, visibility, symbol_name);
+             }
+             MonoItem::Fn(instance) => {
+-                let attrs = cx.tcx().codegen_instance_attrs(instance.def);
++                let attrs = cx.tcx().codegen_fn_attrs(instance.def_id());
+ 
+                 if attrs.flags.contains(CodegenFnAttrFlags::NAKED) {
+                     // do not define this function; it will become a global assembly block

@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_ast_lowering/src/lib.rs b/compiler/rustc_ast_lowering/src/lib.rs
+index cc7e081f2cce34b353c336bc45a9975437931355..ae3a78d4f30b6e4a5007f4bc1e73141e43d51497 100644
+--- a/compiler/rustc_ast_lowering/src/lib.rs
++++ b/compiler/rustc_ast_lowering/src/lib.rs
+@@ -2444,16 +2444,19 @@ fn validate_relaxed_bound(
+                 let Some(trait_def_id) = trait_ref.trait_def_id() else { return };
+                 let tcx = self.tcx;
+                 let err = |s| {
+-                    let name = tcx.item_name(trait_def_id);
+                     tcx.dcx()
+                         .struct_span_err(
+                             vec![span, s],
+-                            format!("duplicate relaxed `{name}` bounds"),
++                            "type parameter has more than one relaxed default bound, only one is supported",
+                         )
+                         .with_code(E0203)
+                         .emit();
+                 };
+-                dedup_map.entry(trait_def_id).and_modify(|&mut s| err(s)).or_insert(span);
++                if let Some(&s) = dedup_map.values().next() {
++                    err(s);
++                } else {
++                    dedup_map.insert(trait_def_id, span);
++                }
+                 return;
+             }
+             RelaxedBoundPolicy::Forbidden(reason) => {

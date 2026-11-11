@@ -1,0 +1,1 @@
+Statics copying a value from another static that contains nested references should share the same allocation; the program prints whether the pointers are equal. The injected compiler duplicates the nested allocation, so some comparisons print false.

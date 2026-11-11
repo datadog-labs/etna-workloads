@@ -1,0 +1,1 @@
+A macro from an external crate expands to `for identity!(x) in x {}` over an Option. With the bug, the for_loops_over_fallibles lint fires on the external macro expansion and its overlapping suggestion makes rustc ICE (exit 101); the clean compiler accepts the code silently.

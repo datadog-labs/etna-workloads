@@ -1,0 +1,59 @@
+diff --git a/compiler/rustc_session/src/session.rs b/compiler/rustc_session/src/session.rs
+index 7db30b38f9be4dc7ed1723b19584992831b997cf..a72d4b50815deb7e95d40b36f2b0bb767334452f 100644
+--- a/compiler/rustc_session/src/session.rs
++++ b/compiler/rustc_session/src/session.rs
+@@ -1026,8 +1026,7 @@ pub fn must_emit_unwind_tables(&self) -> bool {
+         //     ELF x86-64 abi, but it can be disabled for some compilation units.
+         //
+         // Typically when we're compiling with `-C panic=abort` we don't need
+-        // `uwtable` because we can't generate any exceptions! But note that
+-        // some targets require unwind tables to generate backtraces.
++        // `uwtable` because we can't generate any exceptions!
+         // Unwind tables are needed when compiling with `-C panic=unwind`, but
+         // LLVM won't omit unwind tables unless the function is also marked as
+         // `nounwind`, so users are allowed to disable `uwtable` emission.
+diff --git a/compiler/rustc_target/src/spec/base/android.rs b/compiler/rustc_target/src/spec/base/android.rs
+index c7f5d863bf6752355f320298c74978ce9e783e77..036d67e31de7af5fe1777265d7fedb1d48111973 100644
+--- a/compiler/rustc_target/src/spec/base/android.rs
++++ b/compiler/rustc_target/src/spec/base/android.rs
+@@ -8,6 +8,10 @@ pub(crate) fn opts() -> TargetOptions {
+     base.tls_model = TlsModel::Emulated;
+     base.has_thread_local = false;
+     base.supported_sanitizers = SanitizerSet::ADDRESS;
++    // This is for backward compatibility, see https://github.com/rust-lang/rust/issues/49867
++    // for context. (At that time, there was no `-C force-unwind-tables`, so the only solution
++    // was to always emit `uwtable`).
++    base.default_uwtable = true;
+     base.crt_static_respected = true;
+     base
+ }
+diff --git a/compiler/rustc_target/src/spec/base/linux.rs b/compiler/rustc_target/src/spec/base/linux.rs
+index e7757fd4726c9ec28412fd6669e7eadcaa701aea..e835a23506328c6918c732b72774829fbeed5e34 100644
+--- a/compiler/rustc_target/src/spec/base/linux.rs
++++ b/compiler/rustc_target/src/spec/base/linux.rs
+@@ -12,9 +12,6 @@ pub(crate) fn opts() -> TargetOptions {
+         relro_level: RelroLevel::Full,
+         has_thread_local: true,
+         crt_static_respected: true,
+-        // We want backtraces to work by default and they rely on unwind tables
+-        // (regardless of `-C panic` strategy).
+-        default_uwtable: true,
+         supported_split_debuginfo: Cow::Borrowed(&[
+             SplitDebuginfo::Packed,
+             SplitDebuginfo::Unpacked,
+diff --git a/compiler/rustc_target/src/spec/targets/arm_unknown_linux_gnueabihf.rs b/compiler/rustc_target/src/spec/targets/arm_unknown_linux_gnueabihf.rs
+index 1e4f70ebcd310f518712d2ae85247d5f4c16b463..c7bce1ea3ece61cbfa94cdd636b7285dc93f295d 100644
+--- a/compiler/rustc_target/src/spec/targets/arm_unknown_linux_gnueabihf.rs
++++ b/compiler/rustc_target/src/spec/targets/arm_unknown_linux_gnueabihf.rs
+@@ -21,11 +21,6 @@ pub(crate) fn target() -> Target {
+             max_atomic_width: Some(64),
+             mcount: "\u{1}__gnu_mcount_nc".into(),
+             llvm_mcount_intrinsic: Some("llvm.arm.gnu.eabi.mcount".into()),
+-            // The default on linux is to have `default_uwtable=true`, but on
+-            // this target we get an "`__aeabi_unwind_cpp_pr0` not defined"
+-            // linker error, so set it to `true` here.
+-            // FIXME(#146996): Remove this override once #146996 has been fixed.
+-            default_uwtable: false,
+             supported_sanitizers: SanitizerSet::ADDRESS,
+             ..base::linux_gnu::opts()
+         },

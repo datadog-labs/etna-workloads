@@ -1,0 +1,1 @@
+Compiles `_ = foo()?;` with the never-type-fallback lint denied. The suggested fix should be `_ = foo::<()>()?;` (turbofish); the injected compiler wrongly suggests the invalid `_: () = foo()?;` annotation on the underscore assignment.

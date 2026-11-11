@@ -1,0 +1,50 @@
+diff --git a/compiler/rustc_passes/src/dead.rs b/compiler/rustc_passes/src/dead.rs
+index 9b3a4099b8beeeb9ac4460610b6a2c8b3070d91e..2d3e2c55e1db2a51f3e17f517992568381f573af 100644
+--- a/compiler/rustc_passes/src/dead.rs
++++ b/compiler/rustc_passes/src/dead.rs
+@@ -312,7 +312,6 @@ fn handle_field_pattern_match(
+                 // considering cases when we have `let T(x) = foo()` and `fn foo<T>() -> T;`,
+                 // we will lose the liveness info of `T` cause we cannot mark it live when visiting `foo`.
+                 // Related issue: https://github.com/rust-lang/rust/issues/120770
+-                self.check_def_id(adt.did());
+                 adt.variant_of_res(res)
+             }
+             _ => span_bug!(lhs.span, "non-ADT in struct pattern"),
+@@ -336,7 +335,6 @@ fn handle_tuple_field_pattern_match(
+         let variant = match self.typeck_results().node_type(lhs.hir_id).kind() {
+             ty::Adt(adt, _) => {
+                 // Marks the ADT live if its variant appears as the pattern
+-                self.check_def_id(adt.did());
+                 adt.variant_of_res(res)
+             }
+             _ => {
+@@ -564,6 +562,17 @@ fn check_impl_or_impl_item_live(&mut self, local_def_id: LocalDefId) -> bool {
+             return false;
+         }
+ 
++        // legacy logic to check whether the function may construct `Self`
++        if let Some(trait_def_id) = trait_def_id
++            && let DefKind::AssocFn = self.tcx.def_kind(local_def_id)
++            && let Some(fn_sig) =
++                self.tcx.hir_fn_sig_by_hir_id(self.tcx.local_def_id_to_hir_id(local_def_id))
++            && matches!(fn_sig.decl.implicit_self(), hir::ImplicitSelfKind::None)
++            && self.tcx.visibility(trait_def_id).is_public()
++        {
++            return true;
++        }
++
+         // The impl or impl item is used if the corresponding trait or trait item is used and the ty is used.
+         if let ty::Adt(adt, _) =
+             self.tcx.type_of(impl_block_id).instantiate_identity().skip_norm_wip().kind()
+@@ -690,11 +699,6 @@ fn visit_pat(&mut self, pat: &'tcx hir::Pat<'tcx>) -> Self::Result {
+     fn visit_pat_expr(&mut self, expr: &'tcx rustc_hir::PatExpr<'tcx>) -> Self::Result {
+         match &expr.kind {
+             rustc_hir::PatExprKind::Path(qpath) => {
+-                // mark the type of variant live when meeting E::V in expr
+-                if let ty::Adt(adt, _) = self.typeck_results().node_type(expr.hir_id).kind() {
+-                    self.check_def_id(adt.did());
+-                }
+-
+                 let res = self.typeck_results().qpath_res(qpath, expr.hir_id);
+                 self.handle_res(res);
+             }

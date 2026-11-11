@@ -1,0 +1,98 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/search_graph.rs b/compiler/rustc_next_trait_solver/src/solve/search_graph.rs
+index ac9d6ca02893c40e9390754c2f7ae102a9215303..6875670ca5a742be899072eacefdb80cb7b9da8e 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/search_graph.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/search_graph.rs
+@@ -126,6 +126,15 @@ fn is_ambiguous_result(result: (QueryResult<I>, AccessedOpaques<I>)) -> Option<C
+         })
+     }
+ 
++    fn propagate_ambiguity(
++        cx: I,
++        for_input: CanonicalInput<I>,
++        from_result: (QueryResult<I>, AccessedOpaques<I>),
++    ) -> (QueryResult<I>, AccessedOpaques<I>) {
++        let certainty = from_result.0.unwrap().value.certainty;
++        response_no_constraints(cx, for_input, certainty)
++    }
++
+     fn compute_goal(
+         search_graph: &mut SearchGraph<D>,
+         cx: I,
+diff --git a/compiler/rustc_type_ir/src/search_graph/mod.rs b/compiler/rustc_type_ir/src/search_graph/mod.rs
+index b1635e7e4097cb4f038938299d259dc635ead0e7..f30a09da95580c104ec02bcef1ed48cf3d9aa358 100644
+--- a/compiler/rustc_type_ir/src/search_graph/mod.rs
++++ b/compiler/rustc_type_ir/src/search_graph/mod.rs
+@@ -102,6 +102,11 @@ fn fixpoint_overflow_result(
+     fn is_ambiguous_result(
+         result: <Self::Cx as Cx>::Result,
+     ) -> Option<<Self::Cx as Cx>::AmbiguityKind>;
++    fn propagate_ambiguity(
++        cx: Self::Cx,
++        for_input: <Self::Cx as Cx>::Input,
++        from_result: <Self::Cx as Cx>::Result,
++    ) -> <Self::Cx as Cx>::Result;
+ 
+     fn compute_goal(
+         search_graph: &mut SearchGraph<Self>,
+@@ -983,9 +988,10 @@ impl<D: Delegate<Cx = X>, X: Cx> SearchGraph<D, X> {
+     /// cache entries to also be ambiguous. This causes some undesirable ambiguity for nested
+     /// goals whose result doesn't actually depend on this cycle head, but that's acceptable
+     /// to me.
+-    #[instrument(level = "trace", skip(self))]
++    #[instrument(level = "trace", skip(self, cx))]
+     fn rebase_provisional_cache_entries(
+         &mut self,
++        cx: X,
+         stack_entry: &StackEntry<X>,
+         rebase_reason: RebaseReason<X>,
+     ) {
+@@ -1071,11 +1077,16 @@ fn rebase_provisional_cache_entries(
+                         // If we avoid rerunning a goal due to ambiguity, we only keep provisional
+                         // results which depend on that cycle head if these are already ambiguous
+                         // themselves.
+-                        RebaseReason::Ambiguity(kind) => {
++                        RebaseReason::Ambiguity(kind)
++                            if kind == D::FIXPOINT_OVERFLOW_AMBIGUITY_KIND =>
++                        {
+                             if !D::is_ambiguous_result(*result).is_some_and(|k| k == kind) {
+                                 return false;
+                             }
+                         }
++                        RebaseReason::Ambiguity(_) => {
++                            *result = D::propagate_ambiguity(cx, input, *result);
++                        }
+                         RebaseReason::ReachedFixpoint(None) => {}
+                         RebaseReason::ReachedFixpoint(Some(path_kind)) => {
+                             if !popped_head.usages.is_single(path_kind) {
+@@ -1379,12 +1390,13 @@ fn evaluate_goal_in_task(
+             // final result is equal to the initial response for that case.
+             if let Ok(fixpoint) = self.reached_fixpoint(&stack_entry, usages, result) {
+                 self.rebase_provisional_cache_entries(
++                    cx,
+                     &stack_entry,
+                     RebaseReason::ReachedFixpoint(fixpoint),
+                 );
+                 return EvaluationResult::finalize(stack_entry, encountered_overflow, result);
+             } else if usages.is_empty() {
+-                self.rebase_provisional_cache_entries(&stack_entry, RebaseReason::NoCycleUsages);
++                self.rebase_provisional_cache_entries(cx, &stack_entry, RebaseReason::NoCycleUsages);
+                 return EvaluationResult::finalize(stack_entry, encountered_overflow, result);
+             }
+ 
+@@ -1401,7 +1413,7 @@ fn evaluate_goal_in_task(
+             // we also taint all provisional cache entries which depend on the
+             // current goal.
+             if let Some(kind) = D::is_ambiguous_result(result) {
+-                self.rebase_provisional_cache_entries(&stack_entry, RebaseReason::Ambiguity(kind));
++                self.rebase_provisional_cache_entries(cx, &stack_entry, RebaseReason::Ambiguity(kind));
+                 return EvaluationResult::finalize(stack_entry, encountered_overflow, result);
+             };
+ 
+@@ -1412,6 +1424,7 @@ fn evaluate_goal_in_task(
+                 debug!("canonical cycle overflow");
+                 let result = D::fixpoint_overflow_result(cx, input);
+                 self.rebase_provisional_cache_entries(
++                    cx,
+                     &stack_entry,
+                     RebaseReason::Ambiguity(D::FIXPOINT_OVERFLOW_AMBIGUITY_KIND),
+                 );

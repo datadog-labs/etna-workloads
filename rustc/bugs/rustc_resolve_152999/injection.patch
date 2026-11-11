@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_resolve/src/build_reduced_graph.rs b/compiler/rustc_resolve/src/build_reduced_graph.rs
+index ad00003af9482da254039b361ac82dac0b003450..4750cd3820acbc8a4f43a75ab0be1ae9847f341f 100644
+--- a/compiler/rustc_resolve/src/build_reduced_graph.rs
++++ b/compiler/rustc_resolve/src/build_reduced_graph.rs
+@@ -640,7 +640,7 @@ fn build_reduced_graph_for_use_tree(
+         match use_tree.kind {
+             ast::UseTreeKind::Simple(rename) => {
+                 let mut module_path = prefix;
+-                let source = module_path.pop().unwrap();
++                let mut source = module_path.pop().unwrap();
+ 
+                 // If the identifier is `self` without a rename,
+                 // then it is replaced with the parent identifier.
+@@ -653,6 +653,16 @@ fn build_reduced_graph_for_use_tree(
+                     use_tree.ident()
+                 };
+ 
++                // `prefix::{self}` imports the parent segment itself; it is turned into the
++                // source before the position checks below, so those never see it as a parent.
++                if source.ident.name == kw::SelfLower
++                    && let Some(&parent) = module_path.last()
++                    && matches!(parent.ident.name, kw::Super | kw::Crate | kw::DollarCrate)
++                {
++                    module_path.pop();
++                    source = parent;
++                }
++
+                 match source.ident.name {
+                     kw::DollarCrate => {
+                         if !module_path.is_empty() {

@@ -1,0 +1,1 @@
+Compiles an impl missing `async fn` trait items with JSON diagnostics and prints the E0046 suggested replacements. The clean compiler suggests `async fn bar() -> i32 { todo!() }`; the injected one suggests `fn bar() -> impl Future<Output = i32> { todo!() }`.

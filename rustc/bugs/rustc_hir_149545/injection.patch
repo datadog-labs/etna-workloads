@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir/src/hir.rs b/compiler/rustc_hir/src/hir.rs
+index 37b2ca7718498be3f43d034c3a078a21024db604..bc6ddb6e5c815a4701d381b8c119e1cb049eba12 100644
+--- a/compiler/rustc_hir/src/hir.rs
++++ b/compiler/rustc_hir/src/hir.rs
+@@ -1620,9 +1620,8 @@ pub fn is_guaranteed_to_constitute_read_for_never(&self) -> bool {
+             // Does not constitute a read.
+             PatKind::Wild => false,
+ 
+-            // The guard cannot affect if we make a read or not (it runs after the inner pattern
+-            // has matched), therefore it's irrelevant.
+-            PatKind::Guard(pat, _) => pat.is_guaranteed_to_constitute_read_for_never(),
++            // Might not constitute a read, since the condition might be false.
++            PatKind::Guard(_, _) => true,
+ 
+             // This is unnecessarily restrictive when the pattern that doesn't
+             // constitute a read is unreachable.
+diff --git a/compiler/rustc_middle/src/hir/mod.rs b/compiler/rustc_middle/src/hir/mod.rs
+index 509985921818764293cca78735b3683c081c2788..e227afd29bdc702e418b5e129ef6e4d9d2b7939d 100644
+--- a/compiler/rustc_middle/src/hir/mod.rs
++++ b/compiler/rustc_middle/src/hir/mod.rs
+@@ -256,8 +256,7 @@ pub fn expr_guaranteed_to_constitute_read_for_never(self, expr: &Expr<'_>) -> bo
+                         expr.hir_id != lhs.hir_id
+                     }
+ 
+-                    // See note on `PatKind::Or` in `Pat::is_guaranteed_to_constitute_read_for_never`
+-                    // for why this is `all`.
++                    // See note on `PatKind::Or` below for why this is `all`.
+                     ExprKind::Match(scrutinee, arms, _) => {
+                         assert_eq!(scrutinee.hir_id, expr.hir_id);
+                         arms.iter().all(|arm| arm.pat.is_guaranteed_to_constitute_read_for_never())

@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_trait_selection/src/opaque_types.rs b/compiler/rustc_trait_selection/src/opaque_types.rs
+index 10d5202905c72a0f72a558b9d53422de503fb180..80d4d3719ec4cfa6752fcb64d8f5c0e819771417 100644
+--- a/compiler/rustc_trait_selection/src/opaque_types.rs
++++ b/compiler/rustc_trait_selection/src/opaque_types.rs
+@@ -90,7 +90,6 @@ pub fn opaque_type_has_defining_use_args<'tcx>(
+                 DefiningScopeKind::HirTypeck => continue,
+                 DefiningScopeKind::MirBorrowck => {
+                     matches!(lt.kind(), ty::ReEarlyParam(_) | ty::ReLateParam(_))
+-                        || (lt.is_static() && opaque_env.param_equal_static(i))
+                 }
+             },
+             GenericArgKind::Type(ty) => matches!(ty.kind(), ty::Param(_)),
+@@ -101,10 +100,7 @@ pub fn opaque_type_has_defining_use_args<'tcx>(
+             // Register if the same lifetime appears multiple times in the generic args.
+             // There is an exception when the opaque type *requires* the lifetimes to be equal.
+             // See [rustc-dev-guide chapter] § "An exception to uniqueness rule".
+-            let seen_where = seen_params.entry(arg).or_default();
+-            if !seen_where.first().is_some_and(|&prev_i| opaque_env.params_equal(i, prev_i)) {
+-                seen_where.push(i);
+-            }
++            seen_params.entry(arg).or_default().push(i);
+         } else {
+             // Prevent `fn foo() -> Foo<u32>` from being defining.
+             opaque_env.param_is_error(i)?;

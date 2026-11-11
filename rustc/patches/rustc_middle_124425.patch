@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_middle/src/mir/mod.rs b/compiler/rustc_middle/src/mir/mod.rs
+index 9fa577ebdcc9b3f2f204616af8709c70337b3210..8e6c2e8c4417e95f8aa67d651b01eaa52d31ccc8 100644
+--- a/compiler/rustc_middle/src/mir/mod.rs
++++ b/compiler/rustc_middle/src/mir/mod.rs
+@@ -626,7 +626,10 @@ fn try_const_mono_switchint<'a>(
+                 typing_env,
+                 crate::ty::EarlyBinder::bind(tcx, constant.const_),
+             );
+-            mono_literal.try_eval_bits(tcx, typing_env)
++            let Some(bits) = mono_literal.try_eval_bits(tcx, typing_env) else {
++                bug!("Couldn't evaluate constant {:?} in mono {:?}", constant, instance);
++            };
++            bits
+         };
+ 
+         let TerminatorKind::SwitchInt { discr, targets } = &block.terminator().kind else {
+@@ -636,7 +639,7 @@ fn try_const_mono_switchint<'a>(
+         // If this is a SwitchInt(const _), then we can just evaluate the constant and return.
+         let discr = match discr {
+             Operand::Constant(constant) => {
+-                let bits = eval_mono_const(constant)?;
++                let bits = eval_mono_const(constant);
+                 return Some((bits, targets));
+             }
+             Operand::RuntimeChecks(check) => {
+@@ -673,7 +676,7 @@ fn try_const_mono_switchint<'a>(
+ 
+         match rvalue {
+             Rvalue::Use(Operand::Constant(constant), _) => {
+-                let bits = eval_mono_const(constant)?;
++                let bits = eval_mono_const(constant);
+                 Some((bits, targets))
+             }
+             _ => None,

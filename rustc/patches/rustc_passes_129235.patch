@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_passes/src/check_attr.rs b/compiler/rustc_passes/src/check_attr.rs
+index 1d40b277e69a60d461566ae68fcf7c18db45a758..8a465d93b9c4eb2d0636d2161a66b440881f8f9e 100644
+--- a/compiler/rustc_passes/src/check_attr.rs
++++ b/compiler/rustc_passes/src/check_attr.rs
+@@ -202,7 +202,7 @@ fn check_one_parsed_attribute(
+             AttributeKind::NonExhaustive(attr_span) => {
+                 self.check_non_exhaustive(*attr_span, span, target, item)
+             }
+-            AttributeKind::MayDangle(attr_span) => self.check_may_dangle(hir_id, *attr_span),
++            AttributeKind::MayDangle(..) => {} // FIXME(dropck_eyepatch)
+             AttributeKind::Link(_, attr_span) => self.check_link(hir_id, *attr_span, target),
+             AttributeKind::MacroExport { span, .. } => {
+                 self.check_macro_export(hir_id, *span, target)
+@@ -1105,6 +1105,7 @@ fn check_doc_attrs(&self, attr: &DocAttribute, hir_id: HirId, target: Target) {
+     }
+ 
+     /// Checks if `#[may_dangle]` is applied to a lifetime or type generic parameter in `Drop` impl.
++    #[allow(dead_code)]
+     fn check_may_dangle(&self, hir_id: HirId, attr_span: Span) {
+         let hir::Node::GenericParam(
+             param @ GenericParam {

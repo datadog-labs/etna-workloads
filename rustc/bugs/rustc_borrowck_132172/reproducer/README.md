@@ -1,0 +1,1 @@
+Calls a generic function (`W: Write`) from another crate with a moved value, then reuses it. The clean compiler adds a "consider borrowing `stdout`" suggestion; the injected one omits it for non-local callees.

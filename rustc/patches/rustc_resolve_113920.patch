@@ -1,0 +1,70 @@
+diff --git a/compiler/rustc_resolve/src/imports.rs b/compiler/rustc_resolve/src/imports.rs
+index 499f9ea297362d8c3245265b5945a44218bbde3a..abbae757f2190efe440edb0239d5d0368f863285 100644
+--- a/compiler/rustc_resolve/src/imports.rs
++++ b/compiler/rustc_resolve/src/imports.rs
+@@ -946,7 +946,34 @@ pub(crate) fn finalize_imports(&mut self) {
+             // resolution for it so that later resolve stages won't complain.
+             self.import_dummy_binding(*import, is_indeterminate);
+ 
+-            let Some(err) = unresolved_import_error else { continue };
++            let err = match unresolved_import_error {
++                Some(err) => err,
++                None => {
++                    if is_indeterminate {
++                        let path = import_path_to_string(
++                            &import.module_path.iter().map(|seg| seg.ident).collect::<Vec<_>>(),
++                            &import.kind,
++                            import.span,
++                        );
++                        // FIXME: there should be a better way of doing this than
++                        // formatting this as a string then checking for `::`
++                        if path.contains("::") {
++                            let err = UnresolvedImportError {
++                                span: import.span,
++                                label: None,
++                                note: None,
++                                suggestion: None,
++                                candidates: None,
++                                segment: None,
++                                module: None,
++                                on_unknown_attr: import.on_unknown_attr.clone(),
++                            };
++                            errors.push((*import, err))
++                        }
++                    }
++                    continue;
++                }
++            };
+ 
+             glob_error |= import.is_glob();
+ 
+@@ -980,29 +1007,6 @@ pub(crate) fn finalize_imports(&mut self) {
+             return;
+         }
+ 
+-        for (import, _, _) in &indeterminate_imports {
+-            let path = import_path_to_string(
+-                &import.module_path.iter().map(|seg| seg.ident).collect::<Vec<_>>(),
+-                &import.kind,
+-                import.span,
+-            );
+-            // FIXME: there should be a better way of doing this than
+-            // formatting this as a string then checking for `::`
+-            if path.contains("::") {
+-                let err = UnresolvedImportError {
+-                    span: import.span,
+-                    label: None,
+-                    note: None,
+-                    suggestion: None,
+-                    candidates: None,
+-                    segment: None,
+-                    module: None,
+-                    on_unknown_attr: import.on_unknown_attr.clone(),
+-                };
+-                errors.push((*import, err))
+-            }
+-        }
+-
+         if !errors.is_empty() {
+             self.throw_unresolved_import_error(errors, glob_error);
+         }

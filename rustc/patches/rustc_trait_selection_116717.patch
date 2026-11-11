@@ -1,0 +1,93 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..fc598ce4d246810391a005fa2322027d05a21d23 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -5238,88 +5238,6 @@ fn look_for_iterator_item_mistakes<G: EmissionGuarantee>(
+                         Applicability::MachineApplicable,
+                     );
+                 }
+-                if tcx.is_diagnostic_item(sym::IteratorItem, *def_id)
+-                    && path_segment.ident.name == sym::map
+-                    && self.can_eq(param_env, expected_found.found, *ty)
+-                    && let [arg] = args
+-                    && let hir::ExprKind::Closure(closure) = arg.kind
+-                {
+-                    let body = tcx.hir_body(closure.body);
+-                    if let hir::ExprKind::Block(block, None) = body.value.kind
+-                        && let None = block.expr
+-                        && let [.., stmt] = block.stmts
+-                        && let hir::StmtKind::Semi(expr) = stmt.kind
+-                        // FIXME: actually check the expected vs found types, but right now
+-                        // the expected is a projection that we need to resolve.
+-                        // && let Some(tail_ty) = typeck_results.expr_ty_opt(expr)
+-                        && expected_found.found.is_unit()
+-                        // FIXME: this happens with macro calls. Need to figure out why the stmt
+-                        // `println!();` doesn't include the `;` in its `Span`. (#133845)
+-                        // We filter these out to avoid ICEs with debug assertions on caused by
+-                        // empty suggestions.
+-                        && expr.span.hi() != stmt.span.hi()
+-                    {
+-                        err.span_suggestion_verbose(
+-                            expr.span.shrink_to_hi().with_hi(stmt.span.hi()),
+-                            "consider removing this semicolon",
+-                            String::new(),
+-                            Applicability::MachineApplicable,
+-                        );
+-                    }
+-                    let expr = if let hir::ExprKind::Block(block, None) = body.value.kind
+-                        && let Some(expr) = block.expr
+-                    {
+-                        expr
+-                    } else {
+-                        body.value
+-                    };
+-                    if let hir::ExprKind::MethodCall(path_segment, rcvr, [], span) = expr.kind
+-                        && path_segment.ident.name == sym::clone
+-                        && let Some(expr_ty) = typeck_results.expr_ty_opt(expr)
+-                        && let Some(rcvr_ty) = typeck_results.expr_ty_opt(rcvr)
+-                        && self.can_eq(param_env, expr_ty, rcvr_ty)
+-                        && let ty::Ref(_, ty, _) = expr_ty.kind()
+-                    {
+-                        err.span_label(
+-                            span,
+-                            format!(
+-                                "this method call is cloning the reference `{expr_ty}`, not \
+-                                 `{ty}` which doesn't implement `Clone`",
+-                            ),
+-                        );
+-                        let ty::Param(..) = ty.kind() else {
+-                            continue;
+-                        };
+-                        let node =
+-                            tcx.hir_node_by_def_id(tcx.hir_get_parent_item(expr.hir_id).def_id);
+-
+-                        let pred = ty::Binder::dummy(ty::TraitPredicate {
+-                            trait_ref: ty::TraitRef::new(
+-                                tcx,
+-                                tcx.require_lang_item(LangItem::Clone, span),
+-                                [*ty],
+-                            ),
+-                            polarity: ty::PredicatePolarity::Positive,
+-                        });
+-                        let Some(generics) = node.generics() else {
+-                            continue;
+-                        };
+-                        let Some(body_id) = node.body_id() else {
+-                            continue;
+-                        };
+-                        suggest_restriction(
+-                            tcx,
+-                            tcx.hir_body_owner_def_id(body_id),
+-                            generics,
+-                            &format!("type parameter `{ty}`"),
+-                            err,
+-                            node.fn_sig(),
+-                            None,
+-                            pred,
+-                            None,
+-                        );
+-                    }
+-                }
+             }
+         }
+     }

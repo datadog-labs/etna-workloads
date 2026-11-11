@@ -1,0 +1,75 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+index 1897ed8fc84ebde76bc8de04ac4ad10464fd8e4d..576265a624ff57787ee7da685167a2a782ac11ce 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+@@ -1770,11 +1770,11 @@ pub(super) fn report_projection_error(
+                     return None;
+                 }
+ 
+-                let trait_ref = self.enter_forall_and_leak_universe(
+-                    predicate.kind().rebind(proj.projection_term.trait_ref(self.tcx)),
+-                );
+-                let Ok(Some(ImplSource::UserDefined(impl_data))) =
+-                    SelectionContext::new(self).select(&obligation.with(self.tcx, trait_ref))
++                let Ok(Some(ImplSource::UserDefined(impl_data))) = SelectionContext::new(self)
++                    .poly_select(&obligation.with(
++                        self.tcx,
++                        predicate.kind().rebind(proj.projection_term.trait_ref(self.tcx)),
++                    ))
+                 else {
+                     return None;
+                 };
+diff --git a/compiler/rustc_trait_selection/src/solve/select.rs b/compiler/rustc_trait_selection/src/solve/select.rs
+index b413b8b5ed9c77eb4f8d0f0f6a02b8ee50e86f9e..7c6c4658aee05f0ac628e885b115a04a71fc5544 100644
+--- a/compiler/rustc_trait_selection/src/solve/select.rs
++++ b/compiler/rustc_trait_selection/src/solve/select.rs
+@@ -5,7 +5,7 @@
+ use rustc_infer::traits::solve::{CandidateSource, Certainty, Goal};
+ use rustc_infer::traits::{
+     BuiltinImplSource, ImplSource, ImplSourceUserDefinedData, Obligation, ObligationCause,
+-    Selection, SelectionError, SelectionResult, TraitObligation,
++    PolyTraitObligation, Selection, SelectionError, SelectionResult,
+ };
+ use rustc_macros::extension;
+ use rustc_middle::{bug, span_bug};
+@@ -19,12 +19,12 @@ impl<'tcx> InferCtxt<'tcx> {
+     /// Do not use this directly. This is called from [`crate::traits::SelectionContext::select`].
+     fn select_in_new_trait_solver(
+         &self,
+-        obligation: &TraitObligation<'tcx>,
++        obligation: &PolyTraitObligation<'tcx>,
+     ) -> SelectionResult<'tcx, Selection<'tcx>> {
+         assert!(self.next_trait_solver());
+ 
+         self.visit_proof_tree(
+-            Goal::new(self.tcx, obligation.param_env, obligation.predicate),
++            Goal::new(self.tcx, obligation.param_env, obligation.predicate.skip_binder()),
+             &mut Select { span: obligation.cause.span },
+         )
+         .break_value()
+diff --git a/compiler/rustc_trait_selection/src/traits/select/mod.rs b/compiler/rustc_trait_selection/src/traits/select/mod.rs
+index 9b4ee13bf1b63c92e6cf7702652c183595192e54..87f13feefc1f62a188b5e2141da80e5844a1d3b1 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/mod.rs
+@@ -258,7 +258,9 @@ pub fn poly_select(
+         &mut self,
+         obligation: &PolyTraitObligation<'tcx>,
+     ) -> SelectionResult<'tcx, Selection<'tcx>> {
+-        assert!(!self.infcx.next_trait_solver());
++        if self.infcx.next_trait_solver() {
++            return self.infcx.select_in_new_trait_solver(obligation);
++        }
+ 
+         let candidate = match self.select_from_obligation(obligation) {
+             Err(SelectionError::Overflow(OverflowError::Canonical)) => {
+@@ -295,10 +297,6 @@ pub fn select(
+         &mut self,
+         obligation: &TraitObligation<'tcx>,
+     ) -> SelectionResult<'tcx, Selection<'tcx>> {
+-        if self.infcx.next_trait_solver() {
+-            return self.infcx.select_in_new_trait_solver(obligation);
+-        }
+-
+         self.poly_select(&Obligation {
+             cause: obligation.cause.clone(),
+             param_env: obligation.param_env,

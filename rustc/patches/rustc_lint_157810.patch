@@ -1,0 +1,85 @@
+diff --git a/compiler/rustc_lint/src/builtin.rs b/compiler/rustc_lint/src/builtin.rs
+index 627fb962d5dbf13f988ba1bf03fc77c64ac22b9b..628b956f49aa9b93a9f3dc9e6639333c6ba6003c 100644
+--- a/compiler/rustc_lint/src/builtin.rs
++++ b/compiler/rustc_lint/src/builtin.rs
+@@ -606,61 +606,37 @@ fn type_implements_negative_copy_modulo_regions<'tcx>(
+ 
+ impl<'tcx> LateLintPass<'tcx> for MissingDebugImplementations {
+     fn check_item(&mut self, cx: &LateContext<'_>, item: &hir::Item<'_>) {
+-        let def_id = item.owner_id.def_id;
+-        if !cx.effective_visibilities.is_reachable(def_id) {
++        if !cx.effective_visibilities.is_reachable(item.owner_id.def_id) {
+             return;
+         }
+ 
+-        let is_generic = match item.kind {
+-            hir::ItemKind::Struct(_, generics, _)
+-            | hir::ItemKind::Union(_, generics, _)
+-            | hir::ItemKind::Enum(_, generics, _) => !generics.params.is_empty(),
++        match item.kind {
++            hir::ItemKind::Struct(..) | hir::ItemKind::Union(..) | hir::ItemKind::Enum(..) => {}
+             _ => return,
+-        };
+-
+-        let tcx = cx.tcx;
++        }
+ 
+         // Avoid listing trait impls if the trait is allowed.
+-        if tcx.lint_level_spec_at_node(MISSING_DEBUG_IMPLEMENTATIONS, item.hir_id()).is_allow() {
++        if cx.tcx.lint_level_spec_at_node(MISSING_DEBUG_IMPLEMENTATIONS, item.hir_id()).is_allow() {
+             return;
+         }
+ 
+-        let Some(debug) = tcx.get_diagnostic_item(sym::Debug) else { return };
++        let Some(debug) = cx.tcx.get_diagnostic_item(sym::Debug) else { return };
+ 
+-        let ty = tcx.type_of(item.owner_id);
+-        if tcx
+-            .non_blanket_impls_for_ty(debug, ty.instantiate_identity().skip_norm_wip())
++        let has_impl = cx
++            .tcx
++            .non_blanket_impls_for_ty(
++                debug,
++                cx.tcx.type_of(item.owner_id).instantiate_identity().skip_norm_wip(),
++            )
+             .next()
+-            .is_some()
+-        {
+-            return;
+-        }
+-
+-        let infcx = tcx.infer_ctxt().build(cx.typing_mode());
+-        if is_generic {
+-            let args = infcx.fresh_args_for_item(item.span, def_id.to_def_id());
+-            if infcx
+-                .type_implements_trait_shallow(
+-                    debug,
+-                    ty.instantiate(tcx, args).skip_norm_wip(),
+-                    cx.param_env,
+-                )
+-                .is_some()
+-            {
+-                return;
+-            }
+-        } else if infcx
+-            .type_implements_trait(debug, [ty.instantiate_identity().skip_norm_wip()], cx.param_env)
+-            .must_apply_modulo_regions()
+-        {
+-            return;
++            .is_some();
++        if !has_impl {
++            cx.emit_span_lint(
++                MISSING_DEBUG_IMPLEMENTATIONS,
++                item.span,
++                BuiltinMissingDebugImpl { tcx: cx.tcx, def_id: debug },
++            );
+         }
+-
+-        cx.emit_span_lint(
+-            MISSING_DEBUG_IMPLEMENTATIONS,
+-            item.span,
+-            BuiltinMissingDebugImpl { tcx: cx.tcx, def_id: debug },
+-        );
+     }
+ }
+ 

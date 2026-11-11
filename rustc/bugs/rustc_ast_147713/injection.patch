@@ -1,0 +1,192 @@
+diff --git a/compiler/rustc_ast/src/ast.rs b/compiler/rustc_ast/src/ast.rs
+index ee6150322a442dbdfbacc553d0049892800426e4..1f518e13023c18556fe09970417d60bbe261fd7d 100644
+--- a/compiler/rustc_ast/src/ast.rs
++++ b/compiler/rustc_ast/src/ast.rs
+@@ -3937,6 +3937,8 @@ pub struct TyAlias {
+     /// }
+     /// ```
+     pub after_where_clause: WhereClause,
++    /// Index in `generics.where_clause.predicates` where the after-clause predicates start.
++    pub split: usize,
+     #[visitable(extra = BoundKind::Bound)]
+     pub bounds: GenericBounds,
+     pub ty: Option<Box<Ty>>,
+diff --git a/compiler/rustc_ast_lowering/src/item.rs b/compiler/rustc_ast_lowering/src/item.rs
+index 316fe4edb61e6f3899f505852990d4dae4518be3..6f36ac5484686b69029c62cc0491cd85fad7cf8a 100644
+--- a/compiler/rustc_ast_lowering/src/item.rs
++++ b/compiler/rustc_ast_lowering/src/item.rs
+@@ -41,8 +41,6 @@ fn add_ty_alias_where_clause(
+     after_where_clause: &ast::WhereClause,
+     prefer_first: bool,
+ ) {
+-    generics.where_clause.predicates.extend_from_slice(&after_where_clause.predicates);
+-
+     let mut before = (generics.where_clause.has_where_token, generics.where_clause.span);
+     let mut after = (after_where_clause.has_where_token, after_where_clause.span);
+     if !prefer_first {
+diff --git a/compiler/rustc_ast_passes/src/ast_validation.rs b/compiler/rustc_ast_passes/src/ast_validation.rs
+index 3270fb940bab3da7b1ff2656032b9699a9d0cb0b..876e9f2630dd9d07beaf69e0d8f2a3baa53651d6 100644
+--- a/compiler/rustc_ast_passes/src/ast_validation.rs
++++ b/compiler/rustc_ast_passes/src/ast_validation.rs
+@@ -202,12 +202,15 @@ fn check_type_alias_where_clause_location(
+ 
+         let span = ty_alias.generics.where_clause.span;
+ 
+-        let sugg = if !ty_alias.generics.where_clause.predicates.is_empty()
++        let (before_predicates, after_predicates) =
++            ty_alias.generics.where_clause.predicates.split_at(ty_alias.split);
++
++        let sugg = if !before_predicates.is_empty()
+             || !ty_alias.after_where_clause.has_where_token
+         {
+             let mut state = State::new();
+ 
+-            let mut needs_comma = !ty_alias.after_where_clause.predicates.is_empty();
++            let mut needs_comma = !after_predicates.is_empty();
+             if !ty_alias.after_where_clause.has_where_token {
+                 state.space();
+                 state.word_space("where");
+@@ -215,7 +218,7 @@ fn check_type_alias_where_clause_location(
+                 state.space();
+             }
+ 
+-            for p in &ty_alias.generics.where_clause.predicates {
++            for p in before_predicates {
+                 if needs_comma {
+                     state.word_space(",");
+                 }
+diff --git a/compiler/rustc_ast_pretty/src/pprust/state/item.rs b/compiler/rustc_ast_pretty/src/pprust/state/item.rs
+index 04f78ea7f467ac21eb154f2af7146ef309ea8ba9..2f8c333a9c1ffdb22eff521f21ee06cc82739170 100644
+--- a/compiler/rustc_ast_pretty/src/pprust/state/item.rs
++++ b/compiler/rustc_ast_pretty/src/pprust/state/item.rs
+@@ -60,6 +60,7 @@ pub(crate) fn print_foreign_item(&mut self, item: &ast::ForeignItem) {
+                 ident,
+                 generics,
+                 after_where_clause,
++                split,
+                 bounds,
+                 ty,
+             }) => {
+@@ -67,6 +68,7 @@ pub(crate) fn print_foreign_item(&mut self, item: &ast::ForeignItem) {
+                     *ident,
+                     generics,
+                     after_where_clause,
++                    *split,
+                     bounds,
+                     ty.as_deref(),
+                     vis,
+@@ -132,11 +134,14 @@ fn print_associated_type(
+         ident: Ident,
+         generics: &ast::Generics,
+         after_where_clause: &ast::WhereClause,
++        split: usize,
+         bounds: &ast::GenericBounds,
+         ty: Option<&ast::Ty>,
+         vis: &ast::Visibility,
+         defaultness: ast::Defaultness,
+     ) {
++        let (before_predicates, after_predicates) =
++            generics.where_clause.predicates.split_at(split);
+         let (cb, ib) = self.head("");
+         self.print_visibility(vis);
+         self.print_defaultness(defaultness);
+@@ -147,13 +152,13 @@ fn print_associated_type(
+             self.word_nbsp(":");
+             self.print_type_bounds(bounds);
+         }
+-        self.print_where_clause(&generics.where_clause);
++        self.print_where_clause_parts(generics.where_clause.has_where_token, before_predicates);
+         if let Some(ty) = ty {
+             self.space();
+             self.word_space("=");
+             self.print_type(ty);
+         }
+-        self.print_where_clause(&after_where_clause);
++        self.print_where_clause_parts(after_where_clause.has_where_token, after_predicates);
+         self.word(";");
+         self.end(ib);
+         self.end(cb);
+@@ -301,6 +306,7 @@ pub(crate) fn print_item(&mut self, item: &ast::Item) {
+                 ident,
+                 generics,
+                 after_where_clause,
++                split,
+                 bounds,
+                 ty,
+             }) => {
+@@ -308,6 +314,7 @@ pub(crate) fn print_item(&mut self, item: &ast::Item) {
+                     *ident,
+                     generics,
+                     after_where_clause,
++                    *split,
+                     bounds,
+                     ty.as_deref(),
+                     &item.vis,
+@@ -639,6 +646,7 @@ pub(crate) fn print_assoc_item(&mut self, item: &ast::AssocItem) {
+                 ident,
+                 generics,
+                 after_where_clause,
++                split,
+                 bounds,
+                 ty,
+             }) => {
+@@ -646,6 +654,7 @@ pub(crate) fn print_assoc_item(&mut self, item: &ast::AssocItem) {
+                     *ident,
+                     generics,
+                     after_where_clause,
++                    *split,
+                     bounds,
+                     ty.as_deref(),
+                     vis,
+@@ -834,7 +843,14 @@ pub(crate) fn print_fn_params_and_ret(&mut self, decl: &ast::FnDecl, is_closure:
+     }
+ 
+     fn print_where_clause(&mut self, where_clause: &ast::WhereClause) {
+-        let ast::WhereClause { has_where_token, ref predicates, span: _ } = *where_clause;
++        self.print_where_clause_parts(where_clause.has_where_token, &where_clause.predicates);
++    }
++
++    fn print_where_clause_parts(
++        &mut self,
++        has_where_token: bool,
++        predicates: &[ast::WherePredicate],
++    ) {
+         if predicates.is_empty() && !has_where_token {
+             return;
+         }
+diff --git a/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs b/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
+index c5f6c96bd8634c892ec2e4586ee6a19b781dfd1e..e9bacd0cf0f849cc9d3c3a9a02a23f99a6a8907a 100644
+--- a/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
++++ b/compiler/rustc_builtin_macros/src/deriving/generic/mod.rs
+@@ -615,6 +615,7 @@ fn create_derived_impl(
+                     ident,
+                     generics: Generics::default(),
+                     after_where_clause: ast::WhereClause::default(),
++                    split: 0,
+                     bounds: ThinVec::new(),
+                     ty: Some(type_def.to_ty(cx, self.span, type_ident, generics)),
+                 })),
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..03fdf65eb877ea9ab9bfdf41741c4f2fe3373b23 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -1294,7 +1294,10 @@ fn parse_type_alias(&mut self, defaultness: Defaultness) -> PResult<'a, ItemKind
+ 
+         let ty = if self.eat(exp!(Eq)) { Some(self.parse_ty()?) } else { None };
+ 
+-        let after_where_clause = self.parse_where_clause()?;
++        let mut after_where_clause = self.parse_where_clause()?;
++
++        let split = generics.where_clause.predicates.len();
++        generics.where_clause.predicates.extend(std::mem::take(&mut after_where_clause.predicates));
+ 
+         self.expect_semi()?;
+ 
+@@ -1303,6 +1306,7 @@ fn parse_type_alias(&mut self, defaultness: Defaultness) -> PResult<'a, ItemKind
+             ident,
+             generics,
+             after_where_clause,
++            split,
+             bounds,
+             ty,
+         })))

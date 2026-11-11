@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_parse_format/src/lib.rs b/compiler/rustc_parse_format/src/lib.rs
+index 256bc8c3fe30e2eacc9ad4ae85ae05bf2757fc44..b675968362a778058a18e6e8d1734a1e323307ad 100644
+--- a/compiler/rustc_parse_format/src/lib.rs
++++ b/compiler/rustc_parse_format/src/lib.rs
+@@ -310,32 +310,9 @@ pub fn new(
+ 
+         let (is_source_literal, end_of_snippet, pre_input_vec) = if let Some(snippet) = snippet {
+             if let Some(nr_hashes) = style {
+-                // snippet is a raw string
+-
+-                // validate snippet because a proc macro may have
+-                // respanned it to something completely different (fixes #114865)
+-                let prefix_len = nr_hashes + 2; // r + hashes + opening "
+-                let suffix_len = nr_hashes + 1; // closing " + hashes
+-                let snippet_bytes = snippet.as_bytes();
+-                let content_end = snippet.len() - suffix_len;
+-                if snippet.len() >= prefix_len + suffix_len // is sufficiently long
+-                    && snippet_bytes[0] == b'r'
+-                    && snippet_bytes[1..1 + nr_hashes].iter().all(|&c| c == b'#')
+-                    && snippet_bytes[1 + nr_hashes] == b'"'
+-                    && snippet_bytes[content_end] == b'"'
+-                    && snippet_bytes[content_end + 1..].iter().all(|&c| c == b'#')
+-                {
+-                    let snippet_without_quotes = &snippet[prefix_len..content_end];
+-                    let input_without_newline =
+-                        if appended_newline { &input[..input.len() - 1] } else { input };
+-                    if snippet_without_quotes == input_without_newline {
+-                        (true, snippet.len() - suffix_len, vec![])
+-                    } else {
+-                        (false, snippet.len(), vec![])
+-                    }
+-                } else {
+-                    (false, snippet.len(), vec![])
+-                }
++                // snippet is a raw string, which starts with 'r', a number of hashes, and a quote
++                // and ends with a quote and the same number of hashes
++                (true, snippet.len() - nr_hashes - 1, vec![])
+             } else {
+                 // snippet is not a raw string
+                 if snippet.starts_with('"') {

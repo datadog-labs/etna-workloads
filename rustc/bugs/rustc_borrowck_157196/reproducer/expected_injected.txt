@@ -1,0 +1,60 @@
+error[E0507]: cannot move out of `foos`, a captured variable in an `Fn` closure
+  --> main.rs:31:18
+   |
+29 | pub fn fn_closure(foos: &mut [&mut Foo]) -> Result<(), ()> {
+   |                   ----  --------------- move occurs because `foos` has type `&mut [&mut Foo]`, which does not implement the `Copy` trait
+   |                   |
+   |                   captured outer variable
+30 |     in_fn(|| {
+   |           -- captured by this `Fn` closure
+31 |         for _ in foos {
+   |                  ^^^^
+   |                  |
+   |                  `foos` moved due to this implicit call to `.into_iter()`
+   |                  `foos` is moved here
+   |
+help: `Fn` and `FnMut` closures require captured values to be able to be consumed multiple times, but `FnOnce` closures may consume them only once
+  --> main.rs:20:17
+   |
+20 | pub fn in_fn<F: Fn() -> Result<(), ()>>(f: F) -> Result<(), ()> {
+   |                 ^^^^^^^^^^^^^^^^^^^^^^
+note: the `for` loop is desugared into a call to `std::iter::IntoIterator::into_iter`, which takes ownership of the receiver `self`, which moves `foos`
+  --> library/core/src/iter/traits/collect.rs:312:17
+help: consider creating a fresh reborrow of `foos` here
+   |
+31 |         for _ in &mut *foos {
+   |                  ++++++
+
+error[E0507]: cannot move out of `foos`, a captured variable in an `FnMut` closure
+  --> main.rs:41:18
+   |
+39 | pub fn fn_mut_closure(foos: &mut [&mut Foo]) -> Result<(), ()> {
+   |                       ----  --------------- move occurs because `foos` has type `&mut [&mut Foo]`, which does not implement the `Copy` trait
+   |                       |
+   |                       captured outer variable
+40 |     in_fn_mut(|| {
+   |               -- captured by this `FnMut` closure
+41 |         for _ in foos {
+   |                  ^^^^
+   |                  |
+   |                  `foos` moved due to this implicit call to `.into_iter()`
+   |                  `foos` is moved here
+   |
+help: `Fn` and `FnMut` closures require captured values to be able to be consumed multiple times, but `FnOnce` closures may consume them only once
+  --> main.rs:24:21
+   |
+24 | pub fn in_fn_mut<F: FnMut() -> Result<(), ()>>(mut f: F) -> Result<(), ()> {
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+note: the `for` loop is desugared into a call to `std::iter::IntoIterator::into_iter`, which takes ownership of the receiver `self`, which moves `foos`
+  --> library/core/src/iter/traits/collect.rs:312:17
+help: consider creating a fresh reborrow of `foos` here
+   |
+41 |         for _ in &mut *foos {
+   |                  ++++++
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0507`.
+rustc exit: 1
+
+[exit 0]

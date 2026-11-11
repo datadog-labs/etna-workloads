@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_resolve/src/ident.rs b/compiler/rustc_resolve/src/ident.rs
+index 2a1b208f94c34e33885c0c8c30524150d9f78054..a571028240b61a5227c2b579f1984aa8725b1b0c 100644
+--- a/compiler/rustc_resolve/src/ident.rs
++++ b/compiler/rustc_resolve/src/ident.rs
+@@ -1421,17 +1421,9 @@ fn single_import_can_define_name<'r>(
+             let Some(module) = single_import.imported_module.get() else {
+                 return true;
+             };
+-            let ImportKind::Single { source, target, decls, .. } = &single_import.kind else {
++            let ImportKind::Single { source, .. } = &single_import.kind else {
+                 unreachable!();
+             };
+-            if source != target {
+-                if decls.iter().all(|d| d.get().decl().is_none()) {
+-                    return true;
+-                } else if decls[ns].get().decl().is_none() && binding.is_some() {
+-                    return true;
+-                }
+-            }
+-
+             match self.reborrow().resolve_ident_in_module(
+                 module,
+                 *source,
+@@ -1441,14 +1433,14 @@ fn single_import_can_define_name<'r>(
+                 ignore_decl,
+                 None,
+             ) {
+-                Err(Determined) => continue,
++                Err(Determined) | Err(Undetermined) => continue,
+                 Ok(binding)
+                     if !self
+                         .is_accessible_from(binding.vis(), single_import.parent_scope.module) =>
+                 {
+                     continue;
+                 }
+-                Ok(_) | Err(Undetermined) => return true,
++                Ok(_) => return true,
+             }
+         }
+ 

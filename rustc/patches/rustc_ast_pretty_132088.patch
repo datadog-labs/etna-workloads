@@ -1,0 +1,68 @@
+diff --git a/compiler/rustc_ast_pretty/src/pprust/state/item.rs b/compiler/rustc_ast_pretty/src/pprust/state/item.rs
+index 04f78ea7f467ac21eb154f2af7146ef309ea8ba9..741d18955b63fc84162c3084de60225c07931dfc 100644
+--- a/compiler/rustc_ast_pretty/src/pprust/state/item.rs
++++ b/compiler/rustc_ast_pretty/src/pprust/state/item.rs
+@@ -43,18 +43,20 @@ pub(crate) fn print_foreign_item(&mut self, item: &ast::ForeignItem) {
+                 safety,
+                 define_opaque,
+                 eii_impl,
+-            }) => self.print_item_const(
++            }) => {
++                self.print_safety(*safety);
++                self.print_item_const(
+                 *ident,
+                 Some(*mutability),
+                 &ast::Generics::default(),
+                 ty,
+                 expr.as_deref(),
+                 vis,
+-                *safety,
+                 ast::Defaultness::Implicit,
+                 define_opaque.as_deref(),
+                 eii_impl.as_deref(),
+-            ),
++            )
++            }
+             ast::ForeignItemKind::TyAlias(ast::TyAlias {
+                 defaultness,
+                 ident,
+@@ -91,7 +93,6 @@ fn print_item_const(
+         ty: &ast::Ty,
+         body: Option<&ast::Expr>,
+         vis: &ast::Visibility,
+-        safety: ast::Safety,
+         defaultness: ast::Defaultness,
+         define_opaque: Option<&[(ast::NodeId, ast::Path)]>,
+         eii_impl: Option<&EiiImpl>,
+@@ -102,7 +103,6 @@ fn print_item_const(
+         }
+         let (cb, ib) = self.head("");
+         self.print_visibility(vis);
+-        self.print_safety(safety);
+         self.print_defaultness(defaultness);
+         let leading = match mutbl {
+             None => "const",
+@@ -206,7 +206,6 @@ pub(crate) fn print_item(&mut self, item: &ast::Item) {
+                     ty,
+                     body.as_deref(),
+                     &item.vis,
+-                    ast::Safety::Default,
+                     ast::Defaultness::Implicit,
+                     define_opaque.as_deref(),
+                     eii_impl.as_deref(),
+@@ -239,7 +238,6 @@ pub(crate) fn print_item(&mut self, item: &ast::Item) {
+                     ty,
+                     body.as_deref(),
+                     &item.vis,
+-                    ast::Safety::Default,
+                     *defaultness,
+                     define_opaque.as_deref(),
+                     None,
+@@ -628,7 +626,6 @@ pub(crate) fn print_assoc_item(&mut self, item: &ast::AssocItem) {
+                     ty,
+                     body.as_deref(),
+                     vis,
+-                    ast::Safety::Default,
+                     *defaultness,
+                     define_opaque.as_deref(),
+                     None,

@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/region_errors.rs b/compiler/rustc_borrowck/src/diagnostics/region_errors.rs
+index a2669ced50c30e4af62884bb504098342730cc91..533b72fa72a1de2ca4a3b9de6a6bacf57654aadf 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/region_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/region_errors.rs
+@@ -1156,9 +1156,7 @@ fn suggest_deref_closure_return(&self, diag: &mut Diag<'_>) {
+         // Get the arguments for the found method, only specifying that `Self` is the receiver type.
+         let Some(possible_rcvr_ty) = typeck_results.node_type_opt(rcvr.hir_id) else { return };
+         let args = GenericArgs::for_item(tcx, method_def_id, |param, _| {
+-            if let ty::GenericParamDefKind::Lifetime = param.kind {
+-                tcx.lifetimes.re_erased.into()
+-            } else if param.index == 0 && param.name == kw::SelfUpper {
++            if param.index == 0 {
+                 possible_rcvr_ty.into()
+             } else if param.index == closure_param.index {
+                 closure_ty.into()
+@@ -1181,7 +1179,7 @@ fn suggest_deref_closure_return(&self, diag: &mut Diag<'_>) {
+             )
+         }));
+ 
+-        if ocx.evaluate_obligations_error_on_ambiguity().no_errors() && count > 0 {
++        if ocx.evaluate_obligations_error_on_ambiguity().no_errors() {
+             diag.span_suggestion_verbose(
+                 tcx.hir_body(*body).value.peel_blocks().span.shrink_to_lo(),
+                 msg!("dereference the return value"),

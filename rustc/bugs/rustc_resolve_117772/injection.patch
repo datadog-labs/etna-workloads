@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_resolve/src/imports.rs b/compiler/rustc_resolve/src/imports.rs
+index 499f9ea297362d8c3245265b5945a44218bbde3a..2757ce3eef701aada887def7fb7ce15de8fdaddb 100644
+--- a/compiler/rustc_resolve/src/imports.rs
++++ b/compiler/rustc_resolve/src/imports.rs
+@@ -1708,7 +1708,7 @@ fn report_cannot_reexport(
+ 
+     pub(crate) fn check_for_redundant_imports(&mut self, import: Import<'ra>) -> bool {
+         // This function is only called for single imports.
+-        let ImportKind::Single { source, target, ref decls, id, def_id, .. } = import.kind else {
++        let ImportKind::Single { source, target, ref decls, id, .. } = import.kind else {
+             unreachable!()
+         };
+ 
+@@ -1726,9 +1726,7 @@ pub(crate) fn check_for_redundant_imports(&mut self, import: Import<'ra>) -> boo
+         // module defined by a block).
+         // Skip if the import is public or was used through non scope-based resolution,
+         // e.g. through a module-relative path.
+-        if self.import_use_map.get(&import) == Some(&Used::Other)
+-            || self.effective_visibilities.is_exported(def_id)
+-        {
++        if let crate::ModuleKind::Def(..) = import.parent_scope.module.kind {
+             return false;
+         }
+ 

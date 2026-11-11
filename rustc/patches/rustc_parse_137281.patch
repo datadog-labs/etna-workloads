@@ -1,0 +1,34 @@
+diff --git a/compiler/rustc_parse/src/parser/diagnostics.rs b/compiler/rustc_parse/src/parser/diagnostics.rs
+index 0b91828639d368975752d141909656a3c796bfd2..7e49ab9ec0e5cc17e2197a038f5b29a816f47bb8 100644
+--- a/compiler/rustc_parse/src/parser/diagnostics.rs
++++ b/compiler/rustc_parse/src/parser/diagnostics.rs
+@@ -276,6 +276,13 @@ pub(super) fn expected_ident_found(
+         &mut self,
+         recover: bool,
+     ) -> PResult<'a, (Ident, IdentIsRaw)> {
++        if let TokenKind::DocComment(..) = self.prev_token.kind {
++            return Err(self.dcx().create_err(DocCommentDoesNotDocumentAnything {
++                span: self.prev_token.span,
++                missing_comma: None,
++            }));
++        }
++
+         let valid_follow = &[
+             TokenKind::Eq,
+             TokenKind::Colon,
+@@ -287,15 +294,6 @@ pub(super) fn expected_ident_found(
+             TokenKind::CloseBrace,
+             TokenKind::CloseParen,
+         ];
+-        if let TokenKind::DocComment(..) = self.prev_token.kind
+-            && valid_follow.contains(&self.token.kind)
+-        {
+-            let err = self.dcx().create_err(DocCommentDoesNotDocumentAnything {
+-                span: self.prev_token.span,
+-                missing_comma: None,
+-            });
+-            return Err(err);
+-        }
+ 
+         let mut recovered_ident = None;
+         // we take this here so that the correct original token is retained in

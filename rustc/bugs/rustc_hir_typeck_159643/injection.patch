@@ -1,0 +1,180 @@
+diff --git a/compiler/rustc_hir_typeck/src/callee.rs b/compiler/rustc_hir_typeck/src/callee.rs
+index e250ec4c7af40e3b1523bd0348add562f52b4292..4cf53413d8220b987d2e9f525ee7edacbbb58d98 100644
+--- a/compiler/rustc_hir_typeck/src/callee.rs
++++ b/compiler/rustc_hir_typeck/src/callee.rs
+@@ -38,10 +38,8 @@ pub(crate) enum SplatLoweringInfo<'tcx> {
+     /// The DefId of the FnDef being called, used to look up the function type.
+     /// Also used during argument suggestion for non-splatted function calls.
+     FnDef(DefId),
+-    /// The type of the FnPtr being called.
+-    FnPtr(Ty<'tcx>),
+-    /// Type resolution errored.
+-    Error(ErrorGuaranteed),
++    /// FIXME(splat): Stub for non-FnDef
++    NotAFnDef(std::marker::PhantomData<&'tcx ()>),
+ }
+ 
+ /// Checks that it is legal to call methods of the trait corresponding
+@@ -616,7 +614,7 @@ fn confirm_builtin_call(
+         // Splatted FnDefs use the DefId to look up the type, FnPtrs need it directly
+         let fn_id = match def_id {
+             Some(x) => SplatLoweringInfo::FnDef(x),
+-            None => SplatLoweringInfo::FnPtr(callee_ty),
++            None => SplatLoweringInfo::NotAFnDef(std::marker::PhantomData),
+         };
+ 
+         self.check_argument_types_maybe_method_like(
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..e8d7a36b4870f0fbaf101fd343f2312f9ad868f3 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -1511,7 +1511,7 @@ fn check_expr_method_call(
+                     args,
+                     false,
+                     TupleArgumentsFlag::DontTupleArguments,
+-                    SplatLoweringInfo::Error(guar),
++                    SplatLoweringInfo::NotAFnDef(std::marker::PhantomData),
+                     Some(GenericArgsRef::default()),
+                 );
+ 
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+index 8ff4c3bf28c34895e8656b36eea5c697ad0602b7..f95b526d7319ebb5183b01e7f6bf682a136a8086 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+@@ -285,28 +285,16 @@ pub(crate) fn write_splatted_call(
+                     self.write_args(hir_id, callee_generic_args);
+                 }
+             }
+-            // We're splatting a FnPtr based on its type
+-            SplatLoweringInfo::FnPtr(fn_ty) => {
+-                // FIXME(splat): do we need to look up both these HirIds?
+-                // They can be different (and are different in some UI tests)
++            // FIXME(splat): handle FnPtrs
++            SplatLoweringInfo::NotAFnDef(_) => {
+                 self.write_splatted_resolution(
+                     hir_id,
+-                    Ok(SplattedDef::FnPtr {
+-                        fn_ptr_type: fn_ty,
++                    Ok(SplattedDef::NotAFnDef {
++                        not_yet_implemented: std::marker::PhantomData,
+                         arg_index: first_tupled_arg_index,
+                         arg_count: tupled_args_count,
+                     }),
+                 );
+-                // FIXME(splat): is this actually populated and used correctly?
+-                if let Some(callee_generic_args) = callee_generic_args {
+-                    self.write_args(hir_id, callee_generic_args);
+-                }
+-            }
+-            SplatLoweringInfo::Error(guar) => {
+-                self.write_splatted_resolution(hir_id, Err(guar));
+-                if let Some(callee_generic_args) = callee_generic_args {
+-                    self.write_args(hir_id, callee_generic_args);
+-                }
+             }
+         }
+     }
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+index 9becad0db1ca2a5a96bfb3073e3c29a77b9590da..5367704fd5be975a813846092d9b9aac2d259d30 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/checks.rs
+@@ -3552,8 +3552,6 @@ fn ty_to_snippet(&self, ty: Ty<'tcx>, expected_idx: ExpectedIdx) -> String {
+             format!("/* {} */", arg.name)
+         } else {
+             // FIXME(FnPtr, splat): What suggestions are needed for FnPtrs?
+-            // SplatLoweringInfo::FnPtr(Ty) and SplatLoweringInfo::Error currently fall through to
+-            // this placeholder
+             "/* value */".to_string()
+         }
+     }
+diff --git a/compiler/rustc_middle/src/ty/typeck_results.rs b/compiler/rustc_middle/src/ty/typeck_results.rs
+index ff7cef36134371ab8479e78319d596778805f975..cf447eaa5838cdfcf5446b3c4b69b0656d8b9506 100644
+--- a/compiler/rustc_middle/src/ty/typeck_results.rs
++++ b/compiler/rustc_middle/src/ty/typeck_results.rs
+@@ -614,10 +614,9 @@ pub enum SplattedDef<'tcx> {
+         arg_count: u16,
+     },
+ 
+-    /// A resolved FnPtr Call.
+-    FnPtr {
+-        /// The resolved type of the FnPtr.
+-        fn_ptr_type: Ty<'tcx>,
++    /// FIXME(splat): handle FnPtrs
++    NotAFnDef {
++        not_yet_implemented: std::marker::PhantomData<&'tcx ()>,
+ 
+         /// The index of the first argument in the callee's splatted tuple, and the index of the
+         /// splatted tuple argument in the caller.
+@@ -632,28 +631,21 @@ impl<'tcx> SplattedDef<'tcx> {
+     pub fn def_id(&self) -> Option<DefId> {
+         match self {
+             SplattedDef::FnDef { def_id, .. } => Some(*def_id),
+-            SplattedDef::FnPtr { .. } => None,
+-        }
+-    }
+-
+-    pub fn fn_ptr_type(&self) -> Option<Ty<'tcx>> {
+-        match self {
+-            SplattedDef::FnDef { .. } => None,
+-            SplattedDef::FnPtr { fn_ptr_type, .. } => Some(*fn_ptr_type),
++            SplattedDef::NotAFnDef { .. } => None,
+         }
+     }
+ 
+     pub fn arg_index(&self) -> u16 {
+         match self {
+             SplattedDef::FnDef { arg_index, .. } => *arg_index,
+-            SplattedDef::FnPtr { arg_index, .. } => *arg_index,
++            SplattedDef::NotAFnDef { arg_index, .. } => *arg_index,
+         }
+     }
+ 
+     pub fn arg_count(&self) -> u16 {
+         match self {
+             SplattedDef::FnDef { arg_count, .. } => *arg_count,
+-            SplattedDef::FnPtr { arg_count, .. } => *arg_count,
++            SplattedDef::NotAFnDef { arg_count, .. } => *arg_count,
+         }
+     }
+ }
+diff --git a/compiler/rustc_mir_build/src/thir/cx/expr.rs b/compiler/rustc_mir_build/src/thir/cx/expr.rs
+index 3cade7d6a0a7ab8d3ba69908df70ca5e2b876e04..e5ff548c35907b0644def8ade8924df335118367 100644
+--- a/compiler/rustc_mir_build/src/thir/cx/expr.rs
++++ b/compiler/rustc_mir_build/src/thir/cx/expr.rs
+@@ -1368,34 +1368,8 @@ fn convert_splatted_callee(
+                 };
+                 (callee_expr.ty, self.thir.exprs.push(callee_expr))
+             }
+-
+-            // We're calling a function via a FnPtr and its type
+-            // FIXME(splat): do we need to populate and apply user_provided_types() ?
+-            (SplattedDef::FnPtr { fn_ptr_type, arg_index, arg_count }, Some(fn_expression)) => {
+-                debug!(
+-                    "splatted_callee FnPtr: fn_ty={:?} arg_index={:?} arg_count={:?}",
+-                    fn_ptr_type, arg_index, arg_count,
+-                );
+-
+-                if !fn_ptr_type.is_fn() {
+-                    span_bug!(
+-                        call_expr.span,
+-                        "splatted FnPtr side-tables were not populated correctly, non-fn type received: {:?}",
+-                        fn_ptr_type
+-                    )
+-                }
+-
+-                // Pass through the FnPtr type and the mirrored function path
+-                (fn_ptr_type, self.mirror_expr(fn_expression))
+-            }
+-            // FnPtrs must have a function expression (and they never have method receivers)
+-            (SplattedDef::FnPtr { .. }, None) => {
+-                span_bug!(
+-                    call_expr.span,
+-                    "convert_splatted_callee: FnPtr without fn expression (or with receiver) is invalid: splatted_def={:?}, receiver_or_func={:?}",
+-                    splatted_def,
+-                    receiver_or_func,
+-                );
++            (SplattedDef::NotAFnDef { not_yet_implemented: _, .. }, _) => {
++                span_bug!(call_expr.span, "splatted FnPtr side-tables are not yet implemented");
+             }
+         };
+ 

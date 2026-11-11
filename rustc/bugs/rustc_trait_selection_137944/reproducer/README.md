@@ -1,0 +1,1 @@
+Builds a dependency crate with `impl<T: ?Sized> Tr for T` and a conflicting impl in a downstream crate. The E0119 note prints the conflicting impl's where clause; the clean compiler prints `where T: ?Sized` while the injected one also prints a spurious `T: MetaSized`.

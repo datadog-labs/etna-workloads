@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs b/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
+index 836b552f5129c188ae089545611dfaf22814089f..7da5ffe1eabdd35e36db85522f3c3e204a47b8d3 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
+@@ -1365,17 +1365,10 @@ fn characterize_param_env_assumption(
+         param_env: I::ParamEnv,
+         assumption: I::Clause,
+     ) -> Result<(CandidateSource<I>, Certainty), NoSolution> {
+-        // FIXME: This should be fixed, but it also requires changing the behavior
+-        // in the old solver which is currently relied on.
+-        if assumption.has_bound_vars() {
+-            return Ok((CandidateSource::ParamEnv(ParamEnvSource::NonGlobal), Certainty::Yes));
+-        }
+-
+         match assumption.visit_with(&mut FindParamInClause {
+             ecx: self,
+             param_env,
+             universes: vec![],
+-            recursion_depth: 0,
+         }) {
+             ControlFlow::Break(Err(NoSolution)) => Err(NoSolution),
+             ControlFlow::Break(Ok(certainty)) => {
+@@ -1392,7 +1385,6 @@ struct FindParamInClause<'a, 'b, D: SolverDelegate<Interner = I>, I: Interner> {
+     ecx: &'a mut EvalCtxt<'b, D>,
+     param_env: I::ParamEnv,
+     universes: Vec<Option<ty::UniverseIndex>>,
+-    recursion_depth: usize,
+ }
+ 
+ impl<D, I> TypeVisitor<I> for FindParamInClause<'_, '_, D, I>
+@@ -1432,20 +1424,7 @@ fn visit_ty(&mut self, ty: I::Ty) -> Self::Result {
+                 TypeFlags::HAS_PLACEHOLDER | TypeFlags::HAS_INFER | TypeFlags::HAS_ALIAS,
+             ) =>
+             {
+-                self.recursion_depth += 1;
+-                if self.recursion_depth > self.ecx.cx().recursion_limit() {
+-                    return ControlFlow::Break(Ok(Certainty::Maybe(MaybeInfo {
+-                        cause: MaybeCause::Overflow {
+-                            suggest_increasing_limit: true,
+-                            keep_constraints: false,
+-                        },
+-                        opaque_types_jank: OpaqueTypesJank::AllGood,
+-                        stalled_on_coroutines: StalledOnCoroutines::No,
+-                    })));
+-                }
+-                let result = ty.super_visit_with(self);
+-                self.recursion_depth -= 1;
+-                result
++                ty.super_visit_with(self)
+             }
+             _ => ControlFlow::Continue(()),
+         }

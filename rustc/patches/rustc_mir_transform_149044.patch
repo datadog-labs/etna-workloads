@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_mir_transform/src/lint_and_remove_uninhabited.rs b/compiler/rustc_mir_transform/src/lint_and_remove_uninhabited.rs
+index a69b69ef94d59eace329e06a7e6f2069e794ca96..c6aabc6eb534d146990f666d58f8ea7e07d3299c 100644
+--- a/compiler/rustc_mir_transform/src/lint_and_remove_uninhabited.rs
++++ b/compiler/rustc_mir_transform/src/lint_and_remove_uninhabited.rs
+@@ -99,12 +99,6 @@ fn find_unreachable_code_from<'tcx>(
+     let bbdata = &body.basic_blocks[bb];
+     for stmt in &bbdata.statements {
+         match &stmt.kind {
+-            // Ignore the implicit `()` return place assignment for unit functions/blocks
+-            StatementKind::Assign((_, Rvalue::Use(Operand::Constant(const_), _)))
+-                if const_.ty().is_unit() =>
+-            {
+-                continue;
+-            }
+             // Ignore return value plumbing. After a call returning a non-`!`
+             // uninhabited type, a tail expression can be unreachable while
+             // still being needed to satisfy the surrounding return type.
+@@ -123,17 +117,5 @@ fn find_unreachable_code_from<'tcx>(
+     }
+ 
+     let term = bbdata.terminator();
+-    match term.kind {
+-        // The user does not care for `goto` and compiler-generated drops. If the target block is
+-        // only reachable through those terminators, continue searching there.
+-        TerminatorKind::Goto { target } | TerminatorKind::Drop { target, .. } => {
+-            if &body.basic_blocks.predecessors()[target][..] == &[bb] {
+-                find_unreachable_code_from(target, body)
+-            } else {
+-                None
+-            }
+-        }
+-        TerminatorKind::Return => None,
+-        _ => Some((term.source_info, "expression")),
+-    }
++    Some((term.source_info, "expression"))
+ }

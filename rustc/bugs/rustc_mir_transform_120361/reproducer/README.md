@@ -1,0 +1,1 @@
+Dropping the future returned by an AsyncFnOnce::call_once on an async closure that captures a value by move must drop the closure's captured upvar. On the clean compiler the program prints '42 was dropped' before 'future dropped'; on the injected compiler the wrong drop shim is used, so the drop is skipped (and rustc emits an 'Unexpected initial operand type' warning).

@@ -1,0 +1,69 @@
+diff --git a/compiler/rustc_parse/src/parser/ty.rs b/compiler/rustc_parse/src/parser/ty.rs
+index 1d2021cfe50aea5240460bb2466877ee3982e5f8..83cc591687df753412582d69f08a6f6bd1c01a72 100644
+--- a/compiler/rustc_parse/src/parser/ty.rs
++++ b/compiler/rustc_parse/src/parser/ty.rs
+@@ -346,55 +346,15 @@ fn parse_ty_common(
+                     recover_return_sign,
+                 )?
+             } else {
+-                // Try to recover `for<'a> dyn Trait` or `for<'a> impl Trait`.
+-                if self.may_recover()
+-                    && (self.eat_keyword_noexpect(kw::Impl) || self.eat_keyword_noexpect(kw::Dyn))
+-                {
+-                    let kw = self.prev_token.ident().unwrap().0;
+-                    let removal_span = kw.span.with_hi(self.token.span.lo());
+-                    let path = self.parse_path(PathStyle::Type)?;
+-                    let parse_plus = allow_plus == AllowPlus::Yes && self.check_plus();
+-                    let kind = self.parse_remaining_bounds_path(
+-                        bound_vars,
+-                        path,
+-                        lo,
+-                        parse_plus,
+-                        ast::Parens::No,
+-                    )?;
+-                    let err = self.dcx().create_err(diagnostics::TransposeDynOrImpl {
+-                        span: kw.span,
+-                        kw: kw.name.as_str(),
+-                        sugg: diagnostics::TransposeDynOrImplSugg {
+-                            removal_span,
+-                            insertion_span: lo.shrink_to_lo(),
+-                            kw: kw.name.as_str(),
+-                        },
+-                    });
+-
+-                    // Take the parsed bare trait object and turn it either
+-                    // into a `dyn` object or an `impl Trait`.
+-                    let kind = match (kind, kw.name) {
+-                        (TyKind::TraitObject(bounds, _), kw::Dyn) => {
+-                            TyKind::TraitObject(bounds, TraitObjectSyntax::Dyn)
+-                        }
+-                        (TyKind::TraitObject(bounds, _), kw::Impl) => {
+-                            TyKind::ImplTrait(ast::DUMMY_NODE_ID, bounds)
+-                        }
+-                        _ => return Err(err),
+-                    };
+-                    err.emit();
+-                    kind
+-                } else {
+-                    let path = self.parse_path(PathStyle::Type)?;
+-                    let parse_plus = allow_plus == AllowPlus::Yes && self.check_plus();
+-                    self.parse_remaining_bounds_path(
+-                        bound_vars,
+-                        path,
+-                        lo,
+-                        parse_plus,
+-                        ast::Parens::No,
+-                    )?
+-                }
++                let path = self.parse_path(PathStyle::Type)?;
++                let parse_plus = allow_plus == AllowPlus::Yes && self.check_plus();
++                self.parse_remaining_bounds_path(
++                    bound_vars,
++                    path,
++                    lo,
++                    parse_plus,
++                    ast::Parens::No,
++                )?
+             }
+         } else if self.eat_keyword(exp!(Impl)) {
+             self.parse_impl_ty(&mut impl_dyn_multi)?

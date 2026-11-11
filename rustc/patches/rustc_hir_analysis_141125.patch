@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/check.rs b/compiler/rustc_hir_analysis/src/check/check.rs
+index 01df2e199a5ac723567e7ab4e8d477377218decb..b018c497d25a8267c89d09d02c9e5c2010bd817b 100644
+--- a/compiler/rustc_hir_analysis/src/check/check.rs
++++ b/compiler/rustc_hir_analysis/src/check/check.rs
+@@ -2266,10 +2266,7 @@ pub(super) fn check_coroutine_obligations(
+     debug!(?typeck_results.coroutine_stalled_predicates);
+ 
+     let mode = if tcx.next_trait_solver_globally() {
+-        // This query is conceptually between HIR typeck and
+-        // MIR borrowck. We use the opaque types defined by HIR
+-        // and ignore region constraints.
+-        TypingMode::borrowck(tcx, def_id)
++        TypingMode::post_borrowck_analysis(tcx, def_id)
+     } else {
+         TypingMode::analysis_in_body(tcx, def_id)
+     };
+@@ -2299,10 +2296,6 @@ pub(super) fn check_coroutine_obligations(
+             let key = infcx.resolve_vars_if_possible(key);
+             sanity_check_found_hidden_type(tcx, key, hidden_type)?;
+         }
+-    } else {
+-        // We're not checking region constraints here, so we can simply drop the
+-        // added opaque type uses in `TypingMode::PostTypeckUntilBorrowck`.
+-        let _ = infcx.take_opaque_types();
+     }
+ 
+     Ok(())

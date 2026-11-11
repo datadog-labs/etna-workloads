@@ -1,0 +1,1 @@
+Expands `#[derive(PartialOrd)]` on a single fieldless-variant enum with -Zunpretty=expanded. The clean compiler generates `Some(Ordering::Equal)` for partial_cmp; the injected one generates `Some(Ord::cmp(self, other))` (and requires the default substructure), showing the regression.

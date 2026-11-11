@@ -1,0 +1,1 @@
+Reproduces overflow-error duplication: an ever-growing Deref impl (Wrap<T> derefs to Wrap<Wrap<T>>) plus a missing method call. Clean rustc reports E0055 fewer times; the injected compiler repeats it (count of E0055 errors printed).

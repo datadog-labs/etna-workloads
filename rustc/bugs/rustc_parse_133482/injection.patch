@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_parse/src/lexer/mod.rs b/compiler/rustc_parse/src/lexer/mod.rs
+index 4f7c76e7df8162c275080a0f30f2fdd73aad2005..0bbb6d210c62e79751ac7a879ba026497d067c1d 100644
+--- a/compiler/rustc_parse/src/lexer/mod.rs
++++ b/compiler/rustc_parse/src/lexer/mod.rs
+@@ -336,26 +336,6 @@ fn next_token_from_cursor(&mut self) -> (Token, bool) {
+                     let prefix_span = self.mk_sp(start, ident_start);
+ 
+                     if prefix_span.at_least_rust_2021() {
+-                        // If the raw lifetime is followed by \' then treat it a normal
+-                        // lifetime followed by a \', which is to interpret it as a character
+-                        // literal. In this case, it's always an invalid character literal
+-                        // since the literal must necessarily have >3 characters (r#...) inside
+-                        // of it, which is invalid.
+-                        if self.cursor.as_str().starts_with('\'') {
+-                            let lit_span = self.mk_sp(start, self.pos + BytePos(1));
+-                            let contents = self.str_from_to(start + BytePos(1), self.pos);
+-                            emit_unescape_error(
+-                                self.dcx(),
+-                                contents,
+-                                lit_span,
+-                                lit_span,
+-                                Mode::Char,
+-                                0..contents.len(),
+-                                EscapeError::MoreThanOneChar,
+-                            )
+-                            .expect("expected error");
+-                        }
+-
+                         let span = self.mk_sp(start, self.pos);
+ 
+                         let lifetime_name_without_tick =
+@@ -429,7 +409,8 @@ fn next_token_from_cursor(&mut self) -> (Token, bool) {
+                 rustc_lexer::TokenKind::Caret => token::Caret,
+                 rustc_lexer::TokenKind::Percent => token::Percent,
+ 
+-                rustc_lexer::TokenKind::Unknown | rustc_lexer::TokenKind::InvalidIdent => {
++                rustc_lexer::TokenKind::Unknown
++                | rustc_lexer::TokenKind::InvalidIdent => {
+                     // Don't emit diagnostics for sequences of the same invalid token
+                     if swallow_next_invalid > 0 {
+                         swallow_next_invalid -= 1;

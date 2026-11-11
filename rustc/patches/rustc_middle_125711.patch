@@ -1,0 +1,41 @@
+diff --git a/compiler/rustc_middle/src/hir/map.rs b/compiler/rustc_middle/src/hir/map.rs
+index 8ec27921a5787089a9b7d7f991db9fac6e5f2657..2049afece4d8b894b1161569c772165868a889eb 100644
+--- a/compiler/rustc_middle/src/hir/map.rs
++++ b/compiler/rustc_middle/src/hir/map.rs
+@@ -291,6 +291,10 @@ pub fn hir_body_owner_def_id(self, BodyId { hir_id }: BodyId) -> LocalDefId {
+     /// Given a `LocalDefId`, returns the `BodyId` associated with it,
+     /// if the node is a body owner, otherwise returns `None`.
+     pub fn hir_maybe_body_owned_by(self, id: LocalDefId) -> Option<&'tcx Body<'tcx>> {
++        // Inline consts do not have bodies of their own.
++        if let Node::ConstBlock(_) = self.hir_node_by_def_id(id) {
++            return None;
++        }
+         Some(self.hir_body(self.hir_node_by_def_id(id).body_id()?))
+     }
+ 
+diff --git a/compiler/rustc_mir_build/src/thir/cx/mod.rs b/compiler/rustc_mir_build/src/thir/cx/mod.rs
+index aad87a99c003612681c5481a0072e92d290e8347..a2d641c23337335a79c9283ee5e3fd63f6eb1edd 100644
+--- a/compiler/rustc_mir_build/src/thir/cx/mod.rs
++++ b/compiler/rustc_mir_build/src/thir/cx/mod.rs
+@@ -19,7 +19,11 @@ pub(crate) fn thir_body<'tcx>(
+ ) -> Result<(&'tcx Steal<Thir<'tcx>>, ExprId), ErrorGuaranteed> {
+     debug_assert!(!tcx.is_type_const(owner_def.to_def_id()), "thir_body queried for type_const");
+ 
+-    let body = tcx.hir_body_owned_by(owner_def);
++    let body = match tcx.hir_node_by_def_id(owner_def) {
++        // Inline consts do not have bodies of their own (as far as `hir_maybe_body_owned_by` goes).
++        hir::Node::ConstBlock(block) => tcx.hir_body(block.body),
++        _ => tcx.hir_body_owned_by(owner_def),
++    };
+     let mut cx: ThirBuildCx<'tcx> = ThirBuildCx::new(tcx, owner_def);
+     if let Some(reported) = cx.typeck_results.tainted_by_errors {
+         return Err(reported);
+@@ -29,7 +33,7 @@ pub(crate) fn thir_body<'tcx>(
+     let owner_id = tcx.local_def_id_to_hir_id(owner_def);
+     if let Some(fn_decl) = tcx.hir_fn_decl_by_hir_id(owner_id) {
+         let closure_env_param = cx.closure_env_param(owner_def, owner_id);
+-        let explicit_params = cx.explicit_params(owner_id, fn_decl, &body);
++        let explicit_params = cx.explicit_params(owner_id, fn_decl, body);
+         cx.thir.params = closure_env_param.into_iter().chain(explicit_params).collect();
+ 
+         // The resume argument may be missing, in that case we need to provide it here.

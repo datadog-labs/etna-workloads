@@ -1,0 +1,1 @@
+Calls a `#[rustc_legacy_const_generics]` function with a generic const expression (`N + 1`) under generic_const_exprs. The "try adding a `where` bound" suggestion should be `[(); (N + 1) as usize]:`; the injected compiler instead suggests the callee path (`aux::arg0_as_i8 as usize`) because the anon const gets the wrong span and the parenthesization is lost.

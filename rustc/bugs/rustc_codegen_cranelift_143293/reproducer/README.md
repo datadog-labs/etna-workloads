@@ -1,0 +1,1 @@
+Compiles a trait with a default #[naked] method that is reified to an fn pointer under -Zsanitizer=kcfi (which creates a reify_fnptr shim instance). The injected compiler treats the shim as naked (attrs looked up by def_id) and ICEs ('#[naked] functions should always terminate with an asm! block'); the clean compiler emits LLVM IR containing the shim.

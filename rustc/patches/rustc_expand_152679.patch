@@ -1,0 +1,76 @@
+diff --git a/compiler/rustc_expand/src/mbe/diagnostics.rs b/compiler/rustc_expand/src/mbe/diagnostics.rs
+index 89b4aac3299fc53afcdd85fdc5bc161195f5420b..7bd69bd3ac6b1f08a62fa231902f7b0d9316941b 100644
+--- a/compiler/rustc_expand/src/mbe/diagnostics.rs
++++ b/compiler/rustc_expand/src/mbe/diagnostics.rs
+@@ -434,70 +434,7 @@ pub(super) fn emit_frag_parse_err(
+         _ => annotate_err_with_kind(&mut e, kind, site_span),
+     };
+ 
+-    if parser.token.kind == token::Dollar {
+-        let dollar_span = parser.token.span;
+-        parser.bump();
+-        if let token::Ident(name, _) = parser.token.kind {
+-            let metavar_span = dollar_span.to(parser.token.span);
+-            let mut bindings_names = vec![];
+-            for rule in bindings {
+-                let MacroRule::Func { lhs, .. } = rule else { continue };
+-                for param in lhs {
+-                    let MatcherLoc::MetaVarDecl { bind, .. } = param else { continue };
+-                    bindings_names.push(bind.name);
+-                }
+-            }
+-
+-            let mut matched_rule_bindings_names = vec![];
+-            for param in matched_rule_bindings {
+-                let MatcherLoc::MetaVarDecl { bind, .. } = param else { continue };
+-                matched_rule_bindings_names.push(bind.name);
+-            }
+-
+-            // Report the unbound metavariable as the primary error up front, so every
+-            // case is consistent regardless of which suggestion (if any) we attach below.
+-            e.primary_message(format!("cannot find macro parameter `${name}` in this scope"));
+-            e.span(metavar_span);
+-            e.span_label(metavar_span, "not found in this scope");
+-            if parser.psess.source_map().is_imported(metavar_span) {
+-                e.span_label(site_span, "in this macro invocation");
+-            }
+-
+-            if let Some(matched_name) = rustc_span::edit_distance::find_best_match_for_name(
+-                &matched_rule_bindings_names[..],
+-                name,
+-                None,
+-            ) {
+-                e.span_suggestion_verbose(
+-                    parser.token.span,
+-                    "there is a macro metavariable with a similar name",
+-                    matched_name,
+-                    Applicability::MaybeIncorrect,
+-                );
+-            } else if bindings_names.contains(&name) {
+-                e.span_label(
+-                    parser.token.span,
+-                    "there is an macro metavariable with this name in another macro matcher",
+-                );
+-            } else if let Some(matched_name) =
+-                rustc_span::edit_distance::find_best_match_for_name(&bindings_names[..], name, None)
+-            {
+-                e.span_suggestion_verbose(
+-                    parser.token.span,
+-                    "there is a macro metavariable with a similar name in another macro matcher",
+-                    matched_name,
+-                    Applicability::MaybeIncorrect,
+-                );
+-            } else if !matched_rule_bindings_names.is_empty() {
+-                let msg = matched_rule_bindings_names
+-                    .iter()
+-                    .map(|sym| format!("${}", sym))
+-                    .collect::<Vec<_>>()
+-                    .join(", ");
+-                e.note(format!("available metavariable names are: {msg}"));
+-            }
+-        }
+-    }
++    let _ = (bindings, matched_rule_bindings);
+     e.emit()
+ }
+ 

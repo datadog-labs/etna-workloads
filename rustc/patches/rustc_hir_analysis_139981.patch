@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_hir_analysis/src/diagnostics/wrong_number_of_generic_args.rs b/compiler/rustc_hir_analysis/src/diagnostics/wrong_number_of_generic_args.rs
+index 5cf13b51a7a8cfa64cb97a997f7ef05185f99dfc..2fbe758c68c70423b038941eacee6d476ad95afa 100644
+--- a/compiler/rustc_hir_analysis/src/diagnostics/wrong_number_of_generic_args.rs
++++ b/compiler/rustc_hir_analysis/src/diagnostics/wrong_number_of_generic_args.rs
+@@ -490,13 +490,13 @@ fn get_unbound_associated_item(&self) -> Vec<&AssocItem> {
+                 .in_definition_order()
+                 .filter(|item| {
+                     item.can_have_equality_constraint(self.tcx)
+-                        && !item.is_impl_trait_in_trait()
+                         && !self
+                             .gen_args
+                             .constraints
+                             .iter()
+                             .any(|constraint| constraint.ident.name == item.name())
+                 })
++                .filter(|item| !item.is_impl_trait_in_trait())
+                 .collect()
+         } else {
+             Vec::default()
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+index c65e9bdbd211ea3fcbf1ccbcb1a6f80a071ebf7a..17ce24dd2d200f4519f89a10f588978bd27052c7 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/mod.rs
+@@ -1869,7 +1869,6 @@ fn probe_traits_that_match_assoc_ty(
+                         .in_definition_order()
+                         .any(|i| {
+                             i.is_type()
+-                                && !i.is_impl_trait_in_trait()
+                                 && i.ident(tcx).normalize_to_macros_2_0() == assoc_ident
+                         })
+                     // Consider only accessible traits

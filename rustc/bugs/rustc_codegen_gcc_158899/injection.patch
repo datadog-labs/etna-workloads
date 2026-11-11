@@ -1,0 +1,147 @@
+diff --git a/compiler/rustc_codegen_gcc/src/builder.rs b/compiler/rustc_codegen_gcc/src/builder.rs
+index a407362638f10256bc12a5105dd128af168efa40..6f992e31e8ce658332a5c24a38be140e8453967f 100644
+--- a/compiler/rustc_codegen_gcc/src/builder.rs
++++ b/compiler/rustc_codegen_gcc/src/builder.rs
+@@ -1155,7 +1155,7 @@ fn store_with_flags(
+         // NOTE: libgccjit does not support specifying the alignment on the assignment, so we cast
+         // to type so it gets the proper alignment.
+         let destination_type = destination.to_rvalue().get_type().unqualified();
+-        let align = align.bytes();
++        let align = if flags.contains(MemFlags::UNALIGNED) { 1 } else { align.bytes() };
+         let mut modified_destination_type = destination_type.get_aligned(align);
+         if flags.contains(MemFlags::VOLATILE) {
+             modified_destination_type = modified_destination_type.make_volatile();
+diff --git a/compiler/rustc_codegen_gcc/src/intrinsic/mod.rs b/compiler/rustc_codegen_gcc/src/intrinsic/mod.rs
+index 09ad3254e57146071d8b628b1a797ef5939c6953..1179a846d4528ea1cc83710452fcfb3a955351b5 100644
+--- a/compiler/rustc_codegen_gcc/src/intrinsic/mod.rs
++++ b/compiler/rustc_codegen_gcc/src/intrinsic/mod.rs
+@@ -377,6 +377,16 @@ fn codegen_intrinsic_call(
+                     load
+                 }
+             }
++            sym::volatile_store => {
++                let dst = args[0].deref(self.cx());
++                args[1].val.volatile_store(self, dst);
++                return IntrinsicResult::WroteIntoPlace;
++            }
++            sym::unaligned_volatile_store => {
++                let dst = args[0].deref(self.cx());
++                args[1].val.unaligned_volatile_store(self, dst);
++                return IntrinsicResult::WroteIntoPlace;
++            }
+             sym::prefetch_read_data
+             | sym::prefetch_write_data
+             | sym::prefetch_read_instruction
+diff --git a/compiler/rustc_codegen_llvm/src/builder.rs b/compiler/rustc_codegen_llvm/src/builder.rs
+index b8e2b0029167af1027a9f4b894b7a8cc44117cbb..4b10c8ea7e28705f0318dc992bfe4da50a369b66 100644
+--- a/compiler/rustc_codegen_llvm/src/builder.rs
++++ b/compiler/rustc_codegen_llvm/src/builder.rs
+@@ -874,7 +874,8 @@ fn store_with_flags(
+         unsafe {
+             let store = llvm::LLVMBuildStore(self.llbuilder, val, ptr);
+             let align = align.min(self.cx().tcx.sess.target.max_reliable_alignment());
+-            let align = align.bytes() as c_uint;
++            let align =
++                if flags.contains(MemFlags::UNALIGNED) { 1 } else { align.bytes() as c_uint };
+             llvm::LLVMSetAlignment(store, align);
+             if flags.contains(MemFlags::VOLATILE) {
+                 llvm::LLVMSetVolatile(store, llvm::TRUE);
+diff --git a/compiler/rustc_codegen_llvm/src/intrinsic.rs b/compiler/rustc_codegen_llvm/src/intrinsic.rs
+index ba11ef29fb53669b190eeb3e6118acdb9e053552..515a4120067ce54bab52d79e36df85a045013890 100644
+--- a/compiler/rustc_codegen_llvm/src/intrinsic.rs
++++ b/compiler/rustc_codegen_llvm/src/intrinsic.rs
+@@ -385,6 +385,16 @@ fn codegen_intrinsic_call(
+                     };
+                 }
+             }
++            sym::volatile_store => {
++                let dst = args[0].deref(self.cx());
++                args[1].val.volatile_store(self, dst);
++                return IntrinsicResult::Operand(OperandValue::ZeroSized);
++            }
++            sym::unaligned_volatile_store => {
++                let dst = args[0].deref(self.cx());
++                args[1].val.unaligned_volatile_store(self, dst);
++                return IntrinsicResult::Operand(OperandValue::ZeroSized);
++            }
+             sym::prefetch_read_data
+             | sym::prefetch_write_data
+             | sym::prefetch_read_instruction
+diff --git a/compiler/rustc_codegen_ssa/src/lib.rs b/compiler/rustc_codegen_ssa/src/lib.rs
+index d62c5c713f9eaa7e8f051ea6e66262e1c06b021f..8615aeab0266caa313485a67d18d66478175e5e9 100644
+--- a/compiler/rustc_codegen_ssa/src/lib.rs
++++ b/compiler/rustc_codegen_ssa/src/lib.rs
+@@ -163,12 +163,11 @@ pub enum ModuleKind {
+ }
+ 
+ bitflags::bitflags! {
+-    /// This previously had an `UNALIGNED` variant, but that should never be done via flags.
+-    /// If you want something to be unaligned, see [`mir::place::PlaceRef::unaligned`].
+     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+     pub struct MemFlags: u8 {
+         const VOLATILE = 1 << 0;
+         const NONTEMPORAL = 1 << 1;
++        const UNALIGNED = 1 << 2;
+         /// Indicates that writing through the stored pointer is undefined behavior.
+         /// Only valid on stores of pointers, or pairs where the first element is a pointer.
+         /// In the latter case, the flag only applies to the first element of the pair.
+diff --git a/compiler/rustc_codegen_ssa/src/mir/intrinsic.rs b/compiler/rustc_codegen_ssa/src/mir/intrinsic.rs
+index 77ab3bdce4689f50dbe4939944990593506e0226..824e1721ea792ac30d7a62b0f4cd0c1ebd38c274 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/intrinsic.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/intrinsic.rs
+@@ -267,12 +267,16 @@ pub fn codegen_intrinsic_call(
+                 );
+                 OperandValue::ZeroSized
+             }
+-            sym::volatile_store | sym::unaligned_volatile_store => {
++            sym::volatile_store => {
+                 let dst = args[0].deref(bx.cx());
+-                let dst = if name == sym::volatile_store { dst } else { dst.unaligned() };
+                 args[1].val.volatile_store(bx, dst);
+                 OperandValue::ZeroSized
+             }
++            sym::unaligned_volatile_store => {
++                let dst = args[0].deref(bx.cx());
++                args[1].val.unaligned_volatile_store(bx, dst);
++                OperandValue::ZeroSized
++            }
+             sym::disjoint_bitor => {
+                 let a = args[0].immediate();
+                 let b = args[1].immediate();
+diff --git a/compiler/rustc_codegen_ssa/src/mir/operand.rs b/compiler/rustc_codegen_ssa/src/mir/operand.rs
+index c1a1b2db6fa9d87ea1f65c3ba228cb44a1a6e649..0a5622668a57b6a77b127b489f8474ce6b969dcf 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/operand.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/operand.rs
+@@ -999,6 +999,14 @@ pub fn volatile_store<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
+         self.store_with_flags(bx, dest, MemFlags::VOLATILE);
+     }
+ 
++    pub fn unaligned_volatile_store<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
++        self,
++        bx: &mut Bx,
++        dest: PlaceRef<'tcx, V>,
++    ) {
++        self.store_with_flags(bx, dest, MemFlags::VOLATILE | MemFlags::UNALIGNED);
++    }
++
+     pub fn nontemporal_store<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
+         self,
+         bx: &mut Bx,
+diff --git a/compiler/rustc_codegen_ssa/src/mir/place.rs b/compiler/rustc_codegen_ssa/src/mir/place.rs
+index 60480d1853853490997dcafa05f23837e52627f9..7bfdc6afbd60315842bb26c9780d3f0483d6c0b0 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/place.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/place.rs
+@@ -320,13 +320,6 @@ pub fn storage_live<Bx: BuilderMethods<'a, 'tcx, Value = V>>(&self, bx: &mut Bx)
+     pub fn storage_dead<Bx: BuilderMethods<'a, 'tcx, Value = V>>(&self, bx: &mut Bx) {
+         bx.lifetime_end(self.val.llval, self.layout.size);
+     }
+-
+-    /// The same place, but with [`PlaceValue::align`] lowered to [`Align::ONE`].
+-    pub fn unaligned(self) -> Self {
+-        let Self { val, layout } = self;
+-        let val = PlaceValue { align: Align::ONE, ..val };
+-        Self { val, layout }
+-    }
+ }
+ 
+ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {

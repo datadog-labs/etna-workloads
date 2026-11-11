@@ -1,0 +1,58 @@
+diff --git a/compiler/rustc_parse/src/parser/stmt.rs b/compiler/rustc_parse/src/parser/stmt.rs
+index 7c3752cfff1871fdb83b106deb71bbb822d9fe94..4b5edbf356d4fddf29cfceabbbeec0273a80e6cf 100644
+--- a/compiler/rustc_parse/src/parser/stmt.rs
++++ b/compiler/rustc_parse/src/parser/stmt.rs
+@@ -1098,52 +1098,7 @@ pub fn parse_full_stmt(&mut self, recover: AttemptLocalParseRecovery) -> PResult
+                             // We found `foo<bar, baz>`, have we fully recovered?
+                             self.expect_semi()?;
+                         }
+-                        LocalKind::Decl => {
+-                            if let Some(colon_sp) = local.colon_sp {
+-                                e.span_label(
+-                                    colon_sp,
+-                                    format!(
+-                                        "while parsing the type for {}",
+-                                        local.pat.descr().map_or_else(
+-                                            || "the binding".to_string(),
+-                                            |n| format!("`{n}`")
+-                                        )
+-                                    ),
+-                                );
+-                                let suggest_eq = if self.token == token::Dot
+-                                    && let _ = self.bump()
+-                                    && let mut snapshot = self.create_snapshot_for_diagnostic()
+-                                    && let Ok(_) = snapshot
+-                                        .parse_dot_suffix_expr(
+-                                            colon_sp,
+-                                            self.mk_expr_err(
+-                                                colon_sp,
+-                                                self.dcx().delayed_bug(
+-                                                    "error during `:` -> `=` recovery",
+-                                                ),
+-                                            ),
+-                                        )
+-                                        .map_err(Diag::cancel)
+-                                {
+-                                    true
+-                                } else if let Some(op) = self.check_assoc_op()
+-                                    && op.node.can_continue_expr_unambiguously()
+-                                {
+-                                    true
+-                                } else {
+-                                    false
+-                                };
+-                                if suggest_eq && let Some(ty) = &local.ty {
+-                                    e.span_suggestion_verbose(
+-                                        local.pat.span.between(ty.span),
+-                                        "use `=` if you meant to assign",
+-                                        " = ",
+-                                        Applicability::MaybeIncorrect,
+-                                    );
+-                                }
+-                            }
+-                            return Err(e);
+-                        }
++                        LocalKind::Decl => return Err(e),
+                     }
+                 }
+                 eat_semi = false;

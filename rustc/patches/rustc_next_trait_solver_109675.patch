@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs b/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
+index 836b552f5129c188ae089545611dfaf22814089f..ff7179caa58663e73c9f4f5fb8aeb85873e3c3f5 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/assembly/mod.rs
+@@ -981,6 +981,21 @@ fn assemble_object_bound_candidates<G: GoalKind<D>>(
+                     assumption.upcast(cx),
+                 ));
+             }
++
++            let own_bounds: Vec<I::Clause> =
++                bounds.iter().map(|bound| bound.with_self_ty(cx, self_ty)).collect();
++            let principal_clause: I::Clause = principal_trait_ref.upcast(cx);
++            for assumption in elaborate::elaborate(cx, [principal_clause]) {
++                if assumption.as_projection_clause().is_some() && !own_bounds.contains(&assumption)
++                {
++                    candidates.extend(G::probe_and_consider_object_bound_candidate(
++                        self,
++                        CandidateSource::BuiltinImpl(BuiltinImplSource::Misc),
++                        goal,
++                        assumption,
++                    ));
++                }
++            }
+         }
+     }
+ 

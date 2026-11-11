@@ -1,0 +1,1 @@
+Implementing a trait with a missing generic associated type (with a where clause) makes rustc emit an E0046 suggestion; the clean compiler suggests `type Gat<T> = /* Type */ where T: std::fmt::Display;` while the injected one drops the generics and where clause.

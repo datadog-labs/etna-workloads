@@ -1,0 +1,1 @@
+size_of_val on a raw pointer to a too-big unsized type must fail codegen with a layout error carrying a span (the call, or the function signature with debuginfo=2). The injected compiler prints the error without any source location.

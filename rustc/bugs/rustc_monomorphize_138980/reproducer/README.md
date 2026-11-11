@@ -1,0 +1,1 @@
+With -Ccodegen-units=4 -Cdebuginfo=full, `f` is only referenced from a var_debug_info constant in `main`. Without the injected fix the collector skips var_debug_info, so `f` is internalized in its CGU and linking fails with an undefined symbol; the clean compiler builds successfully.

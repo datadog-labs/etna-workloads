@@ -1,0 +1,1 @@
+Dumps the MIR after GVN for a function reading the same `&'a u8` field twice through a `&S<'_>`. The clean compiler keeps two separate loads of `(*_1).0`. The injected compiler unifies them (`_3 = copy _2`), which is unsound because nested shared references are not read-only.

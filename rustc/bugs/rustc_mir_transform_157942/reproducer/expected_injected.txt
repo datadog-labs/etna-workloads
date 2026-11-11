@@ -1,0 +1,126 @@
+error: relative drop order changing in Rust 2024
+  --> main.rs:19:15
+   |
+19 |         match func().await {
+   |               ^^^^^^^-----
+   |               |      |
+   |               |      this value will be stored in a temporary; let us call it `#3`
+   |               |      up until Edition 2021 `#3` is dropped last but will be dropped earlier in Edition 2024
+   |               |      this value will be stored in a temporary; let us call it `#1`
+   |               |      `#1` will be dropped later as of Edition 2024
+   |               this value will be stored in a temporary; let us call it `#2`
+   |               up until Edition 2021 `#2` is dropped last but will be dropped earlier in Edition 2024
+   |               `__awaitee` calls a custom destructor
+   |               `__awaitee` will be dropped later as of Edition 2024
+...
+23 |             Err(e) => {}
+   |                 -
+   |                 |
+   |                 `e` calls a custom destructor
+   |                 `e` will be dropped later as of Edition 2024
+24 |         }
+25 |     }
+   |     - now the temporary value is dropped here, before the local variables in the block or statement
+   |
+note: `#2` invokes this custom destructor
+  --> main.rs:9:1
+   |
+ 9 | impl std::ops::Drop for Drop {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: `#1` invokes this custom destructor
+  --> main.rs:9:1
+   |
+ 9 | impl std::ops::Drop for Drop {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: `e` invokes this custom destructor
+  --> main.rs:9:1
+   |
+ 9 | impl std::ops::Drop for Drop {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: most of the time, changing drop order is harmless; inspect the `impl Drop`s for side effects like releasing locks or sending messages
+   = warning: this changes meaning in Rust 2024
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/temporary-tail-expr-scope.html>
+note: the lint level is defined here
+  --> main.rs:6:9
+   |
+ 6 | #![deny(tail_expr_drop_order)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `e`
+  --> main.rs:23:17
+   |
+23 |             Err(e) => {}
+   |                 ^ help: if this is intentional, prefix it with an underscore: `_e`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+error: relative drop order changing in Rust 2024
+  --> main.rs:40:23
+   |
+39 |     let __awaitee = Drop;
+   |         ---------
+   |         |
+   |         `__awaitee` calls a custom destructor
+   |         `__awaitee` will be dropped later as of Edition 2024
+40 |     __awaitee.get() + Drop.get()
+   |                       ^^^^
+   |                       |
+   |                       this value will be stored in a temporary; let us call it `#1`
+   |                       up until Edition 2021 `#1` is dropped last but will be dropped earlier in Edition 2024
+...
+43 | }
+   | - now the temporary value is dropped here, before the local variables in the block or statement
+   |
+note: `#1` invokes this custom destructor
+  --> main.rs:9:1
+   |
+ 9 | impl std::ops::Drop for Drop {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: `__awaitee` invokes this custom destructor
+  --> main.rs:9:1
+   |
+ 9 | impl std::ops::Drop for Drop {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: most of the time, changing drop order is harmless; inspect the `impl Drop`s for side effects like releasing locks or sending messages
+   = warning: this changes meaning in Rust 2024
+   = note: for more information, see <https://doc.rust-lang.org/edition-guide/rust-2024/temporary-tail-expr-scope.html>
+
+warning: struct `Drop` is never constructed
+ --> main.rs:8:8
+  |
+8 | struct Drop;
+  |        ^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `func` is never used
+  --> main.rs:13:10
+   |
+13 | async fn func() -> Result<(), Drop> {
+   |          ^^^^
+
+warning: function `retry_db` is never used
+  --> main.rs:17:10
+   |
+17 | async fn retry_db() -> Result<(), Drop> {
+   |          ^^^^^^^^
+
+warning: method `get` is never used
+  --> main.rs:33:8
+   |
+32 | impl Drop {
+   | --------- method in this implementation
+33 |     fn get(&self) -> u8 {
+   |        ^^^
+
+warning: function `user_written_awaitee` is never used
+  --> main.rs:38:4
+   |
+38 | fn user_written_awaitee() -> u8 {
+   |    ^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 2 previous errors; 6 warnings emitted
+
+rustc exit: 1
+
+[exit 0]

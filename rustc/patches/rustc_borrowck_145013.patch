@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+index 49e6dc334ff80dc2ca74719212a355497fce20e7..3f98e24ab150f27763d0689622da09abef5246ec 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+@@ -1923,40 +1923,6 @@ fn suggest_ampmut<'tcx>(
+             {
+                 (rvalue, rhs_span, rhs_str) = (rvalue_new, rhs_span_new, rhs_str_new);
+             }
+-
+-            if let Either::Right(call) = body.stmt_at(*assign)
+-                && let TerminatorKind::Call { func: Operand::Constant(const_operand), args, .. } =
+-                    &call.kind
+-                && let ty::FnDef(method_def_id, method_args) = *const_operand.ty().kind()
+-                && let Some(trait_) = tcx.trait_of_assoc(method_def_id)
+-                && tcx.is_lang_item(trait_, LangItem::Index)
+-            {
+-                let trait_ref = ty::TraitRef::from_assoc(
+-                    tcx,
+-                    tcx.require_lang_item(LangItem::IndexMut, rhs_span),
+-                    method_args.no_bound_vars().unwrap(),
+-                );
+-                // The type only implements `Index` but not `IndexMut`, we must not suggest `&mut`.
+-                if !infcx
+-                    .type_implements_trait(trait_ref.def_id, trait_ref.args, infcx.param_env)
+-                    .must_apply_considering_regions()
+-                {
+-                    // Suggest `get_mut` if type is a `BTreeMap` or `HashMap`.
+-                    if let ty::Adt(def, _) = trait_ref.self_ty().kind()
+-                        && [sym::BTreeMap, sym::HashMap]
+-                            .into_iter()
+-                            .any(|s| tcx.is_diagnostic_item(s, def.did()))
+-                        && let [map, key] = &**args
+-                        && let Ok(map) = tcx.sess.source_map().span_to_snippet(map.span)
+-                        && let Ok(key) = tcx.sess.source_map().span_to_snippet(key.span)
+-                    {
+-                        let span = rhs_span;
+-                        let suggestion = format!("{map}.get_mut({key}).unwrap()");
+-                        return Some(AmpMutSugg::MapGetMut { span, suggestion });
+-                    }
+-                    return None;
+-                }
+-            }
+         }
+ 
+         let sugg = match rvalue {

@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_mir_build/src/builder/expr/as_rvalue.rs b/compiler/rustc_mir_build/src/builder/expr/as_rvalue.rs
+index ea484bd05878b2fe19673b869dc59fc8aa6afcd5..60376f36b5638497606c5a7b0912ed86bbfdbf00 100644
+--- a/compiler/rustc_mir_build/src/builder/expr/as_rvalue.rs
++++ b/compiler/rustc_mir_build/src/builder/expr/as_rvalue.rs
+@@ -595,6 +595,7 @@ pub(crate) fn build_binary_op(
+ 
+     /// Recursively inspect a THIR expression and probe through unsizing
+     /// operations that can be const-folded today.
++    #[allow(dead_code)]
+     fn check_constness(&self, mut kind: &'a ExprKind<'tcx>) -> bool {
+         loop {
+             debug!(?kind, "check_constness");
+@@ -624,7 +625,7 @@ fn build_zero_repeat(
+         let this = self; // See "LET_THIS_SELF".
+         let value_expr = &this.thir[value];
+         let elem_ty = value_expr.ty;
+-        if this.check_constness(&value_expr.kind) {
++        if let Some(Category::Constant) = Category::of(&value_expr.kind) {
+             // Repeating a const does nothing
+         } else {
+             // For a non-const, we may need to generate an appropriate `Drop`

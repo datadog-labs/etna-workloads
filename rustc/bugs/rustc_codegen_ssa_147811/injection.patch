@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs b/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
+index 33cc321ea6d3217df0a3262ffcf3d12bb0618aff..5d3d6f79e0842f3b50846dddc2d3b547754f66c6 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/naked_asm.rs
+@@ -9,7 +9,7 @@
+ use rustc_middle::{bug, span_bug, ty};
+ use rustc_span::sym;
+ use rustc_target::callconv::{ArgAbi, FnAbi, PassMode};
+-use rustc_target::spec::{Arch, BinaryFormat, Env, Os};
++use rustc_target::spec::{Arch, BinaryFormat, Env};
+ 
+ use crate::common;
+ use crate::mir::AsmCodegenMethods;
+@@ -292,8 +292,6 @@ fn prefix_and_suffix<'tcx>(
+             // `.subsections_via_symbols` global directive. LLVM already enables this directive.
+             if let Some(section) = &link_section {
+                 writeln!(begin, ".pushsection {section},regular,pure_instructions").unwrap();
+-            } else {
+-                writeln!(begin, ".section __TEXT,__text,regular,pure_instructions").unwrap();
+             }
+             writeln!(begin, ".balign {align_bytes}").unwrap();
+             write_linkage(&mut begin).unwrap();
+@@ -339,13 +337,7 @@ fn prefix_and_suffix<'tcx>(
+                     Env::Msvc => {
+                         writeln!(begin, ".section .text,\"xr\",one_only,{asm_name}").unwrap();
+                     }
+-                    Env::Unspecified => match &tcx.sess.target.options.os {
+-                        Os::Uefi => {
+-                            writeln!(begin, ".section .text,\"xr\",one_only,{asm_name}").unwrap();
+-                        }
+-                        _ => bug!("unexpected coff target {}", tcx.sess.target.llvm_target),
+-                    },
+-                    other => bug!("unexpected coff env {other:?}"),
++                    other => bug!("invalid coff env {other:?}"),
+                 }
+             }
+             write_linkage(&mut begin).unwrap();

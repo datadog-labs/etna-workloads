@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+index 1897ed8fc84ebde76bc8de04ac4ad10464fd8e4d..1812764c18c3830f6e69697ff7dfcbc70b94cad6 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+@@ -281,17 +281,12 @@ pub fn report_selection_error(
+                         let mut err = struct_span_code_err!(self.dcx(), span, E0277, "{}", err_msg);
+ 
+                         let trait_def_id = main_trait_predicate.def_id();
+-                        let leaf_trait_def_id = leaf_trait_predicate.def_id();
+                         if (self.tcx.is_diagnostic_item(sym::From, trait_def_id)
+                             || self.tcx.is_diagnostic_item(sym::TryFrom, trait_def_id))
+-                            && (self.tcx.is_diagnostic_item(sym::From, leaf_trait_def_id)
+-                                || self.tcx.is_diagnostic_item(sym::TryFrom, leaf_trait_def_id))
+-                            && let Some(trait_ref) =
+-                                leaf_trait_predicate.no_bound_vars().map(|pred| pred.trait_ref)
+-                            && let Some(found_ty) =
+-                                trait_ref.args.get(1).and_then(|arg| arg.as_type())
+-                            && let Some(ty) =
+-                                main_trait_predicate.no_bound_vars().map(|pred| pred.self_ty())
++                            && let trait_ref = leaf_trait_predicate.skip_binder().trait_ref
++                            && trait_ref.args.len() > 1
++                            && let found_ty = trait_ref.args.type_at(1)
++                            && let ty = main_trait_predicate.skip_binder().self_ty()
+                             && let Some(cast_ty) =
+                                 self.find_explicit_cast_type(obligation.param_env, found_ty, ty)
+                         {

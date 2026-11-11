@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..cac4521b7624bfc5bb8e49172627fc2945bb73a4 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -2769,11 +2769,6 @@ fn check_expr_field(
+             match deref_base_ty.kind() {
+                 ty::Adt(base_def, args) if !base_def.is_enum() => {
+                     debug!("struct named {:?}", deref_base_ty);
+-                    // we don't care to report errors for a struct if the struct itself is tainted
+-                    if let Err(guar) = base_def.non_enum_variant().has_errors() {
+-                        return Ty::new_error(self.tcx(), guar);
+-                    }
+-
+                     let (ident, def_scope) = self.tcx.adjust_ident_and_get_scope(
+                         field,
+                         base_def.did(),
+diff --git a/compiler/rustc_hir_typeck/src/pat.rs b/compiler/rustc_hir_typeck/src/pat.rs
+index f7ba6a78c65bde4d2d3ad24a21cf35f67e6f6027..f6f69a2cd546ff4e7eea657f5433a1ff749b4c41 100644
+--- a/compiler/rustc_hir_typeck/src/pat.rs
++++ b/compiler/rustc_hir_typeck/src/pat.rs
+@@ -2137,8 +2137,6 @@ fn check_struct_pat_fields(
+         let inexistent_fields_err = if !inexistent_fields.is_empty()
+             && !inexistent_fields.iter().any(|field| field.ident.name == kw::Underscore)
+         {
+-            // we don't care to report errors for a struct if the struct itself is tainted
+-            variant.has_errors()?;
+             Some(self.error_inexistent_fields(
+                 adt.variant_descr(),
+                 &inexistent_fields,

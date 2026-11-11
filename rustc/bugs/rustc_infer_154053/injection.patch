@@ -1,0 +1,112 @@
+diff --git a/compiler/rustc_infer/src/infer/relate/generalize.rs b/compiler/rustc_infer/src/infer/relate/generalize.rs
+index 0e4ebdfb90085834160abb525f304756ee50e204..4ca63b344aceea9b0a09ccca8d2abe1c31b46d7f 100644
+--- a/compiler/rustc_infer/src/infer/relate/generalize.rs
++++ b/compiler/rustc_infer/src/infer/relate/generalize.rs
+@@ -367,12 +367,8 @@ fn cyclic_term_error(&self) -> TypeError<'tcx> {
+ 
+     /// Create a new type variable in the universe of the target when
+     /// generalizing an alias.
+-    fn next_var_for_alias_of_kind(&self, alias: ty::AliasTerm<'tcx>) -> ty::Term<'tcx> {
+-        if alias.kind.is_type() {
+-            self.infcx.next_ty_var_in_universe(self.span, self.for_universe).into()
+-        } else {
+-            self.infcx.next_const_var_in_universe(self.span, self.for_universe).into()
+-        }
++    fn next_ty_var_for_alias(&self) -> Ty<'tcx> {
++        self.infcx.next_ty_var_in_universe(self.span, self.for_universe)
+     }
+ 
+     /// We only handle potentially normalizable aliases via this method. For rigid alias,
+@@ -396,10 +392,10 @@ fn next_var_for_alias_of_kind(&self, alias: ty::AliasTerm<'tcx>) -> ty::Term<'tc
+     ///   continue generalizing the alias. This ends up pulling down the universe of the
+     ///   inference variable and is incomplete in case the alias would normalize to a type
+     ///   which does not mention that inference variable.
+-    fn generalize_alias_term(
++    fn generalize_alias_ty(
+         &mut self,
+-        alias: ty::AliasTerm<'tcx>,
+-    ) -> Result<Term<'tcx>, TypeError<'tcx>> {
++        alias: ty::AliasTy<'tcx>,
++    ) -> Result<Ty<'tcx>, TypeError<'tcx>> {
+         // We do not eagerly replace aliases with inference variables if they have
+         // escaping bound vars, see the method comment for details. However, when we
+         // are inside of an alias with escaping bound vars replacing nested aliases
+@@ -407,12 +403,12 @@ fn generalize_alias_term(
+         //
+         // cc trait-system-refactor-initiative#110
+         if self.infcx.next_trait_solver() && !alias.has_escaping_bound_vars() && !self.in_alias {
+-            return Ok(self.next_var_for_alias_of_kind(alias));
++            return Ok(self.next_ty_var_for_alias());
+         }
+ 
+         let is_nested_alias = mem::replace(&mut self.in_alias, true);
+         let result = match self.relate(alias, alias) {
+-            Ok(alias) => Ok(alias.to_term(self.cx(), ty::IsRigid::No)),
++            Ok(alias) => Ok(alias.to_ty(self.cx(), ty::IsRigid::No)),
+             Err(e) => {
+                 if is_nested_alias {
+                     return Err(e);
+@@ -426,7 +422,7 @@ fn generalize_alias_term(
+                     }
+ 
+                     debug!("generalization failure in alias");
+-                    Ok(self.next_var_for_alias_of_kind(alias))
++                    Ok(self.next_ty_var_for_alias())
+                 }
+             }
+         };
+@@ -581,10 +577,8 @@ fn tys(&mut self, t: Ty<'tcx>, t2: Ty<'tcx>) -> RelateResult<'tcx, Ty<'tcx>> {
+             }
+ 
+             // We only need to be careful with potentially normalizeable
+-            // aliases here. See `generalize_alias_term` for more information.
+-            ty::Alias(ty::IsRigid::No, data) => {
+-                self.generalize_alias_term(data.into()).map(|v| v.expect_type())
+-            }
++            // aliases here. See `generalize_alias_ty` for more information.
++            ty::Alias(ty::IsRigid::No, data) => self.generalize_alias_ty(data),
+ 
+             _ => relate::structurally_relate_tys(self, t, t),
+         }?;
+@@ -693,31 +687,17 @@ fn consts(
+             // FIXME: Alias consts are also not rigid, so the current
+             // approach of always relating them structurally is incomplete.
+             //
+-            // FIXME: replace the `else` branch with
+-            // `structurally_relate_consts` once it is fully structural.
+-            //
+-            // We only need to be careful with potentially normalizeable
+-            // aliases here. See `generalize_alias_term` for more information.
++            // FIXME: remove this branch once `structurally_relate_consts` is fully
++            // structural.
+             ty::ConstKind::Alias(ty::IsRigid::No, alias_const) => {
+-                // Hack: Fall back to old behavior if GCE is enabled (it used to just be the Yes
+-                // path), as doing this new No path breaks some GCE things. I expect GCE to be
+-                // ripped out soon so this shouldn't matter soon.
+-                if self.infcx.next_trait_solver() || !tcx.features().generic_const_exprs() {
+-                    self.generalize_alias_term(alias_const.into()).map(|v| v.expect_const())
+-                } else {
+-                    let ty::AliasConst { kind, args, .. } = alias_const;
+-                    let args = self.relate_with_variance(
+-                        ty::Invariant,
+-                        ty::VarianceDiagInfo::default(),
+-                        args,
+-                        args,
+-                    )?;
+-                    Ok(ty::Const::new_alias(
+-                        tcx,
+-                        ty::IsRigid::No,
+-                        ty::AliasConst::new(tcx, kind, args),
+-                    ))
+-                }
++                let ty::AliasConst { kind, args, .. } = alias_const;
++                let args = self.relate_with_variance(
++                    ty::Invariant,
++                    ty::VarianceDiagInfo::default(),
++                    args,
++                    args,
++                )?;
++                Ok(ty::Const::new_alias(tcx, ty::IsRigid::No, ty::AliasConst::new(tcx, kind, args)))
+             }
+             ty::ConstKind::Placeholder(placeholder) => {
+                 if self.for_universe.can_name(placeholder.universe) {

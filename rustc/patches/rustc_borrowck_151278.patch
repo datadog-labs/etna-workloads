@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+index 7267ae113de3e38793f991bf566996f037a39fee..0cb768a1148d0b16d8666151d3e17a97a40b1dd8 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+@@ -1409,23 +1409,18 @@ pub(crate) fn suggest_cloning(
+                     }
+                 },
+             );
+-            let msg = if !derive_clone {
+-                span.push_span_label(
+-                    ty_span,
+-                    format!(
+-                        "consider {}implementing `Clone` for this type",
+-                        if derive_clone { "manually " } else { "" }
+-                    ),
+-                );
+-                format!("if `{ty}` implemented `Clone`, you could clone the value")
+-            } else {
+-                format!("if all bounds were met, you could clone the value")
+-            };
++            span.push_span_label(
++                ty_span,
++                format!(
++                    "consider {}implementing `Clone` for this type",
++                    if derive_clone { "manually " } else { "" }
++                ),
++            );
+             span.push_span_label(expr.span, "you could clone this value");
+-            err.span_note(span, msg);
+-            if derive_clone {
+-                err.help("consider manually implementing `Clone` to avoid undesired bounds");
+-            }
++            err.span_help(
++                span,
++                format!("if `{ty}` implemented `Clone`, you could clone the value"),
++            );
+         } else if let ty::Param(param) = ty.kind()
+             && let Some(_clone_trait_def) = self.infcx.tcx.lang_items().clone_trait()
+             && let generics = self.infcx.tcx.generics_of(self.mir_def_id())

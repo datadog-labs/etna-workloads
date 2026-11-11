@@ -1,0 +1,1 @@
+Compiling a lib with `-Zmir-enable-passes=+Inline` at opt-level 0 makes the injected compiler ICE ("attempted to read from stolen value" in mir_inliner_callees), because the callgraph pre-computation checks the pass policy instead of should_run_pass. The clean compiler compiles successfully.

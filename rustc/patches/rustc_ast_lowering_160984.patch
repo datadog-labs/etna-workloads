@@ -1,0 +1,68 @@
+diff --git a/compiler/rustc_ast_lowering/src/lib.rs b/compiler/rustc_ast_lowering/src/lib.rs
+index cc7e081f2cce34b353c336bc45a9975437931355..5a18a216f52083d71b826887c367b490c6ec6c8c 100644
+--- a/compiler/rustc_ast_lowering/src/lib.rs
++++ b/compiler/rustc_ast_lowering/src/lib.rs
+@@ -1431,11 +1431,11 @@ fn lower_generic_arg(
+                 // We cannot just match on `TyKind::Infer` as `(_)` is represented as
+                 // `TyKind::Paren(TyKind::Infer)` and should also be lowered to `GenericArg::Infer`
+                 if ty.is_maybe_parenthesised_infer() {
+-                    return GenericArg::Infer(self.arena.alloc(hir::InferArg {
++                    return GenericArg::Infer(hir::InferArg {
+                         hir_id: self.lower_node_id(ty.id),
+                         span: self.lower_span(ty.span),
+                         kind: hir::InferArgKind::TypeOrConst,
+-                    }));
++                    });
+                 }
+ 
+                 match &ty.kind {
+@@ -1474,11 +1474,11 @@ fn lower_generic_arg(
+                         let ct = self.arena.alloc(ct);
+                         return match ct.try_as_ambig_ct() {
+                             Some(ct) => GenericArg::Const(ct),
+-                            None => GenericArg::Infer(self.arena.alloc(hir::InferArg {
++                            None => GenericArg::Infer(hir::InferArg {
+                                 hir_id: ct.hir_id,
+                                 span: ct.span,
+                                 kind: hir::InferArgKind::Const,
+-                            })),
++                            }),
+                         };
+                     }
+                     _ => {}
+@@ -1489,11 +1489,11 @@ fn lower_generic_arg(
+                 let ct = self.lower_anon_const_to_const_arg_and_alloc(ct);
+                 match ct.try_as_ambig_ct() {
+                     Some(ct) => GenericArg::Const(ct),
+-                    None => GenericArg::Infer(self.arena.alloc(hir::InferArg {
++                    None => GenericArg::Infer(hir::InferArg {
+                         hir_id: ct.hir_id,
+                         span: ct.span,
+                         kind: hir::InferArgKind::Const,
+-                    })),
++                    }),
+                 }
+             }
+         }
+diff --git a/compiler/rustc_hir/src/hir.rs b/compiler/rustc_hir/src/hir.rs
+index 37b2ca7718498be3f43d034c3a078a21024db604..43043a40e5d75711941189ce96951cc7924e2613 100644
+--- a/compiler/rustc_hir/src/hir.rs
++++ b/compiler/rustc_hir/src/hir.rs
+@@ -586,7 +586,7 @@ pub enum GenericArg<'hir> {
+     /// without a [`GenericArg`], instead directly storing a [`Ty`] or [`ConstArg`]. In
+     /// such cases they *are* represented by the `Infer` variants on [`TyKind`] and
+     /// [`ConstArgKind`] as it is not ambiguous whether the argument is a type or const.
+-    Infer(&'hir InferArg),
++    Infer(InferArg),
+ }
+ 
+ impl GenericArg<'_> {
+@@ -5157,7 +5157,7 @@ mod size_asserts {
+     static_assert_size!(FnDecl<'_>, 40);
+     static_assert_size!(ForeignItem<'_>, 88);
+     static_assert_size!(ForeignItemKind<'_>, 56);
+-    static_assert_size!(GenericArg<'_>, 16);
++    static_assert_size!(GenericArg<'_>, 24);
+     static_assert_size!(GenericBound<'_>, 64);
+     static_assert_size!(Generics<'_>, 56);
+     static_assert_size!(Impl<'_>, 48);

@@ -1,0 +1,61 @@
+error[E0425]: cannot find type `C` in this scope
+ --> main.rs:4:24
+  |
+1 | struct A;
+  | --------- similarly named struct `A` defined here
+...
+4 | fn f(b1: B, b2: B, a2: C) {} //~ ERROR E0425
+  |                        ^
+  |
+help: a struct with a similar name exists
+  |
+4 - fn f(b1: B, b2: B, a2: C) {} //~ ERROR E0425
+4 + fn f(b1: B, b2: B, a2: A) {} //~ ERROR E0425
+  |
+help: you might be missing a type parameter
+  |
+4 | fn f<C>(b1: B, b2: B, a2: C) {} //~ ERROR E0425
+  |     +++
+
+error[E0425]: cannot find value `C` in this scope
+ --> main.rs:7:16
+  |
+1 | struct A;
+  | --------- similarly named unit struct `A` defined here
+...
+7 |     f(A, A, B, C); //~ ERROR E0425
+  |                ^
+  |
+help: a unit struct with a similar name exists
+  |
+7 -     f(A, A, B, C); //~ ERROR E0425
+7 +     f(A, A, B, A); //~ ERROR E0425
+  |
+
+error[E0061]: this function takes 3 arguments but 4 arguments were supplied
+ --> main.rs:7:5
+  |
+7 |     f(A, A, B, C); //~ ERROR E0425
+  |     ^ -  -     - unexpected argument #4
+  |       |  |
+  |       |  expected `B`, found `A`
+  |       expected `B`, found `A`
+  |
+note: function defined here
+ --> main.rs:4:4
+  |
+4 | fn f(b1: B, b2: B, a2: C) {} //~ ERROR E0425
+  |    ^ -----  -----
+help: remove the extra argument
+  |
+7 -     f(A, A, B, C); //~ ERROR E0425
+7 +     f(/* B */, /* B */, B); //~ ERROR E0425
+  |
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0061, E0425.
+For more information about an error, try `rustc --explain E0061`.
+rustc exit: 1
+
+[exit 0]

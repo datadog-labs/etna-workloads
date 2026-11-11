@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_mir_build/src/thir/cx/expr.rs b/compiler/rustc_mir_build/src/thir/cx/expr.rs
+index 3cade7d6a0a7ab8d3ba69908df70ca5e2b876e04..6223172fdd82928926f4743e21362a43d64f2209 100644
+--- a/compiler/rustc_mir_build/src/thir/cx/expr.rs
++++ b/compiler/rustc_mir_build/src/thir/cx/expr.rs
+@@ -637,17 +637,11 @@ fn make_mirror_unadjusted(&mut self, expr: &'tcx hir::Expr<'tcx>) -> Expr<'tcx>
+                 }
+             }
+ 
+-            hir::ExprKind::Index(lhs, index, brackets_span) => {
++            hir::ExprKind::Index(lhs, index, _) => {
+                 if self.typeck_results.is_method_call(expr) {
+                     let lhs = self.mirror_expr(lhs);
+                     let index = self.mirror_expr(index);
+-                    self.overloaded_place(
+-                        expr,
+-                        expr_ty,
+-                        None,
+-                        Box::new([lhs, index]),
+-                        brackets_span,
+-                    )
++                    self.overloaded_place(expr, expr_ty, None, Box::new([lhs, index]), expr.span)
+                 } else {
+                     ExprKind::Index { lhs: self.mirror_expr(lhs), index: self.mirror_expr(index) }
+                 }

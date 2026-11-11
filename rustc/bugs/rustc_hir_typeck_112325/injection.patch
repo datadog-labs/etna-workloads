@@ -1,0 +1,40 @@
+diff --git a/compiler/rustc_hir_typeck/src/check.rs b/compiler/rustc_hir_typeck/src/check.rs
+index 60fc0b8f9b214afeec5e5971731e2824fdd57892..d64f67a5fa4e2cd93c03ad95a5ab3f70eb57ad08 100644
+--- a/compiler/rustc_hir_typeck/src/check.rs
++++ b/compiler/rustc_hir_typeck/src/check.rs
+@@ -96,13 +96,7 @@ pub(super) fn check_fn<'a, 'tcx>(
+                 param.ty_span,
+                 // ty.span == binding_span iff this is a closure parameter with no type ascription,
+                 // or if it's an implicit `self` parameter
+-                ObligationCauseCode::SizedArgumentType(
+-                    if ty_span == Some(param.span) && tcx.is_closure_like(fn_def_id.into()) {
+-                        None
+-                    } else {
+-                        ty.map(|ty| ty.hir_id)
+-                    },
+-                ),
++                ObligationCauseCode::SizedArgumentType(ty.map(|ty| ty.hir_id)),
+             );
+         }
+ 
+diff --git a/compiler/rustc_hir_typeck/src/gather_locals.rs b/compiler/rustc_hir_typeck/src/gather_locals.rs
+index 21954203a705aded0a3077acaa6b7c09885ed5a4..de853ba13c0caee0e6959deb8736de13a5d244a8 100644
+--- a/compiler/rustc_hir_typeck/src/gather_locals.rs
++++ b/compiler/rustc_hir_typeck/src/gather_locals.rs
+@@ -191,15 +191,7 @@ fn visit_pat(&mut self, p: &'tcx hir::Pat<'tcx>) {
+                         ty_span,
+                         // ty_span == ident.span iff this is a closure parameter with no type
+                         // ascription, or if it's an implicit `self` parameter
+-                        ObligationCauseCode::SizedArgumentType(
+-                            if ty_span == ident.span
+-                                && self.fcx.tcx.is_closure_like(self.fcx.body_def_id.into())
+-                            {
+-                                None
+-                            } else {
+-                                Some(hir_id)
+-                            },
+-                        ),
++                        ObligationCauseCode::SizedArgumentType(Some(hir_id)),
+                     );
+                 }
+             } else {

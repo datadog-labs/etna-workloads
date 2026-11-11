@@ -1,0 +1,658 @@
+warning: the feature `never_patterns` is incomplete and may not be safe to use and/or cause compiler crashes
+ --> main.rs:6:33
+  |
+6 | #![cfg_attr(never_pats, feature(never_patterns))]
+  |                                 ^^^^^^^^^^^^^^
+  |
+  = note: see issue #118155 <https://github.com/rust-lang/rust/issues/118155> for more information
+  = note: `#[warn(incomplete_features)]` on by default
+
+warning: unnecessary parentheses around `match` scrutinee expression
+   --> main.rs:248:15
+    |
+248 |         match (*ptr_never as Void) {}
+    |               ^                  ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+248 -         match (*ptr_never as Void) {}
+248 +         match *ptr_never as Void {}
+    |
+
+warning: unnecessary parentheses around `match` scrutinee expression
+   --> main.rs:249:15
+    |
+249 |         match (*ptr_never as Void) {
+    |               ^                  ^
+    |
+help: remove these parentheses
+    |
+249 -         match (*ptr_never as Void) {
+249 +         match *ptr_never as Void {
+    |
+
+error: unreachable pattern
+  --> main.rs:48:9
+   |
+48 |         _ => {} //~ ERROR unreachable pattern
+   |         ^------
+   |         |
+   |         matches no values because `!` is uninhabited
+   |         help: remove the match arm
+   |
+   = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+note: the lint level is defined here
+  --> main.rs:8:9
+   |
+ 8 | #![deny(unreachable_patterns)]
+   |         ^^^^^^^^^^^^^^^^^^^^
+
+error: unreachable pattern
+  --> main.rs:51:9
+   |
+51 |         _x => {} //~ ERROR unreachable pattern
+   |         ^^------
+   |         |
+   |         matches no values because `!` is uninhabited
+   |         help: remove the match arm
+   |
+   = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error[E0004]: non-exhaustive patterns: type `&!` is non-empty
+  --> main.rs:55:11
+   |
+55 |     match ref_never {}
+   |           ^^^^^^^^^
+   |
+   = note: the matched value is of type `&!`
+   = note: references are always considered inhabited
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown
+   |
+55 ~     match ref_never {
+56 +         _ => todo!(),
+57 ~     }
+   |
+
+error: unreachable pattern
+  --> main.rs:82:9
+   |
+82 |         _ => {} //~ ERROR unreachable pattern
+   |         ^------
+   |         |
+   |         matches no values because `!` is uninhabited
+   |         help: remove the match arm
+   |
+   = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error[E0004]: non-exhaustive patterns: `Ok(_)` not covered
+  --> main.rs:86:11
+   |
+86 |     match res_u32_never {}
+   |           ^^^^^^^^^^^^^ pattern `Ok(_)` not covered
+   |
+note: `Result<u32, !>` defined here
+  --> library/core/src/result.rs:558:0
+  ::: library/core/src/result.rs:562:4
+   |
+   = note: not covered
+   = note: the matched value is of type `Result<u32, !>`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+   |
+86 ~     match res_u32_never {
+87 +         Ok(_) => todo!(),
+88 ~     }
+   |
+
+error[E0004]: non-exhaustive patterns: `Ok(1_u32..=u32::MAX)` not covered
+  --> main.rs:95:11
+   |
+95 |     match res_u32_never {
+   |           ^^^^^^^^^^^^^ pattern `Ok(1_u32..=u32::MAX)` not covered
+   |
+note: `Result<u32, !>` defined here
+  --> library/core/src/result.rs:558:0
+  ::: library/core/src/result.rs:562:4
+   |
+   = note: not covered
+   = note: the matched value is of type `Result<u32, !>`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+   |
+98 ~         Err(_) => {},
+99 ~         Ok(1_u32..=u32::MAX) => todo!() //[exhaustive_patterns]~ ERROR unreachable pattern
+   |
+
+error[E0005]: refutable pattern in local binding
+   --> main.rs:101:9
+    |
+101 |     let Ok(_x) = res_u32_never.as_ref();
+    |         ^^^^^^ pattern `Err(_)` not covered
+    |
+    = note: `let` bindings require an "irrefutable pattern", like a `struct` or an `enum` with only one variant
+    = note: for more information, visit https://doc.rust-lang.org/book/ch19-02-refutability.html
+    = note: the matched value is of type `Result<&u32, &!>`
+help: you might want to use `let...else` to handle the variant that isn't matched
+    |
+101 |     let Ok(_x) = res_u32_never.as_ref() else { todo!() };
+    |                                         ++++++++++++++++
+
+error[E0005]: refutable pattern in local binding
+   --> main.rs:105:9
+    |
+105 |     let Ok(_x) = &res_u32_never;
+    |         ^^^^^^ pattern `&Err(!)` not covered
+    |
+    = note: `let` bindings require an "irrefutable pattern", like a `struct` or an `enum` with only one variant
+    = note: for more information, visit https://doc.rust-lang.org/book/ch19-02-refutability.html
+    = note: the matched value is of type `&Result<u32, !>`
+help: you might want to use `let...else` to handle the variant that isn't matched
+    |
+105 |     let Ok(_x) = &res_u32_never else { todo!() };
+    |                                 ++++++++++++++++
+
+error: unreachable pattern
+   --> main.rs:131:13
+    |
+131 |             _ => {} //~ ERROR unreachable pattern
+    |             ^------
+    |             |
+    |             matches no values because `Void` is uninhabited
+    |             help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error: unreachable pattern
+   --> main.rs:134:13
+    |
+134 |             _ if false => {} //~ ERROR unreachable pattern
+    |             ^---------------
+    |             |
+    |             matches no values because `Void` is uninhabited
+    |             help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error[E0004]: non-exhaustive patterns: `Some(!)` not covered
+   --> main.rs:155:15
+    |
+155 |         match *ref_opt_void {
+    |               ^^^^^^^^^^^^^ pattern `Some(!)` not covered
+    |
+note: `Option<Void>` defined here
+   --> library/core/src/option.rs:598:0
+   ::: library/core/src/option.rs:606:4
+    |
+    = note: not covered
+    = note: the matched value is of type `Option<Void>`
+    = note: `Void` is uninhabited but is not being matched by value, so a wildcard `_` is required
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+157 ~             None => {},
+158 +             Some(!)
+    |
+
+error: unreachable pattern
+   --> main.rs:198:13
+    |
+198 |             _ => {} //~ ERROR unreachable pattern
+    |             ^------
+    |             |
+    |             matches no values because `!` is uninhabited
+    |             help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error: unreachable pattern
+   --> main.rs:203:13
+    |
+203 |             _ => {} //~ ERROR unreachable pattern
+    |             ^------
+    |             |
+    |             matches no values because `!` is uninhabited
+    |             help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error: unreachable pattern
+   --> main.rs:208:13
+    |
+208 |             _ => {} //~ ERROR unreachable pattern
+    |             ^------
+    |             |
+    |             matches no values because `!` is uninhabited
+    |             help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error: unreachable pattern
+   --> main.rs:213:13
+    |
+213 |             _ => {} //~ ERROR unreachable pattern
+    |             ^------
+    |             |
+    |             matches no values because `!` is uninhabited
+    |             help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error: unreachable pattern
+   --> main.rs:219:13
+    |
+219 |             _ => {} //~ ERROR unreachable pattern
+    |             ^------
+    |             |
+    |             matches no values because `!` is uninhabited
+    |             help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+warning: unused variable: `ptr_never`
+   --> main.rs:186:9
+    |
+186 |     let ptr_never: *const ! = std::ptr::null();
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ptr_never`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `ref_never`
+   --> main.rs:188:9
+    |
+188 |     let ref_never: &! = &never;
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ref_never`
+
+warning: unused variable: `nested_x`
+   --> main.rs:191:9
+    |
+191 |     let nested_x = NestedNeverBundle(x);
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_nested_x`
+
+error: unreachable pattern
+   --> main.rs:280:9
+    |
+280 |         _ => {} //~ ERROR unreachable pattern
+    |         ^------
+    |         |
+    |         matches no values because `!` is uninhabited
+    |         help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error[E0005]: refutable pattern in local binding
+   --> main.rs:296:13
+    |
+296 |         let Ok(_) = *ptr_result_never_err; //[normal,never_pats]~ ERROR refutable pattern
+    |             ^^^^^ pattern `Err(!)` not covered
+    |
+    = note: `let` bindings require an "irrefutable pattern", like a `struct` or an `enum` with only one variant
+    = note: for more information, visit https://doc.rust-lang.org/book/ch19-02-refutability.html
+    = note: the matched value is of type `Result<u8, !>`
+help: you might want to use `if let` to ignore the variant that isn't matched
+    |
+296 |         if let Ok(_) = *ptr_result_never_err { todo!() }; //[normal,never_pats]~ ERROR refutable pattern
+    |         ++                                   +++++++++++
+
+error[E0004]: non-exhaustive patterns: type `(u32, !)` is non-empty
+   --> main.rs:315:11
+    |
+315 |     match *x {} //[normal,never_pats]~ ERROR non-exhaustive
+    |           ^^
+    |
+    = note: the matched value is of type `(u32, !)`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown
+    |
+315 ~     match *x {
+316 +         _ => todo!(),
+317 ~     } //[normal,never_pats]~ ERROR non-exhaustive
+    |
+
+error[E0004]: non-exhaustive patterns: type `(!, !)` is non-empty
+   --> main.rs:317:11
+    |
+317 |     match *x {} //[normal,never_pats]~ ERROR non-exhaustive
+    |           ^^
+    |
+    = note: the matched value is of type `(!, !)`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown
+    |
+317 ~     match *x {
+318 +         _ => todo!(),
+319 ~     } //[normal,never_pats]~ ERROR non-exhaustive
+    |
+
+error[E0004]: non-exhaustive patterns: `Ok(!)` and `Err(!)` not covered
+   --> main.rs:319:11
+    |
+319 |     match *x {} //[normal,never_pats]~ ERROR non-exhaustive
+    |           ^^ patterns `Ok(!)` and `Err(!)` not covered
+    |
+note: `Result<!, !>` defined here
+   --> library/core/src/result.rs:558:0
+   ::: library/core/src/result.rs:562:4
+    |
+    = note: not covered
+   ::: library/core/src/result.rs:567:4
+    |
+    = note: not covered
+    = note: the matched value is of type `Result<!, !>`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern, a match arm with multiple or-patterns as shown, or multiple match arms
+    |
+319 ~     match *x {
+320 +         Ok(!) | Err(!),
+321 ~     } //[normal,never_pats]~ ERROR non-exhaustive
+    |
+
+error[E0004]: non-exhaustive patterns: type `[!; 3]` is non-empty
+   --> main.rs:321:11
+    |
+321 |     match *x {} //[normal,never_pats]~ ERROR non-exhaustive
+    |           ^^
+    |
+    = note: the matched value is of type `[!; 3]`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown
+    |
+321 ~     match *x {
+322 +         _ => todo!(),
+323 ~     } //[normal,never_pats]~ ERROR non-exhaustive
+    |
+
+error[E0004]: non-exhaustive patterns: type `&[!]` is non-empty
+   --> main.rs:326:11
+    |
+326 |     match slice_never {}
+    |           ^^^^^^^^^^^
+    |
+    = note: the matched value is of type `&[!]`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown
+    |
+326 ~     match slice_never {
+327 +         _ => todo!(),
+328 ~     }
+    |
+
+error[E0004]: non-exhaustive patterns: `&[!, ..]` not covered
+   --> main.rs:328:11
+    |
+328 |     match slice_never {
+    |           ^^^^^^^^^^^ pattern `&[!, ..]` not covered
+    |
+    = note: the matched value is of type `&[!]`
+    = note: `!` is uninhabited but is not being matched by value, so a wildcard `_` is required
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+330 ~         [] => {},
+331 +         &[!, ..]
+    |
+
+error[E0004]: non-exhaustive patterns: `&[]`, `&[!]` and `&[!, !]` not covered
+   --> main.rs:337:11
+    |
+337 |     match slice_never {
+    |           ^^^^^^^^^^^ patterns `&[]`, `&[!]` and `&[!, !]` not covered
+    |
+    = note: the matched value is of type `&[!]`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern, a match arm with multiple or-patterns as shown, or multiple match arms
+    |
+341 ~         [_, _, _, ..] => {},
+342 +         &[] | &[!] | &[!, !] => todo!()
+    |
+
+error[E0004]: non-exhaustive patterns: `&[]` and `&[!, ..]` not covered
+   --> main.rs:351:11
+    |
+351 |     match slice_never {
+    |           ^^^^^^^^^^^ patterns `&[]` and `&[!, ..]` not covered
+    |
+    = note: the matched value is of type `&[!]`
+    = note: match arms with guards don't count towards exhaustivity
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern, a match arm with multiple or-patterns as shown, or multiple match arms
+    |
+355 ~         &[..] if false => {},
+356 +         &[] | &[!, ..] => todo!()
+    |
+
+error[E0004]: non-exhaustive patterns: type `[!]` is non-empty
+   --> main.rs:358:11
+    |
+358 |     match *slice_never {}
+    |           ^^^^^^^^^^^^
+    |
+    = note: the matched value is of type `[!]`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown
+    |
+358 ~     match *slice_never {
+359 +         _ => todo!(),
+360 ~     }
+    |
+
+error[E0004]: non-exhaustive patterns: type `[!; 0]` is non-empty
+   --> main.rs:387:11
+    |
+387 |     match array_0_never {}
+    |           ^^^^^^^^^^^^^
+    |
+    = note: the matched value is of type `[!; 0]`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown
+    |
+387 ~     match array_0_never {
+388 +         _ => todo!(),
+389 ~     }
+    |
+
+error: unreachable pattern
+   --> main.rs:394:9
+    |
+393 |         [] => {}
+    |         -- matches all the relevant values
+394 |         _ => {} //~ ERROR unreachable pattern
+    |         ^ no value can reach this
+
+error[E0004]: non-exhaustive patterns: `[]` not covered
+   --> main.rs:396:11
+    |
+396 |     match array_0_never {
+    |           ^^^^^^^^^^^^^ pattern `[]` not covered
+    |
+    = note: the matched value is of type `[!; 0]`
+    = note: match arms with guards don't count towards exhaustivity
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+398 ~         [..] if false => {},
+399 +         [] => todo!()
+    |
+
+error[E0004]: non-exhaustive patterns: `&Some(!)` not covered
+   --> main.rs:450:11
+    |
+450 |     match ref_opt_never {
+    |           ^^^^^^^^^^^^^ pattern `&Some(!)` not covered
+    |
+note: `Option<!>` defined here
+   --> library/core/src/option.rs:598:0
+   ::: library/core/src/option.rs:606:4
+    |
+    = note: not covered
+    = note: the matched value is of type `&Option<!>`
+    = note: `!` is uninhabited but is not being matched by value, so a wildcard `_` is required
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+452 ~         &None => {},
+453 +         &Some(!)
+    |
+
+error[E0004]: non-exhaustive patterns: `Some(!)` not covered
+   --> main.rs:491:11
+    |
+491 |     match *ref_opt_never {
+    |           ^^^^^^^^^^^^^^ pattern `Some(!)` not covered
+    |
+note: `Option<!>` defined here
+   --> library/core/src/option.rs:598:0
+   ::: library/core/src/option.rs:606:4
+    |
+    = note: not covered
+    = note: the matched value is of type `Option<!>`
+    = note: `!` is uninhabited but is not being matched by value, so a wildcard `_` is required
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+493 ~         None => {},
+494 +         Some(!)
+    |
+
+error[E0004]: non-exhaustive patterns: `Err(!)` not covered
+   --> main.rs:539:11
+    |
+539 |     match *ref_res_never {
+    |           ^^^^^^^^^^^^^^ pattern `Err(!)` not covered
+    |
+note: `Result<!, !>` defined here
+   --> library/core/src/result.rs:558:0
+   ::: library/core/src/result.rs:567:4
+    |
+    = note: not covered
+    = note: the matched value is of type `Result<!, !>`
+    = note: `!` is uninhabited but is not being matched by value, so a wildcard `_` is required
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+542 ~         Ok(_) => {},
+543 +         Err(!)
+    |
+
+error[E0004]: non-exhaustive patterns: `Err(!)` not covered
+   --> main.rs:550:11
+    |
+550 |     match *ref_res_never {
+    |           ^^^^^^^^^^^^^^ pattern `Err(!)` not covered
+    |
+note: `Result<!, !>` defined here
+   --> library/core/src/result.rs:558:0
+   ::: library/core/src/result.rs:567:4
+    |
+    = note: not covered
+    = note: the matched value is of type `Result<!, !>`
+    = note: `!` is uninhabited but is not being matched by value, so a wildcard `_` is required
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+553 ~         Ok(_a) => {},
+554 +         Err(!)
+    |
+
+error[E0004]: non-exhaustive patterns: type `(u32, !)` is non-empty
+   --> main.rs:569:11
+    |
+569 |     match *ref_tuple_half_never {}
+    |           ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: the matched value is of type `(u32, !)`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown
+    |
+569 ~     match *ref_tuple_half_never {
+570 +         _ => todo!(),
+571 ~     }
+    |
+
+error: unreachable pattern
+   --> main.rs:602:9
+    |
+602 |         _ => {} //~ ERROR unreachable pattern
+    |         ^------
+    |         |
+    |         matches no values because `!` is uninhabited
+    |         help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error: unreachable pattern
+   --> main.rs:605:9
+    |
+605 |         _x => {} //~ ERROR unreachable pattern
+    |         ^^------
+    |         |
+    |         matches no values because `!` is uninhabited
+    |         help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error: unreachable pattern
+   --> main.rs:608:9
+    |
+608 |         _ if false => {} //~ ERROR unreachable pattern
+    |         ^---------------
+    |         |
+    |         matches no values because `!` is uninhabited
+    |         help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error: unreachable pattern
+   --> main.rs:611:9
+    |
+611 |         _x if false => {} //~ ERROR unreachable pattern
+    |         ^^---------------
+    |         |
+    |         matches no values because `!` is uninhabited
+    |         help: remove the match arm
+    |
+    = note: to learn more about uninhabited types, see https://doc.rust-lang.org/nomicon/exotic-sizes.html#empty-types
+
+error[E0004]: non-exhaustive patterns: `&!` not covered
+   --> main.rs:636:11
+    |
+636 |     match ref_never {
+    |           ^^^^^^^^^ pattern `&!` not covered
+    |
+    = note: the matched value is of type `&!`
+    = note: `!` is uninhabited but is not being matched by value, so a wildcard `_` is required
+    = note: references are always considered inhabited
+    = note: match arms with guards don't count towards exhaustivity
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+639 ~         &_a if false => {},
+640 +         &!
+    |
+
+error[E0004]: non-exhaustive patterns: `Ok(!)` not covered
+   --> main.rs:652:11
+    |
+652 |     match *ref_result_never {
+    |           ^^^^^^^^^^^^^^^^^ pattern `Ok(!)` not covered
+    |
+note: `Result<!, !>` defined here
+   --> library/core/src/result.rs:558:0
+   ::: library/core/src/result.rs:562:4
+    |
+    = note: not covered
+    = note: the matched value is of type `Result<!, !>`
+    = note: `!` is uninhabited but is not being matched by value, so a wildcard `_` is required
+    = note: match arms with guards don't count towards exhaustivity
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+658 ~         Err(_) => {},
+659 +         Ok(!)
+    |
+
+error[E0004]: non-exhaustive patterns: `Some(!)` not covered
+   --> main.rs:672:11
+    |
+672 |     match *x {
+    |           ^^ pattern `Some(!)` not covered
+    |
+note: `Option<Result<!, !>>` defined here
+   --> library/core/src/option.rs:598:0
+   ::: library/core/src/option.rs:606:4
+    |
+    = note: not covered
+    = note: the matched value is of type `Option<Result<!, !>>`
+    = note: `Result<!, !>` is uninhabited but is not being matched by value, so a wildcard `_` is required
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+675 ~         None => {},
+676 +         Some(!)
+    |
+
+error: aborting due to 42 previous errors; 6 warnings emitted
+
+Some errors have detailed explanations: E0004, E0005.
+For more information about an error, try `rustc --explain E0004`.
+rustc exit: 1
+
+[exit 0]

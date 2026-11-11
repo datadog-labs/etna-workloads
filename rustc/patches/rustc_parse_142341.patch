@@ -1,0 +1,56 @@
+diff --git a/compiler/rustc_parse/src/parser/diagnostics.rs b/compiler/rustc_parse/src/parser/diagnostics.rs
+index 0b91828639d368975752d141909656a3c796bfd2..ca59be5d75c34c1d531ce6570b6fefd81150349e 100644
+--- a/compiler/rustc_parse/src/parser/diagnostics.rs
++++ b/compiler/rustc_parse/src/parser/diagnostics.rs
+@@ -665,34 +665,23 @@ fn tokens_to_string(tokens: &[TokenType]) -> String {
+         }
+ 
+         if let token::DocComment(kind, style, _) = self.token.kind {
+-            // This is to avoid suggesting converting a doc comment to a regular comment
+-            // when missing a comma before the doc comment in lists (#142311):
+-            //
+-            // ```
+-            // enum Foo{
+-            //     A /// xxxxxxx
+-            //     B,
+-            // }
+-            // ```
+-            if !expected.contains(&TokenType::Comma) {
+-                // We have something like `expr //!val` where the user likely meant `expr // !val`
+-                let pos = self.token.span.lo() + BytePos(2);
+-                let span = self.token.span.with_lo(pos).with_hi(pos);
+-                err.span_suggestion_verbose(
+-                    span,
+-                    format!(
+-                        "add a space before {} to write a regular comment",
+-                        match (kind, style) {
+-                            (token::CommentKind::Line, ast::AttrStyle::Inner) => "`!`",
+-                            (token::CommentKind::Block, ast::AttrStyle::Inner) => "`!`",
+-                            (token::CommentKind::Line, ast::AttrStyle::Outer) => "the last `/`",
+-                            (token::CommentKind::Block, ast::AttrStyle::Outer) => "the last `*`",
+-                        },
+-                    ),
+-                    " ".to_string(),
+-                    Applicability::MaybeIncorrect,
+-                );
+-            }
++            // We have something like `expr //!val` where the user likely meant `expr // !val`
++            let pos = self.token.span.lo() + BytePos(2);
++            let span = self.token.span.with_lo(pos).with_hi(pos);
++            err.span_suggestion_verbose(
++                span,
++                format!(
++                    "add a space before {} to write a regular comment",
++                    match (kind, style) {
++                        (token::CommentKind::Line, ast::AttrStyle::Inner) => "`!`",
++                        (token::CommentKind::Block, ast::AttrStyle::Inner) => "`!`",
++                        (token::CommentKind::Line, ast::AttrStyle::Outer) => "the last `/`",
++                        (token::CommentKind::Block, ast::AttrStyle::Outer) => "the last `*`",
++                    },
++                ),
++                " ".to_string(),
++                Applicability::MachineApplicable,
++            );
+         }
+ 
+         let sp = if self.token == token::Eof {

@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr_use_visitor.rs b/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
+index b2255c8d9679a6742227268590fc8476f09f50d4..8a06eb246afaa6f8eb26430684ffa83a4bb44df8 100644
+--- a/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
++++ b/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
+@@ -11,7 +11,6 @@
+ use hir::def::DefKind;
+ use hir::pat_util::EnumerateAndAdjustIterator as _;
+ use rustc_abi::{FIRST_VARIANT, FieldIdx, VariantIdx};
+-use rustc_ast::UnsafeBinderCastKind;
+ use rustc_data_structures::fx::FxIndexMap;
+ use rustc_hir::def::{CtorOf, Res};
+ use rustc_hir::def_id::LocalDefId;
+@@ -1354,15 +1353,7 @@ fn cat_expr_unadjusted(&self, expr: &hir::Expr<'_>) -> Result<PlaceWithHirId<'tc
+             // type ascription doesn't affect the place-ness of the subexpression.
+             hir::ExprKind::Type(e, _) => self.cat_expr(e),
+ 
+-            hir::ExprKind::UnsafeBinderCast(UnsafeBinderCastKind::Unwrap, e, _) => {
+-                let base = self.cat_expr(e)?;
+-                Ok(self.cat_projection(
+-                    expr.hir_id,
+-                    base,
+-                    expr_ty,
+-                    ProjectionKind::UnwrapUnsafeBinder,
+-                ))
+-            }
++            hir::ExprKind::UnsafeBinderCast(_, e, _) => self.cat_expr(e),
+ 
+             hir::ExprKind::AddrOf(..)
+             | hir::ExprKind::Call(..)
+@@ -1393,7 +1384,6 @@ fn cat_expr_unadjusted(&self, expr: &hir::Expr<'_>) -> Result<PlaceWithHirId<'tc
+             | hir::ExprKind::Repeat(..)
+             | hir::ExprKind::InlineAsm(..)
+             | hir::ExprKind::OffsetOf(..)
+-            | hir::ExprKind::UnsafeBinderCast(UnsafeBinderCastKind::Wrap, ..)
+             | hir::ExprKind::Err(_) => Ok(self.cat_rvalue(expr.hir_id, expr_ty)),
+         }
+     }

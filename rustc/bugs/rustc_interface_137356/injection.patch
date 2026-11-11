@@ -1,0 +1,68 @@
+diff --git a/compiler/rustc_interface/src/diagnostics.rs b/compiler/rustc_interface/src/diagnostics.rs
+index 9e6d4317c98e5840b0c1607c35bfffa17fbbc037..1bed18fc06864e522b320009e9351250aaee808c 100644
+--- a/compiler/rustc_interface/src/diagnostics.rs
++++ b/compiler/rustc_interface/src/diagnostics.rs
+@@ -30,11 +30,10 @@ pub(crate) struct FerrisIdentifier {
+     pub spans: Vec<Span>,
+     #[suggestion(
+         "try using their name instead",
+-        code = "{ferris_fix}",
++        code = "ferris",
+         applicability = "maybe-incorrect"
+     )]
+     pub first_span: Span,
+-    pub ferris_fix: &'static str,
+ }
+ 
+ #[derive(Diagnostic)]
+diff --git a/compiler/rustc_interface/src/passes.rs b/compiler/rustc_interface/src/passes.rs
+index c154685f1e705e44932397c7f6d17e30678dc872..46a40a3409221f1e332dc09da342fd57d706be66 100644
+--- a/compiler/rustc_interface/src/passes.rs
++++ b/compiler/rustc_interface/src/passes.rs
+@@ -430,45 +430,8 @@ fn early_lint_checks(tcx: TyCtxt<'_>, (): ()) {
+         for (ident, mut spans) in identifiers.drain(..) {
+             spans.sort();
+             if ident == sym::ferris {
+-                enum FerrisFix {
+-                    SnakeCase,
+-                    ScreamingSnakeCase,
+-                    PascalCase,
+-                }
+-
+-                impl FerrisFix {
+-                    const fn as_str(self) -> &'static str {
+-                        match self {
+-                            FerrisFix::SnakeCase => "ferris",
+-                            FerrisFix::ScreamingSnakeCase => "FERRIS",
+-                            FerrisFix::PascalCase => "Ferris",
+-                        }
+-                    }
+-                }
+-
+                 let first_span = spans[0];
+-                let prev_source = sess.psess.source_map().span_to_prev_source(first_span);
+-                let ferris_fix = prev_source
+-                    .map_or(FerrisFix::SnakeCase, |source| {
+-                        let mut source_before_ferris = source.split_whitespace().rev();
+-                        match source_before_ferris.next() {
+-                            Some("struct" | "trait" | "mod" | "union" | "type" | "enum") => {
+-                                FerrisFix::PascalCase
+-                            }
+-                            Some("const" | "static") => FerrisFix::ScreamingSnakeCase,
+-                            Some("mut") if source_before_ferris.next() == Some("static") => {
+-                                FerrisFix::ScreamingSnakeCase
+-                            }
+-                            _ => FerrisFix::SnakeCase,
+-                        }
+-                    })
+-                    .as_str();
+-
+-                sess.dcx().emit_err(diagnostics::FerrisIdentifier {
+-                    spans,
+-                    first_span,
+-                    ferris_fix,
+-                });
++                sess.dcx().emit_err(diagnostics::FerrisIdentifier { spans, first_span });
+             } else {
+                 sess.dcx().emit_err(diagnostics::EmojiIdentifier { spans, ident });
+             }

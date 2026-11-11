@@ -1,0 +1,56 @@
+diff --git a/compiler/rustc_attr_ir/src/attr.rs b/compiler/rustc_attr_ir/src/attr.rs
+index 6068c11590a23d257d3b5ece3ed4896f7ff7fe38..b383bcdbf794e09d1b40eea320408a11b05c2edd 100644
+--- a/compiler/rustc_attr_ir/src/attr.rs
++++ b/compiler/rustc_attr_ir/src/attr.rs
+@@ -129,15 +129,6 @@ pub fn is_parsed_attr(&self) -> bool {
+             Attribute::Unparsed(_) => false,
+         }
+     }
+-
+-    pub fn is_prefix_attr_for_suggestions(&self) -> bool {
+-        match self {
+-            Attribute::Unparsed(attr) => attr.span.desugaring_kind().is_none(),
+-            // Other parsed attributes that can appear on expressions originate from source and
+-            // should make suggestions treat the expression like a prefixed form.
+-            Attribute::Parsed(_) => true,
+-        }
+-    }
+ }
+ 
+ impl AttributeExt for Attribute {
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..e3895f67880ecce30e0321e2313356eb84cec213 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -56,7 +56,12 @@
+ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
+     pub(crate) fn precedence(&self, expr: &hir::Expr<'_>) -> ExprPrecedence {
+         let has_attr = |id: HirId| -> bool {
+-            self.tcx.hir_attrs(id).iter().any(hir::Attribute::is_prefix_attr_for_suggestions)
++            for attr in self.tcx.hir_attrs(id) {
++                if attr.span().desugaring_kind().is_none() {
++                    return true;
++                }
++            }
++            false
+         };
+ 
+         // Special case: range expressions are desugared to struct literals in HIR,
+diff --git a/compiler/rustc_lint/src/context.rs b/compiler/rustc_lint/src/context.rs
+index 638c4a12b9fb1ea58f993dbd9f853051afac41b5..f369b83d7ae9852f2cd35fc491e15981a2d7342c 100644
+--- a/compiler/rustc_lint/src/context.rs
++++ b/compiler/rustc_lint/src/context.rs
+@@ -843,7 +843,12 @@ pub fn get_associated_type(
+     /// be used for pretty-printing HIR by rustc_hir_pretty.
+     pub fn precedence(&self, expr: &hir::Expr<'_>) -> ExprPrecedence {
+         let has_attr = |id: hir::HirId| -> bool {
+-            self.tcx.hir_attrs(id).iter().any(hir::Attribute::is_prefix_attr_for_suggestions)
++            for attr in self.tcx.hir_attrs(id) {
++                if attr.span().desugaring_kind().is_none() {
++                    return true;
++                }
++            }
++            false
+         };
+         expr.precedence(&has_attr)
+     }

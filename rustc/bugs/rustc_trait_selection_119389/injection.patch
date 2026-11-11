@@ -1,0 +1,48 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..b300bec356b1d939389b962ab7be11ab53472945 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -6731,42 +6731,7 @@ fn point_at_assoc_type_restriction<G: EmissionGuarantee>(
+                 && let hir::QPath::Resolved(None, inner_path) = inner_path
+                 && let Res::SelfTyAlias { .. } = inner_path.res
+             {
+-                // The following block is to determine the right span to delete for this bound
+-                // that will leave valid code after the suggestion is applied.
+-                let span = if pred.origin == hir::PredicateOrigin::WhereClause
+-                    && generics
+-                        .predicates
+-                        .iter()
+-                        .filter(|p| {
+-                            matches!(
+-                                p.kind,
+-                                hir::WherePredicateKind::BoundPredicate(p)
+-                                if hir::PredicateOrigin::WhereClause == p.origin
+-                            )
+-                        })
+-                        .count()
+-                        == 1
+-                {
+-                    // There's only one `where` bound, that needs to be removed. Remove the whole
+-                    // `where` clause.
+-                    generics.where_clause_span
+-                } else if let Some(next_pred) = predicates.peek()
+-                    && let hir::WherePredicateKind::BoundPredicate(next) = next_pred.kind
+-                    && pred.origin == next.origin
+-                {
+-                    // There's another bound, include the comma for the current one.
+-                    curr_span.until(next_pred.span)
+-                } else if let Some((prev, prev_span)) = prev
+-                    && pred.origin == prev.origin
+-                {
+-                    // Last bound, try to remove the previous comma.
+-                    prev_span.shrink_to_hi().to(curr_span)
+-                } else if pred.origin == hir::PredicateOrigin::WhereClause {
+-                    curr_span.with_hi(generics.where_clause_span.hi())
+-                } else {
+-                    curr_span
+-                };
+-
++                let span = curr_span;
+                 err.span_suggestion_verbose(
+                     span,
+                     "associated type for the current `impl` cannot be restricted in `where` \

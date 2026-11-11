@@ -1,0 +1,106 @@
+diff --git a/compiler/rustc_mir_build/src/builder/mod.rs b/compiler/rustc_mir_build/src/builder/mod.rs
+index 5efe62c3ebc213b3221faa26c4e1a12087ac0955..3649aa365ff0e095c564e159f46b1d9685d885db 100644
+--- a/compiler/rustc_mir_build/src/builder/mod.rs
++++ b/compiler/rustc_mir_build/src/builder/mod.rs
+@@ -505,15 +505,7 @@ fn construct_fn<'tcx>(
+         );
+     }
+ 
+-    let typing_mode = if tcx.use_typing_mode_post_typeck_until_borrowck() {
+-        TypingMode::borrowck(tcx, fn_def)
+-    } else {
+-        // FIXME(#132279): This should be able to reveal opaque
+-        // types defined during HIR typeck.
+-        TypingMode::non_body_analysis()
+-    };
+-
+-    let infcx = tcx.infer_ctxt().build(typing_mode);
++    let infcx = tcx.infer_ctxt().build(TypingMode::non_body_analysis());
+     let mut builder = Builder::new(
+         thir,
+         infcx,
+@@ -593,15 +585,7 @@ fn construct_const<'a, 'tcx>(
+         _ => span_bug!(tcx.def_span(def), "can't build MIR for {:?}", def),
+     };
+ 
+-    let typing_mode = if tcx.use_typing_mode_post_typeck_until_borrowck() {
+-        TypingMode::borrowck(tcx, def)
+-    } else {
+-        // FIXME(#132279): This should be able to reveal opaque
+-        // types defined during HIR typeck.
+-        TypingMode::non_body_analysis()
+-    };
+-
+-    let infcx = tcx.infer_ctxt().build(typing_mode);
++    let infcx = tcx.infer_ctxt().build(TypingMode::non_body_analysis());
+     let mut builder =
+         Builder::new(thir, infcx, def, hir_id, span, 0, const_ty, const_ty_span, None);
+ 
+diff --git a/compiler/rustc_mir_build/src/builder/scope.rs b/compiler/rustc_mir_build/src/builder/scope.rs
+index a5707e0177c63a2ef05d8ab0aa5600a313074026..8a0a4b95aa5dc8fd208f96ec347e7bb9aead3e04 100644
+--- a/compiler/rustc_mir_build/src/builder/scope.rs
++++ b/compiler/rustc_mir_build/src/builder/scope.rs
+@@ -968,10 +968,7 @@ pub(crate) fn break_const_continuable_scope(
+             tcx: self.tcx,
+             typeck_results,
+             module: self.tcx.parent_module(self.hir_id),
+-            typing_env: ty::TypingEnv::post_typeck_until_borrowck_for_mir_build(
+-                self.tcx,
+-                self.def_id,
+-            ),
++            typing_env: rustc_middle::ty::TypingEnv::non_body_analysis(self.tcx, self.def_id),
+             dropless_arena: &dropless_arena,
+             match_lint_level: self.hir_id,
+             whole_match_span: Some(rustc_span::Span::default()),
+diff --git a/compiler/rustc_mir_build/src/check_tail_calls.rs b/compiler/rustc_mir_build/src/check_tail_calls.rs
+index a7b6ff87a29fd2e2e3341eb0ba96db34da03df95..47b649a8222efb0f045827bdbb86e28c51548ef3 100644
+--- a/compiler/rustc_mir_build/src/check_tail_calls.rs
++++ b/compiler/rustc_mir_build/src/check_tail_calls.rs
+@@ -26,7 +26,7 @@ pub(crate) fn check_tail_calls(tcx: TyCtxt<'_>, def: LocalDefId) -> Result<(), E
+         tcx,
+         thir,
+         found_errors: Ok(()),
+-        typing_env: ty::TypingEnv::post_typeck_until_borrowck_for_mir_build(tcx, def),
++        typing_env: ty::TypingEnv::non_body_analysis(tcx, def),
+         is_closure,
+         caller_def_id: def,
+     };
+diff --git a/compiler/rustc_mir_build/src/check_unsafety.rs b/compiler/rustc_mir_build/src/check_unsafety.rs
+index 29a93e2994d0dd73d033c0a6b91fcb96de257e26..f4107f1428706e6536ec818ac39b2471e07a04f4 100644
+--- a/compiler/rustc_mir_build/src/check_unsafety.rs
++++ b/compiler/rustc_mir_build/src/check_unsafety.rs
+@@ -1091,7 +1091,7 @@ pub(crate) fn check_unsafety(tcx: TyCtxt<'_>, def: LocalDefId) {
+         body_target_features,
+         assignment_info: None,
+         in_union_destructure: false,
+-        typing_env: ty::TypingEnv::post_typeck_until_borrowck_for_mir_build(tcx, def),
++        typing_env: ty::TypingEnv::non_body_analysis(tcx, def),
+         inside_adt: false,
+         warnings: &mut warnings,
+         suggest_unsafe_block: true,
+diff --git a/compiler/rustc_mir_build/src/thir/cx/mod.rs b/compiler/rustc_mir_build/src/thir/cx/mod.rs
+index aad87a99c003612681c5481a0072e92d290e8347..36026134cbd293bda4df3d655e6423218d301049 100644
+--- a/compiler/rustc_mir_build/src/thir/cx/mod.rs
++++ b/compiler/rustc_mir_build/src/thir/cx/mod.rs
+@@ -99,7 +99,7 @@ fn new(tcx: TyCtxt<'tcx>, def: LocalDefId) -> Self {
+         Self {
+             tcx,
+             thir: Thir::new(body_type),
+-            typing_env: ty::TypingEnv::post_typeck_until_borrowck_for_mir_build(tcx, def),
++            typing_env: ty::TypingEnv::non_body_analysis(tcx, def),
+             typeck_results,
+             body_owner: def.to_def_id(),
+             apply_adjustments: !find_attr!(tcx, hir_id, CustomMir(..)),
+diff --git a/compiler/rustc_mir_build/src/thir/pattern/check_match.rs b/compiler/rustc_mir_build/src/thir/pattern/check_match.rs
+index 62a0cbc24fd73f7bc4cc9e6127d55fde84e84392..b3fe7e30ee529c9c5b40547f3ea9209c3f228f7c 100644
+--- a/compiler/rustc_mir_build/src/thir/pattern/check_match.rs
++++ b/compiler/rustc_mir_build/src/thir/pattern/check_match.rs
+@@ -38,7 +38,7 @@ pub(crate) fn check_match(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Result<(), Err
+         tcx,
+         thir: &*thir,
+         typeck_results,
+-        typing_env: ty::TypingEnv::post_typeck_until_borrowck_for_mir_build(tcx, def_id),
++        typing_env: ty::TypingEnv::non_body_analysis(tcx, def_id),
+         hir_source: tcx.local_def_id_to_hir_id(def_id),
+         let_source: LetSource::None,
+         pattern_arena: &pattern_arena,

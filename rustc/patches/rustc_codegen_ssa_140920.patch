@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_codegen_ssa/src/target_features.rs b/compiler/rustc_codegen_ssa/src/target_features.rs
+index 69487d2039c3134775843abbc10a8327fb14df0e..03364070316d8a4664e41c232af22b3bcf222f60 100644
+--- a/compiler/rustc_codegen_ssa/src/target_features.rs
++++ b/compiler/rustc_codegen_ssa/src/target_features.rs
+@@ -451,8 +451,11 @@ pub fn target_spec_to_backend_features<'a>(
+         |base_feature, new_features, enable| {
+             // FIXME emit an error for unknown features in the target spec like
+             // internal_target_features would for -Ctarget-feature.
+-            let new_features =
+-                new_features.unwrap_or_else(|| FxHashSet::from_iter(std::iter::once(base_feature)));
++            // Do not forward reverse implications of negated features; rely on the backend.
++            let new_features = match new_features {
++                Some(new_features) if enable => new_features,
++                _ => FxHashSet::from_iter(std::iter::once(base_feature)),
++            };
+             for new_feature in UnordSet::from(new_features).to_sorted_stable_ord().iter() {
+                 extend_backend_features(new_feature, enable);
+             }
+@@ -477,8 +480,11 @@ pub fn flag_to_backend_features<'a>(
+         },
+         |base_feature, new_features, enable| {
+             // Forward unknown features to the backend as that's what we have always done.
+-            let new_features =
+-                new_features.unwrap_or_else(|| FxHashSet::from_iter(std::iter::once(base_feature)));
++            // Do not forward reverse implications of negated features; rely on the backend.
++            let new_features = match new_features {
++                Some(new_features) if enable => new_features,
++                _ => FxHashSet::from_iter(std::iter::once(base_feature)),
++            };
+             for new_feature in UnordSet::from(new_features).to_sorted_stable_ord().iter() {
+                 extend_backend_features(new_feature, enable);
+             }

@@ -1,0 +1,50 @@
+diff --git a/compiler/rustc_parse/src/lexer/mod.rs b/compiler/rustc_parse/src/lexer/mod.rs
+index 4f7c76e7df8162c275080a0f30f2fdd73aad2005..4d144d7a65df367ed1c65798a86577f2da56b2f0 100644
+--- a/compiler/rustc_parse/src/lexer/mod.rs
++++ b/compiler/rustc_parse/src/lexer/mod.rs
+@@ -1054,6 +1054,7 @@ fn report_unknown_prefix(&self, start: BytePos) {
+         let expn_data = prefix_span.ctxt().outer_expn_data();
+ 
+         if expn_data.edition.at_least_rust_2021() {
++            let mut silence = false;
+             // In Rust 2021, this is a hard error.
+             let sugg = if prefix == "rb" {
+                 Some(crate::diagnostics::UnknownPrefixSugg::UseBr(prefix_span))
+@@ -1063,13 +1064,13 @@ fn report_unknown_prefix(&self, start: BytePos) {
+                 if self.cursor.first() == '\''
+                     && let Some(start) = self.last_lifetime
+                     && self.cursor.third() != '\''
+-                    && let end = self.mk_sp(self.pos, self.pos + BytePos(1))
+-                    && !self.psess.source_map().is_multiline(start.until(end))
+                 {
+-                    // FIXME: An "unclosed `char`" error will be emitted already in some cases,
+-                    // but it's hard to silence this error while not also silencing important cases
+-                    // too. We should use the error stashing machinery instead.
+-                    Some(crate::diagnostics::UnknownPrefixSugg::MeantStr { start, end })
++                    // An "unclosed `char`" error will be emitted already, silence redundant error.
++                    silence = true;
++                    Some(crate::diagnostics::UnknownPrefixSugg::MeantStr {
++                        start,
++                        end: self.mk_sp(self.pos, self.pos + BytePos(1)),
++                    })
+                 } else {
+                     Some(crate::diagnostics::UnknownPrefixSugg::Whitespace(
+                         prefix_span.shrink_to_hi(),
+@@ -1078,11 +1079,12 @@ fn report_unknown_prefix(&self, start: BytePos) {
+             } else {
+                 None
+             };
+-            self.dcx().emit_err(crate::diagnostics::UnknownPrefix {
+-                span: prefix_span,
+-                prefix,
+-                sugg,
+-            });
++            let err = crate::diagnostics::UnknownPrefix { span: prefix_span, prefix, sugg };
++            if silence {
++                self.dcx().create_err(err).delay_as_bug();
++            } else {
++                self.dcx().emit_err(err);
++            }
+         } else {
+             // Before Rust 2021, only emit a lint for migration.
+             self.psess.buffer_lint(

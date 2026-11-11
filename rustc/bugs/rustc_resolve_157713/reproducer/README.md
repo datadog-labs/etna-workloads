@@ -1,0 +1,1 @@
+Compiles a lib where a glob import of a module re-exporting a trait is only 'used' via doc-link trait collection; the injected compiler wrongly warns 'unused import: crate::outer', the clean one emits no warning.

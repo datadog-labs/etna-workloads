@@ -1,0 +1,1 @@
+A naked function called from a pub function must keep external linkage/hidden visibility. The injection removes the partitioning rule, so the naked function gets internal linkage and the compiler emits no `.globl`/`.hidden` for it. The script compiles with -O --emit asm and prints the visibility directives.

@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_parse/src/parser/item.rs b/compiler/rustc_parse/src/parser/item.rs
+index 1306f1fcfb1ceeb52b88979d5f200cb654f27d65..4365a569b487f8a42c73b18db0c910dd5043c054 100644
+--- a/compiler/rustc_parse/src/parser/item.rs
++++ b/compiler/rustc_parse/src/parser/item.rs
+@@ -261,7 +261,9 @@ fn parse_item_kind(
+         let check_pub = def == &Defaultness::Implicit;
+         let mut def_ = || mem::replace(def, Defaultness::Implicit);
+ 
+-        let info = if !self.is_use_closure() && self.eat_keyword_case(exp!(Use), case) {
++        let info = if !self.look_ahead(1, |t| [token::OrOr, token::Or].contains(&t.kind))
++            && self.eat_keyword_case(exp!(Use), case)
++        {
+             self.parse_use_item()?
+         } else if self.check_fn_front_matter(check_pub, case) {
+             // FUNCTION ITEM
+@@ -1548,21 +1550,6 @@ fn error_bad_item_kind<T>(&self, span: Span, kind: &ItemKind, ctx: &'static str)
+         None
+     }
+ 
+-    fn is_use_closure(&self) -> bool {
+-        if self.token.is_keyword(kw::Use) {
+-            // Check if this could be a closure.
+-            self.look_ahead(1, |token| {
+-                // Move or Async here would be an error but still we're parsing a closure
+-                let dist =
+-                    if token.is_keyword(kw::Move) || token.is_keyword(kw::Async) { 2 } else { 1 };
+-
+-                self.look_ahead(dist, |token| matches!(token.kind, token::Or | token::OrOr))
+-            })
+-        } else {
+-            false
+-        }
+-    }
+-
+     pub(super) fn is_unsafe_foreign_mod(&self) -> bool {
+         // Look for `unsafe`.
+         if !self.token.is_keyword(kw::Unsafe) {

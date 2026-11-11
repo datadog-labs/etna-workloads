@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/project.rs b/compiler/rustc_trait_selection/src/traits/project.rs
+index 7da8c68ff894a0ff74bd55e1f5b07b671bac5259..53ceba9f87a64abd9762a41a2906eefe53ed9e41 100644
+--- a/compiler/rustc_trait_selection/src/traits/project.rs
++++ b/compiler/rustc_trait_selection/src/traits/project.rs
+@@ -2029,7 +2029,22 @@ fn confirm_impl_candidate<'cx, 'tcx>(
+             assoc_term.item.name(),
+             obligation.predicate
+         );
+-        if tcx.impl_self_is_guaranteed_unsized(impl_def_id) {
++        let tail = selcx.tcx().struct_tail_raw(
++            tcx.type_of(impl_def_id).instantiate(tcx, args).skip_norm_wip(),
++            &obligation.cause,
++            |ty| {
++                normalize_with_depth_to(
++                    selcx,
++                    obligation.param_env,
++                    obligation.cause.clone(),
++                    obligation.recursion_depth + 1,
++                    ty,
++                    &mut nested,
++                )
++            },
++            || {},
++        );
++        if ty::inherent::Ty::is_guaranteed_unsized_raw(tail) {
+             // We treat this projection as rigid here, which is represented via
+             // `Projected::NoProgress`. This will ensure that the projection is
+             // checked for well-formedness, and it's either satisfied by a trivial

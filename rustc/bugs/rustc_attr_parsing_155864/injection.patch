@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_attr_parsing/src/target_checking.rs b/compiler/rustc_attr_parsing/src/target_checking.rs
+index 68357dfec88e8aaf23ee10ac40ac0ed472c1e4c1..49b107f4803cea37445b81c98a5c51ebd9284cab 100644
+--- a/compiler/rustc_attr_parsing/src/target_checking.rs
++++ b/compiler/rustc_attr_parsing/src/target_checking.rs
+@@ -340,16 +340,15 @@ pub(crate) fn check_invalid_where_predicate_attrs<'attr>(
+         // in where clauses. After that, this function would become useless.
+         let spans = attrs
+             .into_iter()
+-            .filter_map(|attr| {
+-                match attr {
+-                    Attribute::Parsed(AttributeKind::DocComment { span, .. }) => Some(*span),
+-                    // FIXME: We shouldn't need to special-case `doc`!
+-                    Attribute::Parsed(AttributeKind::Doc(attr)) => Some(attr.first_span),
+-                    // Checked during attribute parsing target checking
+-                    Attribute::Parsed(_) => None,
+-                    Attribute::Unparsed(attr) => Some(attr.span),
+-                }
++            // FIXME: We shouldn't need to special-case `doc`!
++            .filter(|attr| {
++                matches!(
++                    attr,
++                    Attribute::Parsed(AttributeKind::DocComment { .. } | AttributeKind::Doc(_))
++                        | Attribute::Unparsed(_)
++                )
+             })
++            .map(|attr| attr.span())
+             .collect::<Vec<_>>();
+         if !spans.is_empty() {
+             self.dcx()

@@ -1,0 +1,77 @@
+diff --git a/compiler/rustc_mir_build/src/check_tail_calls.rs b/compiler/rustc_mir_build/src/check_tail_calls.rs
+index a7b6ff87a29fd2e2e3341eb0ba96db34da03df95..1b58c8e2e133a20b44958682fab6bc9759357a86 100644
+--- a/compiler/rustc_mir_build/src/check_tail_calls.rs
++++ b/compiler/rustc_mir_build/src/check_tail_calls.rs
+@@ -99,15 +99,9 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+             // So we have to check for them in this weird way...
+             let parent = self.tcx.parent(did);
+             if self.tcx.fn_trait_kind_from_def_id(parent).is_some()
+-                && let Some(this) = args.first()
+-                && let Some(this) = this.as_type()
++                && args.first().and_then(|arg| arg.as_type()).is_some_and(Ty::is_closure)
+             {
+-                if this.is_closure() {
+-                    self.report_calling_closure(&self.thir[fun], args[1].as_type().unwrap(), expr);
+-                } else {
+-                    // This can happen when tail calling `Box` that wraps a function
+-                    self.report_nonfn_callee(fn_span, self.thir[fun].span, this);
+-                }
++                self.report_calling_closure(&self.thir[fun], args[1].as_type().unwrap(), expr);
+ 
+                 // Tail calling is likely to cause unrelated errors (ABI, argument mismatches),
+                 // skip them, producing an error about calling a closure is enough.
+@@ -119,13 +113,6 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+             }
+         }
+ 
+-        let (ty::FnDef(..) | ty::FnPtr(..)) = ty.kind() else {
+-            self.report_nonfn_callee(fn_span, self.thir[fun].span, ty);
+-
+-            // `fn_sig` below panics otherwise
+-            return;
+-        };
+-
+         // Erase regions since tail calls don't care about lifetimes
+         let callee_sig =
+             self.tcx.normalize_erasing_late_bound_regions(self.typing_env, ty.fn_sig(self.tcx));
+@@ -318,40 +305,6 @@ fn report_calling_intrinsic(&mut self, expr: &Expr<'_>) {
+         self.found_errors = Err(err);
+     }
+ 
+-    fn report_nonfn_callee(&mut self, call_sp: Span, fun_sp: Span, ty: Ty<'_>) {
+-        let mut err = self
+-            .tcx
+-            .dcx()
+-            .struct_span_err(
+-                call_sp,
+-                "tail calls can only be performed with function definitions or pointers",
+-            )
+-            .with_note(format!("callee has type `{ty}`"));
+-
+-        let mut ty = ty;
+-        let mut refs = 0;
+-        while ty.is_box() || ty.is_ref() {
+-            ty = ty.builtin_deref(false).unwrap();
+-            refs += 1;
+-        }
+-
+-        if refs > 0 && ty.is_fn() {
+-            let thing = if ty.is_fn_ptr() { "pointer" } else { "definition" };
+-
+-            let derefs =
+-                std::iter::once('(').chain(std::iter::repeat_n('*', refs)).collect::<String>();
+-
+-            err.multipart_suggestion(
+-                format!("consider dereferencing the expression to get a function {thing}"),
+-                vec![(fun_sp.shrink_to_lo(), derefs), (fun_sp.shrink_to_hi(), ")".to_owned())],
+-                Applicability::MachineApplicable,
+-            );
+-        }
+-
+-        let err = err.emit();
+-        self.found_errors = Err(err);
+-    }
+-
+     fn report_abi_mismatch(&mut self, sp: Span, caller_abi: ExternAbi, callee_abi: ExternAbi) {
+         let err = self
+             .tcx

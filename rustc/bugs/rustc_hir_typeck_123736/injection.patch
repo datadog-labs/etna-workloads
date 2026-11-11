@@ -1,0 +1,16 @@
+diff --git a/compiler/rustc_hir_typeck/src/op.rs b/compiler/rustc_hir_typeck/src/op.rs
+index c28976555432bf0b60763f9c66865e6ebd5d6816..dfa05ad18aa32053367a1f1ff2939dcf7b8bc1f2 100644
+--- a/compiler/rustc_hir_typeck/src/op.rs
++++ b/compiler/rustc_hir_typeck/src/op.rs
+@@ -451,7 +451,10 @@ fn report_binop_fulfillment_errors(
+         // We defer to the later error produced by `check_lhs_assignable`.
+         // We only downgrade this if it's the LHS, though, and if this is a
+         // valid assignment statement.
+-        if maybe_missing_semi && self.is_lhs_of_assign_stmt(expr) {
++        if maybe_missing_semi
++            && let hir::Node::Expr(parent) = self.tcx.parent_hir_node(expr.hir_id)
++            && let hir::ExprKind::Assign(..) = parent.kind
++        {
+             err.downgrade_to_delayed_bug();
+         }
+ 

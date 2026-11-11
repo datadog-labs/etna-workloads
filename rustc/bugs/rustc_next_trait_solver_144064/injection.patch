@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_next_trait_solver/src/solve/trait_goals.rs b/compiler/rustc_next_trait_solver/src/solve/trait_goals.rs
+index bff406e72919c2231f9bd3b3977937fade3c9472..199d8adf84a39d85bf9ab8f7ecd4afc8789eb431 100644
+--- a/compiler/rustc_next_trait_solver/src/solve/trait_goals.rs
++++ b/compiler/rustc_next_trait_solver/src/solve/trait_goals.rs
+@@ -1529,9 +1529,7 @@ pub(super) fn merge_trait_candidates(
+         // Extract non-nested alias bound candidates, will be preferred over where bounds if
+         // we're proving an auto-trait, sizedness trait or default trait.
+         if matches!(candidate_preference_mode, CandidatePreferenceMode::Marker)
+-            && candidates.iter().any(|c| {
+-                matches!(c.source, CandidateSource::AliasBound(AliasBoundKind::SelfBounds))
+-            })
++            && candidates.iter().any(|c| matches!(c.source, CandidateSource::AliasBound(_)))
+         {
+             let alias_bounds: Vec<_> = candidates
+                 .extract_if(.., |c| matches!(c.source, CandidateSource::AliasBound(..)))
+diff --git a/compiler/rustc_trait_selection/src/traits/select/mod.rs b/compiler/rustc_trait_selection/src/traits/select/mod.rs
+index 9b4ee13bf1b63c92e6cf7702652c183595192e54..803f0b564bcfeaf4d3188ebd61797824752a6ed3 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/mod.rs
+@@ -1910,7 +1910,7 @@ fn winnow_candidates(
+         if matches!(candidate_preference_mode, CandidatePreferenceMode::Marker) {
+             match alias_bounds
+                 .clone()
+-                .filter_map(|(idx, kind)| (kind == AliasBoundKind::SelfBounds).then_some(idx))
++                .map(|(idx, _)| idx)
+                 .try_reduce(|c1, c2| if has_non_region_infer { None } else { Some(c1.min(c2)) })
+             {
+                 Some(Some(idx)) => {

@@ -1,0 +1,1 @@
+Compiles a no_core lib for a custom target JSON (os "ericos", arch "tamirdarch") with check-cfg enabled and uses those values in `#[cfg(...)]`. The clean compiler accepts them silently, because check-cfg values include the current target's. The injected compiler only uses builtin targets, so it emits unexpected_cfgs warnings for `ericos` and `tamirdarch`.

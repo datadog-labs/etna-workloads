@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs
+index db852701051cf7dcb4b719b95157cb31a2c6b5e3..f187e22dec5edf8d3d666a8fa6a16152768e0009 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/suggest.rs
+@@ -705,7 +705,11 @@ fn visit_stmt(&mut self, ex: &'v hir::Stmt<'v>) -> Self::Result {
+             }
+         }
+ 
+-        self.tcx.hir_maybe_body_owned_by(cause.body_def_id).and_then(|body| {
++        let body_id = match self.tcx.hir_node_by_def_id(cause.body_def_id) {
++            hir::Node::Item(hir::Item { kind: hir::ItemKind::Fn { body, .. }, .. }) => *body,
++            _ => return None,
++        };
++        Some(self.tcx.hir_body(body_id)).and_then(|body| {
+             IfVisitor { err_span: span, found_if: false }
+                 .visit_body(&body)
+                 .is_break()

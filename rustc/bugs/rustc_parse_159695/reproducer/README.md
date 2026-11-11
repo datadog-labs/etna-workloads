@@ -1,0 +1,1 @@
+An inner `#![cfg_attr(.., proc_macro_attr, ..)]` in an out-of-line module file, with sibling attributes on both sides, makes the injected compiler fail with a bogus "unclosed delimiter" error (lexing a source slice without falling back to pretty-printed tokens). The clean compiler accepts it.

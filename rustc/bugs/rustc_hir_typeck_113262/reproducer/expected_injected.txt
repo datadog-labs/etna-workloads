@@ -1,0 +1,57 @@
+error: trivial cast: `*const Foo<'a>` as `*const Foo<'static>`
+  --> main.rs:12:5
+   |
+12 |     v as *const Foo<'static>
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: cast can be replaced by coercion; this might require a temporary variable
+note: the lint level is defined here
+  --> main.rs:3:9
+   |
+ 3 | #![deny(trivial_casts)] // The casts here are not trivial.
+   |         ^^^^^^^^^^^^^
+
+error: trivial cast: `*mut (dyn Trait + 'a)` as `*mut (dyn Trait + 'static)`
+  --> main.rs:20:5
+   |
+20 |     ptr as _
+   |     ^^^^^^^^
+   |
+   = help: cast can be replaced by coercion; this might require a temporary variable
+
+error: lifetime may not live long enough
+  --> main.rs:12:10
+   |
+ 9 | fn extend_lifetime_very_very_safely<'a>(v: *const Foo<'a>) -> *const Foo<'static> {
+   |                                     -- lifetime `'a` defined here
+...
+12 |     v as *const Foo<'static>
+   |          ^^^^^^^^^^^^^^^^^^^ type annotation requires that `'a` must outlive `'static`
+
+error: lifetime may not live long enough
+  --> main.rs:20:5
+   |
+19 | fn assert_static<'a>(ptr: *mut (dyn Trait + 'a)) -> *mut (dyn Trait + 'static) {
+   |                  -- lifetime `'a` defined here
+20 |     ptr as _
+   |     ^^^^^^^^ returning this value requires that `'a` must outlive `'static`
+   |
+   = note: requirement occurs because of a mutable pointer to `dyn Trait`
+   = note: mutable pointers are invariant over their type parameter
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+help: consider changing the trait object's explicit `'static` bound to the lifetime of argument `ptr`
+   |
+19 - fn assert_static<'a>(ptr: *mut (dyn Trait + 'a)) -> *mut (dyn Trait + 'static) {
+19 + fn assert_static<'a>(ptr: *mut (dyn Trait + 'a)) -> *mut (dyn Trait + 'a) {
+   |
+help: alternatively, add an explicit `'static` bound to this reference
+   |
+19 - fn assert_static<'a>(ptr: *mut (dyn Trait + 'a)) -> *mut (dyn Trait + 'static) {
+19 + fn assert_static<'a>(ptr: *mut (dyn Trait + 'static)) -> *mut (dyn Trait + 'static) {
+   |
+
+error: aborting due to 4 previous errors
+
+rustc exit: 1
+
+[exit 0]

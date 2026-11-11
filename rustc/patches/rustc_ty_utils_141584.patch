@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_ty_utils/src/opaque_types.rs b/compiler/rustc_ty_utils/src/opaque_types.rs
+index 6dc23c45c514481f544d7c666784c6127264d023..c44c1568bd1dac969f95fee4e36bce4c0c66289a 100644
+--- a/compiler/rustc_ty_utils/src/opaque_types.rs
++++ b/compiler/rustc_ty_utils/src/opaque_types.rs
+@@ -318,10 +318,9 @@ fn opaque_types_defined_by<'tcx>(
+     item: LocalDefId,
+ ) -> &'tcx ty::List<LocalDefId> {
+     // Closures and coroutines are type checked with their parent
+-    // Note that we also support `SyntheticCoroutineBody` since we create
+-    // a MIR body for the def kind, and some MIR passes (like promotion)
+-    // may require doing analysis using its typing env.
+-    if tcx.is_typeck_child(item.to_def_id()) {
++    if tcx.is_typeck_child(item.to_def_id())
++        && tcx.def_kind(item) != DefKind::SyntheticCoroutineBody
++    {
+         return tcx.opaque_types_defined_by(tcx.local_parent(item));
+     }
+     let kind = tcx.def_kind(item);

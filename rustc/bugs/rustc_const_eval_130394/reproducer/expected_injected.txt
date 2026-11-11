@@ -1,0 +1,192 @@
+error[E0764]: mutable borrows of temporaries that have their lifetime extended until the end of the program are not allowed
+  --> main.rs:16:21
+   |
+16 | const B: *mut i32 = &mut 4; //~ ERROR mutable borrows of temporaries
+   |                     ^^^^^^ this mutable borrow refers to such a temporary
+   |
+   = note: temporaries in constants and statics can have their lifetime extended until the end of the program
+   = note: to avoid accidentally creating global mutable state, such temporaries must be immutable
+   = help: if you really want global mutable state, try replacing the temporary by an interior mutable `static` or a `static mut`
+
+error[E0764]: mutable borrows of temporaries that have their lifetime extended until the end of the program are not allowed
+  --> main.rs:22:35
+   |
+22 | const B3: Option<&mut i32> = Some(&mut 42); //~ ERROR mutable borrows of temporaries
+   |                                   ^^^^^^^ this mutable borrow refers to such a temporary
+   |
+   = note: temporaries in constants and statics can have their lifetime extended until the end of the program
+   = note: to avoid accidentally creating global mutable state, such temporaries must be immutable
+   = help: if you really want global mutable state, try replacing the temporary by an interior mutable `static` or a `static mut`
+
+error[E0716]: temporary value dropped while borrowed
+  --> main.rs:25:42
+   |
+25 | const B4: Option<&mut i32> = helper(&mut 42); //~ ERROR temporary value dropped while borrowed
+   |                              ------------^^-
+   |                              |           | |
+   |                              |           | temporary value is freed at the end of this statement
+   |                              |           creates a temporary value which is freed while still in use
+   |                              using this value as a constant requires that borrow lasts for `'static`
+
+error: internal compiler error: compiler/rustc_const_eval/src/interpret/validity.rs:818:33: the static const safety checks accepted mutable references they should not have accepted
+  --> main.rs:28:1
+   |
+28 | const IMMUT_MUT_REF: &mut u16 = unsafe { mem::transmute(&13) };
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_const_eval/src/interpret/validity.rs:818:33:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [eval_to_allocation_raw] const-evaluating + checking `IMMUT_MUT_REF`
+#1 [eval_to_const_value_raw] simplifying constant for the type system `IMMUT_MUT_REF`
+... and 2 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: internal compiler error: compiler/rustc_const_eval/src/interpret/validity.rs:818:33: the static const safety checks accepted mutable references they should not have accepted
+  --> main.rs:30:1
+   |
+30 | static IMMUT_MUT_REF_STATIC: &mut u16 = unsafe { mem::transmute(&13) };
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_const_eval/src/interpret/validity.rs:818:33:
+Box<dyn Any>
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [eval_static_initializer] evaluating initializer of static `IMMUT_MUT_REF_STATIC`
+#1 [analysis] running analysis passes on crate `main`
+end of query stack
+error[E0716]: temporary value dropped while borrowed
+  --> main.rs:53:65
+   |
+53 | const FOO: NotAMutex<&mut i32> = NotAMutex(UnsafeCell::new(&mut 42));
+   |                                  -------------------------------^^--
+   |                                  |                              |  |
+   |                                  |                              |  temporary value is freed at the end of this statement
+   |                                  |                              creates a temporary value which is freed while still in use
+   |                                  using this value as a constant requires that borrow lasts for `'static`
+
+error[E0716]: temporary value dropped while borrowed
+  --> main.rs:56:67
+   |
+56 | static FOO2: NotAMutex<&mut i32> = NotAMutex(UnsafeCell::new(&mut 42));
+   |                                    -------------------------------^^--
+   |                                    |                              |  |
+   |                                    |                              |  temporary value is freed at the end of this statement
+   |                                    |                              creates a temporary value which is freed while still in use
+   |                                    using this value as a static requires that borrow lasts for `'static`
+
+error[E0716]: temporary value dropped while borrowed
+  --> main.rs:59:71
+   |
+59 | static mut FOO3: NotAMutex<&mut i32> = NotAMutex(UnsafeCell::new(&mut 42));
+   |                                        -------------------------------^^--
+   |                                        |                              |  |
+   |                                        |                              |  temporary value is freed at the end of this statement
+   |                                        |                              creates a temporary value which is freed while still in use
+   |                                        using this value as a static requires that borrow lasts for `'static`
+
+error[E0764]: mutable borrows of temporaries that have their lifetime extended until the end of the program are not allowed
+  --> main.rs:72:53
+   |
+72 | static RAW_MUT_CAST_S: SyncPtr<i32> = SyncPtr { x : &mut 42 as *mut _ as *const _ };
+   |                                                     ^^^^^^^ this mutable borrow refers to such a temporary
+   |
+   = note: temporaries in constants and statics can have their lifetime extended until the end of the program
+   = note: to avoid accidentally creating global mutable state, such temporaries must be immutable
+   = help: if you really want global mutable state, try replacing the temporary by an interior mutable `static` or a `static mut`
+
+error[E0764]: mutable borrows of temporaries that have their lifetime extended until the end of the program are not allowed
+  --> main.rs:74:54
+   |
+74 | static RAW_MUT_COERCE_S: SyncPtr<i32> = SyncPtr { x: &mut 0 };
+   |                                                      ^^^^^^ this mutable borrow refers to such a temporary
+   |
+   = note: temporaries in constants and statics can have their lifetime extended until the end of the program
+   = note: to avoid accidentally creating global mutable state, such temporaries must be immutable
+   = help: if you really want global mutable state, try replacing the temporary by an interior mutable `static` or a `static mut`
+
+error[E0764]: mutable borrows of temporaries that have their lifetime extended until the end of the program are not allowed
+  --> main.rs:76:52
+   |
+76 | const RAW_MUT_CAST_C: SyncPtr<i32> = SyncPtr { x : &mut 42 as *mut _ as *const _ };
+   |                                                    ^^^^^^^ this mutable borrow refers to such a temporary
+   |
+   = note: temporaries in constants and statics can have their lifetime extended until the end of the program
+   = note: to avoid accidentally creating global mutable state, such temporaries must be immutable
+   = help: if you really want global mutable state, try replacing the temporary by an interior mutable `static` or a `static mut`
+
+error[E0764]: mutable borrows of temporaries that have their lifetime extended until the end of the program are not allowed
+  --> main.rs:78:53
+   |
+78 | const RAW_MUT_COERCE_C: SyncPtr<i32> = SyncPtr { x: &mut 0 };
+   |                                                     ^^^^^^ this mutable borrow refers to such a temporary
+   |
+   = note: temporaries in constants and statics can have their lifetime extended until the end of the program
+   = note: to avoid accidentally creating global mutable state, such temporaries must be immutable
+   = help: if you really want global mutable state, try replacing the temporary by an interior mutable `static` or a `static mut`
+
+error[E0080]: constructing invalid value of type Option<&mut i32>: at .<enum-variant(Some)>.0, encountered a dangling reference (0x2a[noalloc] has no provenance)
+  --> main.rs:87:5
+   |
+87 |     const INT2PTR: Option<&mut i32> = helper_int2ptr(); //~ ERROR encountered a dangling reference
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ it is undefined behavior to use this value
+   |
+   = note: the rules on what exactly is undefined behavior aren't clear, so this check might be overzealous. Please open an issue on the rustc repository if you believe it should not be considered undefined behavior.
+   = note: the raw bytes of the constant (size: 8, align: 8) {
+               2a 00 00 00 00 00 00 00                         │ *.......
+           }
+
+error[E0080]: constructing invalid value of type Option<&mut i32>: at .<enum-variant(Some)>.0, encountered a dangling reference (0x2a[noalloc] has no provenance)
+  --> main.rs:88:5
+   |
+88 |     static INT2PTR_STATIC: Option<&mut i32> = helper_int2ptr(); //~ ERROR encountered a dangling reference
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ it is undefined behavior to use this value
+   |
+   = note: the rules on what exactly is undefined behavior aren't clear, so this check might be overzealous. Please open an issue on the rustc repository if you believe it should not be considered undefined behavior.
+   = note: the raw bytes of the constant (size: 8, align: 8) {
+               2a 00 00 00 00 00 00 00                         │ *.......
+           }
+
+error[E0080]: constructing invalid value of type Option<&mut i32>: at .<enum-variant(Some)>.0, encountered a dangling reference (use-after-free)
+  --> main.rs:94:5
+   |
+94 |     const DANGLING: Option<&mut i32> = helper_dangling(); //~ ERROR dangling reference
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ it is undefined behavior to use this value
+   |
+   = note: the rules on what exactly is undefined behavior aren't clear, so this check might be overzealous. Please open an issue on the rustc repository if you believe it should not be considered undefined behavior.
+   = note: the raw bytes of the constant (size: 8, align: 8) {
+               ╾───────alloc31───────╼                         │ ╾──────╼
+           }
+
+error[E0080]: constructing invalid value of type Option<&mut i32>: at .<enum-variant(Some)>.0, encountered a dangling reference (use-after-free)
+  --> main.rs:95:5
+   |
+95 |     static DANGLING_STATIC: Option<&mut i32> = helper_dangling(); //~ ERROR dangling reference
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ it is undefined behavior to use this value
+   |
+   = note: the rules on what exactly is undefined behavior aren't clear, so this check might be overzealous. Please open an issue on the rustc repository if you believe it should not be considered undefined behavior.
+   = note: the raw bytes of the constant (size: 8, align: 8) {
+               ╾───────alloc34───────╼                         │ ╾──────╼
+           }
+
+error: aborting due to 16 previous errors
+
+Some errors have detailed explanations: E0080, E0716, E0764.
+For more information about an error, try `rustc --explain E0080`.
+rustc exit: 101
+
+[exit 0]

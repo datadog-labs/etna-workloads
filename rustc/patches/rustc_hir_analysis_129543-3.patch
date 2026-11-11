@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+index f55833c1bf6da228478bc4624ad342844e2692e9..013185605dd28dfa756d33ab0455daca7fdfb405 100644
+--- a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
++++ b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+@@ -1932,7 +1932,7 @@ fn eligible_container<'b>(
+ 
+         match kind {
+             DefKind::AssocTy => match rev_seg_idx {
+-                0 => Some((def_id, path.segments)),
++                0 => None,
+                 // We're looking at the trait ref of an assoc type projection.
+                 // E.g., the `TraitRef<…>` in `<… as path::to::TraitRef<…>>::AssocTy<…>`.
+                 1 => Some((self.tcx.parent(def_id), &path.segments[..=seg_idx])),
+@@ -2040,8 +2040,7 @@ fn resolve_param(
+                     tcx: TyCtxt<'_>,
+                 ) -> (RevSegIdx, ArgIdx) {
+                     if let Some(&index) = generics.param_def_id_to_index.get(&param_def_id) {
+-                        let has_self = generics.has_own_self();
+-                        let index = index as usize - generics.parent_count - has_self as usize;
++                        let index = index as usize - generics.parent_count;
+                         (RevSegIdx(0), ArgIdx(index))
+                     } else if let Some(parent) = generics.parent {
+                         let parent_generics = tcx.generics_of(parent);

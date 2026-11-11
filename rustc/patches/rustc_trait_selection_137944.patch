@@ -1,0 +1,47 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs
+index 8bf5814b9fe13248b4bd94ba3c82997637a20413..74104644ac5167c70ab3c4a5fba4897a3fde1c06 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/mod.rs
+@@ -584,7 +584,6 @@ struct SizednessFound {
+     let mut pretty_clauses = Vec::with_capacity(clauses.len());
+ 
+     let sized_trait = tcx.lang_items().sized_trait();
+-    let meta_sized_trait = tcx.lang_items().meta_sized_trait();
+ 
+     for (c, _) in clauses {
+         // Accumulate the sizedness bounds for each self ty.
+@@ -594,9 +593,6 @@ struct SizednessFound {
+             if Some(trait_clause.def_id()) == sized_trait {
+                 sizedness_of.sized = true;
+                 continue;
+-            } else if Some(trait_clause.def_id()) == meta_sized_trait {
+-                sizedness_of.meta_sized = true;
+-                continue;
+             }
+         }
+ 
+@@ -604,21 +600,10 @@ struct SizednessFound {
+     }
+ 
+     for (ty, sizedness) in types_with_sizedness_bounds {
+-        if !tcx.features().sized_hierarchy() {
+-            if sizedness.sized {
+-                // Maybe a default bound, don't write anything.
+-            } else {
+-                pretty_clauses.push(format!("{ty}: ?Sized"));
+-            }
++        if sizedness.sized {
++            // Maybe a default bound, don't write anything.
+         } else {
+-            if sizedness.sized {
+-                // Maybe a default bound, don't write anything.
+-                pretty_clauses.push(format!("{ty}: Sized"));
+-            } else if sizedness.meta_sized {
+-                pretty_clauses.push(format!("{ty}: MetaSized"));
+-            } else {
+-                pretty_clauses.push(format!("{ty}: PointeeSized"));
+-            }
++            pretty_clauses.push(format!("{ty}: ?Sized"));
+         }
+     }
+ 

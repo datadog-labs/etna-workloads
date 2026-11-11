@@ -1,0 +1,1 @@
+Compiles a trait-ambiguity case (hello() with impls that recurse via Foo<'a,&'a T>); clean rustc reports E0283 type annotations needed, injected reports E0275 overflow because overflowing obligations are no longer discarded in diagnostics impl applicability.

@@ -1,0 +1,1 @@
+Compiles a move-of-Pin<&mut T> program (issue 107419). The clean compiler reports a borrowck error with a reborrow suggestion (exit 1); the injected compiler ICEs (index out of bounds in ena snapshot_vec, exit 101) because un-erased regions reach a fresh infcx.

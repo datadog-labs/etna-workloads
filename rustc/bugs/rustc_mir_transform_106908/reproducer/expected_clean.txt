@@ -1,0 +1,219 @@
+warning: the feature `custom_mir` is internal to the compiler or standard library
+ --> main.rs:4:12
+  |
+4 | #![feature(custom_mir, core_intrinsics, freeze)]
+  |            ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: the feature `core_intrinsics` is internal to the compiler or standard library
+ --> main.rs:4:24
+  |
+4 | #![feature(custom_mir, core_intrinsics, freeze)]
+  |                        ^^^^^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+
+warning: function `borrowed` is never used
+  --> main.rs:50:4
+   |
+50 | fn borrowed<T: Copy + Freeze>(x: T) -> bool {
+   |    ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+// WARNING: This output format is intended for human consumers only
+// and is subject to change without notice. Knock yourself out.
+// HINT: See also -Z dump-mir for MIR at specific points during compilation.
+fn opaque(_1: impl Sized) -> bool {
+    let mut _0: bool;
+
+    bb0: {
+        _0 = const true;
+        drop(_1) -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        return;
+    }
+}
+
+fn cmp_ref(_1: &u8, _2: &u8) -> bool {
+    debug a => _1;
+    debug b => _2;
+    let mut _0: bool;
+    let mut _3: *const u8;
+    let mut _4: *const u8;
+
+    bb0: {
+        _3 = &raw const (*_1);
+        _4 = &raw const (*_2);
+        _0 = std::ptr::eq::<u8>(move _3, move _4) -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        return;
+    }
+}
+
+fn compare_address() -> bool {
+    let mut _0: bool;
+    let mut _1: u8;
+    let mut _2: &u8;
+    let mut _3: u8;
+    let mut _4: &u8;
+
+    bb0: {
+        _1 = const 5_u8;
+        _2 = &_1;
+        _3 = copy _1;
+        _4 = &_3;
+        _0 = cmp_ref(copy _2, copy _4) -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        _0 = opaque::<u8>(copy _3) -> [return: bb2, unwind continue];
+    }
+
+    bb2: {
+        return;
+    }
+}
+
+fn borrowed(_1: T) -> bool {
+    let mut _0: bool;
+    let mut _2: &T;
+
+    bb0: {
+        _2 = &_1;
+        _0 = opaque::<&T>(copy _2) -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        _0 = opaque::<T>(copy _1) -> [return: bb2, unwind continue];
+    }
+
+    bb2: {
+        return;
+    }
+}
+
+fn non_freeze(_1: T) -> bool {
+    let mut _0: bool;
+    let mut _2: T;
+    let mut _3: &T;
+
+    bb0: {
+        _2 = copy _1;
+        _3 = &_1;
+        _0 = opaque::<&T>(copy _3) -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        _0 = opaque::<T>(copy _2) -> [return: bb2, unwind continue];
+    }
+
+    bb2: {
+        return;
+    }
+}
+
+fn borrow_in_loop() -> () {
+    let mut _0: ();
+    let mut _1: bool;
+    let mut _4: bool;
+    let mut _6: bool;
+    let _7: &bool;
+    let mut _8: bool;
+    scope 1 {
+        debug c => _1;
+        let mut _2: &bool;
+        scope 2 {
+            debug p => _2;
+            let _3: bool;
+            scope 3 {
+                debug a => _3;
+                let _5: bool;
+                scope 4 {
+                    debug b => _5;
+                }
+            }
+        }
+    }
+
+    bb0: {
+        _2 = const borrow_in_loop::promoted[0];
+        goto -> bb1;
+    }
+
+    bb1: {
+        _4 = copy (*_2);
+        _3 = Not(move _4);
+        _6 = copy (*_2);
+        _5 = Not(move _6);
+        _1 = copy _3;
+        _7 = &_1;
+        _2 = copy _7;
+        _8 = Ne(copy _3, copy _5);
+        switchInt(move _8) -> [0: bb1, otherwise: bb2];
+    }
+
+    bb2: {
+        return;
+    }
+}
+
+const borrow_in_loop::promoted[0]: &bool = {
+    let mut _0: &bool;
+    let mut _1: bool;
+
+    bb0: {
+        _1 = const false;
+        _0 = &_1;
+        return;
+    }
+}
+
+fn main() -> () {
+    let mut _0: ();
+    let mut _1: bool;
+    let mut _2: !;
+    let _3: bool;
+    let _4: ();
+
+    bb0: {
+        _1 = compare_address() -> [return: bb1, unwind continue];
+    }
+
+    bb1: {
+        switchInt(move _1) -> [0: bb3, otherwise: bb2];
+    }
+
+    bb2: {
+        _2 = panic(const "assertion failed: !compare_address()") -> unwind continue;
+    }
+
+    bb3: {
+        _3 = non_freeze::<i32>(const 5_i32) -> [return: bb4, unwind continue];
+    }
+
+    bb4: {
+        _4 = borrow_in_loop() -> [return: bb5, unwind continue];
+    }
+
+    bb5: {
+        return;
+    }
+}
+
+alloc3 (size: 36, align: 1) {
+    0x00 │ 61 73 73 65 72 74 69 6f 6e 20 66 61 69 6c 65 64 │ assertion failed
+    0x10 │ 3a 20 21 63 6f 6d 70 61 72 65 5f 61 64 64 72 65 │ : !compare_addre
+    0x20 │ 73 73 28 29                                     │ ss()
+}
+warning: 3 warnings emitted
+
+rustc exit: 0
+
+[exit 0]

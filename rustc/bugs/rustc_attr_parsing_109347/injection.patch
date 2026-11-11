@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs b/compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs
+index feed600d44df49d06bd595c94c0a66b051ba3503..0753b2d64ab047f1bb0df8a1699c73622a82239e 100644
+--- a/compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs
++++ b/compiler/rustc_attr_parsing/src/attributes/codegen_attrs.rs
+@@ -382,7 +382,7 @@ impl NoArgsAttributeParser for NoMangleParser {
+         Allow(Target::Method(MethodKind::Inherent)),
+         Allow(Target::Method(MethodKind::TraitImpl)),
+         AllowSilent(Target::Const), // Handled in the `InvalidNoMangleItems` pass
+-        Error(Target::Closure),
++        Allow(Target::Closure),
+     ]);
+     const STABILITY: AttributeStability = AttributeStability::Stable;
+     const CREATE: fn(Span) -> AttributeKind = AttributeKind::NoMangle;
+diff --git a/compiler/rustc_codegen_ssa/src/codegen_attrs.rs b/compiler/rustc_codegen_ssa/src/codegen_attrs.rs
+index 3e24b62125fea874e1f6ceda524644a6ba62b7f8..b77ef105cbe64a263873f22c5e37e62cc747d188 100644
+--- a/compiler/rustc_codegen_ssa/src/codegen_attrs.rs
++++ b/compiler/rustc_codegen_ssa/src/codegen_attrs.rs
+@@ -93,12 +93,7 @@ fn process_builtin_attrs(
+             AttributeKind::LinkSection { name } => codegen_fn_attrs.link_section = Some(*name),
+             AttributeKind::NoMangle(attr_span) => {
+                 interesting_spans.no_mangle = Some(*attr_span);
+-                if tcx.opt_item_name(did.to_def_id()).is_some() {
+-                    codegen_fn_attrs.flags |= CodegenFnAttrFlags::NO_MANGLE;
+-                } else {
+-                    tcx.dcx()
+-                        .span_delayed_bug(*attr_span, "no_mangle should be on a named function");
+-                }
++                codegen_fn_attrs.flags |= CodegenFnAttrFlags::NO_MANGLE;
+             }
+             AttributeKind::Optimize(optimize, _) => codegen_fn_attrs.optimize = *optimize,
+             AttributeKind::TargetFeature { features, attr_span, was_forced } => {

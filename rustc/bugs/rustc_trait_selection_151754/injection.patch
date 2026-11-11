@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/dyn_compatibility.rs b/compiler/rustc_trait_selection/src/traits/dyn_compatibility.rs
+index 6d86a2cce6400ecadb1396c9044dca2ef6b9e63f..bb925fbcd90ce369a087c099a67acf0668fbe62f 100644
+--- a/compiler/rustc_trait_selection/src/traits/dyn_compatibility.rs
++++ b/compiler/rustc_trait_selection/src/traits/dyn_compatibility.rs
+@@ -887,12 +887,12 @@ fn visit_const(&mut self, ct: ty::Const<'tcx>) -> Self::Result {
+         let ct = self.tcx.expand_abstract_consts(ct);
+ 
+         match ct.kind() {
+-            ty::ConstKind::Alias(
+-                _,
+-                ty::AliasConst { kind: ty::AliasConstKind::Projection { def_id }, args, .. },
+-            ) if self.tcx.features().min_generic_const_args() => {
++            ty::ConstKind::Alias(_, ty::AliasConst { kind, args, .. })
++                if self.tcx.features().min_generic_const_args() =>
++            {
+                 match self.allow_self_projections {
+                     AllowSelfProjections::Yes => {
++                        let def_id = kind.opt_def_id().unwrap();
+                         let trait_def_id = self.tcx.parent(def_id);
+                         let trait_ref = ty::TraitRef::from_assoc(self.tcx, trait_def_id, args);
+ 

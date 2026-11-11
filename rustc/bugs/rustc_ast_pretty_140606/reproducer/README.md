@@ -1,0 +1,1 @@
+With -Zunpretty=hir, a labelled loop must print as `'a: loop {` on one line; the injected compiler creates the pretty-printer boxes before the label, so `loop` is wrapped onto an indented new line after `'a:`.

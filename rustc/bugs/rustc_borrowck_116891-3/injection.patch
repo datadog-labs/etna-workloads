@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+index e347dc2d13dfcb2172a7c2b2b4c4e2c854e4d26a..0d25e83e7f256bd031f64e27378826393d0e385d 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+@@ -272,14 +272,20 @@ fn collect_defining_uses<'tcx>(
+                     ),
+                     _ => debug!(?non_nll_opaque_type_key, ?err, "ignoring non-defining use"),
+                 }
++                continue;
+             } else {
++                let not_a_param = matches!(err, NonDefiningUseReason::NotAParam { .. });
+                 errors.push(DeferredOpaqueTypeError::InvalidOpaqueTypeArgs(err));
+                 debug!(
+                     "collect_defining_uses: InvalidOpaqueTypeArgs for {:?} := {:?}",
+                     non_nll_opaque_type_key, hidden_type
+                 );
++                // Non-universal regions are not skipped here; they flow on
++                // into the mismatch check below.
++                if !not_a_param {
++                    continue;
++                }
+             }
+-            continue;
+         }
+ 
+         // We use the original `opaque_type_key` to compute the `arg_regions`.

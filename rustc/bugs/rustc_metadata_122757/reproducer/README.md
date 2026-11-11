@@ -1,0 +1,1 @@
+Builds foo, then bar (with foo as a private dependency), then a crate that does 'extern crate bar; extern crate foo;' with no --extern and exposes foo::Foo publicly under deny(exported_private_dependencies). Clean compiler accepts it; the injected one wrongly marks foo private and errors.

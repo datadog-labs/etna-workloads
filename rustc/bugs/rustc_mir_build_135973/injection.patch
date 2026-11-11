@@ -1,0 +1,91 @@
+diff --git a/compiler/rustc_mir_build/src/check_tail_calls.rs b/compiler/rustc_mir_build/src/check_tail_calls.rs
+index a7b6ff87a29fd2e2e3341eb0ba96db34da03df95..fcbe891d3f59e5e2d0887b62eb4636d6626e54d2 100644
+--- a/compiler/rustc_mir_build/src/check_tail_calls.rs
++++ b/compiler/rustc_mir_build/src/check_tail_calls.rs
+@@ -162,24 +162,11 @@ fn check_tail_call(&mut self, call: &Expr<'_>, expr: &Expr<'_>) {
+         }
+ 
+         {
+-            // `#[track_caller]` affects the ABI of a function (by adding a location argument),
+-            // so a `track_caller` can only tail call other `track_caller` functions.
+-            //
+-            // The issue is however that we can't know if a function is `track_caller` or not at
+-            // this point (THIR can be polymorphic, we may have an unresolved trait function).
+-            // We could only allow functions that we *can* resolve and *are* `track_caller`,
+-            // but that would turn changing `track_caller`-ness into a breaking change,
+-            // which is probably undesirable.
+-            //
+-            // Also note that we don't check callee's `track_caller`-ness at all, mostly for the
+-            // reasons above, but also because we can always tailcall the shim we'd generate for
+-            // coercing the function to an `fn()` pointer. (although in that case the tailcall is
+-            // basically useless -- the shim calls the actual function, so tailcalling the shim is
+-            // equivalent to calling the function)
+             let caller_needs_location = self.caller_needs_location();
++            let callee_needs_location = self.needs_location(ty);
+ 
+-            if caller_needs_location {
+-                self.report_track_caller_caller(expr.span);
++            if caller_needs_location != callee_needs_location {
++                self.report_track_caller_mismatch(expr.span, caller_needs_location);
+             }
+         }
+ 
+@@ -205,6 +192,23 @@ fn caller_needs_location(&self) -> bool {
+         flags.contains(CodegenFnAttrFlags::TRACK_CALLER)
+     }
+ 
++    /// Returns true if function of type `ty` needs location argument
++    /// (i.e. if a function is marked as `#[track_caller]`)
++    fn needs_location(&self, ty: Ty<'tcx>) -> bool {
++        if let &ty::FnDef(did, args) = ty.kind() {
++            let instance = ty::Instance::expect_resolve(
++                self.tcx,
++                self.typing_env,
++                did,
++                args.skip_binder(),
++                rustc_span::DUMMY_SP,
++            );
++            instance.def.requires_caller_location(self.tcx)
++        } else {
++            false
++        }
++    }
++
+     fn report_in_closure(&mut self, expr: &Expr<'_>) {
+         let err = self.tcx.dcx().span_err(expr.span, "`become` is not allowed in closures");
+         self.found_errors = Err(err);
+@@ -390,15 +394,25 @@ fn report_signature_mismatch(
+         self.found_errors = Err(err);
+     }
+ 
+-    fn report_track_caller_caller(&mut self, sp: Span) {
+-        let err = self
+-            .tcx
+-            .dcx()
+-            .struct_span_err(
+-                sp,
+-                "a function marked with `#[track_caller]` cannot perform a tail-call",
+-            )
+-            .emit();
++    fn report_track_caller_mismatch(&mut self, sp: Span, caller_needs_location: bool) {
++        let err = match caller_needs_location {
++            true => self
++                .tcx
++                .dcx()
++                .struct_span_err(
++                    sp,
++                    "a function marked with `#[track_caller]` cannot tail-call one that is not",
++                )
++                .emit(),
++            false => self
++                .tcx
++                .dcx()
++                .struct_span_err(
++                    sp,
++                    "a function mot marked with `#[track_caller]` cannot tail-call one that is",
++                )
++                .emit(),
++        };
+ 
+         self.found_errors = Err(err);
+     }

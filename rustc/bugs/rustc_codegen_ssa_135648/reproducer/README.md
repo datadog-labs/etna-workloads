@@ -1,0 +1,1 @@
+With a wasm32 target, a naked function with #[linkage = "weak"] should get a `.weak weak_nop` directive in its emitted asm; the injected compiler emits `.globl weak_nop` instead (weak linkage lost on wasm).

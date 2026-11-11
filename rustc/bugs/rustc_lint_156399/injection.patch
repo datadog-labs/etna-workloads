@@ -1,0 +1,64 @@
+diff --git a/compiler/rustc_lint/src/types/improper_ctypes.rs b/compiler/rustc_lint/src/types/improper_ctypes.rs
+index 496cf40490552c7244eac0312da6c71d15401264..b9c220bd7883f62fd84a4cfbc4762a04f38d6f05 100644
+--- a/compiler/rustc_lint/src/types/improper_ctypes.rs
++++ b/compiler/rustc_lint/src/types/improper_ctypes.rs
+@@ -485,14 +485,7 @@ fn new(
+         base_ty: Unnormalized<'tcx, Ty<'tcx>>,
+         base_fn_mode: CItemKind,
+     ) -> Self {
+-        // Skip normalization for opaques: even in `TypingMode::Borrowck` the body's own
+-        // defining opaques still get revealed, leaving entries in `OpaqueTypeStorage` that
+-        // ICE on `InferCtxt` drop (issue #156352).
+-        let base_ty = if base_ty.skip_norm_wip().has_opaque_types() {
+-            base_ty.skip_norm_wip()
+-        } else {
+-            maybe_normalize_erasing_regions(cx, base_ty)
+-        };
++        let base_ty = maybe_normalize_erasing_regions(cx, base_ty);
+         ImproperCTypesVisitor { cx, base_ty, base_fn_mode, cache: FxHashSet::default() }
+     }
+ 
+@@ -915,19 +908,6 @@ fn visit_type(&mut self, state: VisitorState, ty: Ty<'tcx>) -> FfiResult<'tcx> {
+                 help: None,
+             },
+ 
+-            // Safety net for when normalization reveals a body's own defining opaque
+-            // (e.g. `async extern fn`'s `impl Future` → `Coroutine`); the nicer
+-            // "opaque types have no C equivalent" message comes from `visit_for_opaque_ty`
+-            // in `check_type` before normalization (issue #156352).
+-            ty::Closure(..)
+-            | ty::CoroutineClosure(..)
+-            | ty::Coroutine(..)
+-            | ty::CoroutineWitness(..) => FfiUnsafe {
+-                ty,
+-                reason: msg!("closures and coroutines are not FFI-safe"),
+-                help: None,
+-            },
+-
+             ty::Param(..)
+             | ty::Alias(
+                 _,
+@@ -939,6 +919,10 @@ fn visit_type(&mut self, state: VisitorState, ty: Ty<'tcx>) -> FfiResult<'tcx> {
+             | ty::Infer(..)
+             | ty::Bound(..)
+             | ty::Error(_)
++            | ty::Closure(..)
++            | ty::CoroutineClosure(..)
++            | ty::Coroutine(..)
++            | ty::CoroutineWitness(..)
+             | ty::Placeholder(..)
+             | ty::FnDef(..) => bug!("unexpected type in foreign function: {:?}", ty),
+         }
+@@ -974,12 +958,6 @@ fn check_type(
+         state: VisitorState,
+         ty: Unnormalized<'tcx, Ty<'tcx>>,
+     ) -> FfiResult<'tcx> {
+-        // Catch opaques before normalization so the new solver doesn't reveal them
+-        // (e.g. `async extern fn` return → `Coroutine`) and we get the nicer
+-        // "opaque types have no C equivalent" message.
+-        if let Some(res) = self.visit_for_opaque_ty(ty.skip_norm_wip()) {
+-            return res;
+-        }
+         let ty = maybe_normalize_erasing_regions(self.cx, ty);
+         if let Some(res) = self.visit_for_opaque_ty(ty) {
+             return res;

@@ -1,0 +1,53 @@
+diff --git a/compiler/rustc_hir_typeck/src/fallback.rs b/compiler/rustc_hir_typeck/src/fallback.rs
+index 44906cb330c0cbc18da08319adaaf5add5519575..0d61b22d94f7fa2b6409af846f3ce23d983a80db 100644
+--- a/compiler/rustc_hir_typeck/src/fallback.rs
++++ b/compiler/rustc_hir_typeck/src/fallback.rs
+@@ -490,7 +490,6 @@ fn visit_infer(
+         if let Some(ty) = self.fcx.typeck_results.borrow().node_type_opt(inf_id)
+             && let Some(vid) = self.fcx.root_vid(ty)
+             && self.reachable_vids.contains(&vid)
+-            && inf_span.can_be_used_for_suggestions()
+         {
+             return ControlFlow::Break(diagnostics::SuggestAnnotation::Unit(inf_span));
+         }
+@@ -502,7 +501,7 @@ fn visit_qpath(
+         &mut self,
+         qpath: &'tcx rustc_hir::QPath<'tcx>,
+         id: HirId,
+-        span: Span,
++        _span: Span,
+     ) -> Self::Result {
+         let arg_segment = match qpath {
+             hir::QPath::Resolved(_, path) => {
+@@ -512,7 +511,6 @@ fn visit_qpath(
+         };
+         // Alternatively, try to turbofish `::<_, (), _>`.
+         if let Some(def_id) = self.fcx.typeck_results.borrow().qpath_res(qpath, id).opt_def_id()
+-            && span.can_be_used_for_suggestions()
+         {
+             self.suggest_for_segment(arg_segment, def_id, id)?;
+         }
+@@ -536,7 +534,6 @@ fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) -> Self::Result {
+             && let Some(vid) = self.fcx.root_vid(self_ty)
+             && self.reachable_vids.contains(&vid)
+             && let [.., trait_segment, _method_segment] = path.segments
+-            && expr.span.can_be_used_for_suggestions()
+         {
+             let span = path.span.shrink_to_lo().to(trait_segment.ident.span);
+             return ControlFlow::Break(diagnostics::SuggestAnnotation::Path(span));
+@@ -546,7 +543,6 @@ fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) -> Self::Result {
+         if let hir::ExprKind::MethodCall(segment, ..) = expr.kind
+             && let Some(def_id) =
+                 self.fcx.typeck_results.borrow().type_dependent_def_id(expr.hir_id)
+-            && expr.span.can_be_used_for_suggestions()
+         {
+             self.suggest_for_segment(segment, def_id, expr.hir_id)?;
+         }
+@@ -561,7 +557,6 @@ fn visit_local(&mut self, local: &'tcx hir::LetStmt<'tcx>) -> Self::Result {
+             && let Some(ty) = self.fcx.typeck_results.borrow().node_type_opt(local.hir_id)
+             && let Some(vid) = self.fcx.root_vid(ty)
+             && self.reachable_vids.contains(&vid)
+-            && local.span.can_be_used_for_suggestions()
+         {
+             return ControlFlow::Break(diagnostics::SuggestAnnotation::Local(
+                 local.pat.span.shrink_to_hi(),

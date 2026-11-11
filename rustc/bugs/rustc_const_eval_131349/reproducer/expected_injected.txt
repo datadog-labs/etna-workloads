@@ -1,0 +1,115 @@
+warning: the feature `staged_api` is internal to the compiler or standard library
+ --> main.rs:8:32
+  |
+8 | #![feature(const_async_blocks, staged_api, rustc_attrs)]
+  |                                ^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: the feature `rustc_attrs` is internal to the compiler or standard library
+ --> main.rs:8:44
+  |
+8 | #![feature(const_async_blocks, staged_api, rustc_attrs)]
+  |                                            ^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+
+error: const function that might be (indirectly) exposed to stable cannot use `#[feature(foo)]`
+  --> main.rs:17:25
+   |
+17 | const fn bar() -> u32 { foo() } //~ ERROR cannot use `#[feature(foo)]`
+   |                         ^^^^^
+   |
+   = help: mark the callee as `#[rustc_const_stable_indirect]` if it does not itself require any unstable features
+help: if the caller is not (yet) meant to be exposed to stable const contexts, add `#[rustc_const_unstable]`
+   |
+17 + #[rustc_const_unstable(feature = "...", issue = "...")]
+18 | const fn bar() -> u32 { foo() } //~ ERROR cannot use `#[feature(foo)]`
+   |
+
+error: const function that might be (indirectly) exposed to stable cannot use `#[feature(foo2)]`
+  --> main.rs:26:26
+   |
+26 | const fn bar2() -> u32 { foo2() } //~ ERROR cannot use `#[feature(foo2)]`
+   |                          ^^^^^^
+   |
+   = help: mark the callee as `#[rustc_const_stable_indirect]` if it does not itself require any unstable features
+help: if the caller is not (yet) meant to be exposed to stable const contexts, add `#[rustc_const_unstable]`
+   |
+26 + #[rustc_const_unstable(feature = "...", issue = "...")]
+27 | const fn bar2() -> u32 { foo2() } //~ ERROR cannot use `#[feature(foo2)]`
+   |
+
+error: const function that might be (indirectly) exposed to stable cannot use `#[feature(const_async_blocks)]`
+  --> main.rs:32:13
+   |
+32 |     let x = async { 13 };
+   |             ^^^^^^^^^^^^
+   |
+help: if the function is not (yet) meant to be exposed to stable const contexts, add `#[rustc_const_unstable]`
+   |
+31 + #[rustc_const_unstable(feature = "...", issue = "...")]
+32 | const fn bar3() -> u32 {
+   |
+
+error: const function that might be (indirectly) exposed to stable cannot use `#[feature(foo)]`
+  --> main.rs:34:5
+   |
+34 |     foo()
+   |     ^^^^^
+   |
+   = help: mark the callee as `#[rustc_const_stable_indirect]` if it does not itself require any unstable features
+help: if the caller is not (yet) meant to be exposed to stable const contexts, add `#[rustc_const_unstable]`
+   |
+31 + #[rustc_const_unstable(feature = "...", issue = "...")]
+32 | const fn bar3() -> u32 {
+   |
+
+warning: unused variable: `x`
+  --> main.rs:32:9
+   |
+32 |     let x = async { 13 };
+   |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+error: const function that might be (indirectly) exposed to stable cannot use `#[feature(foo2)]`
+  --> main.rs:46:32
+   |
+46 | const fn bar2_gated() -> u32 { foo2_gated() } //~ ERROR cannot use `#[feature(foo2)]`
+   |                                ^^^^^^^^^^^^
+   |
+   = help: mark the callee as `#[rustc_const_stable_indirect]` if it does not itself require any unstable features
+help: if the caller is not (yet) meant to be exposed to stable const contexts, add `#[rustc_const_unstable]`
+   |
+46 + #[rustc_const_unstable(feature = "...", issue = "...")]
+47 | const fn bar2_gated() -> u32 { foo2_gated() } //~ ERROR cannot use `#[feature(foo2)]`
+   |
+
+error: const function that might be (indirectly) exposed to stable cannot use `#[feature(foo2)]`
+  --> main.rs:59:37
+   |
+59 | const fn stable_indirect() -> u32 { foo2_gated() } //~ ERROR cannot use `#[feature(foo2)]`
+   |                                     ^^^^^^^^^^^^
+   |
+   = help: mark the callee as `#[rustc_const_stable_indirect]` if it does not itself require any unstable features
+help: if the caller is not (yet) meant to be exposed to stable const contexts, add `#[rustc_const_unstable]`
+   |
+59 + #[rustc_const_unstable(feature = "...", issue = "...")]
+60 | const fn stable_indirect() -> u32 { foo2_gated() } //~ ERROR cannot use `#[feature(foo2)]`
+   |
+
+error: `bar2_gated_stable_indirect` cannot be (indirectly) exposed to stable
+  --> main.rs:65:5
+   |
+65 |     stable::bar2_gated_stable_indirect() + stable_indirect()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: either mark the callee as `#[rustc_const_stable_indirect]`, or the caller as `#[rustc_const_unstable]`
+
+error: aborting due to 7 previous errors; 3 warnings emitted
+
+rustc exit: 1
+
+[exit 0]

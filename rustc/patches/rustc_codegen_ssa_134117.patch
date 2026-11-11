@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_codegen_ssa/src/mir/place.rs b/compiler/rustc_codegen_ssa/src/mir/place.rs
+index 60480d1853853490997dcafa05f23837e52627f9..baf7f90d75cc2d969d23ecfc26c84072861bcd01 100644
+--- a/compiler/rustc_codegen_ssa/src/mir/place.rs
++++ b/compiler/rustc_codegen_ssa/src/mir/place.rs
+@@ -288,7 +288,11 @@ pub fn project_index<Bx: BuilderMethods<'a, 'tcx, Value = V>>(
+             layout.size
+         };
+ 
+-        let llval = bx.inbounds_nuw_gep(bx.cx().backend_type(layout), self.val.llval, &[llindex]);
++        let llval = bx.inbounds_nuw_gep(
++            bx.cx().backend_type(self.layout),
++            self.val.llval,
++            &[bx.cx().const_usize(0), llindex],
++        );
+         let align = self.val.align.restrict_for_offset(offset);
+         PlaceValue::new_sized(llval, align).with_type(layout)
+     }

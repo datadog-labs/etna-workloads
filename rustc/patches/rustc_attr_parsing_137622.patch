@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_attr_parsing/src/interface.rs b/compiler/rustc_attr_parsing/src/interface.rs
+index 63a273a063ebbca2f40409ae1c7d6f6fd9c52b6c..5856a9414a9d464db4e4d28fa7aeb0aaaf8b4bb4 100644
+--- a/compiler/rustc_attr_parsing/src/interface.rs
++++ b/compiler/rustc_attr_parsing/src/interface.rs
+@@ -587,10 +587,7 @@ fn lower_attr_args(&self, args: &ast::AttrArgs, lower_span: impl Fn(Span) -> Spa
+                 {
+                     lit
+                 } else {
+-                    let guar = self.dcx().span_delayed_bug(
+-                        args.span().unwrap_or(DUMMY_SP),
+-                        "expr in place where literal is expected (builtin attr parsing)",
+-                    );
++                    let guar = self.dcx().has_errors().unwrap();
+                     ast::MetaItemLit {
+                         symbol: sym::dummy,
+                         suffix: None,
+diff --git a/compiler/rustc_attr_parsing/src/parser.rs b/compiler/rustc_attr_parsing/src/parser.rs
+index 8efe5bf4f1f9077fb69a35f06e8790c697b59604..0e03183e7b70b6c589bbc49b0262c7c6ab3c563c 100644
+--- a/compiler/rustc_attr_parsing/src/parser.rs
++++ b/compiler/rustc_attr_parsing/src/parser.rs
+@@ -442,7 +442,16 @@ fn expr_to_lit<'sess>(
+             }
+         }
+     } else {
+-        if matches!(should_emit, ShouldEmit::Nothing) || matches!(expr.kind, ExprKind::Err(_)) {
++        if matches!(should_emit, ShouldEmit::Nothing) {
++            let guar = psess.dcx().has_errors().unwrap();
++            return Ok(Some(MetaItemLit {
++                symbol: rustc_span::sym::dummy,
++                suffix: None,
++                kind: LitKind::Err(guar),
++                span,
++            }));
++        }
++        if matches!(expr.kind, ExprKind::Err(_)) {
+             return Ok(None);
+         }
+ 

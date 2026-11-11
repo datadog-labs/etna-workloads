@@ -1,0 +1,37 @@
+diff --git a/compiler/rustc_middle/src/ty/generics.rs b/compiler/rustc_middle/src/ty/generics.rs
+index bfdb89dc409f6b40228120d195ee80cb88b91e6a..b185d436beeda588baba38682f60293b56177027 100644
+--- a/compiler/rustc_middle/src/ty/generics.rs
++++ b/compiler/rustc_middle/src/ty/generics.rs
+@@ -117,7 +117,7 @@ pub struct GenericParamCount {
+ ///
+ /// The ordering of parameters is the same as in [`ty::GenericArg`] (excluding child generics):
+ /// `Self` (optionally), `Lifetime` params..., `Type` params...
+-#[derive(Clone, TyEncodable, TyDecodable, StableHash)]
++#[derive(Clone, Debug, TyEncodable, TyDecodable, StableHash)]
+ pub struct Generics {
+     pub parent: Option<DefId>,
+     pub parent_count: usize,
+@@ -131,23 +131,6 @@ pub struct Generics {
+     pub has_late_bound_regions: Option<Span>,
+ }
+ 
+-impl std::fmt::Debug for Generics {
+-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+-        // ironically, we get this warning because of what we're trying to fix.
+-        #[expect(rustc::potential_query_instability)]
+-        let mut stabilized_hashmap = self.param_def_id_to_index.iter().collect::<Vec<_>>();
+-        stabilized_hashmap.sort_by_key(|(_, v)| **v);
+-        f.debug_struct("Generics")
+-            .field("parent", &self.parent)
+-            .field("parent_count", &self.parent_count)
+-            .field("own_params", &self.own_params)
+-            .field("param_def_id_to_index", &stabilized_hashmap)
+-            .field("has_self", &self.has_self)
+-            .field("has_late_bound_regions", &self.has_late_bound_regions)
+-            .finish()
+-    }
+-}
+-
+ impl<'tcx> rustc_type_ir::inherent::GenericsOf<TyCtxt<'tcx>> for &'tcx Generics {
+     fn count(&self) -> usize {
+         self.parent_count + self.own_params.len()

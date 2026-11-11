@@ -1,0 +1,82 @@
+error[E0502]: cannot borrow `*list` as mutable because it is also borrowed as immutable
+ --> main.rs:7:5
+  |
+4 |     for v in list.iter() {
+  |              ---- immutable borrow occurs here
+5 |         cloned_items.push(v.clone())
+  |                             ------- this call doesn't do anything, the result is still `&T` because `T` doesn't implement `Clone`
+6 |     }
+7 |     list.push(T::default());
+  |     ^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+8 |     //~^ ERROR cannot borrow `*list` as mutable because it is also borrowed as immutable
+9 |     drop(cloned_items);
+  |          ------------ immutable borrow later used here
+  |
+help: consider further restricting type parameter `T` with trait `Clone`
+  |
+2 | fn foo<T: Default + Clone>(list: &mut Vec<T>) {
+  |                   +++++++
+
+error[E0505]: cannot move out of `x` because it is borrowed
+  --> main.rs:14:10
+   |
+11 | fn bar<T: std::fmt::Display>(x: T) {
+   |                              - binding `x` declared here
+12 |     let a = &x;
+   |             -- borrow of `x` occurs here
+13 |     let b = a.clone();
+   |               ------- this call doesn't do anything, the result is still `&T` because `T` doesn't implement `Clone`
+14 |     drop(x);
+   |          ^ move out of `x` occurs here
+15 |     //~^ ERROR cannot move out of `x` because it is borrowed
+16 |     println!("{b}");
+   |                - borrow later used here
+   |
+help: if `T` implemented `Clone`, you could clone the value
+  --> main.rs:11:8
+   |
+11 | fn bar<T: std::fmt::Display>(x: T) {
+   |        ^ consider constraining this type parameter with `Clone`
+12 |     let a = &x;
+   |              - you could clone this value
+help: consider further restricting type parameter `T` with trait `Clone`
+   |
+11 | fn bar<T: std::fmt::Display + Clone>(x: T) {
+   |                             +++++++
+
+error[E0505]: cannot move out of `x` because it is borrowed
+  --> main.rs:23:10
+   |
+20 | fn qux(x: A) {
+   |        - binding `x` declared here
+21 |     let a = &x;
+   |             -- borrow of `x` occurs here
+22 |     let b = a.clone();
+   |               ------- this call doesn't do anything, the result is still `&A` because `A` doesn't implement `Clone`
+23 |     drop(x);
+   |          ^ move out of `x` occurs here
+24 |     //~^ ERROR cannot move out of `x` because it is borrowed
+25 |     println!("{b:?}");
+   |                - borrow later used here
+   |
+note: if `A` implemented `Clone`, you could clone the value
+  --> main.rs:19:1
+   |
+19 | struct A;
+   | ^^^^^^^^ consider implementing `Clone` for this type
+20 | fn qux(x: A) {
+21 |     let a = &x;
+   |              - you could clone this value
+help: consider annotating `A` with `#[derive(Clone)]`
+   |
+19 + #[derive(Clone)]
+20 | struct A;
+   |
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0502, E0505.
+For more information about an error, try `rustc --explain E0502`.
+exit=1
+
+[exit 0]

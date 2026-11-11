@@ -1,0 +1,25 @@
+diff --git a/compiler/rustc_mir_dataflow/src/impls/initialized.rs b/compiler/rustc_mir_dataflow/src/impls/initialized.rs
+index 1b2c58c7e514cfb5426f6bb2b798f5d1915f514e..9cd33781ff2387987c548bbe98dacefad54bc708 100644
+--- a/compiler/rustc_mir_dataflow/src/impls/initialized.rs
++++ b/compiler/rustc_mir_dataflow/src/impls/initialized.rs
+@@ -595,7 +595,7 @@ fn apply_switch_int_edge_effect(
+             SwitchTargetIndex::Normal(target_idx) => {
+                 InactiveVariants::Active(data.variants[target_idx])
+             }
+-            SwitchTargetIndex::Otherwise => InactiveVariants::Inactives(data.variants.clone()),
++            SwitchTargetIndex::Otherwise => return,
+         };
+ 
+         // Mark all move paths that correspond to variants other than this one as maybe
+diff --git a/compiler/rustc_mir_transform/src/elaborate_drops.rs b/compiler/rustc_mir_transform/src/elaborate_drops.rs
+index 84c9c044ae6a6e0597fa29291b4449fd3f70ed72..44f23bff7e2097ea01bc63603fdb3a4e3a7446cf 100644
+--- a/compiler/rustc_mir_transform/src/elaborate_drops.rs
++++ b/compiler/rustc_mir_transform/src/elaborate_drops.rs
+@@ -62,7 +62,6 @@ fn run_pass(&self, tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
+             let env = MoveDataTypingEnv { move_data, typing_env };
+ 
+             let mut inits = MaybeInitializedPlaces::new(tcx, body, &env.move_data)
+-                .exclude_inactive_in_otherwise()
+                 .skipping_unreachable_unwind()
+                 .iterate_to_fixpoint(tcx, body, Some("elaborate_drops"))
+                 .into_results_cursor(body);

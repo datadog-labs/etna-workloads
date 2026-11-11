@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/wfcheck.rs b/compiler/rustc_hir_analysis/src/check/wfcheck.rs
+index 9a498837b1f4d99154a7e6c5bfe06c5f1060e16a..3ab0717a45b96740b302fc487e9b793a1bad4210 100644
+--- a/compiler/rustc_hir_analysis/src/check/wfcheck.rs
++++ b/compiler/rustc_hir_analysis/src/check/wfcheck.rs
+@@ -1270,32 +1270,17 @@ pub(crate) fn check_static_item<'tcx>(
+ pub(super) fn check_type_const<'tcx>(
+     wfcx: &WfCheckingCtxt<'_, 'tcx>,
+     def_id: LocalDefId,
+-    item_ty: Ty<'tcx>,
++    _item_ty: Ty<'tcx>,
+     has_value: bool,
+ ) -> Result<(), ErrorGuaranteed> {
+     let tcx = wfcx.tcx();
+     let span = tcx.def_span(def_id);
+ 
+-    if !tcx.features().const_param_ty_unchecked() {
+-        wfcx.register_bound(
+-            ObligationCause::new(span, def_id, ObligationCauseCode::ConstParam(item_ty)),
+-            wfcx.param_env,
+-            item_ty,
+-            tcx.require_lang_item(LangItem::ConstParamTy, span),
+-        );
+-    }
+-
+     if has_value {
+         let raw_ct = tcx.const_of_item(def_id).instantiate_identity();
+         let norm_ct = wfcx.deeply_normalize(span, Some(WellFormedLoc::Ty(def_id)), raw_ct);
+         wfcx.register_wf_obligation(span, Some(WellFormedLoc::Ty(def_id)), norm_ct.into());
+ 
+-        wfcx.register_obligation(Obligation::new(
+-            tcx,
+-            ObligationCause::new(span, def_id, ObligationCauseCode::WellFormed(None)),
+-            wfcx.param_env,
+-            ty::PredicateKind::Clause(ty::ClauseKind::ConstArgHasType(norm_ct, item_ty)),
+-        ));
+     }
+     Ok(())
+ }

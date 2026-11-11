@@ -1,0 +1,135 @@
+error[E0277]: the trait bound `__S: OnDrop` is not satisfied
+  --> main.rs:16:10
+   |
+16 | #[derive(core::marker::CoercePointee)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `OnDrop` is not implemented for `__S`
+   |
+note: required by a bound in `Ptr2`
+  --> main.rs:20:8
+   |
+18 | pub struct Ptr2<'a, #[pointee] T: ?Sized, X>
+   |            ---- required by a bound in this struct
+19 | where
+20 |     T: OnDrop,
+   |        ^^^^^^ required by this bound in `Ptr2`
+help: consider further restricting type parameter `__S` with trait `OnDrop`
+   |
+18 | pub struct Ptr2<'a, #[pointee] T: ?Sized + OnDrop, X>
+   |                                          ++++++++
+
+error[E0277]: the trait bound `__S: MyTrait<__S>` is not satisfied
+  --> main.rs:28:10
+   |
+28 | #[derive(core::marker::CoercePointee)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `MyTrait<__S>` is not implemented for `__S`
+   |
+note: required by a bound in `Ptr3`
+  --> main.rs:32:8
+   |
+30 | pub struct Ptr3<'a, #[pointee] T: ?Sized, X>
+   |            ---- required by a bound in this struct
+31 | where
+32 |     T: MyTrait<T>,
+   |        ^^^^^^^^^^ required by this bound in `Ptr3`
+help: consider further restricting type parameter `__S` with trait `MyTrait`
+   |
+30 | pub struct Ptr3<'a, #[pointee] T: ?Sized + MyTrait<__S>, X>
+   |                                          ++++++++++++++
+
+error[E0277]: the trait bound `__S: MyTrait<__S>` is not satisfied
+  --> main.rs:38:10
+   |
+38 | #[derive(core::marker::CoercePointee)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `MyTrait<__S>` is not implemented for `__S`
+   |
+note: required by a bound in `Ptr4`
+  --> main.rs:40:35
+   |
+40 | pub struct Ptr4<'a, #[pointee] T: MyTrait<T> + ?Sized, X> {
+   |                                   ^^^^^^^^^^ required by this bound in `Ptr4`
+
+error[E0277]: the trait bound `Ptr5Companion<__S>: MyTrait<__S>` is not satisfied
+  --> main.rs:45:10
+   |
+45 | #[derive(core::marker::CoercePointee)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `MyTrait<__S>` is not implemented for `Ptr5Companion<__S>`
+  --> main.rs:56:1
+   |
+56 | pub struct Ptr5Companion<T: ?Sized>(core::marker::PhantomData<T>);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `Ptr5`
+  --> main.rs:49:23
+   |
+47 | pub struct Ptr5<'a, #[pointee] T: ?Sized, X>
+   |            ---- required by a bound in this struct
+48 | where
+49 |     Ptr5Companion<T>: MyTrait<T>,
+   |                       ^^^^^^^^^^ required by this bound in `Ptr5`
+help: consider extending the `where` clause, but there might be an alternative better way to express this requirement
+   |
+50 |     Ptr5Companion2: MyTrait<T>, Ptr5Companion<__S>: MyTrait<__S>
+   |                                 ++++++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `Ptr5Companion2: MyTrait<__S>` is not satisfied
+  --> main.rs:45:10
+   |
+45 | #[derive(core::marker::CoercePointee)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `MyTrait<__S>` is not implemented for `Ptr5Companion2`
+  --> main.rs:57:1
+   |
+57 | pub struct Ptr5Companion2;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `Ptr5`
+  --> main.rs:50:21
+   |
+47 | pub struct Ptr5<'a, #[pointee] T: ?Sized, X>
+   |            ---- required by a bound in this struct
+...
+50 |     Ptr5Companion2: MyTrait<T>,
+   |                     ^^^^^^^^^^ required by this bound in `Ptr5`
+help: consider extending the `where` clause, but there might be an alternative better way to express this requirement
+   |
+50 |     Ptr5Companion2: MyTrait<T>, Ptr5Companion2: MyTrait<__S>
+   |                                 ++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `X: MyTrait<__S>` is not satisfied
+  --> main.rs:59:10
+   |
+59 | #[derive(core::marker::CoercePointee)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `MyTrait<__S>` is not implemented for `X`
+   |
+note: required by a bound in `Ptr6`
+  --> main.rs:61:46
+   |
+61 | pub struct Ptr6<'a, #[pointee] T: ?Sized, X: MyTrait<T> = (), const PARAM: usize = 0> {
+   |                                              ^^^^^^^^^^ required by this bound in `Ptr6`
+
+error[E0277]: the trait bound `__S: ListArcSafe<ID>` is not satisfied
+  --> main.rs:68:10
+   |
+68 | #[derive(core::marker::CoercePointee)]
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `ListArcSafe<ID>` is not implemented for `__S`
+   |
+note: required by a bound in `ListArc`
+  --> main.rs:71:8
+   |
+69 | pub struct ListArc<#[pointee] T, const ID: u64 = 0>
+   |            ------- required by a bound in this struct
+70 | where
+71 |     T: ListArcSafe<ID> + ?Sized,
+   |        ^^^^^^^^^^^^^^^ required by this bound in `ListArc`
+help: consider further restricting type parameter `__S` with trait `ListArcSafe`
+   |
+71 |     T: ListArcSafe<ID> + ?Sized, __S: ListArcSafe<ID>
+   |                                  ++++++++++++++++++++
+
+error: aborting due to 7 previous errors
+
+For more information about this error, try `rustc --explain E0277`.
+rustc exit: 1
+
+[exit 0]

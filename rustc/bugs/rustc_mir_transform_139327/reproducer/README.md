@@ -1,0 +1,1 @@
+Compiles a small lib with MIR opt level 2 and prints the MIR lines that index places. The clean compiler's GVN rewrites derefs of references into direct place copies like copy _N[0 of 1]; the injected one (GVN limited to locals) leaves them as reference derefs.

@@ -1,0 +1,1 @@
+Compiles a custom_mir function that calls fn1(move c.0, d) where d is a copy of c, dumping MIR after GVN. The clean compiler turns the move of the projection (c.0) into a copy; the injected one leaves `move (_3.0: ..)`.

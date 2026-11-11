@@ -1,0 +1,45 @@
+diff --git a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+index e5dbae16d07d438ebd25e9d7b9196f030b43ec59..f36f89c39581cbacb8738f463c560d144aa24e99 100644
+--- a/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
++++ b/compiler/rustc_hir_analysis/src/hir_ty_lowering/errors.rs
+@@ -985,17 +985,15 @@ pub(crate) fn report_unresolved_inherent_assoc_item(
+                 ty::PredicateKind::Clause(ty::ClauseKind::Projection(pred)) => {
+                     // `<Foo as Iterator>::Item = String`.
+                     let projection_term = pred.projection_term;
+-                    let term = pred.term;
+-                    let self_ty = projection_term.args.get(0).and_then(|arg| arg.as_type())?;
+-
+-                    let obligation = format!("{projection_term} = {term}");
+                     let quiet_projection_term = projection_term
+                         .with_replaced_self_ty(tcx, Ty::new_var(tcx, ty::TyVid::ZERO));
+-                    let quiet = format!("{quiet_projection_term} = {term}");
+ 
+-                    bound_span_label(self_ty, &obligation, &quiet);
++                    let term = pred.term;
++                    let obligation = format!("{projection_term} = {term}");
++                    let quiet = format!("{quiet_projection_term} = {term}");
+ 
+-                    Some(obligation)
++                    bound_span_label(projection_term.self_ty(), &obligation, &quiet);
++                    Some((obligation, projection_term.self_ty()))
+                 }
+                 ty::PredicateKind::Clause(ty::ClauseKind::Trait(poly_trait_ref)) => {
+                     let p = poly_trait_ref.trait_ref;
+@@ -1004,7 +1002,7 @@ pub(crate) fn report_unresolved_inherent_assoc_item(
+                     let obligation = format!("{self_ty}: {path}");
+                     let quiet = format!("_: {path}");
+                     bound_span_label(self_ty, &obligation, &quiet);
+-                    Some(obligation)
++                    Some((obligation, self_ty))
+                 }
+                 _ => None,
+             }
+@@ -1016,7 +1014,7 @@ pub(crate) fn report_unresolved_inherent_assoc_item(
+             .into_iter()
+             .map(|error| error.root_obligation.predicate)
+             .filter_map(format_pred)
+-            .map(|p| format!("`{p}`"))
++            .map(|(p, _)| format!("`{p}`"))
+             .collect();
+         bounds.sort();
+         bounds.dedup();

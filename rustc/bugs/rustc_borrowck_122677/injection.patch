@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+index 49e6dc334ff80dc2ca74719212a355497fce20e7..dbabcd07af9685c347b8decd51019933cb2aa481 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+@@ -963,10 +963,6 @@ fn construct_mut_suggestion_for_local_binding_patterns(
+             && let hir::Node::LetStmt(hir::LetStmt {
+                 pat: hir::Pat { kind: hir::PatKind::Ref(_, _, _), .. },
+                 ..
+-            })
+-            | hir::Node::Param(Param {
+-                pat: hir::Pat { kind: hir::PatKind::Ref(_, _, _), .. },
+-                ..
+             }) = node
+         {
+             err.multipart_suggestion(
+@@ -1797,16 +1793,6 @@ fn visit_stmt(&mut self, s: &'tcx hir::Stmt<'tcx>) -> Self::Result {
+             hir::intravisit::walk_stmt(self, s)
+         }
+     }
+-
+-    fn visit_param(&mut self, param: &'tcx hir::Param<'tcx>) -> Self::Result {
+-        if let hir::Pat { kind: hir::PatKind::Ref(_, _, _), span, .. } = param.pat
+-            && *span == self.span
+-        {
+-            ControlFlow::Break(param.hir_id)
+-        } else {
+-            ControlFlow::Continue(())
+-        }
+-    }
+ }
+ 
+ fn mut_borrow_of_mutable_ref(local_decl: &LocalDecl<'_>, local_name: Option<Symbol>) -> bool {

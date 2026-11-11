@@ -1,0 +1,1 @@
+Orphan check on an impl whose self type is a projection <T as Identity>::Output with uncovered T before the first local type: clean rustc emits the uncovered_param_in_projection future-incompat warning; the injected one stays silent.

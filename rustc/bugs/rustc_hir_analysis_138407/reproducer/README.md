@@ -1,0 +1,1 @@
+Delegating (`reuse`) to a C-variadic function must be rejected with "delegation to C-variadic functions is not allowed". The injected compiler removes that check, so compilation succeeds (exit 0, no diagnostic) instead of failing.

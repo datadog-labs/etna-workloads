@@ -1,0 +1,114 @@
+diff --git a/compiler/rustc_attr_ir/src/data_structures.rs b/compiler/rustc_attr_ir/src/data_structures.rs
+index 581275d4de43b978b46e7723932ad72ed7a676b1..86c7bb8ed837b9fe7b2020b62f1861d575c97a01 100644
+--- a/compiler/rustc_attr_ir/src/data_structures.rs
++++ b/compiler/rustc_attr_ir/src/data_structures.rs
+@@ -1273,7 +1273,7 @@ pub enum AttributeKind {
+     },
+ 
+     /// Represents `#[path]`
+-    Path(Symbol, Span),
++    Path(Symbol),
+ 
+     /// Represents `#[pattern_complexity_limit]`
+     PatternComplexityLimit {
+diff --git a/compiler/rustc_attr_parsing/src/attributes/path.rs b/compiler/rustc_attr_parsing/src/attributes/path.rs
+index a44414f5aead28543c40d566340ef05c44fdb7a7..ad4641c4be7f2de5fcdc2c73bd2302c6f6c1fb18 100644
+--- a/compiler/rustc_attr_parsing/src/attributes/path.rs
++++ b/compiler/rustc_attr_parsing/src/attributes/path.rs
+@@ -19,6 +19,6 @@ fn convert(cx: &mut AcceptContext<'_, '_>, args: &ArgParser) -> Option<Attribute
+         let nv = cx.expect_name_value(args, cx.attr_span, None)?;
+         let path = cx.expect_string_literal(nv)?;
+ 
+-        Some(AttributeKind::Path(path, cx.attr_span))
++        Some(AttributeKind::Path(path))
+     }
+ }
+diff --git a/compiler/rustc_passes/src/check_attr.rs b/compiler/rustc_passes/src/check_attr.rs
+index 1d40b277e69a60d461566ae68fcf7c18db45a758..eb3748b0e5722c094fbf3c5128593c6de50e27d7 100644
+--- a/compiler/rustc_passes/src/check_attr.rs
++++ b/compiler/rustc_passes/src/check_attr.rs
+@@ -25,7 +25,7 @@
+ use rustc_hir::intravisit::{self, Visitor};
+ use rustc_hir::{
+     self as hir, Attribute, CRATE_HIR_ID, Constness, FnSig, ForeignItem, GenericParam,
+-    GenericParamKind, HirId, Item, ItemKind, MethodKind, Mod, Node, ParamName, Target, TraitItem,
++    GenericParamKind, HirId, Item, ItemKind, MethodKind, Node, ParamName, Target, TraitItem,
+     find_attr,
+ };
+ use rustc_macros::Diagnostic;
+@@ -289,7 +289,7 @@ fn check_one_parsed_attribute(
+             AttributeKind::Optimize(..) => (),
+             AttributeKind::PanicRuntime => (),
+             AttributeKind::PatchableFunctionEntry { .. } => (),
+-            AttributeKind::Path(_, span) => self.check_path(*span, hir_id),
++            AttributeKind::Path(..) => (),
+             AttributeKind::PatternComplexityLimit { .. } => (),
+             AttributeKind::PinV2(..) => (),
+             AttributeKind::PreludeImport => (),
+@@ -411,53 +411,6 @@ fn check_one_parsed_attribute(
+         }
+     }
+ 
+-    fn check_path(&self, span: Span, hir_id: HirId) {
+-        let Node::Item(item) = self.tcx.hir_node(hir_id) else {
+-            return;
+-        };
+-
+-        let ItemKind::Mod(_, module) = &item.kind else {
+-            return;
+-        };
+-
+-        if item.span == module.spans.inner_span || !item.span.contains(module.spans.inner_span) {
+-            return;
+-        }
+-
+-        // Do not warn when a nested module uses `#[path]` or is out-of-line,
+-        // because the attribute may affect nested module path resolution.
+-        if self.has_nested_module_path_dependency(module) {
+-            return;
+-        }
+-
+-        self.tcx.emit_node_span_lint(
+-            UNUSED_ATTRIBUTES,
+-            hir_id,
+-            span,
+-            diagnostics::Unused {
+-                attr_span: span,
+-                note: diagnostics::UnusedNote::PathOnInlineModule,
+-            },
+-        );
+-    }
+-
+-    fn has_nested_module_path_dependency(&self, module: &Mod<'tcx>) -> bool {
+-        module.item_ids.iter().any(|item_id| {
+-            let child = self.tcx.hir_item(*item_id);
+-
+-            let ItemKind::Mod(_, child_module) = &child.kind else {
+-                return false;
+-            };
+-
+-            let is_out_of_line = child.span == child_module.spans.inner_span
+-                || !child.span.contains(child_module.spans.inner_span);
+-
+-            let has_path_attr = find_attr!(self.tcx, child.hir_id(), Path(..));
+-
+-            is_out_of_line || has_path_attr || self.has_nested_module_path_dependency(child_module)
+-        })
+-    }
+-
+     fn check_rustc_must_implement_one_of(
+         &self,
+         attr_span: Span,
+diff --git a/compiler/rustc_passes/src/diagnostics.rs b/compiler/rustc_passes/src/diagnostics.rs
+index 16a2cc400731812b725790e5ccc3a63182e3786d..a2f8c69d1e63702327973576dffdf24ffa774154 100644
+--- a/compiler/rustc_passes/src/diagnostics.rs
++++ b/compiler/rustc_passes/src/diagnostics.rs
+@@ -255,8 +255,6 @@ pub(crate) enum UnusedNote {
+     LinkerMessagesBinaryCrateOnly,
+     #[note("the `dead_code_pub_in_binary` lint has no effect in library crates")]
+     NoEffectDeadCodePubInBinary,
+-    #[note("`#[path]` is unused on this inline module")]
+-    PathOnInlineModule,
+ }
+ 
+ #[derive(Diagnostic)]

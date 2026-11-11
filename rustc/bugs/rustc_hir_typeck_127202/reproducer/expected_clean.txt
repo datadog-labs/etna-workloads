@@ -1,0 +1,39 @@
+error[E0015]: cannot perform non-const deref coercion on `R` in constant functions
+  --> main.rs:13:9
+   |
+13 |         self.0
+   |         ^^^^^^
+   |
+   = note: attempting to deref into `Foo`
+   = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants
+
+error[E0493]: destructor of `R` cannot be evaluated at compile-time
+  --> main.rs:10:43
+   |
+10 |     const fn get<R: Deref<Target = Self>>(self: R) -> u32 {
+   |                                           ^^^^ the destructor for this type cannot be evaluated in constant functions
+...
+15 |     }
+   |     - value is dropped here
+   |
+help: consider further restricting type parameter `R` with unstable trait `Destruct`
+   |
+10 |     const fn get<R: Deref<Target = Self> + [const] Destruct>(self: R) -> u32 {
+   |                                          ++++++++++++++++++
+
+error[E0801]: invalid generic `self` parameter type: `R`
+  --> main.rs:10:49
+   |
+10 |     const fn get<R: Deref<Target = Self>>(self: R) -> u32 {
+   |                                                 ^
+   |
+   = note: type of `self` must not be a method generic parameter type
+   = help: use a concrete type such as `self`, `&self`, `&mut self`, `self: Box<Self>`, `self: Rc<Self>`, `self: Arc<Self>`, or `self: Pin<P>` (where P is one of the previous types except `Self`)
+
+error: aborting due to 3 previous errors
+
+Some errors have detailed explanations: E0015, E0493, E0801.
+For more information about an error, try `rustc --explain E0015`.
+rustc exit: 1
+
+[exit 0]

@@ -1,0 +1,1 @@
+Compiles a crate using #[cfg(linux)] with --check-cfg=cfg(); the clean compiler suggests the similar config `target_os = "linux"` in the unexpected_cfgs warning, the injected one omits that suggestion.

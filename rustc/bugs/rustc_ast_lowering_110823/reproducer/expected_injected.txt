@@ -1,0 +1,135 @@
+warning: unreachable expression
+  --> main.rs:30:9
+   |
+30 |         (Rc::new(()), bar().await);
+   |         ^^^^^^^^^^^^^^^^^^^------^
+   |         |                  |
+   |         |                  any code following this expression is unreachable
+   |         unreachable expression
+   |
+   = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unreachable statement
+  --> main.rs:39:9
+   |
+38 |         bar().await;
+   |              ------ any code following this expression is unreachable
+39 |         println!("{:?}", r);
+   |         ^^^^^^^^^^^^^^^^^^^ unreachable statement
+
+error: future cannot be sent between threads safely
+  --> main.rs:45:13
+   |
+45 |     is_send(foo(Some(true)));
+   |             ^^^^^^^^^^^^^^^ future returned by `foo` is not `Send`
+   |
+   = help: within `impl Future<Output = ()>`, the trait `Send` is not implemented for `Rc<()>`
+note: future is not `Send` as this value is used across an await
+  --> main.rs:8:14
+   |
+ 7 |         let r = Rc::new(());
+   |             - has type `Rc<()>` which is not `Send`
+ 8 |         bar().await
+   |              ^^^^^^ await occurs here, with `r` maybe used later
+note: required by a bound in `is_send`
+  --> main.rs:16:15
+   |
+16 | fn is_send<T: Send>(_: T) {}
+   |               ^^^^ required by this bound in `is_send`
+
+error[E0277]: `Rc<()>` cannot be sent between threads safely
+  --> main.rs:47:13
+   |
+18 | async fn foo2(x: Option<bool>) {
+   |                               - within this `impl Future<Output = ()>`
+...
+47 |     is_send(foo2(Some(true)));
+   |     ------- ^^^^^^^^^^^^^^^^ `Rc<()>` cannot be sent between threads safely
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = help: within `impl Future<Output = ()>`, the trait `Send` is not implemented for `Rc<()>`
+note: required because it's used within this `async` fn body
+  --> main.rs:24:29
+   |
+24 |   async fn bar2<T>(_: T) -> ! {
+   |  _____________________________^
+25 | |     panic!()
+26 | | }
+   | |_^
+note: required because it's used within this `async` fn body
+  --> main.rs:18:32
+   |
+18 |   async fn foo2(x: Option<bool>) {
+   |  ________________________________^
+19 | |     let Some(_) = x else {
+20 | |         bar2(Rc::new(())).await
+21 | |     };
+22 | | }
+   | |_^
+note: required by a bound in `is_send`
+  --> main.rs:16:15
+   |
+16 | fn is_send<T: Send>(_: T) {}
+   |               ^^^^ required by this bound in `is_send`
+
+error: future cannot be sent between threads safely
+  --> main.rs:49:13
+   |
+49 |     is_send(foo3(Some(true)));
+   |             ^^^^^^^^^^^^^^^^ future returned by `foo3` is not `Send`
+   |
+   = help: within `impl Future<Output = ()>`, the trait `Send` is not implemented for `Rc<()>`
+note: future is not `Send` as this value is used across an await
+  --> main.rs:30:28
+   |
+30 |         (Rc::new(()), bar().await);
+   |          -----------       ^^^^^^ await occurs here, with `Rc::new(())` maybe used later
+   |          |
+   |          has type `Rc<()>` which is not `Send`
+note: required by a bound in `is_send`
+  --> main.rs:16:15
+   |
+16 | fn is_send<T: Send>(_: T) {}
+   |               ^^^^ required by this bound in `is_send`
+
+error: future cannot be sent between threads safely
+  --> main.rs:51:13
+   |
+51 |     is_send(foo4(Some(true)));
+   |             ^^^^^^^^^^^^^^^^ future returned by `foo4` is not `Send`
+   |
+   = help: within `impl Future<Output = ()>`, the trait `Send` is not implemented for `Rc<()>`
+note: future is not `Send` as this value is used across an await
+  --> main.rs:38:14
+   |
+37 |         let r = Rc::new(());
+   |             - has type `Rc<()>` which is not `Send`
+38 |         bar().await;
+   |              ^^^^^^ await occurs here, with `r` maybe used later
+note: required by a bound in `is_send`
+  --> main.rs:16:15
+   |
+16 | fn is_send<T: Send>(_: T) {}
+   |               ^^^^ required by this bound in `is_send`
+
+warning: unused variable: `r`
+ --> main.rs:7:13
+  |
+7 |         let r = Rc::new(());
+  |             ^ help: if this is intentional, prefix it with an underscore: `_r`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `r`
+  --> main.rs:37:13
+   |
+37 |         let r = Rc::new(());
+   |             ^ help: if this is intentional, prefix it with an underscore: `_r`
+
+error: aborting due to 4 previous errors; 4 warnings emitted
+
+For more information about this error, try `rustc --explain E0277`.
+rustc exit: 1
+
+[exit 0]

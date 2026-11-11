@@ -1,0 +1,90 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..6d584c2b3910753cc110ed1ba03a120d77650ef7 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -515,76 +515,6 @@ pub fn suggest_restricting_param_bound(
+                     return;
+                 }
+ 
+-                hir::Node::TraitItem(hir::TraitItem {
+-                    generics,
+-                    kind: hir::TraitItemKind::Fn(..),
+-                    ..
+-                }) if self_ty == self.tcx.types.self_param => {
+-                    assert!(param_ty);
+-                    // Restricting `Self` for a single method.
+-                    suggest_restriction(
+-                        self.tcx,
+-                        body_def_id,
+-                        generics,
+-                        "`Self`",
+-                        err,
+-                        None,
+-                        projection,
+-                        trait_pred,
+-                        None,
+-                    );
+-                    return;
+-                }
+-
+-                hir::Node::TraitItem(hir::TraitItem {
+-                    generics,
+-                    kind: hir::TraitItemKind::Fn(fn_sig, ..),
+-                    ..
+-                })
+-                | hir::Node::ImplItem(hir::ImplItem {
+-                    generics,
+-                    kind: hir::ImplItemKind::Fn(fn_sig, ..),
+-                    ..
+-                })
+-                | hir::Node::Item(hir::Item {
+-                    kind: hir::ItemKind::Fn { sig: fn_sig, generics, .. },
+-                    ..
+-                }) if projection.is_some() => {
+-                    // Missing restriction on associated type of type parameter (unmet projection).
+-                    suggest_restriction(
+-                        self.tcx,
+-                        body_def_id,
+-                        generics,
+-                        "the associated type",
+-                        err,
+-                        Some(fn_sig),
+-                        projection,
+-                        trait_pred,
+-                        None,
+-                    );
+-                    return;
+-                }
+-                hir::Node::Item(hir::Item {
+-                    kind:
+-                        hir::ItemKind::Trait { generics, .. }
+-                        | hir::ItemKind::Impl(hir::Impl { generics, .. }),
+-                    ..
+-                }) if projection.is_some() => {
+-                    // Missing restriction on associated type of type parameter (unmet projection).
+-                    suggest_restriction(
+-                        self.tcx,
+-                        body_def_id,
+-                        generics,
+-                        "the associated type",
+-                        err,
+-                        None,
+-                        projection,
+-                        trait_pred,
+-                        None,
+-                    );
+-                    return;
+-                }
+-
+                 hir::Node::Item(hir::Item {
+                     kind:
+                         hir::ItemKind::Struct(_, generics, _)
+@@ -677,7 +607,7 @@ pub fn suggest_restricting_param_bound(
+                         | hir::ItemKind::Const(_, generics, _, _)
+                         | hir::ItemKind::TraitAlias(_, _, generics, _),
+                     ..
+-                }) if finder.can_suggest_bound(generics) => {
++                }) if !param_ty => {
+                     // Missing generic type parameter bound.
+                     if suggest_arbitrary_trait_bound(
+                         self.tcx,

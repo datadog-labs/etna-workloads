@@ -1,0 +1,29 @@
+diff --git a/compiler/rustc_hir_typeck/src/lib.rs b/compiler/rustc_hir_typeck/src/lib.rs
+index 7a2670f3b1b78f6d5f7c5145cb9f2dbe6ed293c2..f9f88845986f6d1c216e5286168be16639705628 100644
+--- a/compiler/rustc_hir_typeck/src/lib.rs
++++ b/compiler/rustc_hir_typeck/src/lib.rs
+@@ -380,23 +380,7 @@ fn infer_type_if_missing<'tcx>(fcx: &FnCtxt<'_, 'tcx>, node: Node<'tcx>) -> Opti
+     let def_id = fcx.body_def_id;
+     let expected_type = if let Some(&hir::Ty { kind: hir::TyKind::Infer(()), span, .. }) = node.ty()
+     {
+-        if let Some(item) = tcx.opt_associated_item(def_id.into())
+-            && let ty::AssocKind::Const { .. } = item.kind
+-            && let ty::AssocContainer::TraitImpl(Ok(trait_item_def_id)) = item.container
+-        {
+-            let impl_def_id = item.container_id(tcx);
+-            let impl_trait_ref =
+-                tcx.impl_trait_ref(impl_def_id).instantiate_identity().skip_norm_wip();
+-            let args = ty::GenericArgs::identity_for_item(tcx, def_id).rebase_onto(
+-                tcx,
+-                impl_def_id,
+-                impl_trait_ref.args,
+-            );
+-            tcx.check_args_compatible(trait_item_def_id, args)
+-                .then(|| tcx.type_of(trait_item_def_id).instantiate(tcx, args).skip_norm_wip())
+-        } else {
+-            Some(fcx.next_ty_var(span))
+-        }
++        Some(fcx.next_ty_var(span))
+     } else if let Node::AnonConst(_) = node {
+         let id = tcx.local_def_id_to_hir_id(def_id);
+         match tcx.parent_hir_node(id) {

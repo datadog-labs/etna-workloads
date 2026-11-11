@@ -1,0 +1,1 @@
+Transmuting a type whose size skeleton recurses through a normalizing type alias (`Thing<T>` containing `Alias<Thing<T>>`). The clean compiler reports a recursion-limit error; the injected compiler lacks the depth guard and overflows the stack (SIGSEGV).

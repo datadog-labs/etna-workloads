@@ -1,0 +1,1 @@
+Compiles a impl that writes Self::Out(1) where Out is an associated type aliasing a tuple struct; the clean compiler adds a help suggesting the explicit path 'Constructor(1)', the injected one omits it.

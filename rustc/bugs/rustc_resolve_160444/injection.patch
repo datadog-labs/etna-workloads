@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_resolve/src/ident.rs b/compiler/rustc_resolve/src/ident.rs
+index 2a1b208f94c34e33885c0c8c30524150d9f78054..42fc5964f5aa1515ec7b3187ab26d937e890611b 100644
+--- a/compiler/rustc_resolve/src/ident.rs
++++ b/compiler/rustc_resolve/src/ident.rs
+@@ -419,7 +419,7 @@ fn resolve_ident_in_scope_set_inner<'r>(
+         ignore_import: Option<Import<'ra>>,
+     ) -> Result<Decl<'ra>, Determinacy> {
+         // Make sure `self`, `super` etc produce an error when passed to here.
+-        if ident.name.is_path_segment_keyword() {
++        if !matches!(scope_set, ScopeSet::Module(..)) && ident.name.is_path_segment_keyword() {
+             return Err(Determinacy::Determined);
+         }
+ 
+@@ -1079,6 +1079,10 @@ pub(crate) fn resolve_ident_in_module<'r>(
+                     {
+                         let module = self.resolve_crate_root(ident);
+                         return Ok(module.self_decl.unwrap());
++                    } else if ident.name == kw::Super {
++                        // FIXME: Implement these with renaming requirements so that e.g.
++                        // `use super;` doesn't work, but `use super as name;` does.
++                        // Fall through here to get an error from `early_resolve_...`.
+                     }
+                 }
+ 

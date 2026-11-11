@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_borrowck/src/root_cx.rs b/compiler/rustc_borrowck/src/root_cx.rs
+index b1aca758d64ae5371e5ff3cec4792dbeecf3844b..e66a6f083f20a6547109bda791d94eedff0ac0be 100644
+--- a/compiler/rustc_borrowck/src/root_cx.rs
++++ b/compiler/rustc_borrowck/src/root_cx.rs
+@@ -271,11 +271,32 @@ pub(super) fn do_mir_borrowck(&mut self) {
+         // nested bodies, and then their parents. This means accessing e.g.
+         // `used_mut_upvars` for a closure can assume that we've already
+         // checked that closure.
+-        let all_bodies = self
+-            .tcx
+-            .nested_bodies_within(self.root_def_id)
+-            .iter()
+-            .chain(std::iter::once(self.root_def_id));
++        // Only bodies reachable from generated MIR (no dead code) are checked.
++        let tcx = self.tcx;
++        let mut live = rustc_data_structures::fx::FxHashSet::default();
++        live.insert(self.root_def_id);
++        let nested = tcx.nested_bodies_within(self.root_def_id);
++        let mut all_bodies = Vec::new();
++        for def_id in std::iter::once(self.root_def_id).chain(nested.iter().rev()) {
++            if !live.contains(&def_id) {
++                continue;
++            }
++            all_bodies.push(def_id);
++            let (body, _) = tcx.mir_promoted(def_id);
++            for bb in body.borrow().basic_blocks.iter() {
++                for stmt in &bb.statements {
++                    if let rustc_middle::mir::StatementKind::Assign(assign) = &stmt.kind
++                        && let rustc_middle::mir::Rvalue::Aggregate(kind, _) = &assign.1
++                        && let rustc_middle::mir::AggregateKind::Closure(c, _)
++                        | rustc_middle::mir::AggregateKind::Coroutine(c, _)
++                        | rustc_middle::mir::AggregateKind::CoroutineClosure(c, _) = &**kind
++                    {
++                        live.insert(c.expect_local());
++                    }
++                }
++            }
++        }
++        all_bodies.reverse();
+         for def_id in all_bodies {
+             let result = borrowck_collect_region_constraints(self, def_id);
+             self.collect_region_constraints_results.insert(def_id, result);

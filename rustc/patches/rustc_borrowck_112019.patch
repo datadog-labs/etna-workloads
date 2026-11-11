@@ -1,0 +1,42 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+index 49e6dc334ff80dc2ca74719212a355497fce20e7..e4b0f7fa7583b9f15c39b22d14407e7e13cfbabb 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mutability_errors.rs
+@@ -491,31 +491,12 @@ pub(crate) fn report_mutability_error(
+                     && let hir::PatKind::Binding(hir::BindingMode::NONE, _, upvar_ident, _) =
+                         pat.kind
+                 {
+-                    if upvar_ident.name == kw::SelfLower {
+-                        for (_, node) in self.infcx.tcx.hir_parent_iter(upvar_hir_id) {
+-                            if let Some(fn_decl) = node.fn_decl() {
+-                                if !matches!(
+-                                    fn_decl.implicit_self(),
+-                                    hir::ImplicitSelfKind::RefImm | hir::ImplicitSelfKind::RefMut
+-                                ) {
+-                                    err.span_suggestion_verbose(
+-                                        upvar_ident.span.shrink_to_lo(),
+-                                        "consider changing this to be mutable",
+-                                        "mut ",
+-                                        Applicability::MachineApplicable,
+-                                    );
+-                                    break;
+-                                }
+-                            }
+-                        }
+-                    } else {
+-                        err.span_suggestion_verbose(
+-                            upvar_ident.span.shrink_to_lo(),
+-                            "consider changing this to be mutable",
+-                            "mut ",
+-                            Applicability::MachineApplicable,
+-                        );
+-                    }
++                    err.span_suggestion_verbose(
++                        upvar_ident.span.shrink_to_lo(),
++                        "consider changing this to be mutable",
++                        "mut ",
++                        Applicability::MachineApplicable,
++                    );
+                 }
+ 
+                 let tcx = self.infcx.tcx;

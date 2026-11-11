@@ -1,0 +1,1 @@
+A closure matches a single-variant #[non_exhaustive] enum defined in the same crate; the injected compiler's capture analysis treats it as single-variant and ICEs (assertion failed in match lowering), while clean compiles and runs it.

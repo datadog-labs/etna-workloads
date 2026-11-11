@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_transmute/src/layout/tree.rs b/compiler/rustc_transmute/src/layout/tree.rs
+index d7aeb6b06b82fcea68179bacd30b567179ccd66c..f918eab5d542f4e0fb41cf7da33d70f6c55848aa 100644
+--- a/compiler/rustc_transmute/src/layout/tree.rs
++++ b/compiler/rustc_transmute/src/layout/tree.rs
+@@ -405,9 +405,6 @@ fn from_enum(
+             // Computes the layout of a variant.
+             let layout_of_variant = |index, encoding: Option<_>| -> Result<Self, Err> {
+                 let variant_layout = ty_variant(cx, (ty, layout), index);
+-                if variant_layout.is_uninhabited() {
+-                    return Ok(Self::uninhabited());
+-                }
+                 let tag = cx.tcx().tag_for_variant(
+                     cx.typing_env.as_query_input((cx.tcx().erase_and_anonymize_regions(ty), index)),
+                 );
+@@ -426,7 +423,16 @@ fn from_enum(
+                 Variants::Single { index } => {
+                     // `Variants::Single` on enums with variants denotes that
+                     // the enum delegates its layout to the variant at `index`.
+-                    layout_of_variant(index, None)
++                    let _ = index;
++                    let variants = def.discriminants(cx.tcx()).try_fold(
++                        Self::uninhabited(),
++                        |variants, (idx, _discriminant)| {
++                            let variant = layout_of_variant(idx, None)?;
++                            Result::<Self, Err>::Ok(variants.or(variant))
++                        },
++                    )?;
++
++                    Ok(Self::def(Def::Adt(def)).then(variants))
+                 }
+                 Variants::Multiple { tag: _, tag_encoding, tag_field, .. } => {
+                     // `Variants::Multiple` denotes an enum with multiple

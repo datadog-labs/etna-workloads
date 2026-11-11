@@ -1,0 +1,277 @@
+error[E0597]: `x` does not live long enough
+   --> main.rs:184:17
+    |
+182 |     let x = vec![0];
+    |         - binding `x` declared here
+183 |     //~^ NOTE binding `x` declared here
+184 |     display_len(&x)
+    |     ------------^^-
+    |     |           |
+    |     |           borrowed value does not live long enough
+    |     argument requires that `x` is borrowed for `'static`
+...
+188 | }
+    | - `x` dropped here while still borrowed
+
+error[E0502]: cannot borrow `x` as mutable because it is also borrowed as immutable
+  --> main.rs:19:5
+   |
+16 |     let a = display_len(&x);
+   |                         -- immutable borrow occurs here
+...
+19 |     x.push(1);
+   |     ^^^^^^^^^ mutable borrow occurs here
+...
+22 |     println!("{a}");
+   |                - immutable borrow later used here
+
+error[E0597]: `x` does not live long enough
+  --> main.rs:29:25
+   |
+27 |     let x = vec![1];
+   |         - binding `x` declared here
+28 |     //~^ NOTE binding `x` declared here
+29 |     let a = display_len(&x);
+   |                         ^^ borrowed value does not live long enough
+...
+36 |     needs_static(a);
+   |     --------------- argument requires that `x` is borrowed for `'static`
+37 |     //~^ NOTE argument requires that `x` is borrowed for `'static`
+38 | }
+   | - `x` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'static` introduced here
+  --> main.rs:34:37
+   |
+34 |     fn needs_static(_: impl Sized + 'static) {}
+   |                                     ^^^^^^^
+
+error[E0505]: cannot move out of `x` because it is borrowed
+  --> main.rs:49:8
+   |
+42 |     let x = vec![1];
+   |         - binding `x` declared here
+43 |     //~^ NOTE binding `x` declared here
+44 |     let a = display_len(&x);
+   |                         -- borrow of `x` occurs here
+...
+49 |     mv(x);
+   |        ^ move out of `x` occurs here
+...
+52 | }
+   | - borrow might be used here, when `a` is dropped and runs the destructor for type `impl std::fmt::Display`
+   |
+help: consider cloning the value if the performance cost is acceptable
+   |
+44 |     let a = display_len(&x.clone());
+   |                           ++++++++
+
+warning: unused variable: `a`
+  --> main.rs:44:9
+   |
+44 |     let a = display_len(&x);
+   |         ^ help: if this is intentional, prefix it with an underscore: `_a`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+error[E0499]: cannot borrow `x` as mutable more than once at a time
+  --> main.rs:67:5
+   |
+64 |     let a = display_len_mut(&mut x);
+   |                             ------ first mutable borrow occurs here
+...
+67 |     x.push(1);
+   |     ^ second mutable borrow occurs here
+...
+70 |     println!("{a}");
+   |                - first borrow later used here
+
+error[E0597]: `x` does not live long enough
+  --> main.rs:77:29
+   |
+75 |     let mut x = vec![1];
+   |         ----- binding `x` declared here
+76 |     //~^ NOTE binding `x` declared here
+77 |     let a = display_len_mut(&mut x);
+   |                             ^^^^^^ borrowed value does not live long enough
+...
+84 |     needs_static(a);
+   |     --------------- argument requires that `x` is borrowed for `'static`
+85 |     //~^ NOTE argument requires that `x` is borrowed for `'static`
+86 | }
+   | - `x` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'static` introduced here
+  --> main.rs:82:37
+   |
+82 |     fn needs_static(_: impl Sized + 'static) {}
+   |                                     ^^^^^^^
+
+error[E0505]: cannot move out of `x` because it is borrowed
+   --> main.rs:97:8
+    |
+ 90 |     let mut x = vec![1];
+    |         ----- binding `x` declared here
+ 91 |     //~^ NOTE binding `x` declared here
+ 92 |     let a = display_len_mut(&mut x);
+    |                             ------ borrow of `x` occurs here
+...
+ 97 |     mv(x);
+    |        ^ move out of `x` occurs here
+...
+100 | }
+    | - borrow might be used here, when `a` is dropped and runs the destructor for type `impl std::fmt::Display`
+    |
+help: consider cloning the value if the performance cost is acceptable
+    |
+ 92 |     let a = display_len_mut(&mut x.clone());
+    |                                   ++++++++
+
+warning: unused variable: `a`
+  --> main.rs:92:9
+   |
+92 |     let a = display_len_mut(&mut x);
+   |         ^ help: if this is intentional, prefix it with an underscore: `_a`
+
+error[E0506]: cannot assign to `s.f` because it is borrowed
+   --> main.rs:117:5
+    |
+114 |     let a = display_field(&s.f);
+    |                           ---- `s.f` is borrowed here
+...
+117 |     s.f = 1;
+    |     ^^^^^^^ `s.f` is assigned to here but it was already borrowed
+...
+120 |     println!("{a}");
+    |                - borrow later used here
+
+warning: value assigned to `s` is never read
+   --> main.rs:117:5
+    |
+117 |     s.f = 1;
+    |     ^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+error[E0506]: cannot assign to `s.f` because it is borrowed
+   --> main.rs:133:5
+    |
+130 |     let a = display_field(&mut s.f);
+    |                           -------- `s.f` is borrowed here
+...
+133 |     s.f = 1;
+    |     ^^^^^^^ `s.f` is assigned to here but it was already borrowed
+...
+136 |     println!("{a}");
+    |                - borrow later used here
+
+warning: value assigned to `s` is never read
+   --> main.rs:133:5
+    |
+133 |     s.f = 1;
+    |     ^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+error[E0503]: cannot use `s.f` because it was mutably borrowed
+   --> main.rs:145:5
+    |
+142 |     let a = display_field(&mut s.f);
+    |                           -------- `s.f` is borrowed here
+...
+145 |     s.f;
+    |     ^^^ use of borrowed `s.f`
+...
+148 |     println!("{a}");
+    |                - borrow later used here
+
+error[E0597]: `z.f` does not live long enough
+   --> main.rs:161:25
+    |
+159 |         let z = Z { f: vec![1] };
+    |             - binding `z` declared here
+160 |         //~^ NOTE binding `z` declared here
+161 |         x = display_len(&z.f);
+    |                         ^^^^ borrowed value does not live long enough
+...
+166 |     }
+    |     - `z.f` dropped here while still borrowed
+167 |     //~^ NOTE `z.f` dropped here while still borrowed
+168 | }
+    | - borrow might be used here, when `x` is dropped and runs the destructor for type `impl std::fmt::Display`
+    |
+    = note: values in a scope are dropped in the opposite order they are defined
+
+warning: variable `x` is assigned to, but never used
+   --> main.rs:157:9
+    |
+157 |     let x;
+    |         ^
+    |
+    = note: consider using `_x` instead
+
+warning: value assigned to `x` is never read
+   --> main.rs:161:9
+    |
+161 |         x = display_len(&z.f);
+    |         ^
+    |
+    = help: maybe it is overwritten before being read?
+
+error[E0716]: temporary value dropped while borrowed
+   --> main.rs:172:40
+    |
+172 |     let x = { let x = display_len(&mut vec![0]); x };
+    |                                        ^^^^^^^ - - borrow later used here
+    |                                        |       |
+    |                                        |       temporary value is freed at the end of this statement
+    |                                        creates a temporary value which is freed while still in use
+    |
+    = note: consider using a `let` binding to create a longer lived value
+
+warning: unused variable: `x`
+   --> main.rs:172:9
+    |
+172 |     let x = { let x = display_len(&mut vec![0]); x };
+    |         ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+warning: unused variable: `x`
+   --> main.rs:191:17
+    |
+191 | fn capture_apit(x: &impl Sized) -> impl Sized {}
+    |                 ^ help: if this is intentional, prefix it with an underscore: `_x`
+
+error[E0505]: cannot move out of `x` because it is borrowed
+   --> main.rs:200:10
+    |
+195 |     let x = String::new();
+    |         - binding `x` declared here
+196 |     //~^ NOTE binding `x` declared here
+197 |     let y = capture_apit(&x);
+    |                          -- borrow of `x` occurs here
+...
+200 |     drop(x);
+    |          ^ move out of `x` occurs here
+...
+203 | }
+    | - borrow might be used here, when `y` is dropped and runs the destructor for type `impl Sized`
+    |
+help: consider cloning the value if the performance cost is acceptable
+    |
+197 |     let y = capture_apit(&x.clone());
+    |                            ++++++++
+
+warning: unused variable: `y`
+   --> main.rs:197:9
+    |
+197 |     let y = capture_apit(&x);
+    |         ^ help: if this is intentional, prefix it with an underscore: `_y`
+
+error: aborting due to 13 previous errors; 9 warnings emitted
+
+Some errors have detailed explanations: E0499, E0502, E0503, E0505, E0506, E0597, E0716.
+For more information about an error, try `rustc --explain E0499`.
+rustc exit: 1
+
+[exit 0]

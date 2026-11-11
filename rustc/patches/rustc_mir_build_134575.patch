@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_mir_build/src/builder/scope.rs b/compiler/rustc_mir_build/src/builder/scope.rs
+index a5707e0177c63a2ef05d8ab0aa5600a313074026..e80038f8ae14dc6ebbf741fd6416bcaa3146571b 100644
+--- a/compiler/rustc_mir_build/src/builder/scope.rs
++++ b/compiler/rustc_mir_build/src/builder/scope.rs
+@@ -1874,14 +1874,6 @@ fn build_scope_drops<'tcx, F>(
+                     dropline_to = Some(coroutine_drops.drop_nodes[idx].next);
+                 }
+ 
+-                // If the operand has been moved, and we are not on an unwind
+-                // path, then don't generate the drop. (We only take this into
+-                // account for non-unwind paths so as not to disturb the
+-                // caching mechanism.)
+-                if scope.moved_locals.contains(&local) {
+-                    continue;
+-                }
+-
+                 unwind_drops.add_entry_point(block, unwind_to);
+                 if let Some(to) = dropline_to
+                     && is_async_drop(local)
+@@ -1904,6 +1896,14 @@ fn build_scope_drops<'tcx, F>(
+                 block = next;
+             }
+             DropKind::ForLint => {
++                // If the operand has been moved, and we are not on an unwind
++                // path, then don't generate the drop. (We only take this into
++                // account for non-unwind paths so as not to disturb the
++                // caching mechanism.)
++                if scope.moved_locals.contains(&local) {
++                    continue;
++                }
++
+                 // As in the `DropKind::Storage` case below:
+                 // normally lint-related drops are not emitted for unwind,
+                 // so we can just leave `unwind_to` unmodified, but in some
+@@ -1986,7 +1986,7 @@ fn build_exit_tree(
+             let mut unwind_indices = IndexVec::from_elem_n(unwind_target, 1);
+             for (drop_idx, drop_node) in drops.drop_nodes.iter_enumerated().skip(1) {
+                 match drop_node.data.kind {
+-                    DropKind::Storage | DropKind::ForLint => {
++                    DropKind::Storage => {
+                         if is_coroutine {
+                             let unwind_drop = self
+                                 .scopes
+@@ -1997,7 +1997,7 @@ fn build_exit_tree(
+                             unwind_indices.push(unwind_indices[drop_node.next]);
+                         }
+                     }
+-                    DropKind::Value => {
++                    DropKind::Value | DropKind::ForLint => {
+                         let unwind_drop = self
+                             .scopes
+                             .unwind_drops

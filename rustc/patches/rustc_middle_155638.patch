@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_middle/src/middle/lang_items.rs b/compiler/rustc_middle/src/middle/lang_items.rs
+index 829df12ff543ca87227e04413bcf609ae7bc00a4..24a53ea4b2588168df51b11c83aae15902da2b02 100644
+--- a/compiler/rustc_middle/src/middle/lang_items.rs
++++ b/compiler/rustc_middle/src/middle/lang_items.rs
+@@ -56,25 +56,6 @@ pub fn async_fn_trait_kind_from_def_id(self, id: DefId) -> Option<ty::ClosureKin
+         }
+     }
+ 
+-    /// Given a [`DefId`], returns whether it is one of the built-in callable
+-    /// traits: `Fn`/`FnMut`/`FnOnce` or `AsyncFn`/`AsyncFnMut`/`AsyncFnOnce`.
+-    ///
+-    /// These built-in callable traits all model their inputs using the
+-    /// `rust-call` ABI, which is tupled at the type level.
+-    pub fn is_callable_trait(self, id: DefId) -> bool {
+-        matches!(
+-            self.as_lang_item(id),
+-            Some(
+-                LangItem::Fn
+-                    | LangItem::FnMut
+-                    | LangItem::FnOnce
+-                    | LangItem::AsyncFn
+-                    | LangItem::AsyncFnMut
+-                    | LangItem::AsyncFnOnce
+-            )
+-        )
+-    }
+-
+     /// Given a [`ty::ClosureKind`], get the [`DefId`] of its corresponding `Fn`-family
+     /// trait, if it is defined.
+     pub fn fn_trait_kind_to_def_id(self, kind: ty::ClosureKind) -> Option<DefId> {
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+index 35bedea6c565e50c3b84293758e0aad13b1053b8..f37aad955ac2dcc78fc0b65e67d29dfe60f706c9 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/suggestions.rs
+@@ -2784,7 +2784,7 @@ pub(crate) fn build_fn_sig_ty<'tcx>(
+         ) -> Ty<'tcx> {
+             let inputs = trait_ref.args.type_at(1);
+             let sig = match inputs.kind() {
+-                ty::Tuple(inputs) if infcx.tcx.is_callable_trait(trait_ref.def_id) => {
++                ty::Tuple(inputs) if infcx.tcx.is_fn_trait(trait_ref.def_id) => {
+                     infcx.tcx.mk_fn_sig_safe_rust_abi(*inputs, infcx.next_ty_var(DUMMY_SP))
+                 }
+                 _ => infcx.tcx.mk_fn_sig_safe_rust_abi([inputs], infcx.next_ty_var(DUMMY_SP)),

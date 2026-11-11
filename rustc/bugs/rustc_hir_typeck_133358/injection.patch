@@ -1,0 +1,21 @@
+diff --git a/compiler/rustc_hir_typeck/src/coercion.rs b/compiler/rustc_hir_typeck/src/coercion.rs
+index 6aa88ee627e83e6897013ca08edbc6cfeaf4fead..ec59e44ca2aa6a18a76946d80bde9ca53c06dc85 100644
+--- a/compiler/rustc_hir_typeck/src/coercion.rs
++++ b/compiler/rustc_hir_typeck/src/coercion.rs
+@@ -296,8 +296,14 @@ fn coerce(&self, a: Ty<'tcx>, b: Ty<'tcx>) -> CoerceResult<'tcx> {
+                 }
+                 return self.coerce_to_ref(a, b, r_b, mutbl_b);
+             }
+-            _ if let Some(to_pin_ref) = self.maybe_to_pin_ref(a, b) => {
+-                return self.coerce_to_pin_ref(to_pin_ref);
++            ty::Adt(pin, _)
++                if self.tcx.features().pin_ergonomics()
++                    && self.tcx.is_lang_item(pin.did(), LangItem::Pin) =>
++            {
++                return match self.maybe_to_pin_ref(a, b) {
++                    Some(to_pin_ref) => self.coerce_to_pin_ref(to_pin_ref),
++                    None => Err(TypeError::Mismatch),
++                };
+             }
+             ty::Adt(_, _)
+                 if self.tcx.features().reborrow()

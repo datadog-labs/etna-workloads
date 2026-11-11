@@ -1,0 +1,60 @@
+error[E0309]: the parameter type `T` may not live long enough
+ --> main.rs:9:1
+  |
+9 | type TypeOutlives<'a, T> = &'a T;
+  | ^^^^^^^^^^^^^^^^^^--^^^^
+  | |                 |
+  | |                 the parameter type `T` must be valid for the lifetime `'a` as defined here...
+  | ...so that the reference type `&'a T` does not outlive the data it points at
+  |
+help: consider adding an explicit lifetime bound
+  |
+9 | type TypeOutlives<'a, T: 'a> = &'a T;
+  |                        ++++
+
+error[E0491]: in type `&'a &'b ()`, reference has a longer lifetime than the data it references
+  --> main.rs:10:1
+   |
+10 | type RegionOutlives<'a, 'b> = &'a &'b ();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: the pointer is valid for the lifetime `'a` as defined here
+  --> main.rs:10:21
+   |
+10 | type RegionOutlives<'a, 'b> = &'a &'b ();
+   |                     ^^
+note: but the referenced data is only valid for the lifetime `'b` as defined here
+  --> main.rs:10:25
+   |
+10 | type RegionOutlives<'a, 'b> = &'a &'b ();
+   |                         ^^
+
+error[E0309]: the parameter type `U` may not live long enough
+  --> main.rs:17:1
+   |
+17 | type Outer1<'b, U> = TypeOutlives<'b, U>;
+   | ^^^^^^^^^^^^--^^^^
+   | |           |
+   | |           the parameter type `U` must be valid for the lifetime `'b` as defined here...
+   | ...so that the reference type `&'b U` does not outlive the data it points at
+   |
+help: consider adding an explicit lifetime bound
+   |
+17 | type Outer1<'b, U: 'b> = TypeOutlives<'b, U>;
+   |                  ++++
+
+error: lifetime may not live long enough
+  --> main.rs:31:12
+   |
+30 | fn env2<'any>() {
+   |         ---- lifetime `'any` defined here
+31 |     let _: Outer0<'static, &'any ()>; //[neg]~ ERROR lifetime may not live long enough
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^ requires that `'any` must outlive `'static`
+
+error: aborting due to 4 previous errors
+
+Some errors have detailed explanations: E0309, E0491.
+For more information about an error, try `rustc --explain E0309`.
+rustc exit: 1
+
+[exit 0]

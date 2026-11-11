@@ -1,0 +1,32 @@
+diff --git a/compiler/rustc_const_eval/src/interpret/intrinsics/simd.rs b/compiler/rustc_const_eval/src/interpret/intrinsics/simd.rs
+index d6cfc559e0df43bca92b606ad3ea4a3655cfb4c4..ff30ab64a8fb34c7b461634e0176320e88c54357 100644
+--- a/compiler/rustc_const_eval/src/interpret/intrinsics/simd.rs
++++ b/compiler/rustc_const_eval/src/interpret/intrinsics/simd.rs
+@@ -1,3 +1,5 @@
++use std::assert_matches;
++
+ use either::Either;
+ use rustc_abi::{BackendRepr, Endian};
+ use rustc_apfloat::ieee::{Double, Half, Quad, Single};
+@@ -837,20 +839,7 @@ fn check_simd_ptr_alignment(
+         vector_layout: TyAndLayout<'tcx>,
+         alignment: SimdAlign,
+     ) -> InterpResult<'tcx> {
+-        // Packed SIMD types with non-power-of-two element counts use BackendRepr::Memory
+-        // instead of BackendRepr::SimdVector. We need to handle both cases.
+-        // FIXME: remove the BackendRepr::Memory case when SIMD vectors are always passed as BackendRepr::SimdVector.
+-        assert!(vector_layout.ty.is_simd(), "check_simd_ptr_alignment called on non-SIMD type");
+-        match vector_layout.backend_repr {
+-            BackendRepr::SimdVector { .. } | BackendRepr::Memory { .. } => {}
+-            _ => {
+-                span_bug!(
+-                    self.cur_span(),
+-                    "SIMD type has unexpected backend_repr: {:?}",
+-                    vector_layout.backend_repr
+-                );
+-            }
+-        }
++        assert_matches!(vector_layout.backend_repr, BackendRepr::SimdVector { .. });
+ 
+         let align = match alignment {
+             ty::SimdAlign::Unaligned => {

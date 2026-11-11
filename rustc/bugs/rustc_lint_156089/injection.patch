@@ -1,0 +1,68 @@
+diff --git a/compiler/rustc_lint/src/unused.rs b/compiler/rustc_lint/src/unused.rs
+index 0236ac75c2d642c402f5affabbf20bb8f5f93400..f08b4a7f1b0a8be05443cc8d4d644cc59d9294b1 100644
+--- a/compiler/rustc_lint/src/unused.rs
++++ b/compiler/rustc_lint/src/unused.rs
+@@ -661,7 +661,7 @@ fn check_unused_parens_pat(
+         avoid_mut: bool,
+         keep_space: (bool, bool),
+     ) {
+-        use ast::{BindingMode, ByRef, Mutability, PatKind, Pinnedness};
++        use ast::{BindingMode, PatKind};
+ 
+         if let PatKind::Paren(inner) = &value.kind {
+             match inner.kind {
+@@ -674,16 +674,8 @@ fn check_unused_parens_pat(
+                 PatKind::Guard(..) => return,
+                 // Avoid `p0 | .. | pn` if we should.
+                 PatKind::Or(..) if avoid_or => return,
+-                // Avoid bindings whose own binding mutability is `mut`, like `mut x`,
+-                // `mut x @ p`, and `mut ref pin const x`, if we should.
+-                PatKind::Ident(BindingMode(_, Mutability::Mut), ..) if avoid_mut => {
+-                    return;
+-                }
+-                PatKind::Ref(_, Pinnedness::Pinned, _)
+-                | PatKind::Ident(BindingMode(ByRef::Yes(Pinnedness::Pinned, _), _), ..)
+-                    // FIXME(pin_ergonomics): Remove this gate once pinned patterns are stable.
+-                    if !cx.builder.features().pin_ergonomics() =>
+-                {
++                // Avoid `mut x` and `mut x @ p` if we should:
++                PatKind::Ident(BindingMode::MUT, ..) if avoid_mut => {
+                     return;
+                 }
+                 // Otherwise proceed with linting.
+@@ -790,7 +782,7 @@ fn check_expr_post(&mut self, _cx: &EarlyContext<'_>, e: &ast::Expr) {
+ 
+     fn check_pat(&mut self, cx: &EarlyContext<'_>, p: &ast::Pat) {
+         use ast::PatKind::*;
+-        use ast::{Mutability, Pinnedness};
++        use ast::Mutability;
+         let keep_space = (false, false);
+         match &p.kind {
+             // Do not lint on `(..)` as that will result in the other arms being useless.
+@@ -822,24 +814,10 @@ fn check_pat(&mut self, cx: &EarlyContext<'_>, p: &ast::Pat) {
+                 self.check_unused_parens_pat(cx, p, true, false, keep_space)
+             }
+             // Avoid linting on `&(mut x)` as `&mut x` has a different meaning, #55342.
+-            // This only applies to plain shared reference patterns. In `&pin const (mut x)`,
+-            // `pin const` is consumed before parsing the subpattern, so removing the
+-            // parentheses preserves `mut x` as a binding pattern.
+             // Also avoid linting on `& mut? (p0 | .. | pn)`, #64106.
+-            Ref(p, pinned, m)
+-                if *pinned != Pinnedness::Pinned
+-                    // FIXME(pin_ergonomics): Remove this gate once pinned patterns are stable.
+-                    || cx.builder.features().pin_ergonomics() =>
+-            {
+-                self.check_unused_parens_pat(
+-                    cx,
+-                    p,
+-                    true,
+-                    *pinned == Pinnedness::Not && *m == Mutability::Not,
+-                    keep_space,
+-                );
++            Ref(p, _, m) => {
++                self.check_unused_parens_pat(cx, p, true, *m == Mutability::Not, keep_space)
+             }
+-            Ref(..) => {}
+         }
+     }
+ 

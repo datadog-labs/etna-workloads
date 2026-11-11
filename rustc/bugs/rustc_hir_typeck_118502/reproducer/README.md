@@ -1,0 +1,1 @@
+Calling an associated fn via method syntax triggers the 'use associated function syntax instead' suggestion; the injected compiler inverts the receiver-arg decision (suggests A::hello(1) dropping the receiver and A::test(_a, 1) for a fn without self).

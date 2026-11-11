@@ -1,0 +1,43 @@
+diff --git a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+index f55833c1bf6da228478bc4624ad342844e2692e9..c08b88529d8f97c8afdcf092ce738134d8937ee3 100644
+--- a/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
++++ b/compiler/rustc_hir_analysis/src/collect/resolve_bound_vars.rs
+@@ -1491,27 +1491,19 @@ fn check_lifetime_is_capturable(
+         let decl_span = self.tcx.def_span(lifetime_def_id);
+         let opaque_span = self.tcx.def_span(opaque_def_id);
+ 
+-        let mut errors = self.opaque_capture_errors.borrow_mut();
+-        let error_info = errors.get_or_insert_with(|| OpaqueHigherRankedLifetimeCaptureErrors {
++        let (span, label) = if capture_span != decl_span {
++            (capture_span, None)
++        } else {
++            (opaque_span, Some(opaque_span))
++        };
++
++        let guar = self.tcx.dcx().emit_err(diagnostics::OpaqueCapturesHigherRankedLifetime {
++            span: rustc_errors::MultiSpan::from_span(span),
++            label,
++            decl_span: rustc_errors::MultiSpan::from_span(decl_span),
+             bad_place,
+-            capture_spans: Vec::new(),
+-            decl_spans: Vec::new(),
+         });
+-
+-        if error_info.capture_spans.is_empty() {
+-            error_info.capture_spans.push(opaque_span);
+-        }
+-
+-        if capture_span != decl_span && capture_span != opaque_span {
+-            error_info.capture_spans.push(capture_span);
+-        }
+-
+-        if !error_info.decl_spans.contains(&decl_span) {
+-            error_info.decl_spans.push(decl_span);
+-        }
+-
+-        // Errors should be emitted by `emit_opaque_capture_errors`.
+-        Err(self.tcx.dcx().span_delayed_bug(capture_span, "opaque capture error not emitted"))
++        Err(guar)
+     }
+ 
+     fn emit_opaque_capture_errors(&self) -> Option<ErrorGuaranteed> {

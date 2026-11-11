@@ -1,0 +1,1 @@
+Compiles an auxiliary crate with a TAIT-wrapped Drop type, then a dependent lib with -Zvalidate-mir that drops it. The drop-glue MIR shim is validated with a user-facing param-env; the injected compiler ICEs with "broken MIR in Shim(DropGlue...)", the clean one compiles successfully.

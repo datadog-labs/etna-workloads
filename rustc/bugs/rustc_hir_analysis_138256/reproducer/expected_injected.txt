@@ -1,0 +1,51 @@
+warning: the feature `generic_const_parameter_types` is incomplete and may not be safe to use and/or cause compiler crashes
+ --> main.rs:3:27
+  |
+3 | #![cfg_attr(feat, feature(generic_const_parameter_types))]
+  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: see issue #137626 <https://github.com/rust-lang/rust/issues/137626> for more information
+  = note: `#[warn(incomplete_features)]` on by default
+
+error: `Self` is forbidden as the type of a const generic parameter
+ --> main.rs:6:25
+  |
+6 |     type Assoc<const N: Self>;
+  |                         ^^^^
+  |
+  = note: the only supported types are integers, `bool`, and `char`
+
+error[E0277]: the size for values of type `T` cannot be known at compilation time
+  --> main.rs:14:21
+   |
+11 | fn foo<T: Foo>() {
+   |        - this type parameter needs to be `Sized`
+...
+14 |     let x: T::Assoc<3>;
+   |                     ^ doesn't have a size known at compile-time
+   |
+   = note: statics and constants must have a statically known size
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_middle/src/ty/generics.rs:241:29:
+index out of bounds: the len is 0 but the index is 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+error: the compiler unexpectedly panicked. This is a bug
+
+note: we would appreciate a bug report: https://github.com/rust-lang/rust/issues/new?labels=C-bug%2C+I-ICE%2C+T-compiler&template=ice.md
+
+note: please make sure that you have updated to the latest nightly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+#0 [typeck_root] type-checking `foo::{constant#0}`
+#1 [check_match] match-checking `foo::{constant#0}`
+... and 7 other queries... use `env RUST_BACKTRACE=1` to see the full query stack
+error: aborting due to 2 previous errors; 1 warning emitted
+
+For more information about this error, try `rustc --explain E0277`.
+rustc exit: 101
+
+[exit 0]

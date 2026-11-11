@@ -1,0 +1,68 @@
+warning: the feature `unsized_fn_params` is internal to the compiler or standard library
+ --> main.rs:9:12
+  |
+9 | #![feature(unsized_fn_params)]
+  |            ^^^^^^^^^^^^^^^^^
+  |
+  = note: using it is strongly discouraged
+  = note: `#[warn(internal_features)]` on by default
+
+warning: unnecessary braces around function argument
+  --> main.rs:21:19
+   |
+21 |     udrop::<[u8]>({ *foo() }); //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+   |                   ^^      ^^
+   |
+   = note: `#[warn(unused_braces)]` (part of `#[warn(unused)]`) on by default
+help: remove these braces
+   |
+21 -     udrop::<[u8]>({ *foo() }); //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+21 +     udrop::<[u8]>(*foo()); //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+   |
+
+warning: unnecessary braces around function argument
+  --> main.rs:23:19
+   |
+23 |     udrop::<[u8]>({ loop { break *foo(); } }); //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+   |                   ^^                      ^^
+   |
+help: remove these braces
+   |
+23 -     udrop::<[u8]>({ loop { break *foo(); } }); //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+23 +     udrop::<[u8]>(loop { break *foo(); }); //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+   |
+
+warning: unused unary operation that must be used
+  --> main.rs:25:7
+   |
+25 |     { *foo() }; //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+   |       ^^^^^^ the unary operation produces a value
+   |
+   = note: `#[warn(unused_must_use)]` (part of `#[warn(unused)]`) on by default
+help: use `let _ = ...` to ignore the resulting value
+   |
+25 |     { let _ = *foo(); }; //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+   |       +++++++       +
+
+error: internal compiler error: compiler/rustc_codegen_ssa/src/mir/statement.rs:29:29: cannot reallocate from `UnsizedPlace(*mut [u8])` into `move (*_16)`; dynamic alloca is not supported
+  --> main.rs:20:29
+   |
+20 |     udrop::<[u8]>(if true { *foo() } else { *foo() }); //~ERROR the size for values of type `[u8]` cannot be known at compilation time
+   |                             ^^^^^^
+
+
+thread 'rustc' (<TID>) panicked at compiler/rustc_codegen_ssa/src/mir/statement.rs:29:29:
+Box<dyn Any>
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: using internal features is not supported and expected to cause internal compiler errors when used incorrectly
+
+note: rustc 1.99.1-dev running on x86_64-unknown-linux-gnu
+
+query stack during panic:
+end of query stack
+error: aborting due to 1 previous error; 4 warnings emitted
+
+rustc exit: 101
+
+[exit 0]

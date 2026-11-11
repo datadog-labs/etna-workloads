@@ -1,0 +1,1 @@
+With SROA forced on, `let u = C;` (a const struct) must be split with the field moves placed after `_1 = const C`. The injected compiler puts them before, so the MIR reads from an uninitialized local and the program would read garbage. The script prints the relevant MIR statement order.

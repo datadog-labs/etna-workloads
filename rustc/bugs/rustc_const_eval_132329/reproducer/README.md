@@ -1,0 +1,1 @@
+Compiles a const fn that drops a value whose type has a const Drop impl, without enabling const_destruct. The clean compiler also reports E0493 (destructor cannot be evaluated at compile-time); the injected compiler omits that error and reports only the E0658 on the impl.

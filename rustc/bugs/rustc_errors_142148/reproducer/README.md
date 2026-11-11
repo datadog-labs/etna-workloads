@@ -1,0 +1,1 @@
+Compiling code that triggers a future-incompat lint (pub_use_of_private_extern_crate) with --force-warn and JSON future-incompat output makes the injected compiler hit an assertion failure (ICE, abort) in emit_diagnostic because ForceWarning is no longer accepted for future-breakage diagnostics; the clean compiler succeeds with warnings.

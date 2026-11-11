@@ -1,0 +1,1 @@
+Compiles a lib incrementally at opt-level=3 twice, renaming an enum variant (cfg bpass1 -> bpass2) between runs. The second run needs to treat an unrecoverable query node as red; the injected compiler panics in try_mark_previous_green ("forcing failed to set a color") while the clean one succeeds.

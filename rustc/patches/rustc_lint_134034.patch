@@ -1,0 +1,27 @@
+diff --git a/compiler/rustc_lint/src/unused.rs b/compiler/rustc_lint/src/unused.rs
+index 0236ac75c2d642c402f5affabbf20bb8f5f93400..8217209ebdbb57a591c4a524e9b6c8fdc97435a0 100644
+--- a/compiler/rustc_lint/src/unused.rs
++++ b/compiler/rustc_lint/src/unused.rs
+@@ -469,22 +469,6 @@ fn check_stmt(&mut self, cx: &EarlyContext<'_>, s: &ast::Stmt) {
+         match s.kind {
+             StmtKind::Let(ref local) if Self::LINT_EXPR_IN_PATTERN_MATCHING_CTX => {
+                 if let Some((init, els)) = local.kind.init_else_opt() {
+-                    if els.is_some()
+-                        && let ExprKind::Paren(paren) = &init.kind
+-                        && !init.span.eq_ctxt(paren.span)
+-                    {
+-                        // This branch prevents cases where parentheses wrap an expression
+-                        // resulting from macro expansion, such as:
+-                        // ```
+-                        // macro_rules! x {
+-                        // () => { None::<i32> };
+-                        // }
+-                        // let Some(_) = (x!{}) else { return };
+-                        // // -> let Some(_) = (None::<i32>) else { return };
+-                        // //                  ~           ~ No Lint
+-                        // ```
+-                        return;
+-                    }
+                     let ctx = match els {
+                         None => UnusedDelimsCtx::AssignedValue,
+                         Some(_) => UnusedDelimsCtx::AssignedValueLetElse,

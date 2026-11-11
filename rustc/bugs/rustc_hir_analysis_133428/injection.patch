@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+index 2f65b443dd5ecbe0972766596864d16846748ee5..3f53c5e2a38a13c8f56c5a73036e2b482e0b3495 100644
+--- a/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
++++ b/compiler/rustc_hir_analysis/src/check/compare_impl_item.rs
+@@ -532,9 +532,8 @@ pub(super) fn collect_return_position_impl_trait_in_trait_tys<'tcx>(
+     let impl_sig = ocx.normalize(
+         &misc_cause,
+         param_env,
+-        Unnormalized::new_wip(infcx.instantiate_binder_with_fresh_vars(
+-            return_span,
+-            BoundRegionConversionTime::HigherRankedType,
++        Unnormalized::new_wip(tcx.liberate_late_bound_regions(
++            impl_m.def_id,
+             tcx.fn_sig(impl_m.def_id).instantiate_identity().skip_norm_wip(),
+         )),
+     );
+@@ -546,9 +545,10 @@ pub(super) fn collect_return_position_impl_trait_in_trait_tys<'tcx>(
+     // them with inference variables.
+     // We will use these inference variables to collect the hidden types of RPITITs.
+     let mut collector = ImplTraitInTraitCollector::new(&ocx, return_span, param_env, impl_m_def_id);
+-    let unnormalized_trait_sig = tcx
+-        .liberate_late_bound_regions(
+-            impl_m.def_id,
++    let unnormalized_trait_sig = infcx
++        .instantiate_binder_with_fresh_vars(
++            return_span,
++            BoundRegionConversionTime::HigherRankedType,
+             tcx.fn_sig(trait_m.def_id).instantiate(tcx, trait_to_impl_args).skip_norm_wip(),
+         )
+         .fold_with(&mut collector);

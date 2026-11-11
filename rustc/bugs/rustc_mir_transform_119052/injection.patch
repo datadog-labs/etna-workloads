@@ -1,0 +1,20 @@
+diff --git a/compiler/rustc_mir_transform/src/gvn.rs b/compiler/rustc_mir_transform/src/gvn.rs
+index 9d751a7cc5bd003b2967fc95282570d09543f07e..373d61fe66df2d0caf6ac9033a86d860988a49e1 100644
+--- a/compiler/rustc_mir_transform/src/gvn.rs
++++ b/compiler/rustc_mir_transform/src/gvn.rs
+@@ -946,10 +946,12 @@ fn simplify_place_projection(&mut self, place: &mut Place<'tcx>, location: Locat
+             {
+                 if let Some(offset) = self.eval_to_const(idx)
+                     && let Some(offset) = self.ecx.read_target_usize(offset).discard_err()
+-                    && let Some(min_length) = offset.checked_add(1)
+                 {
+-                    projection.to_mut()[i] =
+-                        ProjectionElem::ConstantIndex { offset, min_length, from_end: false };
++                    projection.to_mut()[i] = ProjectionElem::ConstantIndex {
++                        offset,
++                        min_length: offset + 1,
++                        from_end: false,
++                    };
+                 } else if let Some(new_idx_local) = self.try_as_local(idx, location)
+                     && idx_local != new_idx_local
+                 {

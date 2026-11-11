@@ -1,0 +1,1 @@
+Macro calls inside global_asm!/include! arguments, with macro_rules defined earlier at the crate root, are valid. The clean compiler accepts them (status 0). The injected compiler wrongly fires the out_of_scope_macro_calls lint on them and fails with status 1.

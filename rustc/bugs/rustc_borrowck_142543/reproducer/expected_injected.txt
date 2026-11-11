@@ -1,0 +1,28 @@
+error[E0597]: `l` does not live long enough
+ --> main.rs:4:41
+  |
+4 | macro_rules! perform { ($e:expr) => { D(&$e).end() } }
+  |                                       --^^^-
+  |                                       | |
+  |                                       | borrowed value does not live long enough
+  |                                       a temporary with access to the borrow is created here ...
+5 | fn main() {
+6 |     { let l = (); perform!(l) };
+  |           -       ----------- -- ... and the borrow might be used here, when that temporary is dropped and runs the `Drop` code for type `D`
+  |           |       |           |
+  |           |       |           `l` dropped here while still borrowed
+  |           |       in this macro invocation
+  |           binding `l` declared here
+  |
+  = note: this error originates in the macro `perform` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider adding semicolon after the expression so its temporaries are dropped sooner, before the local variables declared by the block are dropped
+  |
+4 | macro_rules! perform { ($e:expr) => { D(&$e).end(); } }
+  |                                                   +
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0597`.
+status=1
+
+[exit 0]

@@ -1,0 +1,49 @@
+diff --git a/compiler/rustc_resolve/src/late/diagnostics.rs b/compiler/rustc_resolve/src/late/diagnostics.rs
+index b12627258369217f3b21c56ce30c9d1982be7874..72aefcc3fc95e31d07164a63b8354ca5ce2a4ce5 100644
+--- a/compiler/rustc_resolve/src/late/diagnostics.rs
++++ b/compiler/rustc_resolve/src/late/diagnostics.rs
+@@ -2422,44 +2422,7 @@ fn smart_resolve_context_dependent_help(
+                     return true;
+                 };
+ 
+-                // A type is re-exported and has an inaccessible constructor because it has fields
+-                // that are inaccessible from the reexport's scope, extend the diagnostic.
+                 let is_accessible = self.r.is_accessible_from(ctor.vis, self.parent_scope.module);
+-                if is_accessible
+-                    && let mod_path = &path[..path.len() - 1]
+-                    && let PathResult::Module(ModuleOrUniformRoot::Module(import_mod)) =
+-                        self.resolve_path(mod_path, Some(TypeNS), None, PathSource::Module)
+-                    && ctor.has_private_fields(import_mod, self.r)
+-                    && let Ok(import_decl) = self.r.cm().maybe_resolve_ident_in_module(
+-                        ModuleOrUniformRoot::Module(import_mod),
+-                        path.last().unwrap().ident,
+-                        TypeNS,
+-                        &self.parent_scope,
+-                        None,
+-                    )
+-                {
+-                    err.span_note(
+-                        import_decl.span,
+-                        "the type is accessed through this re-export, but the type's constructor \
+-                         is not visible in this import's scope due to private fields",
+-                    );
+-                    if !ctor.has_private_fields(self.parent_scope.module, self.r) {
+-                        err.span_suggestion_verbose(
+-                            span,
+-                            "the type can be constructed directly, because its fields are \
+-                             available from the current scope",
+-                            // Using `tcx.def_path_str` causes the compiler to hang.
+-                            // We don't need to handle foreign crate types because in that case you
+-                            // can't access the ctor either way.
+-                            format!(
+-                                "crate{}", // The method already has leading `::`.
+-                                self.r.tcx.def_path(def_id).to_string_no_crate_verbose(),
+-                            ),
+-                            Applicability::MachineApplicable,
+-                        );
+-                    }
+-                    self.update_err_for_private_tuple_struct_fields(err, &source, def_id);
+-                }
+                 if !is_expected(ctor.res) || is_accessible {
+                     return true;
+                 }

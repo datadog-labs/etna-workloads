@@ -1,0 +1,1 @@
+Compiling a crate that does #[macro_use] extern crate of a library which privately imports std::vec and std::hash::Hash, then uses derive(Hash) and vec!. The injected compiler hits an internal compiler error (cannot extend visibility) and exits 101; the clean compiler succeeds.

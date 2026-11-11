@@ -1,0 +1,28 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr_use_visitor.rs b/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
+index b2255c8d9679a6742227268590fc8476f09f50d4..2351a88a9ce5351497e92fc9bdf5fc8fccce8279 100644
+--- a/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
++++ b/compiler/rustc_hir_typeck/src/expr_use_visitor.rs
+@@ -1180,10 +1180,6 @@ fn pat_ty_adjusted(&self, pat: &hir::Pat<'_>) -> Result<Ty<'tcx>, Cx::Error> {
+                 debug!("pat_ty(pat={:?}) found adjustment `{:?}`", pat, first_adjust);
+                 return Ok(first_adjust.source);
+             }
+-        } else if let PatKind::Ref(subpat, _, _) = pat.kind
+-            && self.cx.typeck_results().skipped_ref_pats().contains(pat.hir_id)
+-        {
+-            return self.pat_ty_adjusted(subpat);
+         }
+ 
+         self.pat_ty_unadjusted(pat)
+@@ -1762,12 +1758,6 @@ fn cat_pattern<F>(
+                 self.cat_pattern(place_with_id, subpat, op)?;
+             }
+ 
+-            PatKind::Ref(subpat, _, _)
+-                if self.cx.typeck_results().skipped_ref_pats().contains(pat.hir_id) =>
+-            {
+-                self.cat_pattern(place_with_id, subpat, op)?;
+-            }
+-
+             PatKind::Box(subpat) | PatKind::Ref(subpat, _, _) => {
+                 // box p1, &p1, &mut p1. we can ignore the mutability of
+                 // PatKind::Ref since that information is already contained

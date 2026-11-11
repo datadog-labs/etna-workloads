@@ -1,0 +1,1 @@
+Compiles a program whose `self.clone().into_iter()` moves out of a deref; the clean compiler suggests `<Vec<usize> as Clone>::clone(&self.clone())`, while the injected one suggests the useless `.clone().clone()`.

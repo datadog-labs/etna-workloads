@@ -1,0 +1,73 @@
+diff --git a/compiler/rustc_trait_selection/src/infer.rs b/compiler/rustc_trait_selection/src/infer.rs
+index f0fb44523d651d3dad3660caa382c708641b9193..9ddf535e8d16fbb5455ae527975ca4342fa9f8c8 100644
+--- a/compiler/rustc_trait_selection/src/infer.rs
++++ b/compiler/rustc_trait_selection/src/infer.rs
+@@ -118,29 +118,47 @@ fn type_implements_trait_shallow(
+         param_env: ty::ParamEnv<'tcx>,
+     ) -> Option<TraitErrors<traits::FulfillmentError<'tcx>>> {
+         self.probe(|_snapshot| {
+-            let ocx = ObligationCtxt::new_with_diagnostics(self);
+-            ocx.register_obligation(Obligation::new(
+-                self.tcx,
+-                ObligationCause::dummy(),
+-                param_env,
+-                ty::TraitRef::new(self.tcx, trait_def_id, [ty]),
+-            ));
+-            let errors = ocx.try_evaluate_obligations();
+-            // Find the original predicate in the list of predicates that could definitely not be fulfilled.
+-            // If it is in that list, then we know this doesn't even shallowly implement the trait.
+-            // If it is not in that list, it was fulfilled, but there may be nested obligations, which we don't care about here.
+-            for error in &errors {
+-                let Some(trait_clause) = error.obligation.predicate.as_trait_clause() else {
+-                    continue;
+-                };
+-                let Some(bound_ty) = trait_clause.self_ty().no_bound_vars() else { continue };
+-                if trait_clause.def_id() == trait_def_id
+-                    && ocx.eq(&ObligationCause::dummy(), param_env, bound_ty, ty).is_ok()
+-                {
+-                    return None;
++            if let ty::Adt(def, args) = ty.kind()
++                && let Some((impl_def_id, _)) = self
++                    .tcx
++                    .all_impls(trait_def_id)
++                    .map(|impl_def_id| (impl_def_id, self.tcx.impl_trait_ref(impl_def_id)))
++                    .map(|(impl_def_id, imp)| (impl_def_id, imp.skip_binder()))
++                    .find(|(_, imp)| match imp.self_ty().peel_refs().kind() {
++                        ty::Adt(i_def, _) if i_def.did() == def.did() => true,
++                        _ => false,
++                    })
++            {
++                let ocx = ObligationCtxt::new_with_diagnostics(self);
++                let obligations = self
++                    .tcx
++                    .clauses_of(impl_def_id)
++                    .instantiate(self.tcx, args)
++                    .iter()
++                    .map(|(clause, span)| {
++                        Obligation::new(
++                            self.tcx,
++                            ObligationCause::dummy_with_span(span),
++                            param_env,
++                            clause.skip_norm_wip(),
++                        )
++                    })
++                    .collect::<Vec<_>>();
++                ocx.register_obligations(obligations);
++                ocx.register_obligation(Obligation::new(
++                    self.tcx,
++                    ObligationCause::dummy(),
++                    param_env,
++                    ty::TraitRef::new(self.tcx, trait_def_id, [ty]),
++                ));
++                let mut errors: Vec<_> = ocx.try_evaluate_obligations().into_iter().collect();
++                if errors.len() > 1 {
++                    errors.truncate(errors.len() - 1);
+                 }
++                Some(TraitErrors::from_iter(errors.into_iter()))
++            } else {
++                None
+             }
+-            Some(errors)
+         })
+     }
+ }

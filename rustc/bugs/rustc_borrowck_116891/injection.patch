@@ -1,0 +1,31 @@
+diff --git a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+index e347dc2d13dfcb2172a7c2b2b4c4e2c854e4d26a..5b6b4aebde144746b69adfdc840238636385362a 100644
+--- a/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
++++ b/compiler/rustc_borrowck/src/region_infer/opaque_types/mod.rs
+@@ -29,7 +29,7 @@
+ use crate::type_check::canonical::fully_perform_op_raw;
+ use crate::type_check::free_region_relations::UniversalRegionRelations;
+ use crate::type_check::{Locations, MirTypeckRegionConstraints};
+-use crate::universal_regions::{RegionClassification, UniversalRegions};
++use crate::universal_regions::UniversalRegions;
+ use crate::{BorrowckInferCtxt, CollectRegionConstraintsResult};
+ 
+ mod member_constraints;
+@@ -108,15 +108,8 @@ fn nll_var_to_universal_region<'tcx>(
+         NllRegionVariableOrigin::FreeRegion => rcx
+             .universal_regions()
+             .universal_regions_iter()
+-            .filter(|&ur| {
+-                // See [rustc-dev-guide chapter] § "Closure restrictions".
+-                !matches!(
+-                    rcx.universal_regions().region_classification(ur),
+-                    Some(RegionClassification::External)
+-                )
+-            })
+-            .find(|&ur| rcx.universal_region_relations.equal(vid, ur))
+-            .map(|ur| rcx.definitions[ur].external_name.unwrap()),
++            .filter(|&ur| rcx.universal_region_relations.equal(vid, ur))
++            .find_map(|ur| rcx.definitions[ur].external_name),
+         NllRegionVariableOrigin::Placeholder(placeholder) => {
+             Some(ty::Region::new_placeholder(rcx.infcx.tcx, placeholder))
+         }

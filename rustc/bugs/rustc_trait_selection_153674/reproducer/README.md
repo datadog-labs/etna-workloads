@@ -1,0 +1,1 @@
+Importing std::borrow::Borrow makes `rc_refcell.borrow()` resolve to the trait method, producing E0277. The clean compiler adds a note and a suggestion to use the fully-qualified `RefCell::borrow(&s)`; the injected compiler omits that note and suggestion.

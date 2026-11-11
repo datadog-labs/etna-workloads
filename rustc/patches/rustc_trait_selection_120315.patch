@@ -1,0 +1,38 @@
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs
+index c28970829f0a491b7727d214aa39489c486f92b4..a58e9c3fe274a566d82d6a80a503a7e849503a95 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/note_and_explain.rs
+@@ -373,33 +373,6 @@ fn foo(&self, x: T) -> T { x }
+                             );
+                         }
+                     }
+-                    (
+-                        ty::Dynamic(t, _),
+-                        ty::Alias(
+-                            _,
+-                            ty::AliasTy { kind: ty::Opaque { def_id: opaque_def_id }, .. },
+-                        ),
+-                    ) if let Some(def_id) = t.principal_def_id()
+-                        && tcx
+-                            .explicit_item_self_bounds(opaque_def_id)
+-                            .skip_binder()
+-                            .iter()
+-                            .any(|(pred, _span)| match pred.kind().skip_binder() {
+-                                ty::ClauseKind::Trait(trait_predicate)
+-                                    if trait_predicate.polarity
+-                                        == ty::PredicatePolarity::Positive =>
+-                                {
+-                                    trait_predicate.def_id() == def_id
+-                                }
+-                                _ => false,
+-                            }) =>
+-                    {
+-                        diag.help(format!(
+-                            "you can box the `{}` to coerce it to `Box<{}>`, but you'll have to \
+-                             change the expected type as well",
+-                            values.found, values.expected,
+-                        ));
+-                    }
+                     (ty::Dynamic(t, _), _) if let Some(def_id) = t.principal_def_id() => {
+                         let mut has_matching_impl = false;
+                         tcx.for_each_relevant_impl(def_id, values.found, |did| {

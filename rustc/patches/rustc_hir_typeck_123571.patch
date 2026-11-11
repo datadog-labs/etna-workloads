@@ -1,0 +1,63 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+index 8ff4c3bf28c34895e8656b36eea5c697ad0602b7..5641cab3a80c8df7ac7e33ecc8ed9101d8f682dc 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/_impl.rs
+@@ -433,23 +433,13 @@ pub(crate) fn apply_adjustments(&self, expr: &hir::Expr<'_>, adj: Vec<Adjustment
+             }
+             Entry::Occupied(mut entry) => {
+                 debug!(" - composing on top of {:?}", entry.get());
+-                match (&mut entry.get_mut()[..], &adj[..]) {
++                match (&entry.get()[..], &adj[..]) {
++                    // Applying any adjustment on top of a NeverToAny
++                    // is a valid NeverToAny adjustment, because it can't
++                    // be reached.
++                    (&[Adjustment { kind: Adjust::NeverToAny, .. }], _) => return,
+                     (
+-                        [Adjustment { kind: Adjust::NeverToAny, target }],
+-                        &[.., Adjustment { target: new_target, .. }],
+-                    ) => {
+-                        // NeverToAny coercion can target any type, so instead of adding a new
+-                        // adjustment on top we can change the target.
+-                        //
+-                        // This is required for things like `a == a` (where `a: !`) to produce
+-                        // valid MIR -- we need borrow adjustment from things like `==` to change
+-                        // the type to `&!` (or `&()` depending on the fallback). This might be
+-                        // relevant even in unreachable code.
+-                        *target = new_target;
+-                    }
+-
+-                    (
+-                        &mut [
++                        &[
+                             Adjustment { kind: Adjust::Deref(_), .. },
+                             Adjustment { kind: Adjust::Borrow(AutoBorrow::Ref(..)), .. },
+                         ],
+@@ -458,13 +448,11 @@ pub(crate) fn apply_adjustments(&self, expr: &hir::Expr<'_>, adj: Vec<Adjustment
+                             .., // Any following adjustments are allowed.
+                         ],
+                     ) => {
+-                        // A reborrow has no effect before a dereference, so we can safely replace adjustments.
+-                        *entry.get_mut() = adj;
++                        // A reborrow has no effect before a dereference.
+                     }
+-
++                    // FIXME: currently we never try to compose autoderefs
++                    // and ReifyFnPointer/UnsafeFnPointer, but we could.
+                     _ => {
+-                        // FIXME: currently we never try to compose autoderefs
+-                        // and ReifyFnPointer/UnsafeFnPointer, but we could.
+                         self.dcx().span_delayed_bug(
+                             expr.span,
+                             format!(
+@@ -474,10 +462,9 @@ pub(crate) fn apply_adjustments(&self, expr: &hir::Expr<'_>, adj: Vec<Adjustment
+                                 adj
+                             ),
+                         );
+-
+-                        *entry.get_mut() = adj;
+                     }
+                 }
++                *entry.get_mut() = adj;
+             }
+         }
+ 

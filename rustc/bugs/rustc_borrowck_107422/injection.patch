@@ -1,0 +1,30 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/mod.rs b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+index 349337f273aab18b87bc8de93eb51963c7f3f373..939dcb2c4e4f4924b269ab3f5006eabddd717cc7 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/mod.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/mod.rs
+@@ -1503,13 +1503,14 @@ fn explain_captures(
+                                 });
+                             }
+                         }
++                        let infcx = rustc_infer::infer::TyCtxtInferExt::infer_ctxt(tcx).build(ty::TypingMode::non_body_analysis());
+                         // Erase and shadow everything that could be passed to the new infcx.
+-                        let ty = moved_place.ty(self.body, tcx).ty;
++                        let ty = tcx.erase_and_anonymize_regions(moved_place.ty(self.body, tcx).ty);
+ 
+                         if let ty::Adt(def, args) = ty.peel_refs().kind()
+                             && tcx.is_lang_item(def.did(), LangItem::Pin)
+                             && let ty::Ref(_, _, hir::Mutability::Mut) = args.type_at(0).kind()
+-                            && let self_ty = self.infcx.instantiate_binder_with_fresh_vars(
++                            && let self_ty = infcx.instantiate_binder_with_fresh_vars(
+                                 fn_call_span,
+                                 BoundRegionConversionTime::FnCall,
+                                 tcx.fn_sig(method_did)
+@@ -1517,7 +1518,7 @@ fn explain_captures(
+                                     .skip_norm_wip()
+                                     .input(0),
+                             )
+-                            && self.infcx.can_eq(self.infcx.param_env, ty, self_ty)
++                            && infcx.can_eq(self.infcx.param_env, ty, self_ty)
+                         {
+                             err.subdiagnostic(CaptureReasonSuggest::FreshReborrow {
+                                 span: move_span.shrink_to_hi(),

@@ -1,0 +1,1 @@
+Recursive generic function whose associated-type normalization (`&mut T` writer's Error) overflows during monomorphization. The clean compiler reports a "reached the recursion limit while instantiating" error (exit 1); the injected compiler skips the normalization check and ICEs (exit 101) or emits a different error.

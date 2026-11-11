@@ -1,0 +1,24 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..a904a62d4664b01f6ed0ac43d96eb4470e7383a4 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -2198,7 +2198,7 @@ fn check_expr_struct_fields(
+                 };
+                 self.typeck_results.borrow_mut().fru_field_types_mut().insert(expr.hir_id, fru_tys);
+             }
+-            rustc_hir::StructTailExpr::NoneWithError(guaranteed) => {
++            rustc_hir::StructTailExpr::NoneWithError(ErrorGuaranteed { .. }) => {
+                 // If parsing the struct recovered from a syntax error, do not report missing
+                 // fields. This prevents spurious errors when a field is intended to be present
+                 // but a preceding syntax error caused it not to be parsed. For example, if a
+@@ -2206,10 +2206,6 @@ fn check_expr_struct_fields(
+                 //     StructName { foo(), bar: 2 }
+                 // will not successfully parse a field `foo`, but we will not mention that,
+                 // since the syntax error has already been reported.
+-
+-                // Signal that type checking has failed, even though we haven’t emitted a diagnostic
+-                // about it ourselves.
+-                self.infcx.set_tainted_by_errors(guaranteed);
+             }
+             rustc_hir::StructTailExpr::None => {
+                 if adt_kind != AdtKind::Union

@@ -1,0 +1,52 @@
+diff --git a/compiler/rustc_middle/src/ty/print/pretty.rs b/compiler/rustc_middle/src/ty/print/pretty.rs
+index 4ab474fd89fe6c70530aa0deb5234193db362bb4..848071f7fc8d1a2b712a6e4ae15d8e60eb6a3807 100644
+--- a/compiler/rustc_middle/src/ty/print/pretty.rs
++++ b/compiler/rustc_middle/src/ty/print/pretty.rs
+@@ -3317,21 +3317,18 @@ macro_rules! define_print_and_forward_display {
+     ty::ProjectionPredicate<'tcx> {
+         self.projection_term.print(p)?;
+         write!(p, " == ")?;
+-        p.reset_type_limit();
+         self.term.print(p)?;
+     }
+ 
+     ty::SubtypePredicate<'tcx> {
+         self.a.print(p)?;
+         write!(p, " <: ")?;
+-        p.reset_type_limit();
+         self.b.print(p)?;
+     }
+ 
+     ty::CoercePredicate<'tcx> {
+         self.a.print(p)?;
+         write!(p, " -> ")?;
+-        p.reset_type_limit();
+         self.b.print(p)?;
+     }
+ 
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+index 1897ed8fc84ebde76bc8de04ac4ad10464fd8e4d..57928e92c2b69dbbb722deefcb4b7ec65d3998f2 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/traits/fulfillment_errors.rs
+@@ -1669,8 +1669,7 @@ pub(super) fn report_projection_error(
+                     (
+                         with_forced_trimmed_paths!(format!(
+                             "type mismatch resolving `{}`",
+-                            self.tcx
+-                                .short_string(self.resolve_vars_if_possible(predicate), &mut file),
++                            predicate,
+                         )),
+                         obligation.cause.span,
+                         None,
+@@ -1803,10 +1802,7 @@ pub(super) fn report_projection_error(
+                         ty.span,
+                         with_forced_trimmed_paths!(Cow::from(format!(
+                             "type mismatch resolving `{}`",
+-                            self.tcx.short_string(
+-                                self.resolve_vars_if_possible(predicate),
+-                                diag.long_ty_path()
+-                            ),
++                            predicate,
+                         ))),
+                         true,
+                     )),

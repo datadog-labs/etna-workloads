@@ -1,0 +1,84 @@
+diff --git a/compiler/rustc_middle/src/ty/context.rs b/compiler/rustc_middle/src/ty/context.rs
+index 75aa5aaaa43525532338bd69bfaebb221f6a490d..6e679d9f49f32064dc3bf18304a03cfe333c9c9f 100644
+--- a/compiler/rustc_middle/src/ty/context.rs
++++ b/compiler/rustc_middle/src/ty/context.rs
+@@ -2784,9 +2784,13 @@ pub fn metadata_dep_node(self) -> crate::dep_graph::DepNode {
+     pub fn needs_coroutine_by_move_body_def_id(self, def_id: DefId) -> bool {
+         if let Some(hir::CoroutineKind::Desugared(_, hir::CoroutineSource::Closure)) =
+             self.coroutine_kind(def_id)
+-            && let ty::Coroutine(_, args) =
+-                self.type_of(def_id).instantiate_identity().skip_norm_wip().kind()
+-            && args.as_coroutine().kind_ty().to_opt_closure_kind() != Some(ty::ClosureKind::FnOnce)
++            && match self.type_of(def_id).instantiate_identity().skip_norm_wip().kind() {
++                ty::Coroutine(_, args) => {
++                    args.as_coroutine().kind_ty().to_opt_closure_kind()
++                        != Some(ty::ClosureKind::FnOnce)
++                }
++                _ => true,
++            }
+         {
+             true
+         } else {
+diff --git a/compiler/rustc_mir_build/src/builder/mod.rs b/compiler/rustc_mir_build/src/builder/mod.rs
+index 5efe62c3ebc213b3221faa26c4e1a12087ac0955..5ff9a8d90f03d99a0ea22ca58b2bcfb7df49efc7 100644
+--- a/compiler/rustc_mir_build/src/builder/mod.rs
++++ b/compiler/rustc_mir_build/src/builder/mod.rs
+@@ -674,32 +674,16 @@ fn construct_error(tcx: TyCtxt<'_>, def_id: LocalDefId, guar: ErrorGuaranteed) -
+                         ))),
+                     )
+                 }
+-                ty::CoroutineClosure(did, args) => {
+-                    let args = args.as_coroutine_closure();
+-                    let sig = tcx.liberate_late_bound_regions(
+-                        def_id.to_def_id(),
+-                        args.coroutine_closure_sig(),
+-                    );
+-                    let self_ty = match args.kind() {
+-                        ty::ClosureKind::Fn => {
+-                            Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, closure_ty)
+-                        }
+-                        ty::ClosureKind::FnMut => {
+-                            Ty::new_mut_ref(tcx, tcx.lifetimes.re_erased, closure_ty)
+-                        }
+-                        ty::ClosureKind::FnOnce => closure_ty,
+-                    };
+-                    (
+-                        [self_ty].into_iter().chain(sig.tupled_inputs_ty.tuple_fields()).collect(),
+-                        sig.to_coroutine(
+-                            tcx,
+-                            args.parent_args(),
+-                            args.kind_ty(),
+-                            tcx.coroutine_for_closure(*did),
+-                            Ty::new_error(tcx, guar),
+-                        ),
+-                        None,
+-                    )
++                ty::CoroutineClosure(did, _args) => {
++                    // FIXME(async_closures): Recover the proper error signature
++                    let inputs = tcx
++                        .closure_user_provided_sig(did.expect_local())
++                        .value
++                        .skip_binder()
++                        .inputs();
++
++                    let err = Ty::new_error(tcx, guar);
++                    (inputs.iter().map(|_| err).collect(), err, None)
+                 }
+                 ty::Error(_) => (vec![closure_ty, closure_ty], closure_ty, None),
+                 kind => {
+diff --git a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+index 88ffe5861a69750d4119841e1a7c25bb6a3ae4f8..d66e1a3c4f532912907ba4840b6898b7e09c1bd7 100644
+--- a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
++++ b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+@@ -86,11 +86,6 @@ pub(crate) fn coroutine_by_move_body_def_id<'tcx>(
+ ) -> DefId {
+     let body = tcx.mir_built(coroutine_def_id).borrow();
+ 
+-    // If the typeck results are tainted, no need to make a by-ref body.
+-    if body.tainted_by_errors.is_some() {
+-        return coroutine_def_id.to_def_id();
+-    }
+-
+     let Some(hir::CoroutineKind::Desugared(_, hir::CoroutineSource::Closure)) =
+         tcx.coroutine_kind(coroutine_def_id)
+     else {

@@ -1,0 +1,44 @@
+diff --git a/compiler/rustc_hir_typeck/src/expr.rs b/compiler/rustc_hir_typeck/src/expr.rs
+index cbbd66f648eb892eb89464d71c3a0cc2549647b0..d8152a1962cb2f12b6aa8a1a615ffd6ba8abf8c4 100644
+--- a/compiler/rustc_hir_typeck/src/expr.rs
++++ b/compiler/rustc_hir_typeck/src/expr.rs
+@@ -1796,9 +1796,12 @@ fn check_expr_tuple(
+             .iter();
+ 
+         let elements = elements.iter().map(|e| {
+-            let ty = expectations.next().unwrap_or_else(|| self.next_ty_var(e.span));
+-            self.check_expr_coercible_to_type(e, ty, None);
+-            ty
++            if let Some(ty) = expectations.next() {
++                self.check_expr_coercible_to_type(e, ty, None);
++                ty
++            } else {
++                self.check_expr_with_expectation(e, NoExpectation)
++            }
+         });
+ 
+         let tuple = Ty::new_tup_from_iter(self.tcx, elements);
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs
+index 1a66ddb8e223880f0bf888a32a00bd5ca8b706ba..f103d2d428e9c966ddf1bcd4fbe10f28c8ef4db7 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/need_type_info.rs
+@@ -277,9 +277,6 @@ fn fmt_printer<'a, 'tcx>(infcx: &'a InferCtxt<'tcx>, ns: Namespace) -> FmtPrinte
+ 
+         let var_origin = infcx.type_var_origin(ty_vid);
+         if let Some(def_id) = var_origin.param_def_id
+-            // The `Self` param of a trait has the def-id of the trait,
+-            // since it's a synthetic parameter.
+-            && infcx.tcx.def_kind(def_id) == DefKind::TyParam
+             && let name = infcx.tcx.item_name(def_id)
+             && !var_origin.span.from_expansion()
+         {
+@@ -377,9 +374,6 @@ pub fn extract_inference_diagnostics_data(
+                 if let ty::Infer(ty::TyVar(ty_vid)) = *ty.kind() {
+                     let var_origin = self.infcx.type_var_origin(ty_vid);
+                     if let Some(def_id) = var_origin.param_def_id
+-                        // The `Self` param of a trait has the def-id of the trait,
+-                        // since it's a synthetic parameter.
+-                        && self.tcx.def_kind(def_id) == DefKind::TyParam
+                         && !var_origin.span.from_expansion()
+                     {
+                         return InferenceDiagnosticsData {

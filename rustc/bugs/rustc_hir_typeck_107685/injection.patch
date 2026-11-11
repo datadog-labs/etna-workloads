@@ -1,0 +1,36 @@
+diff --git a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+index 506e2822a8745ca733b894bd5eb2645e378493dc..4d4d052663a81aa04b04b08ccf51fad88156c3c7 100644
+--- a/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
++++ b/compiler/rustc_hir_typeck/src/fn_ctxt/suggestions.rs
+@@ -1089,31 +1089,6 @@ pub(in super::super) fn suggest_missing_return_type(
+                     self.try_suggest_return_impl_trait(err, expected, found, fn_id);
+                     self.try_note_caller_chooses_ty_for_ty_param(err, expected, found);
+                     return true;
+-                } else if let hir::TyKind::OpaqueDef(op_ty, ..) = hir_ty.kind
+-                    // FIXME: account for RPITIT.
+-                    && let [hir::GenericBound::Trait(trait_ref)] = op_ty.bounds
+-                    && let Some(hir::PathSegment { args: Some(generic_args), .. }) =
+-                        trait_ref.trait_ref.path.segments.last()
+-                    && let [constraint] = generic_args.constraints
+-                    && let Some(ty) = constraint.ty()
+-                {
+-                    // Check if async function's return type was omitted.
+-                    // Don't emit suggestions if the found type is `impl Future<...>`.
+-                    debug!(?found);
+-                    if found.is_suggestable(self.tcx, false) {
+-                        if ty.span.is_empty() {
+-                            err.subdiagnostic(diagnostics::AddReturnTypeSuggestion::Add {
+-                                span: ty.span,
+-                                found: found.to_string(),
+-                            });
+-                            return true;
+-                        } else {
+-                            err.subdiagnostic(diagnostics::ExpectedReturnTypeLabel::Other {
+-                                span: ty.span,
+-                                expected,
+-                            });
+-                        }
+-                    }
+                 } else {
+                     // Only point to return type if the expected type is the return type, as if they
+                     // are not, the expectation must have been caused by something else.

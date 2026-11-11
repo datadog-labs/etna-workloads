@@ -1,0 +1,18 @@
+diff --git a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+index 203ed5a62a8b9f59f22fcedaaec85ba6388ce57c..cc084534401c59c624299f017094fb8d682970f5 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/confirmation.rs
+@@ -596,7 +596,12 @@ fn confirm_fn_pointer_candidate(
+     ) -> Result<PredicateObligations<'tcx>, SelectionError<'tcx>> {
+         debug!(?obligation, "confirm_fn_pointer_candidate");
+         let placeholder_predicate = self.infcx.enter_forall_and_leak_universe(obligation.predicate);
+-        let self_ty = self.infcx.shallow_resolve(placeholder_predicate.self_ty());
++        let self_ty = self.infcx.shallow_resolve(
++            obligation
++                .self_ty()
++                .no_bound_vars()
++                .expect("fn pointer should not capture bound vars from predicate"),
++        );
+ 
+         let tcx = self.tcx();
+         let sig = self_ty.unnormalized_fn_sig(tcx);

@@ -1,0 +1,62 @@
+diff --git a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+index 7267ae113de3e38793f991bf566996f037a39fee..fea5fd3703ccfd25374d50d431eb8d662d815b8c 100644
+--- a/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
++++ b/compiler/rustc_borrowck/src/diagnostics/conflict_errors.rs
+@@ -967,12 +967,12 @@ fn report_use_of_uninitialized(
+         if show_assign_sugg {
+             struct LetVisitor {
+                 decl_span: Span,
+-                sugg: Option<(Span, bool)>,
++                sugg_span: Option<Span>,
+             }
+ 
+             impl<'v> Visitor<'v> for LetVisitor {
+                 fn visit_stmt(&mut self, ex: &'v hir::Stmt<'v>) {
+-                    if self.sugg.is_some() {
++                    if self.sugg_span.is_some() {
+                         return;
+                     }
+ 
+@@ -980,23 +980,19 @@ fn visit_stmt(&mut self, ex: &'v hir::Stmt<'v>) {
+                     // but we could suggest `todo!()` for all uninitialized bindings in the pattern
+                     if let hir::StmtKind::Let(hir::LetStmt { span, ty, init: None, pat, .. }) =
+                         &ex.kind
+-                        && let hir::PatKind::Binding(binding_mode, ..) = pat.kind
++                        && let hir::PatKind::Binding(..) = pat.kind
+                         && span.contains(self.decl_span)
+                     {
+-                        // Insert after the whole binding pattern so suggestions stay valid for
+-                        // bindings with `@` subpatterns like `ref mut x @ v`.
+-                        let strip_ref = matches!(binding_mode.0, hir::ByRef::Yes(..));
+-                        self.sugg =
+-                            ty.map_or(Some((pat.span, strip_ref)), |ty| Some((ty.span, strip_ref)));
++                        self.sugg_span = ty.map_or(Some(self.decl_span), |ty| Some(ty.span));
+                     }
+                     hir::intravisit::walk_stmt(self, ex);
+                 }
+             }
+ 
+-            let mut visitor = LetVisitor { decl_span, sugg: None };
++            let mut visitor = LetVisitor { decl_span, sugg_span: None };
+             visitor.visit_body(&body);
+-            if let Some((span, strip_ref)) = visitor.sugg {
+-                self.suggest_assign_value(&mut err, moved_place, span, strip_ref);
++            if let Some(span) = visitor.sugg_span {
++                self.suggest_assign_value(&mut err, moved_place, span);
+             }
+         }
+         err
+@@ -1007,12 +1003,8 @@ fn suggest_assign_value(
+         err: &mut Diag<'_>,
+         moved_place: PlaceRef<'tcx>,
+         sugg_span: Span,
+-        strip_ref: bool,
+     ) {
+-        let mut ty = moved_place.ty(self.body, self.infcx.tcx).ty;
+-        if strip_ref && let ty::Ref(_, inner, _) = ty.kind() {
+-            ty = *inner;
+-        }
++        let ty = moved_place.ty(self.body, self.infcx.tcx).ty;
+         debug!("ty: {:?}, kind: {:?}", ty, ty.kind());
+ 
+         let Some(assign_value) = self.infcx.err_ctxt().ty_kind_suggestion(self.infcx.param_env, ty)

@@ -1,0 +1,26 @@
+diff --git a/compiler/rustc_mir_transform/src/coroutine/drop.rs b/compiler/rustc_mir_transform/src/coroutine/drop.rs
+index 41b973476af94d1d0a39d140764cb4de63b7199a..1c76a452125c2b2301adadf0f8322a33c45671bb 100644
+--- a/compiler/rustc_mir_transform/src/coroutine/drop.rs
++++ b/compiler/rustc_mir_transform/src/coroutine/drop.rs
+@@ -207,6 +207,9 @@ pub(super) fn create_coroutine_drop_shim<'tcx>(
+     let coroutine_instance = body.source.instance;
+     let drop_glue = tcx.require_lang_item(LangItem::DropGlue, body.span);
+     let drop_instance = InstanceKind::Shim(ShimKind::DropGlue(drop_glue, Some(coroutine_ty)));
++    body.source.instance = drop_instance;
++
++    pm::run_passes_no_validate(tcx, &mut body, &[&abort_unwinding_calls::AbortUnwindingCalls], None);
+ 
+     // Temporary change MirSource to coroutine's instance so that dump_mir produces more sensible
+     // filename.
+diff --git a/compiler/rustc_mir_transform/src/shim.rs b/compiler/rustc_mir_transform/src/shim.rs
+index 0561c04bc1db39f88e4a78540e3c980e2c3666c4..3ce93c317ec1b1ddfce366f3db30d32add2b5f5d 100644
+--- a/compiler/rustc_mir_transform/src/shim.rs
++++ b/compiler/rustc_mir_transform/src/shim.rs
+@@ -115,7 +115,6 @@ fn make_shim<'tcx>(tcx: TyCtxt<'tcx>, shim: ty::ShimKind<'tcx>) -> Body<'tcx> {
+                     &mut body,
+                     &[
+                         &mentioned_items::MentionedItems,
+-                        &abort_unwinding_calls::AbortUnwindingCalls,
+                         &add_call_guards::CriticalCallEdges,
+                     ],
+                     Some(MirPhase::Runtime(RuntimePhase::Optimized)),

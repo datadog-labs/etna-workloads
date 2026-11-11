@@ -1,0 +1,23 @@
+diff --git a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+index 88ffe5861a69750d4119841e1a7c25bb6a3ae4f8..3753a7639b496f1268917690c81e0881f5d8b236 100644
+--- a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
++++ b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+@@ -285,15 +285,10 @@ fn visit_place(
+             // generating, we also are taking that field by value. Peel off a deref,
+             // since a layer of ref'ing has now become redundant.
+             let final_projections = if peel_deref {
+-                let Some((mir::ProjectionElem::Deref, projection)) = projection.split_first()
+-                else {
+-                    bug!(
+-                        "There should be at least a single deref for an upvar local initialization, found {projection:#?}"
+-                    );
++                let [mir::ProjectionElem::Deref] = projection else {
++                    bug!("There should only be a single deref for an upvar local initialization");
+                 };
+-                // There may be more derefs, since we may also implicitly reborrow
+-                // a captured mut pointer.
+-                projection
++                &[]
+             } else {
+                 projection
+             };

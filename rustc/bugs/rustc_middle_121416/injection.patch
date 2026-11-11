@@ -1,0 +1,67 @@
+diff --git a/compiler/rustc_middle/src/ty/generics.rs b/compiler/rustc_middle/src/ty/generics.rs
+index bfdb89dc409f6b40228120d195ee80cb88b91e6a..f30a35d95d0b22a11a7dd4e0260d0f155b1da502 100644
+--- a/compiler/rustc_middle/src/ty/generics.rs
++++ b/compiler/rustc_middle/src/ty/generics.rs
+@@ -343,31 +343,6 @@ pub fn own_args(
+         if self.has_own_self() { &own[1..] } else { own }
+     }
+ 
+-    /// Returns true if a concrete type is specified after a default type.
+-    /// For example, consider `struct T<W = usize, X = Vec<W>>(W, X)`
+-    /// `T<usize, String>` will return true
+-    /// `T<usize>` will return false
+-    pub fn check_concrete_type_after_default(
+-        &'tcx self,
+-        tcx: TyCtxt<'tcx>,
+-        args: &'tcx [ty::GenericArg<'tcx>],
+-    ) -> bool {
+-        let mut default_param_seen = false;
+-        for param in self.own_params.iter() {
+-            if let Some(inst) = param
+-                .default_value(tcx)
+-                .map(|default| default.instantiate(tcx, args).skip_norm_wip())
+-            {
+-                if inst == args[param.index as usize] {
+-                    default_param_seen = true;
+-                } else if default_param_seen {
+-                    return true;
+-                }
+-            }
+-        }
+-        false
+-    }
+-
+     pub fn is_empty(&'tcx self) -> bool {
+         self.count() == 0
+     }
+diff --git a/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs b/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
+index 35449284b5093e33196389aec832abf2ecc37caa..ba7e51c4918a749c94955f1e2100d6090a423956 100644
+--- a/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
++++ b/compiler/rustc_trait_selection/src/error_reporting/infer/mod.rs
+@@ -1179,22 +1179,10 @@ fn cmp_ty_refs<'tcx>(
+                 let did1 = def1.did();
+                 let did2 = def2.did();
+ 
+-                let generics1 = self.tcx.generics_of(did1);
+-                let generics2 = self.tcx.generics_of(did2);
+-
+-                let non_default_after_default = generics1
+-                    .check_concrete_type_after_default(self.tcx, sub1)
+-                    || generics2.check_concrete_type_after_default(self.tcx, sub2);
+-                let sub_no_defaults_1 = if non_default_after_default {
+-                    generics1.own_args(sub1)
+-                } else {
+-                    generics1.own_args_no_defaults(self.tcx, sub1)
+-                };
+-                let sub_no_defaults_2 = if non_default_after_default {
+-                    generics2.own_args(sub2)
+-                } else {
+-                    generics2.own_args_no_defaults(self.tcx, sub2)
+-                };
++                let sub_no_defaults_1 =
++                    self.tcx.generics_of(did1).own_args_no_defaults(self.tcx, sub1);
++                let sub_no_defaults_2 =
++                    self.tcx.generics_of(did2).own_args_no_defaults(self.tcx, sub2);
+                 let mut values = (DiagStyledString::new(), DiagStyledString::new());
+                 let path1 = self.tcx.def_path_str(did1);
+                 let path2 = self.tcx.def_path_str(did2);

@@ -1,0 +1,1 @@
+A custom JSON target specifies a data layout that differs from LLVM's. The clean compiler reports an error ("data-layout ... differs from LLVM target's") and fails; the injected compiler skips the check for non-builtin targets and compiles successfully (exit 0).

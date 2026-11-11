@@ -1,0 +1,60 @@
+diff --git a/compiler/rustc_hir/src/def.rs b/compiler/rustc_hir/src/def.rs
+index 59e4f084ab81b38204b4ab5e7b8fc17e5cbd8eac..87e481bf342ba131f01b5fd0f7c649d9ff397165 100644
+--- a/compiler/rustc_hir/src/def.rs
++++ b/compiler/rustc_hir/src/def.rs
+@@ -344,7 +344,7 @@ pub fn def_path_data(self, name: Option<Symbol>) -> DefPathData {
+             DefKind::GlobalAsm => DefPathData::GlobalAsm,
+             DefKind::Impl { .. } => DefPathData::Impl,
+             DefKind::Closure => DefPathData::Closure,
+-            DefKind::SyntheticCoroutineBody => DefPathData::SyntheticCoroutineBody,
++            DefKind::SyntheticCoroutineBody => DefPathData::Closure,
+         }
+     }
+ 
+diff --git a/compiler/rustc_hir_id/src/definitions.rs b/compiler/rustc_hir_id/src/definitions.rs
+index b334efab351bcb220d120c5060a17ac1ec25b4dd..5967111925fd3ac0ee511d6b52f5be6e8e3b5291 100644
+--- a/compiler/rustc_hir_id/src/definitions.rs
++++ b/compiler/rustc_hir_id/src/definitions.rs
+@@ -37,6 +37,15 @@ pub fn new(_parent: LocalDefId) -> PerParentDisambiguatorState {
+             next: Default::default(),
+         }
+     }
++
++    /// Creates a disambiguator state for `parent` whose next disambiguator for `data` is `next`,
++    /// i.e. continuing the numbering of already-created children with the same `data`.
++    #[inline(always)]
++    pub fn continuing(_parent: LocalDefId, data: DefPathData, next: u32) -> PerParentDisambiguatorState {
++        let mut state = PerParentDisambiguatorState::new(_parent);
++        state.next.insert(data, next);
++        state
++    }
+ }
+ 
+ #[extension(pub trait PerParentDisambiguatorsMap)]
+diff --git a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+index 88ffe5861a69750d4119841e1a7c25bb6a3ae4f8..0559049d2c90922915cca732659ec85b535c1029 100644
+--- a/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
++++ b/compiler/rustc_mir_transform/src/coroutine/by_move_body.rs
+@@ -73,7 +73,7 @@
+ use rustc_hir as hir;
+ use rustc_hir::def::DefKind;
+ use rustc_hir::def_id::{DefId, LocalDefId};
+-use rustc_hir::definitions::PerParentDisambiguatorState;
++use rustc_hir::definitions::{DefPathData, PerParentDisambiguatorState};
+ use rustc_middle::bug;
+ use rustc_middle::hir::place::{Projection, ProjectionKind};
+ use rustc_middle::mir::visit::MutVisitor;
+@@ -221,7 +221,12 @@ pub(crate) fn coroutine_by_move_body_def_id<'tcx>(
+         None,
+         DefKind::SyntheticCoroutineBody,
+         None,
+-        &mut PerParentDisambiguatorState::new(parent_def_id),
++        // The synthetic body shares the `Closure` disambiguator namespace with the coroutine.
++        &mut PerParentDisambiguatorState::continuing(
++            parent_def_id,
++            DefPathData::Closure,
++            tcx.def_key(coroutine_def_id).disambiguated_data.disambiguator + 1,
++        ),
+     );
+     by_move_body.source = mir::MirSource {
+         instance: InstanceKind::Item(body_def.def_id().to_def_id()),

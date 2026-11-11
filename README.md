@@ -14,6 +14,7 @@ re-injected into a fixed release as patches, for evaluating testing tools.
 | [`postgresql/`](postgresql) | PostgreSQL 18.6 (REL_18_6) | PostgreSQL | 1,466 (1,045 strict) | injection patches in the server, client tools and libraries (also Marauders patch variants), upstream pg_regress/isolation/TAP oracles, 1,449 standalone `repro.sql`/`repro.sh` reproducers; mined with the clean-room pipeline in `postgresql/tool/` |
 | [`nodejs/`](nodejs) | Node.js v26.13.0 (`lib/` JavaScript, `src/` C++) | MIT | 1,373 (425 strict) | injection patches in the JavaScript core library and C++ bindings (also Marauders patch variants), upstream `tools/test.py` and cctest (gtest) oracles, 608 standalone `repro.js`/`repro.sh` reproducers; mined with the clean-room pipeline in `nodejs/tool/` |
 | [`typescript/`](typescript) | TypeScript 6.0.3 (tsc and language service) | Apache-2.0 | 637 (509 strict) | injection patches in the compiler and language service (also Marauders patch variants), upstream compiler-baseline/fourslash/unittest oracles, 637 standalone `repro.sh` reproducers; mined with the clean-room pipeline in `typescript/tool/` |
+| [`rustc/`](rustc) | rustc 1.99.1 (compiler) | MIT OR Apache-2.0 | 2,186 (1,739 strict) | injection patches in the compiler (also Marauders patch variants), upstream compiletest oracles (ui, crashes, mir-opt, codegen, incremental, assembly), 2,178 standalone `repro.sh` reproducers; mined with the clean-room pipeline in `rustc/tool/` |
 
 ## Licensing
 

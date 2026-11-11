@@ -1,0 +1,1 @@
+Compiling a lib with an extern "rust-cold" fn taking [usize; 3] by value (-Clink-dead-code). The injected compiler ICEs in fn_arg_sanity_check ('rustic abi RustCold shouldn't use on_stack') instead of compiling.

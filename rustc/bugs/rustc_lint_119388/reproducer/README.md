@@ -1,0 +1,1 @@
+Compiles a crate with `allow(uncommon_codepoints)` (a crate-level-only lint) at crate and module level, with `-Z deduplicate-diagnostics=no`. The clean compiler emits each "ignored unless specified at crate level" warning once; the injected compiler emits it multiple times (also from the early/pre-expansion passes), so the output differs.

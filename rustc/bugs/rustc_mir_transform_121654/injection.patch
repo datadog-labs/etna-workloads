@@ -1,0 +1,17 @@
+diff --git a/compiler/rustc_mir_transform/src/shim.rs b/compiler/rustc_mir_transform/src/shim.rs
+index 0561c04bc1db39f88e4a78540e3c980e2c3666c4..d0ebcefc56e36a5567e4d1186c8cb88420359a32 100644
+--- a/compiler/rustc_mir_transform/src/shim.rs
++++ b/compiler/rustc_mir_transform/src/shim.rs
+@@ -41,11 +41,7 @@ fn make_shim<'tcx>(tcx: TyCtxt<'tcx>, shim: ty::ShimKind<'tcx>) -> Body<'tcx> {
+         }
+         ty::ShimKind::FnPtr(def_id, ty) => {
+             let trait_ = tcx.parent(def_id);
+-            // Supports `Fn` or `async Fn` traits.
+-            let adjustment = match tcx
+-                .fn_trait_kind_from_def_id(trait_)
+-                .or_else(|| tcx.async_fn_trait_kind_from_def_id(trait_))
+-            {
++            let adjustment = match tcx.fn_trait_kind_from_def_id(trait_) {
+                 Some(ty::ClosureKind::FnOnce) => Adjustment::Identity,
+                 Some(ty::ClosureKind::Fn) => Adjustment::Deref { source: DerefSource::ImmRef },
+                 Some(ty::ClosureKind::FnMut) => Adjustment::Deref { source: DerefSource::MutRef },

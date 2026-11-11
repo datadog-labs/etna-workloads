@@ -1,0 +1,1 @@
+Compiles an async fn with a `for<F> F: 'a` (non_lifetime_binders) where-clause. The clean compiler reports an ordinary error (exit 1); the injected one ICEs in test_type_match ("bound types encountered in structurally_relate_tys", exit 101).
