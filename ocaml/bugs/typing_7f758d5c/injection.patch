@@ -1,0 +1,25 @@
+diff --git a/typing/ctype.mli b/typing/ctype.mli
+index 0f7bbab..7bcc44a 100644
+--- a/typing/ctype.mli
++++ b/typing/ctype.mli
+@@ -278,6 +278,7 @@ val apply:
+            set to true.
+            Exception [Cannot_apply] is raised in case of failure. *)
+ 
++val try_expand_once: Env.t -> type_expr -> type_expr
+ val try_expand_once_opt: Env.t -> type_expr -> type_expr
+ val try_expand_safe_opt: Env.t -> type_expr -> type_expr
+ 
+diff --git a/typing/typedecl.ml b/typing/typedecl.ml
+index 63eee2a..674ca4d 100644
+--- a/typing/typedecl.ml
++++ b/typing/typedecl.ml
+@@ -883,7 +883,7 @@ let check_well_founded ~abs_env env loc path to_check visited ty0 =
+     | Tconstr(p, tyl, _) ->
+         let to_check = to_check p in
+         if to_check then List.iter (check_subtype parents trace ty) tyl;
+-        begin match Ctype.try_expand_once_opt env ty with
++        begin match Ctype.try_expand_once env ty with
+         | ty' -> check parents (Expands_to (ty, ty') :: trace) ty'
+         | exception Ctype.Cannot_expand ->
+             if not to_check then List.iter (check_subtype parents trace ty) tyl

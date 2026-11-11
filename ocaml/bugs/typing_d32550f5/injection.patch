@@ -1,0 +1,29 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..d3c3254 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -1004,6 +1004,15 @@ let update_level_for tr_exn env level ty =
+     update_level env level ty
+   with Escape e -> raise_for tr_exn (Escape e)
+ 
++let rec generalize_structure_lower var_level ty =
++  if get_level ty <> generic_level && get_level ty > var_level then begin
++    match get_desc ty with
++      Tvar _ -> set_level ty !current_level
++    | _ ->
++        set_level ty generic_level;
++        iter_type_expr (generalize_structure_lower var_level) ty
++  end
++
+ (* Lower level of type variables inside contravariant branches *)
+ 
+ let rec lower_contravariant env var_level visited contra ty =
+@@ -1036,7 +1045,7 @@ let rec lower_contravariant env var_level visited contra ty =
+               (fun v t ->
+                 if v = Variance.null then () else
+                   if Variance.(mem May_weak v)
+-                  then lower_rec true t
++                  then generalize_structure_lower var_level t
+                   else lower_rec contra t)
+               variance tyl in
+           if maybe_expand then (* we expand cautiously to avoid missing cmis *)

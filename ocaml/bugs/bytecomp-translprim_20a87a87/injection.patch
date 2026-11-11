@@ -1,0 +1,24 @@
+diff --git a/lambda/translprim.ml b/lambda/translprim.ml
+index d5a9ebd..b0c32b6 100644
+--- a/lambda/translprim.ml
++++ b/lambda/translprim.ml
+@@ -885,15 +885,16 @@ let transl_primitive loc p env ty path =
+   let params = make_params p.prim_arity in
+   let args = List.map (fun (id, _) -> Lvar id) params in
+   let body = lambda_of_prim p.prim_name prim loc args None in
+-  match params with
+-  | [] -> body
+-  | _ ->
++  match params, prim with
++  | [], Loc (Loc_FILE | Loc_LINE | Loc_POS | Loc_MODULE | Loc_FUNCTION)
++  | _ :: _, _ ->
+       lfunction ~kind:Curried
+                 ~params
+                 ~return:Pgenval
+                 ~attr:default_stub_attribute
+                 ~loc
+                 ~body
++  | [], _ -> body
+ 
+ let lambda_primitive_needs_event_after = function
+   (* We add an event after any primitive resulting in a C call that

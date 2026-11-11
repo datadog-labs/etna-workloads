@@ -1,0 +1,34 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..9ca072d 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -6685,6 +6685,7 @@ and map_half_typed_cases
+    (* propagation of the argument *)
+     with_local_level_generalize begin fun () ->
+       let pattern_force = ref [] in
++      let ty_arg' = instance ?partial:take_partial_instance ty_arg in
+       (*  Format.printf "@[%i %i@ %a@]@." lev (get_current_level())
+           Printtyp.raw_type_expr ty_arg; *)
+       let half_typed_cases =
+@@ -6693,9 +6694,10 @@ and map_half_typed_cases
+           let htc =
+             with_local_level_generalize_structure_if_principal begin fun () ->
+               let ty_arg =
+-                (* propagation of pattern *)
+-                with_local_level_generalize_structure
+-                  (fun () -> instance ?partial:take_partial_instance ty_arg)
++                if may_contain_gadts || not contains_polyvars then
++                  with_local_level_generalize_structure
++                    (fun () -> instance ?partial:take_partial_instance ty_arg)
++                else ty_arg'
+               in
+               let (pat, ext_env, force, pvs, mvs) =
+                 type_pattern ?cont category ~lev env pattern ty_arg
+@@ -6731,7 +6733,6 @@ and map_half_typed_cases
+         else ty_res, (fun env -> env)
+       in
+       (* Unify all cases (delayed to keep it order-free) *)
+-      let ty_arg' = newvar () in
+       let unify_pats ty =
+         List.iter (fun { typed_pat = pat; pat_type_for_unif = pat_ty; _ } ->
+           unify_pat_types pat.pat_loc env pat_ty ty

@@ -1,0 +1,16 @@
+diff --git a/typing/mtype.ml b/typing/mtype.ml
+index c8f6e59..cc714c5 100644
+--- a/typing/mtype.ml
++++ b/typing/mtype.ml
+@@ -65,8 +65,9 @@ and strengthen_lazy_sig' ~aliasable env sg p =
+     [] -> []
+   | (SigL_value(_, _, _) as sigelt) :: rem ->
+       sigelt :: strengthen_lazy_sig' ~aliasable env rem p
+-  | SigL_type(id, {type_kind=Type_abstract _}, _, _) :: rem
+-    when Btype.is_row_name (Ident.name id) ->
++  | SigL_type(id, {type_kind=Type_abstract _}, _, _) ::
++    (SigL_type(id', {type_private=Private}, _, _) :: _ as rem)
++    when Ident.name id = Ident.name id' ^ "#row" ->
+       strengthen_lazy_sig' ~aliasable env rem p
+   | SigL_type(id, decl, rs, vis) :: rem ->
+       let newdecl =

@@ -1,0 +1,34 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..9eaff0a 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2096,19 +2096,22 @@ let rec occur_rec env visited allow_recursive parents ty0 ty =
+           iter_type_expr (occur_rec env visited allow_recursive parents ty0) ty
+         with Occur -> try
+           let ty' = try_expand_head try_expand_safe env ty in
+-          (* This call used to be inlined, but there seems no reason for it.
+-            Message was referring to change in rev. 1.58 of the CVS repo. *)
+-          occur_rec env visited allow_recursive parents ty0 ty'
++          (* Maybe we could simply make a recursive call here,
++             but it seems it could make the occur check loop
++             (see change in rev. 1.58) *)
++          if eq_type ty' ty0 then raise Occur;
++          match get_desc ty' with
++            Tobject _ | Tvariant _ -> ()
++          | _ ->
++              if allow_recursive then () else
++              iter_type_expr (occur_rec env visited allow_recursive parents ty0) ty'
+         with Cannot_expand ->
+           raise Occur
+         end
+     | Tobject _ | Tvariant _ ->
+         ()
+     | _ ->
+-        if allow_recursive ||  TypeSet.mem ty parents then () else begin
+-          let parents = TypeSet.add ty parents in
+-          iter_type_expr (occur_rec env visited allow_recursive parents ty0) ty
+-        end
++        iter_type_expr (occur_rec env visited allow_recursive parents ty0) ty
+     end;
+     ignore (try_mark_node visited ty)
+   end

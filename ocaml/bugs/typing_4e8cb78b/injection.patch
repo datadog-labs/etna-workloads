@@ -1,0 +1,21 @@
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..0089a53 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -1538,6 +1538,16 @@ let make_copy_of_types env0 =
+         let desc = { desc with val_type = copy desc.val_type } in
+         Val_bound { vda with vda_description = desc }
+   in
++  IdTbl.iter wrap_value
++    (fun _ (_, entry) ->
++       match entry with
++       | Val_unbound _ -> ()
++       | Val_bound vda ->
++           (match Types.Uid.Tbl.find !value_declarations
++                    vda.vda_description.val_uid with
++            | mark -> mark ()
++            | exception Not_found -> ()))
++    env0.values;
+   let values =
+     IdTbl.map f env0.values
+   in

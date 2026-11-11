@@ -1,0 +1,73 @@
+diff --git a/typing/value_rec_check.ml b/typing/value_rec_check.ml
+index b7af466..5d3bd72 100644
+--- a/typing/value_rec_check.ml
++++ b/typing/value_rec_check.ml
+@@ -356,8 +356,6 @@ module Mode = struct
+         in arbitrary ways. Such a value must be fully defined at the point
+         of usage, it cannot be defined mutually-recursively with its context. *)
+ 
+-  let equal = ((=) : t -> t -> bool)
+-
+   (* Lower-ranked modes demand/use less of the variable/expression they qualify
+      -- so they allow more recursive definitions.
+ 
+@@ -425,9 +423,6 @@ sig
+   val join_list : t list -> t
+   (** Environments can be joined pointwise (variable per variable) *)
+ 
+-  val compose : Mode.t -> t -> t
+-  (** Environment composition m[G] extends mode composition m1[m2]
+-      by composing each mode in G pointwise *)
+ 
+   val remove : Ident.t -> t -> t
+   (** Remove an identifier from an environment. *)
+@@ -437,16 +432,12 @@ sig
+ 
+   val remove_list : Ident.t list -> t -> t
+   (** Remove all the identifiers of a list from an environment. *)
+-
+-  val equal : t -> t -> bool
+ end = struct
+   module M = Map.Make(Ident)
+ 
+   (** A "t" maps each rec-bound variable to an access status *)
+   type t = Mode.t M.t
+ 
+-  let equal = M.equal Mode.equal
+-
+   let find (id: Ident.t) (tbl: t) =
+     try M.find id tbl with Not_found -> Ignore
+ 
+@@ -461,9 +452,6 @@ end = struct
+ 
+   let join_list li = List.fold_left join empty li
+ 
+-  let compose m env =
+-    M.map (Mode.compose m) env
+-
+   let single id mode = M.add id mode empty
+ 
+   let unguarded env li =
+@@ -1264,20 +1252,9 @@ and value_bindings : rec_flag -> Typedtree.value_binding list -> bind_judg =
+             let env_i = remove_patlist all_bound_pats rhs_env_i in
+             (* (Gi, (mdef_ij)^j) *)
+             (env_i, mutual_modes) in
+-          let env, mdef =
++          let env, _mdef =
+             List.split (List.map binding_env bindings) in
+-          let rec transitive_closure env =
+-            let transitive_deps env_i mdef_i =
+-              (* Gi, (mdef_ij)^j => Gi + Sum_j mdef_ij[Gj] *)
+-              Env.join env_i
+-                (Env.join_list (List.map2 Env.compose mdef_i env)) in
+-            let env' = List.map2 transitive_deps env mdef in
+-            if List.for_all2 Env.equal env env'
+-            then env'
+-            else transitive_closure env'
+-          in
+-          let env'_i = transitive_closure env in
+-          Env.join_list env'_i
++          Env.join_list env
+     in Env.join bindings_env outer_env
+ 
+ (* G; m' |- (p -> e) : m

@@ -1,0 +1,17 @@
+diff --git a/typing/typedecl.ml b/typing/typedecl.ml
+index 63eee2a..33422af 100644
+--- a/typing/typedecl.ml
++++ b/typing/typedecl.ml
+@@ -1641,7 +1641,11 @@ let check_unboxable env loc ty =
+     try match get_desc ty with
+       | Tconstr (p, _, _) ->
+         let tydecl = Env.find_type p env in
+-        if tydecl.type_unboxed_default then
++        let unboxed = match tydecl.type_kind with
++          | Type_variant (_, Variant_unboxed)
++          | Type_record (_, Record_unboxed _) -> true
++          | _ -> false in
++        if unboxed then
+           Path.Set.add p acc
+         else acc
+       | Tpoly (ty, []) -> check_type acc ty

@@ -1,0 +1,101 @@
+diff --git a/typing/includemod.ml b/typing/includemod.ml
+index 03650bf..b68258d 100644
+--- a/typing/includemod.ml
++++ b/typing/includemod.ml
+@@ -192,13 +192,8 @@ module Directionality = struct
+       pos:pos;
+     }
+ 
+-  let strictly_positive ~mark ~both =
+-    let mark_as_used =
+-      match mark, both with
+-      | true, true -> Mark_both
+-      | true, false -> Mark_positive
+-      | false, _ -> Mark_neither
+-    in
++  let strictly_positive ~mark =
++    let mark_as_used = if mark then Mark_positive else Mark_neither in
+     { in_eq=false; pos=Strictly_positive; mark_as_used }
+ 
+   let unknown ~mark =
+@@ -1108,7 +1103,7 @@ let () =
+ 
+ let compunit env ~mark impl_name impl_sig intf_name intf_sig unit_shape =
+   let loc = Location.in_file impl_name in
+-  let direction = Directionality.strictly_positive ~mark ~both:false in
++  let direction = Directionality.strictly_positive ~mark in
+   match
+     signatures ~core:core_inclusion ~direction ~loc env Subst.identity
+       impl_sig intf_sig unit_shape
+@@ -1335,9 +1330,9 @@ end
+ 
+ (* Hide the context and substitution parameters to the outside world *)
+ 
+-let modtypes_constraint ~shape ~loc env ~mark mty1 mty2 =
++let modtypes_with_shape ~shape ~loc env ~mark mty1 mty2 =
+   (* modtypes with shape is used when typing module expressions in [Typemod] *)
+-  let direction = Directionality.strictly_positive ~mark ~both:true in
++  let direction = Directionality.strictly_positive ~mark in
+   match
+     modtypes ~core:core_inclusion ~direction ~loc env Subst.identity
+       mty1 mty2 shape
+@@ -1377,9 +1372,7 @@ let signatures env ?subst ~mark sig1 sig2 =
+   gen_signatures env ?subst ~direction sig1 sig2
+ 
+ let check_implementation env impl intf =
+-  let direction =
+-    Directionality.strictly_positive ~mark:true ~both:false
+-  in
++  let direction = Directionality.strictly_positive ~mark:true in
+   ignore (gen_signatures env ~direction impl intf)
+ 
+ let type_declarations ~loc env ~mark id decl1 decl2 =
+diff --git a/typing/includemod.mli b/typing/includemod.mli
+index ff8b761..a085b33 100644
+--- a/typing/includemod.mli
++++ b/typing/includemod.mli
+@@ -152,21 +152,7 @@ val modtypes:
+ val modtypes_consistency:
+   loc:Location.t -> Env.t -> module_type -> module_type -> unit
+ 
+-(** [modtypes_constraint ~shape ~loc env ~mark exp_modtype constraint_modtype]
+-    checks that [exp_modtype] is a subtype of [constraint_modtype], and returns
+-    the module coercion and the shape of the constrained module.
+-
+-    It also marks as used paired items in positive position in [exp_modtype],
+-    and also paired items in negative position in [constraint_modtype].
+-
+-    This marking in negative position allows to raise an [unused item] warning
+-    whenever an item in a functor parameter in [constraint_modtype] does not
+-    exist in [exp_modtypes]. This behaviour differs from the one in
+-    {!check_implementation} and {!compunit} which assumes that is not
+-    appropriate to raise warning about the interface file while typechecking the
+-    implementation file.
+-*)
+-val modtypes_constraint:
++val modtypes_with_shape:
+   shape:Shape.t -> loc:Location.t -> Env.t -> mark:bool ->
+   module_type -> module_type -> module_coercion * Shape.t
+ 
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..7a4f897 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -2192,7 +2192,7 @@ let check_recmodule_inclusion env bindings =
+         and mty_actual' = subst_and_strengthen env scope s id mty_actual in
+         let coercion, shape =
+           try
+-            Includemod.modtypes_constraint ~shape
++            Includemod.modtypes_with_shape ~shape
+               ~loc:modl.mod_loc ~mark:true
+               env mty_actual' mty_decl'
+           with Includemod.Error msg ->
+@@ -2314,7 +2314,7 @@ let wrap_constraint_with_shape env mark arg mty
+   shape explicit =
+   let coercion, shape =
+     try
+-      Includemod.modtypes_constraint ~shape ~loc:arg.mod_loc env ~mark
++      Includemod.modtypes_with_shape ~shape ~loc:arg.mod_loc env ~mark
+         arg.mod_type mty
+     with Includemod.Error msg ->
+       raise(Error(arg.mod_loc, env, Not_included msg)) in

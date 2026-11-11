@@ -1,0 +1,3 @@
+# Rationale
+Hunk: ocaml/typing/typedecl.ml in transl_type_decl. Reverses fix.diff hunk `@@ -830,6 +834,9 @@ let transl_type_decl` (and the check_recursion restructuring): the separate loops that check well-foundedness (manifest and decl) of ALL declarations before any regularity check were merged into one per-declaration loop, so the regularity check of one decl can run before cycles in later decls are checked (original pre-fix behaviour -> stack overflow / wrong error).
+Commands: `make -j8 && make -j8 ocamltest && sh run-oracle.sh` -> tests/typing-misc/constraints.ml fails. Final clean rebuild also run.

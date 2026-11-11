@@ -1,0 +1,33 @@
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..c0cbf10 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -1904,7 +1904,7 @@ let rec components_of_module_maker
+             c.comp_modules <-
+               NameMap.add (Ident.name id) mda c.comp_modules;
+             env :=
+-              store_module ~update_summary:false ~check:None
++              store_module ~update_summary:false ~check:None ~path
+                 id addr pres md shape !env
+         | SigL_modtype(id, decl, _) ->
+             let final_decl =
+@@ -2164,7 +2164,7 @@ and store_extension ~check ~rebind id addr ext shape env =
+     constrs = TycompTbl.add id cda env.constrs;
+     summary = Env_extension(env.summary, id, ext) }
+ 
+-and store_module ?(update_summary=true) ~check
++and store_module ?(update_summary=true) ?path ~check
+                  id addr presence md shape env =
+   let open Subst.Lazy in
+   let loc = md.mdl_loc in
+@@ -2174,7 +2174,9 @@ and store_module ?(update_summary=true) ~check
+   let alerts = Builtin_attributes.alerts_of_attrs md.mdl_attributes in
+   let comps =
+     components_of_module ~alerts ~uid:md.mdl_uid
+-      env Subst.identity (Pident id) addr md.mdl_type shape
++      env Subst.identity
++      (match path with Some p -> p | None -> Pident id)
++      addr md.mdl_type shape
+   in
+   let mda =
+     { mda_declaration = md;

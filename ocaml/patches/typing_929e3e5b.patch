@@ -1,0 +1,29 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..fbc93ba 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -5433,17 +5433,17 @@ and type_constraint_expect
+ and type_newtype
+   : type a. _ -> _ -> (Env.t -> a * type_expr) -> a * type_expr =
+   fun env { txt = name; loc = name_loc } type_body ->
+-  let ty =
+-    if Typetexp.valid_tyvar_name name then
+-      newvar ~name ()
+-    else
+-      newvar ()
+-  in
+   (* Use [with_local_level_generalize] just for scoping *)
+   with_local_level_generalize begin fun () ->
++    let ty =
++      if Typetexp.valid_tyvar_name name then
++        newvar ~name ()
++      else
++        newvar ()
++    in
+     (* Create a fake abstract type declaration for [name]. *)
+     let decl = new_local_type ~loc:name_loc Definition in
+-    let scope = create_scope () in
++    let scope = Ident.lowest_scope in
+     let (id, new_env) = Env.enter_type ~scope name decl env in
+ 
+     let result, exp_type = type_body new_env in

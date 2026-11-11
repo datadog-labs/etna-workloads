@@ -1,0 +1,19 @@
+diff --git a/stdlib/gc.ml b/stdlib/gc.ml
+index 9afa24e..4995e58 100644
+--- a/stdlib/gc.ml
++++ b/stdlib/gc.ml
+@@ -117,11 +117,10 @@ let delete_alarm a = Atomic.set a false
+ 
+ (* never inline, to prevent [arec] from being allocated statically *)
+ let[@inline never] create_alarm f =
+-  let alarm = Atomic.make true in
+-  Domain.at_exit (fun () -> delete_alarm alarm);
+-  let arec = { active = alarm; f = f } in
++  let arec = { active = Atomic.make true; f = f } in
++  Domain.at_exit (fun () -> delete_alarm arec.active);
+   finalise call_alarm arec;
+-  alarm
++  arec.active
+ 
+ 
+ module Memprof =

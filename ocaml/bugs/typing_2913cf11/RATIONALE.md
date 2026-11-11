@@ -1,0 +1,4 @@
+# Rationale
+File: ocaml/typing/includemod.ml. The fix (hunk `@@ -271,12 +271,14 @@ and try_modtypes env cxt subst mty1 mty2` in typing/includemod.ml) made module type identifier equality compare paths after normalizing their prefixes (aliases). In today's code the equivalent logic is `equal_modtype_paths` and the `(Mty_ident p1, Mty_ident p2)` case in `try_modtypes`. I reverted both to a plain `Path.same` comparison, with no alias normalization (`Env.normalize_modtype_path`). The env.ml/env.mli hunks (adding normalize_path_prefix) correspond to helpers that already exist in modern form and were left alone. Changes and test hunks are untouched.
+Result: `F(N).S` vs `F(M).S` with `N = M` is no longer accepted, so pr7112_ok.ml fails.
+Commands: `make clean && make -j8 && make -j8 ocamltest && sh run-oracle.sh`. pr7112_ok.ml fails (ocamlc exit 2); the other tests pass.

@@ -1,0 +1,44 @@
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..d51d975 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -1961,7 +1961,7 @@ let rec components_of_module_maker
+ (* Insertion of bindings by identifier + path *)
+ 
+ and check_usage loc id uid warn tbl =
+-  if not loc.Location.loc_ghost &&
++  if (not loc.Location.loc_ghost || Btype.is_row_name (Ident.name id)) &&
+      Uid.for_actual_declaration uid &&
+      Warnings.is_active (warn "")
+   then begin
+@@ -1969,7 +1969,7 @@ and check_usage loc id uid warn tbl =
+     if Types.Uid.Tbl.mem tbl uid then ()
+     else let used = ref false in
+     Types.Uid.Tbl.add tbl uid (fun () -> used := true);
+-    if not (name = "" || name.[0] = '_' || name.[0] = '#')
++    if not (name = "" || name.[0] = '_')
+     then
+       !add_delayed_check_forward
+         (fun () -> if not !used then Location.prerr_warning loc (warn name))
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..423b1ac 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -230,7 +230,7 @@ let check_type_decl env sg loc id row_id newdecl decl =
+   let env =
+     match fresh_row_id with
+     | None -> env
+-    | Some fresh_row_id -> Env.add_type ~check:false fresh_row_id newdecl env
++    | Some fresh_row_id -> Env.add_type ~check:true fresh_row_id newdecl env
+   in
+   let env = Env.add_signature sg env in
+   Includemod.type_declarations ~mark:true ~loc env fresh_id newdecl decl;
+@@ -684,7 +684,7 @@ module Merge = struct
+             }
+           and id_row = Ident.create_local (s^"#row") in
+           let initial_env =
+-            Env.add_type ~check:false id_row decl_row env
++            Env.add_type ~check:true id_row decl_row env
+           in
+           let sig_env = Env.add_signature sg_for_env sig_env in
+           let tdecl =

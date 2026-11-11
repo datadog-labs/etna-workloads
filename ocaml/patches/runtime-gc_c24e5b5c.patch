@@ -1,0 +1,27 @@
+diff --git a/runtime/minor_gc.c b/runtime/minor_gc.c
+index b429672..447fef1 100644
+--- a/runtime/minor_gc.c
++++ b/runtime/minor_gc.c
+@@ -1023,8 +1023,8 @@ void caml_alloc_small_dispatch (caml_domain_state * dom_st,
+ {
+   intnat whsize = Whsize_wosize(wosize);
+ 
+-  /* First, we un-do the allocation performed in [Alloc_small] */
+-  dom_st->young_ptr += whsize;
++  int undone = 0;
++  value* saved_ptr = dom_st->young_ptr;
+ 
+   while(1) {
+     /* We might be here because of an async callback / urgent GC
+@@ -1039,6 +1039,11 @@ void caml_alloc_small_dispatch (caml_domain_state * dom_st,
+       caml_handle_gc_interrupt();
+     }
+ 
++    /* Un-do the allocation performed in [Alloc_small]. */
++    if (!undone && dom_st->young_ptr == saved_ptr)
++      dom_st->young_ptr += whsize;
++    undone = 1;
++
+     /* Now, there might be enough room in the minor heap to do our
+        allocation. */
+     if (dom_st->young_ptr - whsize >= dom_st->young_start)

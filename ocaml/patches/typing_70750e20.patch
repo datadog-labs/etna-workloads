@@ -1,0 +1,61 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..0f5d517 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -3999,35 +3999,6 @@ let rec is_inferred sexp =
+       is_inferred e
+   | _ -> false
+ 
+-(* check if the type of %apply or %revapply matches the type expected by
+-   the specialized typing rule for those primitives.
+-*)
+-type apply_prim =
+-  | Apply
+-  | Revapply
+-let check_apply_prim_type prim typ =
+-  match get_desc typ with
+-  | Tarrow (Nolabel,a,b,_) when tpoly_is_mono a ->
+-      let a = tpoly_get_mono a in
+-      begin match get_desc b with
+-      | Tarrow(Nolabel,c,d,_) when tpoly_is_mono c ->
+-          let c = tpoly_get_mono c in
+-          let f, x, res =
+-            match prim with
+-            | Apply -> a, c, d
+-            | Revapply -> c, a, d
+-          in
+-          begin match get_desc f with
+-          | Tarrow(Nolabel,fl,fr,_) when tpoly_is_mono fl  ->
+-              let fl = tpoly_get_mono fl in
+-              is_Tvar fl && is_Tvar fr && is_Tvar x && is_Tvar res
+-              && Types.eq_type fl x && Types.eq_type fr res
+-          | _ -> false
+-          end
+-      | _ -> false
+-      end
+-  | _ -> false
+-
+ (* Merge explanation to type clash error *)
+ 
+ let with_explanation explanation f =
+@@ -4439,16 +4410,12 @@ and type_expect_
+       let funct, sargs =
+         let funct = type_sfunct sfunct in
+         match funct.exp_desc, sargs with
+-        | Texp_ident (_, _,
+-                      {val_kind = Val_prim {prim_name="%revapply"}; val_type}),
++        | Texp_ident (_, _, {val_kind = Val_prim {prim_name = "%revapply"}}),
+           [Nolabel, sarg; Nolabel, actual_sfunct]
+-          when is_inferred actual_sfunct
+-            && check_apply_prim_type Revapply val_type ->
++          when is_inferred actual_sfunct ->
+             type_sfunct actual_sfunct, [Nolabel, sarg]
+-        | Texp_ident (_, _,
+-                      {val_kind = Val_prim {prim_name="%apply"}; val_type}),
+-          [Nolabel, actual_sfunct; Nolabel, sarg]
+-          when check_apply_prim_type Apply val_type ->
++        | Texp_ident (_, _, {val_kind = Val_prim {prim_name = "%apply"}}),
++          [Nolabel, actual_sfunct; Nolabel, sarg] ->
+             type_sfunct actual_sfunct, [Nolabel, sarg]
+         | _ ->
+             funct, sargs

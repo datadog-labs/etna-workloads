@@ -1,0 +1,4 @@
+# Rationale
+File: ocaml/typing/typedecl_separability.ml, in `structure`: the unboxed-constructor case now always uses `def.type_params` as `result_type_parameter_instances`, instead of the GADT return type's parameters (`Tconstr (_, tyl, _)` of `cd_res`).
+Reverses fix hunks `@@ make_constructor ...` / `@@ transl_declaration` in typing/typedecl.ml (`check_unboxed_gadt_arg sdecl.ptype_loc cstr_params env argty` back to `params`). In today's code that check lives in the separability check, and the equivalent of passing `cstr_params` is using the constructor's return-type params. Reverting means the declaration's params are used, so `type 'a packed = T : ('a, _) t -> 'a packed [@@unboxed]` is wrongly rejected/mis-checked.
+Tests/commands: `make clean && make -j8 && make -j8 ocamltest; sh run-oracle.sh` -> typing-unboxed-types/test.ml => failed.

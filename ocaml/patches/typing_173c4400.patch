@@ -1,0 +1,24 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..c392747 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -4485,7 +4485,9 @@ let rec moregen type_pairs env t1 t2 =
+ 
+   try
+     match (get_desc t1, get_desc t2) with
+-      (Tvar _, _) when may_instantiate t1 ->
++      (Tunivar _, Tunivar _) ->
++        unify_univar_for Moregen t1 t2 !univar_pairs
++    | (Tvar _, _) when may_instantiate t1 ->
+         moregen_occur env (get_level t1) t2;
+         update_scope_for Moregen (get_scope t1) t2;
+         occur_for Moregen (Expression {env; in_subst = false}) t1 t2;
+@@ -4558,8 +4560,6 @@ let rec moregen type_pairs env t1 t2 =
+           | (Tpoly (t1, tl1), Tpoly (t2, tl2)) ->
+               enter_poly_for Moregen env t1 tl1 t2 tl2
+                 (moregen type_pairs env)
+-          | (Tunivar _, Tunivar _) ->
+-              unify_univar_for Moregen t1' t2' !univar_pairs
+           | (_, _) ->
+               raise_unexplained_for Moregen
+         end

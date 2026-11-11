@@ -1,0 +1,35 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..81b6718 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2722,10 +2722,8 @@ let reify uenv t =
+       match get_desc ty with
+         Tvar o ->
+           let level = get_level ty in
+-          let path, t = create_fresh_constr level o in
+-          link_type ty t;
+-          if level < fresh_constr_scope then
+-            raise_for Unify (Escape (escape (Constructor path)))
++          let _path, t = create_fresh_constr level o in
++          link_type ty t
+       | Tvariant r ->
+           if not (static_row r) then begin
+             if is_fixed r then iterator (row_more r) else
+@@ -2733,14 +2731,12 @@ let reify uenv t =
+             match get_desc m with
+               Tvar o ->
+                 let level = get_level m in
+-                let path, t = create_fresh_constr level o in
++                let _path, t = create_fresh_constr level o in
+                 let row =
+-                  let fixed = Some (Reified path) in
++                  let fixed = Some (Reified _path) in
+                   create_row ~fields:[] ~more:t ~fixed
+                     ~name:(row_name r) ~closed:(row_closed r) in
+-                link_type m (newty2 ~level (Tvariant row));
+-                if level < fresh_constr_scope then
+-                  raise_for Unify (Escape (escape (Constructor path)))
++                link_type m (newty2 ~level (Tvariant row))
+             | _ -> assert false
+           end;
+           iter_row iterator r

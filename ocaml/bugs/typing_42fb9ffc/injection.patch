@@ -1,0 +1,29 @@
+diff --git a/typing/subst.ml b/typing/subst.ml
+index ac011c9..2a4bc41 100644
+--- a/typing/subst.ml
++++ b/typing/subst.ml
+@@ -262,9 +262,6 @@ let rec typexp copy_scope s ty =
+       ty
+ *)
+   | _ ->
+-    let tm = row_of_type ty in
+-    let has_fixed_row =
+-      not (is_Tconstr ty) && is_constr_row ~allow_ident:false tm in
+     (* Make a stub *)
+     let ty' =
+       if s.for_saving then newpersty (Tvar None)
+@@ -272,13 +269,7 @@ let rec typexp copy_scope s ty =
+     in
+     For_copy.redirect_desc copy_scope ty (Tsubst (ty', None));
+     let desc =
+-      if has_fixed_row then
+-        match get_desc tm with (* PR#7348 *)
+-          Tconstr (Pdot(m,i), tl, _abbrev) ->
+-            let i' = String.sub i 0 (String.length i - 4) in
+-            Tconstr(type_path s (Pdot(m,i')), tl, ref Mnil)
+-        | _ -> assert false
+-      else match desc with
++      match desc with
+       | Tconstr (p, args, _abbrev) ->
+          let args = List.map (typexp copy_scope s) args in
+          begin match Path.Map.find p s.types with

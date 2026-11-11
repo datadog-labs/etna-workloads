@@ -1,0 +1,4 @@
+# Rationale
+Single change in ocaml/typing/env.ml, reversing the fix.diff hunks `@@ -1136,7 +1136,9 @@ let rec lookup_module_descr_aux` and `@@ -1204,7 +1206,9 @@ and lookup_module` (generative functor `fcomp_arg = None` -> Not_found). In today's code that check is in `get_functor_components`: the `Unit` case raised `Generative_used_as_applicative`; it now returns `fcomps, arg_mty` (so the parameter check is trivially satisfied), and `~arg_mty` is threaded through to the function and its caller. Generative functors are again accepted as applicative in type expressions.
+The typetexp.ml hunks (new error constructor/message) are not reverted individually; the error is simply no longer raised (minimal change).
+Commands: `make -j8 && make -j8 ocamltest && sh run-oracle.sh`, then a final `make clean && make -j8 && make -j8 ocamltest` and run-oracle.sh: typing-modules/applicative_functor_type.ml fails (expects the generative error, gets `type t = Generative(M).t`).

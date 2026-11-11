@@ -1,0 +1,21 @@
+diff --git a/asmcomp/cmm_helpers.ml b/asmcomp/cmm_helpers.ml
+index 19a25a2..2e64c37 100644
+--- a/asmcomp/cmm_helpers.ml
++++ b/asmcomp/cmm_helpers.ml
+@@ -1499,9 +1499,13 @@ let make_switch arg cases actions dbg =
+     function
+     | Cconst_int     (n, _), _dbg when (n land 1) = 1 ->
+         Some (Cint (Nativeint.of_int n))
+-    | Cconst_natint     (n, _), _dbg
+-      when Nativeint.(to_int (logand n one) = 1) ->
+-        Some (Cint n)
++    | Cconst_natint     (n, _), _dbg ->
++        let sym = Compilenv.new_const_symbol () in
++        Cmmgen_state.add_data_items
++          [ Cint (Nativeint.logor boxedintnat_header caml_black);
++            Cdefine_symbol sym;
++            Csymbol_address caml_nativeint_ops; Cint n ];
++        Some (Csymbol_address sym)
+     | Cconst_symbol (s,_), _dbg ->
+         Some (Csymbol_address s)
+     | _ -> None

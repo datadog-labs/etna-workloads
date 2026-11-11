@@ -1,0 +1,36 @@
+diff --git a/lambda/translmod.ml b/lambda/translmod.ml
+index ce42707..a8332b7 100644
+--- a/lambda/translmod.ml
++++ b/lambda/translmod.ml
+@@ -237,10 +237,11 @@ exception Initialization_failure of unsafe_info
+ let init_shape id modl =
+   let rec init_shape_mod path loc env mty =
+     match Mtype.scrape env mty with
+-      Mty_ident _
+-    | Mty_alias _ ->
++      Mty_ident _ ->
+         let info = Unsafe {reason=Unsafe_module_binding;loc; path} in
+         raise (Initialization_failure info)
++    | Mty_alias _ ->
++        Const_block (1, [const_int 0])
+     | Mty_signature sg ->
+         Const_block(0, [Const_block(0, init_shape_struct path env sg)])
+     | Mty_functor _ ->
+@@ -274,15 +275,11 @@ let init_shape id modl =
+         let new_path = Pdot(path, Ident.name subid) in
+         let info = Unsafe {reason=Unsafe_typext; loc; path=new_path} in
+         raise (Initialization_failure info)
+-    | Sig_module(id, Mp_present, md, _, _) :: rem ->
++    | Sig_module(id, (Mp_present | Mp_absent as pres), md, _, _) :: rem ->
+         init_shape_mod (
+           Pdot(path, Ident.name id)) md.md_loc env md.md_type ::
+         init_shape_struct path (Env.add_module_declaration ~check:false
+-                             id Mp_present md env) rem
+-    | Sig_module(id, Mp_absent, md, _, _) :: rem ->
+-        init_shape_struct
+-          path (Env.add_module_declaration ~check:false
+-                             id Mp_absent md env) rem
++                             id pres md env) rem
+     | Sig_modtype(id, minfo, _) :: rem ->
+         init_shape_struct path (Env.add_modtype id minfo env) rem
+     | Sig_class _ :: rem ->

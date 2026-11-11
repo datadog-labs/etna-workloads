@@ -1,0 +1,25 @@
+diff --git a/typing/parmatch.ml b/typing/parmatch.ml
+index d586200..392d572 100644
+--- a/typing/parmatch.ml
++++ b/typing/parmatch.ml
+@@ -1384,12 +1384,14 @@ and specialize_and_exhaust ext pss n =
+            (Some constr_mat) then the wildcard/default submatrix (None).
+            Note that the call to [try_omega ()] is delayed to after
+            all constructor matrices have been traversed. *)
+-        List.map (fun constr_mat -> Some constr_mat) constrs @ [None]
+-        |> List.to_seq
+-        |> Seq.flat_map
+-          (function
+-            | Some constr_mat -> try_non_omega constr_mat
+-            | None -> try_omega ())
++        let rec try_many = function
++          | [] -> try_omega ()
++          | constr_mat :: rest ->
++              match try_non_omega constr_mat () with
++              | Seq.Nil -> try_many rest
++              | Seq.Cons (w, _) -> Seq.return w
++        in
++        try_many constrs
+   end
+ 
+ let exhaust ext pss n =

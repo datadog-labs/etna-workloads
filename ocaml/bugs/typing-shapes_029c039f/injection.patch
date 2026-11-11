@@ -1,0 +1,25 @@
+diff --git a/typing/shape_reduce.ml b/typing/shape_reduce.ml
+index ca7d1cf..a43661b 100644
+--- a/typing/shape_reduce.ml
++++ b/typing/shape_reduce.ml
+@@ -221,6 +221,11 @@ end) = struct
+       | None -> t'
+       | Some _ as uid -> { t' with uid }
+     in
++    let improve_uid t' =
++      match t'.uid with
++      | None -> { t' with uid = t.uid }
++      | Some _ -> t'
++    in
+     if !fuel < 0 then approx_nf (return (NError "NoFuelLeft"))
+     else
+       match t.desc with
+@@ -235,7 +240,7 @@ end) = struct
+           | NAbs(clos_env, var, body, _body_nf) ->
+               let arg = delay_reduce env arg in
+               let env = bind { env with local_env = clos_env } var (Some arg) in
+-              reduce env body |> reset_uid_if_new_binding
++              reduce env body |> improve_uid
+           | _ ->
+               let arg = reduce env arg in
+               return (NApp(f, arg))

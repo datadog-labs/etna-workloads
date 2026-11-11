@@ -1,0 +1,27 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..c165dd5 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -3152,9 +3152,6 @@ let collect_unknown_apply_args env funct ty_fun0 rev_args sargs =
+ let collect_apply_args env funct ignore_labels ty_fun ty_fun0 sargs =
+   let warned = ref false in
+   let rec loop visited ty_fun ty_fun0 rev_args sargs =
+-    if sargs = [] then
+-      collect_unknown_apply_args env funct ty_fun0 rev_args sargs
+-    else
+     let ty_fun' = expand_head env ty_fun in
+     let lv = get_level ty_fun' in
+     let may_warn loc w =
+@@ -3167,9 +3164,10 @@ let collect_apply_args env funct ignore_labels ty_fun ty_fun0 sargs =
+     let lopt =
+       match get_desc ty_fun', get_desc (expand_head env ty_fun0) with
+       | Tarrow (l, ty_arg, ty_ret, com), Tarrow (_, ty_arg0, ty_ret0, _)
+-        when is_commu_ok com ->
++        when sargs <> [] && is_commu_ok com ->
+           Some (l, `Arrow (ty_arg, ty_ret, ty_arg0, ty_ret0))
+-      | Tfunctor (l, id, pack, ty), Tfunctor (_, id0, pack0, ty0) ->
++      | Tfunctor (l, id, pack, ty), Tfunctor (_, id0, pack0, ty0)
++        when sargs <> [] ->
+           let tfun = { id_us = id; pack; ty} in
+           let tfun0 = { id_us = id0; pack = pack0; ty = ty0} in
+           Some (l, `Functor (tfun, tfun0))

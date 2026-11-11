@@ -1,0 +1,31 @@
+diff --git a/typing/includecore.ml b/typing/includecore.ml
+index 1a38bd4..1043d17 100644
+--- a/typing/includecore.ml
++++ b/typing/includecore.ml
+@@ -1064,11 +1064,11 @@ let type_declarations ?(equality = false) ~loc env ~mark name
+         (if abstr' then (imp co1 co2 && imp cn1 cn2)
+          else if opn || constrained ty then (co1 = co2 && cn1 = cn2)
+          else true) &&
+-        let (p1,n1,j1) = get_lower v1 and (p2,n2,j2) = get_lower v2 in
++        let (p1,n1,_) = get_lower v1 and (p2,n2,_) = get_lower v2 in
+         (* Only check the lower bound for abstract types.
+            For private types, the lower bound can be inferred, and
+            the internal one may be wrong in the result of functors. *)
+-        imp abstr (imp p2 p1 && imp n2 n1 && imp j2 j1))
++        imp abstr (imp p2 p1 && imp n2 n1))
+       decl2.type_params (List.combine decl1.type_variance decl2.type_variance)
+   then None else Some Variance
+ 
+diff --git a/typing/typedecl_variance.ml b/typing/typedecl_variance.ml
+index 277c5fa..4fcb416 100644
+--- a/typing/typedecl_variance.ml
++++ b/typing/typedecl_variance.ml
+@@ -250,7 +250,7 @@ let compute_variance_type env ~check (required, loc) decl tyl =
+       let (p, n) =
+         if tr = Private || not (Btype.is_Tvar ty) then (p, n) (* set *)
+         else (false, false) (* only check *)
+-      and i = concr in
++      and i = true in
+       let v = union v (make p n i) in
+       if not concr || Btype.is_Tvar ty then v else
+       union v

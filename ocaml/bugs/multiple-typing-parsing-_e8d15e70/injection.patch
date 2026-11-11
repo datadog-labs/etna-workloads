@@ -1,0 +1,40 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..478fb2a 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -2304,7 +2304,7 @@ let add_pattern_variables ?check ?check_as env pv =
+     )
+     pv env
+ 
+-let add_module_variables env module_variables =
++let add_module_variables ?(check=true) ?(fresh=false) env module_variables =
+   let module_variables_as_list =
+     match module_variables with
+     | Modvars_allowed mvs -> mvs.module_variables
+@@ -2328,9 +2328,11 @@ let add_module_variables env module_variables =
+       let md =
+         { md_type = modl.mod_type; md_attributes = [];
+           md_loc = mv_name.loc;
+-          md_uid = mv_uid; }
++          md_uid =
++            if fresh then Uid.mk ~current_unit:(Env.get_current_unit ())
++            else mv_uid; }
+       in
+-      Env.add_module_declaration ~shape:md_shape ~check:true mv_id pres md env
++      Env.add_module_declaration ~shape:md_shape ~check mv_id pres md env
+     end
+   ) env module_variables_as_list
+ 
+@@ -6780,8 +6782,10 @@ and map_half_typed_cases
+             ~check_as:(fun s -> Warnings.Unused_var s)
+         in
+         let when_env = add_pattern_vars ext_env pvs in
+-        let when_env = add_module_variables when_env mvs in
+-        let ext_env = add_pattern_vars when_env cont_vars in
++        let when_env = add_module_variables ~check:false when_env mvs in
++        let ext_env =
++          add_module_variables ~fresh:true (add_pattern_vars ext_env pvs) mvs in
++        let ext_env = add_pattern_vars ext_env cont_vars in
+         let ty_expected =
+           if contains_gadt && not !Clflags.principal then
+             (* Take a generic copy of [ty_res] again to allow propagation of

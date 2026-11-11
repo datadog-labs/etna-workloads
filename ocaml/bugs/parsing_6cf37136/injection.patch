@@ -1,0 +1,45 @@
+diff --git a/parsing/builtin_attributes.ml b/parsing/builtin_attributes.ml
+index 8cf7612..ab477d6 100644
+--- a/parsing/builtin_attributes.ml
++++ b/parsing/builtin_attributes.ml
+@@ -36,22 +36,13 @@ let attr_order a1 a2 =
+   | 0 -> Int.compare a1.loc.loc_start.pos_cnum a2.loc.loc_start.pos_cnum
+   | n -> n
+ 
+-let compiler_stops_before_attributes_consumed () =
+-  let stops_before_lambda =
+-    match !Clflags.stop_after with
+-    | None -> false
+-    | Some pass -> Clflags.Compiler_pass.(compare pass Lambda) < 0
+-  in
+-  stops_before_lambda || !Clflags.print_types
+-
+ let warn_unused () =
+   let keys = List.of_seq (Attribute_table.to_seq_keys unused_attrs) in
+   Attribute_table.clear unused_attrs;
+-  if not (compiler_stops_before_attributes_consumed ()) then
+-    let keys = List.sort attr_order keys in
+-    List.iter (fun sloc ->
+-      Location.prerr_warning sloc.loc (Warnings.Misplaced_attribute sloc.txt))
+-      keys
++  let keys = List.sort attr_order keys in
++  List.iter (fun sloc ->
++    Location.prerr_warning sloc.loc (Warnings.Misplaced_attribute sloc.txt))
++    keys
+ 
+ (* These are the attributes that are tracked in the builtin_attrs table for
+    misplaced attribute warnings. *)
+diff --git a/parsing/builtin_attributes.mli b/parsing/builtin_attributes.mli
+index 1111092..b9a4f64 100644
+--- a/parsing/builtin_attributes.mli
++++ b/parsing/builtin_attributes.mli
+@@ -76,8 +76,7 @@ val register_attr : current_phase -> string Location.loc -> unit
+ val mark_payload_attrs_used : Parsetree.payload -> unit
+ 
+ (** Issue misplaced attribute warnings for all attributes created with
+-    [mk_internal] but not yet marked used. Does nothing if compilation
+-    is stopped before lambda due to command-line flags. *)
++    [mk_internal] but not yet marked used. *)
+ val warn_unused : unit -> unit
+ 
+ (** {3 Warning 53 helpers for environment attributes}

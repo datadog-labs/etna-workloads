@@ -1,0 +1,24 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..6517861 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -1619,7 +1619,7 @@ let copy_sep ~copy_scope ~fixed ~(visited : type_expr TypeHash.t) ~id_map sch =
+   let rec copy_rec ~may_share ~unscoped (ty : type_expr) =
+     let copy_shared = copy_rec ~may_share:true ~unscoped in
+     let univars = free ty in
+-    if is_Tvar ty || may_share && TypeSet.is_empty univars && unscoped.closed ty
++    if may_share && TypeSet.is_empty univars && unscoped.closed ty
+     then
+       if get_level ty <> generic_level then ty else
+       let t = newstub ~scope:(get_scope ty) in
+@@ -1668,6 +1668,10 @@ let copy_sep ~copy_scope ~fixed ~(visited : type_expr TypeHash.t) ~id_map sch =
+         | desc -> copy_type_desc copy_shared desc
+       in
+       Transient_expr.set_stub_desc t desc';
++      (match get_desc ty with
++       | Tvariant row when static_row row ->
++           TypeHash.remove visited ty
++       | _ -> ());
+       t
+     end
+   in

@@ -1,0 +1,25 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..a523948 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -8058,16 +8058,12 @@ let report_error ~loc env = function
+         (Fmt.doc_printf "These bindings have type")
+         (Fmt.doc_printf  "but bindings were expected of type")
+   | Unbound_existential (ids, ty) ->
+-      let pp_ident ppf id = pp_print_string ppf (Ident.name id) in
+-      let pp_type ppf (ids,ty)=
+-        fprintf ppf "@[type %a.@ %a@]@]"
+-          (pp_print_list ~pp_sep:pp_print_space pp_ident) ids
+-          Printtyp.type_expr ty
+-      in
++      let pp_ident ppf id = Style.inline_code ppf (Ident.name id) in
+       Location.errorf ~loc
+-        "@[<2>%s:@ %a@]"
++        "@[<2>%s:@ @[type %a.@ %a@]@]"
+         "This type does not bind all existentials in the constructor"
+-        (Style.as_inline_code pp_type) (ids, ty)
++        (pp_print_list ~pp_sep:pp_print_space pp_ident) ids
++        (Style.as_inline_code Printtyp.type_expr) ty
+   | Bind_existential (reason, id, ty) ->
+       let reason1, reason2 = match reason with
+       | Bind_already_bound -> "the name", "that is already bound"

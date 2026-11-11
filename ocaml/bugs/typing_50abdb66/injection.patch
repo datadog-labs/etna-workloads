@@ -1,0 +1,38 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..0f4dda2 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -3473,22 +3473,20 @@ and unify3 uenv t1 t1' t2 t2' =
+       | (Tconstr _,  Tnil ) ->
+           raise_for Unify (Obj (Abstract_row First))
+       | (_, _) -> raise_unexplained_for Unify
+-      end;
+-      (* XXX Commentaires + changer "create_recursion"
+-         ||| Comments + change "create_recursion" *)
+-      if create_recursion then
+-        match get_desc t2 with
+-          Tconstr (p, tl, abbrev) ->
+-            forget_abbrev abbrev p;
+-            let t2'' = expand_head_unif (get_env uenv) t2 in
+-            if not (closed_parameterized_type tl t2'') then
+-              link_type t2 t2'
+-        | _ ->
+-            () (* t2 has already been expanded by update_level *)
++      end
+     with Unify_trace trace ->
+       Transient_expr.set_desc tt1' d1;
+       raise_trace_for Unify trace
+-  end
++  end;
++  if create_recursion then
++    match get_desc t2 with
++      Tconstr (p, tl, abbrev) ->
++        forget_abbrev abbrev p;
++        let t2'' = expand_head_unif (get_env uenv) t2 in
++        if not (closed_parameterized_type tl t2'') then
++          link_type t2 t2'
++    | _ ->
++        () (* t2 has already been expanded by update_level *)
+ 
+ and unify_list env tl1 tl2 =
+   if List.length tl1 <> List.length tl2 then

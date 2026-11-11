@@ -1,0 +1,22 @@
+diff --git a/typing/parmatch.ml b/typing/parmatch.ml
+index d586200..c302d6d 100644
+--- a/typing/parmatch.ml
++++ b/typing/parmatch.ml
+@@ -1199,7 +1199,16 @@ let rec list_satisfying_vectors pss qs =
+                   | Construct _ ->
+                       (* activate this code
+                          for checking non-gadt constructors *)
+-                      wild default (build_other_constrs constrs p)
++                      let other =
++                        match build_other_constrs constrs p with
++                        | { pat_desc =
++                              Tpat_or
++                                (p1, { pat_desc = Tpat_construct (_, c, _, _) },
++                                 _) }
++                          when c.cstr_generalized && c.cstr_arity > 0 -> p1
++                        | p -> p
++                      in
++                      wild default other
+                       @ for_constrs ()
+                   | _ ->
+                       wild default Patterns.omega

@@ -1,0 +1,36 @@
+diff --git a/otherlibs/unix/sleep_unix.c b/otherlibs/unix/sleep_unix.c
+index 7c4f73a..d7e4e2c 100644
+--- a/otherlibs/unix/sleep_unix.c
++++ b/otherlibs/unix/sleep_unix.c
+@@ -37,27 +37,22 @@ CAMLprim value caml_unix_sleep(value duration_sec)
+   {
+     struct timespec t = caml_timespec_of_sec(sec);
+     int ret;
++    caml_enter_blocking_section();
+     do {
+-      caml_enter_blocking_section();
+       ret = nanosleep(&t, &t);
+-      /* MPR#7903: if we were interrupted by a signal, and this signal
+-         is handled in OCaml, we should run its handler now,
+-         not at the end of the full sleep duration.  Leaving the blocking
+-         section and re-entering it does the job. */
+-      caml_leave_blocking_section();
+     } while (ret == -1 && errno == EINTR);
++    caml_leave_blocking_section();
+     if (ret == -1) caml_uerror("sleep", Nothing);
+   }
+ #elif defined(HAS_SELECT)
+   {
+     struct timeval t = caml_timeval_of_sec(sec);
+     int ret;
++    caml_enter_blocking_section();
+     do {
+-      caml_enter_blocking_section();
+       ret = select(0, NULL, NULL, NULL, &t);
+-      /* MPR#7903: same comment as above */
+-      caml_leave_blocking_section();
+     } while (ret == -1 && errno == EINTR);
++    caml_leave_blocking_section();
+     if (ret == -1) caml_uerror("sleep", Nothing);
+   }
+ #else

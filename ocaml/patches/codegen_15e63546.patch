@@ -1,0 +1,24 @@
+diff --git a/asmcomp/spill.ml b/asmcomp/spill.ml
+index 89559d8..fc71856 100644
+--- a/asmcomp/spill.ml
++++ b/asmcomp/spill.ml
+@@ -320,13 +320,15 @@ let rec spill (t : spill_data) i finally =
+       let before1 = Reg.diff_set_array after i.res in
+       (instr_cons i.desc i.arg i.res new_next,
+        Reg.add_set_array before1 i.res)
+-  | Iop op ->
++  | Iop _ ->
+       let (new_next, after) = spill t i.next finally in
+       let before1 = Reg.diff_set_array after i.res in
+       let before =
+-        if operation_can_raise op
+-        then Reg.Set.union before1 t.spill_at_raise
+-        else before1 in
++        match i.desc with
++          Iop(Icall_ind) | Iop(Icall_imm _) | Iop(Iextcall _) | Iop(Ialloc _) ->
++            Reg.Set.union before1 t.spill_at_raise
++        | _ ->
++            before1 in
+       (instr_cons_debug i.desc i.arg i.res i.dbg
+          (add_spills t.spill_env (Reg.inter_set_array after i.res) new_next),
+        before)

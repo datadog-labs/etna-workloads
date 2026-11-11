@@ -1,0 +1,23 @@
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..346d8bb 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -729,9 +729,8 @@ module Merge = struct
+     let path, paths, tdecl, sg = merge ~patch ~destructive env sg loc lid in
+     (* Post processing *)
+     let replace =
+-      if not destructive then None
+-      else
+         match type_decl_is_alias sdecl with
++        | Some _ when not destructive -> None
+         | Some lid ->
+             (* if the type is an alias of [lid], replace by the definition *)
+             let replacement, _ =
+@@ -747,6 +746,7 @@ module Merge = struct
+                 where the type is not replaced by an alias with the same
+                 constraints are disallowed (the constraints would be lost). *)
+              raise(Error(loc, env, With_cannot_remove_constrained_type));
++           if not destructive then None else
+            let body = Option.get tdecl.typ_type.type_manifest in
+            Some(fun s path ->
+                Subst.Unsafe.add_type_function path ~params ~body s)

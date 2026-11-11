@@ -1,0 +1,41 @@
+diff --git a/lambda/translcore.ml b/lambda/translcore.ml
+index e5025a8..664d8a0 100644
+--- a/lambda/translcore.ml
++++ b/lambda/translcore.ml
+@@ -835,6 +835,20 @@ and transl_curried_function ~scopes loc return repr params body =
+         in
+         Some (param, kind), body
+   in
++  let body =
++    List.fold_right (fun fp body ->
++      let param = fp.fp_param in
++      let param_loc = fp.fp_loc in
++      match fp.fp_kind with
++      | Tparam_pat _ -> body
++      | Tparam_optional_default (pat, default_arg) ->
++          let default_arg =
++            event_before ~scopes default_arg (transl_exp ~scopes default_arg)
++          in
++          Matching.for_optional_arg_default
++            ~scopes param_loc pat body ~default_arg ~param)
++    params body
++  in
+   let body, params =
+     List.fold_right (fun fp (body, params) ->
+       let param = fp.fp_param in
+@@ -848,14 +862,7 @@ and transl_curried_function ~scopes loc return repr params body =
+               fp.fp_partial
+           in
+           body, (param, kind) :: params
+-      | Tparam_optional_default (pat, default_arg) ->
+-          let default_arg =
+-            event_before ~scopes default_arg (transl_exp ~scopes default_arg)
+-          in
+-          let body =
+-            Matching.for_optional_arg_default
+-              ~scopes param_loc pat body ~default_arg ~param
+-          in
++      | Tparam_optional_default _ ->
+           (* The optional param is Pgenval as it's an option. *)
+           body, (param, Pgenval) :: params)
+     params

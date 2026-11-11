@@ -1,0 +1,51 @@
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..d7f05a7 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -7758,7 +7758,7 @@ let report_error ~loc env = function
+       Location.errorf ~loc "The record field %a is not mutable"
+         quoted_longident lid
+   | Wrong_name (eorp, ty_expected, { type_path; kind; name; valid_names; }) ->
+-     Printtyp.wrap_printing_env ~error:true env (fun () ->
++     begin
+          let { ty; explanation } = ty_expected in
+          if Path.is_constructor_typath type_path then
+            Location.aligned_error_hint ~loc
+@@ -7786,7 +7786,7 @@ let report_error ~loc env = function
+                  main, [Location.mknoloc hint]
+            in
+            Location.errorf ~loc ~sub "%t%a" intro pp_doc main
+-       )
++             end
+   | Name_type_mismatch (kind, lid, tp, tpl) ->
+       let type_name = Datatype_kind.type_name kind in
+       let name = Datatype_kind.label_name kind in
+@@ -7811,7 +7811,7 @@ let report_error ~loc env = function
+       (Style.as_inline_code Printtyp.type_expr) ty
+       pp_doc (report_type_expected_explanation_opt explanation)
+   | Undefined_method (ty, me, valid_methods) ->
+-     Printtyp.wrap_printing_env ~error:true env (fun () ->
++     begin
+           let intro ppf =
+             Fmt.fprintf ppf
+               "@[<v>@[This expression has type@;<1 2>%a@]@,@]"
+@@ -7829,7 +7829,7 @@ let report_error ~loc env = function
+                 main, [Location.mknoloc hint]
+           in
+           Location.errorf ~sub ~loc "%t%a" intro pp_doc main
+-       )
++             end
+   | Undefined_self_method (me, valid_methods) ->
+      Location.aligned_error_hint ~loc
+        "@{<ralign>This expression has no method @}%a"
+@@ -8143,9 +8143,7 @@ let report_error ~loc env = function
+             (Style.as_inline_code Printtyp.type_expr) func_ty
+             Style.inline_code (Ident.Unscoped.name id_us)
+ 
+-let report_error ~loc env err =
+-  Printtyp.wrap_printing_env ~error:true env
+-    (fun () -> report_error ~loc env err)
++let report_error ~loc env err = report_error ~loc env err
+ 
+ let () =
+   Location.register_error_of_exn

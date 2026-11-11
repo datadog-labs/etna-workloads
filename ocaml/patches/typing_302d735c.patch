@@ -1,0 +1,72 @@
+diff --git a/middle_end/flambda/augment_specialised_args.ml b/middle_end/flambda/augment_specialised_args.ml
+index 3dcc7ef..89eee56 100644
+--- a/middle_end/flambda/augment_specialised_args.ml
++++ b/middle_end/flambda/augment_specialised_args.ml
+@@ -582,7 +582,7 @@ module Make (T : S) = struct
+                   set_of_closures.specialised_args);
+                 assert (Variable.Set.mem projecting_from
+                   (Parameter.Set.vars function_decl.params));
+-                { var = new_outer_var;
++                { Flambda.var = new_outer_var;
+                   projection = Some projection;
+                 })
+           for_one_function.new_definitions_indexed_by_new_inner_vars
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..8d0fc78 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -4651,7 +4651,7 @@ and type_expect_
+           lid_sexp_list
+       in
+       with_explanation (fun () ->
+-        unify_exp_types loc env (instance ty_record) (instance ty_expected));
++        unify_exp_types loc env ty_record (instance ty_expected));
+ 
+       (* type_label_a_list returns a list of labels sorted by lbl_pos *)
+       (* note: check_duplicates would better be implemented in
+@@ -4776,7 +4776,7 @@ and type_expect_
+               | Immutable -> Predef.type_iarray ty
+             in
+             with_explanation (fun () ->
+-                unify_exp_types loc env to_unify ty_expected);
++                unify_exp_types loc env to_unify (generic_instance ty_expected));
+             ty, mut
+       in
+       let argl =
+diff --git a/typing/typedtree.ml b/typing/typedtree.ml
+index d0bbb21..04bacf7 100644
+--- a/typing/typedtree.ml
++++ b/typing/typedtree.ml
+@@ -852,24 +852,27 @@ let let_bound_idents pat =
+ 
+ let alpha_var env id = List.assoc id env
+ 
++let with_pat_desc : type k. k general_pattern -> k pattern_desc -> k general_pattern =
++  fun p pat_desc -> {p with pat_desc}
++
+ let rec alpha_pat
+   : type k . _ -> k general_pattern -> k general_pattern
+   = fun env p -> match p.pat_desc with
+   | Tpat_var (id, s, uid) -> (* note the ``Not_found'' case *)
+-      {p with pat_desc =
+-       try Tpat_var (alpha_var env id, s, uid) with
+-       | Not_found -> Tpat_any}
++      with_pat_desc p
++       (try Tpat_var (alpha_var env id, s, uid) with
++       | Not_found -> Tpat_any)
+   | Tpat_alias (p1, id, s, uid, ty) ->
+       let new_p =  alpha_pat env p1 in
+       begin try
+-        {p with pat_desc = Tpat_alias (new_p, alpha_var env id, s, uid, ty)}
++        with_pat_desc p (Tpat_alias (new_p, alpha_var env id, s, uid, ty))
+       with
+       | Not_found -> new_p
+       end
+   | d ->
+      let pat_desc =
+        shallow_map_pattern_desc { f = fun p -> alpha_pat env p } d in
+-     {p with pat_desc}
++     with_pat_desc p pat_desc
+ 
+ let mkloc = Location.mkloc
+ let mknoloc = Location.mknoloc

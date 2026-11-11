@@ -1,0 +1,158 @@
+diff --git a/runtime/caml/skiplist.h b/runtime/caml/skiplist.h
+index 14ab95c..4a40eed 100644
+--- a/runtime/caml/skiplist.h
++++ b/runtime/caml/skiplist.h
+@@ -54,12 +54,6 @@ extern void caml_skiplist_init(struct skiplist * sk);
+ extern int caml_skiplist_find(struct skiplist * sk, uintnat key,
+                               /*out*/ uintnat * data);
+ 
+-/* Search a skip list.
+-   If [key] is found, return a pointer to its associated data.
+-   If [key] is not found, return NULL. */
+-extern uintnat* caml_skiplist_find_ptr(struct skiplist * sk, uintnat key);
+-
+-
+ /* Search the entry of the skip list that has the largest key less than
+    or equal to [k].
+    If such an entry exists, store its key in [*key], the associated data in
+diff --git a/runtime/globroots.c b/runtime/globroots.c
+index 18aaec2..694e2c9 100644
+--- a/runtime/globroots.c
++++ b/runtime/globroots.c
+@@ -31,17 +31,9 @@
+    released. */
+ static caml_plat_mutex roots_mutex = CAML_PLAT_MUTEX_INITIALIZER;
+ 
+-/* Greater than zero when the current thread is scanning the roots */
+-static CAMLthread_local int iterating_roots = 0;
+-
+-enum { ROOT_PRESENT = 0, ROOT_DELETED = 1 };
+-
+ /* The three global root lists.
+    Each is represented by a skip list with the key being the address
+-   of the root.
+-   The associated data is usually ROOT_PRESENT, but is changed to
+-   ROOT_DELETED if a root is deleted while iteration in progress.
+-   Such entries are removed during the current or next iteration */
++   of the root.  (The associated data field is unused.) */
+ 
+ struct skiplist caml_global_roots = SKIPLIST_STATIC_INITIALIZER;
+                   /* mutable roots, don't know whether old or young */
+@@ -64,23 +56,15 @@ struct skiplist caml_global_roots_old = SKIPLIST_STATIC_INITIALIZER;
+ Caml_inline void caml_insert_global_root(struct skiplist * list, value * r)
+ {
+   caml_plat_lock_blocking(&roots_mutex);
+-  caml_skiplist_insert(list, (uintnat) r, ROOT_PRESENT);
++  caml_skiplist_insert(list, (uintnat) r, 0);
+   caml_plat_unlock(&roots_mutex);
+ }
+ 
+ Caml_inline void caml_delete_global_root(struct skiplist * list, value * r)
+ {
+-  if (iterating_roots > 0) {
+-    /* We hold the roots_mutex because we are iterating */
+-    uintnat* p = caml_skiplist_find_ptr(list, (uintnat) r);
+-    if (p != NULL) {
+-      *p = ROOT_DELETED;
+-    }
+-  } else {
+-    caml_plat_lock_blocking(&roots_mutex);
+-    caml_skiplist_remove(list, (uintnat) r);
+-    caml_plat_unlock(&roots_mutex);
+-  }
++  caml_plat_lock_blocking(&roots_mutex);
++  caml_skiplist_remove(list, (uintnat) r);
++  caml_plat_unlock(&roots_mutex);
+ }
+ 
+ /* Register a global C root of the mutable kind */
+@@ -235,28 +219,21 @@ static void scan_native_globals(scanning_action f, void* fdata)
+ 
+ /* Iterate a GC scanning action over a global root list */
+ Caml_inline void caml_iterate_global_roots(scanning_action f,
+-                                           struct skiplist * rootlist,
++                                           const struct skiplist * rootlist,
+                                            void* fdata)
+ {
+-  CAMLassert(iterating_roots > 0);
+   FOREACH_SKIPLIST_ELEMENT(e, rootlist, {
+-      if (e->data == ROOT_DELETED) {
+-        caml_skiplist_remove(rootlist, e->key);
+-      } else {
+-        value * r = (value *) (e->key);
+-        f(fdata, *r, r);
+-      }
++      value * r = (value *) (e->key);
++      f(fdata, *r, r);
+     })
+ }
+ 
+ /* Scan all global roots */
+ void caml_scan_global_roots(scanning_action f, void* fdata) {
+   caml_plat_lock_blocking(&roots_mutex);
+-  iterating_roots ++;
+   caml_iterate_global_roots(f, &caml_global_roots, fdata);
+   caml_iterate_global_roots(f, &caml_global_roots_young, fdata);
+   caml_iterate_global_roots(f, &caml_global_roots_old, fdata);
+-  iterating_roots --;
+   caml_plat_unlock(&roots_mutex);
+ 
+   #ifdef NATIVE_CODE
+@@ -268,7 +245,6 @@ void caml_scan_global_roots(scanning_action f, void* fdata) {
+ void caml_scan_global_young_roots(scanning_action f, void* fdata)
+ {
+   caml_plat_lock_blocking(&roots_mutex);
+-  iterating_roots ++;
+ 
+   caml_iterate_global_roots(f, &caml_global_roots, fdata);
+   caml_iterate_global_roots(f, &caml_global_roots_young, fdata);
+@@ -280,6 +256,5 @@ void caml_scan_global_young_roots(scanning_action f, void* fdata)
+     });
+   caml_skiplist_empty(&caml_global_roots_young);
+ 
+-  iterating_roots --;
+   caml_plat_unlock(&roots_mutex);
+ }
+diff --git a/runtime/skiplist.c b/runtime/skiplist.c
+index 8a1f590..9c218ba 100644
+--- a/runtime/skiplist.c
++++ b/runtime/skiplist.c
+@@ -63,7 +63,7 @@ void caml_skiplist_init(struct skiplist * sk)
+ 
+ /* Search a skip list */
+ 
+-uintnat* caml_skiplist_find_ptr(struct skiplist * sk, uintnat key)
++int caml_skiplist_find(struct skiplist * sk, uintnat key, uintnat * data)
+ {
+   struct skipcell ** e, * f;
+ 
+@@ -73,26 +73,15 @@ uintnat* caml_skiplist_find_ptr(struct skiplist * sk, uintnat key)
+       f = e[i];
+       if (f == NULL || f->key > key) break;
+       if (f->key == key) {
+-        return &f->data;
++        *data = f->data;
++        return 1;
+       }
+       e = f->forward;
+     }
+   }
+-  return NULL;
+-}
+-
+-int caml_skiplist_find(struct skiplist * sk, uintnat key, uintnat * data)
+-{
+-  uintnat* p = caml_skiplist_find_ptr(sk, key);
+-  if (p == NULL) {
+-    return 0;
+-  } else {
+-    *data = *p;
+-    return 1;
+-  }
++  return 0;
+ }
+ 
+-
+ int caml_skiplist_find_below(struct skiplist * sk, uintnat k,
+                              uintnat * key, uintnat * data)
+ {

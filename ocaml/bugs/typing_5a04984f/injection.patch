@@ -1,0 +1,30 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..a04afe7 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -1881,6 +1881,12 @@ let expand_abbrev_gen kind find_type_expansion env ty =
+                 ~params ~args body
+             with Cannot_subst -> raise_escape_exn Constraint
+           in
++          begin match get_desc ty' with
++            Tvariant row when static_row row ->
++              set_type_desc ty'
++                (Tvariant (set_row_name row (Some (path, args))))
++          | _ -> ()
++          end;
+           (* For gadts, remember type as non exportable *)
+           (* The ambiguous level registered for ty' should be the highest *)
+           (* if !trace_gadt_instances then begin *)
+diff --git a/typing/env.ml b/typing/env.ml
+index 3c8d047..d1d8252 100644
+--- a/typing/env.ml
++++ b/typing/env.ml
+@@ -1813,8 +1813,6 @@ let rec components_of_module_maker
+             c.comp_values <- NameMap.add (Ident.name id) vda c.comp_values;
+         | SigL_type(id, decl, _, _) ->
+             let final_decl = Subst.type_declaration sub decl in
+-            Btype.set_static_row_name final_decl
+-              (Subst.type_path sub (Path.Pident id));
+             let descrs =
+               match decl.type_kind with
+               | Type_variant (_,repr) ->

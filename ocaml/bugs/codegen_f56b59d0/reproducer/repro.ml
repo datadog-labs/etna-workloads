@@ -1,0 +1,4 @@
+module Stable = struct
+  open struct module V0 = struct module U = struct end end end
+  module V0 = V0.U
+end

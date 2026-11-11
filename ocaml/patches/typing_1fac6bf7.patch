@@ -1,0 +1,27 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..f839715 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2156,10 +2156,6 @@ let rec local_non_recursive_abbrev ~allow_rec strict visited env p ty =
+         if allow_rec && not strict && is_contractive env p' then () else
+         let visited = get_id ty :: visited in
+         begin try
+-          (* try expanding, since [p] could be hidden *)
+-          local_non_recursive_abbrev ~allow_rec strict visited env p
+-            (try_expand_head try_expand_safe_opt env ty)
+-        with Cannot_expand ->
+           let params =
+             try (Env.find_type p' env).type_params
+             with Not_found -> args
+@@ -2169,6 +2165,11 @@ let rec local_non_recursive_abbrev ~allow_rec strict visited env p ty =
+               let strict = strict || not (is_Tvar tv) in
+               local_non_recursive_abbrev ~allow_rec strict visited env p ty)
+             params args
++        with Occur -> try
++          local_non_recursive_abbrev ~allow_rec strict visited env p
++            (try_expand_head try_expand_safe_opt env ty)
++        with Cannot_expand ->
++          raise Occur
+         end
+     | Tobject _ | Tvariant _ when not strict ->
+         ()

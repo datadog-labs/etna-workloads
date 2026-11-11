@@ -1,0 +1,58 @@
+diff --git a/parsing/ast_helper.ml b/parsing/ast_helper.ml
+index 7a13836..964cdf4 100644
+--- a/parsing/ast_helper.ml
++++ b/parsing/ast_helper.ml
+@@ -86,16 +86,12 @@ module Typ = struct
+     | _ -> poly ~loc:t.ptyp_loc [] t (* -> ghost? *)
+ 
+   let varify_constructors var_names t =
+-    let check_variable vl loc v =
+-      if List.mem v vl then
+-        raise Syntaxerr.(Error(Variable_in_scope(loc,v))) in
+     let var_names = List.map (fun v -> v.txt) var_names in
+     let rec loop t =
+       let desc =
+         match t.ptyp_desc with
+         | Ptyp_any -> Ptyp_any
+         | Ptyp_var x ->
+-            check_variable var_names t.ptyp_loc x;
+             Ptyp_var x
+         | Ptyp_arrow (label,core_type,core_type') ->
+             Ptyp_arrow(label, loop core_type, loop core_type')
+@@ -111,14 +107,11 @@ module Typ = struct
+         | Ptyp_class (longident, lst) ->
+             Ptyp_class (longident, List.map loop lst)
+         | Ptyp_alias(core_type, alias) ->
+-            check_variable var_names alias.loc alias.txt;
+             Ptyp_alias(loop core_type, alias)
+         | Ptyp_variant(row_field_list, flag, lbl_lst_option) ->
+             Ptyp_variant(List.map loop_row_field row_field_list,
+                          flag, lbl_lst_option)
+         | Ptyp_poly(string_lst, core_type) ->
+-          List.iter (fun v ->
+-            check_variable var_names t.ptyp_loc v.txt) string_lst;
+             Ptyp_poly(string_lst, loop core_type)
+         | Ptyp_package ptyp ->
+             Ptyp_package (loop_package_type ptyp)
+diff --git a/typing/errortrace_report.ml b/typing/errortrace_report.ml
+index 8f66ecd..f07627a 100644
+--- a/typing/errortrace_report.ml
++++ b/typing/errortrace_report.ml
+@@ -505,8 +505,7 @@ let error trace_format mode subst env tr txt1 ppf txt2 ty_expect_explanation =
+         Option.map (Errortrace.map_diff (trees_of_type_expansion mode)) last in
+       let mis = mismatch txt1 env full_trace in
+       let tr = match mis, last with
+-        | None, Some elt -> tr @ [elt]
+-        | Some _, _ | _, None -> tr
++        | _, _ -> tr
+       in
+       fprintf ppf
+         "@[<v>\
+@@ -571,7 +570,6 @@ module Subtype = struct
+         let diffed_elt = get_diff elt in
+         let tr, last = filter_trace tr' in
+         let tr = match keep_last, last with
+-          | true, Some last -> tr @ [last]
+           | _ -> tr
+         in
+         let tr =

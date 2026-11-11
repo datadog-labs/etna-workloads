@@ -1,0 +1,41 @@
+diff --git a/typing/mtype.ml b/typing/mtype.ml
+index c8f6e59..668544d 100644
+--- a/typing/mtype.ml
++++ b/typing/mtype.ml
+@@ -255,7 +255,7 @@ and nondep_modtype_decl env ids mtd =
+ let nondep_supertype env ids = nondep_mty env Co ids
+ let nondep_sig_item env ids = nondep_sig_item env Co ids
+ 
+-let enrich_typedecl env p id decl =
++let enrich_typedecl env p _id decl =
+   match decl.type_manifest with
+     Some _ -> decl
+   | None ->
+@@ -268,25 +268,9 @@ let enrich_typedecl env p id decl =
+           decl
+         else begin
+           let orig_ty =
+-            Ctype.reify_univars env
+-              (Btype.newgenty(Tconstr(p, orig_decl.type_params, ref Mnil)))
++            Btype.newgenty(Tconstr(p, decl.type_params, ref Mnil))
+           in
+-          let new_ty =
+-            Ctype.reify_univars env
+-              (Btype.newgenty(Tconstr(Pident id, decl.type_params, ref Mnil)))
+-          in
+-          let env = Env.add_type ~check:false id decl env in
+-          match Ctype.mcomp env orig_ty new_ty with
+-          | exception Ctype.Incompatible -> decl
+-              (* The current declaration is not compatible with the one we got
+-                 from the signature. We should just fail now, but then, we could
+-                 also have failed if the arities of the two decls were
+-                 different, which we didn't. *)
+-          | () ->
+-              let orig_ty =
+-                Btype.newgenty(Tconstr(p, decl.type_params, ref Mnil))
+-              in
+-              {decl with type_manifest = Some orig_ty}
++          {decl with type_manifest = Some orig_ty}
+         end
+ 
+ let rec enrich_modtype env p mty =

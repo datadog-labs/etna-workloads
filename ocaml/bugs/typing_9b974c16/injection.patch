@@ -1,0 +1,31 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..64f3c1e 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2866,7 +2866,8 @@ let rec mcomp type_pairs env t1 t2 =
+         | (Tpackage (p1, n1, tl1), Tpackage (p2, n2, tl2)) when n1 = n2 ->
+             mcomp_list type_pairs env tl1 tl2
+         *)
+-        | (Tpackage _, Tpackage _) -> ()
++        | (Tpackage p1, Tpackage p2)
++          when Path.same_unsafe p1.pack_path p2.pack_path -> ()
+         | (Tvariant row1, Tvariant row2) ->
+             mcomp_row type_pairs env row1 row2
+         | (Tobject (fi1, _), Tobject (fi2, _)) ->
+@@ -3513,14 +3514,9 @@ and unify_package uenv lvl1 pack1 lvl2 pack2 =
+   with
+   | Ok () -> ()
+   | Error fm_err ->
+-      if not (in_pattern_mode uenv) then
+-        raise_for Unify (Errortrace.First_class_module fm_err);
+-      List.iter (fun (_n, ty) -> reify uenv ty)
+-        (pack1.pack_constraints @ pack2.pack_constraints);
++      raise_for Unify (Errortrace.First_class_module fm_err)
+   | exception Not_found ->
+-    if not (in_pattern_mode uenv) then raise_unexplained_for Unify;
+-    List.iter (fun (_n, ty) -> reify uenv ty)
+-        (pack1.pack_constraints @ pack2.pack_constraints);
++    raise_unexplained_for Unify
+     (* if !generate_equations then List.iter2 (mcomp !env) tl1 tl2 *)
+ 
+ (* Build a fresh row variable for unification *)

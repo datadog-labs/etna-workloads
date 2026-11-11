@@ -1,0 +1,49 @@
+diff --git a/asmcomp/cmm_helpers.ml b/asmcomp/cmm_helpers.ml
+index 19a25a2..cbd166d 100644
+--- a/asmcomp/cmm_helpers.ml
++++ b/asmcomp/cmm_helpers.ml
+@@ -62,11 +62,7 @@ let black_closure_header sz = black_block_header Obj.closure_tag sz
+ let infix_header ofs = block_header Obj.infix_tag ofs
+ let float_header = block_header Obj.double_tag (size_float / size_addr)
+ let floatarray_header len =
+-  (* Zero-sized float arrays have tag zero for consistency with
+-     [caml_alloc_float_array]. *)
+-  assert (len >= 0);
+-  if len = 0 then block_header 0 0
+-  else block_header Obj.double_array_tag (len * size_float / size_addr)
++  block_header Obj.double_array_tag (len * size_float / size_addr)
+ let string_header len =
+       block_header Obj.string_tag ((len + size_addr) / size_addr)
+ let boxedint32_header = block_header Obj.custom_tag 2
+diff --git a/runtime/alloc.c b/runtime/alloc.c
+index 7522f4b..07f2d7a 100644
+--- a/runtime/alloc.c
++++ b/runtime/alloc.c
+@@ -246,12 +246,9 @@ value caml_alloc_float_array(mlsize_t len)
+   Caml_check_caml_state();
+   mlsize_t wosize = len * Double_wosize;
+   value result;
+-  /* For consistency with [caml_array_make], which can't tell whether it should
+-     create a float array or not when the size is zero, the tag is set to
+-     zero when the size is zero. */
+   if (wosize <= Max_young_wosize){
+     if (wosize == 0)
+-      return Atom(0);
++      return Atom(Double_array_tag);
+     else
+       Alloc_small (result, wosize, Double_array_tag, Alloc_small_enter_GC);
+   } else {
+diff --git a/runtime/array.c b/runtime/array.c
+index 2c08a60..0cc792e 100644
+--- a/runtime/array.c
++++ b/runtime/array.c
+@@ -200,9 +200,6 @@ CAMLprim value caml_floatarray_create(value len)
+ 
+ CAMLprim value caml_floatarray_make_unboxed(intnat size, double init)
+ {
+-  if (size == 0) {
+-    return Atom(0);
+-  }
+   value res;
+   mlsize_t wsize = size * Double_wosize;
+   if (wsize > Max_wosize) caml_invalid_argument("Array.make");

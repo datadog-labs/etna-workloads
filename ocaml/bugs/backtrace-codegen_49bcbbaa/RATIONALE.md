@@ -1,0 +1,4 @@
+# Rationale
+Changed `ocaml/lambda/translprim.ml`, `lambda_primitive_needs_event_after`: moved `Pperform` and `Presume` from the "true" (needs event after) list to the "false" list.
+This reverses fix.diff hunk `@@ -687,7 +679,7 @@ let primitive_is_ccall = function` in bytecomp/translcore.ml (added `Pperform | Presume` to the C-call primitives that need an event after; today that function is `lambda_primitive_needs_event_after` in translprim.ml). Without the event, the bytecode backtrace for the continuation callstack gets the wrong location (matches the changed backtrace_effects.byte.reference line).
+Commands: `make -j8 && make -j8 ocamltest && sh run-oracle.sh`, then final `make clean && make -j8 && make -j8 ocamltest` and run-oracle.sh: backtrace_effects.ml fails (location differs: line 21 chars 4-6 vs line 20 chars 4-13).

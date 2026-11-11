@@ -1,0 +1,19 @@
+diff --git a/asmcomp/cmm_helpers.ml b/asmcomp/cmm_helpers.ml
+index 19a25a2..0d559fd 100644
+--- a/asmcomp/cmm_helpers.ml
++++ b/asmcomp/cmm_helpers.ml
+@@ -289,7 +289,13 @@ let mk_not dbg cmm =
+             (Cop(Ccmpa (negate_integer_comparison cmp), [c1; c2], dbg'')) dbg'
+       | Cop(Ccmpf cmp, [c1; c2], dbg'') ->
+           tag_int
+-            (Cop(Ccmpf (negate_float_comparison cmp), [c1; c2], dbg'')) dbg'
++            (Cop(Ccmpf (match cmp with
++                | CFeq -> CFneq | CFneq -> CFeq
++                | CFlt -> CFge | CFge -> CFlt
++                | CFgt -> CFle | CFle -> CFgt
++                | CFnlt -> CFnge | CFnge -> CFnlt
++                | CFngt -> CFnle | CFnle -> CFngt),
++                [c1; c2], dbg'')) dbg'
+       | _ ->
+         (* 0 -> 3, 1 -> 1 *)
+         Cop(Csubi,

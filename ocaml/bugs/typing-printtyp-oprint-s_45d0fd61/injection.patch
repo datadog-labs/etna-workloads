@@ -1,0 +1,48 @@
+diff --git a/typing/oprint.ml b/typing/oprint.ml
+index 1a96b31..137c12b 100644
+--- a/typing/oprint.ml
++++ b/typing/oprint.ml
+@@ -366,8 +366,8 @@ and print_simple_out_type ppf =
+           Ovar_fields fields ->
+             print_list print_row_field (fun ppf -> fprintf ppf "@;<1 -2>| ")
+               ppf fields
+-        | Ovar_typ typ ->
+-           print_simple_out_type ppf typ
++        | Ovar_name (id, tyl) ->
++            fprintf ppf "@[%a%a@]" print_typargs tyl print_ident id
+       in
+       fprintf ppf "@[<hov>[%s@[<hv>@[<hv>%a@]%a@]@ ]@]"
+         (if closed then if tags = None then " " else "< "
+diff --git a/typing/out_type.ml b/typing/out_type.ml
+index c60e7f9..cb07db4 100644
+--- a/typing/out_type.ml
++++ b/typing/out_type.ml
+@@ -1169,7 +1169,14 @@ let rec tree_of_typexp mode ty =
+             else
+               let tags =
+                 if all_present then None else Some (List.map fst present) in
+-              Otyp_variant (Ovar_typ out_variant, closed, tags)
++              let inh =
++                match args with
++                  [Otyp_constr (i, a)] when is_nth s -> Ovar_name (i, a)
++                | _ ->
++                    Ovar_name (tree_of_path (Some Type) p,
++                               tree_of_typlist mode tyl)
++              in
++              Otyp_variant (inh, closed, tags)
+         | _ ->
+             let fields = List.map (tree_of_row_field mode) fields in
+             let tags =
+diff --git a/typing/outcometree.mli b/typing/outcometree.mli
+index 21f2bb5..cbbad8d 100644
+--- a/typing/outcometree.mli
++++ b/typing/outcometree.mli
+@@ -110,7 +110,7 @@ and out_package = {
+ 
+ and out_variant =
+   | Ovar_fields of (string * bool * out_type list) list
+-  | Ovar_typ of out_type
++  | Ovar_name of out_ident * out_type list
+ 
+ type out_class_type =
+   | Octy_constr of out_ident * out_type list

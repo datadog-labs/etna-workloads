@@ -1,0 +1,94 @@
+diff --git a/typing/errortrace_report.ml b/typing/errortrace_report.ml
+index 8f66ecd..ea59057 100644
+--- a/typing/errortrace_report.ml
++++ b/typing/errortrace_report.ml
+@@ -614,7 +614,7 @@ module Subtype = struct
+       let tr_sub = prepare_trace prepare_expansion tr_sub in
+       let tr_unif = prepare_unification_trace prepare_expansion tr_unif in
+       let keep_first = match tr_unif with
+-        | [Obj _ | Variant _ | Escape _ ] | [] -> true
++        | [Errortrace.Obj _ | Errortrace.Variant _ | Errortrace.Escape _ ] | [] -> true
+         | _ -> false in
+       fprintf ppf "@[<v>%a"
+         (trace filter_subtype_trace subtype_get_diff true keep_first txt1)
+diff --git a/typing/typecore.ml b/typing/typecore.ml
+index 77fbc51..bc7f540 100644
+--- a/typing/typecore.ml
++++ b/typing/typecore.ml
+@@ -177,6 +177,7 @@ type error =
+   | Cannot_infer_signature
+   | Not_a_packed_module of type_expr
+   | Unexpected_existential of existential_restriction * string
++  | Unqualified_gadt_pattern of Path.t * string
+   | Invalid_interval
+   | Invalid_for_loop_index
+   | No_value_clauses
+@@ -1444,6 +1445,7 @@ end) = struct
+   let disambiguate
+         ?(warn=Location.prerr_warning)
+         ?(filter : nonempty_candidate_filter = Result.ok)
++        ?(check_lk = fun _ _ -> ())
+         usage lid env
+         expected_type
+         candidates_in_scope =
+@@ -1495,6 +1497,7 @@ end) = struct
+         (* look outside the lexical scope *)
+         match lookup_from_type env tpath usage lid with
+         | lbl ->
++          check_lk tpath lbl;
+           (* warn only on nominal labels;
+              structural labels cannot be qualified anyway *)
+           if in_env lbl then warn_out_of_scope warn lid env tpath;
+@@ -2043,7 +2046,12 @@ and type_pat_aux
+           Env.lookup_all_constructors Env.Pattern ~loc:lid.loc lid.txt !!penv in
+         wrap_disambiguate "This variant pattern is expected to have"
+           (mk_expected expected_ty)
+-          (Constructor.disambiguate Env.Pattern lid !!penv expected_type)
++          (Constructor.disambiguate Env.Pattern lid !!penv expected_type
++             ~check_lk:(fun tpath constr ->
++               if constr.cstr_generalized then
++                 raise (Error (lid.loc, !!penv,
++                               Unqualified_gadt_pattern
++                                 (tpath, constr.cstr_name)))))
+           candidates
+       in
+       begin match no_existentials, constr.cstr_existentials with
+@@ -7943,6 +7951,11 @@ let report_error ~loc env = function
+       Location.errorf ~loc
+         "This expression is packed module, but the expected type is@ %a"
+         (Style.as_inline_code Printtyp.type_expr) ty
++  | Unqualified_gadt_pattern (tpath, name) ->
++      Location.errorf ~loc
++        "@[The GADT constructor %s of type %a@ must be qualified in this \
++         pattern.@]"
++        name Printtyp.path tpath
+   | Unexpected_existential (reason, name) ->
+       let reason_str =
+          match reason with
+diff --git a/typing/typecore.mli b/typing/typecore.mli
+index 470f56b..2c9552b 100644
+--- a/typing/typecore.mli
++++ b/typing/typecore.mli
+@@ -218,6 +218,7 @@ type error =
+   | Cannot_infer_signature
+   | Not_a_packed_module of type_expr
+   | Unexpected_existential of existential_restriction * string
++  | Unqualified_gadt_pattern of Path.t * string
+   | Invalid_interval
+   | Invalid_for_loop_index
+   | No_value_clauses
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..9c7c9c8 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -909,8 +909,8 @@ module Merge = struct
+         sg constraints
+     in
+     match maybe with
+-    | NoMType -> ()
+-    | ComputeMType ->
++    | Typetexp.NoMType -> ()
++    | Typetexp.ComputeMType ->
+       let scope = Ctype.create_scope () in
+       Mtype.freshen ~scope (Mty_signature sg)
+ 

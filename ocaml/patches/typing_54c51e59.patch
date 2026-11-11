@@ -1,0 +1,31 @@
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..d74ab40 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -2385,7 +2385,7 @@ and type_module_aux ~alias ~strengthen ~funct_body anchor env smod =
+         else begin
+           let mty =
+             if strengthen then
+-              Env.find_strengthened_module ~aliasable path env
++              Env.find_strengthened_module ~aliasable:false path env
+             else
+               (Env.find_module path env).md_type
+           in
+@@ -3061,10 +3061,16 @@ and type_str_item ~names ~toplevel ~funct_body anchor env shape_map
+             (fun () -> type_module ~strengthen:true ~funct_body None env smodl)
+         in
+         let scope = Ctype.create_scope () in
++        let modl_type =
++          match modl.mod_desc with
++          | Tmod_ident (p, _) when Env.is_aliasable p env ->
++              Env.find_strengthened_module ~aliasable:true p env
++          | _ -> modl.mod_type
++        in
+         (* Rename all identifiers bound by this signature to avoid clashes *)
+         let sg, shape, new_env =
+           Env.enter_signature_and_shape ~scope ~parent_shape:shape_map
+-            modl_shape (extract_sig_open env smodl.pmod_loc modl.mod_type) env
++            modl_shape (extract_sig_open env smodl.pmod_loc modl_type) env
+         in
+         Signature_group.iter (Signature_names.check_sig_item names loc) sg;
+         let incl =

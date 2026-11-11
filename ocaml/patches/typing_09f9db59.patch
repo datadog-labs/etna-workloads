@@ -1,0 +1,77 @@
+diff --git a/typing/signature_group.ml b/typing/signature_group.ml
+index b98a9eb..be60bba 100644
+--- a/typing/signature_group.ml
++++ b/typing/signature_group.ml
+@@ -118,6 +118,7 @@ let update_rec_next rs rem =
+ type in_place_patch = {
+   ghosts: Types.signature;
+   replace_by: Types.signature_item option;
++  extra: Types.signature;
+ }
+ 
+ 
+@@ -134,7 +135,7 @@ let replace_in_place f sg =
+     | [] -> next_group f (commit ghosts) sg
+     | a :: q ->
+         match f ~ghosts a.src with
+-        | Some (info, {ghosts; replace_by}) ->
++        | Some (info, {ghosts; replace_by; extra}) ->
+             let after = List.concat_map flatten q @ sg in
+             let after = match recursive_sigitem a.src, replace_by with
+               | None, _ | _, Some _ -> after
+@@ -142,7 +143,7 @@ let replace_in_place f sg =
+             in
+             let before = match replace_by with
+               | None -> commit ghosts
+-              | Some x -> x :: commit ghosts
++              | Some x -> List.rev_append extra (x :: commit ghosts)
+             in
+             let sg = List.rev_append before after in
+             Some(info, sg)
+diff --git a/typing/signature_group.mli b/typing/signature_group.mli
+index a84925d..473573e 100644
+--- a/typing/signature_group.mli
++++ b/typing/signature_group.mli
+@@ -68,6 +68,7 @@ val fold: ('acc -> rec_group -> 'acc) -> 'acc -> Types.signature -> 'acc
+ type in_place_patch = {
+   ghosts: Types.signature; (** updated list of ghost items *)
+   replace_by: Types.signature_item option;
++  extra: Types.signature;
+   (** replacement for the selected item *)
+ }
+ 
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..8f86fd0 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -529,9 +529,9 @@ module Merge = struct
+       an extra payload by merge. Other cases (module, module types) don't use
+       the payload mechanism (the payload is then [()]). *)
+ 
+-  let return_payload ~ghosts ~replace_by ~late_typedtree ?(paths=[]) path =
++  let return_payload ~ghosts ~replace_by ~late_typedtree ?(paths=[]) ?(extra=[]) path =
+     Some ((path, path::paths, late_typedtree),
+-          {Signature_group.ghosts; replace_by})
++          {Signature_group.ghosts; replace_by; extra})
+ 
+   let return = return_payload ~late_typedtree:()
+ 
+@@ -692,16 +692,14 @@ module Merge = struct
+               ~sig_env ~sig_decl:decl ~outer_env:initial_env sdecl in
+           let newdecl = tdecl.typ_type in
+           let before_ghosts, row_id, after_ghosts = split_row_id s ghosts in
++          let ghosts = List.rev_append before_ghosts after_ghosts in
+           check_type_decl sig_env sg_for_env sdecl.ptype_loc
+             id row_id newdecl decl;
+           let decl_row = {decl_row with type_params = newdecl.type_params} in
+           let rs' = if rs = Trec_first then Trec_not else rs in
+-          let ghosts =
+-            List.rev_append before_ghosts
+-              (Sig_type(id_row, decl_row, rs', priv)::after_ghosts)
+-          in
+           let path = Pident id in
+           return_payload ~ghosts ~late_typedtree:tdecl
++            ~extra:[Sig_type(id_row, decl_row, rs', priv)]
+             ~replace_by:(Some (Sig_type(id, newdecl, rs, priv))) path
+ 
+       | Sig_type(id, sig_decl, rs, priv), _

@@ -1,0 +1,70 @@
+diff --git a/asmcomp/amd64/emit.mlp b/asmcomp/amd64/emit.mlp
+index f57f3db..27c1351 100644
+--- a/asmcomp/amd64/emit.mlp
++++ b/asmcomp/amd64/emit.mlp
+@@ -502,11 +502,11 @@ let emit_instr env fallthrough i =
+       end else
+         I.mov (nat n) (res i 0)
+   | Lop(Iconst_float f) ->
+-      begin match f with
++      begin match Int64.bits_of_float f with
+       | 0x0000_0000_0000_0000L ->       (* +0.0 *)
+           I.xorpd (res i 0) (res i 0)
+       | _ ->
+-          let lbl = add_float_constant f in
++          let lbl = add_float_constant (Int64.bits_of_float f) in
+           I.movsd (mem64_rip NONE (emit_label lbl)) (res i 0)
+       end
+   | Lop(Iconst_symbol s) ->
+diff --git a/asmcomp/mach.ml b/asmcomp/mach.ml
+index dcbfa53..a36e20c 100644
+--- a/asmcomp/mach.ml
++++ b/asmcomp/mach.ml
+@@ -41,7 +41,7 @@ type operation =
+   | Ispill
+   | Ireload
+   | Iconst_int of nativeint
+-  | Iconst_float of int64
++  | Iconst_float of float
+   | Iconst_symbol of string
+   | Icall_ind
+   | Icall_imm of { func : string; }
+diff --git a/asmcomp/mach.mli b/asmcomp/mach.mli
+index c0ca783..b82c929 100644
+--- a/asmcomp/mach.mli
++++ b/asmcomp/mach.mli
+@@ -41,7 +41,7 @@ type operation =
+   | Ispill
+   | Ireload
+   | Iconst_int of nativeint
+-  | Iconst_float of int64
++  | Iconst_float of float
+   | Iconst_symbol of string
+   | Icall_ind
+   | Icall_imm of { func : string; }
+diff --git a/asmcomp/printmach.ml b/asmcomp/printmach.ml
+index 89b900c..71fb3d3 100644
+--- a/asmcomp/printmach.ml
++++ b/asmcomp/printmach.ml
+@@ -111,7 +111,7 @@ let operation op arg ppf res =
+   | Ispill -> fprintf ppf "%a (spill)" regs arg
+   | Ireload -> fprintf ppf "%a (reload)" regs arg
+   | Iconst_int n -> fprintf ppf "%s" (Nativeint.to_string n)
+-  | Iconst_float f -> fprintf ppf "%F" (Int64.float_of_bits f)
++  | Iconst_float f -> fprintf ppf "%F" (f)
+   | Iconst_symbol s -> fprintf ppf "\"%s\"" s
+   | Icall_ind -> fprintf ppf "call %a" regs arg
+   | Icall_imm { func; } -> fprintf ppf "call \"%s\" %a" func regs arg
+diff --git a/asmcomp/selectgen.ml b/asmcomp/selectgen.ml
+index fcf3aee..7b4b7d0 100644
+--- a/asmcomp/selectgen.ml
++++ b/asmcomp/selectgen.ml
+@@ -592,7 +592,7 @@ method emit_expr (env:environment) exp =
+       Some(self#insert_op env (Iconst_int n) [||] r)
+   | Cconst_float (n, _dbg) ->
+       let r = self#regs_for typ_float in
+-      Some(self#insert_op env (Iconst_float (Int64.bits_of_float n)) [||] r)
++      Some(self#insert_op env (Iconst_float n) [||] r)
+   | Cconst_symbol (n, _dbg) ->
+       (* Cconst_symbol _ evaluates to a statically-allocated address, so its
+          value fits in a typ_int register and is never changed by the GC.

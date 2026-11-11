@@ -1,0 +1,35 @@
+diff --git a/runtime/signals.c b/runtime/signals.c
+index 5e4c1f2..a71f88e 100644
+--- a/runtime/signals.c
++++ b/runtime/signals.c
+@@ -65,19 +65,11 @@ CAMLexport caml_result caml_process_pending_signals_res(void)
+ {
+   int signo;
+   uintnat curr, mask ;
+-#ifdef POSIX_SIGNALS
+-  sigset_t set;
+-#endif
+ 
+-  /* Check that there is indeed a pending signal before issuing the
+-      syscall in [pthread_sigmask]. */
++  /* Check that there is indeed a pending signal. */
+   if (!caml_check_pending_signals())
+     return Result_unit;
+ 
+-#ifdef POSIX_SIGNALS
+-  pthread_sigmask(/* dummy */ SIG_BLOCK, NULL, &set);
+-#endif
+-
+   for (int i = 0; i < NSIG_WORDS; i++) {
+     curr = atomic_load_relaxed(&caml_pending_signals[i]);
+     if (curr == 0) goto next_word;
+@@ -86,9 +78,6 @@ CAMLexport caml_result caml_process_pending_signals_res(void)
+       mask = (uintnat)1 << j;
+       if ((curr & mask) == 0) goto next_bit;
+       signo = i * BITS_PER_WORD + j + 1;
+-#ifdef POSIX_SIGNALS
+-      if (sigismember(&set, signo)) goto next_bit;
+-#endif
+       while (! atomic_compare_exchange_strong(&caml_pending_signals[i],
+                                               &curr, curr & ~mask)) {
+         /* curr was refreshed, test it again */

@@ -1,0 +1,49 @@
+diff --git a/typing/typedecl.ml b/typing/typedecl.ml
+index 63eee2a..65a9c57 100644
+--- a/typing/typedecl.ml
++++ b/typing/typedecl.ml
+@@ -74,7 +74,6 @@ type error =
+   | Separability of Typedecl_separability.error
+   | Bad_unboxed_attribute of string
+   | Boxed_and_unboxed
+-  | Nonrec_gadt
+   | Invalid_private_row_declaration of type_expr
+   | Atomic_field_must_be_mutable of string
+   | External_with_non_syntactic_arity
+@@ -107,13 +106,6 @@ let enter_type ?abstract_abbrevs rec_flag env sdecl (id, uid) =
+   let needed =
+     match rec_flag with
+     | Asttypes.Nonrecursive ->
+-        begin match sdecl.ptype_kind with
+-        | Ptype_variant scds ->
+-            List.iter (fun cd ->
+-              if cd.pcd_res <> None then raise (Error(cd.pcd_loc, Nonrec_gadt)))
+-              scds
+-        | _ -> ()
+-        end;
+         Btype.is_row_name (Ident.name id)
+     | Asttypes.Recursive -> true
+   in
+@@ -2352,10 +2344,6 @@ let report_error ~loc = function
+   | Boxed_and_unboxed ->
+       Location.errorf ~loc
+         "A type cannot be boxed and unboxed at the same time."
+-  | Nonrec_gadt ->
+-      Location.errorf ~loc
+-        "GADT case syntax cannot be used in a %a block."
+-        Style.inline_code "nonrec"
+   | Invalid_private_row_declaration ty ->
+       let pp_private ppf ty = fprintf ppf "private %a" Printtyp.type_expr ty in
+       let sub = [
+diff --git a/typing/typedecl.mli b/typing/typedecl.mli
+index f57ca97..3d041ff 100644
+--- a/typing/typedecl.mli
++++ b/typing/typedecl.mli
+@@ -119,7 +119,6 @@ type error =
+   | Separability of Typedecl_separability.error
+   | Bad_unboxed_attribute of string
+   | Boxed_and_unboxed
+-  | Nonrec_gadt
+   | Invalid_private_row_declaration of type_expr
+   | Atomic_field_must_be_mutable of string
+   | External_with_non_syntactic_arity

@@ -1,0 +1,127 @@
+diff --git a/typing/typemod.ml b/typing/typemod.ml
+index 75bb6c1..d02dde7 100644
+--- a/typing/typemod.ml
++++ b/typing/typemod.ml
+@@ -755,40 +755,6 @@ module Merge = struct
+       post_process ~approx:false ~replace loc lid env paths sg in
+     (tdecl, (path, lid, sg))
+ 
+-  (** Approximated type constraint [sg with type lid = _]
+-
+-      This function is separated from [merge_type] as its logic is much more
+-      restricted (it does not need the right-hand side declaration).
+-
+-      - For destructive constraints, the field is removed to prevent incorrect
+-      shadowing in the approximated signature.
+-
+-      - For non-destructive constraints, the normal merging infrastructure is
+-      still used with an no-op identity patch. It is done to catch ill-formed
+-      constraints on non-existing fields early, during the approximation phase
+-      (rather than during signature typechecking) *)
+-  let merge_type_approx ~destructive env loc sg lid =
+-    let patch item s _sig_env _sg_for_env ~ghosts =
+-      match item with
+-      | Sig_type(id, _, _, _) when Ident.name id = s ->
+-         let item_opt =
+-           if destructive then None
+-           else
+-             (* An identity patch is applied *)
+-             Some (item)
+-         in
+-         return ~ghosts ~replace_by:item_opt (Pident id)
+-      | _ -> None
+-    in
+-    (* Merging *)
+-    let _, paths, _, sg = merge ~patch ~destructive env sg loc lid in
+-    (* Post processing *)
+-    (* There is no need to replace the constrained type, as all type fields are
+-       made abstract anyway (so it should not appear anywhere). Also the approx
+-       flag disable any wellformedness checks. *)
+-    post_process ~approx:true ~replace:None loc lid env paths sg
+-
+-
+   (** Module constraint [sg with module lid = path]
+ 
+       - [md'] is the module type of the module at [path], used for equivalence
+@@ -1006,26 +972,24 @@ let rec approx_modtype env smty =
+       let res = approx_modtype newenv sres in
+       Mty_functor(param, res)
+   | Pmty_with(sbody, constraints) ->
+-      (* the module type body is approximated and resolved to a signature.*)
+-      let approx_body = approx_modtype env sbody in
+-      let initial_sig = extract_sig env sbody.pmty_loc approx_body in
+-      (* then, the constraints are approximated and merged, instead of merged
+-         and approximated. For (1) type constraints, (2) module constraints and
+-         (3) module type constraints replacing an abstract module type, it
+-         should be equivalent.
+-
+-         However, for module type constraints replacing a concrete module type,
+-         approximating the constraint and the body before merging can interact
+-         with the equivalence check that is done between the constraint and the
+-         original definition. As approximation only tries to build a skeleton of
+-         non-recursive module types that can be used as an under-approximation
+-         of the name-spaces for the typechecking phase, the equivalence check is
+-         disabled, allowing for ill-formed constraints to be merged. It is
+-         should be harmless, because the ill-formedness is caught when
+-         re-typechecking the module types (with the approximation in the
+-         environment).  *)
+-      Mty_signature (List.fold_left
+-                       (approx_constraint env) initial_sig constraints)
++      let body = approx_modtype env sbody in
++      List.iter
++        (fun sdecl ->
++          match sdecl with
++          | Pwith_type _
++          | Pwith_typesubst _
++          | Pwith_modtype _
++          | Pwith_modtypesubst _  -> ()
++          | Pwith_module (_, lid') ->
++              (* Lookup the module to make sure that it is not recursive.
++                 (GPR#1626) *)
++              ignore (Env.lookup_module_path ~use:false ~load:false
++                        ~loc:lid'.loc lid'.txt env)
++          | Pwith_modsubst (_, lid') ->
++              ignore (Env.lookup_module_path ~use:false ~load:false
++                        ~loc:lid'.loc lid'.txt env))
++        constraints;
++      body
+   | Pmty_typeof smod ->
+       let (_, mty) = !type_module_type_of_fwd env smod in
+       mty
+@@ -1151,36 +1115,6 @@ and approx_modtype_info env sinfo =
+    mtd_uid = Uid.internal_not_actually_unique;
+  }
+ 
+-and approx_constraint env body constr =
+-  (* constraints are first approximated then merged, disabling all equivalence
+-     and wellformedness checks. Only ill-formed constraints where the field does
+-     not exists are caught at approximation phase, other errors (non-equivalent
+-     constraints) will be caught when typechecking the signatures (with the
+-     approximation in the environment). *)
+-  let destructive = Merge.is_destructive constr in
+-  match constr with
+-  | Pwith_type (l, decl)
+-  | Pwith_typesubst (l, decl) ->
+-     Merge.merge_type_approx ~destructive env decl.ptype_loc body l
+-
+-  | Pwith_modtype (id, smty)
+-  | Pwith_modtypesubst (id, smty) ->
+-      let approx_smty = approx_modtype env smty in
+-      let _,_,sg = Merge.merge_modtype ~approx:true ~destructive
+-          env smty.pmty_loc body id approx_smty in
+-      sg
+-  | Pwith_module (id, lid)
+-  | Pwith_modsubst (id, lid) ->
+-      (* Lookup the module to make sure that it is not recursive.
+-         (GPR#1626) *)
+-      let path, approx_md =
+-        Env.lookup_module ~use:false ~loc:lid.loc lid.txt env in
+-      let _,_,sg =
+-        Merge.merge_module ~approx:true ~destructive env
+-          lid.loc body id approx_md path false in
+-      sg
+-
+-
+ let approx_modtype env smty =
+   Warnings.without_warnings
+     (fun () -> approx_modtype env smty)

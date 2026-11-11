@@ -1,0 +1,72 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..226b6a1 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2751,9 +2751,15 @@ let reify uenv t =
+   iterator t
+ 
+ let find_expansion_scope env path =
+-  match Env.find_type path env with
+-  | { type_manifest = None ; _ } | exception Not_found -> generic_level
+-  | decl -> decl.type_expansion_scope
++  (Env.find_type path env).type_expansion_scope
++
++let is_newtype env p =
++  try
++    let decl = Env.find_type p env in
++    decl.type_expansion_scope <> Btype.lowest_level &&
++    type_kind_is_abstract decl &&
++    decl.type_private = Public
++  with Not_found -> false
+ 
+ let is_instantiable env p =
+   try
+@@ -3236,8 +3242,19 @@ let rec unify uenv t1 t2 =
+         update_level_for Unify (get_env uenv) (get_level t1) t2;
+         update_scope_for Unify (get_scope t1) t2;
+         link_type t1 t2
+-    | (Tconstr _, Tconstr _) when Env.has_local_constraints (get_env uenv) ->
+-        unify2_rec uenv t1 t1 t2 t2
++    | (Tconstr (p1, [], _), Tconstr (p2, [], _))
++      when Env.has_local_constraints (get_env uenv)
++      && is_newtype (get_env uenv) p1 && is_newtype (get_env uenv) p2 ->
++        (* Do not use local constraints more than necessary *)
++        begin try
++          let env = get_env uenv in
++          if find_expansion_scope env p1 > find_expansion_scope env p2 then
++            unify uenv t1 (try_expand_safe env t2)
++          else
++            unify uenv (try_expand_safe env t1) t2
++        with Cannot_expand ->
++          unify2 uenv t1 t2
++        end
+     | _ ->
+         unify2 uenv t1 t2
+     end;
+@@ -3248,26 +3265,6 @@ let rec unify uenv t1 t2 =
+ 
+ and unify2 uenv t1 t2 = unify2_expand uenv t1 t1 t2 t2
+ 
+-and unify2_rec uenv t10 t1 t20 t2 =
+-  if unify_eq uenv t1 t2 then () else
+-  try match (get_desc t1, get_desc t2) with
+-  | (Tconstr (p1, tl1, a1), Tconstr (p2, tl2, a2)) ->
+-      if Env_unscoped.path_equiv (get_env uenv) p1 p2 && tl1 = [] && tl2 = []
+-      && not (has_cached_expansion p1 !a1 || has_cached_expansion p2 !a2)
+-      then begin
+-        update_level_for Unify (get_env uenv) (get_level t1) t2;
+-        update_scope_for Unify (get_scope t1) t2;
+-        link_type t1 t2
+-      end else
+-        let env = get_env uenv in
+-        if find_expansion_scope env p1 > find_expansion_scope env p2
+-        then unify2_rec uenv t10 t1 t20 (try_expand_safe env t2)
+-        else unify2_rec uenv t10 (try_expand_safe env t1) t20 t2
+-  | _ ->
+-      raise Cannot_expand
+-  with Cannot_expand ->
+-    unify2_expand uenv t10 t1 t20 t2
+-
+ and unify2_expand uenv t1 t1' t2 t2' =
+   (* Second step: expansion of abbreviations *)
+   (* Expansion may change the representative of the types. *)

@@ -1,0 +1,78 @@
+diff --git a/typing/ctype.ml b/typing/ctype.ml
+index dca227d..83a85de 100644
+--- a/typing/ctype.ml
++++ b/typing/ctype.ml
+@@ -2277,9 +2277,9 @@ let occur_univar_or_unscoped ?(inj_only=false) env ty =
+         occur_desc env bound_uv bound_id ty
+   and occur_desc env bound_uv bound_id ty =
+       match get_desc ty with
+-        Tunivar _ ->
++        Tunivar u ->
+           if not (TypeSet.mem ty bound_uv) then
+-            raise_escape_exn (Univ ty)
++            raise_escape_exn (Univ u)
+       | Tpoly (ty, tyl) ->
+           let bound_uv = List.fold_right TypeSet.add tyl bound_uv in
+           occur_rec env bound_uv bound_id ty
+@@ -2407,7 +2407,7 @@ let univars_escape env univar_pairs vl ty =
+         Tpoly (t, tl) ->
+           if List.exists (fun t -> TypeSet.mem t family) tl then ()
+           else occur t
+-      | Tunivar _ -> if TypeSet.mem t family then raise_escape_exn (Univ t)
++      | Tunivar u -> if TypeSet.mem t family then raise_escape_exn (Univ u)
+       | Tconstr (_, [], _) -> ()
+       | Tconstr (p, tl, _) ->
+           begin try
+diff --git a/typing/errortrace.ml b/typing/errortrace.ml
+index edc2b49..f0fdc65 100644
+--- a/typing/errortrace.ml
++++ b/typing/errortrace.ml
+@@ -50,9 +50,7 @@ let swap_diff x = { got = x.expected; expected = x.got }
+ 
+ type 'a escape_kind =
+   | Constructor of Path.t
+-  | Univ of type_expr
+-  (* The type_expr argument of [Univ] is always a [Tunivar _],
+-     we keep a [type_expr] to track renaming in {!Printtyp} *)
++  | Univ of string option
+   | Self
+   | Module_type of Path.t
+   | Module of Ident.t
+diff --git a/typing/errortrace.mli b/typing/errortrace.mli
+index 1a31541..25ef1c1 100644
+--- a/typing/errortrace.mli
++++ b/typing/errortrace.mli
+@@ -42,9 +42,7 @@ val map_diff: ('a -> 'b) -> 'a diff -> 'b diff
+ (** Scope escape related errors *)
+ type 'a escape_kind =
+   | Constructor of Path.t
+-  | Univ of type_expr
+-  (* The type_expr argument of [Univ] is always a [Tunivar _],
+-     we keep a [type_expr] to track renaming in {!Printtyp} *)
++  | Univ of string option
+   | Self
+   | Module_type of Path.t
+   | Module of Ident.t
+diff --git a/typing/errortrace_report.ml b/typing/errortrace_report.ml
+index 8f66ecd..ba178bf 100644
+--- a/typing/errortrace_report.ml
++++ b/typing/errortrace_report.ml
+@@ -220,13 +220,15 @@ let explain_variant (type variety) : variety Errortrace.variant -> _ = function
+              Errortrace.print_pos (Errortrace.swap_position pos))
+ 
+ let explain_escape pre = function
+-  | Errortrace.Univ u ->
+-      Variable_names.reserve u;
++  | Errortrace.Univ (Some u) ->
+       Some(
+         doc_printf "%a@,The universal variable %a would escape its scope"
+           pp_doc pre
+-          (Style.as_inline_code type_expr_with_reserved_names) u
++          Style.inline_code ("'" ^ u)
+       )
++  | Errortrace.Univ None ->
++      Some(doc_printf "%a@,An universal variable would escape its scope"
++             pp_doc pre)
+   | Errortrace.Constructor p -> Some(
+       doc_printf
+         "%a@,@[The type constructor@;<1 2>%a@ would escape its scope@]"

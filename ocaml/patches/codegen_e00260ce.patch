@@ -1,0 +1,30 @@
+diff --git a/asmcomp/cmm_helpers.ml b/asmcomp/cmm_helpers.ml
+index 19a25a2..cbd166d 100644
+--- a/asmcomp/cmm_helpers.ml
++++ b/asmcomp/cmm_helpers.ml
+@@ -62,11 +62,7 @@ let black_closure_header sz = black_block_header Obj.closure_tag sz
+ let infix_header ofs = block_header Obj.infix_tag ofs
+ let float_header = block_header Obj.double_tag (size_float / size_addr)
+ let floatarray_header len =
+-  (* Zero-sized float arrays have tag zero for consistency with
+-     [caml_alloc_float_array]. *)
+-  assert (len >= 0);
+-  if len = 0 then block_header 0 0
+-  else block_header Obj.double_array_tag (len * size_float / size_addr)
++  block_header Obj.double_array_tag (len * size_float / size_addr)
+ let string_header len =
+       block_header Obj.string_tag ((len + size_addr) / size_addr)
+ let boxedint32_header = block_header Obj.custom_tag 2
+diff --git a/middle_end/closure/closure.ml b/middle_end/closure/closure.ml
+index 0d2f709..a69be8b 100644
+--- a/middle_end/closure/closure.ml
++++ b/middle_end/closure/closure.ml
+@@ -1105,6 +1105,8 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
+       let dbg = Debuginfo.from_location loc in
+       (Uprim(P.Praise k, [ulam], dbg),
+        Value_unknown)
++  | Lprim (Pmakearray (Pfloatarray, _), [], _loc) ->
++      make_const_ref (Uconst_float_array [])
+   | Lprim (Pmakearray _, [], _loc) -> make_const_ref (Uconst_block (0, []))
+   | Lprim(p, args, loc) ->
+       let p = Convert_primitives.convert p in

@@ -1,0 +1,34 @@
+diff --git a/middle_end/closure/closure.ml b/middle_end/closure/closure.ml
+index 0d2f709..aacbbf5 100644
+--- a/middle_end/closure/closure.ml
++++ b/middle_end/closure/closure.ml
+@@ -986,24 +986,13 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
+ 
+       | ((ufunct, Value_closure(fundesc, _approx_res)), uargs)
+         when fundesc.fun_arity > 0 && nargs > fundesc.fun_arity ->
+-          let args = List.map (fun arg -> V.create_local "arg", arg) uargs in
+-          let (first_args, rem_args) = split_list fundesc.fun_arity args in
+-          let first_args = List.map (fun (id, _) -> Uvar id) first_args in
+-          let rem_args = List.map (fun (id, _) -> Uvar id) rem_args in
++          let (first_args, rem_args) = split_list fundesc.fun_arity uargs in
+           let dbg = Debuginfo.from_location loc in
+           warning_if_forced_inline ~loc ~attribute "Over-application";
+-          let body =
+-            Ugeneric_apply(direct_apply env ~loc ~attribute
+-                              fundesc ufunct first_args,
+-                           rem_args, dbg)
+-          in
+-          let result =
+-            List.fold_left (fun body (id, defining_expr) ->
+-                Ulet (Immutable, Pgenval, VP.create id, defining_expr, body))
+-              body
+-              args
+-          in
+-          result, Value_unknown
++          (Ugeneric_apply(direct_apply env ~loc ~attribute
++                            fundesc ufunct first_args,
++                          rem_args, dbg),
++           Value_unknown)
+       | ((ufunct, _), uargs) ->
+           let dbg = Debuginfo.from_location loc in
+           warning_if_forced_inline ~loc ~attribute "Unknown function";
