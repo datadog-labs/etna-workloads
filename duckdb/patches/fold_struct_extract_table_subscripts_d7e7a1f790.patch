@@ -1,0 +1,115 @@
+diff --git a/src/include/duckdb/optimizer/rule/list.hpp b/src/include/duckdb/optimizer/rule/list.hpp
+index e515866..007acb7 100644
+--- a/src/include/duckdb/optimizer/rule/list.hpp
++++ b/src/include/duckdb/optimizer/rule/list.hpp
+@@ -17,6 +17,5 @@
+ #include "duckdb/optimizer/rule/not_conjunction_simplification.hpp"
+ #include "duckdb/optimizer/rule/enum_comparison.hpp"
+ #include "duckdb/optimizer/rule/regex_optimizations.hpp"
+-#include "duckdb/optimizer/rule/struct_extract_struct_pack_folding.hpp"
+ #include "duckdb/optimizer/rule/ordered_aggregate_optimizer.hpp"
+ #include "duckdb/optimizer/rule/timestamp_comparison.hpp"
+diff --git a/src/include/duckdb/optimizer/rule/struct_extract_struct_pack_folding.hpp b/src/include/duckdb/optimizer/rule/struct_extract_struct_pack_folding.hpp
+deleted file mode 100644
+index 42de68e..0000000
+--- a/src/include/duckdb/optimizer/rule/struct_extract_struct_pack_folding.hpp
++++ /dev/null
+@@ -1,26 +0,0 @@
+-//===----------------------------------------------------------------------===//
+-//                         DuckDB
+-//
+-// duckdb/optimizer/rule/struct_extract_struct_pack_folding.hpp
+-//
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#pragma once
+-
+-#include "duckdb/optimizer/rule.hpp"
+-
+-namespace duckdb {
+-
+-//! Fold struct_extract(struct_pack(c0, c1, ...), key) to the bound child expression for `key`.
+-//! This keeps table subscript forms (e.g. alias['col']) from materializing full-row structs,
+-//! restoring column pruning for scans.
+-class StructExtractStructPackFoldingRule : public Rule {
+-public:
+-	explicit StructExtractStructPackFoldingRule(ExpressionRewriter &rewriter);
+-
+-	unique_ptr<Expression> Apply(LogicalOperator &op, vector<reference<Expression>> &bindings, bool &changes_made,
+-	                             bool is_root) override;
+-};
+-
+-} // namespace duckdb
+diff --git a/src/optimizer/optimizer.cpp b/src/optimizer/optimizer.cpp
+index e9ef3cb..434f9c6 100644
+--- a/src/optimizer/optimizer.cpp
++++ b/src/optimizer/optimizer.cpp
+@@ -72,7 +72,6 @@ namespace duckdb {
+ Optimizer::Optimizer(Binder &binder, ClientContext &context) : context(context), binder(binder), rewriter(context) {
+ 	rewriter.rules.push_back(make_uniq<ConstantOrderNormalizationRule>(rewriter));
+ 	rewriter.rules.push_back(make_uniq<ConstantFoldingRule>(rewriter));
+-	rewriter.rules.push_back(make_uniq<StructExtractStructPackFoldingRule>(rewriter));
+ 	rewriter.rules.push_back(make_uniq<DistributivityRule>(rewriter));
+ 	rewriter.rules.push_back(make_uniq<ArithmeticSimplificationRule>(rewriter));
+ 	rewriter.rules.push_back(make_uniq<LeastGreatestSimplificationRule>(rewriter));
+diff --git a/src/optimizer/rule/CMakeLists.txt b/src/optimizer/rule/CMakeLists.txt
+index 78c2a8e..f81a4dc 100644
+--- a/src/optimizer/rule/CMakeLists.txt
++++ b/src/optimizer/rule/CMakeLists.txt
+@@ -26,7 +26,6 @@ add_library_unity(
+   ordered_aggregate_optimizer.cpp
+   predicate_factoring.cpp
+   regex_optimizations.cpp
+-  struct_extract_struct_pack_folding.cpp
+   timestamp_comparison.cpp
+   constant_order_normalization.cpp
+   contains_to_in_clause.cpp)
+diff --git a/src/optimizer/rule/struct_extract_struct_pack_folding.cpp b/src/optimizer/rule/struct_extract_struct_pack_folding.cpp
+deleted file mode 100644
+index b74ae83..0000000
+--- a/src/optimizer/rule/struct_extract_struct_pack_folding.cpp
++++ /dev/null
+@@ -1,42 +0,0 @@
+-#include "duckdb/optimizer/rule/struct_extract_struct_pack_folding.hpp"
+-
+-#include "duckdb/function/scalar/struct_utils.hpp"
+-#include "duckdb/optimizer/matcher/expression_matcher.hpp"
+-#include "duckdb/planner/expression/bound_cast_expression.hpp"
+-#include "duckdb/planner/expression/bound_function_expression.hpp"
+-
+-namespace duckdb {
+-
+-StructExtractStructPackFoldingRule::StructExtractStructPackFoldingRule(ExpressionRewriter &rewriter) : Rule(rewriter) {
+-	auto func = make_uniq<FunctionExpressionMatcher>();
+-	// a bracket subscript on a struct binds to the "array_extract" overload - fold both the same way
+-	func->function = make_uniq<ManyFunctionMatcher>(identifier_set_t {"struct_extract", "array_extract"});
+-	func->policy = SetMatcher::Policy::ORDERED;
+-	auto packed = make_uniq<FunctionExpressionMatcher>();
+-	packed->function = make_uniq<SpecificFunctionMatcher>("struct_pack");
+-	packed->policy = SetMatcher::Policy::SOME;
+-	func->matchers.push_back(std::move(packed));
+-	func->matchers.push_back(make_uniq<ExpressionMatcher>());
+-	root = std::move(func);
+-}
+-
+-unique_ptr<Expression> StructExtractStructPackFoldingRule::Apply(LogicalOperator &op,
+-                                                                 vector<reference<Expression>> &bindings,
+-                                                                 bool &changes_made, bool is_root) {
+-	auto &extract = bindings[0].get().Cast<BoundFunctionExpression>();
+-	auto &packed = bindings[1].get().Cast<BoundFunctionExpression>();
+-	auto &bind_info = extract.BindInfo();
+-	if (!bind_info) {
+-		return nullptr;
+-	}
+-	auto &extract_data = bind_info->Cast<StructExtractBindData>();
+-	auto &packed_children = packed.GetChildrenMutable();
+-	if (extract_data.index >= packed_children.size()) {
+-		return nullptr;
+-	}
+-	// struct_extract(struct_pack(e0, .., en), ki) is equivalent to ei
+-	auto result = std::move(packed_children[extract_data.index]);
+-	return BoundCastExpression::AddCastToType(GetContext(), std::move(result), extract.Function().GetReturnType());
+-}
+-
+-} // namespace duckdb

@@ -1,0 +1,262 @@
+diff --git a/src/execution/join_hashtable.cpp b/src/execution/join_hashtable.cpp
+index 493e0f0..0e97ca6 100644
+--- a/src/execution/join_hashtable.cpp
++++ b/src/execution/join_hashtable.cpp
+@@ -1003,10 +1003,6 @@ static void InsertHashesLoop(unsafe_optional_ptr<atomic<ht_entry_t>> entries, Ve
+ 
+ void JoinHashTable::InsertHashes(Vector &hashes_v, TupleDataChunkState &chunk_state, InsertState &insert_state,
+                                  bool parallel) {
+-	// a sealed filter was accumulated during Sink and is already complete; only a finalize-built one fills here
+-	if (bloom_filter && !bloom_filter->IsSealed()) {
+-		bloom_filter->InsertHashes(hashes_v);
+-	}
+ 	auto atomic_entries = GetAtomicEntries();
+ 	auto &row_locations = chunk_state.row_locations;
+ 	if (parallel) {
+@@ -1072,12 +1068,6 @@ void JoinHashTable::AllocatePointerTable() {
+ 		throw InternalException("Hashtable capacity exceeds 48-bit limit (2^48 - 1)");
+ 	}
+ 
+-	if (should_build_bloom_filter && (!bloom_filter || bloom_filter->IsSealed())) {
+-		// (re)create the finalize-built filter now that the actual build count is known
+-		bloom_filter = make_shared_ptr<BloomFilter>();
+-		bloom_filter->Initialize(context, MaxValue<idx_t>(Count(), 1));
+-	}
+-
+ 	if (hash_map.get()) {
+ 		// There is already a hash map
+ 		auto current_capacity = hash_map.GetSize() / sizeof(ht_entry_t);
+@@ -2579,7 +2569,6 @@ void JoinHashTable::ResetForNewIterationSinglePartition() {
+ 	total_probe_matches = 0;
+ 	load_factor = DEFAULT_LOAD_FACTOR;
+ 	bloom_filter.reset();
+-	should_build_bloom_filter = false;
+ 	prefix_range_filter.reset();
+ 	should_build_prefix_range_filter = false;
+ 	ResetMarkJoinInfo(*this);
+diff --git a/src/execution/operator/join/physical_hash_join.cpp b/src/execution/operator/join/physical_hash_join.cpp
+index 81ff1e4..93dd9f4 100644
+--- a/src/execution/operator/join/physical_hash_join.cpp
++++ b/src/execution/operator/join/physical_hash_join.cpp
+@@ -350,35 +350,9 @@ struct LayoutGate {
+ 
+ static idx_t GetBuildSpaceRequirement(ClientContext &context, const JoinHashTable &ht, idx_t num_threads);
+ 
+-//! Building the bloom filter is costly on the build side to make probing faster,
+-//! so only use it if there are less build tuples than probing tuples
+-static constexpr double BUILD_TO_PROBE_RATIO_THRESHOLD = 1.0;
+-//! If we have a build side without a filter, only build the bloom filter if the ratio/size is small enough
+-static constexpr double NON_FILTERING_RATIO_THRESHOLD = 0.1;
+-static constexpr idx_t NON_FILTERING_BUILD_SIDE_THRESHOLD = 4194304;
+-//! A join is expected to stay in memory while its estimated build side is below this share of the memory budget
+-static constexpr idx_t LIKELY_IN_MEMORY_BUILD_MEMORY_FRACTION = 4;
+-
+-//! Whether the build side is expected to exceed the memory budget and spill
+-static bool JoinIsLikelyExternal(ClientContext &context, const PhysicalHashJoin &op) {
+-	if (Settings::Get<DebugForceExternalSetting>(context)) {
+-		return true;
+-	}
+-	idx_t row_width = sizeof(data_ptr_t) + sizeof(hash_t); // per-row pointer table and hash overhead
+-	for (auto &type : op.children[1].get().GetTypes()) {
+-		row_width += GetTypeIdSize(type.InternalType());
+-	}
+-	const auto build_size = op.children[1].get().estimated_cardinality * row_width;
+-	const auto memory_budget = BufferManager::GetBufferManager(context).GetMaxMemory();
+-	return build_size > memory_budget / LIKELY_IN_MEMORY_BUILD_MEMORY_FRACTION;
+-}
+-
+-//! Whether to accumulate a bloom filter during Sink. Only an external join needs that: its finalize only ever
+-//! materializes some partitions, so a filter built there would be incomplete, while every row passes through
+-//! Sink. An in-memory join builds its filter during finalize instead, where the actual build count and the
+-//! competing filter choices are known. The estimate-based checks mirror CanUseBloomFilter, which decides
+-//! publication once the actual build count is known.
+-static bool ShouldBuildBloomFilterInSink(ClientContext &context, const PhysicalHashJoin &op) {
++//! A bloom filter is only useful if we expect to probe more rows than we build, and it can only be pushed into a
++//! scan for a single equality condition. Both are decided up front, because the filter is filled during Sink.
++static bool ShouldBuildBloomFilter(const PhysicalHashJoin &op) {
+ 	if (!op.filter_pushdown || op.filter_pushdown->probe_info.empty()) {
+ 		return false;
+ 	}
+@@ -392,16 +366,7 @@ static bool ShouldBuildBloomFilterInSink(ClientContext &context, const PhysicalH
+ 	if (equality_count != 1) {
+ 		return false;
+ 	}
+-	const auto build_estimate = static_cast<double>(op.children[1].get().estimated_cardinality);
+-	const auto probe_estimate = static_cast<double>(op.children[0].get().estimated_cardinality);
+-	if (build_estimate > BUILD_TO_PROBE_RATIO_THRESHOLD * probe_estimate) {
+-		return false;
+-	}
+-	if (!op.filter_pushdown->build_side_has_filter && build_estimate > NON_FILTERING_RATIO_THRESHOLD * probe_estimate &&
+-	    build_estimate > NON_FILTERING_BUILD_SIDE_THRESHOLD) {
+-		return false;
+-	}
+-	return JoinIsLikelyExternal(context, op);
++	return op.children[1].get().estimated_cardinality <= op.children[0].get().estimated_cardinality;
+ }
+ 
+ class HashJoinGlobalSinkState : public GlobalSinkState {
+@@ -443,8 +408,7 @@ public:
+ 
+ 	//! Creates the bloom filter that every thread-local hash table inserts into during Sink
+ 	void InitializeBloomFilter() {
+-		// a perfect hash join publishes its own exact filter, so a bloom filter would never leave the sink
+-		if (skip_filter_pushdown || can_use_perfect_hash || !ShouldBuildBloomFilterInSink(context, op)) {
++		if (skip_filter_pushdown || !ShouldBuildBloomFilter(op)) {
+ 			hash_table->SetBloomFilter(nullptr);
+ 			return;
+ 		}
+@@ -1257,9 +1221,6 @@ private:
+ 		}
+ 
+ 		if (sink.global_filter_state) {
+-			// a finalize-built bloom filter is complete once the tasks are done; a sink-built one is
+-			// already sealed and this is a no-op
+-			sink.hash_table->SealBloomFilter();
+ 			PublishDeferredRuntimeFilters(sink.context, *sink.hash_table, *sink.global_filter_state);
+ 		}
+ 		sink.hash_table->finalized = true;
+@@ -1461,6 +1422,9 @@ bool JoinFilterPushdownInfo::CanUseBloomFilter(const JoinFilterPushdownFilter &i
+ 		return false;
+ 	}
+ 
++	// building the bloom filter is costly on the build to make probing faster,
++	// so only use it if there are less build tuples than probing tuples
++	static constexpr double BUILD_TO_PROBE_RATIO_THRESHOLD = 1.0;
+ 	auto build_count = ht->Count();
+ 	if (build_count == 0) {
+ 		build_count = ht->GetSinkCollection().Count();
+@@ -1475,6 +1439,8 @@ bool JoinFilterPushdownInfo::CanUseBloomFilter(const JoinFilterPushdownFilter &i
+ 	}
+ 
+ 	// if we have a build side without a filter, only build the bloom filter if the ratio/size is small enough
++	static constexpr double NON_FILTERING_RATIO_THRESHOLD = 0.1;
++	static constexpr idx_t NON_FILTERING_BUILD_SIDE_THRESHOLD = 4194304;
+ 	if (!build_side_has_filter && build_to_probe_ratio > NON_FILTERING_RATIO_THRESHOLD &&
+ 	    build_count > NON_FILTERING_BUILD_SIDE_THRESHOLD) {
+ 		return false;
+@@ -1626,8 +1592,8 @@ static unique_ptr<Expression> CreateRuntimeFilterExpression(ClientContext &conte
+ 	unique_ptr<Expression> filter_expr;
+ 	switch (deferred.type) {
+ 	case DeferredRuntimeFilterType::BLOOM_FILTER: {
+-		// a filter that is not sealed does not describe the complete build side - publishing it would drop
+-		// rows - and a filter that saturated is not worth the hashing it costs the scan
++		D_ASSERT(ht.HasPublishableBloomFilter());
++		// a filter that is not sealed does not describe the complete build side - publishing it would drop rows
+ 		if (!ht.HasPublishableBloomFilter()) {
+ 			return nullptr;
+ 		}
+@@ -1947,18 +1913,9 @@ unique_ptr<DataChunk> JoinFilterPushdownInfo::FinalizeFilters(ClientContext &con
+ 					                           max_val, condition_type, reconstruct_filter_expression, false);
+ 				}
+ 				if (allow_bloom_filters && can_emit_runtime_filters && ht && gstate &&
+-				    CanUseBloomFilter(info, context, op, cmp, ht)) {
+-					if (ht->HasPublishableBloomFilter()) {
+-						// a complete filter was accumulated during Sink (external joins build it there)
+-						DeferRuntimeFilter(DeferredRuntimeFilterType::BLOOM_FILTER, op, info, pushdown_column,
+-						                   filter_col_idx, *gstate);
+-					} else if (allow_prefix_range_filters) {
+-						// like a prefix-range filter, a bloom filter may be built during finalize when the
+-						// finalize materializes the whole build side - an external finalize does not
+-						ht->SetBuildBloomFilter(true);
+-						DeferRuntimeFilter(DeferredRuntimeFilterType::BLOOM_FILTER, op, info, pushdown_column,
+-						                   filter_col_idx, *gstate);
+-					}
++				    ht->HasPublishableBloomFilter() && CanUseBloomFilter(info, context, op, cmp, ht)) {
++					DeferRuntimeFilter(DeferredRuntimeFilterType::BLOOM_FILTER, op, info, pushdown_column,
++					                   filter_col_idx, *gstate);
+ 				}
+ 			}
+ 		}
+diff --git a/src/include/duckdb/execution/join_hashtable.hpp b/src/include/duckdb/execution/join_hashtable.hpp
+index 1586023..a607b60 100644
+--- a/src/include/duckdb/execution/join_hashtable.hpp
++++ b/src/include/duckdb/execution/join_hashtable.hpp
+@@ -554,12 +554,9 @@ private:
+ 	//! An empty tuple that's a "dead end", can be used to stop chains early
+ 	unsafe_unique_array<data_t> dead_end;
+ 
+-	//! Bloom filter over the join keys. An external join fills it during Sink, an in-memory join during
+-	//! finalize. Shared by every thread-local hash table of this operator, and shared again with any scan it
+-	//! gets published to, so it outlives a reset of this table
++	//! Bloom filter over the join keys, filled during Sink. Shared by every thread-local hash table of this
++	//! operator, and shared again with any scan it gets published to, so it outlives a reset of this table
+ 	shared_ptr<BloomFilter> bloom_filter;
+-	//! Whether finalize should build the bloom filter from the materialized build side
+-	bool should_build_bloom_filter = false;
+ 
+ 	unique_ptr<PrefixRangeFilter> prefix_range_filter;
+ 	bool should_build_prefix_range_filter = false;
+@@ -644,10 +641,6 @@ public:
+ 	void SetBloomFilter(shared_ptr<BloomFilter> filter) {
+ 		bloom_filter = std::move(filter);
+ 	}
+-	//! Requests a filter built during finalize, from the materialized build side (in-memory joins only)
+-	void SetBuildBloomFilter(const bool should_build) {
+-		this->should_build_bloom_filter = should_build;
+-	}
+ 
+ 	shared_ptr<BloomFilter> GetBloomFilter() {
+ 		return bloom_filter;
+diff --git a/src/include/duckdb/planner/filter/table_filter_functions.hpp b/src/include/duckdb/planner/filter/table_filter_functions.hpp
+index aa07f44..d5dbb23 100644
+--- a/src/include/duckdb/planner/filter/table_filter_functions.hpp
++++ b/src/include/duckdb/planner/filter/table_filter_functions.hpp
+@@ -98,8 +98,6 @@ public:
+ 	//! VectorOperations::Hash writes at the source row positions, so the hashes to insert are the ones sel
+ 	//! points at rather than the first count entries
+ 	void InsertHashes(const Vector &hashes_v, const SelectionVector &sel, idx_t count);
+-	//! Inserts every hash the vector carries
+-	void InsertHashes(const Vector &hashes_v);
+ 	idx_t LookupHashes(const Vector &hashes_v, SelectionVector &result_sel, idx_t count) const;
+ 	//! result_sel contains local positions into sel rather than source row ids.
+ 	idx_t LookupHashes(const Vector &hashes_v, const SelectionVector &sel, SelectionVector &result_sel,
+diff --git a/src/planner/filter/table_filter_bloom_function.cpp b/src/planner/filter/table_filter_bloom_function.cpp
+index 3a0a18b..fa78acf 100644
+--- a/src/planner/filter/table_filter_bloom_function.cpp
++++ b/src/planner/filter/table_filter_bloom_function.cpp
+@@ -35,18 +35,10 @@ static constexpr idx_t BITS_PER_SECTOR = 1ULL << LOG_SECTOR_SIZE;
+ //! A sector is one entry of the bit array, so the two have to agree on how wide it is
+ static_assert(BITS_PER_SECTOR == sizeof(uint64_t) * 8, "a bloom filter sector must be exactly one array entry");
+ 
+-//! A filter is sized from a cardinality estimate, so never let it claim more than this share of the memory budget
+-static constexpr idx_t MAX_MEMORY_FRACTION = 64;
+-
+ void BloomFilter::Initialize(ClientContext &context_p, idx_t number_of_rows) {
+ 	BufferManager &buffer_manager = BufferManager::GetBufferManager(context_p);
+ 
+-	// a capped filter stays complete - fewer sectors only raise the false positive rate, and Seal drops a
+-	// filter that ended up too dense to reject anything
+-	const idx_t min_sectors = MIN_NUM_BITS >> LOG_SECTOR_SIZE;
+-	const idx_t budget_bytes = buffer_manager.GetMaxMemory() / MAX_MEMORY_FRACTION;
+-	const idx_t budget_sectors = MaxValue(PreviousPowerOfTwo(budget_bytes / sizeof(uint64_t)), min_sectors);
+-	num_sectors = MinValue(GetNumberOfSectors(number_of_rows), budget_sectors);
++	num_sectors = GetNumberOfSectors(number_of_rows);
+ 	bitmask = num_sectors - 1;
+ 
+ 	buf_ = buffer_manager.GetBufferAllocator().Allocate(64 + num_sectors * sizeof(uint64_t));
+@@ -167,12 +159,6 @@ void BloomFilter::InsertHashes(const Vector &hashes_v, const SelectionVector &se
+ 	}
+ }
+ 
+-void BloomFilter::InsertHashes(const Vector &hashes_v) {
+-	for (auto hash : hashes_v.Values<uint64_t>()) {
+-		InsertOne(hash.GetValue());
+-	}
+-}
+-
+ idx_t BloomFilter::LookupHashes(const Vector &hashes_v, SelectionVector &result_sel, const idx_t count) const {
+ 	D_ASSERT(hashes_v.GetVectorType() == VectorType::FLAT_VECTOR);
+ 	D_ASSERT(hashes_v.GetType() == LogicalType::HASH);
+@@ -207,11 +193,7 @@ inline void BloomFilter::InsertOne(const hash_t hash) {
+ 	const uint64_t mask = GetMask(hash);
+ 	atomic<uint64_t> &slot = *reinterpret_cast<atomic<uint64_t> *>(&bf[bf_offset]);
+ 
+-	// duplicate keys find their bits already set - checking first keeps the shared sector read-only then,
+-	// instead of a contended read-modify-write
+-	if ((slot.load(std::memory_order_relaxed) & mask) != mask) {
+-		slot.fetch_or(mask, std::memory_order_relaxed);
+-	}
++	slot.fetch_or(mask, std::memory_order_relaxed);
+ }
+ 
+ bool BloomFilter::LookupOne(const uint64_t hash) const {

@@ -1,0 +1,4 @@
+CREATE TABLE t(x DOUBLE);
+INSERT INTO t SELECT 'nan' FROM range(10);
+CHECKPOINT;
+SELECT (stats(x)).min FROM t LIMIT 1;

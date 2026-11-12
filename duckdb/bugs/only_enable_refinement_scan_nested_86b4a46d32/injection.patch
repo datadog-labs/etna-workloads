@@ -1,0 +1,168 @@
+diff --git a/src/execution/join_hashtable.cpp b/src/execution/join_hashtable.cpp
+index 493e0f0..e91d94c 100644
+--- a/src/execution/join_hashtable.cpp
++++ b/src/execution/join_hashtable.cpp
+@@ -146,7 +146,6 @@ JoinHashTable::~JoinHashTable() {
+ void JoinHashTable::InitializeUncorrelatedMarkJoin() {
+ 	D_ASSERT(join_type == JoinType::MARK);
+ 	D_ASSERT(mark_join_info.correlated_types.empty());
+-	mark_join_info.uncorrelated_has_null = false;
+ 	mark_join_info.uncorrelated_condition_rows = make_uniq<ColumnDataCollection>(context, condition_types);
+ }
+ 
+@@ -169,7 +168,6 @@ void JoinHashTable::Merge(JoinHashTable &other) {
+ 			info.correlated_counts->Combine(*other_info.correlated_counts);
+ 		}
+ 		if (info.uncorrelated_condition_rows && other.mark_join_info.uncorrelated_condition_rows) {
+-			info.uncorrelated_has_null = info.uncorrelated_has_null || other.mark_join_info.uncorrelated_has_null;
+ 			info.uncorrelated_condition_rows->Combine(*other.mark_join_info.uncorrelated_condition_rows);
+ 		}
+ 	}
+@@ -596,42 +594,6 @@ void JoinHashTable::EncodeDictSurvivingColumn(const DictSurvivingColumn &column,
+ 	                        static_cast<uint64_t>(build_col_idx));
+ }
+ 
+-static bool MarkJoinNullRows(const UnifiedVectorFormat &format, idx_t count,
+-                             optional_ptr<bool> rows_with_null = nullptr) {
+-	if (format.validity.CannotHaveNull()) {
+-		return false;
+-	}
+-	bool has_null = false;
+-	for (idx_t row_idx = 0; row_idx < count; row_idx++) {
+-		auto format_idx = format.sel->get_index(row_idx);
+-		if (!format.validity.RowIsValid(format_idx)) {
+-			has_null = true;
+-			if (rows_with_null) {
+-				rows_with_null.get()[row_idx] = true;
+-			}
+-		}
+-	}
+-	return has_null;
+-}
+-
+-static bool MarkJoinKeysHaveNull(DataChunk &keys, optional_ptr<bool> rows_with_null = nullptr) {
+-	bool has_null = false;
+-	for (idx_t col_idx = 0; col_idx < keys.ColumnCount(); col_idx++) {
+-		UnifiedVectorFormat format;
+-		if (keys.data[col_idx].GetType().IsNested()) {
+-			Vector comparison(LogicalType::BOOLEAN, keys.size());
+-			VectorOperations::Equals(keys.data[col_idx], keys.data[col_idx], comparison);
+-			comparison.ToUnifiedFormat(format);
+-		} else {
+-			keys.data[col_idx].ToUnifiedFormat(format);
+-		}
+-		if (MarkJoinNullRows(format, keys.size(), rows_with_null)) {
+-			has_null = true;
+-		}
+-	}
+-	return has_null;
+-}
+-
+ void JoinHashTable::Build(PartitionedTupleDataAppendState &append_state, DataChunk &keys, DataChunk &payload) {
+ 	D_ASSERT(!finalized);
+ 	D_ASSERT(keys.size() == payload.size());
+@@ -661,7 +623,6 @@ void JoinHashTable::Build(PartitionedTupleDataAppendState &append_state, DataChu
+ 	}
+ 	if (mark_join_info.uncorrelated_condition_rows) {
+ 		// Keep all rows: probe-side NULLs can be UNKNOWN against non-NULL rows in other external hash partitions.
+-		mark_join_info.uncorrelated_has_null = mark_join_info.uncorrelated_has_null || MarkJoinKeysHaveNull(keys);
+ 		mark_join_info.uncorrelated_condition_rows->Append(keys);
+ 	}
+ 
+@@ -2028,37 +1989,44 @@ void JoinHashTable::ConstructMarkJoinResult(DataChunk &join_keys, DataChunk &pro
+ 		return;
+ 	}
+ 	bool requires_refinement[STANDARD_VECTOR_SIZE] = {false};
+-	if (!mark_join_info.uncorrelated_has_null && !MarkJoinKeysHaveNull(join_keys, requires_refinement)) {
+-		return;
+-	}
+-
+-	SelectionVector refinement_sel(STANDARD_VECTOR_SIZE);
+-	idx_t refinement_count = 0;
+-	for (idx_t probe_idx = 0; probe_idx < join_keys.size(); probe_idx++) {
+-		if ((mark_join_info.uncorrelated_has_null || requires_refinement[probe_idx]) && !bool_result[probe_idx] &&
+-		    mask.RowIsValid(probe_idx)) {
+-			refinement_sel.set_index(refinement_count++, probe_idx);
++	if (has_null) {
++		for (idx_t probe_idx = 0; probe_idx < join_keys.size(); probe_idx++) {
++			requires_refinement[probe_idx] = true;
++		}
++	} else {
++		for (idx_t col_idx = 0; col_idx < join_keys.ColumnCount(); col_idx++) {
++			if (join_keys.data[col_idx].GetType().IsNested()) {
++				for (idx_t probe_idx = 0; probe_idx < join_keys.size(); probe_idx++) {
++					requires_refinement[probe_idx] = true;
++				}
++				continue;
++			}
++			UnifiedVectorFormat probe_format;
++			join_keys.data[col_idx].ToUnifiedFormat(probe_format);
++			if (probe_format.validity.CannotHaveNull()) {
++				continue;
++			}
++			for (idx_t probe_idx = 0; probe_idx < join_keys.size(); probe_idx++) {
++				auto probe_data_idx = probe_format.sel->get_index(probe_idx);
++				requires_refinement[probe_idx] =
++				    requires_refinement[probe_idx] || !probe_format.validity.RowIsValid(probe_data_idx);
++			}
+ 		}
+-	}
+-	if (refinement_count == 0) {
+-		return;
+ 	}
+ 
+ 	ColumnDataScanState scan_state;
+ 	mark_join_info.uncorrelated_condition_rows->InitializeScan(scan_state);
+ 	DataChunk rhs_chunk;
+ 	mark_join_info.uncorrelated_condition_rows->InitializeScanChunk(rhs_chunk);
+-	while (refinement_count > 0 && mark_join_info.uncorrelated_condition_rows->Scan(scan_state, rhs_chunk)) {
+-		idx_t remaining_count = 0;
+-		for (idx_t candidate_idx = 0; candidate_idx < refinement_count; candidate_idx++) {
+-			auto probe_idx = refinement_sel.get_index(candidate_idx);
++	while (mark_join_info.uncorrelated_condition_rows->Scan(scan_state, rhs_chunk)) {
++		for (idx_t probe_idx = 0; probe_idx < join_keys.size(); probe_idx++) {
++			if (!requires_refinement[probe_idx] || bool_result[probe_idx] || !mask.RowIsValid(probe_idx)) {
++				continue;
++			}
+ 			if (MarkJoinChunkHasUnknown(join_keys, probe_idx, rhs_chunk)) {
+ 				mask.SetInvalid(probe_idx);
+-			} else {
+-				refinement_sel.set_index(remaining_count++, probe_idx);
+ 			}
+ 		}
+-		refinement_count = remaining_count;
+ 	}
+ }
+ 
+@@ -2450,9 +2418,7 @@ idx_t JoinHashTable::GetRemainingSize() const {
+ 		data_size += partitions[partition_idx]->SizeInBytes();
+ 	}
+ 
+-	const auto mark_join_size =
+-	    mark_join_info.uncorrelated_condition_rows ? mark_join_info.uncorrelated_condition_rows->SizeInBytes() : 0;
+-	return data_size + PointerTableSize(count) + mark_join_size;
++	return data_size + PointerTableSize(count);
+ }
+ 
+ void JoinHashTable::Unpartition() {
+@@ -2549,7 +2515,6 @@ static void ResetMarkJoinInfo(JoinHashTable &ht) {
+ 		info.result_chunk.Reset();
+ 	}
+ 	if (info.uncorrelated_condition_rows) {
+-		info.uncorrelated_has_null = false;
+ 		info.uncorrelated_condition_rows = make_uniq<ColumnDataCollection>(ht.context, ht.condition_types);
+ 	}
+ }
+diff --git a/src/include/duckdb/execution/join_hashtable.hpp b/src/include/duckdb/execution/join_hashtable.hpp
+index 1586023..e7192b6 100644
+--- a/src/include/duckdb/execution/join_hashtable.hpp
++++ b/src/include/duckdb/execution/join_hashtable.hpp
+@@ -498,8 +498,6 @@ public:
+ 		DataChunk correlated_payload;
+ 		//! Result chunk used for aggregating into correlated_counts
+ 		DataChunk result_chunk;
+-		//! Whether an RHS condition can produce UNKNOWN during equality comparison
+-		bool uncorrelated_has_null = false;
+ 		//! All RHS condition rows, used only for uncorrelated row equality NULL refinement
+ 		unique_ptr<ColumnDataCollection> uncorrelated_condition_rows;
+ 	} mark_join_info;

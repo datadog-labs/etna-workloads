@@ -1,0 +1,3 @@
+CREATE TABLE nested(i INT, s VARCHAR);
+INSERT INTO nested VALUES (1,'a'),(2,'b'),(3,'b'),(4,'c'),(5,'c'),(6,'b'),(7,'c'),(8,'a'),(9,NULL),(NULL,'b'),(NULL,NULL);
+SELECT i, s, MEDIAN(DISTINCT s) OVER(ORDER BY i, s NULLS LAST ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS c FROM nested ORDER BY i, s NULLS LAST;

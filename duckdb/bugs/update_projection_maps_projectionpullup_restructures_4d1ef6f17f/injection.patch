@@ -1,0 +1,84 @@
+diff --git a/src/include/duckdb/optimizer/projection_pullup.hpp b/src/include/duckdb/optimizer/projection_pullup.hpp
+index bee7705..d6240f4 100644
+--- a/src/include/duckdb/optimizer/projection_pullup.hpp
++++ b/src/include/duckdb/optimizer/projection_pullup.hpp
+@@ -9,14 +9,13 @@ namespace duckdb {
+ class Optimizer;
+ class LogicalOperator;
+ 
+-class ProjectionPullup : public LogicalOperatorVisitor {
++class ProjectionPullup {
+ public:
+ 	explicit ProjectionPullup(Optimizer &optimizer_p, unique_ptr<LogicalOperator> &root)
+ 	    : optimizer(optimizer_p), root(root) {
+ 	}
+ 
+ 	void Optimize(unique_ptr<LogicalOperator> &op);
+-	void VisitOperator(unique_ptr<LogicalOperator> &op) override;
+ 
+ private:
+ 	Optimizer &optimizer;
+diff --git a/src/optimizer/projection_pullup.cpp b/src/optimizer/projection_pullup.cpp
+index 4c2d016..3c60b61 100644
+--- a/src/optimizer/projection_pullup.cpp
++++ b/src/optimizer/projection_pullup.cpp
+@@ -1,7 +1,6 @@
+ #include "duckdb/optimizer/projection_pullup.hpp"
+ #include "duckdb/planner/operator/logical_projection.hpp"
+ #include "duckdb/planner/operator/logical_comparison_join.hpp"
+-#include "duckdb/planner/operator/logical_filter.hpp"
+ #include "duckdb/planner/expression/bound_columnref_expression.hpp"
+ #include "duckdb/planner/expression_iterator.hpp"
+ #include "duckdb/optimizer/optimizer.hpp"
+@@ -213,10 +212,6 @@ void ProjectionPullup::CanPullThrough(column_binding_map_t<unique_ptr<Expression
+ }
+ 
+ void ProjectionPullup::Optimize(unique_ptr<LogicalOperator> &op) {
+-	VisitOperator(op);
+-}
+-
+-void ProjectionPullup::VisitOperator(unique_ptr<LogicalOperator> &op) {
+ 	switch (op->type) {
+ 	// These operators depend on column order.
+ 	// If their immediate child is a projection, keep it and recurse into the projection’s child.
+@@ -251,14 +246,15 @@ void ProjectionPullup::VisitOperator(unique_ptr<LogicalOperator> &op) {
+ 		parents.push_back(*op);
+ 		if (comp_join.join_type == JoinType::SEMI || comp_join.join_type == JoinType::ANTI) {
+ 			// LHS: can pull through
+-			VisitChildOfOperatorWithProjectionMap(comp_join.children[0], comp_join.left_projection_map);
++			Optimize(comp_join.children[0]);
+ 
+ 			// RHS: Cannot pull through. Add a projection "barrier"
+ 			InsertProjectionBelowOp(op, comp_join.children[1], false);
+ 		} else {
+ 			// All other joins: recurse normally on both sides
+-			VisitChildOfOperatorWithProjectionMap(comp_join.children[0], comp_join.left_projection_map);
+-			VisitChildOfOperatorWithProjectionMap(comp_join.children[1], comp_join.right_projection_map);
++			for (auto &child : op->children) {
++				Optimize(child);
++			}
+ 		}
+ 
+ 		PopParents(*op);
+@@ -269,8 +265,7 @@ void ProjectionPullup::VisitOperator(unique_ptr<LogicalOperator> &op) {
+ 		parents.push_back(*op);
+ 
+ 		// Recurse
+-		auto &filter = op->Cast<LogicalFilter>();
+-		VisitChildOfOperatorWithProjectionMap(op->children[0], filter.projection_map);
++		Optimize(op->children[0]);
+ 
+ 		PopParents(*op);
+ 		return;
+@@ -342,7 +337,9 @@ void ProjectionPullup::VisitOperator(unique_ptr<LogicalOperator> &op) {
+ 	}
+ 
+ 	// Create new optimizer for child (start fresh without any state)
+-	ProjectionPullup next(optimizer, root);
+-	next.VisitOperatorChildren(*op);
++	for (auto &child : op->children) {
++		ProjectionPullup next(optimizer, root);
++		next.Optimize(child);
++	}
+ }
+ } // namespace duckdb

@@ -1,0 +1,66 @@
+diff --git a/src/common/enum_util.cpp b/src/common/enum_util.cpp
+index 3c57cc0..3716f73 100644
+--- a/src/common/enum_util.cpp
++++ b/src/common/enum_util.cpp
+@@ -1438,19 +1438,19 @@ const StringUtil::EnumStringLiteral *GetCompressionTypeValues() {
+ 		{ static_cast<uint32_t>(CompressionType::COMPRESSION_ROARING), "ROARING" },
+ 		{ static_cast<uint32_t>(CompressionType::COMPRESSION_EMPTY), "EMPTY" },
+ 		{ static_cast<uint32_t>(CompressionType::COMPRESSION_DICT_FSST), "DICT_FSST" },
+-		{ static_cast<uint32_t>(CompressionType::ENUM_SIZE), "ENUM_SIZE" }
++		{ static_cast<uint32_t>(CompressionType::COMPRESSION_COUNT), "COMPRESSION_COUNT" }
+ 	};
+ 	return values;
+ }
+ 
+ template<>
+ const char* EnumUtil::ToChars<CompressionType>(CompressionType value) {
+-	return StringUtil::EnumToString(GetCompressionTypeValues(), static_cast<uint32_t>(CompressionType::ENUM_SIZE), "CompressionType", static_cast<uint32_t>(value));
++	return StringUtil::EnumToString(GetCompressionTypeValues(), 17, "CompressionType", static_cast<uint32_t>(value));
+ }
+ 
+ template<>
+ CompressionType EnumUtil::FromString<CompressionType>(const char *value) {
+-	return static_cast<CompressionType>(StringUtil::StringToEnum(GetCompressionTypeValues(), static_cast<uint32_t>(CompressionType::ENUM_SIZE), "CompressionType", value));
++	return static_cast<CompressionType>(StringUtil::StringToEnum(GetCompressionTypeValues(), 17, "CompressionType", value));
+ }
+ 
+ const StringUtil::EnumStringLiteral *GetCompressionValidityValues() {
+diff --git a/src/common/enums/compression_type.cpp b/src/common/enums/compression_type.cpp
+index ec816fd..3d9dd02 100644
+--- a/src/common/enums/compression_type.cpp
++++ b/src/common/enums/compression_type.cpp
+@@ -10,7 +10,7 @@ namespace duckdb {
+ 
+ vector<string> ListCompressionTypes(void) {
+ 	vector<string> compression_types;
+-	uint8_t amount_of_compression_options = (uint8_t)CompressionType::ENUM_SIZE;
++	uint8_t amount_of_compression_options = (uint8_t)CompressionType::COMPRESSION_COUNT;
+ 	compression_types.reserve(amount_of_compression_options);
+ 	for (uint8_t i = 0; i < amount_of_compression_options; i++) {
+ 		compression_types.push_back(CompressionTypeToString((CompressionType)i));
+diff --git a/src/include/duckdb/common/enums/compression_type.hpp b/src/include/duckdb/common/enums/compression_type.hpp
+index a388417..9886671 100644
+--- a/src/include/duckdb/common/enums/compression_type.hpp
++++ b/src/include/duckdb/common/enums/compression_type.hpp
+@@ -33,7 +33,7 @@ enum class CompressionType : uint8_t {
+ 	COMPRESSION_ROARING = 13,
+ 	COMPRESSION_EMPTY = 14, // internal only
+ 	COMPRESSION_DICT_FSST = 15,
+-	ENUM_SIZE // This has to stay the last entry of the type!
++	COMPRESSION_COUNT // This has to stay the last entry of the type!
+ };
+ 
+ struct CompressionAvailabilityResult {
+diff --git a/src/main/settings/custom_settings.cpp b/src/main/settings/custom_settings.cpp
+index 3b63cef..8461462 100644
+--- a/src/main/settings/custom_settings.cpp
++++ b/src/main/settings/custom_settings.cpp
+@@ -558,7 +558,7 @@ void DisabledCompressionMethodsSetting::SetGlobal(DatabaseInstance *db, DBConfig
+ 		case CompressionType::COMPRESSION_CONSTANT:
+ 		case CompressionType::COMPRESSION_EMPTY:
+ 		case CompressionType::COMPRESSION_UNCOMPRESSED:
+-		case CompressionType::ENUM_SIZE:
++		case CompressionType::COMPRESSION_COUNT:
+ 			throw InvalidInputException("Compression method %s cannot be disabled", param);
+ 		default:
+ 			break;

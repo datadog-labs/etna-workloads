@@ -1,0 +1,76 @@
+diff --git a/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp b/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
+index 7fa82e0..b94303f 100644
+--- a/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
++++ b/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
+@@ -563,7 +563,7 @@ public:
+ 	idx_t prepared_statement_parameter_index = 0;
+ 	PreparedParamType last_param_type = PreparedParamType::INVALID;
+ 
+-	deque<identifier_map_t<unique_ptr<WindowExpression>>> window_clauses;
++	identifier_map_t<unique_ptr<WindowExpression>> window_clauses;
+ 
+ 	vector<unique_ptr<CreatePivotEntry>> pivot_entries;
+ 	vector<reference<CommonTableExpressionMap>> stored_cte_map;
+diff --git a/src/parser/peg/transformer/peg_transformer.cpp b/src/parser/peg/transformer/peg_transformer.cpp
+index f2330f9..cd4f423 100644
+--- a/src/parser/peg/transformer/peg_transformer.cpp
++++ b/src/parser/peg/transformer/peg_transformer.cpp
+@@ -446,13 +446,9 @@ bool PEGTransformer::IsWindowFrameDefault(WindowBoundary start, WindowBoundary e
+ }
+ 
+ unique_ptr<WindowExpression> PEGTransformer::GetWindowClause(const Identifier &window_name) {
+-	if (window_clauses.empty()) {
+-		throw ParserException("window %s does not exist", window_name);
+-	}
+-	auto &current_windows = window_clauses.back();
+-	auto it = current_windows.find(window_name);
+-	if (it == current_windows.end()) {
+-		throw ParserException("window %s does not exist", window_name);
++	auto it = window_clauses.find(window_name);
++	if (it == window_clauses.end()) {
++		throw ParserException("window \"%s\" does not exist", window_name);
+ 	}
+ 	return unique_ptr_cast<ParsedExpression, WindowExpression>(it->second->Copy());
+ }
+diff --git a/src/parser/peg/transformer/transform_select.cpp b/src/parser/peg/transformer/transform_select.cpp
+index 31a17c5..26fd9ae 100644
+--- a/src/parser/peg/transformer/transform_select.cpp
++++ b/src/parser/peg/transformer/transform_select.cpp
+@@ -227,15 +227,12 @@ bool PEGTransformerFactory::TransformWithOrdinality(PEGTransformer &transformer)
+ 
+ static void RegisterWindowClause(PEGTransformer &transformer, const Identifier &window_name,
+                                  WindowExpression &window_function) {
+-	if (transformer.window_clauses.empty()) {
+-		throw InternalException("WINDOW clause registered outside of a SELECT");
+-	}
+-	auto &current_windows = transformer.window_clauses.back();
+-	auto it = current_windows.find(window_name);
+-	if (it != current_windows.end()) {
++	auto it = transformer.window_clauses.find(window_name);
++	if (it != transformer.window_clauses.end()) {
+ 		throw ParserException("window %s is already defined", window_name);
+ 	}
+-	current_windows[window_name] = unique_ptr_cast<ParsedExpression, WindowExpression>(window_function.Copy());
++	transformer.window_clauses[window_name] =
++	    unique_ptr_cast<ParsedExpression, WindowExpression>(window_function.Copy());
+ }
+ 
+ static void PushSimpleSelectRemainder(GeneratedTransformProcess &process) {
+@@ -267,7 +264,6 @@ void PEGTransformerFactory::InitializeSimpleSelectTrampoline(PEGTransformer &tra
+                                                              GeneratedTransformProcess &process) {
+ 	auto &list_pr = process.parse_result.Cast<ListParseResult>();
+ 	process.ReserveChildSlots(7);
+-	transformer.window_clauses.emplace_back();
+ 	auto &window_clause_opt = list_pr.Child<OptionalParseResult>(4);
+ 	if (window_clause_opt.HasResult()) {
+ 		process.manual_state = 0;
+@@ -311,8 +307,7 @@ PEGTransformerFactory::FinalizeSimpleSelectTrampoline(PEGTransformer &transforme
+ 	}
+ 	auto select_statement = make_uniq<SelectStatement>();
+ 	select_statement->node = std::move(select_node);
+-	D_ASSERT(!transformer.window_clauses.empty());
+-	transformer.window_clauses.pop_back();
++	transformer.window_clauses.clear();
+ 	return transformer.MakeResult<unique_ptr<SelectStatement>>(std::move(select_statement));
+ }
+ 

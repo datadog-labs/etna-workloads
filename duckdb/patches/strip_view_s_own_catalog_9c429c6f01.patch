@@ -1,0 +1,62 @@
+diff --git a/src/include/duckdb/optimizer/remote_pushdown_optimizer.hpp b/src/include/duckdb/optimizer/remote_pushdown_optimizer.hpp
+index 772681d..6a70d9a 100644
+--- a/src/include/duckdb/optimizer/remote_pushdown_optimizer.hpp
++++ b/src/include/duckdb/optimizer/remote_pushdown_optimizer.hpp
+@@ -90,17 +90,6 @@ public:
+ 
+ 	void Rewrite(unique_ptr<SQLStatement> &statement);
+ 
+-	//! Drop the given catalog qualifier from every name in the tree. A two-part name (e.g. "db1.t") parses as
+-	//! schema.name, so the catalog can sit in either slot
+-	static void StripCatalogName(SQLStatement &statement, const Identifier &catalog_name);
+-	static void StripCatalogName(QueryNode &node, const Identifier &catalog_name);
+-	static void StripCatalogName(TableRef &ref, const Identifier &catalog_name);
+-	static void StripCatalogName(CreateInfo &info, const Identifier &catalog_name);
+-	static void StripCatalogName(AlterInfo &info, const Identifier &catalog_name);
+-	//! Strip catalog prefix from expression column refs. When strip_subquery_bodies=false, leaves subquery
+-	//! bodies untouched (used for partial pushdown where inner subqueries are not being pushed).
+-	static void StripCatalogName(ParsedExpression &expr, const Identifier &catalog_name);
+-
+ private:
+ 	void FindRemoteCatalogsInSearchPath();
+ 	CatalogPushdownResult Rewrite(QueryNode &node);
+@@ -194,6 +183,14 @@ private:
+ 
+ 	static CatalogPushdownResult Merge(CatalogPushdownResult a, CatalogPushdownResult b);
+ 	unique_ptr<TableRef> CreateRemoteFunctionRef(CatalogPushdownResult &result, unique_ptr<QueryNode> node);
++	static void StripCatalogName(SQLStatement &statement, const Identifier &catalog_name);
++	static void StripCatalogName(QueryNode &node, const Identifier &catalog_name);
++	static void StripCatalogName(TableRef &ref, const Identifier &catalog_name);
++	static void StripCatalogName(CreateInfo &info, const Identifier &catalog_name);
++	static void StripCatalogName(AlterInfo &info, const Identifier &catalog_name);
++	//! Strip catalog prefix from expression column refs. When strip_subquery_bodies=false, leaves subquery
++	//! bodies untouched (used for partial pushdown where inner subqueries are not being pushed).
++	static void StripCatalogName(ParsedExpression &expr, const Identifier &catalog_name);
+ 	bool RefersToLocalTable(const ColumnRefExpression &col_ref) const;
+ 
+ 	bool RefersToCTE(const Identifier &cte_name, CatalogPushdownResult &result) const;
+diff --git a/src/planner/binder/statement/bind_create.cpp b/src/planner/binder/statement/bind_create.cpp
+index 954fd98..fdf5e70 100644
+--- a/src/planner/binder/statement/bind_create.cpp
++++ b/src/planner/binder/statement/bind_create.cpp
+@@ -13,7 +13,6 @@
+ #include "duckdb/main/database.hpp"
+ #include "duckdb/main/database_manager.hpp"
+ #include "duckdb/main/secret/secret_manager.hpp"
+-#include "duckdb/optimizer/remote_pushdown_optimizer.hpp"
+ #include "duckdb/parser/constraints/foreign_key_constraint.hpp"
+ #include "duckdb/parser/constraints/list.hpp"
+ #include "duckdb/parser/constraints/unique_constraint.hpp"
+@@ -367,12 +366,6 @@ void Binder::BindView(ClientContext &context, const SelectStatement &stmt, const
+ }
+ 
+ void Binder::BindCreateViewInfo(CreateViewInfo &base) {
+-	// references to the view's own catalog are resolved through the view's search path anyway - drop the qualifier so
+-	// the view keeps working when the database is attached under a different alias
+-	auto &view_catalog = base.GetQualifiedName().Catalog();
+-	if (base.query && !view_catalog.empty()) {
+-		RemotePushdownOptimizer::StripCatalogName(*base.query, view_catalog);
+-	}
+ 	if (base.binding_mode == CreateViewBindingMode::SKIP_BINDING) {
+ 		return;
+ 	}

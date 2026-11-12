@@ -1,0 +1,45 @@
+diff --git a/src/parser/peg/transformer/transform_select.cpp b/src/parser/peg/transformer/transform_select.cpp
+index 31a17c5..cc7a260 100644
+--- a/src/parser/peg/transformer/transform_select.cpp
++++ b/src/parser/peg/transformer/transform_select.cpp
+@@ -485,7 +485,7 @@ bool PEGTransformerFactory::TransformPivotInList(unique_ptr<ParsedExpression> &e
+ 	}
+ 	case ExpressionType::FUNCTION: {
+ 		auto &function = expr->Cast<FunctionExpression>();
+-		if (function.FunctionName() != "row" || function.GetArgumentsMutable().empty()) {
++		if (function.FunctionName() != "row") {
+ 			return false;
+ 		}
+ 		for (auto &child : function.GetArgumentsMutable()) {
+@@ -1489,7 +1489,7 @@ PEGTransformerFactory::TransformPivotTargetList(PEGTransformer &transformer,
+ 		PivotColumnEntry pivot_entry;
+ 		pivot_entry.alias = target->GetAlias();
+ 		bool transformed = TransformPivotInList(target, pivot_entry);
+-		if (!transformed || pivot_entry.values.empty()) {
++		if (!transformed) {
+ 			pivot_entry.expr = std::move(target);
+ 		}
+ 		result.push_back(std::move(pivot_entry));
+diff --git a/src/planner/binder/tableref/bind_pivot.cpp b/src/planner/binder/tableref/bind_pivot.cpp
+index 4531175..83edb86 100644
+--- a/src/planner/binder/tableref/bind_pivot.cpp
++++ b/src/planner/binder/tableref/bind_pivot.cpp
+@@ -568,7 +568,7 @@ static bool TryExtractUnpivotList(ParsedExpression &expr, vector<Identifier> &co
+ 	}
+ 	case ExpressionType::FUNCTION: {
+ 		auto &function = expr.Cast<FunctionExpression>();
+-		if (function.FunctionName() != "row" || function.GetArgumentsMutable().empty()) {
++		if (function.FunctionName() != "row") {
+ 			return false;
+ 		}
+ 		for (auto &child : function.GetArgumentsMutable()) {
+@@ -645,9 +645,6 @@ unique_ptr<SelectNode> Binder::BindPivot(PivotRef &ref, vector<unique_ptr<Parsed
+ 			if (!pivot_entry.values.empty()) {
+ 				continue;
+ 			}
+-			if (!pivot_entry.expr) {
+-				throw BinderException("PIVOT IN list - expected an expression or value");
+-			}
+ 
+ 			BindPivotInList(pivot_entry.expr, pivot_entry.values, *this);
+ 

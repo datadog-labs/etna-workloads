@@ -1,0 +1,69 @@
+diff --git a/src/include/duckdb/storage/table/row_group.hpp b/src/include/duckdb/storage/table/row_group.hpp
+index 7ab232d..008283d 100644
+--- a/src/include/duckdb/storage/table/row_group.hpp
++++ b/src/include/duckdb/storage/table/row_group.hpp
+@@ -217,8 +217,6 @@ public:
+ 	PersistentRowGroupData SerializeRowGroupInfo(idx_t row_group_start) const;
+ 
+ 	static void InitializeAppend(SegmentNode<RowGroup> &row_group, RowGroupAppendState &append_state);
+-	//! Continue a finalized append in a new row group, retaining unused transient block space
+-	static void InitializeNextAppend(SegmentNode<RowGroup> &row_group, RowGroupAppendState &append_state);
+ 	void Append(RowGroupAppendState &append_state, DataChunk &chunk, idx_t append_count);
+ 	void FinalizeAppend(RowGroupAppendState &append_state);
+ 
+@@ -311,7 +309,7 @@ private:
+ 	PerColumnMetadataBlocks per_column_metadata_blocks;
+ 	atomic<bool> deletes_is_loaded;
+ 	atomic<idx_t> allocation_size;
+-	//! Append cursor, retained between appends and moved when appending to the next row group
++	//! A sub-allocation block for transient storage, allocated on first append
+ 	unique_ptr<SuballocationBlock> transient;
+ 	//! The row id column data (mutable because `const` can lazy load)
+ 	mutable unique_ptr<ColumnData> row_id_column_data;
+diff --git a/src/storage/table/row_group.cpp b/src/storage/table/row_group.cpp
+index c645fe3..0cd694e 100644
+--- a/src/storage/table/row_group.cpp
++++ b/src/storage/table/row_group.cpp
+@@ -1284,18 +1284,6 @@ void RowGroup::InitializeAppend(SegmentNode<RowGroup> &row_group, RowGroupAppend
+ 	append_state.row_group = row_group;
+ 	row_group.GetNode().InitializeAppendInternal(append_state);
+ }
+-
+-void RowGroup::InitializeNextAppend(SegmentNode<RowGroup> &row_group, RowGroupAppendState &append_state) {
+-	D_ASSERT(append_state.row_group);
+-	auto &previous = append_state.row_group->GetNode();
+-	auto &next = row_group.GetNode();
+-	D_ASSERT(!RefersToSameObject(previous, next));
+-	D_ASSERT(RefersToSameObject(previous.GetCollection(), next.GetCollection()));
+-	D_ASSERT(!next.transient);
+-	next.transient = std::move(previous.transient);
+-	InitializeAppend(row_group, append_state);
+-}
+-
+ void RowGroup::InitializeAppendInternal(RowGroupAppendState &append_state) {
+ 	if (!RefersToSameObject(append_state.row_group->GetNode(), *this)) {
+ 		throw InternalException("RowGroup::InitializeAppend mismatch - call RowGroupAppendState::InitializeAppend");
+diff --git a/src/storage/table/row_group_collection.cpp b/src/storage/table/row_group_collection.cpp
+index 8d3d37f..a9e56d7 100644
+--- a/src/storage/table/row_group_collection.cpp
++++ b/src/storage/table/row_group_collection.cpp
+@@ -721,7 +721,7 @@ optional_idx RowGroupCollection::Append(DataChunk &chunk, TableAppendState &stat
+ 		AppendRowGroup(l, next_start);
+ 		// set up the append state for this row_group
+ 		auto last_row_group = state.row_groups->GetLastSegment(l);
+-		RowGroup::InitializeNextAppend(*last_row_group, state.row_group_append_state);
++		RowGroup::InitializeAppend(*last_row_group, state.row_group_append_state);
+ 		state.row_group_start = next_start;
+ 	}
+ 	state.current_row += row_t(total_append_count);
+@@ -1420,8 +1420,8 @@ public:
+ 
+ 						// move to the next row group
+ 						current_append_idx++;
+-						RowGroup::InitializeNextAppend(*new_row_groups[current_append_idx],
+-						                               append_state.row_group_append_state);
++						RowGroup::InitializeAppend(*new_row_groups[current_append_idx],
++						                           append_state.row_group_append_state);
+ 						// slice chunk for the next append
+ 						append_chunk.Slice(append_count, remaining);
+ 					}

@@ -1,0 +1,26 @@
+diff --git a/src/optimizer/remove_unused_columns.cpp b/src/optimizer/remove_unused_columns.cpp
+index 6b665cd..49ac1a9 100644
+--- a/src/optimizer/remove_unused_columns.cpp
++++ b/src/optimizer/remove_unused_columns.cpp
+@@ -1237,11 +1237,6 @@ void RemoveUnusedColumns::CheckPushdownExtract(LogicalOperator &op) {
+ 				continue;
+ 			}
+ 			auto &column_id = get.GetColumnIndex(column_binding);
+-			if (column_id.IsPushdownExtract()) {
+-				//! We already pushed down an extract for this column, so a new path is relative to that
+-				col.supports_pushdown_extract = PushdownExtractSupport::DISABLED;
+-				continue;
+-			}
+ 			auto logical_column_index = LogicalIndex(column_id.GetPrimaryIndex());
+ 			if (!get.function.supports_pushdown_extract || get.function.statistics) {
+ 				//! Either 'statistics_extended' needs to be set or 'statistics' needs to be NULL
+@@ -1402,8 +1397,7 @@ void RemoveUnusedColumns::RemoveColumnsFromLogicalGet(LogicalGet &get, unique_pt
+ 			if (logical_column_id.IsPushdownExtract()) {
+ 				//! RemoveUnusedColumns is also used by other optimizers,
+ 				//! so we have to deal with this case and preserve the PushdownExtract we created earlier
+-				D_ASSERT(entry->second.child_columns.empty() ||
+-				         entry->second.supports_pushdown_extract == PushdownExtractSupport::DISABLED);
++				D_ASSERT(entry->second.child_columns.empty());
+ 				new_column_ids.emplace_back(logical_column_id);
+ 			} else {
+ 				ColumnIndex new_index(logical_column_id.GetPrimaryIndex(), entry->second.child_columns);

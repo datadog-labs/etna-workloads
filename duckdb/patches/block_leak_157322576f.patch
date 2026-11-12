@@ -1,0 +1,28 @@
+diff --git a/src/storage/wal_replay.cpp b/src/storage/wal_replay.cpp
+index fa1b476..e26f6c8 100644
+--- a/src/storage/wal_replay.cpp
++++ b/src/storage/wal_replay.cpp
+@@ -625,14 +625,6 @@ unique_ptr<WriteAheadLog> WriteAheadLogReplayer::ReplayLog(unique_ptr<FileHandle
+ 		truncated_wal_reader = make_uniq<BufferedFileReader>(fs, std::move(main_handle));
+ 	}
+ 
+-	// Now we have decided to replay this WAL, mark the blocks referenced by ROW_GROUP_DATA entries as used.
+-	// Notice, this must happen before replay, because replaying earlier entries can allocate blocks; without the marks,
+-	// those allocations could hand out blocks that later entries reference.
+-	auto &block_manager = storage_manager.GetBlockManager();
+-	for (auto &block_id : checkpoint_state.row_group_blocks) {
+-		block_manager.MarkBlockAsUsed(block_id);
+-	}
+-
+ 	// If there are no committed transactions in the WAL, rollback and truncate.
+ 	if (last_wal_flush_end == 0) {
+ 		con.Rollback();
+@@ -1325,7 +1317,7 @@ void WriteAheadLogDeserializer::ReplayRowGroupData() {
+ 	deserializer.Unset<DatabaseInstance>();
+ 	if (DeserializeOnly()) {
+ 		for (auto &block_id : data.GetBlockIds()) {
+-			state.row_group_blocks.push_back(block_id);
++			block_manager.MarkBlockAsUsed(block_id);
+ 		}
+ 		return;
+ 	}

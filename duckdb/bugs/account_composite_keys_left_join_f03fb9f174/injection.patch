@@ -1,0 +1,307 @@
+diff --git a/src/include/duckdb/optimizer/join_order/join_predicate.hpp b/src/include/duckdb/optimizer/join_order/join_predicate.hpp
+index fea23a4..7052f7c 100644
+--- a/src/include/duckdb/optimizer/join_order/join_predicate.hpp
++++ b/src/include/duckdb/optimizer/join_order/join_predicate.hpp
+@@ -59,8 +59,6 @@ public:
+ 	bool IsEquivalencePredicate() const;
+ 	void SetEqualityClassIndex(optional_idx equality_class_index);
+ 	optional_idx GetEqualityClassIndex() const;
+-	void SetCompositeJoinPair(JoinRelationSet &pair);
+-	optional_ptr<JoinRelationSet> GetCompositeJoinPair() const;
+ 
+ private:
+ 	idx_t index;
+@@ -70,7 +68,6 @@ private:
+ 	ColumnBinding left_equality_binding;
+ 	ColumnBinding right_equality_binding;
+ 	optional_idx equality_class_index;
+-	optional_ptr<JoinRelationSet> composite_join_pair;
+ };
+ 
+ struct JoinEqualityPredicateEdge {
+@@ -93,22 +90,7 @@ struct JoinEqualityClass {
+ 	vector<JoinEqualityPredicateEdge> edges;
+ };
+ 
+-class JoinEqualityGroups {
+-public:
+-	void AddEquality(const ColumnBinding &left, const ColumnBinding &right);
+-	idx_t GetGroup(const ColumnBinding &binding);
+-
+-private:
+-	idx_t GetOrCreateGroup(const ColumnBinding &binding);
+-	idx_t FindRoot(idx_t group);
+-
+-private:
+-	column_binding_map_t<idx_t> binding_to_group;
+-	vector<idx_t> parents;
+-};
+-
+ struct RelationPairEqualitySummary {
+-	void AddEquality(idx_t equality_class_index, ColumnBinding first_binding, ColumnBinding second_binding);
+ 	bool HasDirectCompositeEquality() const;
+ 
+ 	vector<idx_t> direct_equality_class_indices;
+@@ -134,6 +116,9 @@ public:
+ 
+ 	bool HasDirectCompositeEquality(JoinRelationSet &pair) const;
+ 
++private:
++	static bool ContainsClassIndex(const vector<idx_t> &class_indices, idx_t equality_class_index);
++
+ private:
+ 	vector<unique_ptr<JoinPredicate>> predicates;
+ 	vector<reference<JoinPredicate>> all_predicates;
+diff --git a/src/include/duckdb/optimizer/join_order/query_graph_manager.hpp b/src/include/duckdb/optimizer/join_order/query_graph_manager.hpp
+index 55129f1..3ae992b 100644
+--- a/src/include/duckdb/optimizer/join_order/query_graph_manager.hpp
++++ b/src/include/duckdb/optimizer/join_order/query_graph_manager.hpp
+@@ -69,7 +69,6 @@ private:
+ 
+ 	//! Build the normalized predicate model after filter endpoints and stats bindings are populated.
+ 	void BuildPredicateModel();
+-	void BuildLeftEqualityPairs();
+ 	void BuildInnerCompanionSets();
+ 	void ClearExtractedExpressions();
+ 	idx_t FindGraphComponent(RelationIndex relation);
+diff --git a/src/optimizer/join_order/cardinality_estimator.cpp b/src/optimizer/join_order/cardinality_estimator.cpp
+index 9c28fd7..4d48fd3 100644
+--- a/src/optimizer/join_order/cardinality_estimator.cpp
++++ b/src/optimizer/join_order/cardinality_estimator.cpp
+@@ -487,15 +487,6 @@ LeftJoinDenomInfo CardinalityEstimator::CalculateLeftJoinDenomInfo(Subgraph2Deno
+ 
+ 	auto &inner_numerator = set_manager.Union(*left.numerator_relations, *right.numerator_relations);
+ 	auto inner_denom = CalculateInnerJoinDenom(GetEffectiveDenom(left.denom) * GetEffectiveDenom(right.denom), filter);
+-	auto composite_pair = predicate.GetCompositeJoinPair();
+-	if (composite_pair) {
+-		auto cap = GetJoinPairCap(*composite_pair);
+-		CompositeJoinPairStats stats;
+-		stats.RegisterDistinctCount(filter.GetDistinctCount());
+-		if (stats.CanApplyCap(cap) && filter.GetDistinctCount() > 0 && cap > filter.GetDistinctCount()) {
+-			inner_denom = inner_denom / filter.GetDistinctCount() * cap;
+-		}
+-	}
+ 	if (inner_denom <= 0) {
+ 		return LeftJoinDenomInfo(preserved_numerator, preserved_denom);
+ 	}
+diff --git a/src/optimizer/join_order/join_predicate.cpp b/src/optimizer/join_order/join_predicate.cpp
+index f832c7b..71c1ed2 100644
+--- a/src/optimizer/join_order/join_predicate.cpp
++++ b/src/optimizer/join_order/join_predicate.cpp
+@@ -164,14 +164,6 @@ optional_idx JoinPredicate::GetEqualityClassIndex() const {
+ 	return equality_class_index;
+ }
+ 
+-void JoinPredicate::SetCompositeJoinPair(JoinRelationSet &pair) {
+-	composite_join_pair = pair;
+-}
+-
+-optional_ptr<JoinRelationSet> JoinPredicate::GetCompositeJoinPair() const {
+-	return composite_join_pair;
+-}
+-
+ JoinEqualityPredicateEdge::JoinEqualityPredicateEdge(JoinPredicate &predicate, RelationIndex left_relation,
+                                                      RelationIndex right_relation, ColumnBinding left_binding,
+                                                      ColumnBinding right_binding)
+@@ -179,46 +171,6 @@ JoinEqualityPredicateEdge::JoinEqualityPredicateEdge(JoinPredicate &predicate, R
+       right_binding(right_binding) {
+ }
+ 
+-idx_t JoinEqualityGroups::GetOrCreateGroup(const ColumnBinding &binding) {
+-	auto entry = binding_to_group.emplace(binding, parents.size());
+-	if (entry.second) {
+-		parents.push_back(entry.first->second);
+-	}
+-	return entry.first->second;
+-}
+-
+-idx_t JoinEqualityGroups::FindRoot(idx_t group) {
+-	while (parents[group] != group) {
+-		parents[group] = parents[parents[group]];
+-		group = parents[group];
+-	}
+-	return group;
+-}
+-
+-void JoinEqualityGroups::AddEquality(const ColumnBinding &left, const ColumnBinding &right) {
+-	auto left_root = FindRoot(GetOrCreateGroup(left));
+-	auto right_root = FindRoot(GetOrCreateGroup(right));
+-	if (left_root != right_root) {
+-		parents[MaxValue(left_root, right_root)] = MinValue(left_root, right_root);
+-	}
+-}
+-
+-idx_t JoinEqualityGroups::GetGroup(const ColumnBinding &binding) {
+-	auto entry = binding_to_group.find(binding);
+-	D_ASSERT(entry != binding_to_group.end());
+-	return FindRoot(entry->second);
+-}
+-
+-void RelationPairEqualitySummary::AddEquality(idx_t equality_class_index, ColumnBinding first_binding,
+-                                              ColumnBinding second_binding) {
+-	if (std::find(direct_equality_class_indices.begin(), direct_equality_class_indices.end(), equality_class_index) ==
+-	    direct_equality_class_indices.end()) {
+-		direct_equality_class_indices.push_back(equality_class_index);
+-	}
+-	first_relation_bindings.insert(first_binding);
+-	second_relation_bindings.insert(second_binding);
+-}
+-
+ bool RelationPairEqualitySummary::HasDirectCompositeEquality() const {
+ 	return direct_equality_class_indices.size() >= 2 && first_relation_bindings.size() >= 2 &&
+ 	       second_relation_bindings.size() >= 2;
+@@ -263,9 +215,18 @@ void JoinPredicateModel::AddEqualityClass(JoinEqualityClass equality_class) {
+ 	equality_classes.push_back(std::move(equality_class));
+ }
+ 
++bool JoinPredicateModel::ContainsClassIndex(const vector<idx_t> &class_indices, idx_t equality_class_index) {
++	return std::find(class_indices.begin(), class_indices.end(), equality_class_index) != class_indices.end();
++}
++
+ void JoinPredicateModel::AddDirectEqualityPairClass(JoinRelationSet &pair, idx_t equality_class_index,
+                                                     ColumnBinding first_binding, ColumnBinding second_binding) {
+-	equality_pairs[pair].AddEquality(equality_class_index, first_binding, second_binding);
++	auto &summary = equality_pairs[pair];
++	if (!ContainsClassIndex(summary.direct_equality_class_indices, equality_class_index)) {
++		summary.direct_equality_class_indices.push_back(equality_class_index);
++	}
++	summary.first_relation_bindings.insert(first_binding);
++	summary.second_relation_bindings.insert(second_binding);
+ }
+ 
+ const vector<reference<JoinPredicate>> &JoinPredicateModel::GetPredicates() const {
+diff --git a/src/optimizer/join_order/query_graph_manager.cpp b/src/optimizer/join_order/query_graph_manager.cpp
+index 7f91cf7..149d4b1 100644
+--- a/src/optimizer/join_order/query_graph_manager.cpp
++++ b/src/optimizer/join_order/query_graph_manager.cpp
+@@ -26,7 +26,27 @@ QueryGraphManager::QueryGraphManager(ClientContext &context) : context(context),
+ void QueryGraphManager::BuildPredicateModel() {
+ 	predicate_model.Clear();
+ 
+-	JoinEqualityGroups equality_groups;
++	column_binding_map_t<idx_t> binding_to_component;
++	vector<idx_t> parents;
++
++	auto get_component = [&](const ColumnBinding &binding) -> idx_t {
++		auto entry = binding_to_component.find(binding);
++		if (entry != binding_to_component.end()) {
++			return entry->second;
++		}
++		auto component = parents.size();
++		parents.push_back(component);
++		binding_to_component[binding] = component;
++		return component;
++	};
++
++	auto find_root = [&](idx_t component) -> idx_t {
++		while (parents[component] != component) {
++			parents[component] = parents[parents[component]];
++			component = parents[component];
++		}
++		return component;
++	};
+ 
+ 	// First union all normalized equality predicates. Do not assign edge ids in this pass,
+ 	// because a later predicate can merge two previously separate components.
+@@ -46,7 +66,11 @@ void QueryGraphManager::BuildPredicateModel() {
+ 			continue;
+ 		}
+ 
+-		equality_groups.AddEquality(predicate.GetEqualityBinding(true), predicate.GetEqualityBinding(false));
++		auto left_root = find_root(get_component(predicate.GetEqualityBinding(true)));
++		auto right_root = find_root(get_component(predicate.GetEqualityBinding(false)));
++		if (left_root != right_root) {
++			parents[MaxValue(left_root, right_root)] = MinValue(left_root, right_root);
++		}
+ 	}
+ 
+ 	// Then assign stable final ids to every equality edge using the final roots.
+@@ -57,7 +81,7 @@ void QueryGraphManager::BuildPredicateModel() {
+ 		if (!predicate.CanBuildEqualityClosure()) {
+ 			continue;
+ 		}
+-		auto root = equality_groups.GetGroup(predicate.GetEqualityBinding(true));
++		auto root = find_root(binding_to_component[predicate.GetEqualityBinding(true)]);
+ 		auto entry = root_to_equivalence_id.find(root);
+ 		if (entry == root_to_equivalence_id.end()) {
+ 			entry = root_to_equivalence_id.insert(make_pair(root, root_to_equivalence_id.size())).first;
+@@ -101,79 +125,6 @@ void QueryGraphManager::BuildPredicateModel() {
+ 			predicate_model.AddDirectEqualityPairClass(pair, equality_class.index, first_binding, second_binding);
+ 		}
+ 	}
+-	BuildLeftEqualityPairs();
+-}
+-
+-void QueryGraphManager::BuildLeftEqualityPairs() {
+-	for (auto &op : join_operators) {
+-		if (op->type != JoinOrderOperatorType::LEFT) {
+-			continue;
+-		}
+-		JoinEqualityGroups groups;
+-		auto add_equality = [&](ExpressionType type, const Expression &left, const Expression &right) {
+-			if (type != ExpressionType::COMPARE_EQUAL && type != ExpressionType::COMPARE_NOT_DISTINCT_FROM) {
+-				return;
+-			}
+-			ColumnBinding left_binding;
+-			ColumnBinding right_binding;
+-			GetEquivalenceBinding(left, left_binding);
+-			GetEquivalenceBinding(right, right_binding);
+-			if (left_binding.table_index.IsValid() && right_binding.table_index.IsValid()) {
+-				groups.AddEquality(left_binding, right_binding);
+-			}
+-		};
+-		vector<reference<const Expression>> residuals;
+-		for (auto &condition : op->conditions) {
+-			if (condition.IsComparison()) {
+-				add_equality(condition.GetComparisonType(), condition.GetLHS(), condition.GetRHS());
+-			} else {
+-				residuals.push_back(condition.GetJoinExpression());
+-			}
+-		}
+-		// Same-side ON equalities can connect keys even though they are not costing predicates.
+-		while (!residuals.empty()) {
+-			auto &expression = residuals.back().get();
+-			residuals.pop_back();
+-			if (expression.GetExpressionType() == ExpressionType::CONJUNCTION_AND) {
+-				for (auto &child : expression.Cast<BoundConjunctionExpression>().GetChildren()) {
+-					residuals.push_back(*child);
+-				}
+-			} else if (BoundComparisonExpression::IsComparison(expression)) {
+-				auto &comparison = expression.Cast<BoundFunctionExpression>();
+-				add_equality(expression.GetExpressionType(), BoundComparisonExpression::Left(comparison),
+-				             BoundComparisonExpression::Right(comparison));
+-			}
+-		}
+-		reference_map_t<JoinRelationSet, RelationPairEqualitySummary> summaries;
+-		vector<pair<reference<JoinPredicate>, reference<JoinRelationSet>>> pairs;
+-		for (auto predicate_index : op->costing_predicate_indices) {
+-			auto &predicate = predicate_model.GetPredicates()[predicate_index].get();
+-			auto type = predicate.GetComparisonType();
+-			if (!predicate.CanBuildSelectivityDomain() || !predicate.HasValidEqualityBindings() ||
+-			    (type != ExpressionType::COMPARE_EQUAL && type != ExpressionType::COMPARE_NOT_DISTINCT_FROM)) {
+-				continue;
+-			}
+-			auto first_binding = predicate.GetEqualityBinding(true);
+-			auto second_binding = predicate.GetEqualityBinding(false);
+-			auto first_relation = JoinOrderUtil::GetBindingRelation(first_binding);
+-			auto second_relation = JoinOrderUtil::GetBindingRelation(second_binding);
+-			if (first_relation == second_relation) {
+-				continue;
+-			}
+-			auto &pair = set_manager.Union(set_manager.GetJoinRelation(first_relation),
+-			                               set_manager.GetJoinRelation(second_relation));
+-			if (pair.relations[0] != first_relation) {
+-				std::swap(first_binding, second_binding);
+-			}
+-			summaries[pair].AddEquality(groups.GetGroup(first_binding), first_binding, second_binding);
+-			pairs.emplace_back(predicate, pair);
+-		}
+-		for (auto &entry : pairs) {
+-			if (summaries.at(entry.second).HasDirectCompositeEquality()) {
+-				entry.first.get().SetCompositeJoinPair(entry.second);
+-			}
+-		}
+-	}
+ }
+ 
+ void QueryGraphManager::BuildInnerCompanionSets() {

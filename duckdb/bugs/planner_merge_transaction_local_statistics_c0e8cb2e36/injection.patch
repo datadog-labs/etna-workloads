@@ -1,0 +1,72 @@
+diff --git a/src/catalog/catalog_entry/duck_table_entry.cpp b/src/catalog/catalog_entry/duck_table_entry.cpp
+index a3233f0..10fd66b 100644
+--- a/src/catalog/catalog_entry/duck_table_entry.cpp
++++ b/src/catalog/catalog_entry/duck_table_entry.cpp
+@@ -32,7 +32,6 @@
+ #include "duckdb/storage/table_storage_info.hpp"
+ #include "duckdb/storage/table/data_table_info.hpp"
+ #include "duckdb/storage/data_table.hpp"
+-#include "duckdb/transaction/local_storage.hpp"
+ #include "duckdb/main/attached_database.hpp"
+ 
+ namespace duckdb {
+@@ -245,23 +244,7 @@ const ColumnList &DuckTableEntry::GetColumns() const {
+ }
+ 
+ unique_ptr<BaseStatistics> DuckTableEntry::GetStatistics(ClientContext &context, const StorageIndex &column_id) {
+-	// Get the committed statistics
+-	auto stats = storage->GetStatistics(context, column_id);
+-	if (!stats) {
+-		return nullptr;
+-	}
+-	// Merge the transaction-local statistics in so the result describes the transaction-visible data.
+-	auto &local_storage = LocalStorage::Get(context, ParentCatalog());
+-	auto local_table_storage = local_storage.GetStorage(*storage);
+-	if (!local_table_storage) {
+-		return stats;
+-	}
+-	auto local_stats = local_table_storage->GetCollection().CopyStats(column_id);
+-	if (!local_stats) {
+-		return stats;
+-	}
+-	stats->Merge(*local_stats);
+-	return stats;
++	return storage->GetStatistics(context, column_id);
+ }
+ 
+ unique_ptr<BaseStatistics> DuckTableEntry::GetStatistics(ClientContext &context, column_t column_id) {
+@@ -274,7 +257,7 @@ unique_ptr<BaseStatistics> DuckTableEntry::GetStatistics(ClientContext &context,
+ 		return nullptr;
+ 	}
+ 	auto storage_index = GetStorageIndex(ColumnIndex(column_id));
+-	return GetStatistics(context, storage_index);
++	return storage->GetStatistics(context, storage_index);
+ }
+ 
+ unique_ptr<BlockingSample> DuckTableEntry::GetSample() {
+diff --git a/src/function/table/table_scan.cpp b/src/function/table/table_scan.cpp
+index e67d1b7..7721f81 100644
+--- a/src/function/table/table_scan.cpp
++++ b/src/function/table/table_scan.cpp
+@@ -1067,12 +1067,18 @@ unique_ptr<GlobalTableFunctionState> TableScanInitGlobal(ClientContext &context,
+ 
+ static unique_ptr<BaseStatistics> TableScanStatistics(ClientContext &context, TableFunctionGetStatisticsInput &input) {
+ 	auto &column_id = input.column_index;
+-	if (column_id.IsRowIdColumn() || column_id.IsRowNumberColumn()) {
++	auto &bind_data = input.bind_data->Cast<TableScanBindData>();
++	auto &duck_table = bind_data.table.Cast<DuckTableEntry>();
++	auto &local_storage = LocalStorage::Get(context, duck_table.catalog);
++
++	// Don't emit statistics for tables with outstanding transaction-local data.
++	if (local_storage.Find(duck_table.GetStorage())) {
+ 		return nullptr;
+ 	}
+ 
+-	auto &bind_data = input.bind_data->Cast<TableScanBindData>();
+-	auto &duck_table = bind_data.table.Cast<DuckTableEntry>();
++	if (column_id.IsRowIdColumn() || column_id.IsRowNumberColumn()) {
++		return nullptr;
++	}
+ 	auto &column = duck_table.GetColumn(LogicalIndex(column_id.GetPrimaryIndex()));
+ 	if (column.Generated()) {
+ 		return nullptr;

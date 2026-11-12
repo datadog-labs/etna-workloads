@@ -1,0 +1,25 @@
+diff --git a/src/include/duckdb/common/type_visitor.hpp b/src/include/duckdb/common/type_visitor.hpp
+index 7d1e532..c2d74f5 100644
+--- a/src/include/duckdb/common/type_visitor.hpp
++++ b/src/include/duckdb/common/type_visitor.hpp
+@@ -86,8 +86,8 @@ inline LogicalType TypeVisitor::RebuildType(const VisitorFrame &frame, vector<Lo
+ 	case LogicalTypeId::UNION: {
+ 		auto children =
+ 		    type.id() == LogicalTypeId::UNION ? UnionType::CopyMemberTypes(type) : StructType::GetChildTypes(type);
+-		for (idx_t i = children.size(); i > 0; i--) {
+-			children[i - 1].second = PopType(result_stack);
++		for (auto &child : children) {
++			child.second = PopType(result_stack);
+ 		}
+ 		if (type.id() == LogicalTypeId::STRUCT) {
+ 			return LogicalType::STRUCT(std::move(children));
+@@ -149,8 +149,7 @@ inline bool TypeVisitor::Contains(const LogicalType &type, F &&predicate) {
+ 		if (predicate(current)) {
+ 			return true;
+ 		}
+-		auto child_count = PushChildren(current, worklist);
+-		std::reverse(worklist.end() - NumericCast<int64_t>(child_count), worklist.end());
++		PushChildren(current, worklist);
+ 	}
+ 	return false;
+ }

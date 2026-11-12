@@ -1,0 +1,54 @@
+diff --git a/src/common/settings.json b/src/common/settings.json
+index 9d0dfbf..e5c358d 100644
+--- a/src/common/settings.json
++++ b/src/common/settings.json
+@@ -930,7 +930,7 @@
+     },
+     {
+         "name": "external_file_cache_remote_min_block_size",
+-        "description": "Reads of remote files are rounded out to aligned blocks of this size, so tiny reads do not each cost a request.",
++        "description": "Reads of remote files smaller than this are widened to aligned blocks of this size, so tiny reads do not each cost a request.",
+         "type": "UBIGINT",
+         "scope": "global",
+         "default_value": "4096",
+diff --git a/src/include/duckdb/main/settings.hpp b/src/include/duckdb/main/settings.hpp
+index a2817c0..00ec0b9 100644
+--- a/src/include/duckdb/main/settings.hpp
++++ b/src/include/duckdb/main/settings.hpp
+@@ -1522,8 +1522,8 @@ struct ExternalFileCacheRemoteMaxBlockSizeSetting {
+ struct ExternalFileCacheRemoteMinBlockSizeSetting {
+ 	using RETURN_TYPE = idx_t;
+ 	static constexpr const char *Name = "external_file_cache_remote_min_block_size";
+-	static constexpr const char *Description = "Reads of remote files are rounded out to aligned blocks of this size, "
+-	                                           "so tiny reads do not each cost a request.";
++	static constexpr const char *Description = "Reads of remote files smaller than this are widened to aligned blocks "
++	                                           "of this size, so tiny reads do not each cost a request.";
+ 	static constexpr const char *InputType = "UBIGINT";
+ 	static constexpr bool IsDebug = false;
+ 	static constexpr bool IsDeprecated = false;
+diff --git a/src/include/duckdb/storage/external_file_cache/external_file_cache.hpp b/src/include/duckdb/storage/external_file_cache/external_file_cache.hpp
+index 1c5e2a0..387fa50 100644
+--- a/src/include/duckdb/storage/external_file_cache/external_file_cache.hpp
++++ b/src/include/duckdb/storage/external_file_cache/external_file_cache.hpp
+@@ -57,7 +57,7 @@ class ExternalFileCache {
+ public:
+ 	//! Get the maximum cache block size for a given file path.
+ 	DUCKDB_API idx_t GetCacheMaxBlockSize(const string &path) const;
+-	//! Get the block size that reads of a given file path are rounded out to.
++	//! Get the size that smaller reads of a given file path are widened to.
+ 	DUCKDB_API idx_t GetCacheMinBlockSize(const string &path) const;
+ 	//! Whether reads of the given file should go through the cache (remote files only, unless forced).
+ 	DUCKDB_API bool ShouldCacheFile(const string &path) const;
+diff --git a/src/storage/external_file_cache/caching_file_system.cpp b/src/storage/external_file_cache/caching_file_system.cpp
+index 3c9b269..96b7727 100644
+--- a/src/storage/external_file_cache/caching_file_system.cpp
++++ b/src/storage/external_file_cache/caching_file_system.cpp
+@@ -398,7 +398,7 @@ FileBufferHandleGroup CachingFileHandle::Read(const idx_t nr_bytes, const idx_t
+ 	} else if (request_sizing == RequestSizing::BY_CACHE) {
+ 		fetch_location = location - location % max_block_size;
+ 		fetch_end = AlignValue(fetch_end, max_block_size);
+-	} else {
++	} else if (nr_bytes < min_block_size) {
+ 		fetch_location = location - location % min_block_size;
+ 		fetch_end = AlignValue(fetch_end, min_block_size);
+ 	}

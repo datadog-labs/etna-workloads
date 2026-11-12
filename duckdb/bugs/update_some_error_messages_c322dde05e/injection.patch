@@ -1,0 +1,51 @@
+diff --git a/src/parser/peg/transformer/transform_generic_copy_option.cpp b/src/parser/peg/transformer/transform_generic_copy_option.cpp
+index 74a0b8c..5e02e10 100644
+--- a/src/parser/peg/transformer/transform_generic_copy_option.cpp
++++ b/src/parser/peg/transformer/transform_generic_copy_option.cpp
+@@ -132,7 +132,7 @@ static GenericCopyOption BuildGenericCopyOption(const Identifier &generic_copy_o
+ 		if (copy_option.name == "ORDER_BY") {
+ 			copy_option.expression = CreateOrderByRowFunction(orders);
+ 		} else if (has_order_modifier) {
+-			throw ParserException("ORDER BY modifiers are only supported in the ORDER BY option");
++			throw ParserException("ORDER BY modifiers are only supported in the ORDER_BY option");
+ 		} else if (orders.size() == 1) {
+ 			SetGenericCopyOptionExpression(copy_option, std::move(orders[0].expression));
+ 		} else {
+diff --git a/src/planner/binder/statement/bind_copy.cpp b/src/planner/binder/statement/bind_copy.cpp
+index 6a8d67a..3bcb3d0 100644
+--- a/src/planner/binder/statement/bind_copy.cpp
++++ b/src/planner/binder/statement/bind_copy.cpp
+@@ -301,16 +301,16 @@ static void ValidateCopyToOptionCombinations(const CopyToParsedOptions &options,
+ 		throw NotImplementedException("Can't combine USE_TMP_FILE and FILE_SIZE_BYTES/BATCHES_PER_FILE for COPY");
+ 	}
+ 	if (options.UserSetUseTmpFile() && options.Partitioned()) {
+-		throw NotImplementedException("Can't combine USE_TMP_FILE and PARTITIONED BY for COPY");
++		throw NotImplementedException("Can't combine USE_TMP_FILE and PARTITION_BY for COPY");
+ 	}
+ 	if (options.UserSetUseTmpFile() && !options.order_columns.empty()) {
+-		throw NotImplementedException("Can't combine USE_TMP_FILE and ORDER BY for COPY");
++		throw NotImplementedException("Can't combine USE_TMP_FILE and ORDER_BY for COPY");
+ 	}
+ 	if (options.PerThreadOutput() && options.Partitioned()) {
+-		throw NotImplementedException("Can't combine PER_THREAD_OUTPUT and PARTITIONED BY for COPY");
++		throw NotImplementedException("Can't combine PER_THREAD_OUTPUT and PARTITION_BY for COPY");
+ 	}
+ 	if (options.PerThreadOutput() && !options.order_columns.empty()) {
+-		throw NotImplementedException("Can't combine PER_THREAD_OUTPUT and ORDER BY for COPY");
++		throw NotImplementedException("Can't combine PER_THREAD_OUTPUT and ORDER_BY for COPY");
+ 	}
+ 	if (options.Rotate() && (!function.prepare_batch || !function.flush_batch)) {
+ 		throw NotImplementedException("Can't use file rotation (e.g., ROW_GROUPS_PER_FILE) with FORMAT %s",
+@@ -321,10 +321,10 @@ static void ValidateCopyToOptionCombinations(const CopyToParsedOptions &options,
+ 			throw NotImplementedException("Can't combine WRITE_EMPTY_FILE false with PER_THREAD_OUTPUT");
+ 		}
+ 		if (options.Partitioned()) {
+-			throw NotImplementedException("Can't combine WRITE_EMPTY_FILE false with PARTITIONED BY");
++			throw NotImplementedException("Can't combine WRITE_EMPTY_FILE false with PARTITION_BY");
+ 		}
+ 		if (!options.order_columns.empty()) {
+-			throw NotImplementedException("Can't combine WRITE_EMPTY_FILE false with ORDER BY");
++			throw NotImplementedException("Can't combine WRITE_EMPTY_FILE false with ORDER_BY");
+ 		}
+ 	}
+ 	if (options.partition_path) {

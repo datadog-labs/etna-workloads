@@ -1,0 +1,105 @@
+diff --git a/src/include/duckdb/storage/table/row_group.hpp b/src/include/duckdb/storage/table/row_group.hpp
+index 7ab232d..43d9b1e 100644
+--- a/src/include/duckdb/storage/table/row_group.hpp
++++ b/src/include/duckdb/storage/table/row_group.hpp
+@@ -26,7 +26,6 @@ class AsyncTask;
+ class AttachedDatabase;
+ class BlockManager;
+ class ColumnData;
+-class ColumnStatistics;
+ class DatabaseInstance;
+ class DataTable;
+ class DuckTableEntry;
+@@ -133,10 +132,9 @@ public:
+ 
+ 	unique_ptr<RowGroup> AlterType(RowGroupCollection &collection, const LogicalType &target_type, idx_t changed_idx,
+ 	                               ExpressionExecutor &executor, CollectionScanState &scan_state,
+-	                               SegmentNode<RowGroup> &node, DataChunk &scan_chunk, TransactionData transaction,
+-	                               ColumnStatistics &changed_stats);
++	                               SegmentNode<RowGroup> &node, DataChunk &scan_chunk, TransactionData transaction);
+ 	unique_ptr<RowGroup> AddColumn(RowGroupCollection &collection, ColumnDefinition &new_column,
+-	                               ExpressionExecutor &executor, ColumnStatistics &new_column_stats);
++	                               ExpressionExecutor &executor);
+ 	unique_ptr<RowGroup> RemoveColumn(RowGroupCollection &collection, idx_t removed_column);
+ 
+ 	//! Accumulates this row group's on-disk blocks into the drop state.
+diff --git a/src/storage/table/row_group.cpp b/src/storage/table/row_group.cpp
+index c645fe3..07fc158 100644
+--- a/src/storage/table/row_group.cpp
++++ b/src/storage/table/row_group.cpp
+@@ -463,8 +463,7 @@ unique_ptr<RowGroup> RowGroup::CreateNewRowGroupCopy(RowGroupCollection &new_col
+ unique_ptr<RowGroup> RowGroup::AlterType(RowGroupCollection &new_collection, const LogicalType &target_type,
+                                          idx_t changed_idx, ExpressionExecutor &executor,
+                                          CollectionScanState &scan_state, SegmentNode<RowGroup> &node,
+-                                         DataChunk &scan_chunk, TransactionData transaction,
+-                                         ColumnStatistics &changed_stats) {
++                                         DataChunk &scan_chunk, TransactionData transaction) {
+ 	Verify();
+ 
+ 	// construct a new column data for this type
+@@ -481,7 +480,6 @@ unique_ptr<RowGroup> RowGroup::AlterType(RowGroupCollection &new_collection, con
+ 	append_types.push_back(target_type);
+ 	append_chunk.Initialize(Allocator::DefaultAllocator(), append_types);
+ 	auto &append_vector = append_chunk.data[0];
+-	Vector hashes(LogicalType::HASH);
+ 	ScanOptions options(transaction);
+ 	options.insert_type = InsertedScanType::ALL_ROWS;
+ 	options.delete_type = DeletedScanType::INCLUDE_ALL_DELETED;
+@@ -495,7 +493,6 @@ unique_ptr<RowGroup> RowGroup::AlterType(RowGroupCollection &new_collection, con
+ 		// execute the expression
+ 		append_chunk.Reset();
+ 		executor.ExecuteExpression(scan_chunk, append_vector);
+-		changed_stats.UpdateDistinctStatistics(append_vector, scan_chunk.size(), hashes);
+ 		column_data->Append(append_state, append_vector, scan_chunk.size());
+ 	}
+ 	column_data->FinalizeAppend(nullptr, append_state);
+@@ -536,7 +533,7 @@ unique_ptr<RowGroup> RowGroup::AlterType(RowGroupCollection &new_collection, con
+ }
+ 
+ unique_ptr<RowGroup> RowGroup::AddColumn(RowGroupCollection &new_collection, ColumnDefinition &new_column,
+-                                         ExpressionExecutor &executor, ColumnStatistics &new_column_stats) {
++                                         ExpressionExecutor &executor) {
+ 	Verify();
+ 
+ 	// construct a new column data for the new column
+@@ -549,7 +546,6 @@ unique_ptr<RowGroup> RowGroup::AddColumn(RowGroupCollection &new_collection, Col
+ 		DataChunk result_chunk;
+ 		result_chunk.Initialize(Allocator::DefaultAllocator(), {new_column.GetType()});
+ 		auto &result = result_chunk.data[0];
+-		Vector hashes(LogicalType::HASH);
+ 
+ 		ColumnAppendState state;
+ 		added_column->InitializeAppend(state);
+@@ -558,7 +554,6 @@ unique_ptr<RowGroup> RowGroup::AddColumn(RowGroupCollection &new_collection, Col
+ 			dummy_chunk.SetChildCardinality(rows_in_this_vector);
+ 			result_chunk.Reset();
+ 			executor.ExecuteExpression(dummy_chunk, result);
+-			new_column_stats.UpdateDistinctStatistics(result, rows_in_this_vector, hashes);
+ 			added_column->Append(state, result, rows_in_this_vector);
+ 		}
+ 		added_column->FinalizeAppend(nullptr, state);
+diff --git a/src/storage/table/row_group_collection.cpp b/src/storage/table/row_group_collection.cpp
+index 8d3d37f..a73274f 100644
+--- a/src/storage/table/row_group_collection.cpp
++++ b/src/storage/table/row_group_collection.cpp
+@@ -2222,7 +2222,7 @@ shared_ptr<RowGroupCollection> RowGroupCollection::AddColumn(ClientContext &cont
+ 	auto result_row_groups = result->GetRowGroups();
+ 	for (auto &node : row_groups->SegmentNodes()) {
+ 		auto &current_row_group = node.GetNode();
+-		auto new_row_group = current_row_group.AddColumn(*result, new_column, default_executor, new_column_stats);
++		auto new_row_group = current_row_group.AddColumn(*result, new_column, default_executor);
+ 		// merge in the statistics
+ 		new_row_group->MergeIntoStatistics(new_column_idx, new_column_stats.Statistics());
+ 
+@@ -2295,9 +2295,8 @@ shared_ptr<RowGroupCollection> RowGroupCollection::AlterType(ClientContext &cont
+ 
+ 	for (auto &node : row_groups->SegmentNodes()) {
+ 		auto &current_row_group = node.GetNode();
+-		auto new_row_group =
+-		    current_row_group.AlterType(*result, target_type, changed_idx, executor, scan_state.table_state, node,
+-		                                scan_chunk, transaction, changed_stats);
++		auto new_row_group = current_row_group.AlterType(*result, target_type, changed_idx, executor,
++		                                                 scan_state.table_state, node, scan_chunk, transaction);
+ 		new_row_group->MergeIntoStatistics(changed_idx, changed_stats.Statistics());
+ 		result_row_groups->AppendSegment(std::move(new_row_group), node.GetRowStart());
+ 	}

@@ -1,0 +1,18 @@
+diff --git a/src/execution/join_hashtable.cpp b/src/execution/join_hashtable.cpp
+index 493e0f0..140e18b 100644
+--- a/src/execution/join_hashtable.cpp
++++ b/src/execution/join_hashtable.cpp
+@@ -582,13 +582,6 @@ void JoinHashTable::EncodeDictSurvivingColumn(const DictSurvivingColumn &column,
+ 		                   buffer_manager.GetBufferAllocator(), buffers, vectors);
+ 		return;
+ 	}
+-	if (!VectorOperations::HasNotNull(incoming)) {
+-		// e.g. the unmatched-build scan of an upstream FULL/RIGHT join: every row stores the reserved NULL index
+-		const auto null_index =
+-		    Value::Numeric(DictSurvivingInfo::IndexType(column.index_width), NumericCast<int64_t>(column.NullIndex()));
+-		vectors.emplace_back(null_index, count_t(count));
+-		return;
+-	}
+ 	// There is no fallback for values that are not in the pinned dictionary. Throw, not D_ASSERT: storing the
+ 	// native bytes into a narrowed slot would corrupt the row store.
+ 	throw InternalException("dict-surviving join: narrowed column %llu received a non-dictionary chunk with "

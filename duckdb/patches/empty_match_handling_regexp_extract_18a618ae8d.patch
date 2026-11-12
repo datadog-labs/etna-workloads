@@ -1,0 +1,224 @@
+diff --git a/src/function/scalar/string/like.cpp b/src/function/scalar/string/like.cpp
+index 6ffc841..d05fd5f 100644
+--- a/src/function/scalar/string/like.cpp
++++ b/src/function/scalar/string/like.cpp
+@@ -454,8 +454,7 @@ bool ILikeOperatorFunctionInternal(string_t &str, string_t &pattern, char escape
+ 	if (!HAS_ESCAPE) {
+ 		return LikeOperatorFunction(str_lcase, pat_lcase);
+ 	}
+-	// the pattern is lowercased, so the escape character must be as well
+-	return LikeOperatorFunction(str_lcase, pat_lcase, StringUtil::CharacterToLower(escape));
++	return LikeOperatorFunction(str_lcase, pat_lcase, escape);
+ }
+ 
+ bool ILikeOperatorFunction(string_t &str, string_t &pattern) {
+@@ -551,8 +550,7 @@ void ILikeEscapeFunction(DataChunk &args, ExpressionState &state, Vector &result
+ 	    escape_vec.GetVectorType() == VectorType::CONSTANT_VECTOR && !ConstantVector::IsNull(escape_vec)) {
+ 		auto pattern = *ConstantVector::GetData<string_t>(pattern_vec);
+ 		auto escape = *ConstantVector::GetData<string_t>(escape_vec);
+-		// the pattern is lowercased, so the escape character must be as well
+-		char escape_char = StringUtil::CharacterToLower(GetEscapeChar(escape));
++		char escape_char = GetEscapeChar(escape);
+ 		bool has_escape = escape.GetSize() != 0;
+ 
+ 		// lowercase the pattern exactly once, up front
+diff --git a/src/function/scalar/string/regexp/regexp_extract_all.cpp b/src/function/scalar/string/regexp/regexp_extract_all.cpp
+index 6d81c6a..c4339b6 100644
+--- a/src/function/scalar/string/regexp/regexp_extract_all.cpp
++++ b/src/function/scalar/string/regexp/regexp_extract_all.cpp
+@@ -44,11 +44,12 @@ bool ExtractAll(duckdb_re2::StringPiece &input, duckdb_re2::RE2 &pattern, idx_t
+ 	if (!pattern.Match(input, *startpos, input.size(), pattern.UNANCHORED, groups, ngroups + 1)) {
+ 		return false;
+ 	}
+-	*startpos = static_cast<idx_t>(groups[0].end() - input.begin());
+-	if (groups[0].empty()) {
+-		// Empty match: advance exactly one UTF-8 codepoint past it
+-		*startpos += regexp_util::AdvanceOneUTF8Basic(input, *startpos);
++	idx_t consumed = static_cast<size_t>(groups[0].end() - (input.begin() + *startpos));
++	if (!consumed) {
++		// Empty match: advance exactly one UTF-8 codepoint
++		consumed = regexp_util::AdvanceOneUTF8Basic(input, *startpos);
+ 	}
++	*startpos += consumed;
+ 	return true;
+ }
+ 
+@@ -188,10 +189,11 @@ static inline bool ExtractAllStruct(duckdb_re2::StringPiece &input, duckdb_re2::
+ 	if (!re.Match(input, startpos, input.size(), re.UNANCHORED, groups, provided_groups + 1)) {
+ 		return false;
+ 	}
+-	startpos = static_cast<idx_t>(groups[0].end() - input.begin());
+-	if (groups[0].empty()) {
+-		startpos += regexp_util::AdvanceOneUTF8Basic(input, startpos);
++	idx_t consumed = static_cast<idx_t>(groups[0].end() - (input.begin() + startpos));
++	if (!consumed) {
++		consumed = regexp_util::AdvanceOneUTF8Basic(input, startpos);
+ 	}
++	startpos += consumed;
+ 	return true;
+ }
+ 
+diff --git a/src/function/scalar/string/regexp.cpp b/src/function/scalar/string/regexp.cpp
+index 8143e45..db1da49 100644
+--- a/src/function/scalar/string/regexp.cpp
++++ b/src/function/scalar/string/regexp.cpp
+@@ -281,9 +281,6 @@ static void RegexExtractFunction(DataChunk &args, ExpressionState &state, Vector
+ 		BinaryExecutor::Execute<string_t, string_t, string_t>(
+ 		    strings, patterns, result, [&](string_t input, string_t pattern) {
+ 			    RE2 re(CreateStringPiece(pattern), info.options);
+-			    if (!re.ok()) {
+-				    throw InvalidInputException(re.error());
+-			    }
+ 			    return ExtractCaptureGroup(input, re, info.group_index, info.no_match_returns_input);
+ 		    });
+ 	}
+diff --git a/src/function/scalar/string/string_split.cpp b/src/function/scalar/string/string_split.cpp
+index 388375a..322c7e1 100644
+--- a/src/function/scalar/string/string_split.cpp
++++ b/src/function/scalar/string/string_split.cpp
+@@ -16,33 +16,26 @@ namespace {
+ struct RegularStringSplit {
+ 	static constexpr bool VERIFY_UTF8 = false;
+ 
+-	static idx_t Find(const char *input_data, idx_t input_size, idx_t start, const char *delim_data, idx_t delim_size,
++	static idx_t Find(const char *input_data, idx_t input_size, const char *delim_data, idx_t delim_size,
+ 	                  idx_t &match_size, void *data) {
+ 		match_size = delim_size;
+ 		if (delim_size == 0) {
+-			return start;
++			return 0;
+ 		}
+-		auto pos = FindStrInStr(const_uchar_ptr_cast(input_data + start), input_size - start,
+-		                        const_uchar_ptr_cast(delim_data), delim_size);
+-		if (pos == DConstants::INVALID_INDEX) {
+-			return pos;
+-		}
+-		return start + pos;
++		return FindStrInStr(const_uchar_ptr_cast(input_data), input_size, const_uchar_ptr_cast(delim_data), delim_size);
+ 	}
+ };
+ 
+-struct RegexpStringSplit {
++struct ConstantRegexpStringSplit {
+ 	//! \C can split a multi-byte character
+ 	static constexpr bool VERIFY_UTF8 = true;
+ 
+-	static idx_t Find(const char *input_data, idx_t input_size, idx_t start, const char *delim_data, idx_t delim_size,
++	static idx_t Find(const char *input_data, idx_t input_size, const char *delim_data, idx_t delim_size,
+ 	                  idx_t &match_size, void *data) {
+ 		D_ASSERT(data);
+ 		auto regex = reinterpret_cast<duckdb_re2::RE2 *>(data);
+ 		duckdb_re2::StringPiece match;
+-		// match against the full input so that anchors and assertions see the original context
+-		if (!regex->Match(duckdb_re2::StringPiece(input_data, input_size), start, input_size, RE2::UNANCHORED, &match,
+-		                  1)) {
++		if (!regex->Match(duckdb_re2::StringPiece(input_data, input_size), 0, input_size, RE2::UNANCHORED, &match, 1)) {
+ 			return DConstants::INVALID_INDEX;
+ 		}
+ 		match_size = match.size();
+@@ -50,6 +43,19 @@ struct RegexpStringSplit {
+ 	}
+ };
+ 
++struct RegexpStringSplit {
++	static constexpr bool VERIFY_UTF8 = true;
++
++	static idx_t Find(const char *input_data, idx_t input_size, const char *delim_data, idx_t delim_size,
++	                  idx_t &match_size, void *data) {
++		duckdb_re2::RE2 regex(duckdb_re2::StringPiece(delim_data, delim_size));
++		if (!regex.ok()) {
++			throw InvalidInputException(regex.error());
++		}
++		return ConstantRegexpStringSplit::Find(input_data, input_size, delim_data, delim_size, match_size, &regex);
++	}
++};
++
+ struct StringSplitter {
+ 	template <class OP, class CB>
+ 	static idx_t Split(string_t input, string_t delim, void *data, CB &&emit) {
+@@ -58,15 +64,14 @@ struct StringSplitter {
+ 		auto delim_data = delim.GetData();
+ 		auto delim_size = delim.GetSize();
+ 		idx_t list_idx = 0;
+-		idx_t start = 0;
+-		while (start < input_size) {
++		while (input_size > 0) {
+ 			idx_t match_size = 0;
+-			auto pos = OP::Find(input_data, input_size, start, delim_data, delim_size, match_size, data);
++			auto pos = OP::Find(input_data, input_size, delim_data, delim_size, match_size, data);
+ 			if (pos > input_size) {
+ 				break;
+ 			}
+-			if (match_size == 0 && pos == start) {
+-				// special case: 0 length match at the start
++			if (match_size == 0 && pos == 0) {
++				// special case: 0 length match and pos is 0
+ 				// move to the next character
+ 				for (pos++; pos < input_size; pos++) {
+ 					if (IsCharacter(input_data[pos])) {
+@@ -78,18 +83,19 @@ struct StringSplitter {
+ 				}
+ 			}
+ 			D_ASSERT(input_size >= pos + match_size);
+-			emit(input_data + start, pos - start);
++			emit(input_data, pos);
+ 			list_idx++;
+-			start = pos + match_size;
++			input_data += (pos + match_size);
++			input_size -= (pos + match_size);
+ 		}
+-		emit(input_data + start, input_size - start);
++		emit(input_data, input_size);
+ 		list_idx++;
+ 		return list_idx;
+ 	}
+ };
+ 
+-template <class OP, class GET_DATA>
+-void StringSplitExecutor(DataChunk &args, ExpressionState &state, Vector &result, GET_DATA &&get_data) {
++template <class OP>
++void StringSplitExecutor(DataChunk &args, ExpressionState &state, Vector &result, void *data = nullptr) {
+ 	auto input_entries = args.data[0].Values<string_t>();
+ 	auto delim_entries = args.data[1].Values<string_t>();
+ 
+@@ -110,9 +116,8 @@ void StringSplitExecutor(DataChunk &args, ExpressionState &state, Vector &result
+ 			list.WriteElement().WriteStringRef(input_entry.GetValue());
+ 			continue;
+ 		}
+-		auto delim = delim_entry.GetValue();
+ 		StringSplitter::Split<OP>(
+-		    input_entry.GetValue(), delim, get_data(delim), [&](const char *split_data, idx_t split_size) {
++		    input_entry.GetValue(), delim_entry.GetValue(), data, [&](const char *split_data, idx_t split_size) {
+ 			    if (OP::VERIFY_UTF8) {
+ 				    regexp_util::VerifyUTF8Result(split_data, split_size);
+ 			    }
+@@ -124,7 +129,7 @@ void StringSplitExecutor(DataChunk &args, ExpressionState &state, Vector &result
+ }
+ 
+ void StringSplitFunction(DataChunk &args, ExpressionState &state, Vector &result) {
+-	StringSplitExecutor<RegularStringSplit>(args, state, result, [](const string_t &) -> void * { return nullptr; });
++	StringSplitExecutor<RegularStringSplit>(args, state, result, nullptr);
+ }
+ 
+ void StringSplitRegexFunction(DataChunk &args, ExpressionState &state, Vector &result) {
+@@ -133,18 +138,10 @@ void StringSplitRegexFunction(DataChunk &args, ExpressionState &state, Vector &r
+ 	if (info.constant_pattern) {
+ 		// fast path: pre-compiled regex
+ 		auto &lstate = ExecuteFunctionState::GetFunctionState(state)->Cast<RegexLocalState>();
+-		StringSplitExecutor<RegexpStringSplit>(args, state, result,
+-		                                       [&](const string_t &) -> void * { return &lstate.constant_pattern; });
++		StringSplitExecutor<ConstantRegexpStringSplit>(args, state, result, &lstate.constant_pattern);
+ 	} else {
+ 		// slow path: have to re-compile regex for every row
+-		unique_ptr<duckdb_re2::RE2> regex;
+-		StringSplitExecutor<RegexpStringSplit>(args, state, result, [&](const string_t &delim) -> void * {
+-			regex = make_uniq<duckdb_re2::RE2>(regexp_util::CreateStringPiece(delim), info.options);
+-			if (!regex->ok()) {
+-				throw InvalidInputException(regex->error());
+-			}
+-			return regex.get();
+-		});
++		StringSplitExecutor<RegexpStringSplit>(args, state, result);
+ 	}
+ }
+ 

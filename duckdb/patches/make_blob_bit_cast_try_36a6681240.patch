@@ -1,0 +1,61 @@
+diff --git a/src/common/operator/cast_operators.cpp b/src/common/operator/cast_operators.cpp
+index 95d7828..11d13b0 100644
+--- a/src/common/operator/cast_operators.cpp
++++ b/src/common/operator/cast_operators.cpp
+@@ -1626,15 +1626,12 @@ string_t CastFromBlob::Operation(string_t input, StringHeap &heap) {
+ }
+ 
+ template <>
+-bool TryCastBlobToBit::Operation(string_t input, string_t &result, Vector &result_vector, CastParameters &parameters) {
+-	if (input.GetSize() == 0) {
+-		HandleCastError::AssignError("Cannot cast empty BLOB to BIT", parameters);
+-		return false;
++string_t CastFromBlobToBit::Operation(string_t input, StringHeap &heap) {
++	idx_t result_size = input.GetSize() + 1;
++	if (result_size <= 1) {
++		throw ConversionException("Cannot cast empty BLOB to BIT");
+ 	}
+-	result = StringVector::EmptyString(result_vector, input.GetSize() + 1);
+-	Bit::BlobToBit(input, result);
+-	result.Finalize();
+-	return true;
++	return heap.AddBlob(Bit::BlobToBit(input));
+ }
+ 
+ //===--------------------------------------------------------------------===//
+diff --git a/src/function/cast/blob_cast.cpp b/src/function/cast/blob_cast.cpp
+index 65f90e1..60a2590 100644
+--- a/src/function/cast/blob_cast.cpp
++++ b/src/function/cast/blob_cast.cpp
+@@ -15,7 +15,7 @@ BoundCastInfo DefaultCasts::BlobCastSwitch(BindCastInput &input, const LogicalTy
+ 	case LogicalTypeId::LEGACY_AGGREGATE_STATE:
+ 		return DefaultCasts::ReinterpretCast;
+ 	case LogicalTypeId::BIT:
+-		return BoundCastInfo(&VectorCastHelpers::TryCastStringLoop<string_t, string_t, duckdb::TryCastBlobToBit>);
++		return BoundCastInfo(&VectorCastHelpers::StringCast<string_t, duckdb::CastFromBlobToBit>);
+ 	case LogicalTypeId::GEOMETRY:
+ 		return BlobToGeoCast(input, source, target);
+ 	default:
+diff --git a/src/include/duckdb/common/operator/cast_operators.hpp b/src/include/duckdb/common/operator/cast_operators.hpp
+index 111b4f9..8666cf9 100644
+--- a/src/include/duckdb/common/operator/cast_operators.hpp
++++ b/src/include/duckdb/common/operator/cast_operators.hpp
+@@ -913,14 +913,14 @@ struct CastFromBlob {
+ template <>
+ duckdb::string_t CastFromBlob::Operation(duckdb::string_t input, StringHeap &heap);
+ 
+-struct TryCastBlobToBit {
+-	template <class SRC, class DST>
+-	static inline bool Operation(SRC input, DST &result, Vector &result_vector, CastParameters &parameters) {
++struct CastFromBlobToBit {
++	template <class SRC>
++	static inline string_t Operation(SRC input, StringHeap &heap) {
+ 		throw NotImplementedException("Cast from blob could not be performed!");
+ 	}
+ };
+ template <>
+-bool TryCastBlobToBit::Operation(string_t input, string_t &result, Vector &result_vector, CastParameters &parameters);
++string_t CastFromBlobToBit::Operation(string_t input, StringHeap &heap);
+ 
+ struct TryCastToBlob {
+ 	template <class SRC, class DST>

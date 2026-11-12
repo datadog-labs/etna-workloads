@@ -1,0 +1,32 @@
+diff --git a/src/function/window/window_custom_aggregator.cpp b/src/function/window/window_custom_aggregator.cpp
+index 112806b..a2de0c8 100644
+--- a/src/function/window/window_custom_aggregator.cpp
++++ b/src/function/window/window_custom_aggregator.cpp
+@@ -21,11 +21,6 @@ bool WindowCustomAggregator::CanAggregate(const BoundWindowExpression &wexpr, Wi
+ 		return false;
+ 	}
+ 
+-	//	DISTINCT is not currently supported
+-	if (wexpr.Distinct()) {
+-		return false;
+-	}
+-
+ 	return (mode < WindowAggregationMode::COMBINE);
+ }
+ 
+diff --git a/src/function/window/window_segment_tree.cpp b/src/function/window/window_segment_tree.cpp
+index 7ff1657..e19853e 100644
+--- a/src/function/window/window_segment_tree.cpp
++++ b/src/function/window/window_segment_tree.cpp
+@@ -26,6 +26,11 @@ bool WindowSegmentTree::CanAggregate(const BoundWindowExpression &wexpr) {
+ 		return false;
+ 	}
+ 
++	//	Don't use segment trees for custom windowing
++	if (wexpr.AggregateFunction()->CanWindow()) {
++		return false;
++	}
++
+ 	//	We can't handle DISTINCT, ORDER BY args or () args (COUNT(*))
+ 	return !wexpr.Distinct() && wexpr.ArgOrders().empty() && !wexpr.GetChildren().empty();
+ }

@@ -1,0 +1,16 @@
+diff --git a/src/optimizer/remove_unused_columns.cpp b/src/optimizer/remove_unused_columns.cpp
+index 6b665cd..1cf92f7 100644
+--- a/src/optimizer/remove_unused_columns.cpp
++++ b/src/optimizer/remove_unused_columns.cpp
+@@ -899,7 +899,10 @@ void RemoveUnusedColumns::VisitOperator(unique_ptr<LogicalOperator> &op_ref) {
+ 		// Distinct column indexes here, unlike the per-reader map, so comparing sizes is a valid width check.
+ 		if (cte_map_entry.everything_referenced || readers_visible_in_output ||
+ 		    referenced_columns_in_rhs.size() == cte.children[0]->GetColumnBindings().size()) {
+-			// Preserve the CTE input without marking unrelated sibling outputs as referenced.
++			if (!analyze) {
++				everything_referenced = true;
++			}
++			// We may opt out here, but we still need to traverse the left-hand side of the CTE.
+ 			RemoveUnusedColumns remove(*this, true);
+ 			remove.VisitOperator(cte.children[0]);
+ 			return;

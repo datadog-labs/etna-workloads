@@ -1,0 +1,58 @@
+diff --git a/src/parser/peg/transformer/transform_create_table.cpp b/src/parser/peg/transformer/transform_create_table.cpp
+index 3115c92..05cab7a 100644
+--- a/src/parser/peg/transformer/transform_create_table.cpp
++++ b/src/parser/peg/transformer/transform_create_table.cpp
+@@ -41,18 +41,6 @@ PEGTransformerFactory::TransformCreateStatement(PEGTransformer &transformer, con
+ 		secret_info.persist_type = temporary ? *temporary : SecretPersistType::DEFAULT;
+ 	}
+ 	result->info->temporary = temporary && *temporary == SecretPersistType::TEMPORARY;
+-	if (result->info->temporary) {
+-		// the grammar allows TEMPORARY in front of every create variation - reject it where the entry does not
+-		// carry a user-supplied flag, but derives one from the table it belongs to
+-		switch (result->info->type) {
+-		case CatalogType::INDEX_ENTRY:
+-			throw ParserException("Temporary indexes are not supported");
+-		case CatalogType::TRIGGER_ENTRY:
+-			throw ParserException("Temporary triggers are not supported");
+-		default:
+-			break;
+-		}
+-	}
+ 	return std::move(result);
+ }
+ 
+diff --git a/src/planner/binder/statement/bind_create.cpp b/src/planner/binder/statement/bind_create.cpp
+index 954fd98..beb43f0 100644
+--- a/src/planner/binder/statement/bind_create.cpp
++++ b/src/planner/binder/statement/bind_create.cpp
+@@ -660,10 +660,6 @@ void Binder::BindLogicalType(LogicalType &type) {
+ bool BoundBodyContainsTrigger(const LogicalOperator &op);
+ 
+ SchemaCatalogEntry &Binder::BindCreateTriggerInfo(CreateTriggerInfo &create_trigger_info) {
+-	if (create_trigger_info.temporary) {
+-		// unsupported - a trigger is temporary iff its base table is (see below)
+-		throw BinderException("Temporary triggers are not supported");
+-	}
+ 	// Resolve the base table first — triggers inherit catalog/schema from their table (like Postgres).
+ 	TableDescription table_description(create_trigger_info.base_table->GetQualifiedName());
+ 	auto table_ref = make_uniq<BaseTableRef>(table_description);
+@@ -683,8 +679,6 @@ SchemaCatalogEntry &Binder::BindCreateTriggerInfo(CreateTriggerInfo &create_trig
+ 
+ 	// Trigger inherits the catalog and the (possibly nested) schema from the base table
+ 	create_trigger_info.SetQualifiedName(table.schema.GetQualifiedName(create_trigger_info.GetQualifiedName().Name()));
+-	// ... and its temporariness, so that a trigger on a temporary table lands in the temp catalog
+-	create_trigger_info.temporary = table.temporary;
+ 
+ 	auto &schema = BindCreateSchema(create_trigger_info);
+ 
+@@ -910,10 +904,6 @@ BoundStatement Binder::Bind(CreateStatement &stmt) {
+ 	}
+ 	case CatalogType::INDEX_ENTRY: {
+ 		auto &create_index_info = stmt.info->Cast<CreateIndexInfo>();
+-		if (create_index_info.temporary) {
+-			// unsupported - an index is temporary iff the table it is created on is (see below)
+-			throw BinderException("Temporary indexes are not supported");
+-		}
+ 
+ 		// Plan the table scan - the table lives in the same (possibly nested) schema as the index.
+ 		TableDescription table_description(create_index_info.GetQualifiedName().WithName(create_index_info.table));

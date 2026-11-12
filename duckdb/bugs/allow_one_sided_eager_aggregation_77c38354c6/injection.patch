@@ -1,0 +1,72 @@
+diff --git a/src/optimizer/partial_aggregate_pushdown.cpp b/src/optimizer/partial_aggregate_pushdown.cpp
+index e0ec4d7..42c9697 100644
+--- a/src/optimizer/partial_aggregate_pushdown.cpp
++++ b/src/optimizer/partial_aggregate_pushdown.cpp
+@@ -138,10 +138,6 @@ static bool JoinContainsDelimGet(const LogicalOperator &op) {
+ 	return false;
+ }
+ 
+-static bool IsPushdownJoinType(JoinType join_type) {
+-	return join_type == JoinType::INNER || join_type == JoinType::LEFT || join_type == JoinType::RIGHT;
+-}
+-
+ static bool GetPushdownOperators(LogicalOperator &op, LogicalAggregate *&aggr, LogicalComparisonJoin *&join) {
+ 	if (op.type != LogicalOperatorType::LOGICAL_AGGREGATE_AND_GROUP_BY || op.children.size() != 1) {
+ 		return false;
+@@ -158,7 +154,7 @@ static bool GetPushdownOperators(LogicalOperator &op, LogicalAggregate *&aggr, L
+ 	if (JoinContainsDelimGet(*join)) {
+ 		return false;
+ 	}
+-	return IsPushdownJoinType(join->join_type) && !join->HasProjectionMap() && join->children.size() == 2 &&
++	return join->join_type == JoinType::INNER && !join->HasProjectionMap() && join->children.size() == 2 &&
+ 	       !join->conditions.empty();
+ }
+ 
+@@ -321,28 +317,12 @@ static bool HasDimensionGroup(const LogicalAggregate &aggr, const PartialAggrega
+ 	return dimension_group_count > 0;
+ }
+ 
+-static bool JoinPreservesAggregateSide(const LogicalComparisonJoin &join, const PartialAggregatePushdownInfo &info) {
+-	switch (join.join_type) {
+-	case JoinType::INNER:
+-		return true;
+-	case JoinType::LEFT:
+-		return info.aggregate_side == 0;
+-	case JoinType::RIGHT:
+-		return info.aggregate_side == 1;
+-	default:
+-		return false;
+-	}
+-}
+-
+ static bool AnalyzePushdown(LogicalAggregate &aggr, LogicalComparisonJoin &join, PartialAggregatePushdownInfo &info) {
+ 	LogicalJoin::GetTableReferences(*join.children[0], info.side_bindings[0]);
+ 	LogicalJoin::GetTableReferences(*join.children[1], info.side_bindings[1]);
+ 	if (!FindAggregateSide(aggr, info)) {
+ 		return false;
+ 	}
+-	if (!JoinPreservesAggregateSide(join, info)) {
+-		return false;
+-	}
+ 	if (ContainsAggregateInput(*join.children[info.aggregate_side])) {
+ 		return false;
+ 	}
+@@ -422,7 +402,7 @@ static unique_ptr<LogicalAggregate> CreateLowerAggregate(LogicalAggregate &aggr,
+ 
+ static unique_ptr<LogicalComparisonJoin> CreateJoin(LogicalComparisonJoin &join, PartialAggregatePushdownInfo &info,
+                                                     unique_ptr<LogicalAggregate> lower_aggr) {
+-	auto new_join = make_uniq<LogicalComparisonJoin>(join.join_type);
++	auto new_join = make_uniq<LogicalComparisonJoin>(JoinType::INNER);
+ 	if (info.aggregate_side == 0) {
+ 		new_join->children.push_back(std::move(lower_aggr));
+ 		new_join->children.push_back(std::move(join.children[info.dimension_side]));
+@@ -811,9 +791,6 @@ bool PartialAggregatePushdown::TryDoubleEagerPushdown(unique_ptr<LogicalOperator
+ 	}
+ 	auto &aggr = *aggr_ptr;
+ 	auto &join = *join_ptr;
+-	if (join.join_type != JoinType::INNER) {
+-		return false;
+-	}
+ 	if (aggr.grouping_sets.size() > 1) {
+ 		return false;
+ 	}

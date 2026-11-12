@@ -1,0 +1,26 @@
+diff --git a/src/common/multi_file/multi_file_column_mapper.cpp b/src/common/multi_file/multi_file_column_mapper.cpp
+index af5b3c2..d469b73 100644
+--- a/src/common/multi_file/multi_file_column_mapper.cpp
++++ b/src/common/multi_file/multi_file_column_mapper.cpp
+@@ -966,19 +966,14 @@ static bool MappedCastIsInvertible(const MultiFileIndexMapping &mapping, const L
+ }
+ 
+ static bool TryCastConstant(Value &constant, const MultiFileIndexMapping &mapping, const LogicalType &target_type) {
+-	// this filter replaces the global one, so both casts must preserve which rows match
+-	if (!BoundCastExpression::CastIsInvertible(constant.type(), target_type) ||
+-	    !MappedCastIsInvertible(mapping, target_type, constant.type())) {
++	// only nested constants are checked for a one-to-one mapping; scalar casts may narrow the constant
++	if (constant.type().IsNested() && !MappedCastIsInvertible(mapping, target_type, constant.type())) {
+ 		return false;
+ 	}
+ 	auto cast = constant.DefaultTryCastAs(target_type);
+ 	if (!cast) {
+ 		return false;
+ 	}
+-	auto roundtrip = cast->DefaultTryCastAs(constant.type());
+-	if (!roundtrip || *roundtrip != constant) {
+-		return false;
+-	}
+ 	constant = std::move(*cast);
+ 	return true;
+ }

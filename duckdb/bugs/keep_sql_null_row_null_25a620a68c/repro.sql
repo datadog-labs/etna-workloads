@@ -1,0 +1,3 @@
+.mode list
+.nullvalue NULL
+SELECT (v::VARIANT::JSON) IS NULL, (v::VARIANT::JSON)::VARCHAR FROM (VALUES (NULL::INTEGER), (7)) t(v);

@@ -1,0 +1,31 @@
+diff --git a/src/common/multi_file/multi_file_reader.cpp b/src/common/multi_file/multi_file_reader.cpp
+index 58641a2..eb36917 100644
+--- a/src/common/multi_file/multi_file_reader.cpp
++++ b/src/common/multi_file/multi_file_reader.cpp
+@@ -556,9 +556,6 @@ bool MultiFileReader::ParseOption(const Identifier &key, const Value &val, Multi
+ 		}
+ 		// verify that all the children of the struct value are VARCHAR
+ 		auto &children = StructValue::GetChildren(val);
+-		if (children.empty()) {
+-			throw InvalidInputException("'hive_types' must specify the type of at least one column");
+-		}
+ 		for (idx_t i = 0; i < children.size(); i++) {
+ 			const Value &child = children[i];
+ 			if (child.type().id() != LogicalType::VARCHAR) {
+diff --git a/src/execution/operator/csv_scanner/util/csv_reader_options.cpp b/src/execution/operator/csv_scanner/util/csv_reader_options.cpp
+index 160f158..1fca5c1 100644
+--- a/src/execution/operator/csv_scanner/util/csv_reader_options.cpp
++++ b/src/execution/operator/csv_scanner/util/csv_reader_options.cpp
+@@ -295,11 +295,7 @@ void CSVReaderOptions::SetReadOption(const Identifier &loption, const Value &val
+ 	} else if (loption == "ignore_errors") {
+ 		ignore_errors.Set(ParseBoolean(value, loption));
+ 	} else if (loption == "buffer_size") {
+-		auto buffer_size = ParseInteger(value, loption);
+-		if (buffer_size < 0) {
+-			throw InvalidInputException("Buffer Size option must be higher than 0");
+-		}
+-		buffer_size_option.Set(NumericCast<idx_t>(buffer_size));
++		buffer_size_option.Set(NumericCast<idx_t>(ParseInteger(value, loption)));
+ 		if (buffer_size_option == 0) {
+ 			throw InvalidInputException("Buffer Size option must be higher than 0");
+ 		}

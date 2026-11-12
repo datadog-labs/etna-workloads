@@ -1,0 +1,4 @@
+CREATE TABLE test(i INT, j INT);
+ALTER TABLE test ADD PRIMARY KEY (i);
+CREATE INDEX PRIMARY_test_i ON test(i);
+SELECT 'ok';

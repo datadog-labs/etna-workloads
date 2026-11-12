@@ -1,0 +1,17 @@
+diff --git a/src/execution/operator/persistent/physical_copy_to_file.cpp b/src/execution/operator/persistent/physical_copy_to_file.cpp
+index 7487684..da53e3c 100644
+--- a/src/execution/operator/persistent/physical_copy_to_file.cpp
++++ b/src/execution/operator/persistent/physical_copy_to_file.cpp
+@@ -2856,8 +2856,10 @@ SinkResultType PartitionedCopy::Sink(ExecutionContext &execution_context, DataCh
+ 
+ 	if (lstate.current_state->CanSink() && lstate.current_state->ShouldInitiateFlush(lstate.append_count)) {
+ 		annotated_lock_guard<annotated_mutex> guard(lock);
+-		lstate.current_state->CloseInput();
+-		InitializeFlush();
++		if (!flushing) {
++			lstate.current_state->CloseInput();
++			InitializeFlush();
++		}
+ 	}
+ 
+ 	if (!flushing.load(std::memory_order_relaxed)) {

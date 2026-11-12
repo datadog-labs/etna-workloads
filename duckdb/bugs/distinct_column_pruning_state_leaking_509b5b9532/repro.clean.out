@@ -1,0 +1,48 @@
+╭─ Projection ──────────────╮
+│ Expressions: name         │
+│ ~3 rows                   │
+╰─────────────┬─────────────╯
+╭─ Comparison Join ─────────╮
+│ Join Type: LEFT           │
+│ Conditions: id = src_id   │
+│ ~3 rows                   │
+╰─────────────┬─────────────╯
+              ├──────────────────────────────╮
+╭─ Seq Scan ──┴─────────────╮  ╭─ Comparison Join ─────────╮
+│ Table: memory.main.person │  │ Join Type: INNER          │
+│ Type: Sequential Scan     │  │ Conditions: id = dst_id   │
+│ ~3 rows                   │  │ ~1 row                    │
+╰───────────────────────────╯  ╰─────────────┬─────────────╯
+                                             ├──────────────────────────────╮
+                               ╭─ Projection ┴─────────────╮  ╭─ Comparison Join ────────╮
+                               │ Expressions: id, name     │  │ Join Type: INNER         │
+                               │ ~3 rows                   │  │ Conditions: src_id = id  │
+                               ╰─────────────┬─────────────╯  │ ~1 row                   │
+                               ╭─ Seq Scan ──┴─────────────╮  ╰─────────────┬────────────╯
+                               │ Filters: id >= 2          │                ├─────────────────────────────────────╮
+                               │ Table: memory.main.person │  ╭─ Seq Scan ──┴────────────╮  ╭─ Projection ────────┴─────────────────────╮
+                               │ Type: Sequential Scan     │  │ Table: memory.main.knows │  │ Expressions: CAST(#0 AS INTEGER)          │
+                               │ ~3 rows                   │  │ Type: Sequential Scan    │  │ ~1 row                                    │
+                               ╰───────────────────────────╯  │ ~3 rows                  │  ╰─────────────────────┬─────────────────────╯
+                                                              ╰──────────────────────────╯  ╭─ Distinct ──────────┴─────────────────────╮
+                                                                                            │ Distinct Targets: id                      │
+                                                                                            │ ~1 row                                    │
+                                                                                            ╰─────────────────────┬─────────────────────╯
+                                                                                            ╭─ Projection ────────┴─────────────────────╮
+                                                                                            │ Expressions: CAST(#0 AS TINYINT)          │
+                                                                                            │ ~3 rows                                   │
+                                                                                            ╰─────────────────────┬─────────────────────╯
+                                                                                            ╭─ Filter ────────────┴─────────────────────╮
+                                                                                            │ Expressions:                              │
+                                                                                            │ CAST(CAST(#0 AS TINYINT) AS INTEGER) <= 2 │
+                                                                                            │ ~3 rows                                   │
+                                                                                            ╰─────────────────────┬─────────────────────╯
+                                                                                            ╭─ Projection ────────┴─────────────────────╮
+                                                                                            │ Expressions: id                           │
+                                                                                            │ ~3 rows                                   │
+                                                                                            ╰─────────────────────┬─────────────────────╯
+                                                                                            ╭─ Seq Scan ──────────┴─────────────────────╮
+                                                                                            │ Table: memory.main.person                 │
+                                                                                            │ Type: Sequential Scan                     │
+                                                                                            │ ~3 rows                                   │
+                                                                                            ╰───────────────────────────────────────────╯

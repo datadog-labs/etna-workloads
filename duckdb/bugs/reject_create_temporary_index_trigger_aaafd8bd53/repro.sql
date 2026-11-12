@@ -1,0 +1,6 @@
+.mode list
+.nullvalue NULL
+SET threads=1;
+CREATE TABLE t(i INTEGER);
+CREATE TEMPORARY TABLE tmp(i INTEGER);
+CREATE TEMPORARY INDEX i1 ON t(i);

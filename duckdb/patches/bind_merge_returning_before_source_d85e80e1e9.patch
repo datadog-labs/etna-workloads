@@ -1,0 +1,23 @@
+diff --git a/src/planner/binder/statement/bind_merge_into.cpp b/src/planner/binder/statement/bind_merge_into.cpp
+index 20b4731..7bccba6 100644
+--- a/src/planner/binder/statement/bind_merge_into.cpp
++++ b/src/planner/binder/statement/bind_merge_into.cpp
+@@ -304,7 +304,6 @@ BoundStatement Binder::BindNode(MergeQueryNode &node) {
+ 	// bind the WHEN NOT MATCHED BY SOURCE / TARGET merge actions
+ 	auto &get = bound_table.plan->Cast<LogicalGet>();
+ 	auto merge_into = make_uniq<LogicalMergeInto>(table);
+-	merge_into->return_chunk = !node.returning_list.empty();
+ 	merge_into->table_index = GenerateTableIndex();
+ 	auto proj_index = GenerateTableIndex();
+ 	vector<unique_ptr<Expression>> projection_expressions;
+@@ -371,6 +370,10 @@ BoundStatement Binder::BindNode(MergeQueryNode &node) {
+ 	bool inverted = source_idx == 1;
+ 	auto &source = join_ref.get().children[inverted ? 1 : 0];
+ 
++	if (!node.returning_list.empty()) {
++		merge_into->return_chunk = true;
++	}
++
+ 	// bind WHEN_MATCHED merge actions (can contain references to both source and target)
+ 	for (auto &entry : node.actions) {
+ 		if (entry.first != MergeActionCondition::WHEN_MATCHED) {

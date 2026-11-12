@@ -1,0 +1,55 @@
+diff --git a/src/include/duckdb/storage/database_handle.hpp b/src/include/duckdb/storage/database_handle.hpp
+index 60ea2c8..6e01838 100644
+--- a/src/include/duckdb/storage/database_handle.hpp
++++ b/src/include/duckdb/storage/database_handle.hpp
+@@ -36,7 +36,6 @@ struct DatabaseHandle {
+ 
+ 	void Truncate(idx_t new_size);
+ 	void Trim(idx_t offset, idx_t length);
+-	idx_t GetFileSize();
+ 
+ 	FileHandle &GetFileHandle();
+ 
+diff --git a/src/storage/database_handle.cpp b/src/storage/database_handle.cpp
+index 36f4ac3..c484225 100644
+--- a/src/storage/database_handle.cpp
++++ b/src/storage/database_handle.cpp
+@@ -169,13 +169,6 @@ void DatabaseHandle::Trim(idx_t offset, idx_t length) {
+ 	}
+ }
+ 
+-idx_t DatabaseHandle::GetFileSize() {
+-	if (mmap_handle) {
+-		return 0;
+-	}
+-	return handle->GetFileSize();
+-}
+-
+ FileHandle &DatabaseHandle::GetFileHandle() {
+ 	return *handle;
+ }
+diff --git a/src/storage/single_file_block_manager.cpp b/src/storage/single_file_block_manager.cpp
+index 07cf070..da67763 100644
+--- a/src/storage/single_file_block_manager.cpp
++++ b/src/storage/single_file_block_manager.cpp
+@@ -1246,14 +1246,14 @@ void SingleFileBlockManager::Truncate() {
+ 		blocks_to_truncate++;
+ 		max_block--;
+ 	}
+-	if (blocks_to_truncate > 0) {
+-		// truncate the file
+-		free_list.erase(free_list.lower_bound(max_block), free_list.end());
++	if (blocks_to_truncate == 0) {
++		// nothing to truncate
++		return;
+ 	}
++	// truncate the file
++	free_list.erase(free_list.lower_bound(max_block), free_list.end());
+ 	auto new_size = NumericCast<idx_t>(BLOCK_START + NumericCast<idx_t>(max_block) * GetBlockAllocSize());
+-	if (blocks_to_truncate > 0 || handle->GetFileSize() > new_size) {
+-		handle->Truncate(new_size);
+-	}
++	handle->Truncate(new_size);
+ }
+ 
+ vector<MetadataHandle> SingleFileBlockManager::GetFreeListBlocks() {

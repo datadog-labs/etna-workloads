@@ -1,0 +1,54 @@
+a|b|("row"(a, b) = ANY(SELECT * FROM (SELECT * FROM (VALUES (2, 6), (3, 7), (3, CAST(NULL AS INTEGER)), (4, 8)) AS valueslist) AS rhs(x, y)))|(NOT ("row"(a, b) = ANY(SELECT * FROM (SELECT * FROM (VALUES (2, 6), (3, 7), (3, CAST(NULL AS INTEGER)), (4, 8)) AS valueslist) AS rhs(x, y))))
+1|5|false|true
+2|6|true|false
+3|9|NULL|NULL
+9|8|false|true
+3|NULL|NULL|NULL
+NULL|8|NULL|NULL
+NULL|NULL|NULL|NULL
+a|b|("row"(a, b) = ANY(SELECT * FROM (SELECT * FROM (VALUES (2, 6), (CAST(NULL AS INTEGER), 7), (4, CAST(NULL AS INTEGER)), (CAST(NULL AS INTEGER), CAST(NULL AS INTEGER))) AS valueslist) AS rhs(x, y)))|(NOT ("row"(a, b) = ANY(SELECT * FROM (SELECT * FROM (VALUES (2, 6), (CAST(NULL AS INTEGER), 7), (4, CAST(NULL AS INTEGER)), (CAST(NULL AS INTEGER), CAST(NULL AS INTEGER))) AS valueslist) AS rhs(x, y))))
+1|5|NULL|NULL
+2|6|true|false
+3|7|NULL|NULL
+4|8|NULL|NULL
+("row"(CAST(NULL AS INTEGER), 8) = ANY(SELECT * FROM (SELECT * FROM (VALUES (2, 6), (3, 7)) AS valueslist) AS rhs(x, y)))|(NOT ("row"(CAST(NULL AS INTEGER), 8) = ANY(SELECT * FROM (SELECT * FROM (VALUES (2, 6), (3, 7)) AS valueslist) AS rhs(x, y))))
+false|true
+k|("row"(a, b, c, d, e, f) = ANY(SELECT * FROM (SELECT * FROM (VALUES (1, 1, 1, 1, 1, 1), (0, CAST(NULL AS INTEGER), CAST(NULL AS INTEGER), 0, CAST(NULL AS INTEGER), 0)) AS valueslist) AS rhs(a, b, c, d, e, f)))|(NOT ("row"(a, b, c, d, e, f) = ANY(SELECT * FROM (SELECT * FROM (VALUES (1, 1, 1, 1, 1, 1), (0, CAST(NULL AS INTEGER), CAST(NULL AS INTEGER), 0, CAST(NULL AS INTEGER), 0)) AS valueslist) AS rhs(a, b, c, d, e, f))))
+k1|true|false
+k2|NULL|NULL
+k4|false|true
+k8|NULL|NULL
+("row"(1, 2) = ANY(SELECT * FROM (SELECT * FROM (VALUES (1, 2)) AS valueslist) AS rhs(x, y) WHERE false))|(NOT ("row"(1, 2) = ANY(SELECT * FROM (SELECT * FROM (VALUES (1, 2)) AS valueslist) AS rhs(x, y) WHERE false)))
+false|true
+("row"(1, 2) = ANY(SELECT * FROM (SELECT * FROM (VALUES (CAST(NULL AS INTEGER), CAST(NULL AS INTEGER))) AS valueslist) AS rhs(x, y)))|(NOT ("row"(1, 2) = ANY(SELECT * FROM (SELECT * FROM (VALUES (CAST(NULL AS INTEGER), CAST(NULL AS INTEGER))) AS valueslist) AS rhs(x, y))))
+NULL|NULL
+f1|f2
+1|0
+("row"(4000, 7) = ANY(SELECT a, b FROM mark_join_rhs))|(NOT ("row"(4000, 7) = ANY(SELECT a, b FROM mark_join_rhs)))
+NULL|NULL
+("row"(CAST(NULL AS INTEGER), 4001) = ANY(SELECT a, b FROM mark_join_rhs))|(NOT ("row"(CAST(NULL AS INTEGER), 4001) = ANY(SELECT a, b FROM mark_join_rhs)))
+false|true
+("row"(list_value(1, CAST(NULL AS INTEGER)), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (list_value(1, 2), 0)) AS valueslist) AS rhs(a, b)))
+false
+("row"(list_value(1, CAST(NULL AS INTEGER)), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (list_value(1, CAST(NULL AS INTEGER)), 0)) AS valueslist) AS rhs(a, b)))
+true
+("row"(list_value(1, 2), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (list_value(1, CAST(NULL AS INTEGER)), 0)) AS valueslist) AS rhs(a, b)))
+false
+("row"(array_value(1, 2), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (array_value(1, CAST(NULL AS INTEGER)), 0)) AS valueslist) AS rhs(a, b)))|("row"("map"(list_value(1, 2), list_value(1, 2)), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES ("map"(list_value(1, 2), list_value(1, CAST(NULL AS INTEGER))), 0)) AS valueslist) AS rhs(a, b)))|("row"(struct_pack(a := 1, b := 2), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (struct_pack(a := 1, b := CAST(NULL AS INTEGER)), 0)) AS valueslist) AS rhs(a, b)))|("row"(CAST(union_value(num := 1) AS UNION(num INTEGER, str VARCHAR)), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (CAST(union_value(num := CAST(NULL AS INTEGER)) AS UNION(num INTEGER, str VARCHAR)), 0)) AS valueslist) AS rhs(a, b)))
+false|false|false|NULL
+("row"(array_value(1, CAST(NULL AS INTEGER)), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (array_value(1, 2), 0)) AS valueslist) AS rhs(a, b)))
+false
+("row"("map"(list_value(1, 2), list_value(1, CAST(NULL AS INTEGER))), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES ("map"(list_value(1, 2), list_value(1, 2)), 0)) AS valueslist) AS rhs(a, b)))
+false
+("row"(struct_pack(a := 1, b := CAST(NULL AS INTEGER)), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (struct_pack(a := 1, b := 2), 0)) AS valueslist) AS rhs(a, b)))
+false
+("row"(CAST(union_value(num := CAST(NULL AS INTEGER)) AS UNION(num INTEGER, str VARCHAR)), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (CAST(union_value(num := 1) AS UNION(num INTEGER, str VARCHAR)), 0)) AS valueslist) AS rhs(a, b)))
+NULL
+("row"(list_value(9, CAST(NULL AS INTEGER)), 0) = ANY(SELECT * FROM (SELECT * FROM (VALUES (list_value(1, 2), 0)) AS valueslist) AS rhs(a, b)))
+false
+count_star()
+10000
+count_star()|count(marker)|count_if(marker)
+100000|100000|100000
+("row"(1, 2) = ANY(SELECT s FROM (SELECT * FROM (VALUES ("row"(1, CAST(NULL AS INTEGER)))) AS valueslist) AS rhs(s)))
+false

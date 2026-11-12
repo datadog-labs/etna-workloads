@@ -1,0 +1,44 @@
+diff --git a/src/function/scalar/strftime_format.cpp b/src/function/scalar/strftime_format.cpp
+index 672224f..7641c16 100644
+--- a/src/function/scalar/strftime_format.cpp
++++ b/src/function/scalar/strftime_format.cpp
+@@ -928,13 +928,11 @@ bool StrpTimeFormat::Parse(const char *data, size_t size, ParseResult &result, b
+ 		if (numeric_width[i] > 0) {
+ 			// numeric specifier: parse a number
+ 			uint64_t number = 0;
+-			int digits = 0;
+ 			size_t start_pos = pos;
+ 			size_t end_pos = start_pos + UnsafeNumericCast<size_t>(numeric_width[i]);
+ 			while (pos < size && pos < end_pos && StringUtil::CharacterIsDigit(data[pos])) {
+ 				number = number * 10 + UnsafeNumericCast<uint64_t>(data[pos]) - '0';
+ 				pos++;
+-				++digits;
+ 			}
+ 			if (pos == start_pos) {
+ 				// expected a number here
+@@ -1092,25 +1090,16 @@ bool StrpTimeFormat::Parse(const char *data, size_t size, ParseResult &result, b
+ 				result_data[5] = UnsafeNumericCast<int32_t>(number);
+ 				break;
+ 			case StrTimeSpecifier::NANOSECOND_PADDED:
+-				for (; digits < numeric_width[i]; ++digits) {
+-					number *= 10;
+-				}
+ 				D_ASSERT(number < Interval::NANOS_PER_SEC); // enforced by the length of the number
+ 				// nanoseconds
+ 				result_data[6] = UnsafeNumericCast<int32_t>(number);
+ 				break;
+ 			case StrTimeSpecifier::MICROSECOND_PADDED:
+-				for (; digits < numeric_width[i]; ++digits) {
+-					number *= 10;
+-				}
+ 				D_ASSERT(number < Interval::MICROS_PER_SEC); // enforced by the length of the number
+ 				// nanoseconds
+ 				result_data[6] = UnsafeNumericCast<int32_t>(number * Interval::NANOS_PER_MICRO);
+ 				break;
+ 			case StrTimeSpecifier::MILLISECOND_PADDED:
+-				for (; digits < numeric_width[i]; ++digits) {
+-					number *= 10;
+-				}
+ 				D_ASSERT(number < Interval::MSECS_PER_SEC); // enforced by the length of the number
+ 				// nanoseconds
+ 				result_data[6] = UnsafeNumericCast<int32_t>(number * Interval::NANOS_PER_MSEC);

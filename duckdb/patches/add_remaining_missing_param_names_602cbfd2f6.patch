@@ -1,0 +1,65 @@
+diff --git a/src/function/scalar/system/aggregate_export.cpp b/src/function/scalar/system/aggregate_export.cpp
+index d43e1de..78fefe3 100644
+--- a/src/function/scalar/system/aggregate_export.cpp
++++ b/src/function/scalar/system/aggregate_export.cpp
+@@ -991,7 +991,7 @@ bool ExportAggregateFunctionBindData::Equals(const FunctionData &other_p) const
+ ScalarFunction FinalizeFun::GetFunction() {
+ 	auto function = ScalarFunction("finalize", {}, LogicalTypeId::INVALID, AggregateStateFinalize, BindAggregateState,
+ 	                               nullptr, InitFinalizeState);
+-	function.GetSignature().AddParameter("state", LogicalTypeId::ANY);
++	function.GetSignature().AddParameter("col0", LogicalTypeId::ANY);
+ 	function.SetNullHandling(FunctionNullHandling::SPECIAL_HANDLING);
+ 
+ 	return function;
+@@ -1000,7 +1000,7 @@ ScalarFunction FinalizeFun::GetFunction() {
+ ScalarFunction CombineFun::GetFunction() {
+ 	auto function = ScalarFunction("combine", {}, LogicalTypeId::ANY, AggregateStateCombine, BindAggregateState,
+ 	                               nullptr, InitCombineState);
+-	function.GetSignature().AddParameter("state1", LogicalTypeId::ANY).AddParameter("state2", LogicalTypeId::ANY);
++	function.GetSignature().AddParameter("col0", LogicalTypeId::ANY).AddParameter("col1", LogicalTypeId::ANY);
+ 	function.SetNullHandling(FunctionNullHandling::SPECIAL_HANDLING);
+ 	return function;
+ }
+diff --git a/src/function/scalar/system/functions.json b/src/function/scalar/system/functions.json
+index 94a5260..eb8f2ca 100644
+--- a/src/function/scalar/system/functions.json
++++ b/src/function/scalar/system/functions.json
+@@ -1,14 +1,14 @@
+ [
+     {
+         "name": "finalize",
+-        "parameters": "state",
++        "parameters": "col0",
+         "description": "",
+         "example": "",
+         "type": "scalar_function"
+     },
+     {
+         "name": "combine",
+-        "parameters": "state1,state2",
++        "parameters": "col0,col1",
+         "description": "",
+         "example": "",
+         "type": "scalar_function"
+diff --git a/src/include/duckdb/function/scalar/system_functions.hpp b/src/include/duckdb/function/scalar/system_functions.hpp
+index 774b6d2..f0440a4 100644
+--- a/src/include/duckdb/function/scalar/system_functions.hpp
++++ b/src/include/duckdb/function/scalar/system_functions.hpp
+@@ -17,7 +17,7 @@ namespace duckdb {
+ 
+ struct FinalizeFun {
+ 	static constexpr const char *Name = "finalize";
+-	static constexpr const char *Parameters = "state";
++	static constexpr const char *Parameters = "col0";
+ 	static constexpr const char *Description = "";
+ 	static constexpr const char *Example = "";
+ 	static constexpr const char *Categories = "";
+@@ -27,7 +27,7 @@ struct FinalizeFun {
+ 
+ struct CombineFun {
+ 	static constexpr const char *Name = "combine";
+-	static constexpr const char *Parameters = "state1,state2";
++	static constexpr const char *Parameters = "col0,col1";
+ 	static constexpr const char *Description = "";
+ 	static constexpr const char *Example = "";
+ 	static constexpr const char *Categories = "";

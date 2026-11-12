@@ -1,0 +1,300 @@
+diff --git a/src/include/duckdb/parser/peg/inlined_grammar.gram b/src/include/duckdb/parser/peg/inlined_grammar.gram
+index ce3543b..f7a716e 100644
+--- a/src/include/duckdb/parser/peg/inlined_grammar.gram
++++ b/src/include/duckdb/parser/peg/inlined_grammar.gram
+@@ -161,7 +161,7 @@ NumericModType <- 'NUMERIC' TypeModifiers?
+ 
+ QualifiedTypeName <- CatalogReservedSchemaTypeName / SchemaReservedTypeName / TypeNameAsQualifiedName
+ TypeNameAsQualifiedName <- TypeName
+-CatalogReservedSchemaTypeName <- CatalogQualification ReservedSchemaQualification+ ReservedTypeName
++CatalogReservedSchemaTypeName <- CatalogQualification ReservedSchemaQualification ReservedTypeName
+ SchemaReservedTypeName <- SchemaQualification ReservedTypeName
+ TypeModifiers <- Parens(List(Expression)?)
+ NestedType <- TypeVariations ArrayBounds*
+@@ -1351,7 +1351,7 @@ CreateColumnList <- Parens(CreateTableColumnList?) PartitionSortedOptions? WithL
+ IfNotExists <- 'IF' 'NOT' 'EXISTS'
+ QualifiedName <- CatalogReservedSchemaIdentifier / SchemaReservedIdentifierOrStringLiteral / IdentifierOrStringLiteral
+ SchemaReservedIdentifierOrStringLiteral <- SchemaQualification ReservedIdentifierOrStringLiteral
+-CatalogReservedSchemaIdentifier <- CatalogQualification ReservedSchemaQualification+ ReservedIdentifierOrStringLiteral
++CatalogReservedSchemaIdentifier <- CatalogQualification ReservedSchemaQualification ReservedIdentifierOrStringLiteral
+ IdentifierOrStringLiteral <- Identifier / StringLiteral
+ ReservedIdentifierOrStringLiteral <- ReservedIdentifier / StringLiteral
+ CatalogQualification <- CatalogName '.'
+@@ -2189,7 +2189,7 @@ BaseTableName <- QualifiedTableName / UnqualifiedBaseTableName
+ UnqualifiedBaseTableName <- TableName
+ QualifiedTableName <- CatalogReservedSchemaTable / SchemaReservedTable
+ SchemaReservedTable <- SchemaQualification ReservedTableName
+-CatalogReservedSchemaTable <- CatalogQualification ReservedSchemaQualification+ ReservedTableName
++CatalogReservedSchemaTable <- CatalogQualification ReservedSchemaQualification ReservedTableName
+ 
+ TableFunction <- TableFunctionLateralOpt / TableFunctionAliasColon
+ TableFunctionLateralOpt <- Lateral? QualifiedTableFunction TableFunctionArguments WithOrdinality? TableAlias? SampleClause?
+diff --git a/src/include/duckdb/parser/peg/inlined_grammar.hpp b/src/include/duckdb/parser/peg/inlined_grammar.hpp
+index 0b57885..081427b 100644
+--- a/src/include/duckdb/parser/peg/inlined_grammar.hpp
++++ b/src/include/duckdb/parser/peg/inlined_grammar.hpp
+@@ -152,7 +152,7 @@ const unsigned char INLINED_PEG_GRAMMAR[] = {
+     78, 117, 109, 101, 114, 105, 99, 77, 111, 100, 84, 121, 112, 101, 32, 60, 45, 32, 39, 78, 85, 77, 69, 82, 73, 67, 39, 32, 84, 121, 112, 101, 77, 111, 100, 105, 102, 105, 101, 114, 115, 63, 10,
+     81, 117, 97, 108, 105, 102, 105, 101, 100, 84, 121, 112, 101, 78, 97, 109, 101, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 84, 121, 112, 101, 78, 97, 109, 101, 32, 47, 32, 83, 99, 104, 101, 109, 97, 82, 101, 115, 101, 114, 118, 101, 100, 84, 121, 112, 101, 78, 97, 109, 101, 32, 47, 32, 84, 121, 112, 101, 78, 97, 109, 101, 65, 115, 81, 117, 97, 108, 105, 102, 105, 101, 100, 78, 97, 109, 101, 10,
+     84, 121, 112, 101, 78, 97, 109, 101, 65, 115, 81, 117, 97, 108, 105, 102, 105, 101, 100, 78, 97, 109, 101, 32, 60, 45, 32, 84, 121, 112, 101, 78, 97, 109, 101, 10,
+-    67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 84, 121, 112, 101, 78, 97, 109, 101, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 43, 32, 82, 101, 115, 101, 114, 118, 101, 100, 84, 121, 112, 101, 78, 97, 109, 101, 10,
++    67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 84, 121, 112, 101, 78, 97, 109, 101, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 84, 121, 112, 101, 78, 97, 109, 101, 10,
+     83, 99, 104, 101, 109, 97, 82, 101, 115, 101, 114, 118, 101, 100, 84, 121, 112, 101, 78, 97, 109, 101, 32, 60, 45, 32, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 84, 121, 112, 101, 78, 97, 109, 101, 10,
+     84, 121, 112, 101, 77, 111, 100, 105, 102, 105, 101, 114, 115, 32, 60, 45, 32, 80, 97, 114, 101, 110, 115, 40, 76, 105, 115, 116, 40, 69, 120, 112, 114, 101, 115, 115, 105, 111, 110, 41, 63, 41, 10,
+     78, 101, 115, 116, 101, 100, 84, 121, 112, 101, 32, 60, 45, 32, 84, 121, 112, 101, 86, 97, 114, 105, 97, 116, 105, 111, 110, 115, 32, 65, 114, 114, 97, 121, 66, 111, 117, 110, 100, 115, 42, 10,
+@@ -1286,7 +1286,7 @@ const unsigned char INLINED_PEG_GRAMMAR[] = {
+     73, 102, 78, 111, 116, 69, 120, 105, 115, 116, 115, 32, 60, 45, 32, 39, 73, 70, 39, 32, 39, 78, 79, 84, 39, 32, 39, 69, 88, 73, 83, 84, 83, 39, 10,
+     81, 117, 97, 108, 105, 102, 105, 101, 100, 78, 97, 109, 101, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 32, 47, 32, 83, 99, 104, 101, 109, 97, 82, 101, 115, 101, 114, 118, 101, 100, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 79, 114, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 32, 47, 32, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 79, 114, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 10,
+     83, 99, 104, 101, 109, 97, 82, 101, 115, 101, 114, 118, 101, 100, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 79, 114, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 32, 60, 45, 32, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 79, 114, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 10,
+-    67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 43, 32, 82, 101, 115, 101, 114, 118, 101, 100, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 79, 114, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 10,
++    67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 79, 114, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 10,
+     73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 79, 114, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 32, 60, 45, 32, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 32, 47, 32, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 10,
+     82, 101, 115, 101, 114, 118, 101, 100, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 79, 114, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 32, 60, 45, 32, 82, 101, 115, 101, 114, 118, 101, 100, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 32, 47, 32, 83, 116, 114, 105, 110, 103, 76, 105, 116, 101, 114, 97, 108, 10,
+     67, 97, 116, 97, 108, 111, 103, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 78, 97, 109, 101, 32, 39, 46, 39, 10,
+@@ -2023,7 +2023,7 @@ const unsigned char INLINED_PEG_GRAMMAR[] = {
+     85, 110, 113, 117, 97, 108, 105, 102, 105, 101, 100, 66, 97, 115, 101, 84, 97, 98, 108, 101, 78, 97, 109, 101, 32, 60, 45, 32, 84, 97, 98, 108, 101, 78, 97, 109, 101, 10,
+     81, 117, 97, 108, 105, 102, 105, 101, 100, 84, 97, 98, 108, 101, 78, 97, 109, 101, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 84, 97, 98, 108, 101, 32, 47, 32, 83, 99, 104, 101, 109, 97, 82, 101, 115, 101, 114, 118, 101, 100, 84, 97, 98, 108, 101, 10,
+     83, 99, 104, 101, 109, 97, 82, 101, 115, 101, 114, 118, 101, 100, 84, 97, 98, 108, 101, 32, 60, 45, 32, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 84, 97, 98, 108, 101, 78, 97, 109, 101, 10,
+-    67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 84, 97, 98, 108, 101, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 43, 32, 82, 101, 115, 101, 114, 118, 101, 100, 84, 97, 98, 108, 101, 78, 97, 109, 101, 10,
++    67, 97, 116, 97, 108, 111, 103, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 84, 97, 98, 108, 101, 32, 60, 45, 32, 67, 97, 116, 97, 108, 111, 103, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 81, 117, 97, 108, 105, 102, 105, 99, 97, 116, 105, 111, 110, 32, 82, 101, 115, 101, 114, 118, 101, 100, 84, 97, 98, 108, 101, 78, 97, 109, 101, 10,
+     84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 32, 60, 45, 32, 84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 76, 97, 116, 101, 114, 97, 108, 79, 112, 116, 32, 47, 32, 84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 65, 108, 105, 97, 115, 67, 111, 108, 111, 110, 10,
+     84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 76, 97, 116, 101, 114, 97, 108, 79, 112, 116, 32, 60, 45, 32, 76, 97, 116, 101, 114, 97, 108, 63, 32, 81, 117, 97, 108, 105, 102, 105, 101, 100, 84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 32, 84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 65, 114, 103, 117, 109, 101, 110, 116, 115, 32, 87, 105, 116, 104, 79, 114, 100, 105, 110, 97, 108, 105, 116, 121, 63, 32, 84, 97, 98, 108, 101, 65, 108, 105, 97, 115, 63, 32, 83, 97, 109, 112, 108, 101, 67, 108, 97, 117, 115, 101, 63, 10,
+     84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 65, 108, 105, 97, 115, 67, 111, 108, 111, 110, 32, 60, 45, 32, 84, 97, 98, 108, 101, 65, 108, 105, 97, 115, 67, 111, 108, 111, 110, 32, 81, 117, 97, 108, 105, 102, 105, 101, 100, 84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 32, 84, 97, 98, 108, 101, 70, 117, 110, 99, 116, 105, 111, 110, 65, 114, 103, 117, 109, 101, 110, 116, 115, 32, 87, 105, 116, 104, 79, 114, 100, 105, 110, 97, 108, 105, 116, 121, 63, 32, 83, 97, 109, 112, 108, 101, 67, 108, 97, 117, 115, 101, 63, 10,
+diff --git a/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp b/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
+index 7fa82e0..30f01a7 100644
+--- a/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
++++ b/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
+@@ -4379,7 +4379,7 @@ public:
+ 	static QualifiedName TransformTypeNameAsQualifiedName(PEGTransformer &transformer, const Identifier &type_name);
+ 	static QualifiedName TransformCatalogReservedSchemaTypeName(PEGTransformer &transformer,
+ 	                                                            const Identifier &catalog_qualification,
+-	                                                            const vector<Identifier> &reserved_schema_qualification,
++	                                                            const Identifier &reserved_schema_qualification,
+ 	                                                            const Identifier &reserved_type_name);
+ 	static QualifiedName TransformSchemaReservedTypeName(PEGTransformer &transformer,
+ 	                                                     const Identifier &schema_qualification,
+@@ -4646,7 +4646,7 @@ public:
+ 	                                                 const Identifier &reserved_identifier_or_string_literal);
+ 	static QualifiedName
+ 	TransformCatalogReservedSchemaIdentifier(PEGTransformer &transformer, const Identifier &catalog_qualification,
+-	                                         const vector<Identifier> &reserved_schema_qualification,
++	                                         const Identifier &reserved_schema_qualification,
+ 	                                         const Identifier &reserved_identifier_or_string_literal);
+ 	static QualifiedName TransformIdentifierOrStringLiteral(PEGTransformer &transformer, const string &child);
+ 	static Identifier TransformCatalogQualification(PEGTransformer &transformer, const Identifier &catalog_name);
+@@ -5667,7 +5667,7 @@ public:
+ 	                                                             const Identifier &reserved_table_name);
+ 	static unique_ptr<BaseTableRef>
+ 	TransformCatalogReservedSchemaTable(PEGTransformer &transformer, const Identifier &catalog_qualification,
+-	                                    const vector<Identifier> &reserved_schema_qualification,
++	                                    const Identifier &reserved_schema_qualification,
+ 	                                    const Identifier &reserved_table_name);
+ 	static unique_ptr<TableRef> TransformTableFunctionLateralOpt(
+ 	    PEGTransformer &transformer, const optional<bool> &lateral, const QualifiedName &qualified_table_function,
+diff --git a/src/parser/peg/grammar/statements/common.gram b/src/parser/peg/grammar/statements/common.gram
+index 2b8dae8..8eafa24 100644
+--- a/src/parser/peg/grammar/statements/common.gram
++++ b/src/parser/peg/grammar/statements/common.gram
+@@ -161,7 +161,7 @@ NumericModType <- 'NUMERIC' TypeModifiers?
+ 
+ QualifiedTypeName <- CatalogReservedSchemaTypeName / SchemaReservedTypeName / TypeNameAsQualifiedName
+ TypeNameAsQualifiedName <- TypeName
+-CatalogReservedSchemaTypeName <- CatalogQualification ReservedSchemaQualification+ ReservedTypeName
++CatalogReservedSchemaTypeName <- CatalogQualification ReservedSchemaQualification ReservedTypeName
+ SchemaReservedTypeName <- SchemaQualification ReservedTypeName
+ TypeModifiers <- Parens(List(Expression)?)
+ NestedType <- TypeVariations ArrayBounds*
+diff --git a/src/parser/peg/grammar/statements/create_table.gram b/src/parser/peg/grammar/statements/create_table.gram
+index fa5fab5..75a6cfe 100644
+--- a/src/parser/peg/grammar/statements/create_table.gram
++++ b/src/parser/peg/grammar/statements/create_table.gram
+@@ -24,7 +24,7 @@ CreateColumnList <- Parens(CreateTableColumnList?) PartitionSortedOptions? WithL
+ IfNotExists <- 'IF' 'NOT' 'EXISTS'
+ QualifiedName <- CatalogReservedSchemaIdentifier / SchemaReservedIdentifierOrStringLiteral / IdentifierOrStringLiteral
+ SchemaReservedIdentifierOrStringLiteral <- SchemaQualification ReservedIdentifierOrStringLiteral
+-CatalogReservedSchemaIdentifier <- CatalogQualification ReservedSchemaQualification+ ReservedIdentifierOrStringLiteral
++CatalogReservedSchemaIdentifier <- CatalogQualification ReservedSchemaQualification ReservedIdentifierOrStringLiteral
+ IdentifierOrStringLiteral <- Identifier / StringLiteral
+ ReservedIdentifierOrStringLiteral <- ReservedIdentifier / StringLiteral
+ CatalogQualification <- CatalogName '.'
+diff --git a/src/parser/peg/grammar/statements/select.gram b/src/parser/peg/grammar/statements/select.gram
+index ce19e3f..c27b440 100644
+--- a/src/parser/peg/grammar/statements/select.gram
++++ b/src/parser/peg/grammar/statements/select.gram
+@@ -80,7 +80,7 @@ BaseTableName <- QualifiedTableName / UnqualifiedBaseTableName
+ UnqualifiedBaseTableName <- TableName
+ QualifiedTableName <- CatalogReservedSchemaTable / SchemaReservedTable
+ SchemaReservedTable <- SchemaQualification ReservedTableName
+-CatalogReservedSchemaTable <- CatalogQualification ReservedSchemaQualification+ ReservedTableName
++CatalogReservedSchemaTable <- CatalogQualification ReservedSchemaQualification ReservedTableName
+ 
+ TableFunction <- TableFunctionLateralOpt / TableFunctionAliasColon
+ TableFunctionLateralOpt <- Lateral? QualifiedTableFunction TableFunctionArguments WithOrdinality? TableAlias? SampleClause?
+diff --git a/src/parser/peg/transformer/transform_common.cpp b/src/parser/peg/transformer/transform_common.cpp
+index b466696..9671cc8 100644
+--- a/src/parser/peg/transformer/transform_common.cpp
++++ b/src/parser/peg/transformer/transform_common.cpp
+@@ -316,13 +316,8 @@ QualifiedName PEGTransformerFactory::TransformSchemaReservedTypeName(PEGTransfor
+ 
+ QualifiedName PEGTransformerFactory::TransformCatalogReservedSchemaTypeName(
+     PEGTransformer &transformer, const Identifier &catalog_qualification,
+-    const vector<Identifier> &reserved_schema_qualification, const Identifier &reserved_type_name) {
+-	vector<Identifier> qualification;
+-	qualification.push_back(catalog_qualification);
+-	for (auto &schema : reserved_schema_qualification) {
+-		qualification.push_back(schema);
+-	}
+-	return QualifiedName(std::move(qualification), reserved_type_name);
++    const Identifier &reserved_schema_qualification, const Identifier &reserved_type_name) {
++	return QualifiedName(catalog_qualification, reserved_schema_qualification, reserved_type_name);
+ }
+ 
+ unique_ptr<ParsedExpression>
+diff --git a/src/parser/peg/transformer/transform_generated_trampoline.cpp b/src/parser/peg/transformer/transform_generated_trampoline.cpp
+index 0b3eef8..669877a 100644
+--- a/src/parser/peg/transformer/transform_generated_trampoline.cpp
++++ b/src/parser/peg/transformer/transform_generated_trampoline.cpp
+@@ -6549,15 +6549,8 @@ PEGTransformerFactory::FinalizeTypeNameAsQualifiedNameTrampoline(PEGTransformer
+ void PEGTransformerFactory::InitializeCatalogReservedSchemaTypeNameTrampoline(PEGTransformer &transformer,
+                                                                               GeneratedTransformProcess &process) {
+ 	auto &list_pr = process.parse_result.Cast<ListParseResult>();
+-	auto &repeat_pr = list_pr.GetChild(1).Cast<RepeatParseResult>();
+-	auto repeat_children = repeat_pr.GetChildren();
+-	auto dynamic_child_count = repeat_children.size();
+-	process.ReserveChildSlots(2 + dynamic_child_count - 1);
+-	for (idx_t i = repeat_children.size(); i > 0; i--) {
+-		auto child_idx = i - 1;
+-		process.PushChild({transformer.GetRule("ReservedSchemaQualification"), repeat_children[child_idx].get()},
+-		                  1 + child_idx);
+-	}
++	process.ReserveChildSlots(2);
++	process.PushChild({transformer.GetRule("ReservedSchemaQualification"), list_pr.GetChild(1)}, 1);
+ 	process.PushChild({transformer.GetRule("CatalogQualification"), list_pr.GetChild(0)}, 0);
+ }
+ 
+@@ -6565,14 +6558,8 @@ arena_ptr<TransformResultValue>
+ PEGTransformerFactory::FinalizeCatalogReservedSchemaTypeNameTrampoline(PEGTransformer &transformer,
+                                                                        GeneratedTransformProcess &process) {
+ 	auto &list_pr = process.parse_result.Cast<ListParseResult>();
+-	auto &dynamic_repeat_pr = list_pr.GetChild(1).Cast<RepeatParseResult>();
+-	auto dynamic_repeat_children = dynamic_repeat_pr.GetChildren();
+-	auto dynamic_child_count = dynamic_repeat_children.size();
+ 	auto catalog_qualification = process.TakeResult<Identifier>(0);
+-	vector<Identifier> reserved_schema_qualification;
+-	for (idx_t i = 1; i < 1 + dynamic_child_count; i++) {
+-		reserved_schema_qualification.push_back(process.TakeResult<Identifier>(i));
+-	}
++	auto reserved_schema_qualification = process.TakeResult<Identifier>(1);
+ 	auto reserved_type_name = list_pr.GetChild(2).Cast<IdentifierParseResult>().identifier;
+ 	auto result = TransformCatalogReservedSchemaTypeName(transformer, catalog_qualification,
+ 	                                                     reserved_schema_qualification, reserved_type_name);
+@@ -9750,17 +9737,9 @@ PEGTransformerFactory::FinalizeSchemaReservedIdentifierOrStringLiteralTrampoline
+ void PEGTransformerFactory::InitializeCatalogReservedSchemaIdentifierTrampoline(PEGTransformer &transformer,
+                                                                                 GeneratedTransformProcess &process) {
+ 	auto &list_pr = process.parse_result.Cast<ListParseResult>();
+-	auto &repeat_pr = list_pr.GetChild(1).Cast<RepeatParseResult>();
+-	auto repeat_children = repeat_pr.GetChildren();
+-	auto dynamic_child_count = repeat_children.size();
+-	process.ReserveChildSlots(3 + dynamic_child_count - 1);
+-	process.PushChild({transformer.GetRule("ReservedIdentifierOrStringLiteral"), list_pr.GetChild(2)},
+-	                  2 + dynamic_child_count - 1);
+-	for (idx_t i = repeat_children.size(); i > 0; i--) {
+-		auto child_idx = i - 1;
+-		process.PushChild({transformer.GetRule("ReservedSchemaQualification"), repeat_children[child_idx].get()},
+-		                  1 + child_idx);
+-	}
++	process.ReserveChildSlots(3);
++	process.PushChild({transformer.GetRule("ReservedIdentifierOrStringLiteral"), list_pr.GetChild(2)}, 2);
++	process.PushChild({transformer.GetRule("ReservedSchemaQualification"), list_pr.GetChild(1)}, 1);
+ 	process.PushChild({transformer.GetRule("CatalogQualification"), list_pr.GetChild(0)}, 0);
+ }
+ 
+@@ -9768,15 +9747,9 @@ arena_ptr<TransformResultValue>
+ PEGTransformerFactory::FinalizeCatalogReservedSchemaIdentifierTrampoline(PEGTransformer &transformer,
+                                                                          GeneratedTransformProcess &process) {
+ 	auto &list_pr = process.parse_result.Cast<ListParseResult>();
+-	auto &dynamic_repeat_pr = list_pr.GetChild(1).Cast<RepeatParseResult>();
+-	auto dynamic_repeat_children = dynamic_repeat_pr.GetChildren();
+-	auto dynamic_child_count = dynamic_repeat_children.size();
+ 	auto catalog_qualification = process.TakeResult<Identifier>(0);
+-	vector<Identifier> reserved_schema_qualification;
+-	for (idx_t i = 1; i < 1 + dynamic_child_count; i++) {
+-		reserved_schema_qualification.push_back(process.TakeResult<Identifier>(i));
+-	}
+-	auto reserved_identifier_or_string_literal = process.TakeResult<Identifier>(2 + dynamic_child_count - 1);
++	auto reserved_schema_qualification = process.TakeResult<Identifier>(1);
++	auto reserved_identifier_or_string_literal = process.TakeResult<Identifier>(2);
+ 	auto result = TransformCatalogReservedSchemaIdentifier(
+ 	    transformer, catalog_qualification, reserved_schema_qualification, reserved_identifier_or_string_literal);
+ 	return transformer.MakeResult<QualifiedName>(result);
+@@ -22346,15 +22319,8 @@ PEGTransformerFactory::FinalizeSchemaReservedTableTrampoline(PEGTransformer &tra
+ void PEGTransformerFactory::InitializeCatalogReservedSchemaTableTrampoline(PEGTransformer &transformer,
+                                                                            GeneratedTransformProcess &process) {
+ 	auto &list_pr = process.parse_result.Cast<ListParseResult>();
+-	auto &repeat_pr = list_pr.GetChild(1).Cast<RepeatParseResult>();
+-	auto repeat_children = repeat_pr.GetChildren();
+-	auto dynamic_child_count = repeat_children.size();
+-	process.ReserveChildSlots(2 + dynamic_child_count - 1);
+-	for (idx_t i = repeat_children.size(); i > 0; i--) {
+-		auto child_idx = i - 1;
+-		process.PushChild({transformer.GetRule("ReservedSchemaQualification"), repeat_children[child_idx].get()},
+-		                  1 + child_idx);
+-	}
++	process.ReserveChildSlots(2);
++	process.PushChild({transformer.GetRule("ReservedSchemaQualification"), list_pr.GetChild(1)}, 1);
+ 	process.PushChild({transformer.GetRule("CatalogQualification"), list_pr.GetChild(0)}, 0);
+ }
+ 
+@@ -22362,14 +22328,8 @@ arena_ptr<TransformResultValue>
+ PEGTransformerFactory::FinalizeCatalogReservedSchemaTableTrampoline(PEGTransformer &transformer,
+                                                                     GeneratedTransformProcess &process) {
+ 	auto &list_pr = process.parse_result.Cast<ListParseResult>();
+-	auto &dynamic_repeat_pr = list_pr.GetChild(1).Cast<RepeatParseResult>();
+-	auto dynamic_repeat_children = dynamic_repeat_pr.GetChildren();
+-	auto dynamic_child_count = dynamic_repeat_children.size();
+ 	auto catalog_qualification = process.TakeResult<Identifier>(0);
+-	vector<Identifier> reserved_schema_qualification;
+-	for (idx_t i = 1; i < 1 + dynamic_child_count; i++) {
+-		reserved_schema_qualification.push_back(process.TakeResult<Identifier>(i));
+-	}
++	auto reserved_schema_qualification = process.TakeResult<Identifier>(1);
+ 	auto reserved_table_name = list_pr.GetChild(2).Cast<IdentifierParseResult>().identifier;
+ 	auto result = TransformCatalogReservedSchemaTable(transformer, catalog_qualification, reserved_schema_qualification,
+ 	                                                  reserved_table_name);
+diff --git a/src/parser/peg/transformer/transform_select.cpp b/src/parser/peg/transformer/transform_select.cpp
+index 31a17c5..8e030a3 100644
+--- a/src/parser/peg/transformer/transform_select.cpp
++++ b/src/parser/peg/transformer/transform_select.cpp
+@@ -365,13 +365,8 @@ Identifier PEGTransformerFactory::TransformCatalogQualification(PEGTransformer &
+ 
+ QualifiedName PEGTransformerFactory::TransformCatalogReservedSchemaIdentifier(
+     PEGTransformer &transformer, const Identifier &catalog_qualification,
+-    const vector<Identifier> &reserved_schema_qualification, const Identifier &reserved_identifier_or_string_literal) {
+-	vector<Identifier> qualification;
+-	qualification.push_back(catalog_qualification);
+-	for (auto &schema : reserved_schema_qualification) {
+-		qualification.push_back(schema);
+-	}
+-	return QualifiedName(std::move(qualification), reserved_identifier_or_string_literal);
++    const Identifier &reserved_schema_qualification, const Identifier &reserved_identifier_or_string_literal) {
++	return QualifiedName(catalog_qualification, reserved_schema_qualification, reserved_identifier_or_string_literal);
+ }
+ 
+ QualifiedName PEGTransformerFactory::TransformSchemaReservedIdentifierOrStringLiteral(
+@@ -1519,13 +1514,9 @@ unique_ptr<BaseTableRef> PEGTransformerFactory::TransformSchemaReservedTable(PEG
+ 
+ unique_ptr<BaseTableRef> PEGTransformerFactory::TransformCatalogReservedSchemaTable(
+     PEGTransformer &transformer, const Identifier &catalog_qualification,
+-    const vector<Identifier> &reserved_schema_qualification, const Identifier &reserved_table_name) {
+-	vector<Identifier> qualification;
+-	qualification.push_back(catalog_qualification);
+-	for (auto &schema : reserved_schema_qualification) {
+-		qualification.push_back(schema);
+-	}
+-	const auto description = TableDescription(QualifiedName(std::move(qualification), reserved_table_name));
++    const Identifier &reserved_schema_qualification, const Identifier &reserved_table_name) {
++	const auto description =
++	    TableDescription(QualifiedName(catalog_qualification, reserved_schema_qualification, reserved_table_name));
+ 	return make_uniq<BaseTableRef>(description);
+ }
+ 

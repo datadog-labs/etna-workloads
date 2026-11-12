@@ -1,0 +1,1 @@
+EXPLAIN (FORMAT default) SELECT 1;

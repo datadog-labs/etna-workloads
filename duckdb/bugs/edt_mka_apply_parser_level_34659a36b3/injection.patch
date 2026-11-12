@@ -1,0 +1,19 @@
+diff --git a/src/parser/peg/transformer/transform_expression.cpp b/src/parser/peg/transformer/transform_expression.cpp
+index 65aff7f..526ebb8 100644
+--- a/src/parser/peg/transformer/transform_expression.cpp
++++ b/src/parser/peg/transformer/transform_expression.cpp
+@@ -143,8 +143,12 @@ PEGTransformerFactory::TransformBaseExpression(PEGTransformer &transformer,
+ 			auto lowercase_name = StringUtil::Lower(function_expr->FunctionName().GetIdentifierName());
+ 			const bool distinct = function_expr->Distinct();
+ 			const bool has_order_by = function_expr->OrderBy() && !function_expr->OrderBy()->orders.empty();
+-			if (auto rewritten = TransformParserFunctionRewrite(lowercase_name, function_expr->GetArgumentsMutable(),
+-			                                                    ParserRewriteCallForm::METHOD_CHAIN)) {
++			unique_ptr<ParsedExpression> rewritten;
++			if (lowercase_name == "ifnull") {
++				rewritten = TransformParserFunctionRewrite(lowercase_name, function_expr->GetArgumentsMutable(),
++				                                           ParserRewriteCallForm::METHOD_CHAIN);
++			}
++			if (rewritten) {
+ 				// The method grammar accepts DISTINCT and ORDER BY for every call, but a rewrite yields a
+ 				// syntax node with nowhere to put them. Reject rather than drop them silently.
+ 				auto upper_name = StringUtil::Upper(lowercase_name);

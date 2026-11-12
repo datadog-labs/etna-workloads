@@ -1,0 +1,1 @@
+SELECT MAP(['1', '01'], [10, 20])::MAP(INTEGER, INTEGER);

@@ -1,0 +1,69 @@
+diff --git a/src/execution/operator/helper/physical_result_sink.cpp b/src/execution/operator/helper/physical_result_sink.cpp
+index e079cbf..1e42ff1 100644
+--- a/src/execution/operator/helper/physical_result_sink.cpp
++++ b/src/execution/operator/helper/physical_result_sink.cpp
+@@ -182,7 +182,7 @@ SinkCombineResultType PhysicalResultSink::Combine(ExecutionContext &context, Ope
+ 		return SinkCombineResultType::BLOCKED;
+ 	}
+ 	if (CurrentLifetime(gstate) == ResultLifetime::RETAINED) {
+-		return CombineRetained(context.client, gstate, lstate);
++		return CombineRetained(gstate, lstate);
+ 	}
+ 	return CombineDraining(gstate, lstate);
+ }
+@@ -196,18 +196,16 @@ SinkCombineResultType PhysicalResultSink::CombineDraining(ResultSinkGlobalState
+ 	return SinkCombineResultType::FINISHED;
+ }
+ 
+-SinkCombineResultType PhysicalResultSink::CombineRetained(ClientContext &context, ResultSinkGlobalState &gstate,
++SinkCombineResultType PhysicalResultSink::CombineRetained(ResultSinkGlobalState &gstate,
+                                                           ResultSinkLocalState &lstate) const {
+-	auto &buffered_data = *gstate.buffered_data;
++	// A producer whose partition held no rows never created its local collection
++	if (!lstate.collection) {
++		return SinkCombineResultType::FINISHED;
++	}
+ 	annotated_lock_guard<annotated_mutex> l(gstate.glock);
+ 	if (!gstate.collection) {
+-		// Never a producer's own: Combine flushes the producer's partial unit here, inside its task, so a
+-		// throwing format surfaces as the query's error
+-		gstate.collection = buffered_data.Format().CreateCollection(context, buffered_data.FormatState(),
+-		                                                            buffered_data.FormatContext());
+-	}
+-	// A producer whose partition held no rows never created its local collection
+-	if (lstate.collection) {
++		gstate.collection = std::move(lstate.collection);
++	} else {
+ 		gstate.collection->Combine(*lstate.collection);
+ 	}
+ 	return SinkCombineResultType::FINISHED;
+diff --git a/src/include/duckdb/execution/operator/helper/physical_result_sink.hpp b/src/include/duckdb/execution/operator/helper/physical_result_sink.hpp
+index c4c379a..2bf7df4 100644
+--- a/src/include/duckdb/execution/operator/helper/physical_result_sink.hpp
++++ b/src/include/duckdb/execution/operator/helper/physical_result_sink.hpp
+@@ -79,8 +79,7 @@ private:
+ 	SinkResultType SinkRetained(ExecutionContext &context, ResultSinkGlobalState &gstate, ResultSinkLocalState &lstate,
+ 	                            DataChunk &chunk) const;
+ 	SinkCombineResultType CombineDraining(ResultSinkGlobalState &gstate, ResultSinkLocalState &lstate) const;
+-	SinkCombineResultType CombineRetained(ClientContext &context, ResultSinkGlobalState &gstate,
+-	                                      ResultSinkLocalState &lstate) const;
++	SinkCombineResultType CombineRetained(ResultSinkGlobalState &gstate, ResultSinkLocalState &lstate) const;
+ 
+ private:
+ 	//! The buffer created at submission, which also holds the retention decision
+diff --git a/src/main/retained_result_collection.cpp b/src/main/retained_result_collection.cpp
+index f3c2b8b..6975192 100644
+--- a/src/main/retained_result_collection.cpp
++++ b/src/main/retained_result_collection.cpp
+@@ -75,7 +75,11 @@ void ChunkRetainedCollection::Finalize() {
+ 	if (batch_ordered) {
+ 		collection = batched->FetchCollection();
+ 		batched.reset();
++		return;
+ 	}
++	// The first producer's instance becomes the result, whose append pins must not outlive the database
++	append_state = ColumnDataAppendState();
++	append_initialized = false;
+ }
+ 
+ idx_t ChunkRetainedCollection::Count() const {

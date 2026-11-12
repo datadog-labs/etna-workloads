@@ -1,0 +1,82 @@
+diff --git a/src/catalog/catalog_entry/duck_table_entry.cpp b/src/catalog/catalog_entry/duck_table_entry.cpp
+index a3233f0..2e81720 100644
+--- a/src/catalog/catalog_entry/duck_table_entry.cpp
++++ b/src/catalog/catalog_entry/duck_table_entry.cpp
+@@ -1251,9 +1251,6 @@ unique_ptr<CatalogEntry> DuckTableEntry::ChangeColumnType(ClientContext &context
+ 		create_info->columns.AddColumn(std::move(copy));
+ 	}
+ 
+-	// If the changed column has a NOT NULL constraint, keep it so we can re-verify the rewritten values before
+-	// committing the ALTER; as of now other constraint types below are still rejected up front.
+-	unique_ptr<BoundConstraint> constraint_to_verify;
+ 	for (idx_t constr_idx = 0; constr_idx < constraints.size(); constr_idx++) {
+ 		auto constraint = constraints[constr_idx]->Copy();
+ 		switch (constraint->type) {
+@@ -1265,13 +1262,8 @@ unique_ptr<CatalogEntry> DuckTableEntry::ChangeColumnType(ClientContext &context
+ 			}
+ 			break;
+ 		}
+-		case ConstraintType::NOT_NULL: {
+-			auto &bound_not_null = bound_constraints[constr_idx]->Cast<BoundNotNullConstraint>();
+-			if (bound_not_null.index == columns.LogicalToPhysical(change_idx)) {
+-				constraint_to_verify = bound_constraints[constr_idx]->Copy();
+-			}
++		case ConstraintType::NOT_NULL:
+ 			break;
+-		}
+ 		case ConstraintType::UNIQUE: {
+ 			auto &bound_unique = bound_constraints[constr_idx]->Cast<BoundUniqueConstraint>();
+ 			auto physical_index = columns.LogicalToPhysical(change_idx);
+@@ -1311,9 +1303,9 @@ unique_ptr<CatalogEntry> DuckTableEntry::ChangeColumnType(ClientContext &context
+ 		storage_oids.emplace_back(COLUMN_IDENTIFIER_ROW_ID);
+ 	}
+ 
+-	auto new_storage = make_shared_ptr<DataTable>(
+-	    context, *storage, columns.LogicalToPhysical(LogicalIndex(change_idx)).index, info.target_type,
+-	    std::move(storage_oids), *bound_expression, constraint_to_verify.get());
++	auto new_storage =
++	    make_shared_ptr<DataTable>(context, *storage, columns.LogicalToPhysical(LogicalIndex(change_idx)).index,
++	                               info.target_type, std::move(storage_oids), *bound_expression);
+ 	auto result = make_uniq<DuckTableEntry>(catalog, schema, *bound_create_info, new_storage, triggers);
+ 	return std::move(result);
+ }
+diff --git a/src/include/duckdb/storage/data_table.hpp b/src/include/duckdb/storage/data_table.hpp
+index bc61266..83efe20 100644
+--- a/src/include/duckdb/storage/data_table.hpp
++++ b/src/include/duckdb/storage/data_table.hpp
+@@ -73,8 +73,7 @@ public:
+ 	DataTable(ClientContext &context, DataTable &parent, idx_t removed_column);
+ 	//! Constructs a DataTable as a delta on an existing data table but with one column changed type
+ 	DataTable(ClientContext &context, DataTable &parent, idx_t changed_idx, const LogicalType &target_type,
+-	          const vector<StorageIndex> &bound_columns, Expression &cast_expr,
+-	          optional_ptr<BoundConstraint> constraint_to_verify = nullptr);
++	          const vector<StorageIndex> &bound_columns, Expression &cast_expr);
+ 	//! Constructs a DataTable as a delta on an existing data table but with one column added new constraint
+ 	DataTable(ClientContext &context, DataTable &parent, BoundConstraint &constraint);
+ 
+diff --git a/src/storage/data_table.cpp b/src/storage/data_table.cpp
+index 2f9cec6..0efc59c 100644
+--- a/src/storage/data_table.cpp
++++ b/src/storage/data_table.cpp
+@@ -180,8 +180,7 @@ DataTable::DataTable(ClientContext &context, DataTable &parent, BoundConstraint
+ }
+ 
+ DataTable::DataTable(ClientContext &context, DataTable &parent, idx_t changed_idx, const LogicalType &target_type,
+-                     const vector<StorageIndex> &bound_columns, Expression &cast_expr,
+-                     optional_ptr<BoundConstraint> constraint_to_verify)
++                     const vector<StorageIndex> &bound_columns, Expression &cast_expr)
+     : db(parent.db), info(parent.info), version(DataTableVersion::MAIN_TABLE) {
+ 	auto &transaction = DuckTransaction::Get(context, db);
+ 	auto &local_storage = LocalStorage::Get(transaction);
+@@ -220,11 +219,6 @@ DataTable::DataTable(ClientContext &context, DataTable &parent, idx_t changed_id
+ 
+ 		// scan the original table, and fill the new column with the transformed value
+ 		local_storage.ChangeType(parent, *this, changed_idx, target_type, bound_columns, cast_expr);
+-
+-		// re-verify any column constraint that the rewrite could have violated (e.g. NOT NULL)
+-		if (constraint_to_verify) {
+-			VerifyNewConstraint(local_storage, *this, *constraint_to_verify);
+-		}
+ 	} catch (...) {
+ 		// nothing reached the catalog, so no undo entry will restore the parent
+ 		parent.version = previous_version;

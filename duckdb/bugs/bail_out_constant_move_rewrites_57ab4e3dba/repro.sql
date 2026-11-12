@@ -1,0 +1,3 @@
+.mode list
+.nullvalue NULL
+SELECT x * -1 <> CAST(-2147483648 AS INTEGER) FROM (VALUES (CAST(0 AS INTEGER))) t(x);

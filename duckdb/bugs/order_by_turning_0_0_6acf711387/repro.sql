@@ -1,0 +1,4 @@
+CREATE TABLE t(id INT, v DOUBLE);
+INSERT INTO t VALUES (1,-0.0e0),(2,0.0e0);
+WITH q AS MATERIALIZED (SELECT id, v FROM t ORDER BY v, id)
+SELECT id, v, signbit(v), 1.0/v FROM q ORDER BY id;

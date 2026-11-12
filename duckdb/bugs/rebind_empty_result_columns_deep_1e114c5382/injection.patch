@@ -1,0 +1,37 @@
+diff --git a/src/planner/logical_operator_deep_copy.cpp b/src/planner/logical_operator_deep_copy.cpp
+index 1a8aa50..594316a 100644
+--- a/src/planner/logical_operator_deep_copy.cpp
++++ b/src/planner/logical_operator_deep_copy.cpp
+@@ -135,15 +135,6 @@ void LogicalOperatorDeepCopy::VisitOperator(LogicalOperator &op) {
+ 		ReplaceTableIndex<LogicalDummyScan>(op);
+ 		break;
+ 	}
+-	case LogicalOperatorType::LOGICAL_EMPTY_RESULT: {
+-		auto &empty_result = op.Cast<LogicalEmptyResult>();
+-		for (auto &binding : empty_result.bindings) {
+-			if (table_idx_replacements.find(binding.table_index) == table_idx_replacements.end()) {
+-				table_idx_replacements[binding.table_index] = binder.GenerateTableIndex();
+-			}
+-		}
+-		break;
+-	}
+ 	case LogicalOperatorType::LOGICAL_CTE_REF: {
+ 		ReplaceTableIndex<LogicalCTERef>(op);
+ 		break;
+@@ -253,16 +244,6 @@ void TableBindingReplacer::VisitOperator(LogicalOperator &op) {
+ 		}
+ 		break;
+ 	}
+-	case LogicalOperatorType::LOGICAL_EMPTY_RESULT: {
+-		auto &empty_result = op.Cast<LogicalEmptyResult>();
+-		for (auto &binding : empty_result.bindings) {
+-			auto entry = table_idx_replacements.find(binding.table_index);
+-			if (entry != table_idx_replacements.end()) {
+-				binding.table_index = entry->second;
+-			}
+-		}
+-		break;
+-	}
+ 	default:
+ 		break;
+ 	}

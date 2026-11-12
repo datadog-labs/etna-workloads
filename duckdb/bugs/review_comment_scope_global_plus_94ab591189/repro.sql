@@ -1,0 +1,1 @@
+set session external_file_cache_local_max_block_size=4096;

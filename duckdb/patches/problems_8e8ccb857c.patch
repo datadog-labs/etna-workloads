@@ -1,0 +1,30 @@
+diff --git a/src/planner/binder/statement/bind_insert.cpp b/src/planner/binder/statement/bind_insert.cpp
+index 1d8513f..2d9f3d8 100644
+--- a/src/planner/binder/statement/bind_insert.cpp
++++ b/src/planner/binder/statement/bind_insert.cpp
+@@ -691,9 +691,6 @@ BoundStatement Binder::BindNode(InsertQueryNode &node) {
+ 		root = CastLogicalOperatorToTypes(source_types, target_types, std::move(root_select.plan));
+ 	} else {
+ 		root = make_uniq<LogicalDummyScan>(GenerateTableIndex());
+-		if (node.default_values) {
+-			root = ResolveInputProjection(*insert, column_index_map, std::move(root), {});
+-		}
+ 	}
+ 
+ 	insert->AddChild(std::move(root));
+diff --git a/src/planner/binder/statement/bind_update.cpp b/src/planner/binder/statement/bind_update.cpp
+index 01ce1e1..bc8bb16 100644
+--- a/src/planner/binder/statement/bind_update.cpp
++++ b/src/planner/binder/statement/bind_update.cpp
+@@ -57,10 +57,7 @@ void Binder::BindUpdateSet(TableIndex proj_index, unique_ptr<LogicalOperator> &r
+ 		}
+ 		columns.push_back(column.Physical());
+ 		if (expr->GetExpressionType() == ExpressionType::VALUE_DEFAULT) {
+-			auto bound_default = bound_defaults[column.StorageOid()]->Copy();
+-			auto expr_index = ColumnBinding::PushExpression(projection_expressions, std::move(bound_default));
+-			update_expressions.push_back(
+-			    make_uniq<BoundColumnRefExpression>(column.Type(), ColumnBinding(proj_index, expr_index)));
++			update_expressions.push_back(bound_defaults[column.StorageOid()]->Copy());
+ 		} else {
+ 			UpdateBinder binder(*expr_binder_ptr, context);
+ 			binder.target_type = table.GetExpectedTypeForInsert(column);

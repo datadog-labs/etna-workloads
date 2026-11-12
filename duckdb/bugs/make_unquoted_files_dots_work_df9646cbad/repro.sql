@@ -1,0 +1,1 @@
+EXPLAIN COPY (SELECT 1) TO parity.csv (FORMAT CSV);

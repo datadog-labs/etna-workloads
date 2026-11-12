@@ -1,0 +1,5 @@
+.mode list
+.nullvalue NULL
+CREATE TABLE t(c1 VARCHAR);
+INSERT INTO t VALUES ('Jd*q^c'),(''),('x');
+SELECT count(*) FROM t WHERE c1 ILIKE (CASE CAST(NULL AS BLOB) WHEN NULL THEN c1 END);

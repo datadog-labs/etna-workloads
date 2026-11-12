@@ -1,0 +1,95 @@
+diff --git a/src/include/duckdb/storage/buffer/block_handle.hpp b/src/include/duckdb/storage/buffer/block_handle.hpp
+index 26002f5..36a47db 100644
+--- a/src/include/duckdb/storage/buffer/block_handle.hpp
++++ b/src/include/duckdb/storage/buffer/block_handle.hpp
+@@ -164,13 +164,6 @@ public:
+ 	bool MustWriteToTemporaryFile() const {
+ 		return destroy_buffer_upon == DestroyBufferUpon::BLOCK;
+ 	}
+-	//! Returns true, if the buffer can be loaded again after it was destroyed, i.e., it is backed
+-	//! by its disk block or kept alive in a temporary file. False for buffers that are destroyed
+-	//! upon eviction/unpin - including replaced persistent handles whose disk block may be
+-	//! rewritten in place and must not be read through them again.
+-	bool CanReload() const {
+-		return destroy_buffer_upon == DestroyBufferUpon::BLOCK;
+-	}
+ 	//! Returns the memory usage.
+ 	idx_t GetMemoryUsage() const {
+ 		return memory_usage;
+@@ -198,6 +191,18 @@ public:
+ 		VerifyMutex(l);
+ 		memory_charge.Merge(std::move(reservation));
+ 	}
++	//! Disables loading this block's data from disk. Called when the block id is handed over to a
++	//! replacement block: the disk block may be rewritten in place and can no longer be read through
++	//! this handle. Requires the block lock.
++	void DisableDiskLoad(BlockLock &l) {
++		VerifyMutex(l);
++		disk_load_disabled = true;
++	}
++	//! Returns true, if the block data can no longer be loaded from disk.
++	//! Like Load, this must be called while holding the block lock.
++	bool DiskLoadDisabled() const {
++		return disk_load_disabled;
++	}
+ 	//! Sets the eviction queue index.
+ 	void SetEvictionQueueIndex(const idx_t index) {
+ 		// The index can only be set once.
+@@ -246,6 +251,9 @@ private:
+ 	//! number matches eviction_seq_num and which has not been counted as a dead node.
+ 	//! Guarded by the block lock (read without it only by the destructor, which has exclusive ownership).
+ 	bool has_queue_entry;
++	//! Whether the block data may no longer be loaded from disk because the block id was handed
++	//! over to a replacement block. Guarded by the block lock.
++	bool disk_load_disabled = false;
+ 	//! The LRU timestamp for age-based eviction.
+ 	atomic<int64_t> lru_timestamp_msec;
+ 	//! When to destroy the data buffer.
+diff --git a/src/storage/buffer/block_handle.cpp b/src/storage/buffer/block_handle.cpp
+index 8bfc529..0cd8e2c 100644
+--- a/src/storage/buffer/block_handle.cpp
++++ b/src/storage/buffer/block_handle.cpp
+@@ -220,17 +220,20 @@ BufferHandle BlockHandle::Load(BlockLock &l, QueryContext context, unique_ptr<Fi
+ 		return BufferHandle(shared_from_this(), memory.GetBuffer());
+ 	}
+ 
+-	if (!memory.CanReload()) {
+-		// the buffer was destroyed upon unpin/evict, or the handle was replaced and its disk block
+-		// may be rewritten in place - the caller must re-resolve the block id
+-		return BufferHandle();
+-	}
+-
+ 	if (BlockId() < MAXIMUM_BLOCK) {
++		if (memory.DiskLoadDisabled()) {
++			// the block id was handed over to a replacement block and the disk block may be
++			// rewritten in place - the caller must re-resolve the current handle for this block id
++			return BufferHandle();
++		}
+ 		auto block = AllocateBlock(block_manager, std::move(reusable_buffer), block_id);
+ 		block_manager.Read(context, *block);
+ 		memory.GetBuffer() = std::move(block);
+ 	} else {
++		if (!memory.MustWriteToTemporaryFile()) {
++			// The buffer was destroyed upon unpin/evict, so there is no temporary buffer to read.
++			return BufferHandle();
++		}
+ 		auto &buffer_manager = memory.GetBufferManager();
+ 		auto &buffer = memory.GetBuffer();
+ 		buffer = buffer_manager.ReadTemporaryBuffer(context, memory.GetMemoryTag(), *this, std::move(reusable_buffer));
+diff --git a/src/storage/metadata/metadata_manager.cpp b/src/storage/metadata/metadata_manager.cpp
+index b465283..42377df 100644
+--- a/src/storage/metadata/metadata_manager.cpp
++++ b/src/storage/metadata/metadata_manager.cpp
+@@ -150,10 +150,10 @@ void MetadataManager::ConvertToTransient(unique_lock<mutex> &block_lock, Metadat
+ 	memcpy(new_buffer.GetDataMutable(), old_buffer.Ptr(), block_manager.GetBlockSize());
+ 
+ 	// the disk block now belongs to the transient block and is rewritten in place by a later
+-	// checkpoint - the old handle must not reload it from disk after its buffer is evicted
++	// checkpoint - reading it from disk through the old handle could race that rewrite
+ 	{
+ 		auto old_block_lock = old_block->GetMemory().GetLock();
+-		old_block->GetMemory().SetDestroyBufferUpon(DestroyBufferUpon::EVICTION);
++		old_block->GetMemory().DisableDiskLoad(old_block_lock);
+ 	}
+ 
+ 	// unregister the old block

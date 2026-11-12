@@ -1,0 +1,6 @@
+.mode list
+.nullvalue NULL
+CREATE TABLE t(c INT);
+INSERT INTO t VALUES (1);
+ALTER TABLE t ADD UNIQUE (c);
+INSERT INTO t VALUES (1);

@@ -1,0 +1,30 @@
+.mode list
+.nullvalue NULL
+SELECT strptime('21 June, 2018', '%d %B, %Y');
+SELECT strptime('21/10/2018', '%d/%m/%Y');
+SELECT strptime('2018-20-10', '%Y-%d-%m');
+SELECT strptime('20182010', '%Y%d%m');
+SELECT strptime('Mon 30, June 2003, 12:03:10 AM', '%a %d, %B %Y, %I:%M:%S %p');
+SELECT strptime('Mon 30, June 2003, 12:03:10 PM', '%a %d, %B %Y, %I:%M:%S %p');
+SELECT strptime('Mon 30, December 2003, 7:3:5 PM', '%a %d, %B %Y, %I:%M:%S %p');
+SELECT strptime('Tuesday 30, December 2003, 7:3:5 PM', '%A %d, %B %Y, %I:%M:%S %p');
+SELECT strptime('Mon 30, December 30, 7:3:5 PM', '%a %d, %B %y, %I:%M:%S %p');
+SELECT strptime('Mon 30, June 2003, 12:03:10 AM', '%a %-d, %B %Y, %-I:%-M:%-S %p');
+SELECT strptime('mon', '%a');
+SELECT strptime('tuesday', '%A');
+SELECT strptime('jun', '%b');
+SELECT strptime('1', '%W');
+SELECT strptime('1', '%U');
+SELECT strptime('30', '%U'), strftime('1900-07-29'::DATE, '%U');
+SELECT strptime('1', '%V');
+SELECT strptime('30', '%W'), strftime('1900-07-23'::DATE, '%W');
+SELECT strptime('30', '%V'), strftime('1900-07-23'::DATE, '%V');
+SELECT strptime('6', '%w');
+SELECT strptime('6', '%u');
+SELECT strptime('1-4', '%U-%w'), strftime('1900-01-11'::DATE, '%U-%w');
+SELECT strptime('2-4', '%V-%u'), strftime('1900-01-11'::DATE, '%V-%u');
+SELECT strptime('1-4', '%W-%w'), strftime('1900-01-04'::DATE, '%W-%w');
+SELECT strptime('1-4', '%V-%u'), strftime('1900-01-04'::DATE, '%V-%u');
+SELECT strptime('30', '%j'), strftime('1900-01-30'::DATE, '%-j');
+select strptime('100 2024', '%j %Y');
+select strptime('2024 100', '%Y %j');

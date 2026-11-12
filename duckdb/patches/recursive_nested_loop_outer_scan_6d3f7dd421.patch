@@ -1,0 +1,79 @@
+diff --git a/src/execution/operator/join/outer_join_marker.cpp b/src/execution/operator/join/outer_join_marker.cpp
+index f79f626..3a88b68 100644
+--- a/src/execution/operator/join/outer_join_marker.cpp
++++ b/src/execution/operator/join/outer_join_marker.cpp
+@@ -12,11 +12,6 @@ ProgressData OuterJoinGlobalScanState::GetProgress() const {
+ 	return ProgressData {double(rows_scanned.load()), double(total), false};
+ }
+ 
+-void OuterJoinLocalScanState::Reset() {
+-	scan_chunk.Reset();
+-	local_scan = ColumnDataLocalScanState();
+-}
+-
+ OuterJoinMarker::OuterJoinMarker(bool enabled_p) : enabled(enabled_p), count(0) {
+ }
+ 
+diff --git a/src/execution/operator/join/physical_nested_loop_join.cpp b/src/execution/operator/join/physical_nested_loop_join.cpp
+index 9eea640..a7c4436 100644
+--- a/src/execution/operator/join/physical_nested_loop_join.cpp
++++ b/src/execution/operator/join/physical_nested_loop_join.cpp
+@@ -683,20 +683,31 @@ public:
+ 
+ class NestedLoopJoinLocalScanState : public LocalSourceState {
+ public:
+-	explicit NestedLoopJoinLocalScanState(const PhysicalNestedLoopJoin &op, NestedLoopJoinGlobalScanState &gstate) {
+-		auto &sink = op.sink_state->Cast<NestedLoopJoinGlobalState>();
+-		sink.right_outer.InitializeScan(gstate.scan_state, scan_state);
++	explicit NestedLoopJoinLocalScanState(ExecutionContext &context, const PhysicalNestedLoopJoin &op,
++	                                      NestedLoopJoinGlobalScanState &gstate)
++	    : op(op) {
++		ResetState(gstate);
+ 	}
+ 
++	const PhysicalNestedLoopJoin &op;
+ 	OuterJoinLocalScanState scan_state;
+ 
++private:
++	void ResetState(NestedLoopJoinGlobalScanState &gstate) {
++		auto &sink = op.sink_state->Cast<NestedLoopJoinGlobalState>();
++		sink.right_outer.InitializeScan(gstate.scan_state, scan_state);
++	}
++
+ public:
+ 	bool SupportsReuse() const override {
+ 		return true;
+ 	}
+ 
+-	void Reset(ExecutionContext &, GlobalSourceState &) override {
+-		scan_state.Reset();
++	void Reset(ExecutionContext &context, GlobalSourceState &gstate_p) override {
++		auto &gstate = gstate_p.Cast<NestedLoopJoinGlobalScanState>();
++		// The source only scans unmatched RHS rows for RIGHT/FULL OUTER joins. The materialized RHS payload and
++		// match bitmap live in the sink state, so a reused local source state must rebind its scan to that data.
++		ResetState(gstate);
+ 	}
+ };
+ 
+@@ -710,7 +721,7 @@ unique_ptr<GlobalSourceState> PhysicalNestedLoopJoin::GetGlobalSourceState(Clien
+ 
+ unique_ptr<LocalSourceState> PhysicalNestedLoopJoin::GetLocalSourceState(ExecutionContext &context,
+                                                                          GlobalSourceState &gstate) const {
+-	return make_uniq<NestedLoopJoinLocalScanState>(*this, gstate.Cast<NestedLoopJoinGlobalScanState>());
++	return make_uniq<NestedLoopJoinLocalScanState>(context, *this, gstate.Cast<NestedLoopJoinGlobalScanState>());
+ }
+ 
+ SourceResultType PhysicalNestedLoopJoin::GetDataInternal(ExecutionContext &context, DataChunk &chunk,
+diff --git a/src/include/duckdb/execution/operator/join/outer_join_marker.hpp b/src/include/duckdb/execution/operator/join/outer_join_marker.hpp
+index 17de0f8..3fa61c3 100644
+--- a/src/include/duckdb/execution/operator/join/outer_join_marker.hpp
++++ b/src/include/duckdb/execution/operator/join/outer_join_marker.hpp
+@@ -26,8 +26,6 @@ struct OuterJoinGlobalScanState {
+ };
+ 
+ struct OuterJoinLocalScanState {
+-	void Reset();
+-
+ 	DataChunk scan_chunk;
+ 	SelectionVector match_sel;
+ 	ColumnDataLocalScanState local_scan;

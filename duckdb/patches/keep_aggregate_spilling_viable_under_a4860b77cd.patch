@@ -1,0 +1,29 @@
+diff --git a/src/execution/aggregate_hashtable.cpp b/src/execution/aggregate_hashtable.cpp
+index 2b2b1ba..7e02305 100644
+--- a/src/execution/aggregate_hashtable.cpp
++++ b/src/execution/aggregate_hashtable.cpp
+@@ -1276,7 +1276,6 @@ bool GroupedAggregateHashTable::Scan(AggregateHTScanState &scan_state, DataChunk
+ }
+ 
+ void GroupedAggregateHashTable::ResetForNewIteration(idx_t radix_bits_p) {
+-	tuple_size_cache.count.SetInvalid();
+ 	// Save the previous iteration's group count before destroying aggregate states.
+ 	// This lets us size the pointer table based on actual prior data rather than the
+ 	// global sink capacity, which is typically much larger than recursive iteration sizes.
+diff --git a/src/execution/radix_partitioned_hashtable.cpp b/src/execution/radix_partitioned_hashtable.cpp
+index 61cec7a..91a1cf0 100644
+--- a/src/execution/radix_partitioned_hashtable.cpp
++++ b/src/execution/radix_partitioned_hashtable.cpp
+@@ -304,11 +304,7 @@ void RadixHTLocalSinkState::PrepareForSpill(RadixHTGlobalSinkState &gstate) {
+ 	ht->Abandon();
+ 	if (!spilling) {
+ 		// Iteration reuse can retain a larger allocation than the logical capacity.
+-		try {
+-			ht->Resize(gstate.config.sink_capacity);
+-		} catch (const OutOfMemoryException &) {
+-			// Keep the existing table if the temporary replacement allocation cannot fit.
+-		}
++		ht->Resize(gstate.config.sink_capacity);
+ 		spilling = true;
+ 	}
+ 	local_sink_capacity = ht->Capacity();

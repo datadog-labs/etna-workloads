@@ -1,0 +1,81 @@
+diff --git a/src/execution/physical_plan/plan_asof_join.cpp b/src/execution/physical_plan/plan_asof_join.cpp
+index f2b2dbb..9ba9a63 100644
+--- a/src/execution/physical_plan/plan_asof_join.cpp
++++ b/src/execution/physical_plan/plan_asof_join.cpp
+@@ -62,12 +62,8 @@ optional_ptr<PhysicalOperator> PhysicalPlanGenerator::PlanAsOfLoopJoin(LogicalCo
+ 
+ 	LogicalComparisonJoin join_op(InverseJoinType(op.join_type));
+ 
+-	// Use the types of the planned children: planning a child can change the types of the logical operator
+-	// (EXCEPT ALL/INTERSECT ALL append a ROW_NUMBER column to it)
+-	const auto &probe_types = probe.GetTypes();
+-	const auto &build_types = build.GetTypes();
+-
+-	join_op.types = build_types;
++	join_op.types = op.children[1]->types;
++	const auto &probe_types = op.children[0]->types;
+ 	join_op.types.insert(join_op.types.end(), probe_types.begin(), probe_types.end());
+ 
+ 	// Project pk
+@@ -79,14 +75,14 @@ optional_ptr<PhysicalOperator> PhysicalPlanGenerator::PlanAsOfLoopJoin(LogicalCo
+ 	//	we have to track this carefully...
+ 	join_op.left_projection_map = op.right_projection_map;
+ 	if (join_op.left_projection_map.empty()) {
+-		for (idx_t i = 0; i < build_types.size(); ++i) {
++		for (idx_t i = 0; i < op.children[1]->types.size(); ++i) {
+ 			join_op.left_projection_map.emplace_back(i);
+ 		}
+ 	}
+ 
+ 	join_op.right_projection_map = op.left_projection_map;
+ 	if (join_op.right_projection_map.empty()) {
+-		for (idx_t i = 0; i < probe_types.size(); ++i) {
++		for (idx_t i = 0; i < op.children[0]->types.size(); ++i) {
+ 			join_op.right_projection_map.emplace_back(i);
+ 		}
+ 	}
+@@ -94,8 +90,8 @@ optional_ptr<PhysicalOperator> PhysicalPlanGenerator::PlanAsOfLoopJoin(LogicalCo
+ 	// Remap predicate column references.
+ 	auto predicate = CreatePredicateFromConditions(op.conditions);
+ 	if (predicate) {
+-		const auto lhs_width = probe_types.size();
+-		const auto rhs_width = build_types.size();
++		const auto lhs_width = op.children[0]->types.size();
++		const auto rhs_width = op.children[1]->types.size();
+ 
+ 		ExpressionIterator::EnumerateExpression(predicate, [&](Expression &child) {
+ 			if (child.GetExpressionClass() == ExpressionClass::BOUND_REF) {
+@@ -199,7 +195,7 @@ optional_ptr<PhysicalOperator> PhysicalPlanGenerator::PlanAsOfLoopJoin(LogicalCo
+ 	// Wrap all the projected non-pk probe fields in `first` aggregates;
+ 	vector<unique_ptr<Expression>> aggregates;
+ 	for (const auto &right_proj : join_op.right_projection_map) {
+-		const auto col_idx = build_types.size() + right_proj;
++		const auto col_idx = op.children[1]->types.size() + right_proj;
+ 		const auto col_type = join_op.types[col_idx];
+ 		aggr_types.emplace_back(col_type);
+ 
+@@ -455,8 +451,7 @@ optional_ptr<PhysicalOperator> PhysicalPlanGenerator::PlanAsOfInequalityJoin(Log
+ 	vector<unique_ptr<Expression>> window_select;
+ 	window_select.emplace_back(std::move(asof_end));
+ 
+-	// Copy the types of the planned child instead of mutating the logical operator's types.
+-	auto window_types = right.GetTypes();
++	auto &window_types = op.children[1]->types;
+ 	window_types.emplace_back(asof_type);
+ 
+ 	auto &window = Make<PhysicalWindow>(window_types, std::move(window_select), rhs_cardinality);
+diff --git a/src/execution/physical_plan/plan_set_operation.cpp b/src/execution/physical_plan/plan_set_operation.cpp
+index 078f2b4..afefeab 100644
+--- a/src/execution/physical_plan/plan_set_operation.cpp
++++ b/src/execution/physical_plan/plan_set_operation.cpp
+@@ -119,10 +119,6 @@ PhysicalOperator &PhysicalPlanGenerator::CreatePlan(LogicalSetOperation &op) {
+ 
+ 		// For EXCEPT ALL / INTERSECT ALL we need to remove the row number column again
+ 		if (op.setop_all) {
+-			// Restore the logical operator's types: the ROW_NUMBER column is an implementation detail of the physical
+-			// plan.
+-			op.types.pop_back();
+-
+ 			vector<unique_ptr<Expression>> select_list;
+ 			for (idx_t i = 0; i < types.size(); i++) {
+ 				select_list.push_back(make_uniq<BoundReferenceExpression>(types[i], i));

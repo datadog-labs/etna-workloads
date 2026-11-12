@@ -1,0 +1,55 @@
+diff --git a/src/function/cast/cast_statistics.cpp b/src/function/cast/cast_statistics.cpp
+index baebb77..64ea9e2 100644
+--- a/src/function/cast/cast_statistics.cpp
++++ b/src/function/cast/cast_statistics.cpp
+@@ -169,18 +169,12 @@ static unique_ptr<BaseStatistics> StatisticsPropagateVariant(const BaseStatistic
+ 	}
+ 	// extract the typed stats
+ 	auto &typed_stats = VariantStats::GetTypedStats(shredded_stats);
+-	unique_ptr<BaseStatistics> result;
+ 	if (structured_type == target) {
+ 		// type matches - return stats directly
+-		result = typed_stats.ToUnique();
+-	} else {
+-		// typed stats don't match - try to cast
+-		result = CastStatistics::TryPropagate(typed_stats, structured_type, target);
++		return typed_stats.ToUnique();
+ 	}
+-	if (result && input.CanHaveNull()) {
+-		result->SetHasNull();
+-	}
+-	return result;
++	// typed stats don't match - try to cast
++	return CastStatistics::TryPropagate(typed_stats, structured_type, target);
+ }
+ 
+ static unique_ptr<BaseStatistics> StatisticsPropagateArrayToList(const BaseStatistics &input, const LogicalType &source,
+diff --git a/src/function/scalar/variant/variant_extract.cpp b/src/function/scalar/variant/variant_extract.cpp
+index bd3807c..728c7ba 100644
+--- a/src/function/scalar/variant/variant_extract.cpp
++++ b/src/function/scalar/variant/variant_extract.cpp
+@@ -50,12 +50,7 @@ static unique_ptr<BaseStatistics> VariantExtractPropagateStats(ClientContext &co
+ 		return nullptr;
+ 	}
+ 
+-	auto result = VariantStats::WrapExtractedFieldAsVariant(variant_stats, *found_stats);
+-	if (info.component.lookup_mode == VariantChildLookupMode::BY_INDEX) {
+-		// Element statistics do not account for NULLs from out-of-bounds array indexes.
+-		result->SetHasNull();
+-	}
+-	return result;
++	return VariantStats::WrapExtractedFieldAsVariant(variant_stats, *found_stats);
+ }
+ 
+ static unique_ptr<FunctionData> VariantExtractBind(BindScalarFunctionInput &input) {
+@@ -123,10 +118,6 @@ static bool TryShreddedExtractRecursive(const Vector &input, const vector<Varian
+ 		return false;
+ 	}
+ 	auto &typed_value = typed_entries[0];
+-	if (typed_value.GetType().id() != LogicalTypeId::STRUCT) {
+-		// A shredded wrapper can also contain a primitive or an array.
+-		return false;
+-	}
+ 
+ 	// find the type in the struct type
+ 	auto &child_types = StructType::GetChildTypes(typed_value.GetType());

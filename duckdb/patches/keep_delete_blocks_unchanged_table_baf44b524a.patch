@@ -1,0 +1,16 @@
+diff --git a/src/storage/table/row_version_manager.cpp b/src/storage/table/row_version_manager.cpp
+index 3f92941..53821b2 100644
+--- a/src/storage/table/row_version_manager.cpp
++++ b/src/storage/table/row_version_manager.cpp
+@@ -247,10 +247,7 @@ vector<MetaBlockPointer> RowVersionManager::Checkpoint(RowGroupWriter &writer) {
+ 	lock_guard<mutex> lock(version_lock);
+ 	auto &manager = *writer.GetMetadataManager();
+ 	auto options = writer.GetCheckpointOptions();
+-	if (!oldest_uncheckpointed_delete_commit.IsValid() ||
+-	    oldest_uncheckpointed_delete_commit.GetIndex() >= options.visibility_bound) {
+-		// nothing below the bound changed since the last checkpoint: the blocks on disk are current. A delete that
+-		// committed above the bound, while this checkpoint ran, is written by the next checkpoint
++	if (!oldest_uncheckpointed_delete_commit.IsValid()) {
+ 		// ensure the blocks we are pointing to are not marked as free
+ 		manager.ClearModifiedBlocks(storage_pointers);
+ 		// return the current set of pointers

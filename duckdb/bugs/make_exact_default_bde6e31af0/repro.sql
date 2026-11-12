@@ -1,0 +1,3 @@
+CREATE TABLE a(x INT); CREATE TABLE b(y INT);
+CREATE VIEW v AS SELECT * FROM a INNER JOIN b NEAREST 2 BY DISTANCE abs(x-y);
+SELECT sql FROM duckdb_views() WHERE view_name='v';

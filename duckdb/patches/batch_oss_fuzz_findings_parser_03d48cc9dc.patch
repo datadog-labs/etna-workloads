@@ -1,0 +1,109 @@
+diff --git a/src/common/operator/cast_operators.cpp b/src/common/operator/cast_operators.cpp
+index 95d7828..7ccd979 100644
+--- a/src/common/operator/cast_operators.cpp
++++ b/src/common/operator/cast_operators.cpp
+@@ -3323,7 +3323,6 @@ static void FillDecimalDigits(SRC input, duckdb_fast_float::decimal &decimal, bo
+ }
+ 
+ static void FillDecimalDigits(hugeint_t input, duckdb_fast_float::decimal &decimal, bool &negative) {
+-	negative = false;
+ 	if (input == 0) {
+ 		return;
+ 	}
+@@ -3331,6 +3330,8 @@ static void FillDecimalDigits(hugeint_t input, duckdb_fast_float::decimal &decim
+ 	if (input < 0) {
+ 		negative = true;
+ 		Hugeint::NegateInPlace(input);
++	} else {
++		negative = false;
+ 	}
+ 
+ 	// a hugeint can have one more digit than the maximum decimal width
+@@ -3353,7 +3354,7 @@ bool TryCastDecimalToFloatingPoint(SRC input, DST &result, uint8_t width, uint8_
+ 	}
+ 
+ 	duckdb_fast_float::decimal decimal;
+-	bool negative = false;
++	bool negative;
+ 	FillDecimalDigits(input, decimal, negative);
+ 	decimal.decimal_point = UnsafeNumericCast<int32_t>(decimal.num_digits) - UnsafeNumericCast<int32_t>(scale);
+ 	while (decimal.num_digits > 0 && decimal.digits[decimal.num_digits - 1] == 0) {
+diff --git a/src/include/duckdb/optimizer/join_order/join_order_optimizer.hpp b/src/include/duckdb/optimizer/join_order/join_order_optimizer.hpp
+index 2540723..0647b33 100644
+--- a/src/include/duckdb/optimizer/join_order/join_order_optimizer.hpp
++++ b/src/include/duckdb/optimizer/join_order/join_order_optimizer.hpp
+@@ -21,12 +21,6 @@ public:
+ 	explicit JoinOrderOptimizer(ClientContext &context);
+ 
+ public:
+-	//! Deepest nesting of child optimizers (one per non-reorderable operator, projection, aggregate, ...) that is still
+-	//! join-order optimized. Every level recurses through Optimize/Build/ExtractJoinRelations, so a very deep plan
+-	//! (e.g. a long chain of EXCEPT/INTERSECT) would otherwise overflow the stack long before the plan depth limit is
+-	//! hit; subplans below this depth keep their original join order, which is always a valid plan.
+-	static constexpr idx_t MAX_RECURSION_DEPTH = 128;
+-
+ 	JoinOrderOptimizer CreateChildOptimizer();
+ 	//! Perform join reordering inside a plan
+ 	unique_ptr<LogicalOperator> Optimize(unique_ptr<LogicalOperator> plan, optional_ptr<RelationStats> stats = nullptr);
+diff --git a/src/optimizer/join_order/join_order_optimizer.cpp b/src/optimizer/join_order/join_order_optimizer.cpp
+index 1ed6428..b63bfeb 100644
+--- a/src/optimizer/join_order/join_order_optimizer.cpp
++++ b/src/optimizer/join_order/join_order_optimizer.cpp
+@@ -8,6 +8,7 @@
+ #include "duckdb/optimizer/join_order/plan_enumerator.hpp"
+ #include "duckdb/planner/expression/list.hpp"
+ #include "duckdb/planner/operator/list.hpp"
++#include "duckdb/main/settings.hpp"
+ 
+ namespace duckdb {
+ 
+@@ -56,7 +57,8 @@ JoinOrderOptimizer JoinOrderOptimizer::CreateChildOptimizer() {
+ 
+ unique_ptr<LogicalOperator> JoinOrderOptimizer::Optimize(unique_ptr<LogicalOperator> plan,
+                                                          optional_ptr<RelationStats> stats) {
+-	if (depth > MAX_RECURSION_DEPTH) {
++	auto max_expression_depth = Settings::Get<MaxExpressionDepthSetting>(query_graph_manager.context);
++	if (depth > max_expression_depth) {
+ 		// Very deep plans will eventually consume quite some stack space
+ 		// Returning the current plan is always a valid choice
+ 		return plan;
+diff --git a/src/parser/peg/matcher_factory.cpp b/src/parser/peg/matcher_factory.cpp
+index 84f9b1d..77e1ca4 100644
+--- a/src/parser/peg/matcher_factory.cpp
++++ b/src/parser/peg/matcher_factory.cpp
+@@ -220,7 +220,6 @@ Matcher &MatcherFactory::CreateRootMatcher(const string &root_rule) {
+ 	// START GENERATED PACKRAT MEMOIZED RULES
+ 	//===--------------------------------------------------------------------===//
+ 	AddPackratMemoizedRule("Expression");
+-	AddPackratMemoizedRule("TableRef");
+ 	AddPackratMemoizedRule("Identifier");
+ 	AddPackratMemoizedRule("ColId");
+ 	AddPackratMemoizedRule("CatalogQualification");
+diff --git a/src/parser/peg/transformer/transform_describe.cpp b/src/parser/peg/transformer/transform_describe.cpp
+index 5ff3131..5fe0ec5 100644
+--- a/src/parser/peg/transformer/transform_describe.cpp
++++ b/src/parser/peg/transformer/transform_describe.cpp
+@@ -213,9 +213,6 @@ DescribeTarget PEGTransformerFactory::TransformDescribeBaseTableName(PEGTransfor
+ 
+ DescribeTarget PEGTransformerFactory::TransformDescribeStringLiteral(PEGTransformer &transformer,
+                                                                      const string &string_literal) {
+-	if (string_literal.empty()) {
+-		throw ParserException("Expected a table name, but got an empty string");
+-	}
+ 	DescribeTarget result;
+ 	result.is_table_name = true;
+ 	result.table_name = Identifier(string_literal);
+diff --git a/src/planner/binder/tableref/bind_showref.cpp b/src/planner/binder/tableref/bind_showref.cpp
+index de12d29..697da9c 100644
+--- a/src/planner/binder/tableref/bind_showref.cpp
++++ b/src/planner/binder/tableref/bind_showref.cpp
+@@ -275,9 +275,6 @@ static void WarnShowDescribesQuery(ClientContext &context) {
+ BoundStatement Binder::BindShow(ShowRef &ref) {
+ 	BoundStatement result;
+ 	if (ref.GetTableName().empty()) {
+-		if (!ref.query) {
+-			throw BinderException("SHOW requires a setting name, a table name or a query");
+-		}
+ 		// "SHOW (SELECT ...)": describe the columns of the query. Deprecated in favor of DESCRIBE, and not affected
+ 		// by show_behavior (a parenthesized query is neither a setting nor a named table).
+ 		WarnShowDescribesQuery(context);

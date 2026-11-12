@@ -1,0 +1,143 @@
+diff --git a/src/catalog/catalog_entry/duck_schema_entry.cpp b/src/catalog/catalog_entry/duck_schema_entry.cpp
+index f4b28ec..e7ef5a2 100644
+--- a/src/catalog/catalog_entry/duck_schema_entry.cpp
++++ b/src/catalog/catalog_entry/duck_schema_entry.cpp
+@@ -281,6 +281,13 @@ optional_ptr<CatalogEntry> DuckSchemaEntry::CreateIndex(CatalogTransaction trans
+ 	// indexes do not require CASCADE to be dropped, they are simply always dropped along with the table
+ 	info.dependencies.AddDependency(table, DependencyDependentFlags());
+ 
++	// currently, we can not alter PK/FK/UNIQUE constraints
++	// concurrency-safe name checks against other INDEX catalog entries happens in the catalog
++	if (info.on_conflict != OnCreateConflict::IGNORE_ON_CONFLICT &&
++	    !table.GetStorage().IndexNameIsUnique(info.GetIndexName().GetIdentifierName())) {
++		throw CatalogException("An index with the name " + info.GetIndexName() + " already exists!");
++	}
++
+ 	auto index = make_uniq<DuckIndexEntry>(catalog, *this, info, table);
+ 	auto dependencies = index->dependencies;
+ 	return AddEntryInternal(transaction, std::move(index), info.on_conflict, dependencies);
+diff --git a/src/catalog/catalog_entry/duck_table_entry.cpp b/src/catalog/catalog_entry/duck_table_entry.cpp
+index a3233f0..492afe2 100644
+--- a/src/catalog/catalog_entry/duck_table_entry.cpp
++++ b/src/catalog/catalog_entry/duck_table_entry.cpp
+@@ -1448,6 +1448,23 @@ unique_ptr<CatalogEntry> DuckTableEntry::AddConstraint(ClientContext &context, A
+ 				throw CatalogException("table %s already has the constraint %s", name, existing.ToString());
+ 			}
+ 		}
++
++		auto new_indexes = unique.GetLogicalIndexes(columns);
++		logical_index_set_t new_index_set(new_indexes.begin(), new_indexes.end());
++		for (const auto &constraint : GetConstraints()) {
++			if (constraint->type != ConstraintType::UNIQUE) {
++				continue;
++			}
++			auto &existing = constraint->Cast<UniqueConstraint>();
++			if (existing.is_primary_key != unique.is_primary_key) {
++				continue;
++			}
++			auto existing_indexes = existing.GetLogicalIndexes(columns);
++			logical_index_set_t existing_index_set(existing_indexes.begin(), existing_indexes.end());
++			if (existing_index_set == new_index_set) {
++				throw CatalogException("table %s already has the constraint %s", name, existing.ToString());
++			}
++		}
+ 		table_info.constraints.push_back(info.constraint->Copy());
+ 
+ 	} else {
+diff --git a/src/execution/operator/schema/physical_create_index.cpp b/src/execution/operator/schema/physical_create_index.cpp
+index 93b88dd..1f549d9 100644
+--- a/src/execution/operator/schema/physical_create_index.cpp
++++ b/src/execution/operator/schema/physical_create_index.cpp
+@@ -166,6 +166,13 @@ SinkFinalizeType PhysicalCreateIndex::Finalize(Pipeline &pipeline, Event &event,
+ 		return SinkFinalizeType::READY;
+ 	}
+ 
++	// Ensure that there are no other indexes with that name on this table.
++	const auto &indexes = storage.GetDataTableInfo()->GetIndexes();
++	if (indexes.Contains(info->GetIndexName())) {
++		throw CatalogException("an index with that name already exists for this table: %s",
++		                       SQLIdentifier(info->GetIndexName()));
++	}
++
+ 	// PRIMARY KEY columns cannot be NULL.
+ 	if (info->constraint_type == IndexConstraintType::PRIMARY) {
+ 		auto &local_storage = LocalStorage::Get(context, storage.db);
+diff --git a/src/include/duckdb/storage/data_table.hpp b/src/include/duckdb/storage/data_table.hpp
+index bc61266..a118d9a 100644
+--- a/src/include/duckdb/storage/data_table.hpp
++++ b/src/include/duckdb/storage/data_table.hpp
+@@ -251,6 +251,10 @@ public:
+ 
+ 	//! Scans the next chunk for the CREATE INDEX operator
+ 	bool CreateIndexScan(TableScanState &state, DataChunk &result);
++	//! Returns true, if the index name is unique (i.e., no PK, UNIQUE, FK constraint has the same name)
++	//! FIXME: This is only necessary until we treat all indexes as catalog entries, allowing to alter constraints
++	bool IndexNameIsUnique(const string &name);
++
+ 	//! Initialize constraint verification state
+ 	unique_ptr<ConstraintState> InitializeConstraintState(TableCatalogEntry &table,
+ 	                                                      const vector<unique_ptr<BoundConstraint>> &bound_constraints);
+diff --git a/src/include/duckdb/storage/table/table_index_list.hpp b/src/include/duckdb/storage/table/table_index_list.hpp
+index 32509ec..0174b0e 100644
+--- a/src/include/duckdb/storage/table/table_index_list.hpp
++++ b/src/include/duckdb/storage/table/table_index_list.hpp
+@@ -69,6 +69,10 @@ public:
+ 	                       optional_idx active_checkpoint = optional_idx());
+ 	//! Removes an index entry from the list of index entries and release any storage the index owns.
+ 	void RemoveIndex(idx_t index_oid);
++	//! Returns true, if the index name does not exist.
++	bool NameIsUnique(const string &name) const;
++	//! Returns true if an index with the given name exists.
++	bool Contains(const Identifier &name) const;
+ 	//! Returns shared ownership of the stable logical index entry matching the name.
+ 	shared_ptr<IndexEntry> FindEntry(const Identifier &name) const;
+ 	//! Returns the entry matching the index OID.
+diff --git a/src/storage/data_table.cpp b/src/storage/data_table.cpp
+index 2f9cec6..c2153e4 100644
+--- a/src/storage/data_table.cpp
++++ b/src/storage/data_table.cpp
+@@ -435,6 +435,10 @@ void DataTable::CleanupAppend(VisibilityBound lowest_visibility_bound, idx_t sta
+ 	row_groups->CleanupAppend(lowest_visibility_bound, start, count);
+ }
+ 
++bool DataTable::IndexNameIsUnique(const string &name) {
++	return info->indexes.NameIsUnique(name);
++}
++
+ Identifier DataTableInfo::GetSchemaName() {
+ 	return schema_path.back();
+ }
+diff --git a/src/storage/table_index_list.cpp b/src/storage/table_index_list.cpp
+index ea2d43c..3e5cb1e 100644
+--- a/src/storage/table_index_list.cpp
++++ b/src/storage/table_index_list.cpp
+@@ -327,6 +327,29 @@ bool TableIndexList::HasBufferedReplays() const {
+ 	return false;
+ }
+ 
++bool TableIndexList::NameIsUnique(const string &name) const {
++	annotated_lock_guard lock(index_entries_lock);
++	// Only covers PK, FK, and UNIQUE indexes.
++	// is_unique also covers primary-key indexes.
++	for (const auto &entry : index_entries) {
++		auto index_info = entry->GetStorageInfo();
++		if ((index_info.is_unique || index_info.is_foreign) && entry->GetName() == name) {
++			return false;
++		}
++	}
++	return true;
++}
++
++bool TableIndexList::Contains(const Identifier &name) const {
++	annotated_lock_guard lock(index_entries_lock);
++	for (const auto &entry : index_entries) {
++		if (entry->GetName() == name) {
++			return true;
++		}
++	}
++	return false;
++}
++
+ shared_ptr<IndexEntry> TableIndexList::FindEntry(const Identifier &name) const {
+ 	annotated_lock_guard lock(index_entries_lock);
+ 	for (const auto &entry : index_entries) {

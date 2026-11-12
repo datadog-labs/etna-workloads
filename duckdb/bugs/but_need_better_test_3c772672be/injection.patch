@@ -1,0 +1,24 @@
+diff --git a/src/optimizer/build_probe_side_optimizer.cpp b/src/optimizer/build_probe_side_optimizer.cpp
+index cc6a551..e13ea4c 100644
+--- a/src/optimizer/build_probe_side_optimizer.cpp
++++ b/src/optimizer/build_probe_side_optimizer.cpp
+@@ -67,7 +67,8 @@ static void FlipChildren(LogicalOperator &op) {
+ 	std::swap(op.children[0], op.children[1]);
+ 	switch (op.type) {
+ 	case LogicalOperatorType::LOGICAL_COMPARISON_JOIN:
+-	case LogicalOperatorType::LOGICAL_DELIM_JOIN: {
++	case LogicalOperatorType::LOGICAL_DELIM_JOIN:
++	case LogicalOperatorType::LOGICAL_ASOF_JOIN: {
+ 		auto &join = op.Cast<LogicalComparisonJoin>();
+ 		join.join_type = InverseJoinType(join.join_type);
+ 		for (idx_t i = 0; i < join.conditions.size(); i++) {
+@@ -492,7 +493,8 @@ void BuildProbeSideOptimizer::VisitOperator(LogicalOperator &op) {
+ 		}
+ 		break;
+ 	}
+-	case LogicalOperatorType::LOGICAL_ANY_JOIN: {
++	case LogicalOperatorType::LOGICAL_ANY_JOIN:
++	case LogicalOperatorType::LOGICAL_ASOF_JOIN: {
+ 		auto &join = op.Cast<LogicalJoin>();
+ 		// We do not yet support the RIGHT_SEMI or RIGHT_ANTI join types for these, so don't try to flip
+ 		switch (join.join_type) {

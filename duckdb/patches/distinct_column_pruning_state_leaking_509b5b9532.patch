@@ -1,0 +1,22 @@
+diff --git a/src/optimizer/remove_unused_columns.cpp b/src/optimizer/remove_unused_columns.cpp
+index 6b665cd..f6b014a 100644
+--- a/src/optimizer/remove_unused_columns.cpp
++++ b/src/optimizer/remove_unused_columns.cpp
+@@ -817,13 +817,11 @@ void RemoveUnusedColumns::VisitOperator(unique_ptr<LogicalOperator> &op_ref) {
+ 			// need to implicitly reference everything.
+ 			break;
+ 		}
+-		// Preserve all DISTINCT inputs without affecting sibling branches.
+-		const auto previous_everything_referenced = everything_referenced;
++		// distinct, all projected columns are used for the DISTINCT computation
++		// mark all columns as used and continue to the children
++		// FIXME: DISTINCT with expression list does not implicitly reference everything
+ 		everything_referenced = true;
+-		LogicalOperatorVisitor::VisitOperatorExpressions(op);
+-		VisitPrunableChildren(op);
+-		everything_referenced = previous_everything_referenced;
+-		return;
++		break;
+ 	}
+ 	case LogicalOperatorType::LOGICAL_RECURSIVE_CTE: {
+ 		if (analyze) {

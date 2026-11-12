@@ -1,0 +1,89 @@
+diff --git a/src/include/duckdb/storage/table/row_group.hpp b/src/include/duckdb/storage/table/row_group.hpp
+index 7ab232d..50c8944 100644
+--- a/src/include/duckdb/storage/table/row_group.hpp
++++ b/src/include/duckdb/storage/table/row_group.hpp
+@@ -207,8 +207,6 @@ public:
+ 	idx_t GetCommittedRowCount();
+ 	//! Returns the number of rows visible to the given transaction
+ 	idx_t GetVisibleRowCount(TransactionData transaction);
+-	//! Count visible rows in a scan assignment starting at a vector boundary
+-	idx_t GetVisibleRowCount(TransactionData transaction, idx_t start_vector, idx_t scan_count);
+ 	bool CanReuseMetadata(RowGroupWriter &writer) const;
+ 	RowGroupWriteData WriteToDisk(RowGroupWriter &writer);
+ 	RowGroupPointer Checkpoint(RowGroupWriteData write_data, RowGroupWriter &writer, TableStatistics &global_stats,
+diff --git a/src/include/duckdb/storage/table/row_version_manager.hpp b/src/include/duckdb/storage/table/row_version_manager.hpp
+index 60cd19e..739ee57 100644
+--- a/src/include/duckdb/storage/table/row_version_manager.hpp
++++ b/src/include/duckdb/storage/table/row_version_manager.hpp
+@@ -26,8 +26,6 @@ public:
+ 
+ 	//! Returns the number of non-deleted rows in this segment
+ 	idx_t GetRowCount(ScanOptions options, idx_t count);
+-	//! Count visible rows starting at a vector boundary, including a partial final vector
+-	idx_t GetRowCount(ScanOptions options, idx_t start_vector, idx_t count);
+ 
+ 	idx_t GetSelVector(ScanOptions options, idx_t vector_idx, SelectionVector &sel_vector, idx_t max_count);
+ 	//! Bulk visibility check. Returns the number of visible rows.
+diff --git a/src/storage/table/row_group.cpp b/src/storage/table/row_group.cpp
+index c645fe3..cc0726d 100644
+--- a/src/storage/table/row_group.cpp
++++ b/src/storage/table/row_group.cpp
+@@ -1542,17 +1542,11 @@ idx_t RowGroup::GetCommittedRowCount() {
+ }
+ 
+ idx_t RowGroup::GetVisibleRowCount(TransactionData transaction) {
+-	return GetVisibleRowCount(transaction, 0, count);
+-}
+-
+-idx_t RowGroup::GetVisibleRowCount(TransactionData transaction, idx_t start_vector, idx_t scan_count) {
+-	D_ASSERT(start_vector * STANDARD_VECTOR_SIZE <= count);
+-	D_ASSERT(scan_count <= count - start_vector * STANDARD_VECTOR_SIZE);
+ 	auto vinfo = GetVersionInfo();
+ 	if (!vinfo) {
+-		return scan_count;
++		return count;
+ 	}
+-	return vinfo->GetRowCount(transaction, start_vector, scan_count);
++	return vinfo->GetRowCount(transaction, count);
+ }
+ 
+ bool RowGroup::HasUnloadedDeletes() const {
+diff --git a/src/storage/table/row_group_collection.cpp b/src/storage/table/row_group_collection.cpp
+index 8d3d37f..68aee34 100644
+--- a/src/storage/table/row_group_collection.cpp
++++ b/src/storage/table/row_group_collection.cpp
+@@ -413,11 +413,11 @@ optional_idx RowGroupCollection::NextParallelScan(ClientContext &context, Parall
+ 				state.row_number_base = scan_state.row_number_base.GetIndex();
+ 			}
+ 			if (state.row_number_base.IsValid()) {
+-				// Reserve numbers only for visible rows in this assignment, which may be part of a row group.
++				// if we are scanning the row_number virtual column - shift the base based on the number of visible rows
++				// (i.e. non-deleted rows) for the current transaction
+ 				scan_state.row_number_base = state.row_number_base.GetIndex();
+ 				auto &tx = DuckTransaction::Get(context, GetAttached());
+-				state.row_number_base = state.row_number_base.GetIndex() +
+-				                        current_row_group.GetVisibleRowCount(tx, vector_index, assignment_rows);
++				state.row_number_base = state.row_number_base.GetIndex() + current_row_group.GetVisibleRowCount(tx);
+ 			}
+ 		}
+ 		D_ASSERT(collection);
+diff --git a/src/storage/table/row_version_manager.cpp b/src/storage/table/row_version_manager.cpp
+index 3f92941..3e21b54 100644
+--- a/src/storage/table/row_version_manager.cpp
++++ b/src/storage/table/row_version_manager.cpp
+@@ -13,14 +13,9 @@ RowVersionManager::RowVersionManager(BufferManager &buffer_manager_p) noexcept
+ }
+ 
+ idx_t RowVersionManager::GetRowCount(ScanOptions options, idx_t count) {
+-	return GetRowCount(options, 0, count);
+-}
+-
+-idx_t RowVersionManager::GetRowCount(ScanOptions options, idx_t start_vector, idx_t count) {
+ 	lock_guard<mutex> l(version_lock);
+ 	idx_t total_count = 0;
+-	// Only visit version vectors belonging to this scan assignment.
+-	for (idx_t r = 0, i = start_vector; r < count; r += STANDARD_VECTOR_SIZE, i++) {
++	for (idx_t r = 0, i = 0; r < count; r += STANDARD_VECTOR_SIZE, i++) {
+ 		idx_t segment_count = MinValue<idx_t>(STANDARD_VECTOR_SIZE, count - r);
+ 		if (segment_count == 0) {
+ 			break;

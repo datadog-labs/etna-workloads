@@ -1,0 +1,104 @@
+[90mWARNING:
+[00m[90mUsing "PRAGMA explain_output=..." to set a setting is deprecated and will be removed in a future release, use "SET explain_output=..." instead.
+
+[00mid|x|y
+1|1.0|1.0
+╭─ PROJECTION ─────────────────────╮
+│ Expressions: id, x, y            │
+│ ~0 rows                          │
+╰─────────────────┬────────────────╯
+╭─ PROJECTION ────┴────────────────╮
+│ Expressions: #0, #1, #2          │
+│ ~4 rows                          │
+╰─────────────────┬────────────────╯
+╭─ COMPARISON_JOIN ────────────────╮
+│ Join Type: INNER                 │
+│ Conditions: rowid = rowid        │
+│ ~4 rows                          │
+╰─────────────────┬────────────────╯
+                  ├─────────────────────────────────────╮
+╭─ PROJECTION ────┴────────────────╮  ╭─ PROJECTION ────┴────────────────╮
+│ Expressions: #0, #1, #3, #4      │  │ Expressions: #0, #1              │
+│ ~4 rows                          │  │ ~2 rows                          │
+╰─────────────────┬────────────────╯  ╰─────────────────┬────────────────╯
+╭─ SEQ_SCAN ──────┴────────────────╮  ╭─ AGGREGATE ─────┴────────────────╮
+│ Table: memory.main.topn_filter_l │  │ Groups: id                       │
+│ Type: Sequential Scan            │  │ Expressions:                     │
+╰──────────────────────────────────╯  │ arg_min_nulls_last(rowid, k)     │
+                                      │ ~2 rows                          │
+                                      ╰─────────────────┬────────────────╯
+                                      ╭─ COMPARISON_JOIN ────────────────╮
+                                      │ Join Type: INNER                 │
+                                      │ Conditions: id = id,             │
+                                      │             greatest(x, z) = z   │
+                                      │ ~2 rows                          │
+                                      ╰─────────────────┬────────────────╯
+                                                        ├─────────────────────────────────────╮
+                                      ╭─ SEQ_SCAN ──────┴────────────────╮  ╭─ SEQ_SCAN ──────┴────────────────╮
+                                      │ Table: memory.main.topn_filter_l │  │ Table: memory.main.topn_filter_r │
+                                      │ Type: Sequential Scan            │  │ Type: Sequential Scan            │
+                                      │ ~4 rows                          │  │ ~2 rows                          │
+                                      ╰──────────────────────────────────╯  ╰──────────────────────────────────╯
+╭─ PROJECTION ──────────────────╮
+│ Expressions: id, p            │
+│ ~0 rows                       │
+╰───────────────┬───────────────╯
+╭─ PROJECTION ──┴───────────────╮
+│ Expressions: #0, #1           │
+│ ~1 row                        │
+╰───────────────┬───────────────╯
+╭─ COMPARISON_JOIN ─────────────╮
+│ Join Type: INNER              │
+│ Conditions: rowid = rowid     │
+│ ~1 row                        │
+╰───────────────┬───────────────╯
+                ├───────────────────────────────────╮
+╭─ PROJECTION ──┴───────────────╮  ╭─ PROJECTION ───┴────────────────╮
+│ Expressions: #1, #2, #3       │  │ Expressions: #1                 │
+│ ~1 row                        │  │ ~1 row                          │
+╰───────────────┬───────────────╯  ╰────────────────┬────────────────╯
+╭─ SEQ_SCAN ────┴───────────────╮  ╭─ UNNEST ───────┴────────────────╮
+│ Table: memory.main.topn_dup_l │  │ Expressions: UNNEST(#0)         │
+│ Type: Sequential Scan         │  │ ~1 row                          │
+╰───────────────────────────────╯  ╰────────────────┬────────────────╯
+                                   ╭─ AGGREGATE ────┴────────────────╮
+                                   │ Expressions:                    │
+                                   │ arg_max_nulls_last(rowid, s, 2) │
+                                   ╰────────────────┬────────────────╯
+                                   ╭─ PROJECTION ───┴────────────────╮
+                                   │ Expressions: id, p, s, rowid    │
+                                   │ ~2 rows                         │
+                                   ╰────────────────┬────────────────╯
+                                   ╭─ COMPARISON_JOIN ───────────────╮
+                                   │ Join Type: INNER                │
+                                   │ Conditions: k = k               │
+                                   │ ~2 rows                         │
+                                   ╰────────────────┬────────────────╯
+                                                    ├───────────────────────────────────╮
+                                   ╭─ SEQ_SCAN ─────┴────────────────╮  ╭─ SEQ_SCAN ────┴───────────────╮
+                                   │ Table: memory.main.topn_dup_r   │  │ Table: memory.main.topn_dup_l │
+                                   │ Type: Sequential Scan           │  │ Type: Sequential Scan         │
+                                   │ ~2 rows                         │  │ ~1 row                        │
+                                   ╰─────────────────────────────────╯  ╰───────────────────────────────╯
+p
+p
+id|rn
+2|1
+1|2
+3|3
+rn
+1
+2
+3
+count_star()|count(id)
+1|1
+count_star()|count(id)|min(rn)|max(rn)
+3|3|1|3
+id|payload|grp|rn
+2|b|1|1
+1|a|1|2
+3|c|1|3
+4|d|2|1
+id|val
+1|0.0
+3|-1.0

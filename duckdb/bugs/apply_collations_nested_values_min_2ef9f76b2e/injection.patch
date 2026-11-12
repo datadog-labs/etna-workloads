@@ -1,0 +1,24 @@
+diff --git a/src/function/aggregate/distributive/minmax.cpp b/src/function/aggregate/distributive/minmax.cpp
+index eaca13d..7ff706d 100644
+--- a/src/function/aggregate/distributive/minmax.cpp
++++ b/src/function/aggregate/distributive/minmax.cpp
+@@ -363,10 +363,8 @@ static bool MinMaxUsesCollation(ClientContext &context, const LogicalType &input
+ 	const auto varchar_collation =
+ 	    input_type.id() == LogicalTypeId::VARCHAR &&
+ 	    (!StringType::GetCollation(input_type).empty() || !Settings::Get<DefaultCollationSetting>(context).empty());
+-	const auto nested_collation = StructType::IsStruct(input_type) || input_type.id() == LogicalTypeId::LIST ||
+-	                              input_type.id() == LogicalTypeId::ARRAY;
+ 	return input_type.id() == LogicalTypeId::BIT || input_type.id() == LogicalTypeId::TIME_TZ ||
+-	       input_type.id() == LogicalTypeId::VARIANT || varchar_collation || nested_collation;
++	       input_type.id() == LogicalTypeId::VARIANT || varchar_collation;
+ }
+ 
+ template <class OP, class OP_STRING, class OP_VECTOR>
+@@ -388,7 +386,6 @@ unique_ptr<FunctionData> BindMinMax(BindAggregateFunctionInput &input) {
+ 		// Bind function like arg_min/arg_max.
+ 		arguments.push_back(std::move(collated_arg));
+ 		function.GetArguments()[0] = arguments[0]->GetReturnType();
+-		function.GetArguments()[1] = arguments[1]->GetReturnType();
+ 		function.SetReturnType(arguments[0]->GetReturnType());
+ 		return make_uniq<ArgMinMaxFunctionData>();
+ 	}

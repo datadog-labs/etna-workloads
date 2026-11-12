@@ -1,0 +1,52 @@
+diff --git a/src/include/duckdb/optimizer/outer_join_simplification.hpp b/src/include/duckdb/optimizer/outer_join_simplification.hpp
+index 05bb42d..e81ac17 100644
+--- a/src/include/duckdb/optimizer/outer_join_simplification.hpp
++++ b/src/include/duckdb/optimizer/outer_join_simplification.hpp
+@@ -56,7 +56,6 @@ private:
+ 	bool HasNullRequiredColumns(const vector<ColumnBinding> &bindings);
+ 	bool HasRequiredColumns(const vector<ColumnBinding> &bindings);
+ 	void MarkEliminatedNullColumns(const vector<ColumnBinding> &bindings);
+-	void EraseNullRequiredColumns(LogicalOperator &child);
+ 	vector<ColumnBinding> GetRightBindings(LogicalJoin &join);
+ 	void SimplifyOuterJoinType(LogicalComparisonJoin &join);
+ 
+diff --git a/src/optimizer/outer_join_simplification.cpp b/src/optimizer/outer_join_simplification.cpp
+index e989c8d..a722f2d 100644
+--- a/src/optimizer/outer_join_simplification.cpp
++++ b/src/optimizer/outer_join_simplification.cpp
+@@ -186,12 +186,6 @@ bool OuterJoinSimplification::HasRequiredColumns(const vector<ColumnBinding> &bi
+ 	return false;
+ }
+ 
+-void OuterJoinSimplification::EraseNullRequiredColumns(LogicalOperator &child) {
+-	for (const auto &binding : child.GetColumnBindings()) {
+-		null_required_columns.erase(binding);
+-	}
+-}
+-
+ void OuterJoinSimplification::MarkEliminatedNullColumns(const vector<ColumnBinding> &bindings) {
+ 	for (const auto &binding : bindings) {
+ 		eliminated_null_columns.insert(binding);
+@@ -303,7 +297,6 @@ void OuterJoinSimplification::VisitInnerOrSemiJoin(LogicalComparisonJoin &join,
+ void OuterJoinSimplification::VisitOuterJoin(LogicalComparisonJoin &join, LogicalOperator &op) {
+ 	if (TryConvertLeftToAntiJoin(join)) {
+ 		AddRequiredColumns(join.conditions);
+-		EraseNullRequiredColumns(*join.children[1]);
+ 		VisitOperatorChildren(op);
+ 		return;
+ 	}
+@@ -315,14 +308,6 @@ void OuterJoinSimplification::VisitOuterJoin(LogicalComparisonJoin &join, Logica
+ 	}
+ 
+ 	AddRequiredColumns(join.conditions);
+-	// NULL values in the NULL-extended side can be introduced by this join itself,
+-	// so columns of that side are not guaranteed to be NULL below the join
+-	if (join.join_type == JoinType::LEFT || join.join_type == JoinType::OUTER) {
+-		EraseNullRequiredColumns(*join.children[1]);
+-	}
+-	if (join.join_type == JoinType::RIGHT || join.join_type == JoinType::OUTER) {
+-		EraseNullRequiredColumns(*join.children[0]);
+-	}
+ 	VisitOperatorChildren(op);
+ }
+ 

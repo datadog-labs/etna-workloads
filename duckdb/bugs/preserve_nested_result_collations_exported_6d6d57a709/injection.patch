@@ -1,0 +1,33 @@
+diff --git a/src/include/duckdb/planner/sql_export/bound_expression_sql_exporter_internal.hpp b/src/include/duckdb/planner/sql_export/bound_expression_sql_exporter_internal.hpp
+index 8d62721..76f50e3 100644
+--- a/src/include/duckdb/planner/sql_export/bound_expression_sql_exporter_internal.hpp
++++ b/src/include/duckdb/planner/sql_export/bound_expression_sql_exporter_internal.hpp
+@@ -121,9 +121,8 @@ private:
+ 	BoundExpressionSQLExportResult RestoreResultType(const LogicalType &type, unique_ptr<ParsedExpression> result,
+ 	                                                 const LogicalPlanVerificationPath &path);
+ 	static bool RequiresConstantConstructor(const LogicalType &type);
+-	static BoundExpressionSQLExportResult CastToConstructedType(const LogicalType &type,
+-	                                                            unique_ptr<ParsedExpression> child,
+-	                                                            const LogicalPlanVerificationPath &path);
++	BoundExpressionSQLExportResult CastToConstructedType(const LogicalType &type, unique_ptr<ParsedExpression> child,
++	                                                     const LogicalPlanVerificationPath &path);
+ 	BoundExpressionSQLExportResult ExportConstant(const BoundConstantExpression &expression,
+ 	                                              const LogicalPlanVerificationPath &path);
+ 	BoundExpressionSQLExportResult ExportReference(const BoundReferenceExpression &expression,
+diff --git a/src/planner/sql_export/bound_expression_sql_exporter.cpp b/src/planner/sql_export/bound_expression_sql_exporter.cpp
+index 339cfba..6faf5c7 100644
+--- a/src/planner/sql_export/bound_expression_sql_exporter.cpp
++++ b/src/planner/sql_export/bound_expression_sql_exporter.cpp
+@@ -118,7 +118,11 @@ BoundExpressionSQLExportState::PreserveCollation(const LogicalType &type, BoundE
+ 			result.GetValue() = make_uniq<CollateExpression>(std::move(collation), std::move(result.GetValue()));
+ 		}
+ 	} else if (BoundExpressionSQLExportState::HasNestedCollation(type)) {
+-		return CastToConstructedType(type, std::move(result.GetValue()), path);
++		auto issue = BoundExpressionSQLExportState::UnsupportedFeature(
++		    path, "nested_result_collation", "Nested result collations require a typed SQL representation");
++		issue.facts.emplace_back("logical_type", Value(type.ToString()));
++		issue.facts.emplace_back("varchar_collations", Value(SQLExportHelpers::TypeCollationSignature(type)));
++		return BoundExpressionSQLExportResult::Failure({std::move(issue)});
+ 	}
+ 	return result;
+ }

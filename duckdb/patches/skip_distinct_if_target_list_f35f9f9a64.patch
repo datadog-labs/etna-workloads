@@ -1,0 +1,26 @@
+diff --git a/src/planner/binder/query_node/bind_select_node.cpp b/src/planner/binder/query_node/bind_select_node.cpp
+index 49843c8..0f57c3b 100644
+--- a/src/planner/binder/query_node/bind_select_node.cpp
++++ b/src/planner/binder/query_node/bind_select_node.cpp
+@@ -345,6 +345,7 @@ void Binder::BindModifiers(BoundQueryNode &result, TableIndex table_index, const
+ 		switch (bound_mod->type) {
+ 		case ResultModifierType::DISTINCT_MODIFIER: {
+ 			auto &distinct = bound_mod->Cast<BoundDistinctModifier>();
++			D_ASSERT(!distinct.target_distincts.empty());
+ 			// set types of distinct targets
+ 			for (auto &expr : distinct.target_distincts) {
+ 				expr = FinalizeBindOrderExpression(std::move(expr), table_index, names, sql_types, bind_state);
+diff --git a/src/planner/binder/query_node/plan_query_node.cpp b/src/planner/binder/query_node/plan_query_node.cpp
+index c448f2f..97678d2 100644
+--- a/src/planner/binder/query_node/plan_query_node.cpp
++++ b/src/planner/binder/query_node/plan_query_node.cpp
+@@ -13,9 +13,6 @@ unique_ptr<LogicalOperator> Binder::VisitQueryNode(BoundQueryNode &node, unique_
+ 		switch (mod->type) {
+ 		case ResultModifierType::DISTINCT_MODIFIER: {
+ 			auto &bound = mod->Cast<BoundDistinctModifier>();
+-			if (bound.target_distincts.empty()) {
+-				break;
+-			}
+ 			auto distinct = make_uniq<LogicalDistinct>(std::move(bound.target_distincts), bound.distinct_type);
+ 			distinct->AddChild(std::move(root));
+ 			root = std::move(distinct);

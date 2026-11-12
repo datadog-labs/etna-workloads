@@ -1,0 +1,8 @@
+.mode list
+.nullvalue NULL
+SELECT count(x), count(*) FILTER (x IS DISTINCT FROM m) FROM (
+    SELECT last(CASE WHEN i != 3 THEN i END ORDER BY i IGNORE NULLS)
+           OVER (ORDER BY i ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) x,
+           max(CASE WHEN i != 3 THEN i END)
+           OVER (ORDER BY i ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) m
+    FROM range(1, 33000) t(i));

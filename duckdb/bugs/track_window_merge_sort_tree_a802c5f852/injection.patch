@@ -1,0 +1,324 @@
+diff --git a/src/function/window/window_aggregate_states.cpp b/src/function/window/window_aggregate_states.cpp
+index a11fbfe..75de72a 100644
+--- a/src/function/window/window_aggregate_states.cpp
++++ b/src/function/window/window_aggregate_states.cpp
+@@ -4,18 +4,15 @@ namespace duckdb {
+ 
+ WindowAggregateStates::WindowAggregateStates(ClientContext &client, const AggregateObject &aggr)
+     : client(client), aggr(aggr), state_size(aggr.function.GetStateSize(aggr.GetFunctionData())),
+-      allocator(BufferAllocator::Get(client)) {
++      allocator(Allocator::Get(client)) {
+ }
+ 
+-void WindowAggregateStates::Initialize(idx_t count_p) {
++void WindowAggregateStates::Initialize(idx_t count) {
+ 	// Don't leak - every Initialize must be matched with a Destroy
+-	D_ASSERT(count == 0);
++	D_ASSERT(states.empty());
+ 
+-	count = count_p;
+-	if (count > 0) {
+-		states = BufferAllocator::Get(client).Allocate(count * state_size);
+-	}
+-	auto state_ptr = states.get();
++	states.resize(count * state_size);
++	auto state_ptr = states.data();
+ 
+ 	statef = make_uniq<Vector>(LogicalType::POINTER, count);
+ 	auto state_f_data = FlatVector::Writer<data_ptr_t>(*statef, count);
+@@ -40,7 +37,7 @@ void WindowAggregateStates::Finalize(Vector &result) {
+ }
+ 
+ void WindowAggregateStates::Destroy() {
+-	if (count == 0) {
++	if (states.empty()) {
+ 		return;
+ 	}
+ 
+@@ -49,8 +46,7 @@ void WindowAggregateStates::Destroy() {
+ 		aggr.function.GetStateDestructorCallback()(*statef, aggr_input_data, GetCount());
+ 	}
+ 
+-	states.Reset();
+-	count = 0;
++	states.clear();
+ }
+ 
+ } // namespace duckdb
+diff --git a/src/function/window/window_distinct_aggregator.cpp b/src/function/window/window_distinct_aggregator.cpp
+index 107f54d..182d9ff 100644
+--- a/src/function/window/window_distinct_aggregator.cpp
++++ b/src/function/window/window_distinct_aggregator.cpp
+@@ -45,8 +45,7 @@ public:
+ 	using ZippedTuple = std::tuple<idx_t, idx_t>;
+ 	using ZippedElements = vector<ZippedTuple>;
+ 
+-	WindowDistinctSortTree(Allocator &allocator, WindowDistinctAggregatorGlobalState &gdastate, idx_t count)
+-	    : MergeSortTree(allocator), gdastate(gdastate) {
++	WindowDistinctSortTree(WindowDistinctAggregatorGlobalState &gdastate, idx_t count) : gdastate(gdastate) {
+ 		//	Set up for parallel build
+ 		build_level = 0;
+ 		build_complete = 0;
+@@ -119,8 +118,7 @@ WindowDistinctAggregatorGlobalState::WindowDistinctAggregatorGlobalState(ClientC
+                                                                          const WindowDistinctAggregator &aggregator,
+                                                                          idx_t group_count)
+     : WindowAggregatorGlobalState(client, aggregator, group_count), stage(WindowDistinctSortStage::INIT),
+-      tasks_assigned(0), tasks_completed(0), zipped_tree(BufferAllocator::Get(client)),
+-      merge_sort_tree(BufferAllocator::Get(client), *this, group_count), levels_flat_native(client, aggr) {
++      tasks_assigned(0), tasks_completed(0), merge_sort_tree(*this, group_count), levels_flat_native(client, aggr) {
+ 	//	1:	functionComputePrevIdcs(𝑖𝑛)
+ 	//	2:		sorted ← []
+ 	//	We sort the aggregate arguments and use the partition index as a tie-breaker.
+@@ -162,8 +160,8 @@ WindowDistinctAggregatorGlobalState::WindowDistinctAggregatorGlobalState(ClientC
+ 	merge_sort_tree.tree.reserve(zipped_tree.tree.size());
+ 	for (idx_t level_nr = 0; level_nr < zipped_tree.tree.size(); ++level_nr) {
+ 		auto &zipped_level = zipped_tree.tree[level_nr].first;
+-		WindowDistinctSortTree::Elements level(merge_sort_tree.allocator);
+-		WindowDistinctSortTree::Offsets cascades(merge_sort_tree.allocator);
++		WindowDistinctSortTree::Elements level;
++		WindowDistinctSortTree::Offsets cascades;
+ 		level.resize(zipped_level.size());
+ 		merge_sort_tree.tree.emplace_back(std::move(level), std::move(cascades));
+ 	}
+diff --git a/src/function/window/window_merge_sort_tree.cpp b/src/function/window/window_merge_sort_tree.cpp
+index 0d330ee..035dde5 100644
+--- a/src/function/window/window_merge_sort_tree.cpp
++++ b/src/function/window/window_merge_sort_tree.cpp
+@@ -16,10 +16,10 @@ WindowMergeSortTree::WindowMergeSortTree(ClientContext &client, const vector<Bou
+ 	LogicalType index_type;
+ 	if (count < std::numeric_limits<uint32_t>::max() && !force_external) {
+ 		index_type = LogicalType::INTEGER;
+-		mst32 = make_uniq<MergeSortTree32>(BufferAllocator::Get(client));
++		mst32 = make_uniq<MergeSortTree32>();
+ 	} else {
+ 		index_type = LogicalType::BIGINT;
+-		mst64 = make_uniq<MergeSortTree64>(BufferAllocator::Get(client));
++		mst64 = make_uniq<MergeSortTree64>();
+ 	}
+ 
+ 	vector<BoundOrderByNode> orders;
+diff --git a/src/function/window/window_token_tree.cpp b/src/function/window/window_token_tree.cpp
+index 81dfe8b..36673fd 100644
+--- a/src/function/window/window_token_tree.cpp
++++ b/src/function/window/window_token_tree.cpp
+@@ -55,9 +55,8 @@ idx_t WindowTokenTree::MeasurePayloadBlocks() {
+ 	return count;
+ }
+ 
+-template <typename TOKENS>
+-static void BuildTokens(WindowTokenTree &token_tree, TOKENS &tokens) {
+-	using T = typename TOKENS::value_type;
++template <typename T>
++static void BuildTokens(WindowTokenTree &token_tree, vector<T> &tokens) {
+ 	auto &collection = *token_tree.sorted;
+ 	if (!collection.Count()) {
+ 		return;
+diff --git a/src/include/duckdb/common/stl_allocator.hpp b/src/include/duckdb/common/stl_allocator.hpp
+deleted file mode 100644
+index a11937e..0000000
+--- a/src/include/duckdb/common/stl_allocator.hpp
++++ /dev/null
+@@ -1,93 +0,0 @@
+-//===----------------------------------------------------------------------===//
+-//                         DuckDB
+-//
+-// duckdb/common/stl_allocator.hpp
+-//
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#pragma once
+-
+-#include "duckdb/common/allocator.hpp"
+-#include "duckdb/common/helper.hpp"
+-
+-#include <limits>
+-
+-namespace duckdb {
+-
+-//! An STL-compatible allocator that forwards to a DuckDB Allocator, e.g. the BufferAllocator so that the memory of a
+-//! standard container is tracked by the buffer manager.
+-template <class T>
+-class stl_allocator { // NOLINT: match stl case
+-public:
+-	//! Typedefs
+-	typedef T value_type;
+-	typedef std::size_t size_type;
+-	typedef std::ptrdiff_t difference_type;
+-	typedef value_type &reference;
+-	typedef value_type const &const_reference;
+-	typedef value_type *pointer;
+-	typedef value_type const *const_pointer;
+-
+-	//! Propagation traits
+-	using propagate_on_container_copy_assignment = std::true_type;
+-	using propagate_on_container_move_assignment = std::true_type;
+-	using propagate_on_container_swap = std::true_type;
+-	using is_always_equal = std::false_type;
+-
+-	//! Rebind
+-	template <class U>
+-	struct rebind {
+-		using other = stl_allocator<U>;
+-	};
+-
+-public:
+-	stl_allocator(Allocator &allocator_p) noexcept // NOLINT: allow implicit conversion
+-	    : allocator(allocator_p) {
+-	}
+-	template <class U>
+-	stl_allocator(const stl_allocator<U> &other) noexcept // NOLINT: allow implicit conversion
+-	    : allocator(other.GetAllocator()) {
+-	}
+-
+-public:
+-	pointer allocate(size_type n) { // NOLINT: match stl case
+-		return reinterpret_cast<pointer>(allocator.get().AllocateData(n * sizeof(T)));
+-	}
+-
+-	void deallocate(pointer p, size_type n) noexcept { // NOLINT: match stl case
+-		allocator.get().FreeData(reinterpret_cast<data_ptr_t>(p), n * sizeof(T));
+-	}
+-
+-	template <class U, class... Args>
+-	void construct(U *p, Args &&...args) { // NOLINT: match stl case
+-		::new (p) U(std::forward<Args>(args)...);
+-	}
+-
+-	template <class U>
+-	void destroy(U *p) noexcept { // NOLINT: match stl case
+-		p->~U();
+-	}
+-
+-	size_type max_size() const noexcept { // NOLINT: match stl case
+-		return std::numeric_limits<size_type>::max() / sizeof(T);
+-	}
+-
+-public:
+-	Allocator &GetAllocator() const noexcept {
+-		return allocator.get();
+-	}
+-
+-	bool operator==(const stl_allocator &other) const noexcept {
+-		return RefersToSameObject(allocator.get(), other.allocator.get());
+-	}
+-	bool operator!=(const stl_allocator &other) const noexcept {
+-		return !(*this == other);
+-	}
+-
+-private:
+-	//! Need to use std::reference_wrapper because "reference" is already a typedef
+-	std::reference_wrapper<Allocator> allocator;
+-};
+-
+-} // namespace duckdb
+diff --git a/src/include/duckdb/execution/merge_sort_tree.hpp b/src/include/duckdb/execution/merge_sort_tree.hpp
+index 9ed0dc0..c80cf66 100644
+--- a/src/include/duckdb/execution/merge_sort_tree.hpp
++++ b/src/include/duckdb/execution/merge_sort_tree.hpp
+@@ -14,7 +14,6 @@
+ #include "duckdb/common/mutex.hpp"
+ #include "duckdb/common/pair.hpp"
+ #include "duckdb/common/printer.hpp"
+-#include "duckdb/common/stl_allocator.hpp"
+ #include "duckdb/common/typedefs.hpp"
+ #include "duckdb/common/vector.hpp"
+ #include "duckdb/common/vector_operations/aggregate_executor.hpp"
+@@ -78,9 +77,8 @@ template <typename E = idx_t, typename O = idx_t, typename CMP = std::less<E>, u
+ struct MergeSortTree {
+ 	using ElementType = E;
+ 	using OffsetType = O;
+-	//! The levels are allocated through the tree's allocator so that their memory can be tracked
+-	using Elements = vector<ElementType, true, stl_allocator<ElementType>>;
+-	using Offsets = vector<OffsetType, true, stl_allocator<OffsetType>>;
++	using Elements = vector<ElementType>;
++	using Offsets = vector<OffsetType>;
+ 	using Level = pair<Elements, Offsets>;
+ 	using Tree = vector<Level>;
+ 
+@@ -107,10 +105,7 @@ struct MergeSortTree {
+ 		CMP cmp;
+ 	};
+ 
+-	explicit MergeSortTree(Allocator &allocator = Allocator::DefaultAllocator(), const CMP &cmp = CMP())
+-	    : allocator(allocator), cmp(cmp) {
+-	}
+-	explicit MergeSortTree(const CMP &cmp) : MergeSortTree(Allocator::DefaultAllocator(), cmp) {
++	explicit MergeSortTree(const CMP &cmp = CMP()) : cmp(cmp) {
+ 	}
+ 
+ 	inline Elements &LowestLevel() {
+@@ -138,8 +133,6 @@ struct MergeSortTree {
+ 	template <typename L>
+ 	void AggregateLowerBound(const idx_t lower, const idx_t upper, const E needle, L aggregate) const;
+ 
+-	//! The allocator used for the levels of the tree
+-	Allocator &allocator;
+ 	Tree tree;
+ 	CompareElements cmp;
+ 
+@@ -319,22 +312,21 @@ public:
+ };
+ 
+ template <typename E, typename O, typename CMP, uint64_t F, uint64_t C>
+-typename MergeSortTree<E, O, CMP, F, C>::Elements &MergeSortTree<E, O, CMP, F, C>::Allocate(idx_t count) {
++vector<E> &MergeSortTree<E, O, CMP, F, C>::Allocate(idx_t count) {
+ 	const auto fanout = F;
+ 	const auto cascading = C;
+-	Elements lowest_level(allocator);
+-	lowest_level.resize(count);
+-	tree.emplace_back(Level(std::move(lowest_level), Offsets(allocator)));
++	Elements lowest_level(count);
++	tree.emplace_back(Level(std::move(lowest_level), Offsets()));
+ 
+ 	for (idx_t child_run_length = 1; child_run_length < count;) {
+ 		const auto run_length = child_run_length * fanout;
+ 		const auto num_runs = (count + run_length - 1) / run_length;
+ 
+-		Elements elements(allocator);
++		Elements elements;
+ 		elements.resize(count);
+ 
+ 		//	Allocate cascading pointers only if there is room
+-		Offsets cascades(allocator);
++		Offsets cascades;
+ 		if (cascading > 0 && run_length > cascading) {
+ 			const auto num_cascades = fanout * num_runs * (run_length / cascading + 2);
+ 			cascades.resize(num_cascades);
+diff --git a/src/include/duckdb/function/window/window_aggregate_states.hpp b/src/include/duckdb/function/window/window_aggregate_states.hpp
+index afefe11..59d6479 100644
+--- a/src/include/duckdb/function/window/window_aggregate_states.hpp
++++ b/src/include/duckdb/function/window/window_aggregate_states.hpp
+@@ -20,16 +20,16 @@ struct WindowAggregateStates {
+ 
+ 	//! The number of states
+ 	idx_t GetCount() const {
+-		return count;
++		return states.size() / state_size;
+ 	}
+ 	data_ptr_t *GetData() {
+ 		return FlatVector::GetDataMutable<data_ptr_t>(*statef);
+ 	}
+ 	data_ptr_t GetStatePtr(idx_t idx) {
+-		return states.get() + idx * state_size;
++		return states.data() + idx * state_size;
+ 	}
+ 	const_data_ptr_t GetStatePtr(idx_t idx) const {
+-		return states.get() + idx * state_size;
++		return states.data() + idx * state_size;
+ 	}
+ 	//! Initialise all the states
+ 	void Initialize(idx_t count);
+@@ -48,10 +48,8 @@ struct WindowAggregateStates {
+ 	const idx_t state_size;
+ 	//! The allocator to use
+ 	ArenaAllocator allocator;
+-	//! The number of states
+-	idx_t count = 0;
+-	//! Buffer that contains the state data, allocated through the buffer allocator
+-	AllocatedData states;
++	//! Data pointer that contains the state data
++	vector<data_t> states;
+ 	//! Reused result state container for the window functions
+ 	unique_ptr<Vector> statef;
+ };

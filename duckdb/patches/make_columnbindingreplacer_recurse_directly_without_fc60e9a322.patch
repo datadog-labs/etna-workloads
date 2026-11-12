@@ -1,0 +1,29 @@
+diff --git a/src/include/duckdb/optimizer/column_binding_replacer.hpp b/src/include/duckdb/optimizer/column_binding_replacer.hpp
+index 47277c4..73a87b9 100644
+--- a/src/include/duckdb/optimizer/column_binding_replacer.hpp
++++ b/src/include/duckdb/optimizer/column_binding_replacer.hpp
+@@ -63,7 +63,7 @@ public:
+ 	ColumnBindingReplacer();
+ 
+ public:
+-	//! Update each operator of the plan, recursing directly into children without resolving projection maps
++	//! Update each operator of the plan
+ 	void VisitOperator(LogicalOperator &op) override;
+ 	//! Update bindings owned by this operator without visiting its children
+ 	virtual void VisitOperatorBindings(LogicalOperator &op);
+diff --git a/src/optimizer/column_binding_replacer.cpp b/src/optimizer/column_binding_replacer.cpp
+index bab6b30..87657ad 100644
+--- a/src/optimizer/column_binding_replacer.cpp
++++ b/src/optimizer/column_binding_replacer.cpp
+@@ -138,10 +138,7 @@ void ColumnBindingReplacer::VisitOperator(LogicalOperator &op) {
+ 	if (stop_operator && stop_operator.get() == &op) {
+ 		return;
+ 	}
+-	// Binding replacement keeps child layouts intact, so projection maps are left untouched
+-	for (auto &child : op.children) {
+-		VisitOperator(*child);
+-	}
++	VisitOperatorChildren(op);
+ 	VisitOperatorBindings(op);
+ }
+ 

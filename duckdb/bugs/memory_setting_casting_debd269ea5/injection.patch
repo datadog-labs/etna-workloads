@@ -1,0 +1,25 @@
+diff --git a/src/main/settings/custom_settings.cpp b/src/main/settings/custom_settings.cpp
+index 3b63cef..9a5b6bc 100644
+--- a/src/main/settings/custom_settings.cpp
++++ b/src/main/settings/custom_settings.cpp
+@@ -15,7 +15,6 @@
+ #include "duckdb/common/constants.hpp"
+ #include "duckdb/common/enums/access_mode.hpp"
+ #include "duckdb/common/enum_util.hpp"
+-#include "duckdb/common/limits.hpp"
+ #include "duckdb/catalog/catalog_search_path.hpp"
+ #include "duckdb/common/string_util.hpp"
+ #include "duckdb/common/file_system.hpp"
+@@ -84,11 +83,7 @@ static idx_t ParseMemoryLimitOrPercentage(const string &input, BASE &&get_base)
+ 	if (!TryDoubleCast(input.c_str(), input.size() - 1, percentage, false) || percentage < 0 || percentage > 100) {
+ 		throw InvalidInputException("Unable to parse valid percentage (input: %s)", input);
+ 	}
+-	auto result = percentage * static_cast<double>(get_base()) / 100.0;
+-	if (result >= static_cast<double>(NumericLimits<idx_t>::Maximum())) {
+-		return NumericLimits<idx_t>::Maximum();
+-	}
+-	return LossyNumericCast<idx_t>(result);
++	return LossyNumericCast<idx_t>(percentage) * get_base() / 100;
+ }
+ 
+ //! The available system memory. The config's filesystem is not set until the database starts, but

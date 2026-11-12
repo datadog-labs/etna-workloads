@@ -1,0 +1,6 @@
+.mode list
+.nullvalue NULL
+CREATE TABLE t1 (id INTEGER, val INTEGER);
+BEGIN TRANSACTION;
+INSERT INTO t1 SELECT range, range FROM range(10000);
+EXPLAIN SELECT * FROM t1;

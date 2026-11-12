@@ -1,0 +1,5 @@
+.mode list
+.nullvalue NULL
+CREATE TABLE t(a INTEGER);
+INSERT INTO t VALUES (51),(127),(128),(200),(300),(-200);
+SELECT list(a ORDER BY a) FROM t WHERE TRY_CAST(a AS TINYINT) > 50;

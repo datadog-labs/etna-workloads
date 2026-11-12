@@ -1,0 +1,26 @@
+diff --git a/src/catalog/default/default_table_functions.cpp b/src/catalog/default/default_table_functions.cpp
+index 3fbd68a..9d97021 100644
+--- a/src/catalog/default/default_table_functions.cpp
++++ b/src/catalog/default/default_table_functions.cpp
+@@ -75,7 +75,7 @@ WHERE type ILIKE log_type
+ )"},
+ 	{DEFAULT_SCHEMA, "duckdb_profiling_settings", {}, {}, R"(
+ SELECT * EXCLUDE(input_type, scope, aliases, typed_value)
+-  FROM duckdb_settings(deprecated := false)
++  FROM duckdb_settings(deprecated := true)
+   WHERE name IN (
+       'enable_profiling',
+       'profiling_coverage',
+diff --git a/src/function/table/system/duckdb_settings.cpp b/src/function/table/system/duckdb_settings.cpp
+index b90d72b..ad297c8 100644
+--- a/src/function/table/system/duckdb_settings.cpp
++++ b/src/function/table/system/duckdb_settings.cpp
+@@ -33,7 +33,7 @@ struct DuckDBSettingsBindData : public TableFunctionData {
+ 	bool include_all = false;
+ 
+ 	bool Includes(bool is_debug, bool is_deprecated) const {
+-		return include_all || (debug == is_debug && deprecated == is_deprecated);
++		return include_all || ((debug || !is_debug) && (deprecated || !is_deprecated));
+ 	}
+ };
+ 

@@ -1,0 +1,26 @@
+diff --git a/src/optimizer/statistics/operator/propagate_join.cpp b/src/optimizer/statistics/operator/propagate_join.cpp
+index d937e40..daee5d2 100644
+--- a/src/optimizer/statistics/operator/propagate_join.cpp
++++ b/src/optimizer/statistics/operator/propagate_join.cpp
+@@ -22,14 +22,15 @@ bool StatisticsPropagator::HandleJoinNeverMatches(LogicalJoin &join, unique_ptr<
+ 		ReplaceWithEmptyResult(node_ptr);
+ 		return true;
+ 
+-		// If the filter is always false or Null, the join output is exactly one of its sides:
+-		// promote that side together with its projection map so the output layout stays unchanged.
+ 	case JoinType::RIGHT_ANTI:
+-		node_ptr = LogicalJoin::PromoteJoinSide(std::move(join.children[1]), std::move(join.right_projection_map));
+-		return true;
+-	case JoinType::ANTI:
+-		node_ptr = LogicalJoin::PromoteJoinSide(std::move(join.children[0]), std::move(join.left_projection_map));
++	case JoinType::ANTI: {
++		if (join.join_type == JoinType::RIGHT_ANTI) {
++			std::swap(join.children[0], join.children[1]);
++		}
++		// If the filter is always false or Null, just return the left child.
++		node_ptr = std::move(join.children[0]);
+ 		return true;
++	}
+ 	case JoinType::LEFT:
+ 		// anti/left outer join: replace right side with empty node
+ 		ReplaceWithEmptyResult(join.children[1]);

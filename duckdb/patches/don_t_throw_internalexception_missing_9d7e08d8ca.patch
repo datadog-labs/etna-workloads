@@ -1,0 +1,30 @@
+diff --git a/src/common/multi_file/multi_file_column_mapper.cpp b/src/common/multi_file/multi_file_column_mapper.cpp
+index af5b3c2..7aa3423 100644
+--- a/src/common/multi_file/multi_file_column_mapper.cpp
++++ b/src/common/multi_file/multi_file_column_mapper.cpp
+@@ -119,9 +119,7 @@ struct FieldIdMapper : public ColumnMapper {
+ 	static unique_ptr<Expression> GetDefault(ClientContext &context, const MultiFileColumnDefinition &column) {
+ 		auto &default_val = column.default_expression;
+ 		if (!default_val) {
+-			throw InvalidInputException("Field \"%s\" (field id %d) is missing from the file schema and has no default "
+-			                            "expression",
+-			                            column.name, column.GetIdentifierFieldId());
++			throw InternalException("No default expression in FieldId Map");
+ 		}
+ 		auto binder = Binder::CreateBinder(context);
+ 		binder->SetCanContainNulls(true);
+diff --git a/src/include/duckdb/common/multi_file/multi_file_data.hpp b/src/include/duckdb/common/multi_file/multi_file_data.hpp
+index 208249d..7abed7a 100644
+--- a/src/include/duckdb/common/multi_file/multi_file_data.hpp
++++ b/src/include/duckdb/common/multi_file/multi_file_data.hpp
+@@ -143,10 +143,6 @@ public:
+ 	Identifier name;
+ 	LogicalType type;
+ 	vector<MultiFileColumnDefinition> children;
+-	//! Fallback when no file column/field matches this definition. A NULL fallback must be an explicit
+-	//! ConstantExpression containing a typed NULL, rather than a nullptr.
+-	//! With field-id mapping, nullptr requires a matching field; a missing field raises InvalidInputException.
+-	//! With name mapping, nullptr rejects missing root columns but fills missing nested fields with NULL.
+ 	unique_ptr<ParsedExpression> default_expression;
+ 
+ 	//! Either the field_id or the name to map on

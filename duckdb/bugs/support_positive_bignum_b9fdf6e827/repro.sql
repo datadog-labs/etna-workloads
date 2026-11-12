@@ -1,0 +1,1 @@
+SELECT typeof(column1) FROM read_csv('test/sql/copy/csv/auto/test_large_integer_detection.test', delim=':', header=false, skip=47, quote='', escape='', null_padding=true, strict_mode=false, nullstr=['000340282366920938463463374607431768211456','1.5']) LIMIT 1;

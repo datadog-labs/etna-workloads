@@ -1,0 +1,46 @@
+diff --git a/src/main/capi/v1/aggregate_function-c.cpp b/src/main/capi/v1/aggregate_function-c.cpp
+index 26c7de9..4bd2fac 100644
+--- a/src/main/capi/v1/aggregate_function-c.cpp
++++ b/src/main/capi/v1/aggregate_function-c.cpp
+@@ -101,14 +101,8 @@ void CAPIAggregateUpdate(Vector inputs[], AggregateInputData &aggr_input_data, i
+ 		chunk.data.emplace_back(Vector::Ref(inputs[c]));
+ 	}
+ 
+-	// the callback expects one state per row - flatten a reference, as callers may hold on to the state buffer
+-	auto states = Vector::Ref(state);
+-	if (states.GetVectorType() != VectorType::FLAT_VECTOR) {
+-		states.Flatten(*FlatVector::IncrementalSelectionVector(), count);
+-	}
+-
+ 	auto &bind_data = aggr_input_data.bind_data->Cast<CAggregateFunctionBindData>();
+-	auto state_data = FlatVector::GetDataMutableUnsafe<duckdb_aggregate_state>(states);
++	auto state_data = FlatVector::GetDataMutableUnsafe<duckdb_aggregate_state>(state);
+ 	auto c_input_chunk = reinterpret_cast<duckdb_data_chunk>(&chunk);
+ 
+ 	CAggregateExecuteInfo exec_info(bind_data.info);
+diff --git a/src/main/capi/v2/capi_v2_func_aggregate.cpp b/src/main/capi/v2/capi_v2_func_aggregate.cpp
+index d3d64d9..b543ada 100644
+--- a/src/main/capi/v2/capi_v2_func_aggregate.cpp
++++ b/src/main/capi/v2/capi_v2_func_aggregate.cpp
+@@ -224,12 +224,6 @@ static auto CV2AggregateUpdate(Vector inputs[], AggregateInputData &aggr_input_d
+                                idx_t count) -> void {
+ 	const auto &info = aggr_input_data.function.GetExtraFunctionInfo().Cast<CV2AggregateFunctionInfo>();
+ 
+-	// the callback expects one state per row - flatten a reference, as callers may hold on to the state buffer
+-	auto states = Vector::Ref(state);
+-	if (states.GetVectorType() != VectorType::FLAT_VECTOR) {
+-		states.Flatten(*FlatVector::IncrementalSelectionVector(), count);
+-	}
+-
+ 	CV2AggregateUpdateInfo args = {};
+ 	args.in_user_data = info.user_data ? info.user_data->GetData() : nullptr;
+ 	args.in_bind_data = GetUserBindData(aggr_input_data.bind_data.get());
+@@ -237,7 +231,7 @@ static auto CV2AggregateUpdate(Vector inputs[], AggregateInputData &aggr_input_d
+ 	args.input_count = input_count;
+ 	args.function = &aggr_input_data.function;
+ 	args.row_count = count;
+-	args.states = FlatVector::GetDataMutableUnsafe<void *>(states);
++	args.states = FlatVector::GetDataMutableUnsafe<void *>(state);
+ 
+ 	CV2ErrorInfo err = {};
+ 	auto err_ptr = Convert(&err);

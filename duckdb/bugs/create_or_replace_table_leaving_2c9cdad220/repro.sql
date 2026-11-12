@@ -1,0 +1,6 @@
+.mode list
+.nullvalue NULL
+CREATE TABLE parent (id INTEGER PRIMARY KEY);
+INSERT INTO parent VALUES (1), (2);
+CREATE TABLE child (fk INTEGER REFERENCES parent(id));
+CREATE OR REPLACE TABLE parent (id INTEGER PRIMARY KEY);
