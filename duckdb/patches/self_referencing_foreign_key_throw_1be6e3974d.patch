@@ -1,0 +1,42 @@
+diff --git a/src/parser/constraints/foreign_key_constraint.cpp b/src/parser/constraints/foreign_key_constraint.cpp
+index 282204e..640faf2 100644
+--- a/src/parser/constraints/foreign_key_constraint.cpp
++++ b/src/parser/constraints/foreign_key_constraint.cpp
+@@ -15,8 +15,7 @@ ForeignKeyConstraint::ForeignKeyConstraint(vector<Identifier> pk_columns, vector
+ }
+ 
+ string ForeignKeyConstraint::ToString() const {
+-	if (info.type == ForeignKeyType::FK_TYPE_FOREIGN_KEY_TABLE ||
+-	    info.type == ForeignKeyType::FK_TYPE_SELF_REFERENCE_TABLE) {
++	if (info.type == ForeignKeyType::FK_TYPE_FOREIGN_KEY_TABLE) {
+ 		string base = "FOREIGN KEY (";
+ 
+ 		for (idx_t i = 0; i < fk_columns.size(); i++) {
+diff --git a/src/planner/binder/statement/bind_export.cpp b/src/planner/binder/statement/bind_export.cpp
+index 7869d95..f587c98 100644
+--- a/src/planner/binder/statement/bind_export.cpp
++++ b/src/planner/binder/statement/bind_export.cpp
+@@ -187,23 +187,6 @@ BoundStatement Binder::Bind(ExportStatement &stmt) {
+ 	// reorder tables because of foreign key constraint
+ 	ReorderTableEntries(tables);
+ 
+-	// check for self-referencing foreign keys, which cannot be exported currently, until ALTER TABLE constraints
+-	// is supported, and we can export additional ALTER TABLEs for the self-references.
+-	for (auto &t : tables) {
+-		auto &table = t.get().Cast<TableCatalogEntry>();
+-		for (auto &constraint : table.GetConstraints()) {
+-			if (constraint->type != ConstraintType::FOREIGN_KEY) {
+-				continue;
+-			}
+-			auto &fk = constraint->Cast<ForeignKeyConstraint>();
+-			if (fk.info.type == ForeignKeyType::FK_TYPE_SELF_REFERENCE_TABLE) {
+-				throw BinderException("Failed to export database: table \"%s\" has a self-referencing foreign key "
+-				                      "constraint which is currently not supported for exporting",
+-				                      table.name);
+-			}
+-		}
+-	}
+-
+ 	// now generate the COPY statements for each of the tables
+ 	auto &fs = FileSystem::GetFileSystem(context);
+ 

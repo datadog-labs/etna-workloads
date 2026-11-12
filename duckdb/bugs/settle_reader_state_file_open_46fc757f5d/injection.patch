@@ -1,0 +1,28 @@
+diff --git a/src/include/duckdb/parallel/scan_read_ahead.hpp b/src/include/duckdb/parallel/scan_read_ahead.hpp
+index b40a201..7d6ec73 100644
+--- a/src/include/duckdb/parallel/scan_read_ahead.hpp
++++ b/src/include/duckdb/parallel/scan_read_ahead.hpp
+@@ -156,7 +156,6 @@ public:
+ 	void PushError(ErrorData error);
+ 
+ 	//! Schedule a file-open closure on the async pool, opening files ahead of decoding
+-	//! cancel_fn runs instead when the open is retired without running, and must settle whatever a scan waits on
+ 	void ScheduleFileOpen(std::function<void()> open_fn, std::function<void()> cancel_fn);
+ 	//! Whether another file-open may be scheduled without exceeding the open-ahead window
+ 	bool CanScheduleOpen() const;
+diff --git a/src/parallel/scan_read_ahead.cpp b/src/parallel/scan_read_ahead.cpp
+index a789974..119342a 100644
+--- a/src/parallel/scan_read_ahead.cpp
++++ b/src/parallel/scan_read_ahead.cpp
+@@ -109,11 +109,6 @@ public:
+ 		open_fn();
+ 	}
+ 
+-	//! The open never runs, so settle the state the scan waits on - it only ever leaves OPENING in one of these two
+-	void Cancel() override {
+-		cancel_fn();
+-	}
+-
+ private:
+ 	shared_ptr<atomic<idx_t>> pending_opens;
+ 	std::function<void()> open_fn;

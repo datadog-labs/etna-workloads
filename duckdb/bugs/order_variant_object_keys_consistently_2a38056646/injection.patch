@@ -1,0 +1,43 @@
+diff --git a/src/function/scalar/variant/variant_typeof.cpp b/src/function/scalar/variant/variant_typeof.cpp
+index bb98bdc..851e5b2 100644
+--- a/src/function/scalar/variant/variant_typeof.cpp
++++ b/src/function/scalar/variant/variant_typeof.cpp
+@@ -2,7 +2,6 @@
+ #include "duckdb/function/scalar/variant_functions.hpp"
+ #include "duckdb/common/serializer/varint.hpp"
+ #include "duckdb/common/enum_util.hpp"
+-#include "duckdb/common/algorithm.hpp"
+ 
+ namespace duckdb {
+ 
+@@ -47,7 +46,6 @@ static void VariantTypeofFunction(DataChunk &input, ExpressionState &state, Vect
+ 			auto nested_data = VariantUtils::DecodeNestedData(variant, i, 0);
+ 			//! Find all the keys of the children of this object
+ 			auto object_keys = VariantUtils::GetObjectKeys(variant, i, nested_data);
+-			std::sort(object_keys.begin(), object_keys.end());
+ 			type_str = StringUtil::Format("OBJECT(%s)", StringUtil::Join(object_keys, ", "));
+ 		} else {
+ 			D_ASSERT(type == VariantLogicalType::ARRAY);
+diff --git a/src/include/duckdb/common/types/variant_visitor.hpp b/src/include/duckdb/common/types/variant_visitor.hpp
+index 7787fc0..2d1450e 100644
+--- a/src/include/duckdb/common/types/variant_visitor.hpp
++++ b/src/include/duckdb/common/types/variant_visitor.hpp
+@@ -1,6 +1,5 @@
+ #pragma once
+ 
+-#include "duckdb/common/algorithm.hpp"
+ #include "duckdb/common/types/variant.hpp"
+ #include "duckdb/common/types/variant_iterator.hpp"
+ #include "duckdb/function/scalar/variant_utils.hpp"
+@@ -257,11 +256,6 @@ public:
+ 
+ 			object_items.emplace_back(key.GetString(), std::move(val));
+ 		}
+-		std::stable_sort(
+-		    object_items.begin(), object_items.end(),
+-		    [](const std::pair<Identifier, ReturnType> &lhs, const std::pair<Identifier, ReturnType> &rhs) {
+-			    return lhs.first.GetIdentifierName() < rhs.first.GetIdentifierName();
+-		    });
+ 		return object_items;
+ 	}
+ 

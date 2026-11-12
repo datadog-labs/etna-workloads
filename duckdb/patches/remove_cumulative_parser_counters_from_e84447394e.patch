@@ -1,0 +1,30 @@
+diff --git a/src/parser/peg/transformer/transform_common.cpp b/src/parser/peg/transformer/transform_common.cpp
+index b466696..663268f 100644
+--- a/src/parser/peg/transformer/transform_common.cpp
++++ b/src/parser/peg/transformer/transform_common.cpp
+@@ -328,6 +328,12 @@ QualifiedName PEGTransformerFactory::TransformCatalogReservedSchemaTypeName(
+ unique_ptr<ParsedExpression>
+ PEGTransformerFactory::TransformMapType(PEGTransformer &transformer,
+                                         optional<vector<unique_ptr<ParsedExpression>>> nested_type) {
++	transformer.stack_depth += 1;
++	if (transformer.stack_depth >= transformer.options.max_expression_depth) {
++		throw ParserException("Max expression depth limit of %lld exceeded. Use \"SET max_expression_depth TO x\" to "
++		                      "increase the maximum expression depth.",
++		                      transformer.options.max_expression_depth);
++	}
+ 	vector<unique_ptr<ParsedExpression>> map_children;
+ 	if (nested_type) {
+ 		map_children = std::move(*nested_type);
+@@ -392,6 +398,12 @@ PEGTransformerFactory::TransformColIdTypeList(PEGTransformer &transformer,
+ pair<Identifier, unique_ptr<ParsedExpression>>
+ PEGTransformerFactory::TransformColIdType(PEGTransformer &transformer, const Identifier &col_id,
+                                           unique_ptr<ParsedExpression> nested_type) {
++	transformer.stack_depth += 1;
++	if (transformer.stack_depth >= transformer.options.max_expression_depth) {
++		throw ParserException("Max expression depth limit of %lld exceeded. Use \"SET max_expression_depth TO x\" to "
++		                      "increase the maximum expression depth.",
++		                      transformer.options.max_expression_depth);
++	}
+ 	return make_pair(Identifier(col_id), std::move(nested_type));
+ }
+ 

@@ -1,0 +1,2 @@
+CREATE TABLE t(i INTEGER PRIMARY KEY, j INTEGER, FOREIGN KEY (j) REFERENCES t(i));
+SELECT sql FROM duckdb_tables() WHERE table_name='t';

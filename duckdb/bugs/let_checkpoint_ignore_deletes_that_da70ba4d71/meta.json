@@ -1,0 +1,48 @@
+{
+ "id": "let_checkpoint_ignore_deletes_that_da70ba4d71",
+ "fix_commit": "da70ba4d714dae37d4fc63c407c78d5c4a2d9bd3",
+ "fix_parent": "cb44abcc9a164b83cd2853b7f56d31be3dd19669",
+ "fix_date": "2026-09-21",
+ "fix_subject": "Let a checkpoint ignore deletes that committed above its bound",
+ "pr_title": "A concurrent checkpoint can free the persisted delete blocks of a table",
+ "links": [
+  "https://github.com/duckdb/duckdb/commit/da70ba4d714dae37d4fc63c407c78d5c4a2d9bd3"
+ ],
+ "internal_refs": [],
+ "fix_signal": "pr-fixword",
+ "tier": "verbatim",
+ "apply": "clean",
+ "labels": {
+  "triage": "bug",
+  "symptom": "internal-error",
+  "subsystem": "storage",
+  "confidence": 0.85,
+  "summary": "A checkpoint rewrote delete blocks for commits above its visibility bound and, for unchanged row groups, could leave persisted delete blocks unmarked as in use, so a concurrent delete let them be freed and the table later failed to load during WAL replay; the fix tracks the oldest pending delete commit and only writes or marks blocks when that commit is below the bound.",
+  "model": [
+   "claude-haiku-5-5"
+  ]
+ },
+ "strict": true,
+ "not_strict_because": [],
+ "locality": "same-files",
+ "injection_files": [
+  "src/include/duckdb/storage/table/row_group.hpp",
+  "src/include/duckdb/storage/table/row_version_manager.hpp",
+  "src/storage/table/row_group.cpp",
+  "src/storage/table/row_version_manager.cpp"
+ ],
+ "fix_impl_files": [
+  "src/include/duckdb/storage/table/row_group.hpp",
+  "src/include/duckdb/storage/table/row_version_manager.hpp",
+  "src/storage/table/row_group.cpp",
+  "src/storage/table/row_version_manager.cpp"
+ ],
+ "fix_test_files": [
+  "test/sql/storage/concurrent_checkpoint_delete_before_and_during.test_slow",
+  "test/sql/storage/concurrent_checkpoint_unchanged_table_delete_blocks.test_slow"
+ ],
+ "anchor": null,
+ "reproducer": null,
+ "agent": null,
+ "release": "v2.0.0"
+}

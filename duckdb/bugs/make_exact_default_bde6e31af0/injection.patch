@@ -1,0 +1,63 @@
+diff --git a/src/include/duckdb/parser/tableref/joinref.hpp b/src/include/duckdb/parser/tableref/joinref.hpp
+index 78e05bd..99c34cf 100644
+--- a/src/include/duckdb/parser/tableref/joinref.hpp
++++ b/src/include/duckdb/parser/tableref/joinref.hpp
+@@ -52,8 +52,8 @@ public:
+ 	idx_t nearest_count = 1;
+ 	//! ASCENDING for BY DISTANCE, DESCENDING for BY SIMILARITY (NEAREST only)
+ 	OrderType nearest_order_type = OrderType::ASCENDING;
+-	//! Whether APPROX was specified (NEAREST only) - defaults to EXACT, currently informational
+-	bool nearest_approx = false;
++	//! Whether APPROX (instead of EXACT) was specified (NEAREST only) - currently informational
++	bool nearest_approx = true;
+ 
+ public:
+ 	string ToString() const override;
+diff --git a/src/include/duckdb/storage/serialization/tableref.json b/src/include/duckdb/storage/serialization/tableref.json
+index 888c558..5954bf3 100644
+--- a/src/include/duckdb/storage/serialization/tableref.json
++++ b/src/include/duckdb/storage/serialization/tableref.json
+@@ -178,7 +178,7 @@
+         "id": 212,
+         "name": "nearest_approx",
+         "type": "bool",
+-        "default": "false",
++        "default": "true",
+         "version": "v2.0.0"
+       }
+     ]
+diff --git a/src/parser/peg/transformer/transform_select.cpp b/src/parser/peg/transformer/transform_select.cpp
+index 31a17c5..dc6d9ee 100644
+--- a/src/parser/peg/transformer/transform_select.cpp
++++ b/src/parser/peg/transformer/transform_select.cpp
+@@ -627,7 +627,7 @@ static unique_ptr<TableRef> BuildNearestJoin(const optional<JoinType> &join_type
+ 		result->nearest_count = NumericCast<idx_t>(count);
+ 	}
+ 	result->nearest_order_type = distance_or_similarity;
+-	result->nearest_approx = approx_or_exact.value_or(false);
++	result->nearest_approx = approx_or_exact.value_or(true);
+ 	result->ranking_expression = std::move(expression);
+ 	result->right = std::move(table_ref);
+ 	return std::move(result);
+diff --git a/src/storage/serialization/serialize_tableref.cpp b/src/storage/serialization/serialize_tableref.cpp
+index 2a87cfe..ec7392e 100644
+--- a/src/storage/serialization/serialize_tableref.cpp
++++ b/src/storage/serialization/serialize_tableref.cpp
+@@ -168,7 +168,7 @@ void JoinRef::Serialize(Serializer &serializer) const {
+ 		serializer.WritePropertyWithDefault<OrderType>(211, "nearest_order_type", nearest_order_type, OrderType::ASCENDING);
+ 	}
+ 	if (serializer.ShouldSerialize(StorageVersion::V2_0_0)) {
+-		serializer.WritePropertyWithDefault<bool>(212, "nearest_approx", nearest_approx, false);
++		serializer.WritePropertyWithDefault<bool>(212, "nearest_approx", nearest_approx, true);
+ 	}
+ }
+ 
+@@ -186,7 +186,7 @@ unique_ptr<TableRef> JoinRef::Deserialize(Deserializer &deserializer) {
+ 	deserializer.ReadPropertyWithDefault<unique_ptr<ParsedExpression>>(209, "ranking_expression", result->ranking_expression);
+ 	deserializer.ReadPropertyWithExplicitDefault<idx_t>(210, "nearest_count", result->nearest_count, 1);
+ 	deserializer.ReadPropertyWithExplicitDefault<OrderType>(211, "nearest_order_type", result->nearest_order_type, OrderType::ASCENDING);
+-	deserializer.ReadPropertyWithExplicitDefault<bool>(212, "nearest_approx", result->nearest_approx, false);
++	deserializer.ReadPropertyWithExplicitDefault<bool>(212, "nearest_approx", result->nearest_approx, true);
+ 	return std::move(result);
+ }
+ 

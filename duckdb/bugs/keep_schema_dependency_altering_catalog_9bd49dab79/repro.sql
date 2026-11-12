@@ -1,0 +1,5 @@
+CREATE SCHEMA s;
+CREATE TABLE s.t(i INTEGER);
+ALTER TABLE s.t ADD COLUMN j INTEGER;
+DROP SCHEMA s;
+SELECT count(*) FROM duckdb_tables() WHERE schema_name='s';

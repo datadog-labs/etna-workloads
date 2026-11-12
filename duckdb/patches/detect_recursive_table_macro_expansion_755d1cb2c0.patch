@@ -1,0 +1,57 @@
+diff --git a/src/include/duckdb/planner/binder.hpp b/src/include/duckdb/planner/binder.hpp
+index 827357b..4ff8a51 100644
+--- a/src/include/duckdb/planner/binder.hpp
++++ b/src/include/duckdb/planner/binder.hpp
+@@ -327,7 +327,6 @@ public:
+ 
+ 	//! Add the view to the set of currently bound views - used for detecting recursive view definitions
+ 	void AddBoundView(ViewCatalogEntry &view);
+-	void AddBoundTableMacro(CatalogEntry &table_macro);
+ 
+ 	void BeginSubqueryBind(Binder &parent, ExpressionBinder &binder);
+ 	//! The innermost enclosing scope
+@@ -434,8 +433,6 @@ private:
+ 	bool inside_subquery = false;
+ 	//! The set of bound views
+ 	reference_set_t<ViewCatalogEntry> bound_views;
+-	//! The table macros that are being expanded by this binder
+-	reference_set_t<CatalogEntry> bound_table_macros;
+ 	//! Used to retrieve CatalogEntry's
+ 	CatalogEntryRetriever entry_retriever;
+ 	//! Unnamed subquery index
+diff --git a/src/planner/binder/tableref/bind_table_function.cpp b/src/planner/binder/tableref/bind_table_function.cpp
+index 0332bf6..9f2f85e 100644
+--- a/src/planner/binder/tableref/bind_table_function.cpp
++++ b/src/planner/binder/tableref/bind_table_function.cpp
+@@ -434,7 +434,6 @@ BoundStatement Binder::Bind(TableFunctionRef &ref) {
+ 
+ 		auto binder = Binder::CreateBinder(context, this);
+ 		binder->SetCanContainNulls(true);
+-		binder->AddBoundTableMacro(macro_func);
+ 
+ 		binder->alias = ref.alias.empty() ? "unnamed_query" : ref.alias;
+ 		BoundStatement query;
+diff --git a/src/planner/binder.cpp b/src/planner/binder.cpp
+index 30aad5b..ef299fb 100644
+--- a/src/planner/binder.cpp
++++ b/src/planner/binder.cpp
+@@ -232,19 +232,6 @@ void Binder::AddBoundView(ViewCatalogEntry &view) {
+ 	bound_views.insert(view);
+ }
+ 
+-void Binder::AddBoundTableMacro(CatalogEntry &table_macro) {
+-	// check if the table macro is already being expanded
+-	auto current = this;
+-	while (current) {
+-		if (current->bound_table_macros.find(table_macro) != current->bound_table_macros.end()) {
+-			throw BinderException("infinite recursion detected: attempting to recursively expand table macro %s",
+-			                      table_macro.name);
+-		}
+-		current = current->parent.get();
+-	}
+-	bound_table_macros.insert(table_macro);
+-}
+-
+ TableIndex Binder::GenerateTableIndex() {
+ 	return TableIndex(global_binder_state->bound_tables++);
+ }

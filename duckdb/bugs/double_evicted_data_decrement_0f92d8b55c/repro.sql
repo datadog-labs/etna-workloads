@@ -1,0 +1,15 @@
+SET memory_limit='60MB'; SET threads=1; CREATE TABLE t(i INT, s VARCHAR);
+INSERT INTO t SELECT i+0*10, repeat(md5((i+0*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+1*10, repeat(md5((i+1*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+2*10, repeat(md5((i+2*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+3*10, repeat(md5((i+3*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+4*10, repeat(md5((i+4*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+5*10, repeat(md5((i+5*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+6*10, repeat(md5((i+6*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+7*10, repeat(md5((i+7*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+8*10, repeat(md5((i+8*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+9*10, repeat(md5((i+9*10)::VARCHAR), 12000) FROM range(10) r(i);
+INSERT INTO t SELECT i+1*100, s FROM t;
+INSERT INTO t SELECT i+2*100, s FROM t;
+INSERT INTO t SELECT i+3*100, s FROM t;
+SELECT count(*), sum(length(s)) FROM t;

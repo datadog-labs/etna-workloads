@@ -1,0 +1,1 @@
+SELECT x, (SELECT count(*) FROM (SELECT v FROM generate_series(1, 100) t(v) WHERE v >= x LIMIT 9223372036854775807 OFFSET 1)) FROM (VALUES (3), (100)) t(x) ORDER BY x;

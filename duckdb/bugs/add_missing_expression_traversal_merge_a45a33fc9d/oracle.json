@@ -1,0 +1,18 @@
+{
+ "runner": "build/relassert/test/unittest",
+ "granularity": "sqllogictest file / Catch TEST_CASE",
+ "oracle": [
+  "test/issues/general/test_20991.test"
+ ],
+ "failing": [
+  "test/issues/general/test_20991.test"
+ ],
+ "failing_fix_added": [
+  "test/issues/general/test_20991.test"
+ ],
+ "base_runs": 2,
+ "injected_runs": 2,
+ "failure_details": {
+  "test/issues/general/test_20991.test": "test/issues/general/test_20991.test:22 ::  1. test/issues/general/test_20991.test:22\nQuery failed with internal exception! (test/issues/general/test_20991.test:22)!\nWITH\n  src AS (SELECT * FROM   ovirt_mac_pool_dedup),\n  run AS (SELECT max(collected_at) AS run_ts FROM src)\n  MERGE INTO ovirt_mac_pool_hist AS target\n  USING src AS source\n  ON (target.id = source.id AND target._is_current = true)\n  WHEN MATCHED AND (target.sig <> source.sig) THEN\n    UPDATE SET\n      _valid_until = source.collected_at,\n      _is_current = false\n  WHEN NOT MATCHED BY SOURCE AND target._is_current = true THEN\n    UPDATE SET\n      _valid_until = (SELECT run_ts FROM run),\n      _is_current = false\n  WHEN NOT MATCHED BY TARGET THEN\n    INSERT ( id, name, description, ranges, allow_duplicates, default_pool, sig, _valid_from, _valid_until, _is_current)\n    VALUES\n      (\n        source.id,\n        source.name,\n        source.description,\n        source.ranges,\n        source.allow_duplicates,\n        source.default_pool,\n        source.sig,\n        source.collected_at,\n        null,\n        true\n      );\nActual result:\nINTERNAL Error: Failed to bind column reference \"id\" [10.0] (bindings: {#[30.0], #[30.1],"
+ }
+}

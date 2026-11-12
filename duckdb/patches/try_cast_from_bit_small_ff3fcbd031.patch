@@ -1,0 +1,44 @@
+diff --git a/src/common/operator/cast_operators.cpp b/src/common/operator/cast_operators.cpp
+index 95d7828..ff4ea33 100644
+--- a/src/common/operator/cast_operators.cpp
++++ b/src/common/operator/cast_operators.cpp
+@@ -1744,9 +1744,8 @@ bool CastFromBitToNumeric::Operation(string_t input, hugeint_t &result, CastPara
+ 	D_ASSERT(input.GetSize() > 1);
+ 
+ 	if (input.GetSize() - 1 > sizeof(hugeint_t)) {
+-		HandleCastError::AssignError("Bitstring doesn't fit inside of " + TypeIdToString(GetTypeId<hugeint_t>()),
+-		                             parameters);
+-		return false;
++		throw ConversionException(parameters.query_location, "Bitstring doesn't fit inside of %s",
++		                          GetTypeId<hugeint_t>());
+ 	}
+ 	Bit::BitToNumeric(input, result);
+ 	return (true);
+@@ -1757,9 +1756,8 @@ bool CastFromBitToNumeric::Operation(string_t input, uhugeint_t &result, CastPar
+ 	D_ASSERT(input.GetSize() > 1);
+ 
+ 	if (input.GetSize() - 1 > sizeof(uhugeint_t)) {
+-		HandleCastError::AssignError("Bitstring doesn't fit inside of " + TypeIdToString(GetTypeId<uhugeint_t>()),
+-		                             parameters);
+-		return false;
++		throw ConversionException(parameters.query_location, "Bitstring doesn't fit inside of %s",
++		                          GetTypeId<uhugeint_t>());
+ 	}
+ 	Bit::BitToNumeric(input, result);
+ 	return (true);
+diff --git a/src/include/duckdb/common/operator/cast_operators.hpp b/src/include/duckdb/common/operator/cast_operators.hpp
+index 111b4f9..3ef3003 100644
+--- a/src/include/duckdb/common/operator/cast_operators.hpp
++++ b/src/include/duckdb/common/operator/cast_operators.hpp
+@@ -951,9 +951,8 @@ struct CastFromBitToNumeric {
+ 		// TODO: Allow conversion if the significant bytes of the bitstring can be cast to the target type
+ 		// Currently only allows bitstring -> numeric if the full bitstring fits inside the numeric type
+ 		if (input.GetSize() - 1 > sizeof(DST)) {
+-			HandleCastError::AssignError("Bitstring doesn't fit inside of " + TypeIdToString(GetTypeId<DST>()),
+-			                             parameters);
+-			return false;
++			throw ConversionException(parameters.query_location, "Bitstring doesn't fit inside of %s",
++			                          GetTypeId<DST>());
+ 		}
+ 		Bit::BitToNumeric(input, result);
+ 		return (true);

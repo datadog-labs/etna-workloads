@@ -1,0 +1,29 @@
+diff --git a/src/planner/binder/expression/bind_star_expression.cpp b/src/planner/binder/expression/bind_star_expression.cpp
+index f28df17..9bdbf6d 100644
+--- a/src/planner/binder/expression/bind_star_expression.cpp
++++ b/src/planner/binder/expression/bind_star_expression.cpp
+@@ -313,13 +313,6 @@ bool Binder::IsQualifiedCountStar(const ParsedExpression &expr) {
+ 		}
+ 		break;
+ 	}
+-	case ExpressionClass::WINDOW: {
+-		auto &window = expr.Cast<WindowExpression>();
+-		if (!IsCount(window.FunctionName(), window.Distinct())) {
+-			return false;
+-		}
+-		break;
+-	}
+ 	default:
+ 		return false;
+ 	}
+@@ -398,10 +391,6 @@ unique_ptr<ParsedExpression> Binder::TryRewriteQualifiedCountStar(const ParsedEx
+ 		return nullptr;
+ 	}
+ 	auto result = expr.Copy();
+-	if (result->GetAlias().empty()) {
+-		// the rewrite is an implementation detail - keep the original expression as the name
+-		result->SetAlias(Identifier(expr.ToString()));
+-	}
+ 	auto &arguments = GetFunctionArgumentsMutable(*result);
+ 	auto &star = arguments[0].GetExpressionMutable()->Cast<StarExpression>();
+ 	auto count_argument = GetCountStarArgument(star, bind_context);

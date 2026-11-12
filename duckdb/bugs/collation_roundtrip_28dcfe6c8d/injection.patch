@@ -1,0 +1,41 @@
+diff --git a/src/catalog/default/default_types.cpp b/src/catalog/default/default_types.cpp
+index 370633e..9266772 100644
+--- a/src/catalog/default/default_types.cpp
++++ b/src/catalog/default/default_types.cpp
+@@ -113,13 +113,13 @@ LogicalType BindVarcharType(BindLogicalTypeInput &input) {
+ LogicalType BindCollatedVarcharType(BindLogicalTypeInput &input) {
+ 	auto &collation = StringValue::Get(input.modifiers[0].GetValue());
+ 
+-	// The collation can only be checked against the catalog when there is a connection. Without one this is a
+-	// type that was bound before - re-binding it, for instance to serialize it, must not lose the collation.
+-	if (input.context) {
+-		// Ensure this is a valid collation
+-		ExpressionBinder::TestCollation(*input.context, collation);
++	if (!input.context) {
++		throw BinderException(input.query_location, "Cannot bind varchar with collation without a connection");
+ 	}
+ 
++	// Ensure this is a valid collation
++	ExpressionBinder::TestCollation(*input.context, collation);
++
+ 	return LogicalType::VARCHAR_COLLATION(collation);
+ }
+ 
+diff --git a/src/parser/expression/cast_expression.cpp b/src/parser/expression/cast_expression.cpp
+index fb93183..e4d490f 100644
+--- a/src/parser/expression/cast_expression.cpp
++++ b/src/parser/expression/cast_expression.cpp
+@@ -35,11 +35,9 @@ void CastExpression::Serialize(Serializer &serializer) const {
+ 	ParsedExpression::Serialize(serializer);
+ 	serializer.WritePropertyWithDefault<unique_ptr<ParsedExpression>>(200, "child", child);
+ 	if (!serializer.ShouldSerialize(StorageVersion::V2_0_0)) {
+-		// Older versions store the cast target as a LogicalType. Resolve built-in types rather than writing an
+-		// unbound type: below v1.5.0 an unbound type degrades to the legacy USER type, whose modifiers are bare
+-		// values, so a named modifier such as a VARCHAR collation would be lost.
++		// older versions store the cast target as a LogicalType
+ 		D_ASSERT(cast_type);
+-		serializer.WriteProperty<LogicalType>(201, "cast_type", UnboundType::TryDefaultBind(*cast_type));
++		serializer.WriteProperty<LogicalType>(201, "cast_type", LogicalType::UNBOUND(cast_type->Copy()));
+ 	}
+ 	serializer.WritePropertyWithDefault<bool>(202, "try_cast", try_cast);
+ 	if (serializer.ShouldSerialize(StorageVersion::V2_0_0)) {

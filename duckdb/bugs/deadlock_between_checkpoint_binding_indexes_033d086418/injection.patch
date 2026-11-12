@@ -1,0 +1,75 @@
+diff --git a/src/include/duckdb/storage/checkpoint_manager.hpp b/src/include/duckdb/storage/checkpoint_manager.hpp
+index 00523e5..7f85f63 100644
+--- a/src/include/duckdb/storage/checkpoint_manager.hpp
++++ b/src/include/duckdb/storage/checkpoint_manager.hpp
+@@ -56,8 +56,6 @@ public:
+ 	void GetCheckpointTransaction(CheckpointOptions &options);
+ 	void Commit();
+ 	bool HasCheckpointContext() const;
+-	//! The context of the checkpoint connection, null when there is none (shutdown path)
+-	optional_ptr<ClientContext> GetCheckpointContext() const;
+ 
+ private:
+ 	AttachedDatabase &db;
+@@ -162,9 +160,6 @@ public:
+ 
+ private:
+ 	optional_ptr<ClientContext> context;
+-	//! Context of the checkpoint transaction, used for catalog lookups during the checkpoint.
+-	//! Only set while CreateCheckpoint runs, which owns the connection it belongs to.
+-	optional_ptr<ClientContext> checkpoint_context;
+ 	//! The metadata writer is responsible for writing schema information
+ 	unique_ptr<MetadataWriter> metadata_writer;
+ 	//! The table data writer is responsible for writing the DataPointers used by the table chunks
+diff --git a/src/storage/checkpoint_manager.cpp b/src/storage/checkpoint_manager.cpp
+index 08f6f4e..5baf29a 100644
+--- a/src/storage/checkpoint_manager.cpp
++++ b/src/storage/checkpoint_manager.cpp
+@@ -87,10 +87,6 @@ bool ActiveCheckpointWrapper::HasCheckpointContext() const {
+ 	return checkpoint_context;
+ }
+ 
+-optional_ptr<ClientContext> ActiveCheckpointWrapper::GetCheckpointContext() const {
+-	return checkpoint_context;
+-}
+-
+ void ReorderTableEntries(catalog_entry_vector_t &tables);
+ 
+ SingleFileCheckpointWriter::SingleFileCheckpointWriter(QueryContext context, AttachedDatabase &db,
+@@ -258,7 +254,6 @@ void SingleFileCheckpointWriter::CreateCheckpoint() {
+ 	// WALStartCheckpoint we will create a transaction for the checkpoint.
+ 	ActiveCheckpointWrapper active_checkpoint(context, db, transaction_manager);
+ 	auto has_wal = storage_manager.WALStartCheckpoint(meta_block, options, active_checkpoint);
+-	checkpoint_context = active_checkpoint.GetCheckpointContext();
+ 
+ 	catalog_entry_vector_t catalog_entries;
+ 
+@@ -398,7 +393,6 @@ void SingleFileCheckpointWriter::CreateCheckpoint() {
+ 		auto &index_list = table_info->GetIndexes();
+ 		index_list.MergeCheckpointDeltas(options.checkpoint_id);
+ 	}
+-	checkpoint_context = nullptr;
+ 	active_checkpoint.Commit();
+ }
+ 
+@@ -727,15 +721,12 @@ void SingleFileCheckpointWriter::WriteTable(TableCatalogEntry &table, Serializer
+ 	// Write the table metadata
+ 	serializer.WriteProperty(100, "table", &table);
+ 
+-	// Explicit checkpoints bind indexes before serialization, so that buffered index operations are replayed
+-	// and not lost on a restart. During a commit-time checkpoint the caller has no active transaction.
+-	if (context && context->transaction.HasActiveTransaction() && checkpoint_context) {
+-		D_ASSERT(checkpoint_context->transaction.HasActiveTransaction());
+-		// Bind indexes with checkpoint transaction, which is already running and read-only, so any transaction the
+-		// binder still starts skips start_transaction_lock.
+-		D_ASSERT(MetaTransaction::Get(*checkpoint_context).IsReadOnly());
++	// If there is a context available, bind indexes before serialization.
++	// This is necessary so that buffered index operations are replayed before we checkpoint, otherwise
++	// we would lose them if there was a restart after this.
++	if (context && context->transaction.HasActiveTransaction()) {
+ 		auto &info = table.GetStorage().GetDataTableInfo();
+-		info->BindIndexes(*checkpoint_context);
++		info->BindIndexes(*context);
+ 	}
+ 	// FIXME: If we do not have a context, however, the unbound indexes have to be serialized to disk.
+ 

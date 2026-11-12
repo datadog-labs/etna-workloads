@@ -1,0 +1,28 @@
+diff --git a/src/function/function.cpp b/src/function/function.cpp
+index 103cca8..33c92f2 100644
+--- a/src/function/function.cpp
++++ b/src/function/function.cpp
+@@ -291,8 +291,7 @@ void FunctionSignature::FillNamedDefaults(ClientContext &context, named_argument
+ 		if (entry != named_parameters.end()) {
+ 			result.insert(param.GetName(), std::move(entry->second));
+ 		} else if (param.HasDefaultValue()) {
+-			result.insert(param.GetName(),
+-			              FunctionBinder::CastToParameterType(context, *param.GetDefaultValue(), param.GetType()));
++			result.insert(param.GetName(), *param.GetDefaultValue());
+ 		}
+ 	}
+ 	if (result.empty()) {
+diff --git a/src/function/function_binder.cpp b/src/function/function_binder.cpp
+index 2d10779..c535853 100644
+--- a/src/function/function_binder.cpp
++++ b/src/function/function_binder.cpp
+@@ -620,8 +620,7 @@ static void PlaceArguments(ClientContext &context, const T &function,
+ 		} else if (named_slots[i]) {
+ 			parameters.push_back(PlaceArgument(context, *named_slots[i], param.GetType()));
+ 		} else if (param.HasDefaultValue()) {
+-			parameters.push_back(
+-			    FunctionBinder::CastToParameterType(context, *param.GetDefaultValue(), param.GetType()));
++			parameters.push_back(*param.GetDefaultValue());
+ 		} else {
+ 			// overload selection only picks an overload whose required parameters the call fills
+ 			throw InternalException("Missing value for parameter %s in function call to %s", param.GetName(),

@@ -1,0 +1,28 @@
+diff --git a/src/main/client_context_execution.cpp b/src/main/client_context_execution.cpp
+index 2b20477..805079c 100644
+--- a/src/main/client_context_execution.cpp
++++ b/src/main/client_context_execution.cpp
+@@ -1,5 +1,4 @@
+ #include "duckdb/main/client_context.hpp"
+-#include "duckdb/common/operator/add.hpp"
+ 
+ #include "duckdb/common/chrono.hpp"
+ #include "duckdb/common/error_data.hpp"
+@@ -54,14 +53,9 @@ void ClientContext::BeginQueryInternal(ClientContextLock &lock, PreprocessedStat
+ 	// Set query deadline if max_execution_time is configured
+ 	auto max_execution_time = Settings::Get<MaxExecutionTimeSetting>(*this);
+ 	if (max_execution_time > 0) {
+-		auto now_ms = NumericCast<idx_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+-		idx_t deadline;
+-		if (TryAddOperator::Operation<idx_t, idx_t, idx_t>(now_ms, NumericCast<idx_t>(max_execution_time), deadline)) {
+-			query_deadline = deadline;
+-		} else {
+-			// the deadline is too far in the future to be represented - there is effectively no deadline
+-			query_deadline.SetInvalid();
+-		}
++		auto now = steady_clock::now();
++		auto deadline_tp = now + milliseconds(max_execution_time);
++		query_deadline = NumericCast<idx_t>(duration_cast<milliseconds>(deadline_tp.time_since_epoch()).count());
+ 	} else {
+ 		query_deadline.SetInvalid();
+ 	}

@@ -1,0 +1,2 @@
+CREATE TABLE t AS SELECT x AS id, printf('POINT(%d %d)', x, x)::GEOMETRY('OGC:CRS84') AS g FROM range(10) r(x);
+EXPLAIN SELECT * FROM t WHERE g && 'POLYGON((1 1, 2 1, 2 2, 1 2, 1 1))'::GEOMETRY AND id::VARCHAR::INT >= 0;

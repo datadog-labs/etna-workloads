@@ -1,0 +1,158 @@
+diff --git a/src/include/duckdb/optimizer/constant_or_null_simplification.hpp b/src/include/duckdb/optimizer/constant_or_null_simplification.hpp
+index f4d535b..2f1dba5 100644
+--- a/src/include/duckdb/optimizer/constant_or_null_simplification.hpp
++++ b/src/include/duckdb/optimizer/constant_or_null_simplification.hpp
+@@ -21,10 +21,9 @@ public:
+ 	unique_ptr<LogicalOperator> Optimize(unique_ptr<LogicalOperator> op);
+ 
+ private:
+-	unique_ptr<LogicalOperator> OptimizeInternal(unique_ptr<LogicalOperator> op, bool plan_has_side_effects);
+ 	unique_ptr<Expression> SimplifyExpression(LogicalOperator &input, unique_ptr<Expression> expr,
+-	                                          NotNullExpressionAnalyzer &analyzer, bool allow_folding);
+-	unique_ptr<LogicalOperator> OptimizeFilter(unique_ptr<LogicalOperator> op, bool plan_has_side_effects);
++	                                          NotNullExpressionAnalyzer &analyzer);
++	unique_ptr<LogicalOperator> OptimizeFilter(unique_ptr<LogicalOperator> op);
+ 
+ private:
+ 	ClientContext &context;
+diff --git a/src/optimizer/constant_or_null_simplification.cpp b/src/optimizer/constant_or_null_simplification.cpp
+index 7fd87ae..9ee004b 100644
+--- a/src/optimizer/constant_or_null_simplification.cpp
++++ b/src/optimizer/constant_or_null_simplification.cpp
+@@ -46,13 +46,11 @@ static optional<bool> GetConstantOrNullBoolean(Expression &expr) {
+ 	return optional<bool>();
+ }
+ 
+-//! Whether every input that can still turn the result into NULL is provably NOT NULL.
+ static bool ConstantOrNullInputsAreNotNull(LogicalOperator &input, BoundFunctionExpression &func,
+                                            NotNullExpressionAnalyzer &analyzer) {
+ 	auto &children = func.GetChildren();
+ 	D_ASSERT(children.size() >= 2);
+ 
+-	// Folding is only valid when the NULL-preserving inputs cannot be NULL.
+ 	for (idx_t child_idx = 1; child_idx < children.size(); ++child_idx) {
+ 		if (children[child_idx]->GetExpressionClass() == ExpressionClass::BOUND_CONSTANT) {
+ 			auto &constant = children[child_idx]->Cast<BoundConstantExpression>().GetValue();
+@@ -69,35 +67,21 @@ static bool ConstantOrNullInputsAreNotNull(LogicalOperator &input, BoundFunction
+ 	return true;
+ }
+ 
+-static bool ConstantOrNullInputsAreVolatile(BoundFunctionExpression &func) {
+-	auto &children = func.GetChildren();
+-	for (idx_t child_idx = 1; child_idx < children.size(); ++child_idx) {
+-		if (children[child_idx]->IsVolatile()) {
+-			return true;
+-		}
+-	}
+-	return false;
+-}
+-
+ unique_ptr<Expression> ConstantOrNullSimplification::SimplifyExpression(LogicalOperator &input,
+                                                                         unique_ptr<Expression> expr,
+-                                                                        NotNullExpressionAnalyzer &analyzer,
+-                                                                        bool allow_folding) {
++                                                                        NotNullExpressionAnalyzer &analyzer) {
+ 	ExpressionIterator::EnumerateChildren(*expr, [&](unique_ptr<Expression> &child) {
+-		child = SimplifyExpression(input, std::move(child), analyzer, allow_folding);
++		child = SimplifyExpression(input, std::move(child), analyzer);
+ 	});
+ 
+ 	if (expr->GetExpressionClass() == ExpressionClass::BOUND_FUNCTION) {
+-		if (!allow_folding) {
+-			return expr;
+-		}
+ 		auto value = GetConstantOrNullBoolean(*expr);
+ 		if (!value.has_value()) {
+ 			return expr;
+ 		}
+ 
+ 		auto &func = expr->Cast<BoundFunctionExpression>();
+-		if (!ConstantOrNullInputsAreVolatile(func) && ConstantOrNullInputsAreNotNull(input, func, analyzer)) {
++		if (ConstantOrNullInputsAreNotNull(input, func, analyzer)) {
+ 			return make_uniq<BoundConstantExpression>(Value::BOOLEAN(value.value()));
+ 		}
+ 
+@@ -108,7 +92,6 @@ unique_ptr<Expression> ConstantOrNullSimplification::SimplifyExpression(LogicalO
+ 		return expr;
+ 	}
+ 
+-	// Push NOT into constant_or_null without dropping per-row NULL checks.
+ 	auto &not_expr = expr->Cast<BoundOperatorExpression>();
+ 	D_ASSERT(not_expr.GetChildren().size() == 1);
+ 
+@@ -136,22 +119,17 @@ unique_ptr<Expression> ConstantOrNullSimplification::SimplifyExpression(LogicalO
+ 	return ExpressionRewriter::ConstantOrNull(this->context, std::move(children), Value::BOOLEAN(!value.value()));
+ }
+ 
+-unique_ptr<LogicalOperator> ConstantOrNullSimplification::OptimizeFilter(unique_ptr<LogicalOperator> op,
+-                                                                         bool plan_has_side_effects) {
++unique_ptr<LogicalOperator> ConstantOrNullSimplification::OptimizeFilter(unique_ptr<LogicalOperator> op) {
+ 	auto &filter = op->Cast<LogicalFilter>();
+ 	if (filter.children.size() != 1) {
+ 		return op;
+ 	}
+ 
+-	// Folding removes the NULL check, so disable it for plans with side effects.
+-	// Same-statement DML can add NULLs after statistics-based nullability analysis.
+-	const bool allow_folding = !plan_has_side_effects;
+-
+ 	NotNullExpressionAnalyzer analyzer(context);
+ 	vector<unique_ptr<Expression>> remaining_expressions;
+ 	remaining_expressions.reserve(filter.expressions.size());
+ 	for (auto &expr : filter.expressions) {
+-		expr = SimplifyExpression(*filter.children[0], std::move(expr), analyzer, allow_folding);
++		expr = SimplifyExpression(*filter.children[0], std::move(expr), analyzer);
+ 		auto value = GetBooleanConstant(*expr);
+ 		if (!value.has_value()) {
+ 			remaining_expressions.push_back(std::move(expr));
+@@ -175,18 +153,12 @@ unique_ptr<LogicalOperator> ConstantOrNullSimplification::OptimizeFilter(unique_
+ }
+ 
+ unique_ptr<LogicalOperator> ConstantOrNullSimplification::Optimize(unique_ptr<LogicalOperator> op) {
+-	const bool has_side_effects = op->HasSideEffects();
+-	return OptimizeInternal(std::move(op), has_side_effects);
+-}
+-
+-unique_ptr<LogicalOperator> ConstantOrNullSimplification::OptimizeInternal(unique_ptr<LogicalOperator> op,
+-                                                                           bool plan_has_side_effects) {
+ 	for (auto &child : op->children) {
+-		child = OptimizeInternal(std::move(child), plan_has_side_effects);
++		child = Optimize(std::move(child));
+ 	}
+ 
+ 	if (op->type == LogicalOperatorType::LOGICAL_FILTER) {
+-		return OptimizeFilter(std::move(op), plan_has_side_effects);
++		return OptimizeFilter(std::move(op));
+ 	}
+ 
+ 	return op;
+diff --git a/src/optimizer/optimizer.cpp b/src/optimizer/optimizer.cpp
+index e9ef3cb..2387823 100644
+--- a/src/optimizer/optimizer.cpp
++++ b/src/optimizer/optimizer.cpp
+@@ -251,8 +251,10 @@ void Optimizer::RunBuiltInOptimizers() {
+ 	// this does not change the logical plan structure, but only simplifies the expression trees
+ 	RunOptimizer(OptimizerType::EXPRESSION_REWRITER, [&]() {
+ 		rewriter.VisitOperator(*plan);
+-		ConstantOrNullSimplification constant_or_null_simplification(context);
+-		plan = constant_or_null_simplification.Optimize(std::move(plan));
++		if (!plan->HasSideEffects()) {
++			ConstantOrNullSimplification constant_or_null_simplification(context);
++			plan = constant_or_null_simplification.Optimize(std::move(plan));
++		}
+ 	});
+ 
+ 	// try to inline CTEs instead of materialization
+diff --git a/src/optimizer/rule/in_clause_simplification_rule.cpp b/src/optimizer/rule/in_clause_simplification_rule.cpp
+index d1a3c6e..d720131 100644
+--- a/src/optimizer/rule/in_clause_simplification_rule.cpp
++++ b/src/optimizer/rule/in_clause_simplification_rule.cpp
+@@ -152,7 +152,7 @@ unique_ptr<Expression> InEnumSimplificationRule::Apply(LogicalOperator &op, vect
+ 	vector<unique_ptr<Expression>> in_children;
+ 	in_children.emplace_back(enum_expr->Copy());
+ 
+-	unordered_set<uint64_t> matched_enum_values {};
++	unordered_set<uint64_t> matched_enum_values{};
+ 	for (idx_t i = 1; i < children.size(); ++i) {
+ 		auto &child = *children[i];
+ 		auto &v = child.Cast<BoundConstantExpression>().GetValue();

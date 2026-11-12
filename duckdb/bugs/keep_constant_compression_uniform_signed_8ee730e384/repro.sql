@@ -1,0 +1,4 @@
+CREATE TABLE t(v DOUBLE);
+INSERT INTO t SELECT CASE WHEN i%2=0 THEN 0e0 ELSE '-0'::DOUBLE END FROM range(1000) r(i);
+CHECKPOINT;
+SELECT DISTINCT compression FROM pragma_storage_info('t') WHERE segment_type='DOUBLE';

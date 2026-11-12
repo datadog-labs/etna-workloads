@@ -1,0 +1,19 @@
+{
+ "runner": "build/relassert/test/unittest",
+ "granularity": "sqllogictest file / Catch TEST_CASE",
+ "oracle": [
+  "test/optimizer/topn_window_elimination.test_slow",
+  "test/sql/aggregate/aggregates/arg_min_max_nulls_last.test"
+ ],
+ "failing": [
+  "test/optimizer/topn_window_elimination.test_slow",
+  "test/sql/aggregate/aggregates/arg_min_max_nulls_last.test"
+ ],
+ "failing_fix_added": [],
+ "base_runs": 2,
+ "injected_runs": 2,
+ "failure_details": {
+  "test/optimizer/topn_window_elimination.test_slow": "test/optimizer/topn_window_elimination.test_slow:176 ::  1. test/optimizer/topn_window_elimination.test_slow:176\nWrong result in query! (test/optimizer/topn_window_elimination.test_slow:176)!\nWITH floating_values(id, val) AS (\n\tVALUES (1, 0.0::DOUBLE), (2, 'NaN'::DOUBLE), (3, -1.0::DOUBLE)\n)\nSELECT id, val\nFROM floating_values\nQUALIFY row_number() OVER (ORDER BY val ASC NULLS LAST) <= 2\nORDER BY id;\nMismatch on row 1, column id(index 1)\n2 <> 1\nExpected result:\n1\t0.0\n3\t-1.0\nActual result:\n2\tnan\n3\t-1.0",
+  "test/sql/aggregate/aggregates/arg_min_max_nulls_last.test": "test/sql/aggregate/aggregates/arg_min_max_nulls_last.test:69 ::  1. test/sql/aggregate/aggregates/arg_min_max_nulls_last.test:69\nWrong result in query! (test/sql/aggregate/aggregates/arg_min_max_nulls_last.test:69)!\nWITH floating_values(id, val) AS (\n\tVALUES (1, 0::FLOAT), (2, 'NaN'::FLOAT), (3, -1::FLOAT), (4, NULL::FLOAT)\n)\nSELECT arg_min_nulls_last(id, val, 4), arg_max_nulls_last(id, val, 4) FROM floating_values;\nMismatch on row 1, column arg_min_nulls_last(id, val, 4)(index 1)\n[3, 2, 1, 4] <> [3, 1, 2, 4]\nExpected result:\n[3, 1, 2, 4]\t[2, 1, 3, 4]\nActual result:\n[3, 2, 1, 4]\t[1, 2, 3, 4]"
+ }
+}

@@ -1,0 +1,39 @@
+diff --git a/src/optimizer/rule/comparison_simplification.cpp b/src/optimizer/rule/comparison_simplification.cpp
+index 53de761..b4583c7 100644
+--- a/src/optimizer/rule/comparison_simplification.cpp
++++ b/src/optimizer/rule/comparison_simplification.cpp
+@@ -127,6 +127,12 @@ static bool ConstantCastIsInvertible(ClientContext &context, BoundFunctionExpres
+ 		auto roundtrip = cast_constant.TryCastAs(context, cast_expression.GetReturnType(), &error_message, true);
+ 		return roundtrip && *roundtrip == constant_value;
+ 	}
++	// This asks about the constant, not the column, and the constant was cast strictly just above - for
++	// integers that already proves it is exactly representable, so no type-level guarantee is needed. The
++	// column side is checked separately by the caller.
++	if (cast_expression.GetReturnType().IsIntegral() && target_type.IsIntegral()) {
++		return true;
++	}
+ 	if (target_type.id() != LogicalTypeId::DATE || cast_expression.GetReturnType().id() != LogicalTypeId::TIMESTAMP) {
+ 		return false;
+ 	}
+diff --git a/src/planner/expression/bound_cast_expression.cpp b/src/planner/expression/bound_cast_expression.cpp
+index 9519cdb..1763f88 100644
+--- a/src/planner/expression/bound_cast_expression.cpp
++++ b/src/planner/expression/bound_cast_expression.cpp
+@@ -262,17 +262,6 @@ bool BoundCastExpression::CastIsInvertible(const LogicalType &source_type, const
+ 	if (source_type.IsSigned() && target_type.IsUnsigned()) {
+ 		return false;
+ 	}
+-	if (source_type.IsIntegral() && target_type.IsIntegral()) {
+-		// a narrowing integer cast is not invertible: a source value outside the target's range does not
+-		// survive the cast, so comparing in the target type is not the same as comparing in the source type
+-		auto source_size = GetTypeIdSize(source_type.InternalType());
+-		auto target_size = GetTypeIdSize(target_type.InternalType());
+-		if (source_type.IsUnsigned() && target_type.IsSigned()) {
+-			// the sign bit costs a byte of range, so equal widths are not enough
+-			return target_size > source_size;
+-		}
+-		return target_size >= source_size;
+-	}
+ 	return true;
+ }
+ 

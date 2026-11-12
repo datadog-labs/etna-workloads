@@ -1,0 +1,16 @@
+diff --git a/src/execution/radix_partitioned_hashtable.cpp b/src/execution/radix_partitioned_hashtable.cpp
+index 61cec7a..fd94da9 100644
+--- a/src/execution/radix_partitioned_hashtable.cpp
++++ b/src/execution/radix_partitioned_hashtable.cpp
+@@ -639,10 +639,7 @@ void RadixPartitionedHashTable::Sink(ExecutionContext &context, DataChunk &chunk
+ 	ht.AddChunk(group_chunk, payload_input, filter);
+ 
+ 	// Row width and aggregate state size can increase without filling the pointer table.
+-	const auto total_size = ht.GetSizeInBytes();
+-	UpdateSinkReservation(context.client, gstate, ht, total_size);
+-	const auto memory_pressure =
+-	    total_size > gstate.GetThreadLimit() || (gstate.spill_plan && gstate.StatePressureExceeded(ht));
++	const auto memory_pressure = gstate.spill_plan && gstate.StatePressureExceeded(ht);
+ 	if (!memory_pressure &&
+ 	    ht.Count() + STANDARD_VECTOR_SIZE < GroupedAggregateHashTable::ResizeThreshold(lstate.local_sink_capacity)) {
+ 		return;

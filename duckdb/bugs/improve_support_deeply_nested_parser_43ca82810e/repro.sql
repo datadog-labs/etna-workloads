@@ -1,0 +1,6 @@
+.mode list
+.nullvalue NULL
+CREATE SCHEMA s1;
+CREATE SCHEMA s1.s2;
+CREATE SCHEMA s1.s2.s3;
+CREATE SCHEMA s1.s2.s3.s4;

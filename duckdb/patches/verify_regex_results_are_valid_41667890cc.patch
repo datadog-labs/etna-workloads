@@ -1,0 +1,76 @@
+diff --git a/src/function/scalar/string/regexp/regexp_extract_all.cpp b/src/function/scalar/string/regexp/regexp_extract_all.cpp
+index 6d81c6a..5120d44 100644
+--- a/src/function/scalar/string/regexp/regexp_extract_all.cpp
++++ b/src/function/scalar/string/regexp/regexp_extract_all.cpp
+@@ -171,7 +171,6 @@ void RegexpExtractAll::Execute(DataChunk &args, ExpressionState &state, Vector &
+ 					child_writer.WriteStringRef(string_t(string_val.GetData(), 0));
+ 				}
+ 			} else {
+-				regexp_util::VerifyUTF8Result(match_group.data(), match_group.size());
+ 				// Every group is a substring of the original, we can find the offset via pointer
+ 				D_ASSERT(const_char_ptr_cast(match_group.begin()) >= string_val.GetData());
+ 				auto offset = UnsafeNumericCast<idx_t>(match_group.begin() - string_val.GetData());
+@@ -223,7 +222,6 @@ static list_entry_t ExtractStructAllSingleTuple(const string_t &string_val, duck
+ 				}
+ 				cdata[current_list_size] = string_t(string_val.GetData(), 0);
+ 			} else {
+-				regexp_util::VerifyUTF8Result(span.data(), span.size());
+ 				auto offset = span.begin() - string_val.GetData();
+ 				cdata[current_list_size] =
+ 				    string_t(string_val.GetData() + offset, UnsafeNumericCast<uint32_t>(span.size()));
+diff --git a/src/function/scalar/string/regexp.cpp b/src/function/scalar/string/regexp.cpp
+index 8143e45..c6a5e43 100644
+--- a/src/function/scalar/string/regexp.cpp
++++ b/src/function/scalar/string/regexp.cpp
+@@ -35,7 +35,6 @@ static inline string_t ExtractCaptureGroup(const string_t &input, const RE2 &re,
+ 	const int nsubmatch = group_index + 1;
+ 	if (re.Match(in_piece, 0, in_piece.size(), duckdb_re2::RE2::UNANCHORED, submatch, nsubmatch)) {
+ 		auto &group = submatch[group_index];
+-		VerifyUTF8Result(group.data(), group.size());
+ 		return string_t(group.data(), UnsafeNumericCast<uint32_t>(group.size()));
+ 	}
+ 	return no_match_returns_input ? input : string_t(nullptr, 0);
+@@ -210,7 +209,6 @@ static void RegexReplaceFunction(DataChunk &args, ExpressionState &state, Vector
+ 			    } else {
+ 				    RE2::Replace(&sstring, lstate.constant_pattern, replace_piece);
+ 			    }
+-			    VerifyUTF8Result(sstring.c_str(), sstring.size());
+ 			    return heap.AddString(sstring);
+ 		    });
+ 	} else {
+@@ -231,7 +229,6 @@ static void RegexReplaceFunction(DataChunk &args, ExpressionState &state, Vector
+ 			    } else {
+ 				    RE2::Replace(&sstring, re, replace_piece);
+ 			    }
+-			    VerifyUTF8Result(sstring.c_str(), sstring.size());
+ 			    return heap.AddString(sstring);
+ 		    });
+ 	}
+@@ -334,7 +331,6 @@ static void RegexExtractStructFunction(DataChunk &args, ExpressionState &state,
+ 				ConstantVector::SetNull(child_entry, false);
+ 				auto &extracted = ws[col];
+ 				if (match) {
+-					VerifyUTF8Result(extracted.data(), extracted.size());
+ 				}
+ 				auto cdata = ConstantVector::GetData<string_t>(child_entry);
+ 				cdata[0] = string_t(extracted.data(), UnsafeNumericCast<uint32_t>(match ? extracted.size() : 0));
+@@ -363,7 +359,6 @@ static void RegexExtractStructFunction(DataChunk &args, ExpressionState &state,
+ 				auto cdata = FlatVector::GetDataMutable<string_t>(child_entry);
+ 				auto &extracted = ws[col];
+ 				if (match) {
+-					VerifyUTF8Result(extracted.data(), extracted.size());
+ 				}
+ 				cdata[entry.GetIndex()] =
+ 				    string_t(extracted.data(), UnsafeNumericCast<uint32_t>(match ? extracted.size() : 0));
+diff --git a/src/function/scalar/string/string_split.cpp b/src/function/scalar/string/string_split.cpp
+index 388375a..2d18b6f 100644
+--- a/src/function/scalar/string/string_split.cpp
++++ b/src/function/scalar/string/string_split.cpp
+@@ -114,7 +114,6 @@ void StringSplitExecutor(DataChunk &args, ExpressionState &state, Vector &result
+ 		StringSplitter::Split<OP>(
+ 		    input_entry.GetValue(), delim, get_data(delim), [&](const char *split_data, idx_t split_size) {
+ 			    if (OP::VERIFY_UTF8) {
+-				    regexp_util::VerifyUTF8Result(split_data, split_size);
+ 			    }
+ 			    list.WriteElement().WriteStringRef(string_t(split_data, UnsafeNumericCast<uint32_t>(split_size)));
+ 		    });

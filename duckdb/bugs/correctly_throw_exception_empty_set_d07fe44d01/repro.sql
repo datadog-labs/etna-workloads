@@ -1,0 +1,3 @@
+CREATE TABLE tbl(col1 INT, col2 INT, col3 INT);
+INSERT INTO tbl VALUES (1,2,3);
+SELECT * FROM tbl WHERE COLUMNS(* EXCLUDE (col1, col2, col3)) >= 2;

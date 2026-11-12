@@ -1,0 +1,50 @@
+diff --git a/src/execution/physical_plan/plan_window.cpp b/src/execution/physical_plan/plan_window.cpp
+index 48249c2..868f6f0 100644
+--- a/src/execution/physical_plan/plan_window.cpp
++++ b/src/execution/physical_plan/plan_window.cpp
+@@ -113,17 +113,15 @@ PhysicalOperator &PhysicalPlanGenerator::CreatePlan(LogicalWindow &op) {
+ 				continue;
+ 			}
+ 
+-			// CSE Elimination: Search for a previous match (volatile expressions must not be deduplicated)
++			// CSE Elimination: Search for a previous match
+ 			bool cse = false;
+-			if (!wexpr.IsVolatile()) {
+-				for (idx_t i = 0; i < matching.size(); ++i) {
+-					const auto match_idx = matching[i];
+-					auto &match_expr = op.expressions[match_idx]->Cast<BoundWindowExpression>();
+-					if (wexpr.Equals(match_expr)) {
+-						projection_map[input_width + expr_idx] = output_pos + i;
+-						cse = true;
+-						break;
+-					}
++			for (idx_t i = 0; i < matching.size(); ++i) {
++				const auto match_idx = matching[i];
++				auto &match_expr = op.expressions[match_idx]->Cast<BoundWindowExpression>();
++				if (wexpr.Equals(match_expr)) {
++					projection_map[input_width + expr_idx] = output_pos + i;
++					cse = true;
++					break;
+ 				}
+ 			}
+ 			if (cse) {
+diff --git a/src/optimizer/common_aggregate_optimizer.cpp b/src/optimizer/common_aggregate_optimizer.cpp
+index 7a6e590..30facfa 100644
+--- a/src/optimizer/common_aggregate_optimizer.cpp
++++ b/src/optimizer/common_aggregate_optimizer.cpp
+@@ -49,15 +49,6 @@ void CommonAggregateOptimizer::ExtractCommonAggregates(LogicalAggregate &aggr) {
+ 	for (idx_t i = 0; i < aggr.expressions.size(); i++) {
+ 		ProjectionIndex original_index(i + total_erased);
+ 		ProjectionIndex new_index(i);
+-		// volatile aggregates must not be deduplicated: each call is independent
+-		if (aggr.expressions[i]->IsVolatile()) {
+-			if (new_index != original_index) {
+-				ColumnBinding original_binding(aggr.aggregate_index, original_index);
+-				ColumnBinding new_binding(aggr.aggregate_index, new_index);
+-				aggregate_map[original_binding] = new_binding;
+-			}
+-			continue;
+-		}
+ 		auto entry = aggregate_remap.find(*aggr.expressions[i]);
+ 		if (entry == aggregate_remap.end()) {
+ 			// aggregate does not exist yet: add it to the map

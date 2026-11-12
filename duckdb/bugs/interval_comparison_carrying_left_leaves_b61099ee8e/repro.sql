@@ -1,0 +1,12 @@
+.mode list
+.nullvalue NULL
+SELECT INTERVAL '30' DAY > INTERVAL '1' MONTH;
+SELECT INTERVAL '30' DAY = INTERVAL '1' MONTH;
+SELECT INTERVAL '30' DAY >= INTERVAL '1' MONTH;
+SELECT INTERVAL '31' DAY > INTERVAL '1' MONTH;
+SELECT INTERVAL '1' HOUR < INTERVAL '1' DAY;
+SELECT INTERVAL '30' HOUR <= INTERVAL '1' DAY;
+SELECT INTERVAL '1' HOUR = INTERVAL '1' HOUR;
+SELECT INTERVAL '1' YEAR = INTERVAL '12' MONTH;
+select interval '28 days 432000 seconds' = interval '1 month 3 days';
+select interval '1 month' - interval '4 days' = interval '26 days';

@@ -1,0 +1,90 @@
+.mode list
+.nullvalue NULL
+create table child_join as from values (1) t(c);
+create table small_probe as from values
+(1, '1992-03-22 01:02:03'::TIMESTAMP),
+(1, '1992-03-22 01:02:04'::TIMESTAMP),
+(1, '1992-03-22 01:02:05'::TIMESTAMP),
+(1, '1992-03-22 01:02:06'::TIMESTAMP),
+(1, '1992-03-22 01:02:07'::TIMESTAMP),
+(1, '1992-03-22 01:02:08'::TIMESTAMP) t(sp_const, a);
+create table large_build as from values
+(1, '1992-03-22 01:02:04'::TIMESTAMP),
+(1, '1992-03-22 01:02:05'::TIMESTAMP),
+(1, '1992-03-22 01:02:06'::TIMESTAMP),
+(1, '1992-03-22 01:02:07'::TIMESTAMP),
+(1, '1992-03-22 01:02:08'::TIMESTAMP),
+(1, '1992-03-22 01:02:09'::TIMESTAMP),
+(1, '1992-03-22 01:02:10'::TIMESTAMP),
+(1, '1992-03-22 01:02:11'::TIMESTAMP),
+(1, '1992-03-22 01:02:12'::TIMESTAMP),
+(1, '1992-03-22 01:02:13'::TIMESTAMP),
+(1, '1992-03-22 01:02:14'::TIMESTAMP),
+(1, '1992-03-22 01:02:15'::TIMESTAMP),
+(1, '1992-03-22 01:02:16'::TIMESTAMP),
+(1, '1992-03-22 01:02:17'::TIMESTAMP),
+(1, '1992-03-22 01:02:18'::TIMESTAMP),
+(1, '1992-03-22 01:02:19'::TIMESTAMP),
+(1, '1992-03-22 01:02:20'::TIMESTAMP) t(lb_const, b);
+PRAGMA asof_loop_join_threshold = 0;
+select a from (select * from small_probe, child_join where c=sp_const) asof join large_build on (lb_const = sp_const and a < b) order by a;
+WITH
+  id_with_timepoint AS (
+    SELECT
+      'ID1' AS user_id,
+      '2024-12-23'::TIMESTAMP AS lastSeen
+  ),
+  id_and_payload_with_timepoint AS (
+    SELECT
+      'ID1' AS user_id,
+      '2024-02-11'::TIMESTAMP AS timepoint,
+      '{ "amp": [ {"k": "fqn1"}, {"k": "fqn2"}]}'::VARCHAR AS payload
+  ),
+  id_with_payload_intermediate AS (
+    SELECT
+      id_with_timepoint.user_id,
+      id_with_timepoint.lastSeen,
+      id_and_payload_with_timepoint.payload,
+    FROM
+      id_with_timepoint ASOF
+      LEFT JOIN id_and_payload_with_timepoint ON (
+        id_with_timepoint.user_id = id_and_payload_with_timepoint.user_id
+        AND id_and_payload_with_timepoint.timepoint < id_with_timepoint.lastSeen
+      )
+  ),
+  id_with_fqn AS (
+    SELECT
+      user_id,
+      lastSeen,
+      t.k_fqn
+    FROM
+      id_with_payload_intermediate
+      LEFT JOIN LATERAL UNNEST(payload ->> '$.amp[*].k') AS t (k_fqn) ON TRUE
+  ),
+  fqn_table AS (
+    SELECT
+      *
+    FROM
+      (
+        VALUES
+          ('fqn2', '2021-03-03'::TIMESTAMP),
+          ('fqn2', '2021-02-02'::TIMESTAMP),
+          ('fqn1', '2021-01-01'::TIMESTAMP)
+      ) AS data (ap_fqn, timepoint)
+  )
+SELECT
+  id_with_fqn.user_id,
+  id_with_fqn.k_fqn,
+  fqn_table.ap_fqn,
+  fqn_table.timepoint::TIMESTAMP
+FROM
+  id_with_fqn ASOF
+  LEFT JOIN fqn_table ON (
+    id_with_fqn.k_fqn = fqn_table.ap_fqn
+    AND fqn_table.timepoint < id_with_fqn.lastSeen
+  )
+ORDER BY
+  k_fqn,
+  timepoint;
+PRAGMA asof_loop_join_threshold = 32;
+select a from (select * from small_probe, child_join where c=sp_const) asof join large_build on (lb_const = sp_const and a < b) order by a;

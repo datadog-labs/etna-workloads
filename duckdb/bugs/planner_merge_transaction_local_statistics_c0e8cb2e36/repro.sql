@@ -1,0 +1,10 @@
+.mode list
+.nullvalue NULL
+SET explain_output='physical_only';
+CREATE TABLE a(x INTEGER);
+INSERT INTO a VALUES (1), (NULL);
+CREATE TABLE b(y INTEGER);
+INSERT INTO b VALUES (1);
+BEGIN;
+INSERT INTO b VALUES (NULL);
+SELECT count(*) FROM a WHERE EXISTS (SELECT 1 FROM b WHERE a.x IS NOT DISTINCT FROM b.y);

@@ -1,0 +1,124 @@
+diff --git a/src/common/arrow/arrow_converter.cpp b/src/common/arrow/arrow_converter.cpp
+index 32192b0..96d9835 100644
+--- a/src/common/arrow/arrow_converter.cpp
++++ b/src/common/arrow/arrow_converter.cpp
+@@ -177,11 +177,17 @@ void SetArrowFormat(DuckDBArrowSchemaHolder &root_holder, ArrowSchema &child, co
+ 	case LogicalTypeId::UUID: {
+ 		if (options.arrow_lossless_conversion) {
+ 			SetArrowExtension(root_holder, child, type, context);
+-		} else if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
+-			// UUID is cast to a regular (non-view) string by the appender, so never declare "vu".
+-			child.format = "U";
+ 		} else {
+-			child.format = "u";
++			if (options.produce_arrow_string_view && options.arrow_output_version >= ArrowFormatVersion::V1_4) {
++				// List views are only introduced in arrow format v1.4
++				child.format = "vu";
++			} else {
++				if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
++					child.format = "U";
++				} else {
++					child.format = "u";
++				}
++			}
+ 		}
+ 		break;
+ 	}
+@@ -403,7 +409,6 @@ void SetArrowFormat(DuckDBArrowSchemaHolder &root_holder, ArrowSchema &child, co
+ 		root_holder.nested_children_ptr.back().push_back(&root_holder.nested_children.back()[0]);
+ 		InitializeChild(root_holder.nested_children.back()[0], root_holder);
+ 		child.dictionary = root_holder.nested_children_ptr.back()[0];
+-		// dict values are always written in the regular int32 layout (see ArrowEnumData).
+ 		child.dictionary->format = "u";
+ 		break;
+ 	}
+diff --git a/src/common/arrow/arrow_type_extension.cpp b/src/common/arrow/arrow_type_extension.cpp
+index a41f8df..bdba515 100644
+--- a/src/common/arrow/arrow_type_extension.cpp
++++ b/src/common/arrow/arrow_type_extension.cpp
+@@ -283,8 +283,7 @@ struct ArrowJson {
+ 		root_holder.metadata_info.emplace_back(schema_metadata.SerializeMetadata());
+ 		schema.metadata = root_holder.metadata_info.back().get();
+ 		const auto options = context.GetClientProperties();
+-		// view layout only when string_view + >= 1.4; declare it to match.
+-		if (options.produce_arrow_string_view && options.arrow_output_version >= ArrowFormatVersion::V1_4) {
++		if (options.produce_arrow_string_view) {
+ 			schema.format = "vu";
+ 		} else {
+ 			if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
+@@ -305,8 +304,6 @@ struct ArrowBit {
+ 		} else if (format == "Z") {
+ 			return make_uniq<ArrowType>(LogicalType::BIT,
+ 			                            make_uniq<ArrowStringInfo>(ArrowVariableSizeType::SUPER_SIZE));
+-		} else if (format == "vz") {
+-			return make_uniq<ArrowType>(LogicalType::BIT, make_uniq<ArrowStringInfo>(ArrowVariableSizeType::VIEW));
+ 		}
+ 		throw InvalidInputException("Arrow extension type \"%s\" not supported for BIT type", format.c_str());
+ 	}
+@@ -318,10 +315,7 @@ struct ArrowBit {
+ 		root_holder.metadata_info.emplace_back(schema_metadata.SerializeMetadata());
+ 		schema.metadata = root_holder.metadata_info.back().get();
+ 		const auto options = context.GetClientProperties();
+-		if (options.arrow_output_version >= ArrowFormatVersion::V1_4) {
+-			// >= 1.4 appends the binary view (4-buffer) layout; declare it to match.
+-			schema.format = "vz";
+-		} else if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
++		if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
+ 			schema.format = "Z";
+ 		} else {
+ 			schema.format = "z";
+@@ -338,8 +332,6 @@ struct ArrowBignum {
+ 		} else if (format == "Z") {
+ 			return make_uniq<ArrowType>(LogicalType::BIGNUM,
+ 			                            make_uniq<ArrowStringInfo>(ArrowVariableSizeType::SUPER_SIZE));
+-		} else if (format == "vz") {
+-			return make_uniq<ArrowType>(LogicalType::BIGNUM, make_uniq<ArrowStringInfo>(ArrowVariableSizeType::VIEW));
+ 		}
+ 		throw InvalidInputException("Arrow extension type \"%s\" not supported for Bignum", format.c_str());
+ 	}
+@@ -351,10 +343,7 @@ struct ArrowBignum {
+ 		root_holder.metadata_info.emplace_back(schema_metadata.SerializeMetadata());
+ 		schema.metadata = root_holder.metadata_info.back().get();
+ 		const auto options = context.GetClientProperties();
+-		if (options.arrow_output_version >= ArrowFormatVersion::V1_4) {
+-			// >= 1.4 appends the binary view (4-buffer) layout; declare it to match.
+-			schema.format = "vz";
+-		} else if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
++		if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
+ 			schema.format = "Z";
+ 		} else {
+ 			schema.format = "z";
+@@ -507,10 +496,7 @@ struct ArrowGeometry {
+ 		schema.metadata = root_holder.metadata_info.back().get();
+ 
+ 		const auto options = context.GetClientProperties();
+-		if (options.arrow_output_version >= ArrowFormatVersion::V1_4) {
+-			// >= 1.4 appends the binary view (4-buffer) layout; declare it to match.
+-			schema.format = "vz";
+-		} else if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
++		if (options.arrow_offset_size == ArrowOffsetSize::LARGE) {
+ 			schema.format = "Z";
+ 		} else {
+ 			schema.format = "z";
+diff --git a/src/include/duckdb/common/arrow/appender/enum_data.hpp b/src/include/duckdb/common/arrow/appender/enum_data.hpp
+index a8ac667..b65da81 100644
+--- a/src/include/duckdb/common/arrow/appender/enum_data.hpp
++++ b/src/include/duckdb/common/arrow/appender/enum_data.hpp
+@@ -69,15 +69,8 @@ struct ArrowEnumData : public ArrowScalarBaseData<TGT> {
+ 
+ 	static void Initialize(ArrowAppendData &result, const LogicalType &type, idx_t capacity) {
+ 		result.GetMainBuffer().reserve(capacity * sizeof(TGT));
+-		// EnumAppendVector always writes the dictionary in the regular int32-offset string
+-		// layout, so force a non-view, regular-offset child regardless of the connection's
+-		// produce_arrow_string_view / arrow_large_buffer_size settings. Otherwise the child
+-		// would be finalized as a view (4-buffer) or large (int64-offset) array over int32
+-		// data, producing a malformed dictionary that consumers read as garbage.
+-		ClientProperties dict_options = result.options;
+-		dict_options.produce_arrow_string_view = false;
+-		dict_options.arrow_offset_size = ArrowOffsetSize::REGULAR;
+-		auto enum_data = ArrowAppender::InitializeChild(LogicalType::VARCHAR, EnumType::GetSize(type), dict_options);
++		// construct the enum child data
++		auto enum_data = ArrowAppender::InitializeChild(LogicalType::VARCHAR, EnumType::GetSize(type), result.options);
+ 		EnumAppendVector(*enum_data, EnumType::GetValuesInsertOrder(type), EnumType::GetSize(type));
+ 		result.child_data.push_back(std::move(enum_data));
+ 	}

@@ -1,0 +1,45 @@
+diff --git a/src/include/duckdb/storage/compression/alp/algorithm/alp.hpp b/src/include/duckdb/storage/compression/alp/algorithm/alp.hpp
+index 3122f04..c59419b 100644
+--- a/src/include/duckdb/storage/compression/alp/algorithm/alp.hpp
++++ b/src/include/duckdb/storage/compression/alp/algorithm/alp.hpp
+@@ -87,7 +87,7 @@ public:
+ 	T exceptions[AlpConstants::ALP_VECTOR_SIZE];
+ 	AlpConstants::EXCEPTION_POSITION_TYPE exceptions_positions[AlpConstants::ALP_VECTOR_SIZE];
+ 	vector<AlpCombination> best_k_combinations;
+-	uint32_t values_encoded[AlpConstants::ALP_VECTOR_SIZE * 2];
++	uint8_t values_encoded[AlpConstants::ALP_VECTOR_SIZE * 8];
+ 	using EXACT_TYPE = typename FloatingToExact<T>::TYPE;
+ 
+ 	idx_t RequiredSpace() const {
+@@ -372,8 +372,8 @@ struct AlpCompression {
+ 		auto bit_width = BitpackingPrimitives::MinimumBitWidth<uint64_t, false>(min_max_diff);
+ 		auto bp_size = BitpackingPrimitives::GetRequiredSize(n_values, bit_width);
+ 		if (!EMPTY && bit_width > 0) { //! We only execute the BP if we are writing the data
+-			BitpackingPrimitives::PackBuffer<uint64_t, false>(data_ptr_cast(compression_data.values_encoded),
+-			                                                  u_encoded_integers, n_values, bit_width);
++			BitpackingPrimitives::PackBuffer<uint64_t, false>(compression_data.values_encoded, u_encoded_integers,
++			                                                  n_values, bit_width);
+ 		}
+ 		compression_data.bit_width = bit_width;                                 // in bits
+ 		compression_data.bp_size = bp_size;                                     // in bytes
+diff --git a/src/main/config.cpp b/src/main/config.cpp
+index 83c4bf9..b74bd3b 100644
+--- a/src/main/config.cpp
++++ b/src/main/config.cpp
+@@ -796,15 +796,11 @@ optional_idx DBConfig::ParseMemoryLimitSlurm(const string &arg) {
+ 		return optional_idx();
+ 	}
+ 
+-	if (Value::IsNan(limit)) {
+-		return optional_idx();
+-	}
+ 	if (limit < 0) {
+ 		return static_cast<idx_t>(NumericLimits<int64_t>::Maximum());
+ 	}
+ 	idx_t actual_limit;
+-	// double(idx_max) rounds up to 2^64, so equality already means the product is not representable
+-	if (limit >= static_cast<double>(NumericLimits<idx_t>::Maximum()) / static_cast<double>(multiplier)) {
++	if (limit > static_cast<double>(NumericLimits<idx_t>::Maximum()) / static_cast<double>(multiplier)) {
+ 		actual_limit = NumericLimits<idx_t>::Maximum();
+ 	} else {
+ 		actual_limit = LossyNumericCast<idx_t>(static_cast<double>(multiplier) * limit);

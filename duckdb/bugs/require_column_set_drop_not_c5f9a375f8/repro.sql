@@ -1,0 +1,4 @@
+.mode list
+.nullvalue NULL
+CREATE TABLE t (a INTEGER);
+ALTER TABLE t SET NOT NULL;

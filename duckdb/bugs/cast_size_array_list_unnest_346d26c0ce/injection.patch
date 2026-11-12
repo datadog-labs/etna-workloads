@@ -1,0 +1,94 @@
+diff --git a/src/include/duckdb/optimizer/unnest_rewriter.hpp b/src/include/duckdb/optimizer/unnest_rewriter.hpp
+index e50b159..6b05ae0 100644
+--- a/src/include/duckdb/optimizer/unnest_rewriter.hpp
++++ b/src/include/duckdb/optimizer/unnest_rewriter.hpp
+@@ -54,13 +54,12 @@ public:
+ //! the SELECT
+ class UnnestRewriter {
+ public:
+-	explicit UnnestRewriter(ClientContext &context) : context(context) {
++	UnnestRewriter() {
+ 	}
+ 	//! Rewrite duplicate eliminated joins with UNNESTs
+ 	unique_ptr<LogicalOperator> Optimize(unique_ptr<LogicalOperator> op);
+ 
+ private:
+-	ClientContext &context;
+ 	//! Find delim joins that contain an UNNEST
+ 	void FindCandidates(unique_ptr<LogicalOperator> &root, unique_ptr<LogicalOperator> &op,
+ 	                    vector<reference<unique_ptr<LogicalOperator>>> &candidates);
+diff --git a/src/optimizer/optimizer.cpp b/src/optimizer/optimizer.cpp
+index e9ef3cb..9e095e2 100644
+--- a/src/optimizer/optimizer.cpp
++++ b/src/optimizer/optimizer.cpp
+@@ -384,7 +384,7 @@ void Optimizer::RunBuiltInOptimizers() {
+ 
+ 	// rewrites UNNESTs in DelimJoins by moving them to the projection
+ 	RunOptimizer(OptimizerType::UNNEST_REWRITER, [&]() {
+-		UnnestRewriter unnest_rewriter(context);
++		UnnestRewriter unnest_rewriter;
+ 		plan = unnest_rewriter.Optimize(std::move(plan));
+ 	});
+ 
+diff --git a/src/optimizer/unnest_rewriter.cpp b/src/optimizer/unnest_rewriter.cpp
+index 827158c..bd31d87 100644
+--- a/src/optimizer/unnest_rewriter.cpp
++++ b/src/optimizer/unnest_rewriter.cpp
+@@ -1,7 +1,5 @@
+ #include "duckdb/optimizer/unnest_rewriter.hpp"
+ 
+-#include "duckdb/planner/expression/bound_cast_expression.hpp"
+-
+ #include "duckdb/common/assert.hpp"
+ #include "duckdb/common/enums/expression_type.hpp"
+ #include "duckdb/common/helper.hpp"
+@@ -219,8 +217,7 @@ void UnnestRewriter::FindCandidates(unique_ptr<LogicalOperator> &root, unique_pt
+ 				}
+ 				auto &bind_col = proj.expressions[col_bind.column_index]->Cast<BoundColumnRefExpression>();
+ 				auto unnest_expr = make_uniq<BoundUnnestExpression>(unnest_get->types[i]);
+-				unnest_expr->ChildMutable() =
+-				    BoundCastExpression::AddArrayCastToList(context, proj.expressions[col_bind.column_index]->Copy());
++				unnest_expr->ChildMutable() = proj.expressions[col_bind.column_index]->Copy();
+ 				bind_col.BindingMutable() = ColumnBinding(unnest_get_index, bind_col.Binding().column_index);
+ 				auto unnest_proj_idx = ColumnBinding::PushExpression(unnest->expressions, std::move(unnest_expr));
+ 				ColumnBinding new_column_ref(bind_col.Binding().table_index, unnest_proj_idx);
+@@ -239,9 +236,8 @@ void UnnestRewriter::FindCandidates(unique_ptr<LogicalOperator> &root, unique_pt
+ 	}
+ }
+ 
+-static bool ConvertCTETableInOutUnnest(ClientContext &context, unique_ptr<LogicalOperator> &root,
+-                                       unique_ptr<LogicalOperator> &op, TableIndex input_cte_index,
+-                                       bool require_input_cte_ref = true) {
++static bool ConvertCTETableInOutUnnest(unique_ptr<LogicalOperator> &root, unique_ptr<LogicalOperator> &op,
++                                       TableIndex input_cte_index, bool require_input_cte_ref = true) {
+ 	if (op->type != LogicalOperatorType::LOGICAL_GET) {
+ 		return false;
+ 	}
+@@ -288,8 +284,7 @@ static bool ConvertCTETableInOutUnnest(ClientContext &context, unique_ptr<Logica
+ 		}
+ 		auto &bind_col = proj.expressions[col_bind.column_index]->Cast<BoundColumnRefExpression>();
+ 		auto unnest_expr = make_uniq<BoundUnnestExpression>(unnest_get->types[i]);
+-		unnest_expr->ChildMutable() =
+-		    BoundCastExpression::AddArrayCastToList(context, proj.expressions[col_bind.column_index]->Copy());
++		unnest_expr->ChildMutable() = proj.expressions[col_bind.column_index]->Copy();
+ 		bind_col.BindingMutable() = ColumnBinding(unnest_get_index, bind_col.Binding().column_index);
+ 		auto unnest_proj_idx = ColumnBinding::PushExpression(unnest->expressions, std::move(unnest_expr));
+ 		ColumnBinding new_column_ref(bind_col.Binding().table_index, unnest_proj_idx);
+@@ -421,7 +416,7 @@ bool UnnestRewriter::RewriteInlineCTEDedupCandidate(unique_ptr<LogicalOperator>
+ 	idx_t other_side = 1 - domain_side.GetIndex();
+ 	auto domain_ref_bindings = join.children[domain_side.GetIndex()]->GetColumnBindings();
+ 	if (join.children[other_side]->type == LogicalOperatorType::LOGICAL_GET &&
+-	    !ConvertCTETableInOutUnnest(context, root, join.children[other_side], domain_cte.table_index, false)) {
++	    !ConvertCTETableInOutUnnest(root, join.children[other_side], domain_cte.table_index, false)) {
+ 		return false;
+ 	}
+ 
+@@ -585,7 +580,7 @@ bool UnnestRewriter::RewriteCTECandidate(unique_ptr<LogicalOperator> &root, uniq
+ 	idx_t other_side = 1 - domain_side.GetIndex();
+ 
+ 	if (join.children[other_side]->type == LogicalOperatorType::LOGICAL_GET &&
+-	    !ConvertCTETableInOutUnnest(context, root, join.children[other_side], dedup_cte.table_index)) {
++	    !ConvertCTETableInOutUnnest(root, join.children[other_side], dedup_cte.table_index)) {
+ 		return false;
+ 	}
+ 

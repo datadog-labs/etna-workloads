@@ -1,0 +1,36 @@
+diff --git a/src/common/gzip_file_system.cpp b/src/common/gzip_file_system.cpp
+index a154be2..f071eed 100644
+--- a/src/common/gzip_file_system.cpp
++++ b/src/common/gzip_file_system.cpp
+@@ -160,15 +160,13 @@ void MiniZStreamWrapper::Initialize(QueryContext context, CompressedFile &file,
+ 		}
+ 	} else {
+ 		idx_t data_start = GZIP_HEADER_MINSIZE;
+-		auto read_count = GZipReadExact(context, *file.child_handle, gzip_hdr, GZIP_HEADER_MINSIZE);
+-		GZipFileSystem::VerifyGZIPHeader(gzip_hdr, read_count, &file);
++		auto read_count = file.child_handle->Read(context, gzip_hdr, GZIP_HEADER_MINSIZE);
++		GZipFileSystem::VerifyGZIPHeader(gzip_hdr, NumericCast<idx_t>(read_count), &file);
+ 		// Skip over the extra field if necessary
+ 		if (gzip_hdr[3] & GZIP_FLAG_EXTRA) {
+ 			uint8_t gzip_xlen[2];
+ 			file.child_handle->Seek(data_start);
+-			if (GZipReadExact(context, *file.child_handle, gzip_xlen, 2) != 2) {
+-				throw IOException("Input is not a GZIP stream: %s", file.path);
+-			}
++			file.child_handle->Read(context, gzip_xlen, 2);
+ 			auto xlen = NumericCast<idx_t>((uint8_t)gzip_xlen[0] | (uint8_t)gzip_xlen[1] << 8);
+ 			data_start += xlen + 2;
+ 		}
+@@ -284,6 +282,12 @@ bool MiniZStreamWrapper::ReadNextMemberHeader(StreamData &sd) {
+ bool MiniZStreamWrapper::Read(StreamData &sd) {
+ 	// Handling for the concatenated files
+ 	if (sd.refresh && read_state == GZipReadState::DEFLATE) {
++		auto available = static_cast<uint32_t>(sd.in_buff_end - sd.in_buff_start);
++		if (available <= GZIP_FOOTER_SIZE) {
++			// Only footer is available so we just close and return finished
++			Close();
++			return true;
++		}
+ 		read_state = GZipReadState::FOOTER;
+ 		state_bytes_remaining = GZIP_FOOTER_SIZE;
+ 	}

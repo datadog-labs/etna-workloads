@@ -1,0 +1,65 @@
+diff --git a/src/optimizer/row_group_pruner.cpp b/src/optimizer/row_group_pruner.cpp
+index a93b90e..4d4760f 100644
+--- a/src/optimizer/row_group_pruner.cpp
++++ b/src/optimizer/row_group_pruner.cpp
+@@ -143,15 +143,6 @@ optional_ptr<LogicalGet> RowGroupPruner::FindLogicalGet(const LogicalOrder &logi
+ 	}
+ 
+ 	D_ASSERT(pushdown_targets.size() == 1);
+-	auto &pushed_column = pushdown_targets[0].columns[0];
+-	if (pushed_column.mode != JoinFilterPushdownMode::RECONSTRUCT_EXPRESSION ||
+-	    RuntimeFilterCastUtil::RuntimeFilterUsesTryCast(pushed_column)) {
+-		// the sort key reaches the scan through a cast chain that does not preserve the raw column's
+-		// ordering (an explicit TRY_CAST, or a cast that can throw) - ordering row groups by the raw
+-		// column statistics would be incorrect - bail out
+-		return nullptr;
+-	}
+-
+ 	auto &logical_get = pushdown_targets.front().get;
+ 
+ 	if (!logical_get.function.set_scan_order) {
+diff --git a/src/optimizer/topn_optimizer.cpp b/src/optimizer/topn_optimizer.cpp
+index a2c9f80..dcd155f 100644
+--- a/src/optimizer/topn_optimizer.cpp
++++ b/src/optimizer/topn_optimizer.cpp
+@@ -93,11 +93,9 @@ void TopN::PushdownDynamicFilters(LogicalTopN &op) {
+ 	for (auto &target : pushdown_targets) {
+ 		auto &pushed_column = target.columns[0];
+ 		if (pushed_column.mode != JoinFilterPushdownMode::RECONSTRUCT_EXPRESSION ||
+-		    RuntimeFilterCastUtil::RuntimeFilterUsesTryCast(pushed_column) ||
+ 		    RuntimeFilterCastUtil::GetRuntimeFilterInputType(pushed_column, type) != type) {
+ 			// the pushed expression cannot be reconstructed on top of the raw scan value in the sort
+-			// key's type (e.g. a non-integral cast or a VARIANT in between), or the cast chain is not
+-			// order-preserving (an explicit TRY_CAST, or a cast that can throw) - bail out
++			// key's type (e.g. a non-integral cast or a VARIANT in between) - bail out
+ 			return;
+ 		}
+ 	}
+@@ -126,21 +124,20 @@ void TopN::PushdownDynamicFilters(LogicalTopN &op) {
+ 		auto &pushed_column = target.columns[0];
+ 		auto col_binding = pushed_column.probe_column_index;
+ 
+-		// reconstruct the sort key on top of the raw scan column (an order-preserving cast chain,
+-		// possibly empty), and evaluate the dynamic filter on the reconstructed value so the boundary
+-		// constant - which is built in the sort key's type - is compared against values in that same
+-		// type
++		// reconstruct the sort key on top of the raw scan column (a cast chain, possibly empty), and
++		// evaluate the dynamic filter on the reconstructed value so the boundary constant - which is
++		// built in the sort key's type - is compared against values in that same type
+ 		bool preserves_cast_errors = false;
+ 		auto filter_input =
+ 		    RuntimeFilterCastUtil::CreateRuntimeFilterInputExpression(context, pushed_column, preserves_cast_errors);
+ 		D_ASSERT(filter_input->GetReturnType() == type);
+-		D_ASSERT(!preserves_cast_errors);
+ 
+ 		// create the actual dynamic filter
+ 		auto pushed_expr = CreateDynamicFilterExpression(filter_data, type, filter_input->Copy());
+-		if (nulls_first) {
++		if (nulls_first || preserves_cast_errors) {
+ 			// rows whose sort key evaluates to NULL must not be dropped by the filter: with
+-			// NULLS FIRST they can be part of the top-N
++			// NULLS FIRST they can be part of the top-N, and a cast error raised by the original
++			// sort key expression must not be suppressed
+ 			auto or_filter = make_uniq<BoundConjunctionExpression>(ExpressionType::CONJUNCTION_OR);
+ 			auto is_null =
+ 			    ExpressionFilter::CreateNullCheckExpression(std::move(filter_input), ExpressionType::OPERATOR_IS_NULL);

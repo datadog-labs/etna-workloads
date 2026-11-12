@@ -1,0 +1,130 @@
+diff --git a/src/execution/operator/persistent/physical_delete.cpp b/src/execution/operator/persistent/physical_delete.cpp
+index 366e10d..f8a5cfd 100644
+--- a/src/execution/operator/persistent/physical_delete.cpp
++++ b/src/execution/operator/persistent/physical_delete.cpp
+@@ -266,13 +266,12 @@ unique_ptr<LocalSinkState> PhysicalDelete::GetLocalSinkState(ExecutionContext &c
+ //===--------------------------------------------------------------------===//
+ class DeleteSourceState : public GlobalSourceState {
+ public:
+-	explicit DeleteSourceState(const PhysicalDelete &op) : total_rows(1), rows_scanned(0) {
++	explicit DeleteSourceState(const PhysicalDelete &op) {
+ 		if (op.return_chunk) {
+ 			D_ASSERT(op.sink_state);
+ 			auto &g = op.sink_state->Cast<DeleteGlobalState>();
+ 			g.return_collection.InitializeScan(global_scan_state);
+ 			max_threads = MaxValue<idx_t>(g.return_collection.ChunkCount(), 1);
+-			total_rows = g.return_collection.Count();
+ 		} else {
+ 			max_threads = 1;
+ 		}
+@@ -284,8 +283,6 @@ public:
+ 
+ 	ColumnDataParallelScanState global_scan_state;
+ 	idx_t max_threads;
+-	idx_t total_rows;
+-	atomic<idx_t> rows_scanned;
+ };
+ 
+ class DeleteLocalSourceState : public LocalSourceState {
+@@ -301,27 +298,17 @@ unique_ptr<LocalSourceState> PhysicalDelete::GetLocalSourceState(ExecutionContex
+ 	return make_uniq<DeleteLocalSourceState>();
+ }
+ 
+-ProgressData PhysicalDelete::GetProgress(ClientContext &context, GlobalSourceState &gstate) const {
+-	auto &state = gstate.Cast<DeleteSourceState>();
+-	ProgressData progress;
+-	progress.total = double(MaxValue<idx_t>(state.total_rows, 1));
+-	progress.done = state.total_rows == 0 ? 1.0 : double(state.rows_scanned.load(std::memory_order_relaxed));
+-	return progress;
+-}
+-
+ SourceResultType PhysicalDelete::GetDataInternal(ExecutionContext &context, DataChunk &chunk,
+                                                  OperatorSourceInput &input) const {
+ 	auto &state = input.global_state.Cast<DeleteSourceState>();
+ 	auto &g = sink_state->Cast<DeleteGlobalState>();
+ 	if (!return_chunk) {
+ 		chunk.data[0].Append(Value::BIGINT(NumericCast<int64_t>(g.deleted_count.load())));
+-		state.rows_scanned.store(1, std::memory_order_relaxed);
+ 		return SourceResultType::FINISHED;
+ 	}
+ 
+ 	auto &lstate = input.local_state.Cast<DeleteLocalSourceState>();
+ 	g.return_collection.Scan(state.global_scan_state, lstate.local_scan_state, chunk);
+-	state.rows_scanned.fetch_add(chunk.size(), std::memory_order_relaxed);
+ 	return chunk.size() == 0 ? SourceResultType::FINISHED : SourceResultType::HAVE_MORE_OUTPUT;
+ }
+ 
+diff --git a/src/execution/operator/persistent/physical_update.cpp b/src/execution/operator/persistent/physical_update.cpp
+index a5fb85f..5880a12 100644
+--- a/src/execution/operator/persistent/physical_update.cpp
++++ b/src/execution/operator/persistent/physical_update.cpp
+@@ -301,44 +301,31 @@ SinkCombineResultType PhysicalUpdate::Combine(ExecutionContext &context, Operato
+ //===--------------------------------------------------------------------===//
+ class UpdateSourceState : public GlobalSourceState {
+ public:
+-	explicit UpdateSourceState(const PhysicalUpdate &op) : total_rows(1), rows_scanned(0) {
++	explicit UpdateSourceState(const PhysicalUpdate &op) {
+ 		if (op.return_chunk) {
+ 			D_ASSERT(op.sink_state);
+ 			auto &g = op.sink_state->Cast<UpdateGlobalState>();
+ 			g.return_collection.InitializeScan(scan_state);
+-			total_rows = g.return_collection.Count();
+ 		}
+ 	}
+ 
+ 	ColumnDataScanState scan_state;
+-	idx_t total_rows;
+-	atomic<idx_t> rows_scanned;
+ };
+ 
+ unique_ptr<GlobalSourceState> PhysicalUpdate::GetGlobalSourceState(ClientContext &context) const {
+ 	return make_uniq<UpdateSourceState>(*this);
+ }
+ 
+-ProgressData PhysicalUpdate::GetProgress(ClientContext &context, GlobalSourceState &gstate) const {
+-	auto &state = gstate.Cast<UpdateSourceState>();
+-	ProgressData progress;
+-	progress.total = double(MaxValue<idx_t>(state.total_rows, 1));
+-	progress.done = state.total_rows == 0 ? 1.0 : double(state.rows_scanned.load(std::memory_order_relaxed));
+-	return progress;
+-}
+-
+ SourceResultType PhysicalUpdate::GetDataInternal(ExecutionContext &context, DataChunk &chunk,
+                                                  OperatorSourceInput &input) const {
+ 	auto &state = input.global_state.Cast<UpdateSourceState>();
+ 	auto &g = sink_state->Cast<UpdateGlobalState>();
+ 	if (!return_chunk) {
+ 		chunk.data[0].Append(Value::BIGINT(NumericCast<int64_t>(g.updated_count.load())));
+-		state.rows_scanned.store(1, std::memory_order_relaxed);
+ 		return SourceResultType::FINISHED;
+ 	}
+ 
+ 	g.return_collection.Scan(state.scan_state, chunk);
+-	state.rows_scanned.fetch_add(chunk.size(), std::memory_order_relaxed);
+ 
+ 	return chunk.size() == 0 ? SourceResultType::FINISHED : SourceResultType::HAVE_MORE_OUTPUT;
+ }
+diff --git a/src/include/duckdb/execution/operator/persistent/physical_delete.hpp b/src/include/duckdb/execution/operator/persistent/physical_delete.hpp
+index 52bb3e5..e58a69b 100644
+--- a/src/include/duckdb/execution/operator/persistent/physical_delete.hpp
++++ b/src/include/duckdb/execution/operator/persistent/physical_delete.hpp
+@@ -35,7 +35,6 @@ public:
+ public:
+ 	// Source interface
+ 	unique_ptr<GlobalSourceState> GetGlobalSourceState(ClientContext &context) const override;
+-	ProgressData GetProgress(ClientContext &context, GlobalSourceState &gstate) const override;
+ 	unique_ptr<LocalSourceState> GetLocalSourceState(ExecutionContext &context,
+ 	                                                 GlobalSourceState &gstate) const override;
+ 	SourceResultType GetDataInternal(ExecutionContext &context, DataChunk &chunk,
+diff --git a/src/include/duckdb/execution/operator/persistent/physical_update.hpp b/src/include/duckdb/execution/operator/persistent/physical_update.hpp
+index 4a573d5..2145f89 100644
+--- a/src/include/duckdb/execution/operator/persistent/physical_update.hpp
++++ b/src/include/duckdb/execution/operator/persistent/physical_update.hpp
+@@ -51,7 +51,6 @@ public:
+ public:
+ 	// Source interface
+ 	unique_ptr<GlobalSourceState> GetGlobalSourceState(ClientContext &context) const override;
+-	ProgressData GetProgress(ClientContext &context, GlobalSourceState &gstate) const override;
+ 	SourceResultType GetDataInternal(ExecutionContext &context, DataChunk &chunk,
+ 	                                 OperatorSourceInput &input) const override;
+ 

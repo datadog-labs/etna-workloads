@@ -1,0 +1,44 @@
+diff --git a/src/include/duckdb/parallel/pipeline.hpp b/src/include/duckdb/parallel/pipeline.hpp
+index 4796546..f331f78 100644
+--- a/src/include/duckdb/parallel/pipeline.hpp
++++ b/src/include/duckdb/parallel/pipeline.hpp
+@@ -269,7 +269,6 @@ private:
+ 	void ScheduleSequentialTask(shared_ptr<Event> &event);
+ 	bool LaunchScanTasks(shared_ptr<Event> &event, idx_t max_threads);
+ 	void ResetSinkAndOperators();
+-	void ResetBatchIndexes();
+ 	shared_ptr<GlobalSourceState> GetSourceState();
+ 	void SetSourceState(shared_ptr<GlobalSourceState> state);
+ 	void FinishSourceAndPreventBlocking(ClientContext &context);
+diff --git a/src/parallel/pipeline.cpp b/src/parallel/pipeline.cpp
+index 40232b8..596437b 100644
+--- a/src/parallel/pipeline.cpp
++++ b/src/parallel/pipeline.cpp
+@@ -428,9 +428,6 @@ void Pipeline::ResetForReschedule(bool reset_sink) {
+ 	} else {
+ 		SetSourceState(ToSharedSourceState(source->GetGlobalSourceState(client, partition_info)));
+ 	}
+-	if (partition_info.AnyRequired()) {
+-		ResetBatchIndexes();
+-	}
+ 	initialized = true;
+ }
+ 
+@@ -739,15 +736,8 @@ const vector<reference<PhysicalOperator>> &Pipeline::GetIntermediateOperators()
+ }
+ 
+ void Pipeline::ClearSource() {
+-	{
+-		annotated_lock_guard<annotated_mutex> source_guard(source_state_lock);
+-		source_state.reset();
+-	}
+-	ResetBatchIndexes();
+-}
+-
+-void Pipeline::ResetBatchIndexes() {
+-	lock_guard<mutex> batch_guard(batch_lock);
++	annotated_lock_guard<annotated_mutex> source_guard(source_state_lock);
++	source_state.reset();
+ 	batch_indexes.clear();
+ }
+ 

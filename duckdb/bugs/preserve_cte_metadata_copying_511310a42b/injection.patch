@@ -1,0 +1,76 @@
+diff --git a/src/include/duckdb/parser/common_table_expression_info.hpp b/src/include/duckdb/parser/common_table_expression_info.hpp
+index 9548d7d..c3585dc 100644
+--- a/src/include/duckdb/parser/common_table_expression_info.hpp
++++ b/src/include/duckdb/parser/common_table_expression_info.hpp
+@@ -40,7 +40,7 @@ struct CommonTableExpressionInfo {
+ 
+ 	void Serialize(Serializer &serializer) const;
+ 	static unique_ptr<CommonTableExpressionInfo> Deserialize(Deserializer &deserializer);
+-	unique_ptr<CommonTableExpressionInfo> Copy() const;
++	unique_ptr<CommonTableExpressionInfo> Copy();
+ };
+ 
+ } // namespace duckdb
+diff --git a/src/parser/common_table_expression_info.cpp b/src/parser/common_table_expression_info.cpp
+index 5f32fc0..f8f79bc 100644
+--- a/src/parser/common_table_expression_info.cpp
++++ b/src/parser/common_table_expression_info.cpp
+@@ -17,7 +17,7 @@ CommonTableExpressionInfo::CommonTableExpressionInfo(unique_ptr<SelectStatement>
+ 	}
+ }
+ 
+-unique_ptr<CommonTableExpressionInfo> CommonTableExpressionInfo::Copy() const {
++unique_ptr<CommonTableExpressionInfo> CommonTableExpressionInfo::Copy() {
+ 	auto result = make_uniq<CommonTableExpressionInfo>();
+ 	result->aliases = aliases;
+ 	if (query_node) {
+diff --git a/src/parser/query_node.cpp b/src/parser/query_node.cpp
+index 623878f..4057af1 100644
+--- a/src/parser/query_node.cpp
++++ b/src/parser/query_node.cpp
+@@ -15,7 +15,21 @@ CommonTableExpressionMap::CommonTableExpressionMap() {
+ CommonTableExpressionMap CommonTableExpressionMap::Copy() const {
+ 	CommonTableExpressionMap res;
+ 	for (auto &kv : this->map) {
+-		res.map[kv.first] = kv.second->Copy();
++		auto kv_info = make_uniq<CommonTableExpressionInfo>();
++		for (auto &al : kv.second->aliases) {
++			kv_info->aliases.push_back(al);
++		}
++		for (auto &al : kv.second->key_targets) {
++			kv_info->key_targets.push_back(al->Copy());
++		}
++		for (auto &al : kv.second->payload_aggregates) {
++			kv_info->payload_aggregates.push_back(al->Copy());
++		}
++		if (kv.second->query_node) {
++			kv_info->query_node = kv.second->query_node->Copy();
++		}
++		kv_info->materialized = kv.second->materialized;
++		res.map[kv.first] = std::move(kv_info);
+ 	}
+ 
+ 	return res;
+@@ -165,7 +179,21 @@ void QueryNode::CopyProperties(QueryNode &other) const {
+ 		other.modifiers.push_back(modifier->Copy());
+ 	}
+ 	for (auto &kv : cte_map.map) {
+-		other.cte_map.map[kv.first] = kv.second->Copy();
++		auto kv_info = make_uniq<CommonTableExpressionInfo>();
++		for (auto &al : kv.second->aliases) {
++			kv_info->aliases.push_back(al);
++		}
++		for (auto &key : kv.second->key_targets) {
++			kv_info->key_targets.push_back(key->Copy());
++		}
++		for (auto &agg : kv.second->payload_aggregates) {
++			kv_info->payload_aggregates.push_back(agg->Copy());
++		}
++		if (kv.second->query_node) {
++			kv_info->query_node = kv.second->query_node->Copy();
++		}
++		kv_info->materialized = kv.second->materialized;
++		other.cte_map.map[kv.first] = std::move(kv_info);
+ 	}
+ }
+ 

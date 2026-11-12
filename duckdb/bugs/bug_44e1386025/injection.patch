@@ -1,0 +1,27 @@
+diff --git a/src/execution/operator/join/physical_hash_join.cpp b/src/execution/operator/join/physical_hash_join.cpp
+index 81ff1e4..65455d9 100644
+--- a/src/execution/operator/join/physical_hash_join.cpp
++++ b/src/execution/operator/join/physical_hash_join.cpp
+@@ -307,11 +307,6 @@ static bool BuildSideHasMultipleSources(const PhysicalOperator &op) {
+ 	case PhysicalOperatorType::RECURSIVE_CTE:
+ 	case PhysicalOperatorType::RECURSIVE_KEY_CTE:
+ 		return true;
+-	case PhysicalOperatorType::CTE_SCAN:
+-	case PhysicalOperatorType::RECURSIVE_CTE_SCAN:
+-	case PhysicalOperatorType::RECURSIVE_RECURRING_CTE_SCAN:
+-		// CTE producers are not children of their scans and may forward different dictionaries.
+-		return true;
+ 	case PhysicalOperatorType::LEFT_DELIM_JOIN:
+ 	case PhysicalOperatorType::RIGHT_DELIM_JOIN:
+ 		// The output flows out of the wrapped join, which is not among the children.
+@@ -319,10 +314,6 @@ static bool BuildSideHasMultipleSources(const PhysicalOperator &op) {
+ 	default:
+ 		break;
+ 	}
+-	if (op.IsSink() && op.children.size() == 1) {
+-		// Single-input sinks materialize their input and become the source of a new pipeline.
+-		return false;
+-	}
+ 	for (const auto &child : op.children) {
+ 		if (BuildSideHasMultipleSources(child.get())) {
+ 			return true;

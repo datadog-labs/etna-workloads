@@ -1,0 +1,17 @@
+.mode list
+.nullvalue NULL
+SELECT 'infinity'::TIMESTAMP, '-infinity'::TIMESTAMP;
+SELECT 'Infinity'::TIMESTAMP, '-Infinity'::TIMESTAMP;
+SELECT 'INFINITY'::TIMESTAMP, '-INFINITY'::TIMESTAMP;
+SELECT 'inFinIty'::TIMESTAMP, '-inFinIty'::TIMESTAMP;
+SELECT 'inf'::TIMESTAMP, '-inf'::TIMESTAMP;
+SELECT 'infinity'::TIMESTAMPTZ, '-infinity'::TIMESTAMPTZ;
+SELECT 'Infinity'::TIMESTAMPTZ, '-Infinity'::TIMESTAMPTZ;
+SELECT 'INFINITY'::TIMESTAMPTZ, '-INFINITY'::TIMESTAMPTZ;
+SELECT 'inFinIty'::TIMESTAMPTZ, '-inFinIty'::TIMESTAMPTZ;
+SELECT 'inf'::TIMESTAMPTZ, '-inf'::TIMESTAMPTZ;
+SELECT 'infinity'::DATE, '-infinity'::DATE;
+SELECT 'Infinity'::DATE, '-Infinity'::DATE;
+SELECT 'INFINITY'::DATE, '-INFINITY'::DATE;
+SELECT 'inFinIty'::DATE, '-inFinIty'::DATE;
+SELECT 'inf'::DATE, '-inf'::DATE;

@@ -1,0 +1,63 @@
+diff --git a/src/include/duckdb/storage/statistics/numeric_stats.hpp b/src/include/duckdb/storage/statistics/numeric_stats.hpp
+index 95c5a17..8d899d8 100644
+--- a/src/include/duckdb/storage/statistics/numeric_stats.hpp
++++ b/src/include/duckdb/storage/statistics/numeric_stats.hpp
+@@ -15,9 +15,6 @@
+ #include "duckdb/storage/statistics/numeric_stats_union.hpp"
+ #include "duckdb/common/array_ptr.hpp"
+ 
+-#include <cmath>
+-#include <type_traits>
+-
+ namespace duckdb {
+ class BaseStatistics;
+ struct SelectionVector;
+@@ -90,16 +87,6 @@ struct NumericStats {
+ 	static inline void UpdateValue(T new_value, T &min, T &max) {
+ 		min = LessThan::Operation(new_value, min) ? new_value : min;
+ 		max = GreaterThan::Operation(new_value, max) ? new_value : max;
+-		if constexpr (std::is_floating_point_v<T>) {
+-			// -0.0 == 0.0: prefer -0.0 as min and 0.0 as max so IsConstant can detect mixed zeros
+-			if (new_value == T(0)) {
+-				if (std::signbit(new_value)) {
+-					min = min == T(0) ? new_value : min;
+-				} else {
+-					max = max == T(0) ? new_value : max;
+-				}
+-			}
+-		}
+ 	}
+ 	template <class T>
+ 	static inline void Update(NumericStatsData &nstats, T new_value) {
+diff --git a/src/storage/statistics/numeric_stats.cpp b/src/storage/statistics/numeric_stats.cpp
+index 14640c6..c5ff80e 100644
+--- a/src/storage/statistics/numeric_stats.cpp
++++ b/src/storage/statistics/numeric_stats.cpp
+@@ -371,26 +371,8 @@ bool NumericStats::ConstantsCoverRange(const BaseStatistics &stats, array_ptr<co
+ 	return true;
+ }
+ 
+-template <class T>
+-static bool ZeroSignsMatch(const BaseStatistics &stats) {
+-	auto min = NumericStats::GetMinUnsafe<T>(stats);
+-	auto max = NumericStats::GetMaxUnsafe<T>(stats);
+-	return min != T(0) || std::signbit(min) == std::signbit(max);
+-}
+-
+ bool NumericStats::IsConstant(const BaseStatistics &stats) {
+-	if (NumericStats::Max(stats) > NumericStats::Min(stats)) {
+-		return false;
+-	}
+-	// -0.0 == 0.0, so a zero range is only constant if both bounds have the same sign
+-	switch (stats.GetType().InternalType()) {
+-	case PhysicalType::FLOAT:
+-		return ZeroSignsMatch<float>(stats);
+-	case PhysicalType::DOUBLE:
+-		return ZeroSignsMatch<double>(stats);
+-	default:
+-		return true;
+-	}
++	return NumericStats::Max(stats) <= NumericStats::Min(stats);
+ }
+ 
+ void SetNumericValueInternal(const Value &input, const LogicalType &type, NumericValueUnion &val, bool &has_val) {

@@ -1,0 +1,84 @@
+.mode list
+.nullvalue NULL
+CREATE TABLE t (id INT PRIMARY KEY, s TEXT, j BIGINT);
+CREATE INDEX idx ON t(j);
+INSERT INTO t VALUES (1, 'a', 10), (2, 'b', 20), (3, 'c', 30);
+SELECT * FROM t ORDER BY id;
+DELETE FROM t WHERE id = 2;
+SELECT * FROM t ORDER BY id;
+DELETE FROM t WHERE j = 30;
+SELECT * FROM t ORDER BY id;
+INSERT INTO t VALUES (4, 'd', 40), (5, 'e', 50);
+BEGIN TRANSACTION;
+DELETE FROM t WHERE j > 10;
+SELECT * FROM t ORDER BY id;
+ROLLBACK;
+SELECT * FROM t ORDER BY id;
+DELETE FROM t;
+SELECT COUNT(*) FROM t;
+INSERT INTO t VALUES (1, 'a', 10), (2, 'b', 20), (3, 'c', 30);
+BEGIN TRANSACTION;
+DELETE FROM t WHERE j >= 20;
+INSERT INTO t VALUES (2, 'new_20', 20), (3, 'new_30', 30);
+SELECT * FROM t WHERE j = 20;
+SELECT * FROM t WHERE j = 30;
+COMMIT;
+SELECT * FROM t WHERE j = 20;
+SELECT * FROM t WHERE j = 30;
+BEGIN TRANSACTION;
+DELETE FROM t WHERE j >= 20;
+INSERT INTO t VALUES (2, 'tmp_20', 20), (3, 'tmp_30', 30);
+SELECT * FROM t WHERE j = 20;
+SELECT * FROM t WHERE j = 30;
+ROLLBACK;
+SELECT * FROM t WHERE j = 20;
+SELECT * FROM t WHERE j = 30;
+SELECT * FROM t WHERE j >= 20 ORDER BY j;
+DELETE FROM t;
+INSERT INTO t VALUES (1, 'a', 10), (2, 'b', 20), (3, 'c', 30);
+CREATE TABLE source (id INT, s TEXT, j BIGINT);
+INSERT INTO source VALUES (2, 'x', 200), (3, 'y', 300);
+MERGE INTO t USING source ON t.id = source.id
+WHEN MATCHED THEN DELETE;
+SELECT * FROM t ORDER BY id;
+INSERT INTO t VALUES (2, 'new_b', 25), (3, 'new_c', 35);
+SELECT * FROM t ORDER BY id;
+SELECT * FROM t WHERE j = 25;
+DELETE FROM t;
+INSERT INTO t VALUES (1, 'a', 10), (2, 'b', 20), (3, 'c', 30);
+DELETE FROM source;
+INSERT INTO source VALUES (2, 'x', 200), (3, 'y', 300);
+BEGIN TRANSACTION;
+MERGE INTO t USING source ON t.id = source.id
+WHEN MATCHED THEN DELETE;
+INSERT INTO t VALUES (2, 'merge_20', 20), (3, 'merge_30', 30);
+SELECT * FROM t WHERE j = 20;
+SELECT * FROM t WHERE j = 30;
+COMMIT;
+SELECT * FROM t WHERE j = 20;
+SELECT * FROM t WHERE j = 30;
+BEGIN TRANSACTION;
+MERGE INTO t USING source ON t.id = source.id
+WHEN MATCHED THEN DELETE;
+INSERT INTO t VALUES (2, 'tmp_20', 20), (3, 'tmp_30', 30);
+SELECT * FROM t WHERE j = 20;
+ROLLBACK;
+SELECT * FROM t WHERE j = 20;
+SELECT * FROM t WHERE j = 30;
+DROP TABLE source;
+CREATE TABLE delete_using_indexed(id INTEGER PRIMARY KEY, payload VARCHAR);
+INSERT INTO delete_using_indexed SELECT range, range::VARCHAR FROM range(10);
+DELETE FROM delete_using_indexed USING range(100) source(i) WHERE source.i = 0;
+SELECT count(*) FROM delete_using_indexed;
+INSERT INTO delete_using_indexed SELECT range, range::VARCHAR FROM range(10);
+DELETE FROM delete_using_indexed USING range(100) source(i) WHERE source.i = 0 RETURNING id;
+SET threads=1;
+PRAGMA disable_optimizer;
+CREATE TABLE delete_using_duplicate_indexed(id INTEGER PRIMARY KEY, payload VARCHAR);
+INSERT INTO delete_using_duplicate_indexed VALUES (0, 'zero'), (1, 'one');
+BEGIN;
+DELETE FROM delete_using_duplicate_indexed
+USING (VALUES (0), (0), (1)) AS source(id)
+WHERE delete_using_duplicate_indexed.id = source.id
+RETURNING delete_using_duplicate_indexed.id;
+INSERT INTO delete_using_duplicate_indexed VALUES (1, 'replacement');

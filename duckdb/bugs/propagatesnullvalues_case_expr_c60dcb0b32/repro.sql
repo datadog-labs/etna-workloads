@@ -1,0 +1,2 @@
+CREATE TABLE integers AS SELECT * FROM (VALUES (1),(2),(3),(NULL)) t(i);
+SELECT i, (SELECT CASE WHEN sum(i) > 1 THEN 0 ELSE 1 END FROM integers WHERE i=i1.i) FROM integers i1 ORDER BY ALL;

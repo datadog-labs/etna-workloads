@@ -1,0 +1,36 @@
+diff --git a/src/storage/table/column_data.cpp b/src/storage/table/column_data.cpp
+index c820ee4..3ce5b20 100644
+--- a/src/storage/table/column_data.cpp
++++ b/src/storage/table/column_data.cpp
+@@ -499,11 +499,12 @@ FilterPropagateResult ColumnData::CheckZonemap(ColumnScanState &state, TableFilt
+ 	if (prune_result == FilterPropagateResult::NO_PRUNING_POSSIBLE) {
+ 		return FilterPropagateResult::NO_PRUNING_POSSIBLE;
+ 	}
+-	auto update_stats = GetUpdateStatistics();
+-	if (!update_stats) {
++	lock_guard<mutex> l(update_lock);
++	if (!updates) {
+ 		// no updates - return original result
+ 		return prune_result;
+ 	}
++	auto update_stats = updates->GetStatistics();
+ 	// combine the update and original prune result
+ 	auto context = state.context.GetClientContext();
+ 	FilterPropagateResult update_result =
+diff --git a/src/storage/table/standard_column_data.cpp b/src/storage/table/standard_column_data.cpp
+index ac2fa3e..93c7fc6 100644
+--- a/src/storage/table/standard_column_data.cpp
++++ b/src/storage/table/standard_column_data.cpp
+@@ -188,11 +188,7 @@ void StandardColumnData::UpdateColumn(TransactionData transaction, DuckTableEntr
+ }
+ 
+ unique_ptr<BaseStatistics> StandardColumnData::GetUpdateStatistics() {
+-	unique_ptr<BaseStatistics> stats;
+-	{
+-		lock_guard<mutex> update_guard(update_lock);
+-		stats = updates ? updates->GetStatistics() : nullptr;
+-	}
++	auto stats = updates ? updates->GetStatistics() : nullptr;
+ 	auto validity_stats = validity->GetUpdateStatistics();
+ 	if (!stats && !validity_stats) {
+ 		return nullptr;

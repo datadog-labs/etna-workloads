@@ -1,0 +1,229 @@
+diff --git a/src/include/duckdb/parser/peg/inlined_grammar.gram b/src/include/duckdb/parser/peg/inlined_grammar.gram
+index ce3543b..def88c2 100644
+--- a/src/include/duckdb/parser/peg/inlined_grammar.gram
++++ b/src/include/duckdb/parser/peg/inlined_grammar.gram
+@@ -37,10 +37,14 @@ Statement <-
+ 	AnalyzeStatement /
+ 	MergeIntoStatement /
+ 	ConnectStatement /
+-	DisconnectStatement
++	DisconnectStatement /
++	ExpressionStatement
+ 
+ AnalyzeKeyword <- 'ANALYZE' / 'ANALYSE'
+ 
++ExpressionStatement <- List(ExpressionAlias)
++ExpressionAlias <- ColIdExpression / ExpressionAsCollabel / Expression
++
+ CatalogName <- Identifier
+ SchemaName <- Identifier
+ ReservedSchemaName <- Identifier
+diff --git a/src/include/duckdb/parser/peg/inlined_grammar.hpp b/src/include/duckdb/parser/peg/inlined_grammar.hpp
+index 0b57885..6a92ac2 100644
+--- a/src/include/duckdb/parser/peg/inlined_grammar.hpp
++++ b/src/include/duckdb/parser/peg/inlined_grammar.hpp
+@@ -42,8 +42,11 @@ const unsigned char INLINED_PEG_GRAMMAR[] = {
+     9, 65, 110, 97, 108, 121, 122, 101, 83, 116, 97, 116, 101, 109, 101, 110, 116, 32, 47, 10,
+     9, 77, 101, 114, 103, 101, 73, 110, 116, 111, 83, 116, 97, 116, 101, 109, 101, 110, 116, 32, 47, 10,
+     9, 67, 111, 110, 110, 101, 99, 116, 83, 116, 97, 116, 101, 109, 101, 110, 116, 32, 47, 10,
+-    9, 68, 105, 115, 99, 111, 110, 110, 101, 99, 116, 83, 116, 97, 116, 101, 109, 101, 110, 116, 10,
++    9, 68, 105, 115, 99, 111, 110, 110, 101, 99, 116, 83, 116, 97, 116, 101, 109, 101, 110, 116, 32, 47, 10,
++    9, 69, 120, 112, 114, 101, 115, 115, 105, 111, 110, 83, 116, 97, 116, 101, 109, 101, 110, 116, 10,
+     65, 110, 97, 108, 121, 122, 101, 75, 101, 121, 119, 111, 114, 100, 32, 60, 45, 32, 39, 65, 78, 65, 76, 89, 90, 69, 39, 32, 47, 32, 39, 65, 78, 65, 76, 89, 83, 69, 39, 10,
++    69, 120, 112, 114, 101, 115, 115, 105, 111, 110, 83, 116, 97, 116, 101, 109, 101, 110, 116, 32, 60, 45, 32, 76, 105, 115, 116, 40, 69, 120, 112, 114, 101, 115, 115, 105, 111, 110, 65, 108, 105, 97, 115, 41, 10,
++    69, 120, 112, 114, 101, 115, 115, 105, 111, 110, 65, 108, 105, 97, 115, 32, 60, 45, 32, 67, 111, 108, 73, 100, 69, 120, 112, 114, 101, 115, 115, 105, 111, 110, 32, 47, 32, 69, 120, 112, 114, 101, 115, 115, 105, 111, 110, 65, 115, 67, 111, 108, 108, 97, 98, 101, 108, 32, 47, 32, 69, 120, 112, 114, 101, 115, 115, 105, 111, 110, 10,
+     67, 97, 116, 97, 108, 111, 103, 78, 97, 109, 101, 32, 60, 45, 32, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 10,
+     83, 99, 104, 101, 109, 97, 78, 97, 109, 101, 32, 60, 45, 32, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 10,
+     82, 101, 115, 101, 114, 118, 101, 100, 83, 99, 104, 101, 109, 97, 78, 97, 109, 101, 32, 60, 45, 32, 73, 100, 101, 110, 116, 105, 102, 105, 101, 114, 10,
+diff --git a/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp b/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
+index 7fa82e0..397587c 100644
+--- a/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
++++ b/src/include/duckdb/parser/peg/transformer/peg_transformer.hpp
+@@ -942,6 +942,13 @@ public:
+ 	static void InitializeAnalyzeKeywordTrampoline(PEGTransformer &transformer, GeneratedTransformProcess &process);
+ 	static arena_ptr<TransformResultValue> FinalizeAnalyzeKeywordTrampoline(PEGTransformer &transformer,
+ 	                                                                        GeneratedTransformProcess &process);
++	static void InitializeExpressionStatementTrampoline(PEGTransformer &transformer,
++	                                                    GeneratedTransformProcess &process);
++	static arena_ptr<TransformResultValue> FinalizeExpressionStatementTrampoline(PEGTransformer &transformer,
++	                                                                             GeneratedTransformProcess &process);
++	static void InitializeExpressionAliasTrampoline(PEGTransformer &transformer, GeneratedTransformProcess &process);
++	static arena_ptr<TransformResultValue> FinalizeExpressionAliasTrampoline(PEGTransformer &transformer,
++	                                                                         GeneratedTransformProcess &process);
+ 	static void InitializeIndexNameTrampoline(PEGTransformer &transformer, GeneratedTransformProcess &process);
+ 	static arena_ptr<TransformResultValue> FinalizeIndexNameTrampoline(PEGTransformer &transformer,
+ 	                                                                   GeneratedTransformProcess &process);
+@@ -4308,6 +4315,8 @@ public:
+ 	static CatalogType TransformCommentColumn(PEGTransformer &transformer);
+ 	static Value TransformStringLiteralValue(PEGTransformer &transformer, const string &string_literal);
+ 	static Identifier TransformAnalyzeKeyword(PEGTransformer &transformer);
++	static unique_ptr<SQLStatement> TransformExpressionStatement(PEGTransformer &transformer,
++	                                                             vector<unique_ptr<ParsedExpression>> expression_alias);
+ 	static Identifier TransformConstraintName(PEGTransformer &transformer, const Identifier &col_id_or_string);
+ 	static Identifier TransformCollationName(PEGTransformer &transformer, const Identifier &identifier);
+ 	static unique_ptr<ParsedExpression> TransformNumberLiteral(PEGTransformer &transformer, ParseResult &parse_result);
+diff --git a/src/parser/peg/grammar/statements/common.gram b/src/parser/peg/grammar/statements/common.gram
+index 2b8dae8..0b1473c 100644
+--- a/src/parser/peg/grammar/statements/common.gram
++++ b/src/parser/peg/grammar/statements/common.gram
+@@ -37,10 +37,14 @@ Statement <-
+ 	AnalyzeStatement /
+ 	MergeIntoStatement /
+ 	ConnectStatement /
+-	DisconnectStatement
++	DisconnectStatement /
++	ExpressionStatement
+ 
+ AnalyzeKeyword <- 'ANALYZE' / 'ANALYSE'
+ 
++ExpressionStatement <- List(ExpressionAlias)
++ExpressionAlias <- ColIdExpression / ExpressionAsCollabel / Expression
++
+ CatalogName <- Identifier
+ SchemaName <- Identifier
+ ReservedSchemaName <- Identifier
+diff --git a/src/parser/peg/transformer/transform_expression.cpp b/src/parser/peg/transformer/transform_expression.cpp
+index 65aff7f..3c0ec5c 100644
+--- a/src/parser/peg/transformer/transform_expression.cpp
++++ b/src/parser/peg/transformer/transform_expression.cpp
+@@ -110,6 +110,60 @@ static unique_ptr<ParsedExpression> TransformParserFunctionRewrite(const string
+ 	return nullptr;
+ }
+ 
++unique_ptr<SQLStatement>
++PEGTransformerFactory::TransformExpressionStatement(PEGTransformer &transformer,
++                                                    vector<unique_ptr<ParsedExpression>> expression_alias) {
++	auto expressions = std::move(expression_alias);
++	auto select_statement = make_uniq<SelectStatement>();
++	auto select_node = make_uniq<SelectNode>();
++
++	bool any_column_ref = false;
++	for (auto &expr : expressions) {
++		if (expr->GetExpressionClass() == ExpressionClass::COLUMN_REF) {
++			any_column_ref = true;
++			break;
++		}
++	}
++
++	if (any_column_ref && expressions.size() > 1) {
++		throw ParserException("Mix of table names and expressions is not supported. "
++		                      "Use SELECT to explicitly specify what you want to query.");
++	}
++
++	if (any_column_ref) {
++		// Single COLUMN_REF: treat as table scan
++		auto &col_expr = expressions[0]->Cast<ColumnRefExpression>();
++		if (col_expr.IsQualified()) {
++			if (col_expr.ColumnNames().size() >= 4) {
++				throw ParserException(
++				    "Too many qualifiers encountered. Expected \"catalog.schema.table\" or \"schema.table\"");
++			}
++			if (col_expr.ColumnNames().size() == 3) {
++				auto table_description = TableDescription(
++				    QualifiedName(col_expr.ColumnNames()[0], col_expr.ColumnNames()[1], col_expr.ColumnNames()[2]));
++				select_node->from_table = make_uniq<BaseTableRef>(table_description);
++			} else if (col_expr.ColumnNames().size() == 2) {
++				auto table_description =
++				    TableDescription(QualifiedName({col_expr.ColumnNames()[0]}, col_expr.ColumnNames()[1]));
++				select_node->from_table = make_uniq<BaseTableRef>(table_description);
++			}
++		} else {
++			auto base_table = make_uniq<BaseTableRef>();
++			base_table->SetTable(col_expr.GetColumnName());
++			select_node->from_table = std::move(base_table);
++		}
++		select_node->select_list.push_back(make_uniq<StarExpression>());
++	} else {
++		for (auto &expr : expressions) {
++			select_node->select_list.push_back(std::move(expr));
++		}
++		select_node->from_table = make_uniq<EmptyTableRef>();
++	}
++
++	select_statement->node = std::move(select_node);
++	return std::move(select_statement);
++}
++
+ unique_ptr<ParsedExpression>
+ PEGTransformerFactory::TransformBaseExpression(PEGTransformer &transformer,
+                                                unique_ptr<ParsedExpression> single_expression,
+diff --git a/src/parser/peg/transformer/transform_generated_trampoline.cpp b/src/parser/peg/transformer/transform_generated_trampoline.cpp
+index 0b3eef8..59de363 100644
+--- a/src/parser/peg/transformer/transform_generated_trampoline.cpp
++++ b/src/parser/peg/transformer/transform_generated_trampoline.cpp
+@@ -236,6 +236,12 @@ static const TransformFrameOps STRING_LITERAL_VALUE_OPS = {
+ static const TransformFrameOps ANALYZE_KEYWORD_OPS = {"AnalyzeKeyword",
+                                                       &PEGTransformerFactory::InitializeAnalyzeKeywordTrampoline,
+                                                       &PEGTransformerFactory::FinalizeAnalyzeKeywordTrampoline};
++static const TransformFrameOps EXPRESSION_STATEMENT_OPS = {
++    "ExpressionStatement", &PEGTransformerFactory::InitializeExpressionStatementTrampoline,
++    &PEGTransformerFactory::FinalizeExpressionStatementTrampoline};
++static const TransformFrameOps EXPRESSION_ALIAS_OPS = {"ExpressionAlias",
++                                                       &PEGTransformerFactory::InitializeExpressionAliasTrampoline,
++                                                       &PEGTransformerFactory::FinalizeExpressionAliasTrampoline};
+ static const TransformFrameOps INDEX_NAME_OPS = {"IndexName", &PEGTransformerFactory::InitializeIndexNameTrampoline,
+                                                  &PEGTransformerFactory::FinalizeIndexNameTrampoline};
+ static const TransformFrameOps CONSTRAINT_NAME_OPS = {"ConstraintName",
+@@ -3165,6 +3171,8 @@ const case_insensitive_map_t<const TransformFrameOps *> &PEGTransformerFactory::
+ 	    {"CommentValue", &COMMENT_VALUE_OPS},
+ 	    {"StringLiteralValue", &STRING_LITERAL_VALUE_OPS},
+ 	    {"AnalyzeKeyword", &ANALYZE_KEYWORD_OPS},
++	    {"ExpressionStatement", &EXPRESSION_STATEMENT_OPS},
++	    {"ExpressionAlias", &EXPRESSION_ALIAS_OPS},
+ 	    {"IndexName", &INDEX_NAME_OPS},
+ 	    {"ConstraintName", &CONSTRAINT_NAME_OPS},
+ 	    {"SequenceName", &SEQUENCE_NAME_OPS},
+@@ -5557,6 +5565,53 @@ PEGTransformerFactory::FinalizeAnalyzeKeywordTrampoline(PEGTransformer &transfor
+ 	return transformer.MakeResult<Identifier>(result);
+ }
+ 
++void PEGTransformerFactory::InitializeExpressionStatementTrampoline(PEGTransformer &transformer,
++                                                                    GeneratedTransformProcess &process) {
++	auto &list_pr = process.parse_result.Cast<ListParseResult>();
++	auto list_items = ExtractParseResultsFromList(list_pr.GetChild(0));
++	auto dynamic_child_count = list_items.size();
++	process.ReserveChildSlots(1 + dynamic_child_count - 1);
++	for (idx_t i = list_items.size(); i > 0; i--) {
++		auto child_idx = i - 1;
++		process.PushChild({transformer.GetRule("ExpressionAlias"), list_items[child_idx].get()}, 0 + child_idx);
++	}
++}
++
++arena_ptr<TransformResultValue>
++PEGTransformerFactory::FinalizeExpressionStatementTrampoline(PEGTransformer &transformer,
++                                                             GeneratedTransformProcess &process) {
++	auto &list_pr = process.parse_result.Cast<ListParseResult>();
++	auto dynamic_list_items = ExtractParseResultsFromList(list_pr.GetChild(0));
++	auto dynamic_child_count = dynamic_list_items.size();
++	vector<unique_ptr<ParsedExpression>> expression_alias;
++	for (idx_t i = 0; i < 0 + dynamic_child_count; i++) {
++		expression_alias.push_back(process.TakeResult<unique_ptr<ParsedExpression>>(i));
++	}
++	auto result = TransformExpressionStatement(transformer, std::move(expression_alias));
++	return transformer.MakeResult<unique_ptr<SQLStatement>>(std::move(result));
++}
++
++void PEGTransformerFactory::InitializeExpressionAliasTrampoline(PEGTransformer &transformer,
++                                                                GeneratedTransformProcess &process) {
++	auto &list_pr = process.parse_result.Cast<ListParseResult>();
++	auto &choice_pr = list_pr.Child<ChoiceParseResult>(0);
++	auto &choice_result = choice_pr.GetResult();
++	process.ReserveChildSlots(1);
++	auto child_rule = choice_result.GetRule();
++	auto has_transform_process = child_rule && child_rule->transform_process;
++	if (!has_transform_process) {
++		throw InternalException("No transform process registered for rule '%s'", choice_result.Name());
++	}
++	process.PushChild({*child_rule, choice_result}, 0);
++}
++
++arena_ptr<TransformResultValue>
++PEGTransformerFactory::FinalizeExpressionAliasTrampoline(PEGTransformer &transformer,
++                                                         GeneratedTransformProcess &process) {
++	auto result = process.TakeResult<unique_ptr<ParsedExpression>>(0);
++	return transformer.MakeResult<unique_ptr<ParsedExpression>>(std::move(result));
++}
++
+ void PEGTransformerFactory::InitializeIndexNameTrampoline(PEGTransformer &transformer,
+                                                           GeneratedTransformProcess &process) {
+ 	process.ReserveChildSlots(0);

@@ -16,6 +16,7 @@ re-injected into a fixed release as patches, for evaluating testing tools.
 | [`typescript/`](typescript) | TypeScript 6.0.3 (tsc and language service) | Apache-2.0 | 637 (509 strict) | injection patches in the compiler and language service (also Marauders patch variants), upstream compiler-baseline/fourslash/unittest oracles, 637 standalone `repro.sh` reproducers; mined with the clean-room pipeline in `typescript/tool/` |
 | [`rustc/`](rustc) | rustc 1.99.1 (compiler) | MIT OR Apache-2.0 | 2,186 (1,739 strict) | injection patches in the compiler (also Marauders patch variants), upstream compiletest oracles (ui, crashes, mir-opt, codegen, incremental, assembly), 2,178 standalone `repro.sh` reproducers; mined with the clean-room pipeline in `rustc/tool/` |
 | [`z3/`](z3) | Z3 SMT solver z3-5.3.3 (`src/`, core C API) | MIT | 254 (112 strict) | injection patches in the solver (also Marauders patch variants), upstream `test-z3` unit oracles and pinned z3test regression oracles, 223 standalone `repro.smt2` reproducers; mined with the clean-room pipeline in `z3/tool/` |
+| [`duckdb/`](duckdb) | DuckDB v2.0.0 (`src/`, the engine) | MIT | 566 (305 strict) | injection patches in the engine (also Marauders patch variants), upstream sqllogictest and Catch unit-test oracles, 456 standalone `repro.sql` reproducers for the DuckDB shell; mined with the clean-room pipeline in `duckdb/tool/` |
 
 ## Licensing
 

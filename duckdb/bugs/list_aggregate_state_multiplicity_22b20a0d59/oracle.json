@@ -1,0 +1,22 @@
+{
+ "runner": "build/relassert/test/unittest",
+ "granularity": "sqllogictest file / Catch TEST_CASE",
+ "oracle": [
+  "test/issues/general/test_24806.test",
+  "test/optimizer/partial_aggregate_pushdown.test",
+  "test/sql/aggregate/aggregate_state_export/test_combine_aggr.test"
+ ],
+ "failing": [
+  "test/issues/general/test_24806.test",
+  "test/sql/aggregate/aggregate_state_export/test_combine_aggr.test"
+ ],
+ "failing_fix_added": [
+  "test/issues/general/test_24806.test"
+ ],
+ "base_runs": 2,
+ "injected_runs": 2,
+ "failure_details": {
+  "test/issues/general/test_24806.test": "test/issues/general/test_24806.test:18 ::  1. test/issues/general/test_24806.test:18\nWrong result in query! (test/issues/general/test_24806.test:18)!\nSELECT t1.g, median(t3.i)\nFROM issue_24806 t1\nINNER JOIN issue_24806 t2 ON t1.d = t2.d\nINNER JOIN issue_24806 t3 ON t2.txt = t3.chr\nGROUP BY t1.g;\nMismatch on row 2, column median(t3.i)(index 2)\n21.5 <> 1.0\nExpected result:\n-7\t1.0\n1\t1.0\nActual result:\n-7\t1.0\n1\t21.5",
+  "test/sql/aggregate/aggregate_state_export/test_combine_aggr.test": "test/sql/aggregate/aggregate_state_export/test_combine_aggr.test:161 ::  1. test/sql/aggregate/aggregate_state_export/test_combine_aggr.test:161\nWrong result in query! (test/sql/aggregate/aggregate_state_export/test_combine_aggr.test:161)!\nWITH states AS (\n    SELECT\n        k,\n        list(v) EXPORT_STATE AS list_s,\n        median(v) EXPORT_STATE AS median_s,\n        quantile_cont(v, 0.5) EXPORT_STATE AS quantile_s,\n        mad(v) EXPORT_STATE AS mad_s\n    FROM (VALUES (1, 1), (1, 1), (2, 42), (2, 42)) t(k, v)\n    GROUP BY k\n)\nSELECT\n    list_sort(finalize(combine_aggr(list_s, CASE k WHEN 1 THEN 3 ELSE 2 END))),\n    finalize(combine_aggr(median_s, CASE k WHEN 1 THEN 3 ELSE 2 END)),\n    finalize(combine_aggr(quantile_s, CASE k WHEN 1 THEN 3 ELSE 2 END)),\n    finalize(combine_aggr(mad_s, CASE k WHEN 1 THEN 3 ELSE 2 END))\nFROM states;\nMismatch on row 1, column list_sort(finalize(combine_aggr(list_s, CASE  WHEN ((k = 1)) THEN (3) ELSE 2 END)))(index 1)\n[1, 1, 42, 42] <> [1, 1, 1, 1, 1, 1, 42, 42, 42, 42]\nExpected result:\n[1, 1, 1, 1, 1, 1, 42, 42, 42, 42]\t1.0\t1.0\t0.0\nActual result:\n[1, 1, 42, 42]\t21.5\t21.5\t20.5"
+ }
+}

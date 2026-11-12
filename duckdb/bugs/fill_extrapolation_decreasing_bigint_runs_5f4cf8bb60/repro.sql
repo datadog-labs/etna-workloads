@@ -1,0 +1,3 @@
+SELECT x, y, fill(y ORDER BY x) OVER () AS filled
+FROM (VALUES (1::BIGINT,19::BIGINT),(2::BIGINT,5::BIGINT),(3::BIGINT,NULL)) t(x,y)
+ORDER BY x;

@@ -1,0 +1,56 @@
+diff --git a/src/function/variant/variant_shredding.cpp b/src/function/variant/variant_shredding.cpp
+index f3f511f..cef62fc 100644
+--- a/src/function/variant/variant_shredding.cpp
++++ b/src/function/variant/variant_shredding.cpp
+@@ -358,12 +358,13 @@ void VariantShreddingState::SetShredded(uint32_t row, uint32_t values_index, uin
+ 	count++;
+ }
+ 
+-unordered_set<string> VariantShreddingState::ObjectFields() const {
++case_insensitive_string_set_t VariantShreddingState::ObjectFields() {
+ 	D_ASSERT(type.id() == LogicalTypeId::STRUCT);
+-	unordered_set<string> res;
++	case_insensitive_string_set_t res;
+ 	auto &child_types = StructType::GetChildTypes(type);
+ 	for (auto &entry : child_types) {
+-		res.emplace(entry.first.GetIdentifierName());
++		auto &type = entry.first;
++		res.emplace(type.c_str(), static_cast<uint32_t>(type.size()));
+ 	}
+ 	return res;
+ }
+diff --git a/src/include/duckdb/function/variant/variant_shredding.hpp b/src/include/duckdb/function/variant/variant_shredding.hpp
+index 0addd45..1e85792 100644
+--- a/src/include/duckdb/function/variant/variant_shredding.hpp
++++ b/src/include/duckdb/function/variant/variant_shredding.hpp
+@@ -5,7 +5,7 @@
+ #include "duckdb/common/types/selection_vector.hpp"
+ #include "duckdb/common/types/decimal.hpp"
+ #include "duckdb/common/types/uuid.hpp"
+-#include "duckdb/common/unordered_set.hpp"
++#include "duckdb/common/string_map_set.hpp"
+ #include "duckdb/function/scalar/variant_utils.hpp"
+ 
+ namespace duckdb {
+@@ -106,7 +106,7 @@ public:
+ public:
+ 	bool ValueIsShredded(UnifiedVariantVectorData &variant, idx_t row, uint32_t values_index);
+ 	void SetShredded(uint32_t row, uint32_t values_index, uint32_t result_idx);
+-	unordered_set<string> ObjectFields() const;
++	case_insensitive_string_set_t ObjectFields();
+ 	virtual const unordered_set<VariantLogicalType> &GetVariantTypes() = 0;
+ 
+ public:
+diff --git a/src/storage/table/variant/variant_shredding.cpp b/src/storage/table/variant/variant_shredding.cpp
+index 51a5b6a..ceb6c70 100644
+--- a/src/storage/table/variant/variant_shredding.cpp
++++ b/src/storage/table/variant/variant_shredding.cpp
+@@ -560,7 +560,7 @@ static vector<uint32_t> UnshreddedObjectChildren(UnifiedVariantVectorData &varia
+ 	for (uint32_t i = 0; i < nested_data.child_count; i++) {
+ 		auto keys_index = variant.GetKeysIndex(row, nested_data.children_idx + i);
+ 		auto &key = variant.GetKey(row, keys_index);
+-		if (shredded_fields.count(key.GetString())) {
++		if (shredded_fields.count(key)) {
+ 			continue;
+ 		}
+ 		unshredded_children.emplace_back(i);

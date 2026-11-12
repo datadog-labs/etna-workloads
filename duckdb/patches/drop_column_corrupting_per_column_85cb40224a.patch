@@ -1,0 +1,66 @@
+diff --git a/src/include/duckdb/storage/table/per_column_metadata_blocks.hpp b/src/include/duckdb/storage/table/per_column_metadata_blocks.hpp
+index 3e2c8cc..b7fb99f 100644
+--- a/src/include/duckdb/storage/table/per_column_metadata_blocks.hpp
++++ b/src/include/duckdb/storage/table/per_column_metadata_blocks.hpp
+@@ -32,11 +32,7 @@ public:
+ 
+ 	//! Add a column entry with its block IDs
+ 	void AddColumn(idx_t col_idx, const vector<idx_t> &blocks);
+-	//! Clear a column's entry and all its block IDs in place, leaving the indices of the other
+-	//! columns untouched (linear scan), for use when the column is rewritten (e.g. ALTER TYPE)
+-	void ClearColumn(idx_t col_idx);
+-	//! Remove a column's entry and shift down the indices of all subsequent columns,
+-	//! for use when the column is positionally removed (e.g. DROP COLUMN)
++	//! Remove a column entry and all its block IDs (linear scan)
+ 	void RemoveColumn(idx_t col_idx);
+ 	//! Merge two PerColumnMetadataBlocks sorted by column index with disjoint column sets
+ 	static PerColumnMetadataBlocks Merge(const PerColumnMetadataBlocks &a, const PerColumnMetadataBlocks &b);
+diff --git a/src/storage/table/per_column_metadata_blocks.cpp b/src/storage/table/per_column_metadata_blocks.cpp
+index da026e5..afc7d6f 100644
+--- a/src/storage/table/per_column_metadata_blocks.cpp
++++ b/src/storage/table/per_column_metadata_blocks.cpp
+@@ -100,7 +100,7 @@ PerColumnMetadataBlocks PerColumnMetadataBlocks::Merge(const PerColumnMetadataBl
+ 	return result;
+ }
+ 
+-void PerColumnMetadataBlocks::ClearColumn(idx_t col_idx) {
++void PerColumnMetadataBlocks::RemoveColumn(idx_t col_idx) {
+ 	idx_t start = data.size();
+ 	idx_t end = data.size();
+ 	for (idx_t i = 0; i < data.size(); i++) {
+@@ -122,13 +122,4 @@ void PerColumnMetadataBlocks::ClearColumn(idx_t col_idx) {
+ 	}
+ }
+ 
+-void PerColumnMetadataBlocks::RemoveColumn(idx_t col_idx) {
+-	ClearColumn(col_idx);
+-	for (auto &entry : data) {
+-		if (entry.is_column_index && entry.index > col_idx) {
+-			entry.index--;
+-		}
+-	}
+-}
+-
+ } // namespace duckdb
+diff --git a/src/storage/table/row_group.cpp b/src/storage/table/row_group.cpp
+index c645fe3..961b838 100644
+--- a/src/storage/table/row_group.cpp
++++ b/src/storage/table/row_group.cpp
+@@ -528,7 +528,7 @@ unique_ptr<RowGroup> RowGroup::AlterType(RowGroupCollection &new_collection, con
+ 	}
+ 	if (has_per_column_metadata_blocks) {
+ 		row_group->per_column_metadata_blocks = per_column_metadata_blocks;
+-		row_group->per_column_metadata_blocks.ClearColumn(changed_idx);
++		row_group->per_column_metadata_blocks.RemoveColumn(changed_idx);
+ 	}
+ 	lock.unlock();
+ 	row_group->Verify();
+@@ -624,8 +624,6 @@ unique_ptr<RowGroup> RowGroup::RemoveColumn(RowGroupCollection &new_collection,
+ 	}
+ 	if (has_per_column_metadata_blocks) {
+ 		row_group->per_column_metadata_blocks = per_column_metadata_blocks;
+-		// the columns after the removed one shift down by one position, so their
+-		// metadata block entries (keyed by column index) must shift down as well
+ 		row_group->per_column_metadata_blocks.RemoveColumn(removed_column);
+ 	}
+ 	lock.unlock();

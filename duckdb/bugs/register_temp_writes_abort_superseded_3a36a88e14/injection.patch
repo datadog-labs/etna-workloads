@@ -1,0 +1,15 @@
+diff --git a/src/main/query_result.cpp b/src/main/query_result.cpp
+index e98b39e..ec8c957 100644
+--- a/src/main/query_result.cpp
++++ b/src/main/query_result.cpp
+@@ -298,9 +298,7 @@ QueryResultState QueryResult::ExecuteTask() {
+ 	auto lock = LockContext();
+ 	CheckExecutableInternal(*lock);
+ 	auto state = context->ExecuteTaskInternal(*lock, *this);
+-	// Only a statement that sank no row finishes undecided, since producers park until the decision. A statement
+-	// that expands into several without returning rows never has a buffer
+-	if (state == QueryResultState::FINISHED && (!buffer || buffer->Lifetime() != ResultLifetime::DRAINING)) {
++	if (state == QueryResultState::FINISHED && buffer && buffer->Lifetime() == ResultLifetime::RETAINED) {
+ 		return EndFinishedInternal(*lock);
+ 	}
+ 	return state;

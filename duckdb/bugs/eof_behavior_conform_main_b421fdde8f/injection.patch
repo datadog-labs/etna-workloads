@@ -1,0 +1,18 @@
+diff --git a/src/storage/external_file_cache/caching_file_system.cpp b/src/storage/external_file_cache/caching_file_system.cpp
+index 3c9b269..c0b4a58 100644
+--- a/src/storage/external_file_cache/caching_file_system.cpp
++++ b/src/storage/external_file_cache/caching_file_system.cpp
+@@ -443,6 +443,13 @@ FileBufferHandleGroup CachingFileHandle::Read(const idx_t nr_bytes, const idx_t
+ 
+ 	ReconcileCacheAfterRead(*current_cached_file);
+ 
++	// Check whether all requested bytes were read, without HEAD requests.
++	if (remaining != 0) {
++		throw IOException(
++		    "Could not read enough bytes from file \"%s\": attempted to read %llu bytes from location %llu", GetPath(),
++		    nr_bytes, location);
++	}
++
+ 	return FileBufferHandleGroup(std::move(mem_handles));
+ }
+ 

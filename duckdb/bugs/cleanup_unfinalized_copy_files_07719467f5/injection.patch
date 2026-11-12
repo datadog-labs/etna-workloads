@@ -1,0 +1,185 @@
+diff --git a/src/execution/operator/persistent/copy_output_lifecycle.cpp b/src/execution/operator/persistent/copy_output_lifecycle.cpp
+index adc19ad..ab9b50d 100644
+--- a/src/execution/operator/persistent/copy_output_lifecycle.cpp
++++ b/src/execution/operator/persistent/copy_output_lifecycle.cpp
+@@ -34,7 +34,8 @@ void CopyOutputLifecycle::Cleanup() {
+ 			return;
+ 		}
+ 		for (auto &file : files) {
+-			if (file.ownership == CopyOutputOwnership::REMOVE_ON_FAILURE) {
++			if (file.ownership == CopyOutputOwnership::REMOVE_ON_FAILURE &&
++			    file.publication == CopyOutputPublicationState::FINALIZED) {
+ 				files_to_remove.push_back(std::move(file.path));
+ 			}
+ 		}
+@@ -71,10 +72,19 @@ void CopyOutputLifecycle::Cleanup() {
+ 	}
+ }
+ 
+-void CopyOutputLifecycle::RegisterFile(string path) {
++idx_t CopyOutputLifecycle::RegisterFile(string path) {
+ 	auto ownership = GetOwnership(path);
+ 	annotated_lock_guard<annotated_mutex> guard(lock);
+-	files.push_back({std::move(path), ownership});
++	auto result = files.size();
++	files.push_back({std::move(path), ownership, CopyOutputPublicationState::UNFINALIZED});
++	return result;
++}
++
++void CopyOutputLifecycle::MarkFileFinalized(idx_t file_index) {
++	annotated_lock_guard<annotated_mutex> guard(lock);
++	D_ASSERT(file_index < files.size());
++	D_ASSERT(files[file_index].publication == CopyOutputPublicationState::UNFINALIZED);
++	files[file_index].publication = CopyOutputPublicationState::FINALIZED;
+ }
+ 
+ void CopyOutputLifecycle::RegisterCreatedDirectory(string path) {
+diff --git a/src/execution/operator/persistent/physical_batch_copy_to_file.cpp b/src/execution/operator/persistent/physical_batch_copy_to_file.cpp
+index 3ca9f6a..ba3a9ab 100644
+--- a/src/execution/operator/persistent/physical_batch_copy_to_file.cpp
++++ b/src/execution/operator/persistent/physical_batch_copy_to_file.cpp
+@@ -103,6 +103,7 @@ public:
+ 	atomic<idx_t> rows_copied;
+ 	//! Global copy state
+ 	unique_ptr<GlobalFunctionData> global_state;
++	optional_idx lifecycle_file_index;
+ 	//! Unpartitioned batches
+ 	map<idx_t, unique_ptr<FixedRawBatchData>> raw_batches;
+ 	//! The prepared batch data by batch index - ready to flush
+@@ -128,7 +129,7 @@ public:
+ 		if (initialized.load(std::memory_order_relaxed)) {
+ 			return;
+ 		}
+-		output_lifecycle.RegisterFile(op.file_path);
++		lifecycle_file_index = output_lifecycle.RegisterFile(op.file_path);
+ 		auto new_global_state = op.function.copy_to_initialize_global(context, *op.bind_data, op.file_path);
+ 		if (op.function.initialize_operator) {
+ 			op.function.initialize_operator(*new_global_state, op);
+@@ -343,6 +344,8 @@ SinkFinalizeType PhysicalBatchCopyToFile::FinalFlush(ClientContext &context, Glo
+ 	gstate.memory_manager.FinalCheck();
+ 	if (function.copy_to_finalize && gstate.global_state) {
+ 		function.copy_to_finalize(context, *bind_data, *gstate.global_state);
++		D_ASSERT(gstate.lifecycle_file_index.IsValid());
++		gstate.output_lifecycle.MarkFileFinalized(gstate.lifecycle_file_index.GetIndex());
+ 		if (use_tmp_file) {
+ 			PhysicalCopyToFile::MoveTmpFile(context, file_path);
+ 		}
+diff --git a/src/execution/operator/persistent/physical_copy_to_file.cpp b/src/execution/operator/persistent/physical_copy_to_file.cpp
+index 7487684..954c1ae 100644
+--- a/src/execution/operator/persistent/physical_copy_to_file.cpp
++++ b/src/execution/operator/persistent/physical_copy_to_file.cpp
+@@ -92,14 +92,15 @@ using vector_of_value_map_t = unordered_map<vector<Value>, T, VectorOfValuesHash
+ //===--------------------------------------------------------------------===//
+ struct GlobalFileState {
+ public:
+-	explicit GlobalFileState(unique_ptr<GlobalFunctionData> data_p, const string &path_p)
+-	    : data(std::move(data_p)), path(path_p), num_batches(0) {
++	explicit GlobalFileState(unique_ptr<GlobalFunctionData> data_p, const string &path_p, idx_t lifecycle_file_index_p)
++	    : data(std::move(data_p)), path(path_p), lifecycle_file_index(lifecycle_file_index_p), num_batches(0) {
+ 	}
+ 
+ public:
+ 	annotated_mutex lock;
+ 	unique_ptr<GlobalFunctionData> data;
+ 	const string path;
++	const idx_t lifecycle_file_index;
+ 	idx_t num_batches DUCKDB_GUARDED_BY(lock);
+ };
+ 
+@@ -1641,7 +1642,7 @@ CreateColumnStatistics(const case_insensitive_map_t<case_insensitive_map_t<Value
+ // Copy File Lifecycle
+ //===--------------------------------------------------------------------===//
+ static void FinalizeLifecycleFileState(ClientContext &context, copy_to_finalize_t finalize, FunctionData &bind_data,
+-                                       unique_ptr<GlobalFileState> state) {
++                                       CopyOutputLifecycle &output_lifecycle, unique_ptr<GlobalFileState> state) {
+ 	if (!finalize) {
+ 		throw InternalException("COPY file lifecycle finalize requires a finalize callback");
+ 	}
+@@ -1649,6 +1650,7 @@ static void FinalizeLifecycleFileState(ClientContext &context, copy_to_finalize_
+ 		throw InternalException("COPY file lifecycle finalize reached an empty file state");
+ 	}
+ 	finalize(context, bind_data, *state->data);
++	output_lifecycle.MarkFileFinalized(state->lifecycle_file_index);
+ }
+ void CopyFileLifecycleExecutor::WaitForJob(CopyFileLifecycleJob &job, CopyFileLifecycleWaitMode mode) {
+ 	while (!job.IsFinished()) {
+@@ -3621,7 +3623,7 @@ void CopyToFileGlobalState::RegisterPendingFileStatePathLocked(PendingFileState
+ }
+ 
+ unique_ptr<GlobalFileState> CopyToFileGlobalState::InitializeFileState(PendingFileState pending_file_state) {
+-	output_lifecycle.RegisterFile(pending_file_state.output_path);
++	auto lifecycle_file_index = output_lifecycle.RegisterFile(pending_file_state.output_path);
+ 	auto data = op.function.copy_to_initialize_global(context, *op.bind_data, pending_file_state.output_path);
+ 	if (pending_file_state.written_file_info && pending_file_state.written_file_info->file_stats) {
+ 		op.function.copy_to_get_written_statistics(context, *op.bind_data, *data,
+@@ -3631,7 +3633,7 @@ unique_ptr<GlobalFileState> CopyToFileGlobalState::InitializeFileState(PendingFi
+ 		op.function.initialize_operator(*data, op);
+ 	}
+ 
+-	return make_uniq<GlobalFileState>(std::move(data), pending_file_state.output_path);
++	return make_uniq<GlobalFileState>(std::move(data), pending_file_state.output_path, lifecycle_file_index);
+ }
+ 
+ void CopyToFileGlobalState::RegisterPrepareGlobalStateLocked(GlobalFileState &file_state) {
+@@ -3786,16 +3788,18 @@ void CopyToFileGlobalState::FinalizeFileState(FileStateHandle file_state) {
+ 		auto finalize = op.function.copy_to_finalize;
+ 		auto &context_ref = context;
+ 		auto &bind_data = *op.bind_data;
++		auto &output_lifecycle_ref = output_lifecycle;
+ 		try {
+ 			lifecycle_executor.Schedule(finalize_job, CopyFileLifecycleWaitMode::DRAIN,
+-			                            [finalize, &context_ref, &bind_data, state_holder]() mutable {
++			                            [finalize, &context_ref, &bind_data, &output_lifecycle_ref, state_holder]() mutable {
+ 				                            FinalizeLifecycleFileState(context_ref, finalize, bind_data,
+-				                                                       std::move(*state_holder));
++				                                                       output_lifecycle_ref, std::move(*state_holder));
+ 			                            });
+ 		} catch (...) {
+ 			if (!finalize_job->IsFinished() && state_holder && *state_holder) {
+ 				try {
+-					FinalizeLifecycleFileState(context_ref, finalize, bind_data, std::move(*state_holder));
++					FinalizeLifecycleFileState(context_ref, finalize, bind_data, output_lifecycle_ref,
++					                           std::move(*state_holder));
+ 				} catch (...) {
+ 				}
+ 			}
+diff --git a/src/include/duckdb/execution/operator/persistent/copy_output_lifecycle.hpp b/src/include/duckdb/execution/operator/persistent/copy_output_lifecycle.hpp
+index c9aa3cf..730ca68 100644
+--- a/src/include/duckdb/execution/operator/persistent/copy_output_lifecycle.hpp
++++ b/src/include/duckdb/execution/operator/persistent/copy_output_lifecycle.hpp
+@@ -19,17 +19,25 @@ class ClientContext;
+ enum class CopyOutputOwnership : uint8_t {
+ 	//! Preserve the path because this query cannot prove that it created it.
+ 	PRESERVE,
+-	//! Remove the path if the query fails.
++	//! Remove the path if it was finalized before the query failed.
+ 	REMOVE_ON_FAILURE
+ };
+ 
++enum class CopyOutputPublicationState : uint8_t {
++	//! The COPY function has not completed finalization for this path.
++	UNFINALIZED,
++	//! The COPY function completed finalization for this path.
++	FINALIZED
++};
++
+ class CopyOutputLifecycle {
+ public:
+ 	explicit CopyOutputLifecycle(ClientContext &context);
+ 	~CopyOutputLifecycle();
+ 
+ public:
+-	void RegisterFile(string path) DUCKDB_EXCLUDES(lock);
++	idx_t RegisterFile(string path) DUCKDB_EXCLUDES(lock);
++	void MarkFileFinalized(idx_t file_index) DUCKDB_EXCLUDES(lock);
+ 	void RegisterCreatedDirectory(string path) DUCKDB_EXCLUDES(lock);
+ 	void MarkSuccessful() noexcept DUCKDB_EXCLUDES(lock);
+ 
+@@ -37,6 +45,7 @@ private:
+ 	struct FileEntry {
+ 		string path;
+ 		CopyOutputOwnership ownership = CopyOutputOwnership::PRESERVE;
++		CopyOutputPublicationState publication = CopyOutputPublicationState::UNFINALIZED;
+ 	};
+ 
+ private:

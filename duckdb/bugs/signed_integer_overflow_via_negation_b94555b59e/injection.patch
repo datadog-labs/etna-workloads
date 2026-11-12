@@ -1,0 +1,51 @@
+diff --git a/src/common/types/interval.cpp b/src/common/types/interval.cpp
+index f208bf1..115c0a1 100644
+--- a/src/common/types/interval.cpp
++++ b/src/common/types/interval.cpp
+@@ -10,7 +10,6 @@
+ #include "duckdb/common/operator/multiply.hpp"
+ #include "duckdb/common/operator/subtract.hpp"
+ #include "duckdb/common/string_util.hpp"
+-#include "duckdb/common/limits.hpp"
+ 
+ namespace duckdb {
+ 
+@@ -548,15 +547,6 @@ interval_t Interval::FromMicro(int64_t delta_us) {
+ }
+ 
+ interval_t Interval::Invert(interval_t interval) {
+-	if (interval.days == NumericLimits<int32_t>::Minimum()) {
+-		throw OutOfRangeException("Interval days value out of range");
+-	}
+-	if (interval.micros == NumericLimits<int64_t>::Minimum()) {
+-		throw OutOfRangeException("Interval micros value out of range");
+-	}
+-	if (interval.months == NumericLimits<int32_t>::Minimum()) {
+-		throw OutOfRangeException("Interval months value out of range");
+-	}
+ 	interval.days = -interval.days;
+ 	interval.micros = -interval.micros;
+ 	interval.months = -interval.months;
+diff --git a/src/function/scalar/operator/subtract.cpp b/src/function/scalar/operator/subtract.cpp
+index 8d6c386..b43ab77 100644
+--- a/src/function/scalar/operator/subtract.cpp
++++ b/src/function/scalar/operator/subtract.cpp
+@@ -240,18 +240,12 @@ hugeint_t DecimalSubtractOverflowCheck::Operation(hugeint_t left, hugeint_t righ
+ //===--------------------------------------------------------------------===//
+ template <>
+ dtime_t SubtractTimeOperator::Operation(dtime_t left, interval_t right) {
+-	if (right.micros == NumericLimits<int64_t>::Minimum()) {
+-		throw OutOfRangeException("Interval micros value out of range");
+-	}
+ 	right.micros = -right.micros;
+ 	return AddTimeOperator::Operation<dtime_t, interval_t, dtime_t>(left, right);
+ }
+ 
+ template <>
+ dtime_tz_t SubtractTimeOperator::Operation(dtime_tz_t left, interval_t right) {
+-	if (right.micros == NumericLimits<int64_t>::Minimum()) {
+-		throw OutOfRangeException("Interval micros value out of range");
+-	}
+ 	right.micros = -right.micros;
+ 	return AddTimeOperator::Operation<dtime_tz_t, interval_t, dtime_tz_t>(left, right);
+ }

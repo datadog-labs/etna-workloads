@@ -1,0 +1,139 @@
+Success
+count_star()
+1000
+count_star()
+20
+╭─ PROJECTION ──────────────────────╮
+│ Projections: #0,                  │
+│              CAST(#1 AS INTEGER), │
+│              #2, #3, #4, #5, #6,  │
+│              #7                   │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ ORDER_BY ──────┴─────────────────╮
+│ Order By: ts ASC                  │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ PROJECTION ────┴─────────────────╮
+│ Projections: #0,                  │
+│              CAST(#1 AS TINYINT), │
+│              #2, #3, #4, #5, #6,  │
+│              #7                   │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ PROJECTION ────┴─────────────────╮
+│ Projections: id, grp, ts,         │
+│              payload1, payload2,  │
+│              payload3, payload4,  │
+│              payload5             │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ HASH_JOIN ─────┴─────────────────╮
+│ Join Type: SEMI                   │
+│ Conditions: rowid = rowid         │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+                  ├─────────────────────────────────────────╮
+╭─ SEQ_SCAN ──────┴─────────────────╮  ╭─ TOP_N ────────────┴────────────────────╮
+│ Table: memory.main.lm_test        │  │ Top: 20                                 │
+│ Type: Sequential Scan             │  │ Order By: ts ASC                        │
+│ Projections: grp, ts, id,         │  │ ~20 rows                                │
+│              payload1, payload2,  │  ╰────────────────────┬────────────────────╯
+│              payload3, payload4,  │  ╭─ SEQ_SCAN ─────────┴────────────────────╮
+│              payload5             │  │ Table: memory.main.lm_test              │
+│ Filters: optional: (grp = 1)      │  │ Type: Sequential Scan                   │
+│ ~100,000 rows                     │  │ Projections: ts                         │
+╰───────────────────────────────────╯  │ Filters: grp = 1,                       │
+                                       │          optional: Dynamic Filter (ts)  │
+                                       │ ~1,042 rows                             │
+                                       ╰─────────────────────────────────────────╯
+id|grp|ts
+100|1|2024-01-01 01:40:00
+200|1|2024-01-01 03:20:00
+300|1|2024-01-01 05:00:00
+id|grp|ts
+100|1|2024-01-01 01:40:00
+200|1|2024-01-01 03:20:00
+300|1|2024-01-01 05:00:00
+(payload1 = md5((CAST(id AS VARCHAR) || 'p1')))
+true
+╭─ PROJECTION ──────────────────────╮
+│ Projections: #0,                  │
+│              CAST(#1 AS INTEGER), │
+│              #2, #3, #4, #5, #6,  │
+│              #7                   │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ ORDER_BY ──────┴─────────────────╮
+│ Order By: ts ASC                  │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ PROJECTION ────┴─────────────────╮
+│ Projections: #0,                  │
+│              CAST(#1 AS TINYINT), │
+│              #2, #3, #4, #5, #6,  │
+│              #7                   │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ HASH_JOIN ─────┴─────────────────╮
+│ Join Type: SEMI                   │
+│ Conditions: rowid = rowid         │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+                  ├─────────────────────────────────────────╮
+╭─ SEQ_SCAN ──────┴─────────────────╮  ╭─ TOP_N ────────────┴───────────────────╮
+│ Table: memory.main.lm_test        │  │ Top: 3                                 │
+│ Type: Sequential Scan             │  │ Order By: ts ASC                       │
+│ Projections: id, grp, ts,         │  │ ~3 rows                                │
+│              payload1, payload2,  │  ╰────────────────────┬───────────────────╯
+│              payload3, payload4,  │  ╭─ SEQ_SCAN ─────────┴───────────────────╮
+│              payload5             │  │ Table: memory.main.lm_test             │
+│ ~100,000 rows                     │  │ Type: Sequential Scan                  │
+╰───────────────────────────────────╯  │ Projections: ts                        │
+                                       │ Filters: optional: Dynamic Filter (ts) │
+                                       │ ~100,000 rows                          │
+                                       ╰────────────────────────────────────────╯
+id|grp|ts
+1|2|2024-01-01 00:01:00
+2|3|2024-01-01 00:02:00
+3|4|2024-01-01 00:03:00
+╭─ PROJECTION ──────────────────────╮
+│ Projections: #0,                  │
+│              CAST(#1 AS INTEGER), │
+│              #2, #3               │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ ORDER_BY ──────┴─────────────────╮
+│ Order By: ts ASC                  │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ PROJECTION ────┴─────────────────╮
+│ Projections: #0,                  │
+│              CAST(#1 AS TINYINT), │
+│              #2, #3               │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ PROJECTION ────┴─────────────────╮
+│ Projections: id, grp, ts,         │
+│              payload1             │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+╭─ HASH_JOIN ─────┴─────────────────╮
+│ Join Type: SEMI                   │
+│ Conditions: rowid = rowid         │
+│ ~100,000 rows                     │
+╰─────────────────┬─────────────────╯
+                  ├─────────────────────────────────────────╮
+╭─ SEQ_SCAN ──────┴─────────────────╮  ╭─ TOP_N ────────────┴────────────────────╮
+│ Table: memory.main.lm_test        │  │ Top: 3                                  │
+│ Type: Sequential Scan             │  │ Order By: ts ASC                        │
+│ Projections: grp, id, ts,         │  │ ~3 rows                                 │
+│              payload1             │  ╰────────────────────┬────────────────────╯
+│ Filters: optional: (grp = 1)      │  ╭─ SEQ_SCAN ─────────┴────────────────────╮
+│ ~100,000 rows                     │  │ Table: memory.main.lm_test              │
+╰───────────────────────────────────╯  │ Type: Sequential Scan                   │
+                                       │ Projections: ts                         │
+                                       │ Filters: grp = 1,                       │
+                                       │          optional: Dynamic Filter (ts)  │
+                                       │ ~1,042 rows                             │
+                                       ╰─────────────────────────────────────────╯

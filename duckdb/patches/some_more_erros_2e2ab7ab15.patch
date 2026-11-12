@@ -1,0 +1,51 @@
+diff --git a/src/parser/column_definition.cpp b/src/parser/column_definition.cpp
+index eb46806..565c56d 100644
+--- a/src/parser/column_definition.cpp
++++ b/src/parser/column_definition.cpp
+@@ -203,7 +203,7 @@ void ColumnDefinition::SetGeneratedExpression(unique_ptr<ParsedExpression> new_e
+ 	category = TableColumnType::GENERATED;
+ 
+ 	if (new_expr->HasSubquery()) {
+-		throw ParserException("Expression of generated column %s contains a subquery, which isn't allowed", name);
++		throw ParserException("Expression of generated column \"%s\" contains a subquery, which isn't allowed", name);
+ 	}
+ 
+ 	VerifyColumnRefs(*new_expr);
+diff --git a/src/parser/peg/transformer/transform_create_table.cpp b/src/parser/peg/transformer/transform_create_table.cpp
+index 3115c92..31e85fc 100644
+--- a/src/parser/peg/transformer/transform_create_table.cpp
++++ b/src/parser/peg/transformer/transform_create_table.cpp
+@@ -278,14 +278,14 @@ ConstraintColumnDefinition PEGTransformerFactory::TransformColumnDefinition(
+ 	if (has_generated) {
+ 		auto generated = std::move(*generated_column);
+ 		if (generated.expr->HasSubquery()) {
+-			throw ParserException("Expression of generated column %s contains a subquery, which isn't allowed",
++			throw ParserException("Expression of generated column \"%s\" contains a subquery, which isn't allowed",
+ 			                      qualified_name.Name());
+ 		}
+ 		if (column_type != LogicalType::ANY) {
+ 			generated.expr = make_uniq<CastExpression>(column_type, std::move(generated.expr));
+ 		}
+ 		if (generated.expr->HasSubquery()) {
+-			throw ParserException("Expression of generated column %s contains a subquery, which isn't allowed",
++			throw ParserException("Expression of generated column \"%s\" contains a subquery, which isn't allowed",
+ 			                      qualified_name.Name());
+ 		}
+ 
+diff --git a/src/planner/binder/statement/bind_update.cpp b/src/planner/binder/statement/bind_update.cpp
+index 01ce1e1..16b2a31 100644
+--- a/src/planner/binder/statement/bind_update.cpp
++++ b/src/planner/binder/statement/bind_update.cpp
+@@ -50,10 +50,10 @@ void Binder::BindUpdateSet(TableIndex proj_index, unique_ptr<LogicalOperator> &r
+ 		}
+ 		auto &column = table.GetColumn(colname);
+ 		if (column.Generated()) {
+-			throw BinderException("Cant update column %s because it is a generated column!", column.Name());
++			throw BinderException("Cant update column \"%s\" because it is a generated column!", column.Name());
+ 		}
+ 		if (std::find(columns.begin(), columns.end(), column.Physical()) != columns.end()) {
+-			throw BinderException("Multiple assignments to same column %s", colname);
++			throw BinderException("Multiple assignments to same column \"%s\"", colname);
+ 		}
+ 		columns.push_back(column.Physical());
+ 		if (expr->GetExpressionType() == ExpressionType::VALUE_DEFAULT) {

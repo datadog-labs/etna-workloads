@@ -1,0 +1,38 @@
+diff --git a/src/common/column_index.cpp b/src/common/column_index.cpp
+index 0ab05e9..976aeb3 100644
+--- a/src/common/column_index.cpp
++++ b/src/common/column_index.cpp
+@@ -107,10 +107,6 @@ bool ColumnIndex::IsChildPathOf(const ColumnIndex &path) const {
+ 				return false;
+ 			}
+ 		}
+-		if (a.get().type != b.get().type) {
+-			// A cast parent cannot replace a path through the uncast value.
+-			return false;
+-		}
+ 		const bool a_has_children = a.get().HasChildren();
+ 		const bool b_has_children = b.get().HasChildren();
+ 		if (!a_has_children && !b_has_children) {
+diff --git a/src/optimizer/remove_unused_columns.cpp b/src/optimizer/remove_unused_columns.cpp
+index 6b665cd..927877f 100644
+--- a/src/optimizer/remove_unused_columns.cpp
++++ b/src/optimizer/remove_unused_columns.cpp
+@@ -1203,8 +1203,7 @@ void RemoveUnusedColumns::RewriteExpressions(LogicalProjection &proj, idx_t expr
+ 	proj.expressions = std::move(expressions);
+ }
+ 
+-template <class T>
+-static bool OnlyStructFieldPaths(const T &paths) {
++static bool OnlyStructFieldPaths(const vector<ColumnIndex> &paths) {
+ 	for (auto &path : paths) {
+ 		if (!path.HasPrimaryIndex() || !OnlyStructFieldPaths(path.GetChildIndexes())) {
+ 			return false;
+@@ -1280,7 +1279,7 @@ void RemoveUnusedColumns::CheckPushdownExtract(LogicalOperator &op) {
+ 				//! Extract pull up only supported for STRUCT currently
+ 				continue;
+ 			}
+-			if (!OnlyStructFieldPaths(col.unique_paths)) {
++			if (!OnlyStructFieldPaths(child_columns)) {
+ 				//! A VARIANT field step cannot be rebuilt as a struct extract above the projection
+ 				continue;
+ 			}

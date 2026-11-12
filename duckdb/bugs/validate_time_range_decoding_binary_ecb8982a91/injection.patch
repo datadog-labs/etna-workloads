@@ -1,0 +1,49 @@
+diff --git a/src/common/types/variant/parquet_variant_iterator.cpp b/src/common/types/variant/parquet_variant_iterator.cpp
+index d85fc87..8fc4239 100644
+--- a/src/common/types/variant/parquet_variant_iterator.cpp
++++ b/src/common/types/variant/parquet_variant_iterator.cpp
+@@ -10,7 +10,6 @@
+ #include "duckdb/common/exception.hpp"
+ #include "duckdb/common/numeric_utils.hpp"
+ #include "duckdb/common/types/uuid.hpp"
+-#include "duckdb/common/types/interval.hpp"
+ #include "utf8proc_wrapper.hpp"
+ 
+ #include <algorithm>
+@@ -508,13 +507,6 @@ T ParquetVariantNode::GetData() const {
+ 	case VariantPrimitiveType::DECIMAL16:
+ 		CheckBinaryRead(payload, sizeof(uint8_t) + sizeof(hugeint_t), binary_end);
+ 		return ReadBinaryDecimalValue<T>(value_metadata.primitive_type, payload);
+-	case VariantPrimitiveType::TIME_NTZ_MICROS: {
+-		auto micros = LoadChecked<int64_t>(payload, binary_end);
+-		if (micros < 0 || micros > Interval::MICROS_PER_DAY) {
+-			throw IOException("Corrupted VARIANT 'value' buffer, TIME value (%d) is out of range", micros);
+-		}
+-		return LoadChecked<T>(payload, binary_end);
+-	}
+ 	default:
+ 		//! Fixed-width primitives are stored in the canonical little-endian layout
+ 		return LoadChecked<T>(payload, binary_end);
+diff --git a/src/include/duckdb/common/types/cast_helpers.hpp b/src/include/duckdb/common/types/cast_helpers.hpp
+index 2e14ed4..2033079 100644
+--- a/src/include/duckdb/common/types/cast_helpers.hpp
++++ b/src/include/duckdb/common/types/cast_helpers.hpp
+@@ -9,7 +9,6 @@
+ #pragma once
+ 
+ #include "duckdb/common/common.hpp"
+-#include "duckdb/common/exception.hpp"
+ #include "duckdb/common/numeric_utils.hpp"
+ #include "duckdb/common/types/string_type.hpp"
+ #include "duckdb/common/types/decimal.hpp"
+@@ -308,9 +307,7 @@ struct TimeToStringCast {
+ 	}
+ 
+ 	static void FormatTwoDigits(char *ptr, int32_t value) {
+-		if (value < 0 || value > 99) {
+-			throw InternalException("FormatTwoDigits called with out-of-range value %d", value);
+-		}
++		D_ASSERT(value >= 0 && value <= 99);
+ 		if (value < 10) {
+ 			ptr[0] = '0';
+ 			ptr[1] = UnsafeNumericCast<char>('0' + value);

@@ -1,0 +1,25 @@
+diff --git a/src/include/duckdb/main/relation.hpp b/src/include/duckdb/main/relation.hpp
+index d965101..43f54d1 100644
+--- a/src/include/duckdb/main/relation.hpp
++++ b/src/include/duckdb/main/relation.hpp
+@@ -141,7 +141,7 @@ public:
+ 
+ 	// CROSS PRODUCT operation
+ 	DUCKDB_API shared_ptr<Relation> CrossProduct(const shared_ptr<Relation> &other,
+-	                                             JoinRefType join_ref_type = JoinRefType::CROSS);
++	                                             JoinRefType join_ref_type = JoinRefType::REGULAR);
+ 
+ 	// SET operations
+ 	DUCKDB_API shared_ptr<Relation> Union(const shared_ptr<Relation> &other);
+diff --git a/src/planner/binder/tableref/plan_joinref.cpp b/src/planner/binder/tableref/plan_joinref.cpp
+index 5cee18c..311fd32 100644
+--- a/src/planner/binder/tableref/plan_joinref.cpp
++++ b/src/planner/binder/tableref/plan_joinref.cpp
+@@ -430,6 +430,7 @@ unique_ptr<LogicalOperator> Binder::CreatePlan(BoundJoinRef &ref) {
+ 		ref.type = JoinType::LEFT;
+ 		std::swap(left, right);
+ 	}
++	// TODO: check the combination of joinref and join type are valid.
+ 	if (ref.type == JoinType::INNER && (ref.condition->HasSubquery() || HasCorrelatedColumns(*ref.condition)) &&
+ 	    ref.ref_type == JoinRefType::REGULAR) {
+ 		// inner join, generate a cross product + filter

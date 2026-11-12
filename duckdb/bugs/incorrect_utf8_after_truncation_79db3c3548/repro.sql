@@ -1,0 +1,1 @@
+select * from read_csv('data/csv/test/no_newline_unicode.csv', sep='🦆', names=['a','b','c'], types=['date','int','int'], header=false, ignore_errors=true, store_rejects=true, rejects_line_size_limit=4);

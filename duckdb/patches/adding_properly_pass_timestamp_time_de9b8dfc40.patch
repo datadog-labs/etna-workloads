@@ -1,0 +1,35 @@
+diff --git a/src/execution/operator/csv_scanner/util/csv_reader_options.cpp b/src/execution/operator/csv_scanner/util/csv_reader_options.cpp
+index 160f158..4c4b03a 100644
+--- a/src/execution/operator/csv_scanner/util/csv_reader_options.cpp
++++ b/src/execution/operator/csv_scanner/util/csv_reader_options.cpp
+@@ -887,13 +887,11 @@ void CSVReaderOptions::ToNamedParameters(named_parameter_map_t &named_params) co
+ 	}
+ 	named_params["null_padding"] = Value::BOOLEAN(null_padding);
+ 	named_params["parallel"] = Value::BOOLEAN(parallel);
+-	if (!dialect_options.date_format.at(LogicalType::DATE).GetValue().format_specifier.empty()) {
+-		named_params["dateformat"] =
+-		    Value(dialect_options.date_format.at(LogicalType::DATE).GetValue().format_specifier);
++	if (!date_format.at(LogicalType::DATE).format_specifier.empty()) {
++		named_params["dateformat"] = Value(date_format.at(LogicalType::DATE).format_specifier);
+ 	}
+-	if (!dialect_options.date_format.at(LogicalType::TIMESTAMP).GetValue().format_specifier.empty()) {
+-		named_params["timestampformat"] =
+-		    Value(dialect_options.date_format.at(LogicalType::TIMESTAMP).GetValue().format_specifier);
++	if (!date_format.at(LogicalType::TIMESTAMP).format_specifier.empty()) {
++		named_params["timestampformat"] = Value(date_format.at(LogicalType::TIMESTAMP).format_specifier);
+ 	}
+ 
+ 	named_params["normalize_names"] = Value::BOOLEAN(normalize_names);
+diff --git a/src/include/duckdb/execution/operator/csv_scanner/csv_reader_options.hpp b/src/include/duckdb/execution/operator/csv_scanner/csv_reader_options.hpp
+index 60905b5..309b4bf 100644
+--- a/src/include/duckdb/execution/operator/csv_scanner/csv_reader_options.hpp
++++ b/src/include/duckdb/execution/operator/csv_scanner/csv_reader_options.hpp
+@@ -145,6 +145,8 @@ struct CSVReaderOptions {
+ 	string suffix;
+ 	string write_newline;
+ 
++	//! The date format to use (if any is specified)
++	map<LogicalTypeId, StrpTimeFormat> date_format = {{LogicalTypeId::DATE, {}}, {LogicalTypeId::TIMESTAMP, {}}};
+ 	//! The date format to use for writing (if any is specified)
+ 	map<LogicalTypeId, Value> write_date_format = {{LogicalTypeId::DATE, Value()}, {LogicalTypeId::TIMESTAMP, Value()}};
+ 	//! Whether  a type format is specified

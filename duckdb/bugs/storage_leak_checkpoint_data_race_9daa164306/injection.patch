@@ -1,0 +1,19 @@
+diff --git a/src/storage/single_file_block_manager.cpp b/src/storage/single_file_block_manager.cpp
+index 07cf070..fcee8af 100644
+--- a/src/storage/single_file_block_manager.cpp
++++ b/src/storage/single_file_block_manager.cpp
+@@ -1380,10 +1380,13 @@ void SingleFileBlockManager::WriteHeader(QueryContext context, DatabaseHeader he
+ 		// no blocks in the free list
+ 		header.free_list = DConstants::INVALID_INDEX;
+ 	}
+-	header.block_count = NumericCast<idx_t>(max_block);
+ 	lock.unlock();
+ 	metadata_manager.Flush(context);
+ 
++	lock.lock();
++	header.block_count = NumericCast<idx_t>(max_block);
++	lock.unlock();
++
+ 	header.storage_compatibility = options.storage_version;
+ 
+ 	auto debug_checkpoint_abort = Settings::Get<DebugCheckpointAbortSetting>(db.GetDatabase());

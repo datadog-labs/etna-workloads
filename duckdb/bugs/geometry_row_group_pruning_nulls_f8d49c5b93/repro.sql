@@ -1,0 +1,3 @@
+CREATE TABLE t AS SELECT CASE WHEN i%10=0 THEN NULL ELSE ('POINT(' || i || ' ' || i || ')')::GEOMETRY END g FROM range(1000) r(i);
+SELECT count(*) FROM t WHERE g && 'POLYGON((-1 -1, 200 -1, 200 200, -1 200, -1 -1))'::GEOMETRY;
+SELECT count(*) FROM t WHERE g && 'POLYGON((-1 -1, 2000 -1, 2000 2000, -1 2000, -1 -1))'::GEOMETRY;

@@ -1,0 +1,3 @@
+CREATE TABLE t2(a INT, b INT);
+INSERT INTO t2 VALUES (0,0),(1,1),(3,2),(5,4),(8,7),(10,9),(12,11);
+SELECT a FROM t2 WHERE (random()*0+a) BETWEEN b AND 10 ORDER BY a;

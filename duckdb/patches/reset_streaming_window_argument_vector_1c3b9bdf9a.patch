@@ -1,0 +1,62 @@
+diff --git a/src/function/window/window_value_function.cpp b/src/function/window/window_value_function.cpp
+index 0879b45..a4a12b2 100644
+--- a/src/function/window/window_value_function.cpp
++++ b/src/function/window/window_value_function.cpp
+@@ -149,15 +149,8 @@ public:
+ 
+ 	WindowValueStreamingState(ClientContext &client, DataChunk &input, const BoundWindowExpression &wexpr)
+ 	    : wexpr(wexpr), vec(GetFirstValue(client, input, wexpr), count_t(STANDARD_VECTOR_SIZE)),
+-	      sel(STANDARD_VECTOR_SIZE), eval(client) {
++	      sel(STANDARD_VECTOR_SIZE), eval(client), arg(wexpr.GetChildren()[0]->GetReturnType()) {
+ 		eval.AddExpression(*wexpr.GetChildren()[0]);
+-		arg_chunk.Initialize(client, {wexpr.GetChildren()[0]->GetReturnType()});
+-	}
+-
+-	Vector &EvalArg(DataChunk &input) {
+-		arg_chunk.Reset();
+-		eval.Execute(input, arg_chunk);
+-		return arg_chunk.data[0];
+ 	}
+ 
+ 	const BoundWindowExpression &wexpr;
+@@ -167,8 +160,8 @@ public:
+ 	SelectionVector sel;
+ 	//! An executor for computing the argument
+ 	ExpressionExecutor eval;
+-	//! A reusable argument chunk
+-	DataChunk arg_chunk;
++	//! A reusable argument vector
++	Vector arg;
+ };
+ 
+ //===--------------------------------------------------------------------===//
+@@ -851,7 +844,9 @@ void WindowFirstValueExecutor::StreamData(ExecutionContext &context, DataChunk &
+ 	// then look for a non-NULL value and update it
+ 	if (wexpr.IgnoreNulls() && ConstantVector::IsNull(sstate.vec)) {
+ 		//	Find the first non-NULL value
+-		auto &arg = sstate.EvalArg(input);
++		auto &executor = sstate.eval;
++		auto &arg = sstate.arg;
++		executor.ExecuteExpression(input, arg);
+ 		UnifiedVectorFormat unified;
+ 		arg.ToUnifiedFormat(unified);
+ 		const auto &validity = unified.validity;
+@@ -974,7 +969,8 @@ void WindowLastValueExecutor::StreamData(ExecutionContext &context, DataChunk &i
+ 	auto &executor = sstate.eval;
+ 	if (wexpr.IgnoreNulls()) {
+ 		auto &prev = sstate.vec;
+-		auto &arg = sstate.EvalArg(input);
++		auto &arg = sstate.arg;
++		executor.ExecuteExpression(input, arg);
+ 		UnifiedVectorFormat unified;
+ 		arg.ToUnifiedFormat(unified);
+ 		const auto &validity = unified.validity;
+@@ -1157,7 +1153,7 @@ void WindowNthValueStreamingState::StreamData(ExecutionContext &context, DataChu
+ 		return;
+ 	}
+ 
+-	auto &arg = EvalArg(input);
++	eval.ExecuteExpression(input, arg);
+ 
+ 	UnifiedVectorFormat unified;
+ 	arg.ToUnifiedFormat(unified);

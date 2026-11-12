@@ -1,0 +1,1 @@
+COPY (SELECT 'abc'::BLOB AS b) TO 'x.bin' (FORMAT BLOB, COMPRESSION);

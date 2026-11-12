@@ -1,0 +1,4 @@
+.mode list
+.nullvalue NULL
+CREATE TABLE pk_col(i INTEGER PRIMARY KEY, j INTEGER);
+ALTER TABLE pk_col ALTER COLUMN i DROP NOT NULL;

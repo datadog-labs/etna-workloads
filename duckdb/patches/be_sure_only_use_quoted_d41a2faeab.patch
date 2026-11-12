@@ -1,0 +1,59 @@
+diff --git a/src/execution/operator/csv_scanner/sniffer/dialect_detection.cpp b/src/execution/operator/csv_scanner/sniffer/dialect_detection.cpp
+index 880a061..2f5c555 100644
+--- a/src/execution/operator/csv_scanner/sniffer/dialect_detection.cpp
++++ b/src/execution/operator/csv_scanner/sniffer/dialect_detection.cpp
+@@ -213,8 +213,7 @@ bool AreCommentsAcceptable(const ColumnCountResult &result, idx_t num_cols, cons
+ 	return valid_comments / detected_comments >= min_majority;
+ }
+ 
+-void CSVSniffer::AnalyzeDialectCandidate(unique_ptr<ColumnCountScanner> scanner, CandidateStats &stats,
+-                                         vector<unique_ptr<ColumnCountScanner>> &successful_candidates) {
++void CSVSniffer::AnalyzeDialectCandidate(unique_ptr<ColumnCountScanner> scanner, CandidateStats &stats, vector<unique_ptr<ColumnCountScanner>> &successful_candidates) {
+ 	// The sniffed_column_counts variable keeps track of the number of columns found for each row
+ 	auto &sniffed_column_counts = scanner->ParseChunk();
+ 	idx_t dirty_notes = 0;
+@@ -325,8 +324,7 @@ void CSVSniffer::AnalyzeDialectCandidate(unique_ptr<ColumnCountScanner> scanner,
+ 	const bool require_less_padding = padding_count < stats.prev_padding_count;
+ 
+ 	// If there was only a single column before, and the new number of columns exceeds that.
+-	const bool single_column_before =
+-	    max_columns_found < 2 && num_cols > max_columns_found * successful_candidates.size();
++	const bool single_column_before = max_columns_found < 2 && num_cols > max_columns_found * successful_candidates.size();
+ 
+ 	// If the number of rows is consistent with the calculated value after accounting for skipped rows and the
+ 	// start row.
+@@ -341,9 +339,8 @@ void CSVSniffer::AnalyzeDialectCandidate(unique_ptr<ColumnCountScanner> scanner,
+ 	const bool more_than_one_column = num_cols > 1;
+ 
+ 	// If the start position is valid.
+-	const bool start_good =
+-	    !successful_candidates.empty() &&
+-	    dirty_notes <= successful_candidates.front()->GetStateMachine().dialect_options.skip_rows.GetValue();
++	const bool start_good = !successful_candidates.empty() &&
++	                        dirty_notes <= successful_candidates.front()->GetStateMachine().dialect_options.skip_rows.GetValue();
+ 
+ 	// If padding happened but it is not allowed.
+ 	const bool invalid_padding = !allow_padding && padding_count > 0;
+@@ -369,7 +366,7 @@ void CSVSniffer::AnalyzeDialectCandidate(unique_ptr<ColumnCountScanner> scanner,
+ 	// - There's more than one column and less padding is required.
+ 	if (columns_match_set && (rows_consistent || (set_columns.IsSet() && ignore_errors)) &&
+ 	    (single_column_before || ((more_values || more_columns) && !require_more_padding) ||
+-	     (more_than_one_column && require_less_padding) || (quoted && comment_rows == 0)) &&
++	     (more_than_one_column && require_less_padding) || quoted) &&
+ 	    !invalid_padding && comments_are_acceptable) {
+ 		if (!successful_candidates.empty() && set_columns.IsSet() && max_columns_found == set_columns.Size() &&
+ 		    consistent_rows <= stats.best_consistent_rows) {
+diff --git a/src/include/duckdb/execution/operator/csv_scanner/sniffer/csv_sniffer.hpp b/src/include/duckdb/execution/operator/csv_scanner/sniffer/csv_sniffer.hpp
+index d54cf02..c453662 100644
+--- a/src/include/duckdb/execution/operator/csv_scanner/sniffer/csv_sniffer.hpp
++++ b/src/include/duckdb/execution/operator/csv_scanner/sniffer/csv_sniffer.hpp
+@@ -146,8 +146,7 @@ private:
+ 	                                     const DialectCandidates &dialect_candidates);
+ 
+ 	//! 2. Analyzes if a dialect candidate is a good candidate to be considered, if so, it adds it to the candidates
+-	void AnalyzeDialectCandidate(unique_ptr<ColumnCountScanner>, CandidateStats &stats,
+-	                             vector<unique_ptr<ColumnCountScanner>> &successful_candidates);
++	void AnalyzeDialectCandidate(unique_ptr<ColumnCountScanner>, CandidateStats &stats, vector<unique_ptr<ColumnCountScanner>> &successful_candidates);
+ 	//! 3. Refine Candidates over remaining chunks
+ 	void RefineCandidates();
+ 

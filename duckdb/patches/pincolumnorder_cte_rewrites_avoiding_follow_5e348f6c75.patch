@@ -1,0 +1,35 @@
+diff --git a/src/optimizer/grouping_sets_optimizer.cpp b/src/optimizer/grouping_sets_optimizer.cpp
+index 51f2247..a776af2 100644
+--- a/src/optimizer/grouping_sets_optimizer.cpp
++++ b/src/optimizer/grouping_sets_optimizer.cpp
+@@ -195,8 +195,7 @@ bool GroupingSetsOptimizer::TryExpandGroupingSets(unique_ptr<LogicalOperator> &o
+ 	}
+ 
+ 	auto cte_name = Identifier(StringUtil::Format("__grouping_sets_input_cte_%llu", cte_index.index));
+-	auto input = LogicalProjection::CreateIdentity(optimizer.binder.GenerateTableIndex(), std::move(op->children[0]));
+-	result = make_uniq<LogicalMaterializedCTE>(std::move(cte_name), cte_index, input_types.size(), std::move(input),
++	result = make_uniq<LogicalMaterializedCTE>(std::move(cte_name), cte_index, input_types.size(), std::move(op->children[0]),
+ 	                                           std::move(result), CTEMaterialize::CTE_MATERIALIZE_DEFAULT);
+ 	if (aggr.has_estimated_cardinality) {
+ 		result->SetEstimatedCardinality(aggr.estimated_cardinality);
+diff --git a/src/optimizer/multi_stage_aggregate_rewriter.cpp b/src/optimizer/multi_stage_aggregate_rewriter.cpp
+index ff8524f..2bb2dd4 100644
+--- a/src/optimizer/multi_stage_aggregate_rewriter.cpp
++++ b/src/optimizer/multi_stage_aggregate_rewriter.cpp
+@@ -391,7 +391,6 @@ static BranchResult CreateRewriteBranch(Optimizer &optimizer, LogicalAggregate &
+ 	optional_idx input_cte_index;
+ 	if (input_consumers > 1) {
+ 		input_cte_index = optimizer.binder.GenerateTableIndex().index;
+-		input = LogicalProjection::CreateIdentity(optimizer.binder.GenerateTableIndex(), std::move(input));
+ 	}
+ 
+ 	struct StageOutput {
+@@ -774,8 +773,6 @@ bool MultiStageAggregateRewriter::TryRewrite(unique_ptr<LogicalOperator> &op) {
+ 		input_names = AggregateRewriteHelper::GenerateColumnNames("__aggregate_input", input_types.size());
+ 		input_bindings = op->children[0]->GetColumnBindings();
+ 		cte_index = optimizer.binder.GenerateTableIndex();
+-		op->children[0] =
+-		    LogicalProjection::CreateIdentity(optimizer.binder.GenerateTableIndex(), std::move(op->children[0]));
+ 	}
+ 
+ 	vector<BranchResult> branches;

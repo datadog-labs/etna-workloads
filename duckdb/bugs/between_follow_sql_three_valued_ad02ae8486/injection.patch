@@ -1,0 +1,40 @@
+diff --git a/src/function/scalar/comparison/between.cpp b/src/function/scalar/comparison/between.cpp
+index f1fc5b6..02658df 100644
+--- a/src/function/scalar/comparison/between.cpp
++++ b/src/function/scalar/comparison/between.cpp
+@@ -217,7 +217,6 @@ ScalarFunction BetweenFun::GetFunction() {
+ 	    .AddParameter("input", LogicalType::ANY)
+ 	    .AddParameter("lower", LogicalType::ANY)
+ 	    .AddParameter("upper", LogicalType::ANY);
+-	between_fun.SetNullHandling(FunctionNullHandling::SPECIAL_HANDLING);
+ 	between_fun.SetToStringCallback(BetweenToString);
+ 	between_fun.SetGetExpressionTypeCallback(BetweenGetExpressionType);
+ 	between_fun.SetLegacySerializeCallback(BetweenLegacySerializeCallback);
+diff --git a/src/optimizer/statistics/expression/propagate_between.cpp b/src/optimizer/statistics/expression/propagate_between.cpp
+index ba1e9f2..efb6f7b 100644
+--- a/src/optimizer/statistics/expression/propagate_between.cpp
++++ b/src/optimizer/statistics/expression/propagate_between.cpp
+@@ -39,17 +39,12 @@ unique_ptr<BaseStatistics> StatisticsPropagator::PropagateBetween(BoundFunctionE
+ 		expr_ptr = make_uniq<BoundConstantExpression>(Value::BOOLEAN(false));
+ 	} else if (lower_prune == FilterPropagateResult::FILTER_FALSE_OR_NULL ||
+ 	           upper_prune == FilterPropagateResult::FILTER_FALSE_OR_NULL) {
+-		// one comparison is false or null: the result is false or null only if the other comparison cannot be false
+-		// the result is null only when the input or the bound of the false-or-null comparison is null
+-		auto &false_bound = lower_prune == FilterPropagateResult::FILTER_FALSE_OR_NULL ? lower_bound : upper_bound;
+-		auto other_prune = lower_prune == FilterPropagateResult::FILTER_FALSE_OR_NULL ? upper_prune : lower_prune;
+-		if (other_prune == FilterPropagateResult::FILTER_ALWAYS_TRUE ||
+-		    other_prune == FilterPropagateResult::FILTER_TRUE_OR_NULL) {
+-			vector<unique_ptr<Expression>> children;
+-			children.push_back(std::move(input));
+-			children.push_back(std::move(false_bound));
+-			expr_ptr = ExpressionRewriter::ConstantOrNull(context, std::move(children), Value::BOOLEAN(false));
+-		}
++		// either one of the filters is false or null: replace with a constant or null (false)
++		vector<unique_ptr<Expression>> children;
++		children.push_back(std::move(input));
++		children.push_back(std::move(lower_bound));
++		children.push_back(std::move(upper_bound));
++		expr_ptr = ExpressionRewriter::ConstantOrNull(context, std::move(children), Value::BOOLEAN(false));
+ 	} else if (lower_prune == FilterPropagateResult::FILTER_TRUE_OR_NULL &&
+ 	           upper_prune == FilterPropagateResult::FILTER_TRUE_OR_NULL) {
+ 		// both filters are true or null: replace with a true or null

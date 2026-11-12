@@ -1,0 +1,69 @@
+diff --git a/src/function/table/system/pragma_storage_info.cpp b/src/function/table/system/pragma_storage_info.cpp
+index 3927923..edeb3ad 100644
+--- a/src/function/table/system/pragma_storage_info.cpp
++++ b/src/function/table/system/pragma_storage_info.cpp
+@@ -129,7 +129,6 @@ static unique_ptr<FunctionData> PragmaStorageInfoBind(ClientContext &context, Ta
+ 	CatalogEntryRetriever retriever(context);
+ 	qname = Binder::BindTableName(retriever, qname);
+ 	auto &table_entry = Catalog::GetEntry<TableCatalogEntry>(context, qname);
+-	Binder::RegisterEntryRead(input.binder, context, table_entry);
+ 	return make_uniq<PragmaStorageFunctionData>(table_entry, options);
+ }
+ 
+diff --git a/src/function/table/system/pragma_table_info.cpp b/src/function/table/system/pragma_table_info.cpp
+index 392892e..48ceee4 100644
+--- a/src/function/table/system/pragma_table_info.cpp
++++ b/src/function/table/system/pragma_table_info.cpp
+@@ -177,7 +177,6 @@ static unique_ptr<FunctionData> PragmaTableInfoBind(ClientContext &context, Tabl
+ 	CatalogEntryRetriever retriever(context);
+ 	qname = Binder::BindTableName(retriever, qname);
+ 	auto &entry = Catalog::GetEntry(context, CatalogType::TABLE_ENTRY, qname);
+-	Binder::RegisterEntryRead(input.binder, context, entry);
+ 	return make_uniq<PragmaTableFunctionData>(entry, IS_PRAGMA_TABLE_INFO);
+ }
+ 
+diff --git a/src/function/table/system/pragma_table_sample.cpp b/src/function/table/system/pragma_table_sample.cpp
+index 4cc7461..b24db37 100644
+--- a/src/function/table/system/pragma_table_sample.cpp
++++ b/src/function/table/system/pragma_table_sample.cpp
+@@ -56,7 +56,6 @@ static unique_ptr<FunctionData> DuckDBTableSampleBind(ClientContext &context, Ta
+ 		names.push_back(col.GetName());
+ 	}
+ 
+-	Binder::RegisterEntryRead(input.binder, context, entry);
+ 	return make_uniq<DuckDBTableSampleFunctionData>(entry);
+ }
+ 
+diff --git a/src/include/duckdb/planner/binder.hpp b/src/include/duckdb/planner/binder.hpp
+index 827357b..edc5636 100644
+--- a/src/include/duckdb/planner/binder.hpp
++++ b/src/include/duckdb/planner/binder.hpp
+@@ -300,9 +300,6 @@ public:
+ 	//! names and names with a single schema level keep the (catalog, schema, name) shape so that the search path
+ 	//! applies; a nested schema path yields a fully resolved [catalog, schema path..., name].
+ 	static QualifiedName BindTableName(CatalogEntryRetriever &retriever, const QualifiedName &name);
+-	//! Register a read of the catalog owning the entry - required when bind data holds a reference to the entry,
+-	//! so that cached prepared statement plans are invalidated when the catalog changes
+-	static void RegisterEntryRead(optional_ptr<Binder> binder, ClientContext &context, CatalogEntry &entry);
+ 	QualifiedName BindTableName(const QualifiedName &name);
+ 	//! Resolve the (possibly nested) name of a CREATE SCHEMA statement into a canonical [catalog, parents..., schema]
+ 	void BindCreateSchema(CreateSchemaInfo &info);
+diff --git a/src/planner/binder/statement/bind_create.cpp b/src/planner/binder/statement/bind_create.cpp
+index 954fd98..d39d4d2 100644
+--- a/src/planner/binder/statement/bind_create.cpp
++++ b/src/planner/binder/statement/bind_create.cpp
+@@ -276,14 +276,6 @@ QualifiedName Binder::BindTableName(const QualifiedName &name) {
+ 	return BindTableName(retriever, name);
+ }
+ 
+-void Binder::RegisterEntryRead(optional_ptr<Binder> binder, ClientContext &context, CatalogEntry &entry) {
+-	if (!binder) {
+-		// no binder available (e.g. when re-binding a deserialized plan) - nothing is cached in that case
+-		return;
+-	}
+-	binder->GetStatementProperties().RegisterDBRead(entry.ParentCatalog(), context);
+-}
+-
+ void Binder::BindCreateSchema(CreateSchemaInfo &info) {
+ 	if (info.temporary) {
+ 		// unsupported - otherwise the schema silently lands in (and is persisted to) the default catalog

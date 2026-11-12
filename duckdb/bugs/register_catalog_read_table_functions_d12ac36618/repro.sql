@@ -1,0 +1,33 @@
+.mode list
+.nullvalue NULL
+SET threads=1;
+CREATE TABLE t(a INTEGER);
+PREPARE p AS SELECT * FROM pragma_table_info('t');
+EXECUTE p;
+DROP TABLE t;
+EXECUTE p;
+DEALLOCATE p;
+CREATE TABLE t(a INTEGER);
+PREPARE p AS SELECT * FROM pragma_show('t');
+EXECUTE p;
+DROP TABLE t;
+EXECUTE p;
+DEALLOCATE p;
+CREATE TABLE t(a INTEGER);
+PREPARE p AS SELECT * FROM pragma_storage_info('t');
+EXECUTE p;
+DROP TABLE t;
+EXECUTE p;
+DEALLOCATE p;
+CREATE TABLE t(a INTEGER);
+PREPARE p AS SELECT * FROM duckdb_table_sample('t');
+EXECUTE p;
+DROP TABLE t;
+EXECUTE p;
+DEALLOCATE p;
+CREATE TABLE t(a INTEGER);
+PREPARE p AS SELECT name, type FROM pragma_table_info('t');
+EXECUTE p;
+DROP TABLE t;
+CREATE TABLE t(zzz VARCHAR, q DOUBLE);
+EXECUTE p;

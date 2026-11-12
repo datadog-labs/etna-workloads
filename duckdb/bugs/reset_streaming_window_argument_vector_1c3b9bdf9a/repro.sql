@@ -1,0 +1,236 @@
+.mode list
+.nullvalue NULL
+SET profiling_renderer_settings = MAP {'operator_casing': 'upper'};
+PRAGMA explain_output = PHYSICAL_ONLY;
+create table integers (i int, j int);
+insert into integers values (2, 2), (2, 1), (1, 2), (1, NULL);
+EXPLAIN
+SELECT i, COUNT(*) OVER() FROM integers;
+EXPLAIN
+SELECT i, SUM(i) OVER() FROM integers;
+EXPLAIN
+SELECT j, COUNT(j) FILTER(WHERE i = 2) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+EXPLAIN
+SELECT j, COUNT(*) FILTER(WHERE i = 2) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+EXPLAIN
+SELECT j, SUM(j) FILTER(WHERE i = 2) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+explain select row_number() over (), i, j from integers;
+select row_number() over (), i, j from integers;
+explain select row_number() over (), i, j from integers where i>1;
+select row_number() over (), i, j from integers where i>1;
+explain select rank() over (), i, j from integers;
+select rank() over (), i, j from integers;
+explain select dense_rank() over (), i, j from integers;
+select dense_rank() over (), i, j from integers;
+explain select percent_rank() over (), i, j from integers;
+select percent_rank() over (), i, j from integers;
+EXPLAIN
+SELECT i, LAG(i, 1) OVER() AS i1
+FROM range(10) tbl(i);
+SELECT i, LAG(i, 1) OVER() AS i1
+FROM range(10) tbl(i);
+EXPLAIN
+SELECT i, LAG(i, -1) OVER() AS i1
+FROM range(10) tbl(i);
+SELECT i, LAG(i, -1) OVER() AS i1
+FROM range(10) tbl(i);
+EXPLAIN
+SELECT i, LEAD(i, -1) OVER() AS i1
+FROM range(10) tbl(i);
+SELECT i, LEAD(i, -1) OVER() AS i1
+FROM range(10) tbl(i);
+EXPLAIN
+SELECT i, LEAD(i, 1) OVER() AS i1
+FROM range(10) tbl(i);
+SELECT i, LEAD(i, 1) OVER() AS i1
+FROM range(10) tbl(i);
+EXPLAIN
+SELECT i, COUNT(*) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+SELECT i, COUNT(*) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+EXPLAIN
+SELECT i, COUNT(*) FILTER(WHERE i = 2) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+SELECT i, COUNT(*) FILTER(WHERE i = 2) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+EXPLAIN
+SELECT j, COUNT(j) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+SELECT j, COUNT(j) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+EXPLAIN
+SELECT i, SUM(i) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+EXPLAIN
+SELECT i, SUM(i) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+SELECT i, SUM(i) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM integers;
+EXPLAIN
+SELECT SUM(s) FROM (
+	SELECT SUM(i) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) s
+	FROM range(5000) tbl(i)
+);
+SELECT SUM(s) FROM (
+	SELECT SUM(i) OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) s
+	FROM range(5000) tbl(i)
+);
+explain select i, j, first_value(i) over (), first_value(j) over () from integers;
+EXPLAIN
+SELECT first_value(i) OVER (ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM integers;
+select i, j, first_value(i) over (), first_value(j) over () from integers;
+select row_number() over (), first_value(i) over (), first_value(j) over () from integers;
+EXPLAIN
+SELECT first_value(i) OVER (ROWS BETWEEN CURRENT ROW AND CURRENT ROW)
+FROM range(4) t(i);
+SELECT i,
+	first_value(i) OVER (ROWS BETWEEN CURRENT ROW AND CURRENT ROW),
+	first_value(i) OVER (ROWS BETWEEN 1 PRECEDING AND CURRENT ROW),
+	first_value(i) OVER (ROWS BETWEEN 1 FOLLOWING AND 1 FOLLOWING),
+	first_value(i) OVER (ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM range(4) t(i);
+EXPLAIN
+SELECT first_value(i) OVER (GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM integers;
+EXPLAIN
+SELECT first_value(i) OVER (ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM integers;
+SELECT i, j,
+	first_value(i) OVER (GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+	first_value(j) OVER (ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM integers;
+EXPLAIN
+SELECT first_value(i) OVER (RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM integers;
+EXPLAIN
+SELECT first_value(i) OVER (RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM integers;
+SELECT i,
+	first_value(i) OVER (RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+	first_value(i) OVER (RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM integers;
+EXPLAIN
+SELECT first_value(i) OVER (RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM integers;
+EXPLAIN
+SELECT first_value(i) OVER (ORDER BY i RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM integers;
+SELECT i, first_value(i) OVER (RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM integers;
+SELECT i, first_value(i) OVER (ORDER BY i RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM integers;
+select row_number() over (), row_number() over () from integers;
+explain select first_value(i IGNORE NULLS) over () from integers;
+explain select first_value(i IGNORE NULLS) over (ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) 
+from integers;
+explain select last_value(i IGNORE NULLS) over () from integers;
+explain select last_value(i IGNORE NULLS) over (ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) 
+from integers;
+SELECT s,
+	first(s IGNORE NULLS) over(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM (VALUES (NULL), ('A'), (NULL), ('B')) t(s);
+SELECT s,
+	last(s IGNORE NULLS) over(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM (VALUES (NULL), ('A'), (NULL), ('B')) t(s);
+SELECT s,
+	last(s IGNORE NULLS) over(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM (VALUES ('A'), (NULL), ('B'), (NULL)) t(s);
+SELECT s,
+	first(s IGNORE NULLS) over(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM (VALUES ('A'), (NULL), ('B'), (NULL)) t(s);
+WITH alternate AS (
+	SELECT 
+		range r,
+		IF(range % 2, range, NULL) s
+	FROM range(3000)
+)
+SELECT 
+	r,
+	s,
+	last(s IGNORE NULLS) over(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) l
+FROM alternate
+QUALIFY l <> r - ((r + 1) % 2);
+WITH alternate AS (
+	SELECT 
+		range r,
+		IF(range < 2100, NULL, range) s
+	FROM range(3000)
+)
+SELECT 
+	r,
+	s,
+	first(s IGNORE NULLS) over(ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) f
+FROM alternate
+QUALIFY (f IS NOT NULL AND r < 2100)
+     OR (f IS NULL AND r >= 2100);
+explain select first_value(i) over (), last_value(i) over () from integers;
+explain select last_value(i) over (), first_value(i) over () from integers;
+explain select first_value(i) over (), last_value(i) over (order by j) from integers;
+explain select last_value(i) over (order by j), first_value(i) over () from integers;
+CREATE TABLE v1(id bigint);
+CREATE TABLE v2(id bigint);
+INSERT INTO v1 VALUES (11),  (12),  (13);
+INSERT INTO v2 VALUES (21),  (22);
+CREATE VIEW vertices_view AS
+  SELECT * FROM v1
+  UNION ALL
+  SELECT * FROM v2;
+SELECT id AS sparse_id, row_number() OVER () AS rnum
+FROM vertices_view;
+WITH RECURSIVE rte AS (
+	SELECT 1 l, 1::BIGINT r
+	UNION  ALL
+	SELECT l+1, row_number() OVER()
+	FROM rte
+	WHERE l < 3
+)
+SELECT * FROM rte;
+PREPARE sw1 AS
+	SELECT i, row_number() OVER() AS row_no
+	FROM range(10, 20) tbl(i)
+	QUALIFY row_no <= ?::BIGINT
+;
+EXECUTE sw1(10);
+EXECUTE sw1(2);
+from (values ({'key': 'A'}), ({'key': 'B'}), ({'key': 'C'}))
+select
+   list(col0) over (rows between unbounded preceding and current row) as result;
+CREATE TABLE issue17621(i INT, j INT, k INT);
+INSERT INTO issue17621 VALUES (1,1,1),
+	(1,4,1),
+	(1,2,1),
+	(1,4,1),
+	(1,4,1),
+	(1,1,2),
+	(1,4,2),
+	(1,2,2),
+	(1,4,2),
+	(1,1,3),
+	(1,4,3),
+	(1,2,3),
+	(1,4,3),
+	(1,1,4),
+	(1,4,4),
+	(1,2,4),
+	(1,4,4);
+SELECT 
+	k, 
+	STDDEV_POP(i), 
+	SUM(j), 
+	STDDEV_SAMP(k) OVER (ORDER BY k NULLS FIRST ROWS UNBOUNDED PRECEDING) std_wf 
+FROM issue17621 
+GROUP BY ROLLUP(k)
+ORDER BY k NULLS FIRST;
+WITH start_and_inputs AS (
+    SELECT 50 AS moves
+    UNION ALL
+    SELECT 50 AS moves
+)
+SELECT moves, sum(moves) OVER (ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS sum
+FROM start_and_inputs;
+EXPLAIN
+WITH w AS (
+	SELECT i, FIRST_VALUE(CASE WHEN i = 2048 THEN i END IGNORE NULLS) OVER (
+		ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS x
+	FROM range(2051) AS r(i)
+)
+SELECT COUNT(*), COUNT(*) FILTER (WHERE x IS DISTINCT FROM CASE WHEN i >= 2048 THEN 2048 END) FROM w;
+WITH w AS (
+	SELECT i, FIRST_VALUE(CASE WHEN i = 2048 THEN i END IGNORE NULLS) OVER (
+		ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS x
+	FROM range(2051) AS r(i)
+)
+SELECT COUNT(*), COUNT(*) FILTER (WHERE x IS DISTINCT FROM CASE WHEN i >= 2048 THEN 2048 END) FROM w;

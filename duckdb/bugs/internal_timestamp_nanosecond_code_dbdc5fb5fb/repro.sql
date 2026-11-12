@@ -1,0 +1,1 @@
+SELECT typeof('2020-01-01'::TIMESTAMPTZ_NS);

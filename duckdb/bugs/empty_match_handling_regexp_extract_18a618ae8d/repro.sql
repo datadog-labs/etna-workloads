@@ -1,0 +1,3 @@
+.mode list
+.nullvalue NULL
+SELECT regexp_extract_all('ab', '$'), regexp_extract_all('ab', 'x*'), regexp_extract_all('axb', 'x*'), regexp_extract_all('aé中', '');

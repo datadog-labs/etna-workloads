@@ -1,0 +1,57 @@
+diff --git a/src/include/duckdb/storage/single_file_block_manager.hpp b/src/include/duckdb/storage/single_file_block_manager.hpp
+index 950d09c..8d003d5 100644
+--- a/src/include/duckdb/storage/single_file_block_manager.hpp
++++ b/src/include/duckdb/storage/single_file_block_manager.hpp
+@@ -196,7 +196,7 @@ private:
+ 	//! Adds a free block to the free_list, returns true if it was added to the regular free_list
+ 	bool AddFreeBlock(unique_lock<mutex> &lock, block_id_t block_id);
+ 	//! Move the block from free_blocks_in_use to the free list, if present
+-	void ReleaseFreeBlockInUse(unique_lock<mutex> &lock, block_id_t id);
++	void ReleaseFreeBlockInUse(block_id_t id);
+ 	//! Returns true, if the block is in the free list. Takes the lock (verification only).
+ 	bool BlockIsFreeListed(block_id_t block_id);
+ 
+diff --git a/src/storage/single_file_block_manager.cpp b/src/storage/single_file_block_manager.cpp
+index 07cf070..fddd757 100644
+--- a/src/storage/single_file_block_manager.cpp
++++ b/src/storage/single_file_block_manager.cpp
+@@ -1437,11 +1437,9 @@ void SingleFileBlockManager::FileSync() {
+ 	handle->Sync();
+ }
+ 
+-void SingleFileBlockManager::ReleaseFreeBlockInUse(unique_lock<mutex> &lock, block_id_t id) {
+-	if (!lock.owns_lock()) {
+-		throw InternalException("ReleaseFreeBlockInUse must be called while holding the lock");
+-	}
++void SingleFileBlockManager::ReleaseFreeBlockInUse(block_id_t id) {
+ 	// check if the block is part of the newly free list
++	lock_guard<mutex> lock(single_file_block_lock);
+ 	auto entry = free_blocks_in_use.find(id);
+ 	if (entry != free_blocks_in_use.end()) {
+ 		// it is! move it to the regular free list so the block can be re-used
+@@ -1451,23 +1449,17 @@ void SingleFileBlockManager::ReleaseFreeBlockInUse(unique_lock<mutex> &lock, blo
+ }
+ 
+ void SingleFileBlockManager::UnregisterBlock(block_id_t id) {
+-	unique_lock<mutex> lock(single_file_block_lock);
+ 	// perform the actual unregistration
+ 	BlockManager::UnregisterBlock(id);
+-	ReleaseFreeBlockInUse(lock, id);
++	ReleaseFreeBlockInUse(id);
+ }
+ 
+ bool SingleFileBlockManager::UnregisterExpiredBlock(block_id_t id) {
+-	// hold the lock across the live-handle check and the free-list transition: otherwise a
+-	// re-registration and retirement of the block id can interleave between them, and the
+-	// free-list transition would run although a live handle exists
+-	// lock order: single_file_block_lock before blocks_lock, as in AddFreeBlock
+-	unique_lock<mutex> lock(single_file_block_lock);
+ 	if (!BlockManager::UnregisterExpiredBlock(id)) {
+ 		// a newer handle is registered for this block id - the block id is still in use
+ 		return false;
+ 	}
+-	ReleaseFreeBlockInUse(lock, id);
++	ReleaseFreeBlockInUse(id);
+ 	return true;
+ }
+ 

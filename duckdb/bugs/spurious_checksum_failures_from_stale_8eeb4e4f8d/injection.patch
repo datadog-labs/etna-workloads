@@ -1,0 +1,31 @@
+diff --git a/src/storage/buffer/block_manager.cpp b/src/storage/buffer/block_manager.cpp
+index e20b25b..31672b2 100644
+--- a/src/storage/buffer/block_manager.cpp
++++ b/src/storage/buffer/block_manager.cpp
+@@ -154,7 +154,7 @@ void BlockManager::UnregisterPersistentBlock(BlockHandle &block) {
+ 	}
+ 	auto id = block.BlockId();
+ 	D_ASSERT(id < MAXIMUM_BLOCK);
+-	UnregisterExpiredBlock(id);
++	UnregisterBlock(id);
+ }
+ 
+ MetadataManager &BlockManager::GetMetadataManager() {
+diff --git a/src/storage/metadata/metadata_manager.cpp b/src/storage/metadata/metadata_manager.cpp
+index b465283..d2068ee 100644
+--- a/src/storage/metadata/metadata_manager.cpp
++++ b/src/storage/metadata/metadata_manager.cpp
+@@ -149,13 +149,6 @@ void MetadataManager::ConvertToTransient(unique_lock<mutex> &block_lock, Metadat
+ 	// copy the data to the transient block
+ 	memcpy(new_buffer.GetDataMutable(), old_buffer.Ptr(), block_manager.GetBlockSize());
+ 
+-	// the disk block now belongs to the transient block and is rewritten in place by a later
+-	// checkpoint - the old handle must not reload it from disk after its buffer is evicted
+-	{
+-		auto old_block_lock = old_block->GetMemory().GetLock();
+-		old_block->GetMemory().SetDestroyBufferUpon(DestroyBufferUpon::EVICTION);
+-	}
+-
+ 	// unregister the old block
+ 	block_manager.UnregisterBlock(metadata_block.block_id);
+ 

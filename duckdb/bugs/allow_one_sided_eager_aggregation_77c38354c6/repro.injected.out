@@ -1,0 +1,63 @@
+ ├────────────────────────────────────────╮
+╭─ Projection ───────┴───────────────────╮  ╭─ Projection ────┴────────────────╮
+│ Projections: CAST(#0 AS BIGINT),       │  │ Projections: CAST(#0 AS BIGINT), │
+│              CAST(#1 AS BIGINT), #2    │  │              #1                  │
+│ ~44 rows                               │  │ ~44 rows                         │
+╰────────────────────┬───────────────────╯  ╰─────────────────┬────────────────╯
+╭─ Perfect Hash Group By ────────────────╮  ╭─ Perfect Hash Group By ──────────╮
+│ Groups: #0, #1                         │  │ Groups: #0                       │
+│ Aggregates: kahan_sum(#2) EXPORT_STATE │  │ Aggregates: count_star()         │
+│ ~44 rows                               │  │ ~44 rows                         │
+╰────────────────────┬───────────────────╯  ╰─────────────────┬────────────────╯
+╭─ Projection ───────┴───────────────────╮  ╭─ Projection ────┴────────────────╮
+│ Projections: #1, #2, c_f64             │  │ Projections: #0                  │
+│ ~5,555 rows                            │  │ ~5,000 rows                      │
+╰────────────────────┬───────────────────╯  ╰─────────────────┬────────────────╯
+╭─ Projection ───────┴───────────────────╮  ╭─ Projection ────┴────────────────╮
+│ Projections: #0, CAST(#1 AS TINYINT),  │  │ Projections: CAST(#0 AS TINYINT) │
+│              CAST(#2 AS TINYINT)       │  │ ~5,000 rows                      │
+│ ~5,555 rows                            │  ╰─────────────────┬────────────────╯
+╰────────────────────┬───────────────────╯  ╭─ Seq Scan ──────┴────────────────╮
+╭─ Hash Join ────────┴───────────────────╮  │ Table: memory.main.de_a          │
+│ Join Type: INNER                       │  │ Type: Sequential Scan            │
+│ Conditions: k = k                      │  │ Projections: k                   │
+│ ~5,555 rows                            │  │ ~5,000 rows                      │
+╰────────────────────┬───────────────────╯  ╰──────────────────────────────────╯
+                     ├────────────────────────────────────╮
+╭─ Seq Scan ─────────┴───────────────────╮  ╭─ Seq Scan ──┴─────────────╮
+│ Table: memory.main.de_typed            │  │ Table: memory.main.de_dim │
+│ Type: Sequential Scan                  │  │ Type: Sequential Scan     │
+│ Projections: k, c_f64                  │  │ Projections: k, g         │
+│ ~5,000 rows                            │  │ ~50 rows                  │
+╰────────────────────────────────────────╯  ╰───────────────────────────╯
+count_star()
+0
+╭─ Projection ──────────────────────────╮
+│ Projections: CAST(#0 AS INTEGER), #1  │
+│ ~3 rows                               │
+╰───────────────────┬───────────────────╯
+╭─ Perfect Hash Group By ───────────────╮
+│ Groups: #0                            │
+│ Aggregates: count(#1)                 │
+│ ~3 rows                               │
+╰───────────────────┬───────────────────╯
+╭─ Projection ──────┴───────────────────╮
+│ Projections: k, event_id              │
+│ ~100 rows                             │
+╰───────────────────┬───────────────────╯
+╭─ Projection ──────┴───────────────────╮
+│ Projections: #0, CAST(#1 AS TINYINT)  │
+│ ~100 rows                             │
+╰───────────────────┬───────────────────╯
+╭─ Hash Join ───────┴───────────────────╮
+│ Join Type: RIGHT                      │
+│ Conditions: k = k                     │
+│ ~100 rows                             │
+╰───────────────────┬───────────────────╯
+                    ├──────────────────────────────────────────╮
+╭─ Seq Scan ────────┴───────────────────╮  ╭─ Seq Scan ────────┴──────────────────╮
+│ Table: memory.main.outer_count_events │  │ Table: memory.main.outer_count_owner │
+│ Type: Sequential Scan                 │  │ Type: Sequential Scan                │
+│ Projections: k, event_id              │  │ Projections: k                       │
+│ ~100 rows                             │  │ ~4 rows                              │
+╰───────────────────────────────────────╯  ╰──────────────────────────────────────╯
