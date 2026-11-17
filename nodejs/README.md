@@ -58,12 +58,12 @@ Requirements: Linux x64, git, python3, make, gcc >= 13.2 or clang >= 19.1; the
    fix ("exact").
 6. **Strict** (headline): gate passes, a failing case was *added by the fix*,
    triage label is "bug", adapted bugs have an exact anchor, and timeout-only
-   failures were confirmed on a quiet machine. **425 strict bugs** (169 verbatim,
-   256 adapted). All other bugs are included and labelled loose with
+   failures were confirmed on a quiet machine. **427 strict bugs** (169 verbatim,
+   258 adapted). All other bugs are included and labelled loose with
    `not_strict_reasons`.
 7. **Reproducers**: agent-written standalone scripts, verified by the harness
    (3 identical runs on the clean build, different output/exit on the buggy
-   build): 608 bugs (417 strict).
+   build): 608 bugs (419 strict).
 
 ## Caveats
 
@@ -75,8 +75,11 @@ Requirements: Linux x64, git, python3, make, gcc >= 13.2 or clang >= 19.1; the
 - Anchors of 2018-2019 revisions could not be built (configure needs Python 2);
   older revisions were built with compatibility workarounds (gcc 13 standard
   headers, clang 18 fallback, `--openssl-no-asm`, libatomic, gyp `'rU'`), recorded
-  per bug. Anchors of non-strict-capable adapted bugs were still running at export
-  time ("anchor: not run yet").
+  per bug (`compat_version`); old `tools/test.py` needed an `imp` shim, and older
+  WPT runners report per file, so sub-test cases fall back to their file's status
+  there (`granularity` in the anchor record). All 902 exported adapted bugs are
+  anchored: 715 exact, 35 none, 9 where the fix's own test fails at the fix commit,
+  143 whose fix-commit revision could not be built (mostly configure needs Python 2).
 - Reproducers that need TLS keys, certificates or CRLs generate them at run time
   with the `openssl` CLI in a private temporary directory (same key types, names,
   serials, dates and extensions as the objects they were written with); no key

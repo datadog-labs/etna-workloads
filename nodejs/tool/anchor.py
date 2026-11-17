@@ -102,7 +102,7 @@ def make_with_compat(tree, log, env, info, target=()):
     return False
 
 
-COMPAT_VERSION = 6  # bump when the compat steps change; recorded per anchor
+COMPAT_VERSION = 8  # bump when the compat steps change; recorded per anchor
 
 
 def build_tree(tree, log, need_cc, need_addons, info):
@@ -172,15 +172,34 @@ def build_tree(tree, log, need_cc, need_addons, info):
     return None
 
 
+def case_file_at(sha, case):
+    """Does the test file of `case` exist at commit `sha`?"""
+    if case.startswith("cctest:"):
+        return False
+    unit = gate.unit_of(case)
+    ls = subprocess.run(["git", "-C", gate.REPO, "ls-tree", "-r", "--name-only", sha, "test/" + unit.split("/")[0]],
+                        capture_output=True, text=True).stdout.split()
+    return any(f.startswith(f"test/{unit}.") for f in ls)
+
+
 def run_cases(tree, cases, scratch):
     js = [c for c in cases if not c.startswith("cctest:")]
     cc = [c for c in cases if c.startswith("cctest:")]
     units = sorted({gate.unit_of(c) for c in js})
     runs = []
     for _ in range(2):
-        r, _ = nodetest.run_js(tree, os.path.join(tree, "out/Release/node"), units, jobs=4, scratch=scratch)
+        # old tools/test.py imports `imp` (removed in Python 3.12): shim in PYCOMPAT
+        r, _ = nodetest.run_js(tree, os.path.join(tree, "out/Release/node"), units, jobs=4, scratch=scratch,
+                               extra_env={"PYTHONPATH": PYCOMPAT})
         rc, _ = nodetest.run_cctest(tree, cc)
-        runs.append({**r, **rc})
+        run = {**r, **rc}
+        # Older runners report coarser cases (e.g. WPT per file, not per sub-test): a sub-case
+        # the runner did not name takes the status of its file, recorded as a fallback.
+        for c in cases:
+            if run.get(c) in (None, "missing") and gate.unit_of(c) != c and gate.unit_of(c) in run:
+                run[c] = run[gate.unit_of(c)]
+                run.setdefault("_granularity_fallback", []).append(c)
+        runs.append(run)
     return runs
 
 
@@ -214,10 +233,16 @@ def anchor_one(bug, cand, args):
         fix_runs = run_cases(tree, failing, scratch)
         passing_at_fix = [c for c in failing if all(r.get(c) == "pass" for r in fix_runs)]
         out["fix_runs"] = fix_runs
+        if any("_granularity_fallback" in r for r in fix_runs):
+            out["granularity"] = "file (this revision's runner does not report sub-tests)"
         out["passing_at_fix"] = passing_at_fix
         if not passing_at_fix:
             missing = all(r.get(c) in (None, "missing") for r in fix_runs for c in failing)
-            out["anchor"] = "cases-missing-at-fix" if missing else "fix-fails"
+            if missing and any(case_file_at(sha, c) for c in failing):
+                missing = False
+                out["anchor"] = "runner-missed-cases"  # file exists at the fix: a runner/tooling fault
+            else:
+                out["anchor"] = "cases-missing-at-fix" if missing else "fix-fails"
             return out
         d = gate.impl_diff(cand)
         if S.apply(tree, d, reverse=True, fuzz=False) is None:
@@ -272,10 +297,11 @@ def main():
         with open(a.out, "a") as f:
             f.write(json.dumps(r) + "\n")
         print(f"{b['sha'][:10]} anchor={r['anchor']:20} build={r.get('build_s')}s {b['subject'][:60]}", flush=True)
-        # known environment limits are honest results, not tooling faults
-        failed = r["anchor"] not in ("exact", "none", "configure-needs-python2")
-        key = (r["anchor"], (r.get("secs") or 0) < 60,
-               re.sub(r"[‘'][^’']*[’']", "X", first_error(r.get("log_tail") or "") or ""))
+        # Genuine outcomes never count; fast failures (< 2 min) and tooling-fault labels do.
+        genuine = ("exact", "none", "configure-needs-python2", "cases-missing-at-fix", "fix-fails")
+        failed = r["anchor"] not in genuine and (
+            (r.get("secs") or 0) < 120 or r["anchor"] in ("runner-missed-cases", "error"))
+        key = (r["anchor"], re.sub(r"[‘'][^’']*[’']", "X", first_error(r.get("log_tail") or "") or ""))
         streak = streak + [key] if failed else []
         if len(streak) >= 5 and len(set(streak[-5:])) == 1:
             print(f"CIRCUIT BREAKER: 5 consecutive identical failures {key}; stopping (tooling fault?)",
